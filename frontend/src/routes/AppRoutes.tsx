@@ -147,13 +147,7 @@ export function AppRoutes() {
       {/* Admin routes */}
       <Route
         path="/admin/login"
-        element={
-          token
-            ? user?.role === 'admin'
-              ? <Navigate to="/admin" replace />
-              : <Navigate to="/account" replace />
-            : <LoginPage />
-        }
+        element={<LoginPage />}
       />
       <Route path="/admin" element={<Protected><DashboardPage /></Protected>} />
       <Route path="/admin/pages" element={<Protected><PagesListPage /></Protected>} />

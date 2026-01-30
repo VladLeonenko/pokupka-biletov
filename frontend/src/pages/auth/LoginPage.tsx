@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Button, Paper, TextField, Typography, Link as MuiLink } from '@mui/material';
 import { useAuth } from '@/auth/AuthProvider';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, token, user } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Если уже авторизован, редиректим
+  useEffect(() => {
+    if (token && user) {
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/account', { replace: true });
+      }
+    }
+  }, [token, user, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,10 +28,11 @@ export function LoginPage() {
     setLoading(true);
     try {
       const loggedUser = await login(email, password);
-      navigate(loggedUser.role === 'admin' ? '/admin' : '/account');
+      // Небольшая задержка, чтобы состояние успело обновиться
+      await new Promise(resolve => setTimeout(resolve, 100));
+      navigate(loggedUser.role === 'admin' ? '/admin' : '/account', { replace: true });
     } catch (e: any) {
       setError(e.message || 'Ошибка входа');
-    } finally {
       setLoading(false);
     }
   };
