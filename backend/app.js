@@ -71,6 +71,7 @@ import projectsRouter from './routes/projects.js';
 import commercialProposalsRouter from './routes/commercialProposals.js';
 import donorsRouter from './routes/donors.js';
 import socialProofsRouter from './routes/socialProofs.js';
+import quizRouter from './routes/quiz.js';
 
 const app = express();
 
@@ -233,6 +234,7 @@ app.use('/api/public/products', productsRouter);
 app.use('/api/public/cases', casesRouter);
 app.use('/api/public/promotions', promotionsRouter);
 app.use('/api/public/social-proofs', socialProofsRouter);
+app.use('/api/public/quiz', quizRouter);
 app.use('/api/public/carousels', publicCarouselsRouter);
 app.use('/api/public/search', searchRouter);
 app.use('/api/public/cart', cartRouter);
@@ -266,6 +268,7 @@ app.use('/api/cases', requireAuth, casesRouter);
 app.use('/api/products', requireAuth, productsRouter);
 app.use('/api/promotions', requireAuth, promotionsRouter);
 app.use('/api/social-proofs', socialProofsRouter); // Публичные и админские эндпоинты
+app.use('/api/quiz', quizRouter); // Публичные и админские эндпоинты
 
 app.use('/api/carousels', requireAuth, carouselsRouter);
 app.use('/api/funnels', requireAuth, funnelsRouter);

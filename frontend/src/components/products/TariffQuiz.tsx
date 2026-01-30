@@ -1,72 +1,32 @@
-import { useState } from 'react';
-import { Box, Typography, Button, Stepper, Step, StepLabel, Paper, RadioGroup, FormControlLabel, Radio, FormControl, Card, CardContent } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Box, Typography, Button, Stepper, Step, StepLabel, Paper, RadioGroup, FormControlLabel, Radio, FormControl, Card, CardContent, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { CheckCircle, ArrowForward, ArrowBack } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiBase } from '@/utils/apiBase';
 
 const MotionPaper = motion.create(Paper);
 const MotionCard = motion.create(Card);
 
+interface QuizOption {
+  id: number;
+  optionText: string;
+  optionDescription?: string;
+  pointsStart: number;
+  pointsBusiness: number;
+  pointsPremium: number;
+}
+
 interface QuizQuestion {
-  id: string;
-  question: string;
-  options: {
-    value: string;
-    label: string;
-    description?: string;
-    points: Record<string, number>; // Тариф -> очки
-  }[];
+  id: number;
+  questionText: string;
+  questionType: string;
+  options: QuizOption[];
 }
 
 interface TariffQuizProps {
   onComplete: (recommendedTariff: string) => void;
 }
-
-const questions: QuizQuestion[] = [
-  {
-    id: 'budget',
-    question: 'Какой у вас бюджет на проект?',
-    options: [
-      { value: 'low', label: 'До 500 000 ₽', points: { start: 3, business: 1, premium: 0 } },
-      { value: 'medium', label: '500 000 - 1 500 000 ₽', points: { start: 1, business: 3, premium: 1 } },
-      { value: 'high', label: 'Свыше 1 500 000 ₽', points: { start: 0, business: 2, premium: 3 } },
-    ],
-  },
-  {
-    id: 'timeline',
-    question: 'Какой срок реализации проекта?',
-    options: [
-      { value: 'fast', label: 'До 1 месяца', points: { start: 3, business: 1, premium: 0 } },
-      { value: 'normal', label: '1-3 месяца', points: { start: 1, business: 3, premium: 1 } },
-      { value: 'flexible', label: '3+ месяца', points: { start: 0, business: 2, premium: 3 } },
-    ],
-  },
-  {
-    id: 'complexity',
-    question: 'Какая сложность проекта?',
-    options: [
-      { value: 'simple', label: 'Простой (базовый функционал)', points: { start: 3, business: 1, premium: 0 } },
-      { value: 'medium', label: 'Средний (стандартные функции)', points: { start: 1, business: 3, premium: 1 } },
-      { value: 'complex', label: 'Сложный (кастомные решения)', points: { start: 0, business: 1, premium: 3 } },
-    ],
-  },
-  {
-    id: 'support',
-    question: 'Нужна ли долгосрочная поддержка?',
-    options: [
-      { value: 'no', label: 'Нет, только запуск', points: { start: 3, business: 1, premium: 0 } },
-      { value: 'yes', label: 'Да, нужна поддержка', points: { start: 0, business: 2, premium: 3 } },
-    ],
-  },
-  {
-    id: 'scale',
-    question: 'Какой масштаб проекта?',
-    options: [
-      { value: 'small', label: 'Малый бизнес / Стартап', points: { start: 3, business: 1, premium: 0 } },
-      { value: 'medium', label: 'Средний бизнес', points: { start: 1, business: 3, premium: 1 } },
-      { value: 'large', label: 'Крупная компания', points: { start: 0, business: 1, premium: 3 } },
-    ],
-  },
-];
 
 const tariffNames: Record<string, string> = {
   start: 'START',
@@ -74,23 +34,57 @@ const tariffNames: Record<string, string> = {
   premium: 'PPRIME',
 };
 
-// Экспортируем для использования в других компонентах
-export { tariffNames };
+async function fetchQuizQuestions(): Promise<QuizQuestion[]> {
+  const base = getApiBase();
+  const response = await fetch(`${base}/api/public/quiz/questions`);
+  if (!response.ok) throw new Error('Failed to fetch quiz questions');
+  return response.json();
+}
+
+async function submitQuizResult(recommendedTariff: string, answers: Record<number, number>, userEmail?: string) {
+  const base = getApiBase();
+  const response = await fetch(`${base}/api/public/quiz/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      recommendedTariff,
+      answers,
+      userEmail
+    })
+  });
+  if (!response.ok) throw new Error('Failed to submit quiz result');
+  return response.json();
+}
 
 export function TariffQuiz({ onComplete }: TariffQuizProps) {
-  const [activeStep, setActiveStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [scores, setScores] = useState<Record<string, number>>({ start: 0, business: 0, premium: 0 });
+  const { data: questions = [], isLoading } = useQuery({
+    queryKey: ['quiz-questions'],
+    queryFn: fetchQuizQuestions,
+  });
 
-  const handleAnswer = (questionId: string, optionValue: string, points: Record<string, number>) => {
-    const newAnswers = { ...answers, [questionId]: optionValue };
+  const [activeStep, setActiveStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [scores, setScores] = useState<Record<string, number>>({ start: 0, business: 0, premium: 0 });
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [recommendedTariff, setRecommendedTariff] = useState<string>('');
+
+  useEffect(() => {
+    // Сбрасываем очки при изменении вопросов
+    setScores({ start: 0, business: 0, premium: 0 });
+    setAnswers({});
+    setActiveStep(0);
+  }, [questions]);
+
+  const handleAnswer = (questionId: number, optionId: number, option: QuizOption) => {
+    const newAnswers = { ...answers, [questionId]: optionId };
     setAnswers(newAnswers);
 
     // Обновляем очки
     const newScores = { ...scores };
-    Object.keys(points).forEach((tariff) => {
-      newScores[tariff] = (newScores[tariff] || 0) + points[tariff];
-    });
+    newScores.start = (newScores.start || 0) + option.pointsStart;
+    newScores.business = (newScores.business || 0) + option.pointsBusiness;
+    newScores.premium = (newScores.premium || 0) + option.pointsPremium;
     setScores(newScores);
   };
 
@@ -102,7 +96,8 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
       const recommended = Object.keys(scores).reduce((a, b) =>
         scores[a] > scores[b] ? a : b
       );
-      onComplete(recommended);
+      setRecommendedTariff(recommended);
+      setEmailDialogOpen(true);
     }
   };
 
@@ -110,9 +105,34 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
     setActiveStep(Math.max(0, activeStep - 1));
   };
 
+  const handleSubmitResult = async () => {
+    try {
+      await submitQuizResult(recommendedTariff, answers, userEmail || undefined);
+      setEmailDialogOpen(false);
+      onComplete(recommendedTariff);
+    } catch (error) {
+      console.error('Error submitting quiz result:', error);
+      // Все равно вызываем onComplete даже если отправка не удалась
+      setEmailDialogOpen(false);
+      onComplete(recommendedTariff);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ my: 4, textAlign: 'center' }}>
+        <Typography>Загрузка вопросов...</Typography>
+      </Box>
+    );
+  }
+
+  if (!questions || questions.length === 0) {
+    return null;
+  }
+
   const currentQuestion = questions[activeStep];
   const isLastStep = activeStep === questions.length - 1;
-  const canProceed = answers[currentQuestion.id] !== undefined;
+  const canProceed = answers[currentQuestion?.id] !== undefined;
 
   return (
     <Box sx={{ my: 4 }}>
@@ -126,7 +146,7 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {questions.map((q) => (
           <Step key={q.id}>
-            <StepLabel>{q.question}</StepLabel>
+            <StepLabel>{q.questionText}</StepLabel>
           </Step>
         ))}
       </Stepper>
@@ -145,7 +165,7 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
             exit={{ opacity: 0, x: -20 }}
           >
             <Typography variant="h5" gutterBottom>
-              {currentQuestion.question}
+              {currentQuestion.questionText}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Вопрос {activeStep + 1} из {questions.length}
@@ -153,41 +173,42 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
 
             <FormControl component="fieldset" fullWidth>
               <RadioGroup
-                value={answers[currentQuestion.id] || ''}
+                value={answers[currentQuestion.id]?.toString() || ''}
                 onChange={(e) => {
-                  const option = currentQuestion.options.find((o) => o.value === e.target.value);
+                  const optionId = parseInt(e.target.value);
+                  const option = currentQuestion.options.find((o) => o.id === optionId);
                   if (option) {
-                    handleAnswer(currentQuestion.id, option.value, option.points);
+                    handleAnswer(currentQuestion.id, optionId, option);
                   }
                 }}
               >
                 {currentQuestion.options.map((option) => (
                   <MotionCard
-                    key={option.value}
+                    key={option.id}
                     sx={{
                       mb: 2,
                       cursor: 'pointer',
-                      border: answers[currentQuestion.id] === option.value ? 2 : 1,
+                      border: answers[currentQuestion.id] === option.id ? 2 : 1,
                       borderColor:
-                        answers[currentQuestion.id] === option.value ? 'primary.main' : 'divider',
+                        answers[currentQuestion.id] === option.id ? 'primary.main' : 'divider',
                       '&:hover': { borderColor: 'primary.main' },
                     }}
                     onClick={() => {
-                      handleAnswer(currentQuestion.id, option.value, option.points);
+                      handleAnswer(currentQuestion.id, option.id, option);
                     }}
                   >
                     <CardContent>
                       <FormControlLabel
-                        value={option.value}
+                        value={option.id.toString()}
                         control={<Radio />}
                         label={
                           <Box>
                             <Typography variant="body1" fontWeight="medium">
-                              {option.label}
+                              {option.optionText}
                             </Typography>
-                            {option.description && (
+                            {option.optionDescription && (
                               <Typography variant="caption" color="text.secondary">
-                                {option.description}
+                                {option.optionDescription}
                               </Typography>
                             )}
                           </Box>
@@ -220,6 +241,37 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
           </motion.div>
         </AnimatePresence>
       </MotionPaper>
+
+      {/* Диалог для ввода email после завершения */}
+      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)}>
+        <DialogTitle>Отлично! Ваш рекомендуемый тариф: {tariffNames[recommendedTariff] || recommendedTariff}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Оставьте email, чтобы получить детальное коммерческое предложение
+          </Typography>
+          <TextField
+            fullWidth
+            type="email"
+            label="Email (необязательно)"
+            value={userEmail}
+            onChange={(e) => setUserEmail(e.target.value)}
+            placeholder="your@email.com"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setEmailDialogOpen(false);
+            onComplete(recommendedTariff);
+          }}>
+            Пропустить
+          </Button>
+          <Button variant="contained" onClick={handleSubmitResult}>
+            Получить КП
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
+
+export { tariffNames };

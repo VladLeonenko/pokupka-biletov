@@ -87,6 +87,7 @@ import { ProposalsListPage } from '@/pages/commercial-proposals/ProposalsListPag
 import { ProposalViewPage } from '@/pages/commercial-proposals/ProposalViewPage';
 import { ProposalEditorPage } from '@/pages/commercial-proposals/ProposalEditorPage';
 import { DonorsManagePage } from '@/pages/donors/DonorsManagePage';
+import { QuizManagementPage } from '@/pages/admin/QuizManagementPage';
 
 function Protected({ children }: { children: JSX.Element }) {
   const { token, user } = useAuth();
@@ -166,6 +167,7 @@ export function AppRoutes() {
       <Route path="/admin/products/:id" element={<Protected><ProductEditorPage /></Protected>} />
       <Route path="/admin/parsing" element={<Protected><ParsingPage /></Protected>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
+      <Route path="/admin/quiz" element={<Protected><QuizManagementPage /></Protected>} />
       <Route path="/admin/promotions/:id" element={<Protected><PromotionEditorPage /></Protected>} />
       <Route path="/admin/forms" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/funnels" element={<Protected><FunnelsListPage /></Protected>} />
