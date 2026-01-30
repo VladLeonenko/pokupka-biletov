@@ -8,7 +8,7 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import readline from 'readline';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,27 +47,42 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(poolConfig);
 
-// Читаем JSON из stdin
-async function readStdin() {
+// Читаем JSON из stdin или файла
+async function readInput() {
   return new Promise((resolve, reject) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: false,
-    });
+    // Проверяем, есть ли аргумент с путем к файлу
+    const filePath = process.argv[2];
     
-    let data = '';
-    rl.on('line', (line) => {
-      data += line + '\n';
-    });
-    
-    rl.on('close', () => {
+    if (filePath) {
+      // Читаем из файла
       try {
+        const data = fs.readFileSync(filePath, 'utf8');
         resolve(JSON.parse(data));
       } catch (error) {
-        reject(new Error('Failed to parse JSON: ' + error.message));
+        reject(new Error(`Failed to read file ${filePath}: ${error.message}`));
       }
-    });
+    } else {
+      // Читаем из stdin
+      let data = '';
+      process.stdin.setEncoding('utf8');
+      
+      process.stdin.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      process.stdin.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (error) {
+          reject(new Error('Failed to parse JSON: ' + error.message + 
+            '\n💡 Tip: Try using file path instead: node scripts/import-database.js database-export.json'));
+        }
+      });
+      
+      process.stdin.on('error', (error) => {
+        reject(new Error('Failed to read from stdin: ' + error.message));
+      });
+    }
   });
 }
 
