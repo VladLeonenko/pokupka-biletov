@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { getApiBase } from '@/utils/apiBase';
 
 type User = { id: number; email: string; role: string; name?: string; phone?: string } | null;
 
@@ -53,8 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
-
-import { getApiBase } from '@/utils/apiBase';
 
   const login = async (email: string, password: string) => {
     const base = getApiBase();
