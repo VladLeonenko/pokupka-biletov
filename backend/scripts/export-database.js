@@ -18,13 +18,34 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
-const pool = new Pool({
-  user: process.env.PGUSER,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  port: Number(process.env.PGPORT),
-});
+// Поддержка DATABASE_URL или отдельных переменных
+let poolConfig;
+if (process.env.DATABASE_URL) {
+  poolConfig = {
+    connectionString: process.env.DATABASE_URL,
+  };
+} else {
+  // Проверяем обязательные переменные
+  const requiredVars = ['PGUSER', 'PGHOST', 'PGDATABASE', 'PGPASSWORD', 'PGPORT'];
+  const missingVars = requiredVars.filter(v => !process.env[v]);
+  
+  if (missingVars.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missingVars.forEach(v => console.error(`   - ${v}`));
+    console.error('\nPlease set these in backend/.env file or use DATABASE_URL');
+    process.exit(1);
+  }
+  
+  poolConfig = {
+    user: process.env.PGUSER,
+    host: process.env.PGHOST,
+    database: process.env.PGDATABASE,
+    password: process.env.PGPASSWORD,
+    port: Number(process.env.PGPORT),
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 // Список таблиц для экспорта (в порядке зависимостей)
 const TABLES_TO_EXPORT = [
@@ -86,6 +107,22 @@ async function exportTable(pool, tableName) {
 }
 
 async function exportAll() {
+  // Проверяем подключение перед началом экспорта
+  try {
+    await pool.query('SELECT NOW()');
+    console.error('✅ Database connection successful');
+  } catch (error) {
+    console.error('❌ Failed to connect to database:', error.message);
+    if (error.code === '28P01') {
+      console.error('\n💡 Password authentication failed. Please check:');
+      console.error('   1. Database user and password in .env file');
+      console.error('   2. PostgreSQL is running');
+      console.error('   3. Database exists and user has access');
+    }
+    await pool.end();
+    process.exit(1);
+  }
+  
   console.error('🔄 Starting database export...');
   
   const exportData = {
@@ -115,6 +152,12 @@ async function exportAll() {
 }
 
 exportAll().catch(error => {
-  console.error('❌ Export failed:', error);
+  console.error('❌ Export failed:', error.message);
+  if (error.code === '28P01') {
+    console.error('\n💡 Password authentication failed. Please check:');
+    console.error('   1. Your .env file has correct database credentials');
+    console.error('   2. Database user exists and password is correct');
+    console.error('   3. You can use DATABASE_URL instead of separate variables');
+  }
   process.exit(1);
 });
