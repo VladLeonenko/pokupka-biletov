@@ -24,6 +24,11 @@ import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { motion } from 'framer-motion';
 import { TeamCarousel } from '@/components/public/TeamCarousel';
 import { useToast } from '@/components/common/ToastProvider';
+import { PriceCalculator } from '@/components/products/PriceCalculator';
+import { TariffComparison } from '@/components/products/TariffComparison';
+import { TariffQuiz } from '@/components/products/TariffQuiz';
+import { WorkTimeline } from '@/components/products/WorkTimeline';
+import { SocialProofs } from '@/components/products/SocialProofs';
 
 const MotionBox = motion.create(Box);
 const MotionPaper = motion.create(Paper);
@@ -896,6 +901,45 @@ export function ProductPage() {
         </MotionBox>
       )}
 
+      {/* Калькулятор стоимости */}
+      {product.priceCents && (
+        <Container maxWidth="lg" sx={{ mt: 8 }}>
+          <PriceCalculator
+            basePrice={product.priceCents}
+            productSlug={product.slug}
+            onCalculate={(price) => {
+              setContactFormOpen(true);
+              setContactForm((prev) => ({
+                ...prev,
+                message: prev.message || `Рассчитанная стоимость: ${Math.round(price / 100).toLocaleString('ru-RU')} ₽`,
+              }));
+            }}
+          />
+        </Container>
+      )}
+
+      {/* Визуальное сравнение тарифов */}
+      {tariffs && tariffs.length > 1 && (
+        <Container maxWidth="xl" sx={{ mt: 8 }}>
+          <TariffComparison tariffs={tariffs} title={priceSection?.title || 'Сравнение тарифов'} />
+        </Container>
+      )}
+
+      {/* Квиз выбора тарифа */}
+      {tariffs && tariffs.length > 0 && (
+        <Container maxWidth="md" sx={{ mt: 8 }}>
+          <TariffQuiz
+            onComplete={(recommendedTariff) => {
+              setContactFormOpen(true);
+              setContactForm((prev) => ({
+                ...prev,
+                message: prev.message || `Рекомендуемый тариф: ${tariffNames[recommendedTariff] || recommendedTariff}`,
+              }));
+            }}
+          />
+        </Container>
+      )}
+
       {tariffs && tariffs.length > 0 && (
         <MotionBox {...sectionAnimation(0.34)} sx={{ mt: 8 }}>
           <Typography variant="h4" sx={{ mb: 3, fontWeight: 700, letterSpacing: '-0.02em' }}>
@@ -1008,6 +1052,26 @@ export function ProductPage() {
           </Grid>
         </MotionBox>
       )}
+
+      {/* Timeline процесса работы */}
+      {workStepsList && workStepsList.length > 0 && (
+        <Container maxWidth="xl" sx={{ mt: 8 }}>
+          <WorkTimeline
+            steps={workStepsList.map((step) => ({
+              number: step.number || 0,
+              title: step.title || '',
+              description: step.description || '',
+              duration: step.duration,
+            }))}
+            title={workSteps?.title || 'Как мы работаем'}
+          />
+        </Container>
+      )}
+
+      {/* Социальные доказательства */}
+      <Container maxWidth="xl" sx={{ mt: 8 }}>
+        <SocialProofs />
+      </Container>
 
       {workStepsList && workStepsList.length > 0 && (
         <MotionBox {...sectionAnimation(0.42)} sx={{ mt: 8 }}>
