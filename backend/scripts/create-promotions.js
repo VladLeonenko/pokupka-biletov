@@ -160,19 +160,37 @@ async function createOrUpdatePromotion(promo) {
 async function applyMigration() {
   try {
     console.error('📦 Применение миграции для добавления slug...\n');
+    
+    // Проверяем, существует ли колонка slug
+    const checkResult = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'promotions' AND column_name = 'slug'
+    `);
+    
+    if (checkResult.rows.length > 0) {
+      console.error('⚠️  Колонка slug уже существует, пропускаем миграцию\n');
+      return;
+    }
+    
     const migrationSQL = `
       ALTER TABLE promotions 
-      ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE,
-      ADD COLUMN IF NOT EXISTS conditions TEXT;
+      ADD COLUMN slug TEXT,
+      ADD COLUMN conditions TEXT;
       
       CREATE INDEX IF NOT EXISTS idx_promotions_slug ON promotions(slug) WHERE slug IS NOT NULL;
+      
+      ALTER TABLE promotions 
+      ADD CONSTRAINT promotions_slug_unique UNIQUE (slug);
     `;
+    
     await pool.query(migrationSQL);
     console.error('✅ Миграция применена\n');
   } catch (error) {
-    if (error.message.includes('already exists') || error.code === '42710') {
-      console.error('⚠️  Колонки уже существуют, пропускаем миграцию\n');
+    if (error.message.includes('already exists') || error.code === '42710' || error.code === '42P07' || error.code === '23505') {
+      console.error('⚠️  Колонки уже существуют или ограничение уже есть, пропускаем миграцию\n');
     } else {
+      console.error('❌ Ошибка применения миграции:', error.message);
       throw error;
     }
   }
