@@ -60,6 +60,8 @@ const TABLES_TO_EXPORT = [
   'product_categories',
   'promotions',
   'carousels',
+  'carousel_slides',
+  'homepage_navigation_carousel',
   'clients',
   'forms',
   'form_submissions',
