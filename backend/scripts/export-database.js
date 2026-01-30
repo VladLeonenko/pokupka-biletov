@@ -107,6 +107,14 @@ async function exportTable(pool, tableName) {
 }
 
 async function exportAll() {
+  // Показываем параметры подключения (без пароля)
+  console.error('📋 Connection settings:');
+  console.error(`   Host: ${process.env.PGHOST || 'from DATABASE_URL'}`);
+  console.error(`   Database: ${process.env.PGDATABASE || 'from DATABASE_URL'}`);
+  console.error(`   User: ${process.env.PGUSER || 'from DATABASE_URL'}`);
+  console.error(`   Port: ${process.env.PGPORT || 'from DATABASE_URL'}`);
+  console.error('');
+  
   // Проверяем подключение перед началом экспорта
   try {
     await pool.query('SELECT NOW()');
@@ -115,9 +123,12 @@ async function exportAll() {
     console.error('❌ Failed to connect to database:', error.message);
     if (error.code === '28P01') {
       console.error('\n💡 Password authentication failed. Please check:');
-      console.error('   1. Database user and password in .env file');
-      console.error('   2. PostgreSQL is running');
+      console.error('   1. Database user and password in backend/.env file');
+      console.error('   2. PostgreSQL is running: brew services list | grep postgres');
       console.error('   3. Database exists and user has access');
+      console.error('   4. Try connecting manually: psql -U primeuser -d primecoder');
+      console.error('\n   Alternative: Use pg_dump directly:');
+      console.error('   pg_dump -h localhost -U primeuser -d primecoder -F c -f database.dump');
     }
     await pool.end();
     process.exit(1);
