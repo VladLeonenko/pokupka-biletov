@@ -75,6 +75,9 @@ import quizRouter from './routes/quiz.js';
 
 const app = express();
 
+// Trust proxy для работы за Nginx (нужно для express-rate-limit)
+app.set('trust proxy', true);
+
 app.use(cors({ 
   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3000'], 
   credentials: true,
