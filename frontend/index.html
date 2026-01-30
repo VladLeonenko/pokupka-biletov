@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#141414" />
+    <meta name="description" content="Primecoder - профессиональные веб-услуги, разработка сайтов, интернет-магазинов и веб-приложений" />
+    <meta name="keywords" content="разработка сайтов, веб-дизайн, интернет-магазины, веб-приложения, Primecoder" />
+    <meta name="author" content="Primecoder" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="Russian" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://prime-coder.ru/" />
+    <meta property="og:title" content="Primecoder - Профессиональные веб-услуги" />
+    <meta property="og:description" content="Разработка сайтов, интернет-магазинов и веб-приложений. Современные технологии и индивидуальный подход." />
+    <meta property="og:image" content="https://prime-coder.ru/legacy/img/logo.png" />
+    <meta property="og:site_name" content="Primecoder" />
+    <meta property="og:locale" content="ru_RU" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://prime-coder.ru/" />
+    <meta name="twitter:title" content="Primecoder - Профессиональные веб-услуги" />
+    <meta name="twitter:description" content="Разработка сайтов, интернет-магазинов и веб-приложений. Современные технологии и индивидуальный подход." />
+    <meta name="twitter:image" content="https://prime-coder.ru/legacy/img/logo.png" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://prime-coder.ru/" />
+    
+    <!-- Manifest для PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Preconnect для внешних ресурсов -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- DNS prefetch для ускорения -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    
+    <!-- Preload критических ресурсов (будет добавлено Vite при сборке) -->
+    <link rel="preload" as="style" href="/src/styles/global.css" />
+    <link rel="preload" as="style" href="/src/styles/theme.css" />
+    
+    <!-- Preload критических legacy CSS для предотвращения FOUC -->
+    <link rel="preload" as="style" href="/legacy/css/style.min.css" />
+    
+    <!-- Загружаем критический CSS синхронно -->
+    <link rel="stylesheet" href="/legacy/css/style.min.css" />
+    
+    <!-- Критический inline CSS для предотвращения FOUC -->
+    <style>
+      /* Базовые стили для предотвращения мерцания */
+      body {
+        font-family: 'Raleway', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background-color: #141414;
+        color: #ffffff;
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+      .page-content {
+        min-height: 100vh;
+      }
+      /* Показываем контент сразу, но с базовыми стилями */
+      .page-content {
+        visibility: visible;
+        opacity: 1;
+      }
+      /* Базовые стили для секций */
+      section {
+        margin: 0;
+        padding: 0;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin: 0;
+        font-weight: 400;
+      }
+      p {
+        margin: 0;
+      }
+    </style>
+    
+    <title>Primecoder - Профессиональные веб-услуги и разработка сайтов</title>
+    
+    <!-- Inline критический CSS для предотвращения блокировки рендеринга -->
+    <style>
+      /* Критический CSS для предотвращения FOUC */
+      html {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #141414;
+        color: #ffffff;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      /* Loading state */
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading">Загрузка...</div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+  </html>
+
+

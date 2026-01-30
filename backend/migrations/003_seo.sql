@@ -1,0 +1,16 @@
+ALTER TABLE pages
+  ADD COLUMN IF NOT EXISTS canonical_url TEXT,
+  ADD COLUMN IF NOT EXISTS robots_index BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS robots_follow BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS og_title TEXT,
+  ADD COLUMN IF NOT EXISTS og_description TEXT,
+  ADD COLUMN IF NOT EXISTS og_image_url TEXT,
+  ADD COLUMN IF NOT EXISTS twitter_card TEXT,
+  ADD COLUMN IF NOT EXISTS twitter_site TEXT,
+  ADD COLUMN IF NOT EXISTS twitter_creator TEXT,
+  ADD COLUMN IF NOT EXISTS structured_data JSONB,
+  ADD COLUMN IF NOT EXISTS hreflang JSONB; -- [{lang:"ru", url:"https://..."}]
+
+
+
+

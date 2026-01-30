@@ -70,6 +70,7 @@ import aiTeamRouter from './routes/aiTeam.js';
 import projectsRouter from './routes/projects.js';
 import commercialProposalsRouter from './routes/commercialProposals.js';
 import donorsRouter from './routes/donors.js';
+import socialProofsRouter from './routes/socialProofs.js';
 
 const app = express();
 
@@ -231,6 +232,7 @@ app.use('/api/public/blog', blogRouter);
 app.use('/api/public/products', productsRouter);
 app.use('/api/public/cases', casesRouter);
 app.use('/api/public/promotions', promotionsRouter);
+app.use('/api/public/social-proofs', socialProofsRouter);
 app.use('/api/public/carousels', publicCarouselsRouter);
 app.use('/api/public/search', searchRouter);
 app.use('/api/public/cart', cartRouter);
@@ -263,6 +265,7 @@ app.use('/api/blog', requireAuth, blogRouter);
 app.use('/api/cases', requireAuth, casesRouter);
 app.use('/api/products', requireAuth, productsRouter);
 app.use('/api/promotions', requireAuth, promotionsRouter);
+app.use('/api/social-proofs', socialProofsRouter); // Публичные и админские эндпоинты
 
 app.use('/api/carousels', requireAuth, carouselsRouter);
 app.use('/api/funnels', requireAuth, funnelsRouter);

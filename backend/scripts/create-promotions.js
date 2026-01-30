@@ -33,7 +33,8 @@ const PROMOTIONS = [
     valid_until: '2025-12-31',
     is_active: true,
     button_text: 'Получить скидку',
-    conditions: 'При заказе разработки сайта + рекламы в Яндекс Директ'
+    conditions: 'При заказе разработки сайта + рекламы в Яндекс Директ',
+    form_id: 'primecombo-input'
   },
   {
     slug: 'tri-srazu',
@@ -43,7 +44,8 @@ const PROMOTIONS = [
     valid_until: '2025-12-31',
     is_active: true,
     button_text: 'Получить скидку',
-    conditions: 'При заказе от 3-х услуг из нашего прайса'
+    conditions: 'При заказе от 3-х услуг из нашего прайса',
+    form_id: 'threepromo-input'
   },
   {
     slug: 'sarafannoe-radio',
@@ -53,7 +55,8 @@ const PROMOTIONS = [
     valid_until: null, // Всегда
     is_active: true,
     button_text: 'Получить скидку',
-    conditions: 'При рекомендации нас друзьям и коллегам'
+    conditions: 'При рекомендации нас друзьям и коллегам',
+    form_id: 'radio-input'
   },
   {
     slug: 'prime-direct',
@@ -63,7 +66,8 @@ const PROMOTIONS = [
     valid_until: '2025-12-31',
     is_active: true,
     button_text: 'Получить скидку',
-    conditions: 'Ведение рекламы в Яндекс.Директ от 2-х месяцев'
+    conditions: 'Ведение рекламы в Яндекс.Директ от 2-х месяцев',
+    form_id: 'primedirect-input'
   },
   {
     slug: 'chem-bolshe-tem-luchshe',
@@ -73,60 +77,104 @@ const PROMOTIONS = [
     valid_until: '2025-12-31',
     is_active: true,
     button_text: 'Получить скидку',
-    conditions: 'При заказе сайта на сумму от 350 000 руб.'
+    conditions: 'При заказе сайта на сумму от 350 000 руб.',
+    form_id: 'bigestpromo-input'
   }
 ];
 
 async function createOrUpdatePromotion(promo) {
   try {
-    const existing = await pool.query(
-      'SELECT id FROM promotions WHERE slug = $1',
-      [promo.slug]
-    );
+    // Сначала проверяем по slug, если его нет - по title
+    let existing;
+    if (promo.slug) {
+      existing = await pool.query(
+        'SELECT id FROM promotions WHERE slug = $1',
+        [promo.slug]
+      );
+    }
     
-    if (existing.rows.length > 0) {
+    if (!existing || existing.rows.length === 0) {
+      existing = await pool.query(
+        'SELECT id FROM promotions WHERE title = $1',
+        [promo.title]
+      );
+    }
+    
+    const expiryText = promo.valid_until ? null : 'Всегда';
+    const expiryDate = promo.valid_until || null;
+    
+    if (existing && existing.rows.length > 0) {
       await pool.query(`
         UPDATE promotions SET
-          title = $1,
-          description = $2,
-          discount_percent = $3,
-          valid_until = $4,
-          is_active = $5,
-          button_text = $6,
-          conditions = $7,
+          slug = $1,
+          title = $2,
+          description = $3,
+          discount_percent = $4,
+          expiry_date = $5,
+          expiry_text = $6,
+          is_active = $7,
+          button_text = $8,
+          conditions = $9,
+          form_id = $10,
           updated_at = NOW()
-        WHERE slug = $8
-      `, [
-        promo.title,
-        promo.description,
-        promo.discount_percent,
-        promo.valid_until,
-        promo.is_active,
-        promo.button_text,
-        promo.conditions,
-        promo.slug
-      ]);
-      return 'updated';
-    } else {
-      await pool.query(`
-        INSERT INTO promotions (
-          slug, title, description, discount_percent, valid_until,
-          is_active, button_text, conditions, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        WHERE id = $11
       `, [
         promo.slug,
         promo.title,
         promo.description,
         promo.discount_percent,
-        promo.valid_until,
+        expiryDate,
+        expiryText,
         promo.is_active,
         promo.button_text,
-        promo.conditions
+        promo.conditions,
+        promo.form_id || null,
+        existing.rows[0].id
+      ]);
+      return 'updated';
+    } else {
+      await pool.query(`
+        INSERT INTO promotions (
+          slug, title, description, discount_percent, expiry_date, expiry_text,
+          is_active, button_text, conditions, form_id, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      `, [
+        promo.slug,
+        promo.title,
+        promo.description,
+        promo.discount_percent,
+        expiryDate,
+        expiryText,
+        promo.is_active,
+        promo.button_text,
+        promo.conditions,
+        promo.form_id || null
       ]);
       return 'created';
     }
   } catch (error) {
     throw error;
+  }
+}
+
+async function applyMigration() {
+  try {
+    console.error('📦 Применение миграции для добавления slug...\n');
+    const migrationSQL = `
+      ALTER TABLE promotions 
+      ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE,
+      ADD COLUMN IF NOT EXISTS conditions TEXT;
+      
+      CREATE INDEX IF NOT EXISTS idx_promotions_slug ON promotions(slug) WHERE slug IS NOT NULL;
+    `;
+    await pool.query(migrationSQL);
+    console.error('✅ Миграция применена\n');
+  } catch (error) {
+    if (error.message.includes('already exists') || error.code === '42710') {
+      console.error('⚠️  Колонки уже существуют, пропускаем миграцию\n');
+    } else {
+      throw error;
+    }
   }
 }
 
@@ -136,6 +184,9 @@ async function main() {
   try {
     await pool.query('SELECT NOW()');
     console.error('✅ Подключение к БД успешно\n');
+    
+    // Применяем миграцию
+    await applyMigration();
   } catch (error) {
     console.error('❌ Ошибка подключения:', error.message);
     await pool.end();

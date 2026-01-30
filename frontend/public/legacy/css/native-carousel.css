@@ -1,0 +1,373 @@
+/* Native Carousel Styles */
+/* Замена для owlCarousel и slick */
+
+.carousel-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.5s ease;
+  will-change: transform;
+}
+
+.carousel-item {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.carousel-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.carousel-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 10px;
+  text-align: center;
+}
+
+/* Navigation buttons */
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+.carousel-nav:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+.carousel-prev {
+  left: 10px;
+}
+
+.carousel-next {
+  right: 10px;
+}
+
+/* Dots navigation */
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  z-index: 10;
+}
+
+.carousel-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: background 0.3s;
+  padding: 0;
+}
+
+.carousel-dot:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.carousel-dot.active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* Vertical carousel */
+.carousel-track[style*="flex-direction: column"] {
+  height: 100%;
+}
+
+.carousel-track[style*="flex-direction: column"] .carousel-item {
+  width: 100%;
+}
+
+/* Вертикальная карусель на главной странице */
+.vertical-carousel[data-carousel="main-vertical-carousel"],
+.vertical-carousel {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-wrapper,
+.vertical-carousel .carousel-wrapper {
+  height: 100%;
+  overflow: hidden; /* Возвращаем hidden для правильного отображения */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-track,
+.vertical-carousel .carousel-track {
+  flex-direction: column !important;
+  height: auto;
+  display: flex;
+  align-items: flex-end !important; /* Выравнивание по правой стороне */
+  justify-content: flex-start;
+  position: relative;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item,
+.vertical-carousel .carousel-item {
+  width: 100% !important;
+  height: auto;
+  flex-shrink: 0;
+  display: block;
+  position: relative;
+  opacity: 0.3 !important; /* Базовая opacity для всех элементов - видимы по умолчанию */
+  transition: opacity var(--carousel-speed, 1.5s) ease, transform var(--carousel-speed, 1.5s) ease, color var(--carousel-speed, 1.5s) ease;
+}
+
+/* Базовый белый цвет для всех элементов, но не для центрального - применяется первым */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item:not(.center-slide):not(.slide-position-3):not(.slide-position-2):not(.slide-position-4) h2,
+.vertical-carousel .carousel-item:not(.center-slide):not(.slide-position-3):not(.slide-position-2):not(.slide-position-4) h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item:not(.center-slide):not(.slide-position-3):not(.slide-position-2):not(.slide-position-4) *,
+.vertical-carousel .carousel-item:not(.center-slide):not(.slide-position-3):not(.slide-position-2):not(.slide-position-4) * {
+  color: #ffffff !important;
+}
+
+/* Стили для текста в вертикальной карусели */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item,
+.vertical-carousel .carousel-item {
+  text-align: right !important; /* Выравнивание по правой стороне */
+  width: 100% !important;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item h2,
+.vertical-carousel .carousel-item h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item *,
+.vertical-carousel .carousel-item * {
+  font-size: 2.5em !important; /* Размер текста 2.5em */
+  text-align: right !important; /* Выравнивание по правой стороне */
+  text-transform: uppercase !important; /* Как в оригинале */
+  color: #fff !important; /* Базовый белый цвет */
+  transition: color var(--carousel-speed, 1.5s) ease, opacity var(--carousel-speed, 1.5s) ease; /* Плавный переход */
+  font-family: "Raleway", sans-serif !important;
+  font-weight: 400 !important;
+}
+
+/* Исключаем изображения из изменения размера текста */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item img,
+.vertical-carousel .carousel-item img {
+  font-size: inherit !important;
+}
+
+/* Отступ между слайдами - 1em */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item,
+.vertical-carousel .carousel-item {
+  margin-bottom: 1em !important;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item:last-child,
+.vertical-carousel .carousel-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Позиция 1 и 5 (верхний и нижний) - opacity 0.3, белый текст */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-1,
+.vertical-carousel .carousel-item.slide-position-1,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-5,
+.vertical-carousel .carousel-item.slide-position-5 {
+  opacity: 0.3 !important;
+  z-index: 1;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-1 h2,
+.vertical-carousel .carousel-item.slide-position-1 h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-5 h2,
+.vertical-carousel .carousel-item.slide-position-5 h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-1 *,
+.vertical-carousel .carousel-item.slide-position-1 *,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-5 *,
+.vertical-carousel .carousel-item.slide-position-5 * {
+  color: #ffffff !important; /* Белый цвет для позиций 1 и 5 */
+}
+
+/* Позиция 2 и 4 (второй сверху и четвёртый сверху) - opacity 1, белый текст */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-2,
+.vertical-carousel .carousel-item.slide-position-2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-4,
+.vertical-carousel .carousel-item.slide-position-4 {
+  opacity: 1 !important;
+  z-index: 2;
+}
+
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-2 h2,
+.vertical-carousel .carousel-item.slide-position-2 h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-4 h2,
+.vertical-carousel .carousel-item.slide-position-4 h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-2 *,
+.vertical-carousel .carousel-item.slide-position-2 *,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-4 *,
+.vertical-carousel .carousel-item.slide-position-4 * {
+  color: #ffffff !important; /* Белый цвет для позиций 2 и 4 */
+}
+
+/* Позиция 3 (центральный) - opacity 1, жёлтый текст */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide,
+.vertical-carousel .carousel-item.center-slide,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3,
+.vertical-carousel .carousel-item.slide-position-3,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide.slide-position-3,
+.vertical-carousel .carousel-item.center-slide.slide-position-3 {
+  opacity: 1 !important;
+  z-index: 3;
+}
+
+/* Жёлтый цвет для центрального слайда - максимальная специфичность, должен быть ПОСЛЕ всех белых цветов */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide.slide-position-3 h2,
+.vertical-carousel .carousel-item.center-slide.slide-position-3 h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3.center-slide h2,
+.vertical-carousel .carousel-item.slide-position-3.center-slide h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide.slide-position-3 *,
+.vertical-carousel .carousel-item.center-slide.slide-position-3 *,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3.center-slide *,
+.vertical-carousel .carousel-item.slide-position-3.center-slide *,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide h2,
+.vertical-carousel .carousel-item.center-slide h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide *,
+.vertical-carousel .carousel-item.center-slide *,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3 h2,
+.vertical-carousel .carousel-item.slide-position-3 h2,
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3 *,
+.vertical-carousel .carousel-item.slide-position-3 * {
+  color: #ffbb00 !important; /* Жёлтый цвет для центрального слайда (позиция 3) */
+}
+
+/* Дополнительная защита - жёлтый цвет для элементов с обоими классами */
+.vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide.slide-position-3.active *,
+.vertical-carousel .carousel-item.center-slide.slide-position-3.active * {
+  color: #ffbb00 !important;
+}
+
+/* Адаптивные стили для 3 слайдов на маленьких экранах */
+@media (max-width: 768px) {
+  /* Для 3 слайдов: все видимые слайды с opacity 1, центральный жёлтый */
+  .vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-1,
+  .vertical-carousel .carousel-item.slide-position-1,
+  .vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3,
+  .vertical-carousel .carousel-item.slide-position-3 {
+    opacity: 1 !important;
+    z-index: 2;
+  }
+  
+  .vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-1 *,
+  .vertical-carousel .carousel-item.slide-position-1 *,
+  .vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.slide-position-3 *,
+  .vertical-carousel .carousel-item.slide-position-3 * {
+    color: #ffffff !important;
+  }
+  
+  .vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide.slide-position-2,
+  .vertical-carousel .carousel-item.center-slide.slide-position-2 {
+    opacity: 1 !important;
+    z-index: 3;
+  }
+  
+  .vertical-carousel[data-carousel="main-vertical-carousel"] .carousel-item.center-slide.slide-position-2 *,
+  .vertical-carousel .carousel-item.center-slide.slide-position-2 * {
+    color: #ffbb00 !important;
+  }
+}
+
+/* Неактивные слайды будут иметь базовую opacity 0.3, позиционные классы переопределят её */
+
+/* Сохранение оригинальных стилей для вертикальной карусели */
+.vertical-carousel .carousel-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Filter carousel (для блога) */
+.carousel-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+}
+
+.carousel-filter .carousel-item {
+  cursor: pointer;
+  padding: 10px 20px;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  transition: all 0.3s;
+}
+
+.carousel-filter .carousel-item:hover,
+.carousel-filter .carousel-item.active {
+  border-color: #007bff;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .carousel-nav {
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
+  }
+  
+  .carousel-prev {
+    left: 5px;
+  }
+  
+  .carousel-next {
+    right: 5px;
+  }
+}
+
+/* Совместимость с существующими классами */
+.owl-carousel,
+.slick-slider {
+  position: relative;
+}
+
+.owl-carousel .carousel-track,
+.slick-slider .carousel-track {
+  display: flex;
+}
+
+.owl-carousel .owl-item,
+.slick-slide {
+  flex-shrink: 0;
+}
+
+/* Сохранение стилей для существующих каруселей */
+.owl-carousel-filter .carousel-item {
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.owl-carousel-filter .carousel-item.active {
+  font-weight: bold;
+}
+

@@ -2,168 +2,651 @@
 <html lang="ru">
 
 @@include('html/head.html', {
-    "title": "Примеры разработки и дизайна сайтов выполненные веб студией PrimeCoder",
-    "description":"Готовые примеры работающих сайтов разработанные командой профессионалов из веб студии PrimeCoder Понравился проект? Узнай стоимость в несколько кликов"
+    "title": "Портфолио - Примеры работ веб-студии PrimeCoder",
+    "description": "Портфолио выполненных проектов веб-студии PrimeCoder. Разработка сайтов, мобильных приложений, дизайн и продвижение. Более 10 лет опыта, 100+ успешных проектов."
 })
 <body class="portfolio-page">
     @@include('html/header.html')
+    
+    <!-- Hero Section -->
+    <section class="portfolio-hero">
+        <div class="container">
+            <div class="portfolio-hero-content">
+                <h1 class="portfolio-hero-title">Наше Портфолио</h1>
+                <p class="portfolio-hero-subtitle">Более 10 лет опыта в создании цифровых решений</p>
+                <div class="portfolio-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" data-count="100">0</div>
+                        <div class="stat-label">+ Проектов</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-count="10">0</div>
+                        <div class="stat-label">Лет опыта</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-count="50">0</div>
+                        <div class="stat-label">+ Довольных клиентов</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Filters Section -->
+    <section class="portfolio-filters">
     <div class="container">
-        <section>
-            <div class="header-section tal">
-                <h1>Кейсы PrimeCoder</h1>
-                <p>Рады поделиться с вами нашими работами по разработке, дизайну и продвижению сайтов и мобильных приложений. Ищите пример для вдохновения или успешный кейс в вашей ниши? Отправляйте заявку и мы проконсультируем, поможем и подскажем!</p>
-                <p>Кликай по выезжающей картинке, чтобы подробнее узнать о кейсе.</p>
+            <div class="filters-wrapper">
+                <button class="filter-btn active" data-filter="all">Все проекты</button>
+                <button class="filter-btn" data-filter="website">Сайты</button>
+                <button class="filter-btn" data-filter="mobile">Мобильные приложения</button>
+                <button class="filter-btn" data-filter="redesign">Редизайн</button>
+                <button class="filter-btn" data-filter="promotion">Продвижение</button>
             </div>
-            <div class="d-flex flex-column mt-50 cases">
-                <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>ДОМА РОССИИ</h2>
-                            <h2 class="center">2021</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+            <div class="year-filters">
+                <button class="year-btn active" data-year="all">Все годы</button>
+                <button class="year-btn" data-year="2022">2022</button>
+                <button class="year-btn" data-year="2021">2021</button>
+                <button class="year-btn" data-year="2020">2020</button>
+                <button class="year-btn" data-year="2019">2019</button>
+                <button class="year-btn" data-year="2018">2018</button>
+                <button class="year-btn" data-year="2017">2017</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Portfolio Grid -->
+    <section class="portfolio-grid-section">
+        <div class="container">
+            <div class="portfolio-grid" id="portfolioGrid">
+                <!-- Кейс 1: ДОМА РОССИИ -->
+                <div class="portfolio-item" data-category="website" data-year="2021">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/houses-case.png" alt="ДОМА РОССИИ - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>ДОМА РОССИИ</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2021</p>
+                                    <a href="/houses-case" class="portfolio-link">Подробнее →</a>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <a href="houses-case">
-                                <img src="@img/houses-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
-                            </a> 
+                        <div class="portfolio-info">
+                            <h3>ДОМА РОССИИ</h3>
+                            <p class="portfolio-meta">2021 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>ПОЛИГОН</h2>
-                            <h2 class="center">2018</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 2: ALASKA FIREWOOD -->
+                <div class="portfolio-item" data-category="redesign" data-year="2022">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/alaska-case.png" alt="ALASKA FIREWOOD - Кейс по редизайну сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>ALASKA FIREWOOD</h3>
+                                    <p class="portfolio-type">Редизайн сайта</p>
+                                    <p class="portfolio-year">2022</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <a href="polygon">
-                                <img src="@img/polygon-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
-                            </a>
+                        <div class="portfolio-info">
+                            <h3>ALASKA FIREWOOD</h3>
+                            <p class="portfolio-meta">2022 • Редизайн сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>MADEO</h2>
-                            <h2 class="center">2020</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 3: МЕДИЦИНСКИЙ ЦЕНТР -->
+                <div class="portfolio-item" data-category="website" data-year="2022">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/litclinic-case.png" alt="МЕДИЦИНСКИЙ ЦЕНТР - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>МЕДИЦИНСКИЙ ЦЕНТР</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2022</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <a href="madeo-case">
-                                <img src="@img/madeo-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
-                            </a>
+                        <div class="portfolio-info">
+                            <h3>МЕДИЦИНСКИЙ ЦЕНТР</h3>
+                            <p class="portfolio-meta">2022 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>STRAUMANN GROUP</h2>
-                            <h2 class="center">2019</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 4: MADEO -->
+                <div class="portfolio-item" data-category="website" data-year="2020">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/madeo-case.png" alt="MADEO - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>MADEO</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2020</p>
+                                    <a href="/madeo-case" class="portfolio-link">Подробнее →</a>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <a href="straumann-case">
-                                <img src="@img/straumann-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
-                            </a>
+                        <div class="portfolio-info">
+                            <h3>MADEO</h3>
+                            <p class="portfolio-meta">2020 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>ALASKA FIREWOOD</h2>
-                            <h2 class="center">2022</h2>
-                            <h2 class="uppercase right">кейс по редизайну сайта</h2>
+
+                <!-- Кейс 5: STRAUMANN GROUP (Сайт) -->
+                <div class="portfolio-item" data-category="website" data-year="2019">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/straumann-case.png" alt="STRAUMANN GROUP - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>STRAUMANN GROUP</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2019</p>
+                                    <a href="/straumann-case" class="portfolio-link">Подробнее →</a>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/alaska-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
+                        <div class="portfolio-info">
+                            <h3>STRAUMANN GROUP</h3>
+                            <p class="portfolio-meta">2019 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>МЕДИЦИНСКИЙ ЦЕНТР</h2>
-                            <h2 class="center">2022</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 6: STRAUMANN GROUP (Мобильное приложение) -->
+                <div class="portfolio-item" data-category="mobile" data-year="2021">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/mobile-straumann-case.png" alt="STRAUMANN GROUP - Мобильное приложение" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>STRAUMANN GROUP</h3>
+                                    <p class="portfolio-type">Мобильное приложение</p>
+                                    <p class="portfolio-year">2021</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/litclinic-case.png" alt="Кейс по разработке сайта на 1С Битрикс primecoder">
+                        <div class="portfolio-info">
+                            <h3>STRAUMANN GROUP</h3>
+                            <p class="portfolio-meta">2021 • Мобильное приложение</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>УРСУС</h2>
-                            <h2 class="center">2019</h2>
-                            <h2 class="uppercase right">кейс по продвижению САЙТа</h2>
+
+                <!-- Кейс 7: ПОЛИГОН -->
+                <div class="portfolio-item" data-category="website" data-year="2018">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/polygon-case.png" alt="ПОЛИГОН - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>ПОЛИГОН</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2018</p>
+                                    <a href="/polygon" class="portfolio-link">Подробнее →</a>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/ursus-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
+                        <div class="portfolio-info">
+                            <h3>ПОЛИГОН</h3>
+                            <p class="portfolio-meta">2018 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>STRAUMANN GROUP</h2>
-                            <h2 class="center">2021</h2>
-                            <h2 class="uppercase right">кейс по МОБИЛЬНОму ПРИЛОЖЕНИю</h2>
+
+                <!-- Кейс 8: УРСУС -->
+                <div class="portfolio-item" data-category="promotion" data-year="2019">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/ursus-case.png" alt="УРСУС - Кейс по продвижению сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>УРСУС</h3>
+                                    <p class="portfolio-type">Продвижение сайта</p>
+                                    <p class="portfolio-year">2019</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/mobile-straumann-case.png" alt="Кейс по разработке МОБИЛЬНОго ПРИЛОЖЕНИя primecoder">
+                        <div class="portfolio-info">
+                            <h3>УРСУС</h3>
+                            <p class="portfolio-meta">2019 • Продвижение сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>LETA</h2>
-                            <h2 class="center">2017</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 9: LETA -->
+                <div class="portfolio-item" data-category="website" data-year="2017">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/leta-case.png" alt="LETA - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>LETA</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2017</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/leta-case.png" alt="Кейс по разработке сайта на 1С Битрикс primecoder">
+                        <div class="portfolio-info">
+                            <h3>LETA</h3>
+                            <p class="portfolio-meta">2017 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>WINWIN CHINA</h2>
-                            <h2 class="center">2019</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 10: WINWIN CHINA -->
+                <div class="portfolio-item" data-category="website" data-year="2019">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/winwin-case.png" alt="WINWIN CHINA - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>WINWIN CHINA</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2019</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/winwin-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
+                        <div class="portfolio-info">
+                            <h3>WINWIN CHINA</h3>
+                            <p class="portfolio-meta">2019 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
-                  <div class="block">
-                    <div class="icon-block pb-10">
-                        <div class="cases-item d-flex jcsb w-100 icon">
-                            <h2>GREENDENT</h2>
-                            <h2 class="center">2021</h2>
-                            <h2 class="uppercase right">кейс по разработке САЙТа</h2>
+
+                <!-- Кейс 11: GREENDENT -->
+                <div class="portfolio-item" data-category="website" data-year="2021">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image-wrapper">
+                            <img src="@img/greendent-case.png" alt="GREENDENT - Кейс по разработке сайта" class="portfolio-image">
+                            <div class="portfolio-overlay">
+                                <div class="portfolio-overlay-content">
+                                    <h3>GREENDENT</h3>
+                                    <p class="portfolio-type">Разработка сайта</p>
+                                    <p class="portfolio-year">2021</p>
+                                    <span class="portfolio-link">Подробнее →</span>
+                                </div>
+                            </div>
                         </div> 
-                        <div class="caeses-content hidden">
-                            <img src="@img/greendent-case.png" alt="Кейс по разработке сайта на wordpress primecoder">
+                        <div class="portfolio-info">
+                            <h3>GREENDENT</h3>
+                            <p class="portfolio-meta">2021 • Разработка сайта</p>
                         </div>       
                     </div>
                   </div>
             </div>
-            
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="portfolio-cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Готовы начать свой проект?</h2>
+                <p>Свяжитесь с нами, и мы создадим для вас уникальное цифровое решение</p>
+                <a href="/zakazat-sayt" class="btn btn-primary">Обсудить проект</a>
+            </div>
+        </div>
         </section>
         
-    </div>
-    <div class="cursor cursor--large"></div>
-      <div class="cursor cursor--small"></div>
     @@include('html/footer.html')
     
-    <script type="text/javascript" src="js/app.min.js"></script>
+    <script src="js/jquery.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script>
+        // Загружаем ScrollTrigger асинхронно
+        if (typeof gsap !== 'undefined') {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js';
+            script.onload = function() {
+                if (typeof ScrollTrigger !== 'undefined' && typeof gsap !== 'undefined') {
+                    gsap.registerPlugin(ScrollTrigger);
+                }
+            };
+            if (document.head) {
+                document.head.appendChild(script);
+            } else {
+                document.body.appendChild(script);
+            }
+        }
+    </script>
+    <script src="js/portfolio-modern.js"></script>
+    <!-- Не загружаем app.min.js для страницы portfolio, чтобы избежать ошибок -->
+    
+    <style>
+        /* Portfolio Modern Styles */
+        .portfolio-page {
+            background: #0a0a0a;
+            color: #fff;
+        }
+
+        /* Hero Section */
+        .portfolio-hero {
+            padding: 120px 0 80px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .portfolio-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 187, 0, 0.1), transparent 70%);
+            pointer-events: none;
+        }
+
+        .portfolio-hero-content {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .portfolio-hero-title {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 300;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ffbb00, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .portfolio-hero-subtitle {
+            font-size: clamp(1.2rem, 3vw, 1.8rem);
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 60px;
+        }
+
+        .portfolio-stats {
+            display: flex;
+            justify-content: center;
+            gap: 80px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            color: #ffbb00;
+            margin-bottom: 10px;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Filters Section */
+        .portfolio-filters {
+            padding: 40px 0;
+            background: #111;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .filters-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .filter-btn, .year-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .filter-btn:hover, .year-btn:hover {
+            border-color: #ffbb00;
+            color: #ffbb00;
+        }
+
+        .filter-btn.active, .year-btn.active {
+            background: #ffbb00;
+            border-color: #ffbb00;
+            color: #000;
+        }
+
+        .year-filters {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        /* Portfolio Grid */
+        .portfolio-grid-section {
+            padding: 80px 0;
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 40px;
+            padding: 0 20px;
+        }
+
+        .portfolio-item {
+            opacity: 0;
+            transform: translateY(50px);
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        .portfolio-item.hidden {
+            display: none;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .portfolio-card {
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            background: #1a1a1a;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            cursor: pointer;
+        }
+
+        .portfolio-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 60px rgba(255, 187, 0, 0.3);
+        }
+
+        .portfolio-image-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 aspect ratio */
+            overflow: hidden;
+        }
+
+        .portfolio-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }
+
+        .portfolio-card:hover .portfolio-image {
+            transform: scale(1.1);
+        }
+
+        .portfolio-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.9) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            display: flex;
+            align-items: flex-end;
+            padding: 30px;
+        }
+
+        .portfolio-card:hover .portfolio-overlay {
+            opacity: 1;
+        }
+
+        .portfolio-overlay-content h3 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ffbb00;
+        }
+
+        .portfolio-type {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .portfolio-year {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 15px;
+        }
+
+        .portfolio-link {
+            display: inline-block;
+            color: #ffbb00;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.3s ease;
+        }
+
+        .portfolio-link:hover {
+            transform: translateX(5px);
+        }
+
+        .portfolio-info {
+            padding: 25px;
+        }
+
+        .portfolio-info h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .portfolio-meta {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* CTA Section */
+        .portfolio-cta {
+            padding: 100px 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            text-align: center;
+        }
+
+        .cta-content h2 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .cta-content p {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+        }
+
+        .btn-primary {
+            display: inline-block;
+            padding: 18px 40px;
+            background: #ffbb00;
+            color: #000;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: #ffd43b;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 187, 0, 0.4);
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .portfolio-grid {
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 30px;
+            }
+
+            .portfolio-stats {
+                gap: 40px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .portfolio-grid {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+
+            .portfolio-hero {
+                padding: 80px 0 60px;
+            }
+
+            .filters-wrapper, .year-filters {
+                gap: 10px;
+            }
+
+            .filter-btn, .year-btn {
+                padding: 10px 18px;
+                font-size: 12px;
+            }
+        }
+    </style>
 </body>
 </html>

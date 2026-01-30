@@ -1,0 +1,172 @@
+<div id="submitForm">
+    <a href="#" class="closePopup"><img src="@img/close-icon.svg" alt="close-window"></a>
+    <h2>Оставить заявку</h2>
+    <form action="" class="mt-20 d-flex flex-column" id="submit-input">
+        <div class="form-item">
+            <input type="text" class="mt-15 _req-s" placeholder="Введите имя" name="name">
+         </div>
+        <div class="form-item">
+            <input type="tel" class="mt-15 _req-s" placeholder="Введите номер телефона" name="tel">
+         </div>
+         <button type="submit" class="btn-outline mt-30">Отправить</button>
+    </form>
+</div>
+<footer class="pt-100">
+    <div class="container">
+        <div class="footer-header d-flex jcsb">
+            <a href="/">
+                <img src="@img/logo.png" alt="Логотип Primecoder">
+            </a>
+            <div class="social-icons d-flex jscb gap-h-20">
+                <a href="https://wa.me/79999849107">
+                    <img src="@img/whatsapp.png" alt="whatsapp Primecoder">
+                </a>
+                <a href="https://t.me/+79999849107">
+                    <img src="@img/telegram.png" alt="telegram Primecoder">
+                </a>
+                <a href="https://vk.com/primecoder">
+                    <img src="@img/vk.png" alt="vk Primecoder">
+                </a>
+            </div>
+        </div>
+        <div class="footer-nav d-flex jcsb pt-50 gap-h-30">
+            <div class="col">
+                <ul class="d-flex flex-column gap-v-20">
+                    <li><a href="/about">О нас</a></li>
+                    <li><a href="/services">Услуги</a></li>
+                    <li><a href="/portfolio">Наши кейсы</a></li>
+                    <li><a href="/contacts">Контакты</a></li>
+                </ul> 
+            </div>
+            <div class="col">
+                <ul class="d-flex flex-column gap-v-20">
+                    <li><a href="/promotion">Акции и скидки</a></li>
+                    <li><a href="/rewievs">Отзывы</a></li>
+                    <li><a href="/blog">Блог</a></li>
+                    <li><a href="/politic">Политика конфиденциальности</a></li>
+                </ul> 
+            </div>
+            <div class="col d-flex flex-column gap-v-20">
+                 <h5>Почта</h5>
+                 <a href="mailto:info@primecoder.ru">info@primecoder.ru</a>
+                 <h5>Телефон</h5>
+                 <a href="telto:+74951476577">+7 (495)-147-65-77</a>
+            </div>
+            <div class="col d-flex flex-column gap-v-20">
+                <h3>Реализуем ваши идеи <br>в прибыльные проекты!</h3>
+                <div class="btn-mode">
+                    <a href="#" class="btn submit-order">Оставить заявку</a>
+                </div>
+            </div>
+        </div>
+        <p class="pt-50">® PRIMECODER
+            2017-2024 Веб-студия разработки</p>
+    </div>
+</footer>
+
+<script async type="text/javascript">
+    (function ct_load_script() {
+    var ct = document.createElement('script'); ct.type = 'text/javascript'; ct.async=true; ct.rel="preload";
+    ct.src = document.location.protocol+'//cc.calltracking.ru/phone.0c80c.13070.async.js?nc='+Math.floor(new Date().getTime()/300000);
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ct, s);
+    })();
+</script>
+<!-- Yandex.Metrika counter -->
+<!-- Аналитика загружается условно после согласия на cookies через useCookieConsent -->
+<!--
+<script type="text/javascript" >
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+    m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+    (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+ 
+    ym(88795306, "init", {
+         clickmap:true,
+         trackLinks:true,
+         accurateTrackBounce:true,
+         webvisor:true
+    });
+ </script>
+ <noscript><div><img src="https://mc.yandex.ru/watch/88795306" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+ -->
+ <!-- /Yandex.Metrika counter -->
+
+ <script>
+    /****FORM****/
+    document.addEventListener('DOMContentLoaded', function(){
+      const submitForm = document.getElementById('submit-input')
+      submitForm.addEventListener('submit', formSend)
+      let submitPopup = document.getElementById('submitForm')
+
+      async function formSend(e){
+          e.preventDefault();
+          let error = formValidate(submitForm)
+
+          let formData = new FormData(submitForm)
+        
+
+          if(error===0){
+            submitForm.classList.add('_sending')
+            
+              let response = await fetch('sendSubmitEmail.php', {
+                  method: 'POST',
+                  body: formData
+
+              })
+              if(response.ok){
+                  let result = await response.json();
+                  alert(result.message)
+                  submitForm.reset()
+                  submitForm.classList.remove('_sending')
+                  submitPopup.classList.remove('show_popup')
+
+              } else {
+                  alert('Ошибка')
+                  submitForm.classList.remove('_sending')
+              }
+          } else {
+              alert('Заполните обязательные поля')
+          }
+          
+      }
+      function formValidate(submitForm){
+              let error = 0;
+              let formReq = document.querySelectorAll('._req-s')
+
+              for (let index=0; index < formReq.length; index++){
+                  const input = formReq[index];
+
+                  formRemoveError(input)
+                      if (input.value === ''){
+                          formAddError(input);
+                          error++;
+                      }
+                  
+
+              }
+              return error;
+          }
+
+          function formAddError(input){
+              input.parentElement.classList.add('_error')
+              input.classList.add('_error')
+            
+          }
+          function formRemoveError(input){
+            input.parentElement.classList.remove('_error')
+            input.classList.remove('_error')
+        }
+    })
+
+
+    $(document).ready(function(){
+      $(".submit-order").click(function(){
+          $("#submitForm").toggleClass('show_popup'); 
+      });
+      $(".closePopup").click(function(){
+          $("#submitForm").removeClass('show_popup'); 
+
+      });
+  });
+  </script>
+
+

@@ -1,0 +1,112 @@
+🚀 Starting database split by projects...
+📋 Projects: primecoder, amani, umagazine
+
+✅ Source database connection successful
+
+🔄 Processing project: PRIMECODER
+==================================================
+
+📦 Creating database: primecoder_db
+   ℹ️  Database primecoder_db already exists
+   📦 Running migrations...
+      ✅ 001_init.sql
+      ✅ 002_carousels.sql
+      ✅ 003_seo.sql
+      ✅ 004_auth.sql
+      ✅ 005_cases_products.sql
+      ✅ 006_create_promotions.sql
+      ✅ 009_forms.sql
+      ✅ 010_funnels.sql
+      ✅ 016_ecommerce_v2.sql
+      ✅ 018_add_product_seo_and_cases.sql
+      ✅ 019_clients.sql
+      ✅ 020_chatbot.sql
+      ✅ 022_create_awards.sql
+      ✅ 024_add_reviews_table.sql
+      ✅ 028_create_team_members.sql
+      ✅ 029_email_campaigns.sql
+      ✅ 031_create_sites.sql
+      ✅ 033_exercise_images.sql
+
+📤 Exporting data for primecoder...
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+      ⚠️  Error importing row: column "cover_image_url" of relation "blog_posts" does not exist
+   ✅ blog_posts: 55 exported, 0 imported
+   ✅ blog_categories: 25 exported, 25 imported
+❌ Failed: error: column "id" does not exist
+    at /Users/vladislavleonenko/Desktop/primecoder-gulp/backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async exportAndImportTable (file:///Users/vladislavleonenko/Desktop/primecoder-gulp/backend/scripts/split-databases-by-project.js:250:20)
+    at async splitDatabase (file:///Users/vladislavleonenko/Desktop/primecoder-gulp/backend/scripts/split-databases-by-project.js:360:20)
+    at async main (file:///Users/vladislavleonenko/Desktop/primecoder-gulp/backend/scripts/split-databases-by-project.js:385:5) {
+  length: 102,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '34',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}

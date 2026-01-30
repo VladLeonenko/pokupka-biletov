@@ -1,0 +1,569 @@
+📸 Начинаем создание скриншотов для кейсов...
+
+✅ Database connection established successfully
+Найдено 52 кейсов с donor_url
+
+
+📋 Обрабатываем: Продвижение на Amazon - Рейтинг 4.7★
+   Slug: marketplace-amazon
+   URL: https://www.amazon.com
+  Открываем страницу: https://www.amazon.com
+   ✅ Hero изображение: /uploads/images/marketplace-amazon-hero.png
+  Открываем страницу: https://www.amazon.com
+   ✅ Галерея 1: /uploads/images/marketplace-amazon-gallery-1.png
+  Открываем страницу: https://www.amazon.com
+   ✅ Галерея 2: /uploads/images/marketplace-amazon-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Продвижение на Яндекс.Маркет - Продажи +195%
+   Slug: marketplace-yandex-market
+   URL: https://market.yandex.ru
+  Открываем страницу: https://market.yandex.ru
+   ✅ Hero изображение: /uploads/images/marketplace-yandex-market-hero.png
+  Открываем страницу: https://market.yandex.ru
+   ✅ Галерея 1: /uploads/images/marketplace-yandex-market-gallery-1.png
+  Открываем страницу: https://market.yandex.ru
+   ✅ Галерея 2: /uploads/images/marketplace-yandex-market-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Продвижение на Avito - Просмотры +450%
+   Slug: marketplace-avito
+   URL: https://www.avito.ru
+  Открываем страницу: https://www.avito.ru
+   ✅ Hero изображение: /uploads/images/marketplace-avito-hero.png
+  Открываем страницу: https://www.avito.ru
+   ✅ Галерея 1: /uploads/images/marketplace-avito-gallery-1.png
+  Открываем страницу: https://www.avito.ru
+   ✅ Галерея 2: /uploads/images/marketplace-avito-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Продвижение на Ozon - Топ категории
+   Slug: marketplace-ozon
+   URL: https://www.ozon.ru
+  Открываем страницу: https://www.ozon.ru
+   ✅ Hero изображение: /uploads/images/marketplace-ozon-hero.png
+  Открываем страницу: https://www.ozon.ru
+   ✅ Галерея 1: /uploads/images/marketplace-ozon-gallery-1.png
+  Открываем страницу: https://www.ozon.ru
+   ✅ Галерея 2: /uploads/images/marketplace-ozon-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Продвижение на Wildberries - Продажи +280%
+   Slug: marketplace-wildberries
+   URL: https://www.wildberries.ru
+  Открываем страницу: https://www.wildberries.ru
+   ✅ Hero изображение: /uploads/images/marketplace-wildberries-hero.png
+  Открываем страницу: https://www.wildberries.ru
+   ✅ Галерея 1: /uploads/images/marketplace-wildberries-gallery-1.png
+  Открываем страницу: https://www.wildberries.ru
+   ✅ Галерея 2: /uploads/images/marketplace-wildberries-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: TikTok реклама - Вирусный охват
+   Slug: advertising-tiktok-ads
+   URL: https://www.tiktok.com/business
+  Открываем страницу: https://www.tiktok.com/business
+   ✅ Hero изображение: /uploads/images/advertising-tiktok-ads-hero.png
+  Открываем страницу: https://www.tiktok.com/business
+   ✅ Галерея 1: /uploads/images/advertising-tiktok-ads-gallery-1.png
+  Открываем страницу: https://www.tiktok.com/business
+   ✅ Галерея 2: /uploads/images/advertising-tiktok-ads-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: ВКонтакте реклама - Охват +320%
+   Slug: advertising-vk-ads
+   URL: https://vk.com/ads
+  Открываем страницу: https://vk.com/ads
+   ✅ Hero изображение: /uploads/images/advertising-vk-ads-hero.png
+  Открываем страницу: https://vk.com/ads
+   ✅ Галерея 1: /uploads/images/advertising-vk-ads-gallery-1.png
+  Открываем страницу: https://vk.com/ads
+   ✅ Галерея 2: /uploads/images/advertising-vk-ads-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: LinkedIn реклама для B2B - Лиды +250%
+   Slug: advertising-linkedin-ads
+   URL: https://www.linkedin.com/marketing-solutions
+  Открываем страницу: https://www.linkedin.com/marketing-solutions
+   ❌ Ошибка: page.goto: Navigation to "https://www.linkedin.com/marketing-solutions" is interrupted by another navigation to "chrome-error://chromewebdata/"
+Call log:
+  - navigating to "https://www.linkedin.com/marketing-solutions", waiting until "load"
+
+
+📋 Обрабатываем: Яндекс.Директ кампании - Конверсия +180%
+   Slug: advertising-yandex-direct
+   URL: https://direct.yandex.ru
+  Открываем страницу: https://direct.yandex.ru
+   ✅ Hero изображение: /uploads/images/advertising-yandex-direct-hero.png
+  Открываем страницу: https://direct.yandex.ru
+   ✅ Галерея 1: /uploads/images/advertising-yandex-direct-gallery-1.png
+  Открываем страницу: https://direct.yandex.ru
+   ✅ Галерея 2: /uploads/images/advertising-yandex-direct-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Facebook/Instagram реклама - CPA -45%
+   Slug: advertising-facebook-ads
+   URL: https://www.facebook.com/business
+  Открываем страницу: https://www.facebook.com/business
+   ✅ Hero изображение: /uploads/images/advertising-facebook-ads-hero.png
+  Открываем страницу: https://www.facebook.com/business
+   ✅ Галерея 1: /uploads/images/advertising-facebook-ads-gallery-1.png
+  Открываем страницу: https://www.facebook.com/business
+   ✅ Галерея 2: /uploads/images/advertising-facebook-ads-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Google Ads кампании - ROAS 4.2x
+   Slug: advertising-google-ads
+   URL: https://ads.google.com
+  Открываем страницу: https://ads.google.com
+   ✅ Hero изображение: /uploads/images/advertising-google-ads-hero.png
+  Открываем страницу: https://ads.google.com
+   ✅ Галерея 1: /uploads/images/advertising-google-ads-gallery-1.png
+  Открываем страницу: https://ads.google.com
+   ✅ Галерея 2: /uploads/images/advertising-google-ads-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Контент-маркетинг стратегия - Трафик +420%
+   Slug: marketing-strategy-content
+   URL: https://www.contentmarketinginstitute.com
+  Открываем страницу: https://www.contentmarketinginstitute.com
+   ✅ Hero изображение: /uploads/images/marketing-strategy-content-hero.png
+  Открываем страницу: https://www.contentmarketinginstitute.com
+   ✅ Галерея 1: /uploads/images/marketing-strategy-content-gallery-1.png
+  Открываем страницу: https://www.contentmarketinginstitute.com
+   ✅ Галерея 2: /uploads/images/marketing-strategy-content-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Стратегия брендинга - Узнаваемость +340%
+   Slug: marketing-strategy-brand
+   URL: https://www.brandfolder.com
+  Открываем страницу: https://www.brandfolder.com
+   ✅ Hero изображение: /uploads/images/marketing-strategy-brand-hero.png
+  Открываем страницу: https://www.brandfolder.com
+   ✅ Галерея 1: /uploads/images/marketing-strategy-brand-gallery-1.png
+  Открываем страницу: https://www.brandfolder.com
+   ✅ Галерея 2: /uploads/images/marketing-strategy-brand-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Маркетинговая стратегия для e-commerce - Продажи +195%
+   Slug: marketing-strategy-ecommerce
+   URL: https://www.klaviyo.com
+  Открываем страницу: https://www.klaviyo.com
+   ✅ Hero изображение: /uploads/images/marketing-strategy-ecommerce-hero.png
+  Открываем страницу: https://www.klaviyo.com
+   ✅ Галерея 1: /uploads/images/marketing-strategy-ecommerce-gallery-1.png
+  Открываем страницу: https://www.klaviyo.com
+   ✅ Галерея 2: /uploads/images/marketing-strategy-ecommerce-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: B2B маркетинговая стратегия - Лиды +280%
+   Slug: marketing-strategy-b2b
+   URL: https://www.marketo.com
+  Открываем страницу: https://www.marketo.com
+   ❌ Ошибка: page.goto: net::ERR_HTTP2_PROTOCOL_ERROR at https://www.marketo.com/
+Call log:
+  - navigating to "https://www.marketo.com/", waiting until "load"
+
+
+📋 Обрабатываем: Маркетинговая стратегия для стартапа - Рост в 5x
+   Slug: marketing-strategy-startup
+   URL: https://www.growthhackers.com
+  Открываем страницу: https://www.growthhackers.com
+   ❌ Ошибка: page.goto: Timeout 10000ms exceeded.
+Call log:
+  - navigating to "https://www.growthhackers.com/", waiting until "load"
+
+
+📋 Обрабатываем: Система поддержки клиентов - Время ответа -60%
+   Slug: it-customer-support
+   URL: https://www.zendesk.com
+  Открываем страницу: https://www.zendesk.com
+   ✅ Hero изображение: /uploads/images/it-customer-support-hero.png
+  Открываем страницу: https://www.zendesk.com
+   ❌ Ошибка: page.goto: Navigation to "https://www.zendesk.com/" is interrupted by another navigation to "chrome-error://chromewebdata/"
+Call log:
+  - navigating to "https://www.zendesk.com/", waiting until "load"
+
+
+📋 Обрабатываем: HR портал - Автоматизация HR процессов
+   Slug: it-hr-portal
+   URL: https://www.bamboohr.com
+  Открываем страницу: https://www.bamboohr.com
+   ✅ Hero изображение: /uploads/images/it-hr-portal-hero.png
+  Открываем страницу: https://www.bamboohr.com
+   ✅ Галерея 1: /uploads/images/it-hr-portal-gallery-1.png
+  Открываем страницу: https://www.bamboohr.com
+   ✅ Галерея 2: /uploads/images/it-hr-portal-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Система документооборота - Обработка +300%
+   Slug: it-document-management
+   URL: https://www.docu-sign.com
+  Открываем страницу: https://www.docu-sign.com
+   ❌ Ошибка: page.goto: net::ERR_TIMED_OUT at https://www.docu-sign.com/
+Call log:
+  - navigating to "https://www.docu-sign.com/", waiting until "load"
+
+
+📋 Обрабатываем: Система управления проектами - Прозрачность 100%
+   Slug: it-project-management
+   URL: https://www.asana.com
+  Открываем страницу: https://www.asana.com
+   ✅ Hero изображение: /uploads/images/it-project-management-hero.png
+  Открываем страницу: https://www.asana.com
+   ✅ Галерея 1: /uploads/images/it-project-management-gallery-1.png
+  Открываем страницу: https://www.asana.com
+   ✅ Галерея 2: /uploads/images/it-project-management-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: CRM автоматизация - Экономия 25 часов/неделю
+   Slug: it-crm-automation
+   URL: https://www.hubspot.com
+  Открываем страницу: https://www.hubspot.com
+   ✅ Hero изображение: /uploads/images/it-crm-automation-hero.png
+  Открываем страницу: https://www.hubspot.com
+   ✅ Галерея 1: /uploads/images/it-crm-automation-gallery-1.png
+  Открываем страницу: https://www.hubspot.com
+   ✅ Галерея 2: /uploads/images/it-crm-automation-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Система управления складом - Автоматизация 90%
+   Slug: it-inventory-system
+   URL: https://www.zoho.com/inventory
+  Открываем страницу: https://www.zoho.com/inventory
+   ✅ Hero изображение: /uploads/images/it-inventory-system-hero.png
+  Открываем страницу: https://www.zoho.com/inventory
+   ✅ Галерея 1: /uploads/images/it-inventory-system-gallery-1.png
+  Открываем страницу: https://www.zoho.com/inventory
+   ✅ Галерея 2: /uploads/images/it-inventory-system-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Приложение для путешествий - Бронирования +320%
+   Slug: mobile-travel-app
+   URL: https://www.booking.com
+  Открываем страницу: https://www.booking.com
+   ✅ Hero изображение: /uploads/images/mobile-travel-app-hero.png
+  Открываем страницу: https://www.booking.com
+   ✅ Галерея 1: /uploads/images/mobile-travel-app-gallery-1.png
+  Открываем страницу: https://www.booking.com
+   ✅ Галерея 2: /uploads/images/mobile-travel-app-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Социальная сеть для профессионалов
+   Slug: mobile-social-network
+   URL: https://www.linkedin.com
+  Открываем страницу: https://www.linkedin.com
+   ✅ Hero изображение: /uploads/images/mobile-social-network-hero.png
+  Открываем страницу: https://www.linkedin.com
+   ✅ Галерея 1: /uploads/images/mobile-social-network-gallery-1.png
+  Открываем страницу: https://www.linkedin.com
+   ✅ Галерея 2: /uploads/images/mobile-social-network-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Приложение для медитации - Подписки +180%
+   Slug: mobile-meditation-app
+   URL: https://www.headspace.com
+  Открываем страницу: https://www.headspace.com
+   ✅ Hero изображение: /uploads/images/mobile-meditation-app-hero.png
+  Открываем страницу: https://www.headspace.com
+   ✅ Галерея 1: /uploads/images/mobile-meditation-app-gallery-1.png
+  Открываем страницу: https://www.headspace.com
+   ✅ Галерея 2: /uploads/images/mobile-meditation-app-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Банковское приложение - Безопасность и UX
+   Slug: mobile-banking-app
+   URL: https://www.revolut.com
+  Открываем страницу: https://www.revolut.com
+   ✅ Hero изображение: /uploads/images/mobile-banking-app-hero.png
+  Открываем страницу: https://www.revolut.com
+   ✅ Галерея 1: /uploads/images/mobile-banking-app-gallery-1.png
+  Открываем страницу: https://www.revolut.com
+   ✅ Галерея 2: /uploads/images/mobile-banking-app-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Приложение доставки еды - Заказы +240%
+   Slug: mobile-food-delivery
+   URL: https://www.ubereats.com
+  Открываем страницу: https://www.ubereats.com
+   ✅ Hero изображение: /uploads/images/mobile-food-delivery-hero.png
+  Открываем страницу: https://www.ubereats.com
+   ✅ Галерея 1: /uploads/images/mobile-food-delivery-gallery-1.png
+  Открываем страницу: https://www.ubereats.com
+   ✅ Галерея 2: /uploads/images/mobile-food-delivery-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Фитнес приложение - 50K+ пользователей
+   Slug: mobile-fitness-app
+   URL: https://www.myfitnesspal.com
+  Открываем страницу: https://www.myfitnesspal.com
+   ✅ Hero изображение: /uploads/images/mobile-fitness-app-hero.png
+  Открываем страницу: https://www.myfitnesspal.com
+   ✅ Галерея 1: /uploads/images/mobile-fitness-app-gallery-1.png
+  Открываем страницу: https://www.myfitnesspal.com
+   ✅ Галерея 2: /uploads/images/mobile-fitness-app-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Dropshipping платформа - Автоматизация заказов
+   Slug: ecommerce-dropshipping
+   URL: https://www.oberlo.com
+  Открываем страницу: https://www.oberlo.com
+   ✅ Hero изображение: /uploads/images/ecommerce-dropshipping-hero.png
+  Открываем страницу: https://www.oberlo.com
+   ✅ Галерея 1: /uploads/images/ecommerce-dropshipping-gallery-1.png
+  Открываем страницу: https://www.oberlo.com
+   ✅ Галерея 2: /uploads/images/ecommerce-dropshipping-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Нишевый маркетплейс - Рост на 78%
+   Slug: ecommerce-marketplace-niche
+   URL: https://www.reverb.com
+  Открываем страницу: https://www.reverb.com
+   ✅ Hero изображение: /uploads/images/ecommerce-marketplace-niche-hero.png
+  Открываем страницу: https://www.reverb.com
+   ✅ Галерея 1: /uploads/images/ecommerce-marketplace-niche-gallery-1.png
+  Открываем страницу: https://www.reverb.com
+   ✅ Галерея 2: /uploads/images/ecommerce-marketplace-niche-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Мобильный интернет-магазин - Конверсия 8.2%
+   Slug: ecommerce-mobile-first
+   URL: https://www.wish.com
+  Открываем страницу: https://www.wish.com
+   ✅ Hero изображение: /uploads/images/ecommerce-mobile-first-hero.png
+  Открываем страницу: https://www.wish.com
+   ✅ Галерея 1: /uploads/images/ecommerce-mobile-first-gallery-1.png
+  Открываем страницу: https://www.wish.com
+   ✅ Галерея 2: /uploads/images/ecommerce-mobile-first-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: B2B платформа для оптовых закупок
+   Slug: ecommerce-b2b-platform
+   URL: https://www.alibaba.com
+  Открываем страницу: https://www.alibaba.com
+   ✅ Hero изображение: /uploads/images/ecommerce-b2b-platform-hero.png
+  Открываем страницу: https://www.alibaba.com
+   ✅ Галерея 1: /uploads/images/ecommerce-b2b-platform-gallery-1.png
+  Открываем страницу: https://www.alibaba.com
+   ✅ Галерея 2: /uploads/images/ecommerce-b2b-platform-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: E-commerce с подписками - MRR +110%
+   Slug: ecommerce-subscription
+   URL: https://www.birchbox.com
+  Открываем страницу: https://www.birchbox.com
+   ✅ Hero изображение: /uploads/images/ecommerce-subscription-hero.png
+  Открываем страницу: https://www.birchbox.com
+   ✅ Галерея 1: /uploads/images/ecommerce-subscription-gallery-1.png
+  Открываем страницу: https://www.birchbox.com
+   ✅ Галерея 2: /uploads/images/ecommerce-subscription-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Маркетплейс для мастеров - 500+ продавцов
+   Slug: ecommerce-marketplace
+   URL: https://www.etsy.com
+  Открываем страницу: https://www.etsy.com
+   ✅ Hero изображение: /uploads/images/ecommerce-marketplace-hero.png
+  Открываем страницу: https://www.etsy.com
+   ✅ Галерея 1: /uploads/images/ecommerce-marketplace-gallery-1.png
+  Открываем страницу: https://www.etsy.com
+   ✅ Галерея 2: /uploads/images/ecommerce-marketplace-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Интернет-магазин премиум бутика - Продажи +185%
+   Slug: ecommerce-boutique
+   URL: https://www.farfetch.com
+  Открываем страницу: https://www.farfetch.com
+   ❌ Ошибка: page.goto: Timeout 10000ms exceeded.
+Call log:
+  - navigating to "https://www.farfetch.com/", waiting until "load"
+
+
+📋 Обрабатываем: Landing для регистрации на событие - 1200+ участников
+   Slug: landing-event-registration
+   URL: https://www.eventbrite.com
+  Открываем страницу: https://www.eventbrite.com
+   ❌ Ошибка: page.goto: Timeout 10000ms exceeded.
+Call log:
+  - navigating to "https://www.eventbrite.com/", waiting until "load"
+
+
+📋 Обрабатываем: Landing для запуска приложения - Предзаказы +890
+   Slug: landing-app-launch
+   URL: https://www.producthunt.com
+  Открываем страницу: https://www.producthunt.com
+   ✅ Hero изображение: /uploads/images/landing-app-launch-hero.png
+  Открываем страницу: https://www.producthunt.com
+   ✅ Галерея 1: /uploads/images/landing-app-launch-gallery-1.png
+  Открываем страницу: https://www.producthunt.com
+   ✅ Галерея 2: /uploads/images/landing-app-launch-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Landing для мастер-класса - Продажи +320%
+   Slug: landing-masterclass
+   URL: https://www.masterclass.com
+  Открываем страницу: https://www.masterclass.com
+   ✅ Hero изображение: /uploads/images/landing-masterclass-hero.png
+  Открываем страницу: https://www.masterclass.com
+   ✅ Галерея 1: /uploads/images/landing-masterclass-gallery-1.png
+  Открываем страницу: https://www.masterclass.com
+   ✅ Галерея 2: /uploads/images/landing-masterclass-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Landing для краудфандинга - Сбор 180% от цели
+   Slug: landing-crowdfunding
+   URL: https://www.kickstarter.com
+  Открываем страницу: https://www.kickstarter.com
+   ✅ Hero изображение: /uploads/images/landing-crowdfunding-hero.png
+  Открываем страницу: https://www.kickstarter.com
+   ✅ Галерея 1: /uploads/images/landing-crowdfunding-gallery-1.png
+  Открываем страницу: https://www.kickstarter.com
+   ✅ Галерея 2: /uploads/images/landing-crowdfunding-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Landing для вебинара - Регистрации +450%
+   Slug: landing-webinar
+   URL: https://www.webinarjam.com
+  Открываем страницу: https://www.webinarjam.com
+   ✅ Hero изображение: /uploads/images/landing-webinar-hero.png
+  Открываем страницу: https://www.webinarjam.com
+   ✅ Галерея 1: /uploads/images/landing-webinar-gallery-1.png
+  Открываем страницу: https://www.webinarjam.com
+   ✅ Галерея 2: /uploads/images/landing-webinar-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Landing для SaaS продукта - Конверсия 12.5%
+   Slug: landing-saas-product
+   URL: https://www.notion.so
+  Открываем страницу: https://www.notion.so
+   ✅ Hero изображение: /uploads/images/landing-saas-product-hero.png
+  Открываем страницу: https://www.notion.so
+   ✅ Галерея 1: /uploads/images/landing-saas-product-gallery-1.png
+  Открываем страницу: https://www.notion.so
+   ✅ Галерея 2: /uploads/images/landing-saas-product-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Логотип для финансовой компании
+   Slug: logo-financial-service
+   URL: https://www.stripe.com
+  Открываем страницу: https://www.stripe.com
+   ✅ Hero изображение: /uploads/images/logo-financial-service-hero.png
+  Открываем страницу: https://www.stripe.com
+   ✅ Галерея 1: /uploads/images/logo-financial-service-gallery-1.png
+  Открываем страницу: https://www.stripe.com
+   ✅ Галерея 2: /uploads/images/logo-financial-service-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Логотип для экологического бренда
+   Slug: logo-eco-brand
+   URL: https://www.patagonia.com
+  Открываем страницу: https://www.patagonia.com
+   ✅ Hero изображение: /uploads/images/logo-eco-brand-hero.png
+  Открываем страницу: https://www.patagonia.com
+   ✅ Галерея 1: /uploads/images/logo-eco-brand-gallery-1.png
+  Открываем страницу: https://www.patagonia.com
+   ✅ Галерея 2: /uploads/images/logo-eco-brand-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Логотип для фитнес-бренда
+   Slug: logo-fitness-brand
+   URL: https://www.99designs.com
+  Открываем страницу: https://www.99designs.com
+   ✅ Hero изображение: /uploads/images/logo-fitness-brand-hero.png
+  Открываем страницу: https://www.99designs.com
+   ✅ Галерея 1: /uploads/images/logo-fitness-brand-gallery-1.png
+  Открываем страницу: https://www.99designs.com
+   ✅ Галерея 2: /uploads/images/logo-fitness-brand-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Логотип для сети ресторанов
+   Slug: logo-restaurant-chain
+   URL: https://www.behance.net
+  Открываем страницу: https://www.behance.net
+   ✅ Hero изображение: /uploads/images/logo-restaurant-chain-hero.png
+  Открываем страницу: https://www.behance.net
+   ✅ Галерея 1: /uploads/images/logo-restaurant-chain-gallery-1.png
+  Открываем страницу: https://www.behance.net
+   ✅ Галерея 2: /uploads/images/logo-restaurant-chain-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: Логотип для технологического стартапа
+   Slug: logo-tech-startup
+   URL: https://www.dribbble.com
+  Открываем страницу: https://www.dribbble.com
+   ✅ Hero изображение: /uploads/images/logo-tech-startup-hero.png
+  Открываем страницу: https://www.dribbble.com
+   ✅ Галерея 1: /uploads/images/logo-tech-startup-gallery-1.png
+  Открываем страницу: https://www.dribbble.com
+   ✅ Галерея 2: /uploads/images/logo-tech-startup-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: SEO для агентства недвижимости - Рост заявок на 210%
+   Slug: seo-real-estate
+   URL: https://www.zillow.com
+  Открываем страницу: https://www.zillow.com
+   ✅ Hero изображение: /uploads/images/seo-real-estate-hero.png
+  Открываем страницу: https://www.zillow.com
+   ✅ Галерея 1: /uploads/images/seo-real-estate-gallery-1.png
+  Открываем страницу: https://www.zillow.com
+   ✅ Галерея 2: /uploads/images/seo-real-estate-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: SEO для образовательной платформы - Рост студентов на 275%
+   Slug: seo-education-platform
+   URL: https://www.coursera.org
+  Открываем страницу: https://www.coursera.org
+   ❌ Ошибка: page.goto: Timeout 10000ms exceeded.
+Call log:
+  - navigating to "https://www.coursera.org/", waiting until "load"
+
+
+📋 Обрабатываем: SEO для медицинской клиники - Рост записей на 195%
+   Slug: seo-medical-clinic
+   URL: https://www.healthline.com
+  Открываем страницу: https://www.healthline.com
+   ✅ Hero изображение: /uploads/images/seo-medical-clinic-hero.png
+  Открываем страницу: https://www.healthline.com
+   ✅ Галерея 1: /uploads/images/seo-medical-clinic-gallery-1.png
+  Открываем страницу: https://www.healthline.com
+   ✅ Галерея 2: /uploads/images/seo-medical-clinic-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: SEO для SaaS стартапа - Рост лидов на 320%
+   Slug: seo-saas-startup
+   URL: https://www.producthunt.com
+  Открываем страницу: https://www.producthunt.com
+   ✅ Hero изображение: /uploads/images/seo-saas-startup-hero.png
+  Открываем страницу: https://www.producthunt.com
+   ✅ Галерея 1: /uploads/images/seo-saas-startup-gallery-1.png
+  Открываем страницу: https://www.producthunt.com
+   ✅ Галерея 2: /uploads/images/seo-saas-startup-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: SEO для интернет-магазина - Рост продаж на 180%
+   Slug: seo-ecommerce-growth
+   URL: https://www.ecomm.design
+  Открываем страницу: https://www.ecomm.design
+   ✅ Hero изображение: /uploads/images/seo-ecommerce-growth-hero.png
+  Открываем страницу: https://www.ecomm.design
+   ✅ Галерея 1: /uploads/images/seo-ecommerce-growth-gallery-1.png
+  Открываем страницу: https://www.ecomm.design
+   ✅ Галерея 2: /uploads/images/seo-ecommerce-growth-gallery-2.png
+   ✅ БД обновлена
+
+📋 Обрабатываем: SEO продвижение локального бизнеса - Рост трафика на 240%
+   Slug: seo-local-business
+   URL: https://www.awwwards.com
+  Открываем страницу: https://www.awwwards.com
+   ✅ Hero изображение: /uploads/images/seo-local-business-hero.png
+  Открываем страницу: https://www.awwwards.com
+   ✅ Галерея 1: /uploads/images/seo-local-business-gallery-1.png
+  Открываем страницу: https://www.awwwards.com
+   ✅ Галерея 2: /uploads/images/seo-local-business-gallery-2.png
+   ✅ БД обновлена
+
+
+🎉 Готово!
+   Обработано: 44
+   Пропущено: 0
+   Ошибок: 8

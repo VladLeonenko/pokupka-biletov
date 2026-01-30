@@ -1,0 +1,36 @@
+User-agent: *
+Allow: /
+
+# Исключаем административные разделы
+Disallow: /admin
+Disallow: /api/
+Disallow: /uploads/chat-files/
+
+# Исключаем служебные файлы
+Disallow: /*.json$
+Disallow: /*.xml$
+
+# Разрешаем статические файлы
+Allow: /assets/
+Allow: /img/
+Allow: /css/
+Allow: /js/
+Allow: /fonts/
+
+# Карта сайта
+Sitemap: https://prime-coder.ru/sitemap.xml
+
+# Индексация изображений
+User-agent: Googlebot-Image
+Allow: /img/
+Allow: /assets/
+
+# Яндекс
+User-agent: Yandex
+Allow: /
+Crawl-delay: 0
+
+# Google
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
