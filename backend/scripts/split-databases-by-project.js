@@ -233,7 +233,7 @@ async function runMigrations(targetPool) {
     '024_add_reviews_table.sql',
     '025_add_chat_session_id.sql',
     '025_extend_reviews_table.sql',
-    '026_blog_cover_carousel.sql',
+    '026_blog_cover_carousel.sql', // Добавляет cover_image_url в blog_posts
     '027_add_faq_to_products.sql',
     '028_create_team_members.sql',
     '029_email_campaigns.sql',
@@ -347,7 +347,19 @@ async function exportAndImportTable(sourcePool, targetPool, tableName, project, 
         
         const columns = Object.keys(rowData);
         const values = columns.map((_, i) => `$${i + 1}`);
-        const params = columns.map(col => rowData[col]);
+        // Обрабатываем JSON/JSONB поля
+        const params = columns.map(col => {
+          const value = rowData[col];
+          // Если значение уже объект/массив, преобразуем в JSON строку для JSONB полей
+          if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+            try {
+              return JSON.stringify(value);
+            } catch (e) {
+              return value;
+            }
+          }
+          return value;
+        });
         
         let conflictClause = '';
         if (pkColumn && columns.includes(pkColumn)) {
@@ -355,6 +367,13 @@ async function exportAndImportTable(sourcePool, targetPool, tableName, project, 
         } else if (tableName === 'partials' && columns.includes('name')) {
           conflictClause = `ON CONFLICT (name) DO UPDATE SET html = EXCLUDED.html`;
         }
+        
+        // Для JSONB полей используем ::jsonb
+        const columnDefs = columns.map(col => {
+          // Проверяем, является ли колонка JSONB
+          const isJsonb = ['gallery', 'metrics', 'settings', 'items', 'content_json', 'carousel_items'].includes(col);
+          return isJsonb ? `${col}::jsonb` : col;
+        });
         
         await targetPool.query(
           `INSERT INTO ${tableName} (${columns.join(', ')}) 
