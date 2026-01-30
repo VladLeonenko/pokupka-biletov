@@ -86,6 +86,8 @@ async function exportTable(pool, tableName) {
   try {
     // Определяем колонку для сортировки (id, name, или без сортировки)
     let orderBy = '';
+    let whereClause = '';
+    
     try {
       const checkId = await pool.query(`SELECT 1 FROM ${tableName} LIMIT 1`);
       const columns = await pool.query(`
@@ -102,12 +104,18 @@ async function exportTable(pool, tableName) {
       } else if (colNames.includes('slug')) {
         orderBy = 'ORDER BY slug';
       }
+      
+      // Для blog_posts можно фильтровать пустые посты (опционально через переменную окружения)
+      if (tableName === 'blog_posts' && process.env.FILTER_EMPTY_POSTS === 'true') {
+        whereClause = "WHERE (body IS NOT NULL AND LENGTH(TRIM(body)) > 100) OR (body IS NULL AND title IS NOT NULL AND LENGTH(TRIM(title)) > 10)";
+        console.error(`   ℹ️  Filtering blog_posts: only posts with body > 100 chars or valid title`);
+      }
     } catch (e) {
       // Если не удалось определить, пробуем без сортировки
     }
     
     // Получаем все данные из таблицы
-    const result = await pool.query(`SELECT * FROM ${tableName} ${orderBy}`);
+    const result = await pool.query(`SELECT * FROM ${tableName} ${whereClause} ${orderBy}`);
     
     if (result.rows.length === 0) {
       return { table: tableName, rows: [], count: 0 };
