@@ -368,18 +368,29 @@ async function exportAndImportTable(sourcePool, targetPool, tableName, project, 
           conflictClause = `ON CONFLICT (name) DO UPDATE SET html = EXCLUDED.html`;
         }
         
-        // Для JSONB полей используем ::jsonb
-        const columnDefs = columns.map(col => {
-          // Проверяем, является ли колонка JSONB
-          const isJsonb = ['gallery', 'metrics', 'settings', 'items', 'content_json', 'carousel_items'].includes(col);
-          return isJsonb ? `${col}::jsonb` : col;
+        // Для JSONB полей преобразуем в JSON строку
+        const finalParams = params.map((param, idx) => {
+          const colName = columns[idx];
+          // Если это JSONB поле и значение строка, проверяем что это валидный JSON
+          const jsonbFields = ['gallery', 'metrics', 'settings', 'items', 'content_json', 'carousel_items'];
+          if (jsonbFields.includes(colName) && typeof param === 'string') {
+            try {
+              // Пробуем распарсить, если не JSON - возвращаем как есть
+              JSON.parse(param);
+              return param;
+            } catch (e) {
+              // Если не JSON строка, возвращаем как есть
+              return param;
+            }
+          }
+          return param;
         });
         
         await targetPool.query(
           `INSERT INTO ${tableName} (${columns.join(', ')}) 
            VALUES (${values.join(', ')}) 
            ${conflictClause}`,
-          params
+          finalParams
         );
         imported++;
       } catch (error) {
@@ -444,7 +455,9 @@ async function splitDatabase(projectName) {
   console.error(`\n📤 Exporting data for ${projectName}...`);
   
   // Все таблицы для экспорта (включая воронки, задачи, проекты)
+  // ВАЖНО: users должны быть первыми, т.к. на них ссылаются другие таблицы
   const tables = [
+    'users', // Импортируем пользователей первыми
     'blog_categories',
     'blog_tags',
     'partials',
