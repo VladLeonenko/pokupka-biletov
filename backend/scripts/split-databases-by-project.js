@@ -201,6 +201,7 @@ async function createDatabase(dbName, user) {
 async function runMigrations(targetPool) {
   // Запускаем миграции для создания структуры таблиц
   const migrationsDir = path.join(__dirname, '../migrations');
+  // Все миграции в правильном порядке
   const migrations = [
     '001_init.sql',
     '002_carousels.sql',
@@ -208,18 +209,57 @@ async function runMigrations(targetPool) {
     '004_auth.sql',
     '005_cases_products.sql',
     '006_create_promotions.sql',
+    '006_donors.sql',
+    '006_move_logs.sql',
+    '007_blog_post_tags_fix.sql',
+    '007_expand_donors_add_marketing.sql',
+    '008_cases_content_json.sql',
     '009_forms.sql',
     '010_funnels.sql',
+    '011_deal_payments_and_documents.sql',
+    '011_products_content_json.sql',
+    '012_add_case_template.sql',
+    '015_create_carousels.sql',
+    '016_ecommerce_fixed.sql',
     '016_ecommerce_v2.sql',
+    '017_add_category_is_active.sql',
     '018_add_product_seo_and_cases.sql',
     '019_clients.sql',
     '020_chatbot.sql',
+    '021_add_case_category.sql',
+    '022_add_case_donor_url.sql',
     '022_create_awards.sql',
+    '023_add_case_donor_image_url.sql',
     '024_add_reviews_table.sql',
+    '025_add_chat_session_id.sql',
+    '025_extend_reviews_table.sql',
+    '026_blog_cover_carousel.sql',
+    '027_add_faq_to_products.sql',
     '028_create_team_members.sql',
     '029_email_campaigns.sql',
+    '030_add_task_categories.sql',
     '031_create_sites.sql',
+    '032_personal_planner.sql',
     '033_exercise_images.sql',
+    '033_fix_personal_entries_types.sql',
+    '034_fix_projects_duplicates.sql',
+    '034_reading_books_tracking.sql',
+    '035_user_profiles.sql',
+    '036_create_user_consents.sql',
+    '037_add_promo_code_to_promotions.sql',
+    '038_seo_position_monitoring.sql',
+    '039_ai_team.sql',
+    '040_ai_team_paused_until.sql',
+    '041_client_projects.sql',
+    '042_client_projects_order.sql',
+    '043_client_projects_primary_type.sql',
+    '044_client_funnels.sql',
+    '045_make_product_fk_deferrable.sql',
+    '045_project_comments.sql',
+    '046_commercial_proposals.sql',
+    '047_semantic_topics.sql',
+    '048_fix_cases_gallery_type.sql',
+    'add_team_page.sql',
   ];
   
   console.error('   📦 Running migrations...');
@@ -244,7 +284,27 @@ async function runMigrations(targetPool) {
 async function exportAndImportTable(sourcePool, targetPool, tableName, project, filters = {}) {
   try {
     const filter = filters[tableName] || '';
-    const orderBy = 'ORDER BY id';
+    
+    // Определяем колонку для сортировки
+    let orderBy = '';
+    try {
+      const columns = await sourcePool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = $1
+      `, [tableName]);
+      
+      const colNames = columns.rows.map(r => r.column_name);
+      if (colNames.includes('id')) {
+        orderBy = 'ORDER BY id';
+      } else if (colNames.includes('name')) {
+        orderBy = 'ORDER BY name';
+      } else if (colNames.includes('slug')) {
+        orderBy = 'ORDER BY slug';
+      }
+    } catch (e) {
+      // Игнорируем ошибки определения колонок
+    }
     
     // Экспортируем из исходной БД
     const result = await sourcePool.query(`SELECT * FROM ${tableName} ${filter} ${orderBy}`);
@@ -253,24 +313,61 @@ async function exportAndImportTable(sourcePool, targetPool, tableName, project, 
       return { exported: 0, imported: 0 };
     }
     
+    // Получаем структуру целевой таблицы
+    const targetColumns = await targetPool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = $1
+      ORDER BY ordinal_position
+    `, [tableName]);
+    
+    const targetColNames = targetColumns.rows.map(r => r.column_name);
+    
+    // Определяем primary key для ON CONFLICT
+    const pkResult = await targetPool.query(`
+      SELECT a.attname
+      FROM pg_index i
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+      WHERE i.indrelid = $1::regclass AND i.indisprimary
+    `, [tableName]);
+    
+    const pkColumn = pkResult.rows.length > 0 ? pkResult.rows[0].attname : null;
+    
     // Импортируем в целевую БД
     let imported = 0;
     for (const row of result.rows) {
       try {
-        const columns = Object.keys(row);
+        // Фильтруем только существующие колонки
+        const rowData = {};
+        for (const col of targetColNames) {
+          if (row.hasOwnProperty(col)) {
+            rowData[col] = row[col];
+          }
+        }
+        
+        const columns = Object.keys(rowData);
         const values = columns.map((_, i) => `$${i + 1}`);
-        const params = columns.map(col => row[col]);
+        const params = columns.map(col => rowData[col]);
+        
+        let conflictClause = '';
+        if (pkColumn && columns.includes(pkColumn)) {
+          conflictClause = `ON CONFLICT (${pkColumn}) DO NOTHING`;
+        } else if (tableName === 'partials' && columns.includes('name')) {
+          conflictClause = `ON CONFLICT (name) DO UPDATE SET html = EXCLUDED.html`;
+        }
         
         await targetPool.query(
           `INSERT INTO ${tableName} (${columns.join(', ')}) 
            VALUES (${values.join(', ')}) 
-           ON CONFLICT (id) DO NOTHING`,
+           ${conflictClause}`,
           params
         );
         imported++;
       } catch (error) {
-        // Игнорируем ошибки дубликатов
-        if (!error.message.includes('duplicate') && !error.message.includes('unique')) {
+        // Игнорируем ошибки дубликатов и отсутствующих колонок
+        if (!error.message.includes('duplicate') && 
+            !error.message.includes('unique') && 
+            !error.message.includes('does not exist')) {
           console.error(`      ⚠️  Error importing row: ${error.message}`);
         }
       }
@@ -327,6 +424,7 @@ async function splitDatabase(projectName) {
   // Экспортируем и импортируем данные
   console.error(`\n📤 Exporting data for ${projectName}...`);
   
+  // Все таблицы для экспорта (включая воронки, задачи, проекты)
   const tables = [
     'blog_categories',
     'blog_tags',
@@ -338,13 +436,48 @@ async function splitDatabase(projectName) {
     'promotions',
     'carousels',
     'carousel_slides',
+    'homepage_navigation_carousel',
     'clients',
+    'client_orders',
     'forms',
     'form_submissions',
     'team_members',
     'exercise_images',
     'sites',
     'site_pages',
+    // Воронки продаж
+    'sales_funnels',
+    'funnel_stages',
+    'deals',
+    'deal_payments',
+    'deal_documents',
+    // Задачи
+    'tasks',
+    'task_categories',
+    'task_comments',
+    // Проекты клиентов
+    'client_projects',
+    'project_comments',
+    // Коммерческие предложения
+    'commercial_proposals',
+    'proposal_slides',
+    // Другие
+    'awards',
+    'reviews',
+    'reading_books',
+    'email_campaigns',
+    'email_subscribers',
+    'email_templates',
+    'chats',
+    'chat_messages',
+    'notifications',
+    'user_profiles',
+    'user_consents',
+    'ai_team_subscriptions',
+    'ai_team_tasks',
+    'ai_team_incidents',
+    'personal_planner_entries',
+    'semantic_topics',
   ];
   
   // Для blog_posts используем специальный фильтр
