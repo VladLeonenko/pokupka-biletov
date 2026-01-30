@@ -84,9 +84,25 @@ const PROMOTIONS = [
 
 async function createOrUpdatePromotion(promo) {
   try {
-    // Сначала проверяем по slug, если его нет - по title
+    // Проверяем, есть ли колонки slug и conditions
+    const hasSlugColumn = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'promotions' AND column_name = 'slug'
+    `);
+    
+    const hasConditionsColumn = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'promotions' AND column_name = 'conditions'
+    `);
+    
+    const hasSlug = hasSlugColumn.rows.length > 0;
+    const hasConditions = hasConditionsColumn.rows.length > 0;
+    
+    // Сначала проверяем по slug (если колонка есть), если нет - по title
     let existing;
-    if (promo.slug) {
+    if (hasSlug && promo.slug) {
       existing = await pool.query(
         'SELECT id FROM promotions WHERE slug = $1',
         [promo.slug]
@@ -104,52 +120,102 @@ async function createOrUpdatePromotion(promo) {
     const expiryDate = promo.valid_until || null;
     
     if (existing && existing.rows.length > 0) {
-      await pool.query(`
-        UPDATE promotions SET
-          slug = $1,
-          title = $2,
-          description = $3,
-          discount_percent = $4,
-          expiry_date = $5,
-          expiry_text = $6,
-          is_active = $7,
-          button_text = $8,
-          conditions = $9,
-          form_id = $10,
-          updated_at = NOW()
-        WHERE id = $11
-      `, [
-        promo.slug,
-        promo.title,
-        promo.description,
-        promo.discount_percent,
-        expiryDate,
-        expiryText,
-        promo.is_active,
-        promo.button_text,
-        promo.conditions,
-        promo.form_id || null,
-        existing.rows[0].id
-      ]);
+      // Обновляем существующую запись
+      if (hasSlug && hasConditions) {
+        // Колонки есть - используем полный UPDATE
+        await pool.query(`
+          UPDATE promotions SET
+            slug = $1,
+            title = $2,
+            description = $3,
+            discount_percent = $4,
+            expiry_date = $5,
+            expiry_text = $6,
+            is_active = $7,
+            button_text = $8,
+            conditions = $9,
+            form_id = $10,
+            updated_at = NOW()
+          WHERE id = $11
+        `, [
+          promo.slug,
+          promo.title,
+          promo.description,
+          promo.discount_percent,
+          expiryDate,
+          expiryText,
+          promo.is_active,
+          promo.button_text,
+          promo.conditions,
+          promo.form_id || null,
+          existing.rows[0].id
+        ]);
+      } else {
+        // Колонок нет - UPDATE без slug и conditions
+        await pool.query(`
+          UPDATE promotions SET
+            title = $1,
+            description = $2,
+            discount_percent = $3,
+            expiry_date = $4,
+            expiry_text = $5,
+            is_active = $6,
+            button_text = $7,
+            form_id = $8,
+            updated_at = NOW()
+          WHERE id = $9
+        `, [
+          promo.title,
+          promo.description,
+          promo.discount_percent,
+          expiryDate,
+          expiryText,
+          promo.is_active,
+          promo.button_text,
+          promo.form_id || null,
+          existing.rows[0].id
+        ]);
+      }
       return 'updated';
     } else {
-      await pool.query(`
-        INSERT INTO promotions (
-          slug, title, description, discount_percent, expiry_date, expiry_text,
-          is_active, button_text, conditions, form_id, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-      `, [
-        promo.slug,
-        promo.title,
-        promo.description,
-        promo.discount_percent,
-        expiryDate,
-        expiryText,
-        promo.is_active,
-        promo.button_text,
-        promo.conditions,
-        promo.form_id || null
-      ]);
+      // Создаем новую запись
+      if (hasSlug && hasConditions) {
+        // Колонки есть - используем полный INSERT
+        await pool.query(`
+          INSERT INTO promotions (
+            slug, title, description, discount_percent, expiry_date, expiry_text,
+            is_active, button_text, conditions, form_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        `, [
+          promo.slug,
+          promo.title,
+          promo.description,
+          promo.discount_percent,
+          expiryDate,
+          expiryText,
+          promo.is_active,
+          promo.button_text,
+          promo.conditions,
+          promo.form_id || null
+        ]);
+      } else {
+        // Колонок нет - INSERT без slug и conditions
+        await pool.query(`
+          INSERT INTO promotions (
+            title, description, discount_percent, expiry_date, expiry_text,
+            is_active, button_text, form_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        `, [
+          promo.title,
+          promo.description,
+          promo.discount_percent,
+          expiryDate,
+          expiryText,
+          promo.is_active,
+          promo.button_text,
+          promo.form_id || null
+        ]);
+      }
       return 'created';
     }
   } catch (error) {
