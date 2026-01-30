@@ -54,11 +54,17 @@ const PRIMECODER_FILTERS = {
       title ILIKE '%seo%' OR
       title ILIKE '%ai%' OR
       title ILIKE '%аутсорсинг%' OR
+      title ILIKE '%АУТСОРСИНГ%' OR
       title ILIKE '%digital%' OR
+      title ILIKE '%DIGITAL%' OR
       title ILIKE '%блогер%' OR
+      title ILIKE '%БЛОГЕР%' OR
+      slug = 'reklama-u-blogerov' OR
       title ILIKE '%маркетинг%' OR
+      title ILIKE '%Маркетинг%' OR
       title ILIKE '%продаж%' OR
       title ILIKE '%разработка%' OR
+      title ILIKE '%Разработка%' OR
       title ILIKE '%сайт%' OR
       description_html ILIKE '%primecoder%' OR
       description_html ILIKE '%prime-coder%'
