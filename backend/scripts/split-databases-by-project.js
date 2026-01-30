@@ -141,11 +141,40 @@ const PROJECT_FILTERS = {
 
 async function createDatabase(dbName, user) {
   try {
-    // Подключаемся к postgres БД для создания новой БД
-    const adminPool = new Pool({
-      ...sourceConfig,
-      database: 'postgres',
-    });
+    // Пробуем подключиться к postgres БД для создания новой БД
+    let adminPool;
+    try {
+      adminPool = new Pool({
+        ...sourceConfig,
+        database: 'postgres',
+      });
+      await adminPool.query('SELECT 1');
+    } catch (e) {
+      // Если не получается подключиться к postgres, пробуем template1
+      try {
+        adminPool = new Pool({
+          ...sourceConfig,
+          database: 'template1',
+        });
+        await adminPool.query('SELECT 1');
+      } catch (e2) {
+        console.error(`   ⚠️  Cannot connect to postgres/template1. Trying to grant CREATEDB privilege...`);
+        // Пробуем дать права пользователю
+        try {
+          const tempPool = new Pool(sourceConfig);
+          await tempPool.query(`ALTER USER ${user} CREATEDB;`);
+          await tempPool.end();
+        } catch (e3) {
+          console.error(`   ❌ Cannot grant CREATEDB privilege. Please create databases manually:`);
+          console.error(`      CREATE DATABASE ${dbName} OWNER ${user};`);
+          return false;
+        }
+      }
+    }
+    
+    if (!adminPool) {
+      return false;
+    }
     
     // Проверяем, существует ли БД
     const check = await adminPool.query(
@@ -164,6 +193,7 @@ async function createDatabase(dbName, user) {
     return true;
   } catch (error) {
     console.error(`   ❌ Failed to create database ${dbName}:`, error.message);
+    console.error(`   💡 Try creating manually: CREATE DATABASE ${dbName} OWNER ${user};`);
     return false;
   }
 }
@@ -266,7 +296,23 @@ async function splitDatabase(projectName) {
   console.error(`\n📦 Creating database: ${dbConfig.name}`);
   const created = await createDatabase(dbConfig.name, dbConfig.user);
   if (!created) {
-    return;
+    console.error(`   ⚠️  Database ${dbConfig.name} was not created. Checking if it exists...`);
+    // Проверяем, может БД уже существует
+    try {
+      const testPool = new Pool({
+        ...sourceConfig,
+        database: dbConfig.name,
+      });
+      await testPool.query('SELECT 1');
+      await testPool.end();
+      console.error(`   ✅ Database ${dbConfig.name} already exists, continuing...`);
+    } catch (e) {
+      console.error(`   ❌ Database ${dbConfig.name} does not exist and cannot be created.`);
+      console.error(`   💡 Please create it manually using one of these methods:`);
+      console.error(`      1. sudo -u postgres psql -c "CREATE DATABASE ${dbConfig.name} OWNER ${dbConfig.user};"`);
+      console.error(`      2. psql -h localhost -U postgres -c "CREATE DATABASE ${dbConfig.name} OWNER ${dbConfig.user};"`);
+      return;
+    }
   }
   
   // Подключаемся к новой БД
