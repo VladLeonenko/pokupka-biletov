@@ -84,8 +84,30 @@ const TABLES_TO_EXPORT = [
 
 async function exportTable(pool, tableName) {
   try {
+    // Определяем колонку для сортировки (id, name, или без сортировки)
+    let orderBy = '';
+    try {
+      const checkId = await pool.query(`SELECT 1 FROM ${tableName} LIMIT 1`);
+      const columns = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = $1
+      `, [tableName]);
+      
+      const colNames = columns.rows.map(r => r.column_name);
+      if (colNames.includes('id')) {
+        orderBy = 'ORDER BY id';
+      } else if (colNames.includes('name')) {
+        orderBy = 'ORDER BY name';
+      } else if (colNames.includes('slug')) {
+        orderBy = 'ORDER BY slug';
+      }
+    } catch (e) {
+      // Если не удалось определить, пробуем без сортировки
+    }
+    
     // Получаем все данные из таблицы
-    const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY id`);
+    const result = await pool.query(`SELECT * FROM ${tableName} ${orderBy}`);
     
     if (result.rows.length === 0) {
       return { table: tableName, rows: [], count: 0 };
