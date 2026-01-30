@@ -102,3 +102,5 @@ pnpm-lock.yaml
 
 
 
+backend/backup-before-split-*.json
+backend/database-export.json
