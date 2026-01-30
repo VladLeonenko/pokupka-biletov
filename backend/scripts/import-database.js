@@ -154,9 +154,15 @@ async function importTable(pool, tableName, rows) {
 
 async function importAll() {
   console.error('🔄 Starting database import...');
-  console.error('📥 Reading data from stdin...');
   
-  const exportData = await readStdin();
+  const filePath = process.argv[2];
+  if (filePath) {
+    console.error(`📥 Reading data from file: ${filePath}...`);
+  } else {
+    console.error('📥 Reading data from stdin...');
+  }
+  
+  const exportData = await readInput();
   
   if (!exportData.tables) {
     throw new Error('Invalid export data format');
