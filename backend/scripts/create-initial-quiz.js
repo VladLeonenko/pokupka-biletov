@@ -163,6 +163,19 @@ const initialQuestions = [
 async function applyMigration() {
   try {
     console.error('📦 Применение миграции для quiz...\n');
+    
+    // Проверяем, существует ли таблица
+    const checkResult = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'quiz_questions'
+    `);
+    
+    if (checkResult.rows.length > 0) {
+      console.error('⚠️  Таблицы quiz уже существуют, пропускаем миграцию\n');
+      return;
+    }
+    
     const migrationSQL = await import('fs/promises').then(fs => 
       fs.readFile(new URL('../migrations/052_add_quiz_system.sql', import.meta.url), 'utf-8')
     );
@@ -172,6 +185,7 @@ async function applyMigration() {
     if (error.message.includes('already exists') || error.code === '42P07') {
       console.error('⚠️  Таблицы уже существуют, пропускаем миграцию\n');
     } else {
+      console.error('❌ Ошибка применения миграции:', error.message);
       throw error;
     }
   }

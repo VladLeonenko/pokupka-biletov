@@ -88,6 +88,19 @@ async function createSocialProof(sp) {
 async function applyMigration() {
   try {
     console.error('📦 Применение миграции для social_proofs...\n');
+    
+    // Проверяем, существует ли таблица
+    const checkResult = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'social_proofs'
+    `);
+    
+    if (checkResult.rows.length > 0) {
+      console.error('⚠️  Таблица social_proofs уже существует, пропускаем миграцию\n');
+      return;
+    }
+    
     const migrationSQL = await import('fs/promises').then(fs => 
       fs.readFile(new URL('../migrations/049_add_social_proofs_table.sql', import.meta.url), 'utf-8')
     );
@@ -97,6 +110,7 @@ async function applyMigration() {
     if (error.message.includes('already exists') || error.code === '42P07') {
       console.error('⚠️  Таблица уже существует, пропускаем миграцию\n');
     } else {
+      console.error('❌ Ошибка применения миграции:', error.message);
       throw error;
     }
   }
