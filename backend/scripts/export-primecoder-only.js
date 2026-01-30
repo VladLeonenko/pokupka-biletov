@@ -31,7 +31,7 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(poolConfig);
 
-// Фильтры для данных primecoder (исключаем umagazine)
+// Фильтры для данных primecoder (исключаем umagazine и amani)
 const PRIMECODER_FILTERS = {
   blog_posts: `
     WHERE (
@@ -47,6 +47,32 @@ const PRIMECODER_FILTERS = {
       slug ILIKE '%primecoder%'
     )
     AND created_at < '2026-01-29'  -- Исключаем массовый импорт umagazine
+  `,
+  products: `
+    WHERE (
+      title ILIKE '%tilda%' OR
+      title ILIKE '%seo%' OR
+      title ILIKE '%ai%' OR
+      title ILIKE '%аутсорсинг%' OR
+      title ILIKE '%digital%' OR
+      title ILIKE '%блогер%' OR
+      title ILIKE '%маркетинг%' OR
+      title ILIKE '%продаж%' OR
+      title ILIKE '%разработка%' OR
+      title ILIKE '%сайт%' OR
+      description_html ILIKE '%primecoder%' OR
+      description_html ILIKE '%prime-coder%'
+    )
+    AND NOT (
+      title ILIKE '%африканск%' OR
+      title ILIKE '%маска%' OR
+      title ILIKE '%картина%' OR
+      title ILIKE '%скульптура%' OR
+      title ILIKE '%постер%' OR
+      title ILIKE '%фотография%' OR
+      title ILIKE '%саванна%' OR
+      title ILIKE '%amani%'
+    )
   `,
 };
 
@@ -96,8 +122,8 @@ async function exportTable(pool, tableName) {
       orderBy = 'ORDER BY slug';
     }
     
-    // Для blog_posts используем специальный фильтр
-    if (tableName === 'blog_posts') {
+    // Для blog_posts и products используем специальные фильтры
+    if (tableName === 'blog_posts' || tableName === 'products') {
       const result = await pool.query(`SELECT * FROM ${tableName} ${whereClause} ${orderBy}`);
       return {
         table: tableName,
