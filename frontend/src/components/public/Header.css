@@ -1,0 +1,171 @@
+/* Стили для React Header компонента */
+/* Основные стили уже в legacy/css/style.min.css, здесь только дополнения */
+
+header {
+  width: 100%;
+  position: relative;
+  z-index: 51;
+}
+
+header .header {
+  z-index: 51;
+}
+
+header .header .header {
+  z-index: 55;
+}
+
+/* Контейнер с иконками ecommerce */
+.ecommerce-icons-container-global {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 0;
+  position: relative;
+  z-index: 100;
+}
+
+/* Меню с колонками - адаптивность */
+.main-menu-nav {
+  display: flex;
+  gap: 40px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.menu-col {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 33.333%;
+}
+
+.menu-navigation {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu-navigation li {
+  margin: 0;
+  padding: 0;
+}
+
+.menu-navigation a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  display: block;
+  padding: 8px 0;
+}
+
+.menu-navigation a:hover {
+  color: #ffbb00;
+}
+
+/* Адаптивность для планшетов (768px - 1024px) */
+@media (max-width: 1024px) {
+  .main-menu-nav {
+    gap: 30px;
+    flex-wrap: nowrap;
+  }
+  
+  .menu-col {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 33.333%;
+  }
+}
+
+/* Адаптивность для мобильных устройств (до 768px) */
+@media (max-width: 768px) {
+  .main-menu-nav {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .menu-col {
+    min-width: 100%;
+    width: 100%;
+  }
+  
+  .menu-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  
+  .menu-navigation a {
+    padding: 10px 0;
+    font-size: 16px;
+  }
+}
+
+/* Адаптивность для маленьких мобильных (до 480px) */
+@media (max-width: 480px) {
+  .main-menu-nav {
+    gap: 15px;
+  }
+  
+  .menu-navigation {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .menu-navigation a {
+    font-size: 15px;
+    padding: 8px 0;
+  }
+  
+  /* Уменьшаем отступы в меню */
+  .menu-inner .container {
+    padding-top: 60px !important;
+  }
+  
+  .footer-header {
+    margin-top: 40px !important;
+  }
+  
+  .footer-nav {
+    padding-top: 30px !important;
+    flex-direction: column;
+    gap: 20px !important;
+  }
+}
+
+/* Адаптивность для header на мобильных */
+@media (max-width: 768px) {
+  header .header {
+    padding: 10px 15px !important;
+  }
+  
+  .logo img {
+    max-height: 40px !important;
+  }
+  
+  .ecommerce-icons-container-global {
+    gap: 2px;
+  }
+  
+  .burger-menu {
+    height: 36px !important;
+    margin-left: 2px !important;
+  }
+}
+
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 360px) {
+  header .header {
+    padding: 8px 10px !important;
+  }
+  
+  .logo img {
+    max-height: 35px !important;
+  }
+  
+  .ecommerce-icons-container-global {
+    gap: 1px;
+  }
+}
+

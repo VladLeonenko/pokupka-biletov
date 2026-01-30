@@ -1,0 +1,154 @@
+// Public API functions (no authentication required)
+import { getApiBase } from '@/utils/apiBase';
+
+const API_BASE: string = getApiBase();
+
+async function publicFetch(input: string, init?: RequestInit): Promise<Response> {
+  return await fetch(input, { ...(init || {}), headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+}
+
+export async function getPublicPage(slug: string): Promise<any | null> {
+  // Normalize slug
+  let normalizedSlug = slug.trim();
+  if (!normalizedSlug || normalizedSlug === '') {
+    normalizedSlug = '/';
+  } else if (normalizedSlug !== '/') {
+    // Ensure slug starts with / and remove trailing slash
+    normalizedSlug = '/' + normalizedSlug.replace(/^\/+|\/+$/g, '');
+  }
+  
+  // Handle root slug - use query parameter to avoid URL encoding issues
+  let url: string;
+  if (normalizedSlug === '/') {
+    // Use query parameter for root slug to avoid Express routing issues with %2F
+    url = `${API_BASE}/api/public/pages?slug=/`;
+  } else {
+    // Use regular slug endpoint (no encoding needed, Express will handle it)
+    url = `${API_BASE}/api/public/pages${normalizedSlug}`;
+  }
+  
+  const res = await publicFetch(url);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Failed to fetch page');
+  const row = await res.json();
+  return mapRowToPage(row);
+}
+
+function mapRowToPage(row: any): any {
+  return {
+    id: row.slug || '',
+    path: row.slug || '',
+    title: row.title ?? '',
+    html: row.body ?? '',
+    seo: {
+      metaTitle: row.seo_title || undefined,
+      metaDescription: row.seo_description || undefined,
+      metaKeywords: Array.isArray(row.seo_keywords) ? row.seo_keywords : undefined,
+      canonicalUrl: row.canonical_url || undefined,
+      robotsIndex: row.robots_index,
+      robotsFollow: row.robots_follow,
+      ogTitle: row.og_title || undefined,
+      ogDescription: row.og_description || undefined,
+      ogImageUrl: row.og_image_url || undefined,
+      twitterCard: row.twitter_card || undefined,
+      twitterSite: row.twitter_site || undefined,
+      twitterCreator: row.twitter_creator || undefined,
+      structuredDataJson: row.structured_data ? JSON.stringify(row.structured_data) : undefined,
+      hreflang: Array.isArray(row.hreflang) ? row.hreflang : undefined,
+    },
+    isPublished: Boolean(row.is_published),
+  };
+}
+
+export async function getPublicPartials(): Promise<{ head?: string; header?: string; footer?: string }> {
+  const res = await publicFetch(`${API_BASE}/api/public/partials`);
+  if (!res.ok) throw new Error('Failed to fetch partials');
+  return await res.json();
+}
+
+export async function listPublicBlogPosts(): Promise<any[]> {
+  const res = await publicFetch(`${API_BASE}/api/public/blog?published=true`);
+  if (!res.ok) throw new Error('Failed to fetch blog posts');
+  return await res.json();
+}
+
+export async function listPublicBlogHighlights(): Promise<any[]> {
+  const res = await publicFetch(`${API_BASE}/api/public/blog?published=true&featured=true`);
+  if (!res.ok) throw new Error('Failed to fetch blog highlights');
+  return await res.json();
+}
+
+export async function getPublicBlogPost(slug: string): Promise<any> {
+  const res = await publicFetch(`${API_BASE}/api/public/blog/${encodeURIComponent(slug)}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error('Failed to fetch blog post');
+  return await res.json();
+}
+
+export async function listPublicProducts(): Promise<any[]> {
+  const res = await publicFetch(`${API_BASE}/api/public/products?active=true`);
+  if (!res.ok) throw new Error('Failed to fetch products');
+  return await res.json();
+}
+
+export async function getPublicProduct(slug: string): Promise<any> {
+  const res = await publicFetch(`${API_BASE}/api/public/products/${encodeURIComponent(slug)}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error('Failed to fetch product');
+  return await res.json();
+}
+
+export async function listPublicCases(): Promise<any[]> {
+  const res = await publicFetch(`${API_BASE}/api/public/cases?published=true`);
+  if (!res.ok) throw new Error('Failed to fetch cases');
+  return await res.json();
+}
+
+export async function getPublicCase(slug: string): Promise<any> {
+  const res = await publicFetch(`${API_BASE}/api/public/cases/${encodeURIComponent(slug)}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error('Failed to fetch case');
+  return await res.json();
+}
+
+export async function listPublicPromotions(): Promise<any[]> {
+  const res = await publicFetch(`${API_BASE}/api/public/promotions`);
+  if (!res.ok) throw new Error('Failed to fetch promotions');
+  return await res.json();
+}
+
+export async function listPublicBlogCategories(): Promise<Array<{ slug: string; name: string }>> {
+  const res = await publicFetch(`${API_BASE}/api/public/blog/categories`);
+  if (!res.ok) throw new Error('Failed to fetch blog categories');
+  return await res.json();
+}
+
+export async function validatePromoCode(promoCode: string): Promise<{ valid: boolean; promotion?: any; error?: string }> {
+  const res = await publicFetch(`${API_BASE}/api/promotions/validate-promo`, {
+    method: 'POST',
+    body: JSON.stringify({ promoCode }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    return { valid: false, error: data.error || 'Ошибка проверки промокода' };
+  }
+  return await res.json();
+}
+
+export async function submitQuizForm(data: Record<string, any>): Promise<any> {
+  const res = await publicFetch(`${API_BASE}/api/forms/quiz-form/submit`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Ошибка отправки формы');
+  }
+  
+  return await res.json();
+}
+

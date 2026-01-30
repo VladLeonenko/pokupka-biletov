@@ -1,0 +1,193 @@
+/* Оптимизация загрузки шрифтов */
+@font-face {
+  font-family: 'Raleway';
+  font-display: swap; /* Показываем текст системным шрифтом пока загружается Raleway */
+}
+
+/* Глобальные стили для темной темы */
+body {
+  background-color: #141414 !important;
+  color: #ffffff !important;
+  /* Используем системные шрифты для быстрого рендеринга */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  /* Оптимизация рендеринга текста */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Базовое поведение курсора по умолчанию на всех страницах */
+  cursor: default;
+}
+
+/* Кастомный курсор как на главной (большой/малый жёлтые кружки) */
+.cursor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 100;
+  /* transform управляется через JS (GSAP или fallback) */
+}
+
+.cursor--large {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #FB0;
+}
+
+.cursor--small {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FB0;
+  transform: translate(-50%, -50%);
+}
+
+/* Глобальные правила для указателя и текстового курсора */
+a,
+button,
+[role="button"],
+.cursor-pointer,
+.MuiIconButton-root,
+.MuiButton-root,
+.MuiChip-root {
+  cursor: pointer;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  cursor: text;
+}
+
+/* Исправление MUI светлых фонов */
+.MuiPaper-root {
+  background-color: #1a1a1a !important;
+}
+
+.MuiDialog-paper {
+  background-color: #1a1a1a !important;
+}
+
+.MuiCard-root {
+  background-color: #1a1a1a !important;
+}
+
+.MuiListItem-root:hover,
+.css-tle48i-MuiListItem-root:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.MuiTableCell-root {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.MuiSelect-root {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Аккордеоны */
+.MuiAccordion-root {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.MuiAccordion-root:before {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Модальные окна */
+.MuiBackdrop-root {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Кнопки */
+.MuiButton-outlined {
+  border-color: rgba(255, 255, 255, 0.23) !important;
+}
+
+.MuiButton-outlined:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Чипы */
+.MuiChip-root {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Табы */
+.MuiTab-root {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.MuiTab-root.Mui-selected {
+  color: #ffffff !important;
+}
+
+/* Дропдауны */
+.MuiMenu-paper,
+.MuiPopover-paper {
+  background-color: #1a1a1a !important;
+}
+
+.MuiMenuItem-root:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Глобальные стили для всех секций - адаптивный margin */
+section {
+  margin: 2em 0 !important; /* Мобильные устройства */
+}
+
+/* Планшеты */
+@media (min-width: 768px) {
+  section {
+    margin: 3em 0 !important;
+  }
+}
+
+/* Десктоп */
+@media (min-width: 1024px) {
+  section {
+    margin: 4em 0 !important;
+  }
+}
+
+/* Исключения для секций, которые не должны иметь margin */
+section:first-child,
+section:first-of-type {
+  margin-top: 0 !important;
+}
+
+/* Секции внутри других секций не должны иметь двойной margin */
+section section {
+  margin: 2em 0 !important;
+}
+
+@media (min-width: 768px) {
+  section section {
+    margin: 2.5em 0 !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  section section {
+    margin: 3em 0 !important;
+  }
+}
+
+/* Стили для страницы контактов */
+.contacts {
+  display: flex !important;
+  width: 40rem !important;
+  margin: 2em auto 2rem !important;
+}
+
+.contacts-form {
+  max-width: none !important;
+}
+
+

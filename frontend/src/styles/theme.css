@@ -1,0 +1,199 @@
+/* CSS переменные для тем */
+:root {
+  --bg-color: #141414;
+  --text-color: #ffffff;
+  --header-bg: #1a1a1a;
+  --border-color: #333333;
+  --accent-color: #ffbb00;
+}
+
+:root.dark-theme {
+  --bg-color: #141414;
+  --text-color: #ffffff;
+  --header-bg: #1a1a1a;
+  --border-color: #333333;
+  --accent-color: #ffbb00;
+}
+
+:root.light-theme {
+  --bg-color: #ffffff;
+  --text-color: #141414;
+  --header-bg: #ffffff;
+  --border-color: #e0e0e0;
+  --accent-color: #ffbb00;
+}
+
+/* Применение темы к body */
+body {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Применение темы к header */
+header {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+  transition: color 0.3s ease;
+  border-bottom: none !important;
+}
+
+/* Применение темы к footer */
+footer {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+  transition: color 0.3s ease;
+}
+
+/* Применение темы к основным контейнерам */
+section, .section {
+  color: var(--text-color);
+  transition: color 0.3s ease;
+}
+
+/* Применение темы к ссылкам */
+a {
+  color: var(--text-color);
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--accent-color);
+}
+
+/* Применение темы к заголовкам */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-color);
+}
+
+/* Применение темы к параграфам */
+p {
+  color: var(--text-color);
+}
+
+/* Применение темы к основным элементам */
+.MuiBox-root {
+  background-color: transparent;
+  color: inherit;
+}
+
+/* Темная тема для Material-UI компонентов */
+.dark-theme .MuiPaper-root {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .MuiCard-root {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .MuiTextField-root .MuiOutlinedInput-root {
+  color: #ffffff !important;
+  border-color: #333333 !important;
+}
+
+.dark-theme .MuiTextField-root .MuiOutlinedInput-root fieldset {
+  border-color: #333333 !important;
+}
+
+.dark-theme .MuiTableCell-root {
+  color: #ffffff !important;
+  border-color: #333333 !important;
+}
+
+.dark-theme .MuiTypography-root {
+  color: #ffffff !important;
+}
+
+/* Светлая тема для Material-UI компонентов */
+.light-theme .MuiPaper-root {
+  background-color: #ffffff !important;
+  color: #141414 !important;
+}
+
+.light-theme .MuiCard-root {
+  background-color: #ffffff !important;
+  color: #141414 !important;
+}
+
+.light-theme .MuiTableCell-root {
+  color: #141414 !important;
+  border-color: #e0e0e0 !important;
+}
+
+.light-theme .MuiTypography-root {
+  color: #141414 !important;
+}
+
+/* Telegram-стиль для сообщений администратора/бота */
+.css-1228hh2,
+[class*="css-"][class*="1228hh2"] {
+  background-color: #141414 !important;
+  color: #ffffff !important;
+}
+
+/* Убираем фоновый цвет у контейнеров с классом .css-1ll0nrt (генерируемый MUI) */
+.css-1ll0nrt,
+[class*="css-"][class*="1ll0nrt"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Общий стиль для всех сообщений от админа/бота в чате */
+.admin-message,
+.bot-message {
+  background-color: #141414 !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
+}
+
+.admin-message *,
+.bot-message * {
+  color: #ffffff !important;
+}
+
+/* Стили для поля ввода в чате (Telegram-стиль) */
+.MuiInputBase-input {
+  color: #ffffff !important;
+  background-color: #2a2a2a !important;
+}
+
+.MuiInputBase-input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1 !important;
+}
+
+.MuiInputBase-root {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+  border-color: #444444 !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #555555 !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #ffbb00 !important;
+}
+
+/* Стиль для контейнера ввода чата */
+.css-sbu023,
+[class*="css-"][class*="sbu023"] {
+  background-color: #1a1a1a !important;
+  border-top: 1px solid #333333 !important;
+  padding: 16px !important;
+}
+
+.css-sbu023 * {
+  color: #ffffff !important;
+}
+
