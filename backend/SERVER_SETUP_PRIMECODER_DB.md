@@ -6,7 +6,42 @@
 ssh root@85.239.44.40
 ```
 
-## 2. Обновление .env файла
+## 2. Создание базы данных primecoder_db
+
+Сначала нужно создать новую БД `primecoder_db`:
+
+```bash
+sudo -u postgres psql
+```
+
+В psql выполните:
+```sql
+CREATE DATABASE primecoder_db OWNER primeuser;
+\q
+```
+
+Или одной командой:
+```bash
+sudo -u postgres psql -c "CREATE DATABASE primecoder_db OWNER primeuser;"
+```
+
+## 3. Применение миграций к новой БД
+
+```bash
+cd /var/www/primecoder-gulp/backend
+
+# Временно меняем .env для миграций
+export PGDATABASE=primecoder_db
+
+# Применяем миграции
+npm run migrate
+
+# Или вручную через psql
+psql -h localhost -U primeuser -d primecoder_db -f migrations/001_init.sql
+# ... и так далее для всех миграций
+```
+
+## 4. Обновление .env файла
 
 Перейдите в директорию backend и обновите `.env`:
 
@@ -17,7 +52,7 @@ nano .env
 
 Измените строку:
 ```
-PGDATABASE=primecoder
+PGDATABASE=primecoder_prod
 ```
 
 На:
@@ -113,10 +148,30 @@ node scripts/import-database.js primecoder-data-export.json
 
 ## Важные заметки
 
-- **Не удаляйте старую БД `primecoder`** - она может понадобиться для восстановления данных
+- **Не удаляйте старую БД `primecoder_prod`** - она может понадобиться для восстановления данных
 - **Делайте бэкап перед импортом:**
   ```bash
   cd /var/www/primecoder-gulp/backend
-  node scripts/export-database.js > backup-$(date +%Y%m%d).json
+  # Бэкап старой БД
+  node scripts/export-database.js > backup-primecoder_prod-$(date +%Y%m%d).json
   ```
-- **Если что-то пошло не так**, можно вернуться к старой БД, изменив `.env` обратно на `PGDATABASE=primecoder`
+- **Если что-то пошло не так**, можно вернуться к старой БД, изменив `.env` обратно на `PGDATABASE=primecoder_prod`
+
+## Альтернативный вариант: использовать primecoder_prod
+
+Если не хотите создавать новую БД, можно очистить `primecoder_prod` и импортировать туда правильные данные:
+
+```bash
+cd /var/www/primecoder-gulp/backend
+
+# 1. Бэкап текущих данных
+node scripts/export-database.js > backup-primecoder_prod-$(date +%Y%m%d).json
+
+# 2. Очистка неправильных данных (осторожно!)
+# Лучше сделать через скрипт clean-primecoder-db.js, но сначала измените в нём БД на primecoder_prod
+
+# 3. Импорт правильных данных
+node scripts/import-database.js primecoder-data-export.json
+```
+
+**Рекомендация:** Лучше создать отдельную БД `primecoder_db` для чистоты и разделения проектов.
