@@ -130,14 +130,14 @@ export default defineConfig({
                     });
                 },
             },
-            // Проксируем все статические файлы из dist
+            // Проксируем /legacy на backend, который проверяет и dist/legacy, и public/legacy
             '/legacy': {
                 target: 'http://localhost:3000',
                 changeOrigin: true,
                 secure: false,
                 configure: function (proxy, _options) {
                     proxy.on('proxyRes', function (proxyRes, req) {
-                        var _a, _b;
+                        var _a, _b, _c, _d, _e, _f;
                         // Убираем X-Content-Type-Options: nosniff для JS файлов
                         if ((_a = req.url) === null || _a === void 0 ? void 0 : _a.endsWith('.js')) {
                             // Удаляем заголовок во всех возможных регистрах
@@ -159,6 +159,15 @@ export default defineConfig({
                         else if ((_b = req.url) === null || _b === void 0 ? void 0 : _b.endsWith('.css')) {
                             proxyRes.headers['content-type'] = 'text/css; charset=utf-8';
                             proxyRes.headers['Content-Type'] = 'text/css; charset=utf-8';
+                        }
+                        else if (((_c = req.url) === null || _c === void 0 ? void 0 : _c.endsWith('.png')) || ((_d = req.url) === null || _d === void 0 ? void 0 : _d.endsWith('.jpg')) || ((_e = req.url) === null || _e === void 0 ? void 0 : _e.endsWith('.jpeg'))) {
+                            // Правильный Content-Type для изображений
+                            if ((_f = req.url) === null || _f === void 0 ? void 0 : _f.endsWith('.png')) {
+                                proxyRes.headers['content-type'] = 'image/png';
+                            }
+                            else {
+                                proxyRes.headers['content-type'] = 'image/jpeg';
+                            }
                         }
                     });
                 },

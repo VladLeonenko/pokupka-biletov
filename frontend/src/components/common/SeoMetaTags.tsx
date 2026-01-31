@@ -51,8 +51,12 @@ export function SeoMetaTags({
     }
 
     // Open Graph теги
-    if (title) {
-      setMetaTag('og:title', title, true);
+    if (ogTitle || title) {
+      setMetaTag('og:title', ogTitle || title || '', true);
+    }
+    
+    if (ogDescription || description) {
+      setMetaTag('og:description', ogDescription || description || '', true);
     }
 
     if (image) {
