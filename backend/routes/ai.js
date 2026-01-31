@@ -787,18 +787,44 @@ ${(ai.html || '').substring(0, 4000)}
 });
 
 router.post('/generate-article', requireAuth, async (req, res) => {
+  let client = null;
   try {
     const { keyword, category_slug } = req.body || {};
     if (!keyword) return res.status(400).json({ error: 'keyword required' });
+    
+    console.log('[generate-article] Starting generation for keyword:', keyword, 'category:', category_slug);
+    
     const system = 'Ты пишешь статьи для блога на русском. Отвечай JSON с полями: title, html.';
     const user = `Напиши экспертную статью для сайта по ключевому запросу: "${keyword}". Добавь заголовки h2/h3, списки, краткое вступление и вывод. Верни JSON с полями title и html.`;
-    const ai = await callOpenAIJSON(system, user);
+    
+    let ai;
+    try {
+      ai = await callOpenAIJSON(system, user);
+    } catch (openAiError) {
+      console.error('[generate-article] OpenAI error:', openAiError);
+      return res.status(500).json({ 
+        error: 'Ошибка генерации контента через OpenAI', 
+        details: openAiError.message 
+      });
+    }
+    
     const title = String(ai?.title || keyword).slice(0, 160);
     const html = String(ai?.html || `<h1>${title}</h1><p>${keyword}</p>`);
+    
+    // Простая функция slugify если не импортирована
+    const slugify = (str) => {
+      return String(str || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'article';
+    };
+    
     const slug = slugify(title) || slugify(keyword);
     const ogImageUrl = `https://og-image.vercel.app/${encodeURIComponent(title)}.png?theme=dark&md=0&fontSize=86px`;
 
-    const client = await pool.connect();
+    client = await pool.connect();
     try {
       await client.query('BEGIN');
       let categoryId = null;
@@ -855,14 +881,35 @@ router.post('/generate-article', requireAuth, async (req, res) => {
       }
       await client.query('COMMIT');
       client.release();
+      client = null;
+      console.log('[generate-article] Article created successfully:', { slug, title });
       return res.json({ slug, title });
-    } catch (e) {
-      await client.query('ROLLBACK');
-      client.release();
-      throw e;
+    } catch (dbError) {
+      if (client) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (rollbackError) {
+          console.error('[generate-article] Rollback error:', rollbackError);
+        }
+        client.release();
+        client = null;
+      }
+      console.error('[generate-article] Database error:', dbError);
+      throw dbError;
     }
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    if (client) {
+      try {
+        client.release();
+      } catch (releaseError) {
+        console.error('[generate-article] Release error:', releaseError);
+      }
+    }
+    console.error('[generate-article] General error:', e);
+    res.status(500).json({ 
+      error: e.message || 'Ошибка при генерации статьи',
+      details: process.env.NODE_ENV === 'development' ? e.stack : undefined
+    });
   }
 });
 
