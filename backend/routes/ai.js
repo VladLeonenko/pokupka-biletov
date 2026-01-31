@@ -340,8 +340,10 @@ router.get('/semantic', async (req, res) => {
       return { q, ya: freq.ya, ga: freq.ga };
     });
 
+    console.log('[semantic] Returning keywords:', { high: high.length, medium: medium.length, low: low.length });
     res.json({ high: wrap(high, 'high'), medium: wrap(medium, 'medium'), low: wrap(low, 'low') });
   } catch (e) {
+    console.error('[semantic] Error generating keywords, using fallback:', e);
     const base = [].concat(...Object.values(SEED_MAP));
     const seen = new Set();
     const pick = (arr) => { const out=[]; let i=0; while(out.length<10){ const q=String(arr[i%Math.max(arr.length,1)]||'запрос'); const c=i<arr.length?q:`${q} 2025`; if(!seen.has(c)){out.push(c); seen.add(c);} i++; if(i>200) break; } return out; };
