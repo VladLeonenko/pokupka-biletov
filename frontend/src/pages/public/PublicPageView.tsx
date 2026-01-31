@@ -12,6 +12,19 @@ export function PublicPageView() {
   // Use location pathname for direct routes like /about, /contacts, etc.
   // Or use slug from params for /site/:slug routes
   const pathSlug = location.pathname;
+  
+  // Не пытаемся загружать админские страницы через pages API
+  if (pathSlug.startsWith('/admin')) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h5">Страница не найдена</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Админские страницы доступны только авторизованным пользователям
+        </Typography>
+      </Box>
+    );
+  }
+  
   // Normalize slug: remove trailing slash (except root), handle .html extension
   let pageSlug = pathSlug === '/' ? '/' : pathSlug.replace(/\/+$/, '');
   // Если slug заканчивается на .html, удаляем расширение для поиска в БД
