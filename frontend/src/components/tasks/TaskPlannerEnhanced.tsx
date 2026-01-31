@@ -35,17 +35,21 @@ import {
   ArcElement,
   Tooltip,
   Legend,
+  Title,
 } from 'chart.js';
-import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
+import { Line as LineChart, Bar as BarChart, Pie as PieChart, Doughnut as DoughnutChart } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
   PointElement,
   LineElement,
   BarElement,
   ArcElement,
   Tooltip,
   Legend,
-  Title,
-} from 'chart.js';
-import { Line as LineChart, Bar as BarChart, Pie as PieChart, Doughnut as DoughnutChart } from 'react-chartjs-2';
+  Title
+);
 import { getTaskStats, listTasks, getAITaskRecommendations, upsertTask, TaskStats, AIRecommendation, SuggestedTask, RecommendationTask } from '@/services/cmsApi';
 import { Task } from '@/types/cms';
 import { useState, useMemo } from 'react';

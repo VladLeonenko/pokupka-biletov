@@ -37,15 +37,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Tooltip,
-  Legend,
-  Title,
-} from 'chart.js';
-import { Line as LineChart, Bar as BarChart, Pie as PieChart, Doughnut as DoughnutChart } from 'react-chartjs-2';
 import { getTaskStats, TaskStats } from '@/services/cmsApi';
 import { useState } from 'react';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
