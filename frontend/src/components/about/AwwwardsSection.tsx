@@ -6,15 +6,18 @@ import { Link } from 'react-router-dom';
  * Секция "Награды Awwwards" на странице /about
  */
 export function AwwwardsSection() {
-  const { data: awards = [], isLoading, error } = useQuery({
+  const { data: awards = [], isLoading, error } = useQuery<Award[]>({
     queryKey: ['public-awards'],
     queryFn: getPublicAwards,
     staleTime: 5 * 60 * 1000, // 5 минут
     retry: 1, // Повторить только 1 раз при ошибке
-    onError: (err) => {
-      console.warn('Failed to load awards, using default data:', err);
-    },
   });
+
+  useEffect(() => {
+    if (error) {
+      console.warn('Failed to load awards, using default data:', error);
+    }
+  }, [error]);
 
   // Статичные данные по умолчанию, если API не работает или данных нет
   const defaultAwards = [

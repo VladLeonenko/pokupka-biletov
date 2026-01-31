@@ -26,10 +26,6 @@ import {
   Snackbar,
 } from '@mui/material';
 import {
-  Line,
-  Bar,
-  Pie,
-  Doughnut,
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
@@ -39,10 +35,19 @@ import {
   ArcElement,
   Tooltip,
   Legend,
+} from 'chart.js';
+import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
   Title,
 } from 'chart.js';
 import { Line as LineChart, Bar as BarChart, Pie as PieChart, Doughnut as DoughnutChart } from 'react-chartjs-2';
-import { getTaskStats, listTasks, getAITaskRecommendations, upsertTask, TaskStats, Task, AIRecommendation, SuggestedTask, RecommendationTask } from '@/services/cmsApi';
+import { getTaskStats, listTasks, getAITaskRecommendations, upsertTask, TaskStats, AIRecommendation, SuggestedTask, RecommendationTask } from '@/services/cmsApi';
+import { Task } from '@/types/cms';
 import { useState, useMemo } from 'react';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';

@@ -26,9 +26,9 @@ export function ProductsListPage() {
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { data: products = [], isLoading } = useQuery({ 
+  const { data: products = [], isLoading } = useQuery<ProductItem[]>({ 
     queryKey: ['products'], 
-    queryFn: listProducts,
+    queryFn: () => listProducts(),
   });
 
   // Фильтруем и сортируем товары

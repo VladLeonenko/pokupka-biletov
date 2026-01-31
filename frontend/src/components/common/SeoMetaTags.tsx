@@ -7,6 +7,8 @@ interface SeoMetaTagsProps {
   image?: string;
   url?: string;
   type?: string;
+  ogTitle?: string;
+  ogDescription?: string;
 }
 
 export function SeoMetaTags({ 

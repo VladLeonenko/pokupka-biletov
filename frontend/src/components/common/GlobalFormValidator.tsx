@@ -60,14 +60,14 @@ export function GlobalFormValidator() {
             }
           } else if (firstInvalid.validity.patternMismatch) {
             errorMessage = 'Неверный формат данных';
-          } else if (firstInvalid.validity.tooShort) {
-            errorMessage = `Минимальная длина: ${firstInvalid.minLength} символов`;
-          } else if (firstInvalid.validity.tooLong) {
-            errorMessage = `Максимальная длина: ${firstInvalid.maxLength} символов`;
-          } else if (firstInvalid.validity.rangeUnderflow) {
-            errorMessage = `Минимальное значение: ${firstInvalid.min}`;
-          } else if (firstInvalid.validity.rangeOverflow) {
-            errorMessage = `Максимальное значение: ${firstInvalid.max}`;
+          } else if (firstInvalid.validity.tooShort && 'minLength' in firstInvalid) {
+            errorMessage = `Минимальная длина: ${(firstInvalid as HTMLInputElement | HTMLTextAreaElement).minLength} символов`;
+          } else if (firstInvalid.validity.tooLong && 'maxLength' in firstInvalid) {
+            errorMessage = `Максимальная длина: ${(firstInvalid as HTMLInputElement | HTMLTextAreaElement).maxLength} символов`;
+          } else if (firstInvalid.validity.rangeUnderflow && 'min' in firstInvalid) {
+            errorMessage = `Минимальное значение: ${(firstInvalid as HTMLInputElement).min}`;
+          } else if (firstInvalid.validity.rangeOverflow && 'max' in firstInvalid) {
+            errorMessage = `Максимальное значение: ${(firstInvalid as HTMLInputElement).max}`;
           } else {
             errorMessage = firstInvalid.validationMessage || 'Поле заполнено неверно';
           }

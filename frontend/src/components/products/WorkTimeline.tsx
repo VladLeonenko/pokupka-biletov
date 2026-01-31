@@ -1,4 +1,5 @@
-import { Box, Typography, Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineContent, TimelineDot, Paper, Chip } from '@mui/material';
+import { Box, Typography, Paper, Chip } from '@mui/material';
+import { Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineContent, TimelineDot } from '@mui/lab';
 import { motion } from 'framer-motion';
 
 const MotionTimelineItem = motion.create(TimelineItem);

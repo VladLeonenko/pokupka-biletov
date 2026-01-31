@@ -24,7 +24,7 @@ interface QuizFormData {
   smm?: boolean;
   target?: boolean;
   marketing?: boolean;
-  seo?: boolean; // SEO-продвижение (отдельно от seo в вопросе 1)
+  seoPromotion?: boolean; // SEO-продвижение (переименовано, чтобы избежать конфликта с seo из вопроса 1)
   photo?: boolean;
   
   // Вопрос 4: Промокод

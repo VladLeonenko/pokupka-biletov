@@ -1,4 +1,4 @@
-import { Box, Container, Typography, Button, Grid, Card, CardContent, Paper, TextField, Slider, Accordion, AccordionSummary, AccordionDetails, Rating, Avatar, Chip } from '@mui/material';
+import { Box, Container, Typography, Button, Grid, Card, CardContent, Paper, TextField, Slider, Accordion, AccordionSummary, AccordionDetails, Rating, Avatar, Chip, Divider } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';

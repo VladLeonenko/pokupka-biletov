@@ -15,13 +15,17 @@ import {
   LinearProgress,
 } from '@mui/material';
 import {
-  Line,
-  Bar,
-  Pie,
-  Doughnut,
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
   PointElement,
   LineElement,
   BarElement,
@@ -59,10 +63,13 @@ export function TaskPlanner() {
     queryKey: ['taskStats', daysFilter],
     queryFn: () => getTaskStats(daysFilter),
     retry: 1,
-    onError: (err: any) => {
-      console.error('[TaskPlanner] Error loading stats:', err);
-    },
   });
+
+  useEffect(() => {
+    if (error) {
+      console.error('[TaskPlanner] Error loading stats:', error);
+    }
+  }, [error]);
 
   if (isLoading) {
     return (

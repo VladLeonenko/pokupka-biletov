@@ -431,7 +431,6 @@ export function ProductPage() {
             <Box>
               <MotionTypography
                 {...sectionAnimation(0.26)}
-                component="h1"
                 variant="h2"
                 sx={{
                   fontWeight: 700,
@@ -1058,10 +1057,10 @@ export function ProductPage() {
         <Container maxWidth="xl" sx={{ mt: 8 }}>
           <WorkTimeline
             steps={workStepsList.map((step) => ({
-              number: step.number || 0,
+              number: typeof step.number === 'number' ? step.number : parseInt(String(step.number || 0), 10),
               title: step.title || '',
               description: step.description || '',
-              duration: step.duration,
+              duration: (step as any).duration,
             }))}
             title={workSteps?.title || 'Как мы работаем'}
           />

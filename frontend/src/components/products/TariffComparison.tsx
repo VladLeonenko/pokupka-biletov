@@ -40,11 +40,11 @@ export function TariffComparison({ tariffs, title = 'Сравнение тари
       </Typography>
 
       <MotionTableContainer
-        component={Paper}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         sx={{ overflowX: 'auto' }}
+        component={Paper}
       >
         <Table sx={{ minWidth: 650 }}>
           <TableHead>

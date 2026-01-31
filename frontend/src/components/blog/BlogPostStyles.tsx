@@ -335,8 +335,6 @@ export function BlogPostStyles() {
         '.blog-post-content th': {
           paddingTop: '20px',
           paddingBottom: '20px',
-        },
-        '.blog-post-content th': {
           textTransform: 'uppercase',
           letterSpacing: '0.18em',
           fontSize: '0.75rem',

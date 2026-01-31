@@ -1303,7 +1303,7 @@ export async function getAITaskRecommendations(): Promise<{ recommendations: AIR
     };
   } catch (err: any) {
     console.error('[getAITaskRecommendations] Exception:', err);
-    return { recommendations: [] };
+    return { recommendations: [], suggestedTasks: [] };
   }
 }
 
@@ -1393,15 +1393,6 @@ export interface PromotionItem {
   hiddenLocation?: string | null;
   discountPercent?: number;
   discountAmount?: number;
-  id?: number;
-  title: string;
-  description: string;
-  expiryDate?: string | null;
-  expiryText?: string | null;
-  buttonText: string;
-  formId?: string | null;
-  isActive: boolean;
-  sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
 }

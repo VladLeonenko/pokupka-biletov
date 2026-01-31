@@ -8,7 +8,7 @@ export function Footer() {
     const ct = document.createElement('script');
     ct.type = 'text/javascript';
     ct.async = true;
-    ct.rel = 'preload';
+    // rel не поддерживается для script элементов
     ct.src = `${document.location.protocol}//cc.calltracking.ru/phone.0c80c.13070.async.js?nc=${Math.floor(new Date().getTime() / 300000)}`;
     const s = document.getElementsByTagName('script')[0];
     if (s && s.parentNode) {

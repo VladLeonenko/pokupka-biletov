@@ -181,7 +181,7 @@ export function SafeImage({
           display: 'block',
           width: '100%',
           height: '100%',
-          objectFit: sx?.objectFit || 'contain',
+          objectFit: (sx as any)?.objectFit || 'contain',
         }}
       />
     </Box>

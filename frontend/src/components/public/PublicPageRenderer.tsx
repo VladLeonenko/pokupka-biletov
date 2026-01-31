@@ -278,8 +278,9 @@ export function PublicPageRenderer({ html, onScriptsLoaded }: PublicPageRenderer
     document.addEventListener('click', buttonClickInterceptor, true);
     
     // КРИТИЧНО: Для вопросов 1 и 2 делаем чекбоксы взаимоисключающими (как radio)
-    const checkboxClickHandler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+    const checkboxClickHandler = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      const target = mouseEvent.target as HTMLElement;
       if (!target) return;
       
       // Проверяем, кликнули ли по чекбоксу с классом quiz-question-content
@@ -313,7 +314,7 @@ export function PublicPageRenderer({ html, onScriptsLoaded }: PublicPageRenderer
       }
     };
     
-    document.addEventListener('change', checkboxClickHandler, true);
+    document.addEventListener('change', checkboxClickHandler as EventListener, true);
     
     // КРИТИЧНО: Также перехватываем form.submit() вызовы
     const originalSubmit = HTMLFormElement.prototype.submit;
@@ -1192,7 +1193,7 @@ export function PublicPageRenderer({ html, onScriptsLoaded }: PublicPageRenderer
       // Удаляем перехватчики submit и кликов
       document.removeEventListener('submit', submitInterceptor, true);
       document.removeEventListener('click', buttonClickInterceptor, true);
-      document.removeEventListener('change', checkboxClickHandler, true);
+      document.removeEventListener('change', checkboxClickHandler as EventListener, true);
       HTMLFormElement.prototype.submit = originalSubmit;
       
       // Удаляем добавленные head элементы
