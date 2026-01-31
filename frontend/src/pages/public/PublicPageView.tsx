@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { PublicPageRenderer } from '@/components/public/PublicPageRenderer';
+import { QuizInjector } from '@/components/public/QuizInjector';
 
 export function PublicPageView() {
   const location = useLocation();

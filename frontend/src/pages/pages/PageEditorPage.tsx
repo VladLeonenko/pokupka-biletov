@@ -109,13 +109,17 @@ export function PageEditorPage() {
                 style={{ height: 400 }}
               />
             )}
-            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
               <TextField size="small" label="Slug карусели" value={carouselSlug} onChange={(e) => setCarouselSlug(e.target.value)} />
               <Button size="small" onClick={() => {
                 if (!carouselSlug.trim()) return;
                 setHtml((prev) => `${prev}\n[carousel slug="${carouselSlug.trim()}"]`);
                 showToast('Карусель вставлена', 'success');
               }}>Вставить карусель</Button>
+              <Button size="small" variant="outlined" onClick={() => {
+                setHtml((prev) => `${prev}\n[quiz]`);
+                showToast('Квиз вставлен', 'success');
+              }}>Вставить квиз</Button>
             </Box>
           </Paper>
         </Grid>

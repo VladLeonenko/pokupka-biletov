@@ -442,8 +442,12 @@ export function PublicPageRenderer({ html, onScriptsLoaded }: PublicPageRenderer
       ALLOW_DATA_ATTR: true,
     });
 
+    // Заменяем shortcode [quiz] на placeholder для последующей вставки React компонента
+    const quizPlaceholder = '<div data-quiz-placeholder style="width: 100%; margin: 2rem 0;"></div>';
+    const htmlWithQuizPlaceholders = cleanHtml.replace(/\[quiz\]/gi, quizPlaceholder);
+    
     // Вставляем очищенный HTML body в контейнер
-    container.innerHTML = cleanHtml;
+    container.innerHTML = htmlWithQuizPlaceholders;
     
     // Исправляем пути к изображениям и другим статическим ресурсам
     const fixResourcePaths = (element: Element) => {
