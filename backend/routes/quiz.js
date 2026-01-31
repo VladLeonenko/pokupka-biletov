@@ -33,7 +33,7 @@ function rowToOption(r) {
 }
 
 // GET /api/public/quiz/questions - Публичный список вопросов с вариантами
-router.get('/public/questions', async (req, res) => {
+router.get('/questions', async (req, res) => {
   try {
     const questionsResult = await pool.query(`
       SELECT * FROM quiz_questions 
@@ -67,7 +67,7 @@ router.get('/public/questions', async (req, res) => {
 });
 
 // POST /api/public/quiz/submit - Отправить результат квиза
-router.post('/public/submit', async (req, res) => {
+router.post('/submit', async (req, res) => {
   try {
     const { answers, recommendedTariff, userEmail } = req.body;
     
