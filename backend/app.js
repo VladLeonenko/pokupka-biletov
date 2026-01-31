@@ -76,7 +76,8 @@ import quizRouter from './routes/quiz.js';
 const app = express();
 
 // Trust proxy для работы за Nginx (нужно для express-rate-limit)
-app.set('trust proxy', true);
+// Доверяем только первому прокси (Nginx на localhost)
+app.set('trust proxy', 1);
 
 app.use(cors({ 
   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3000'], 
@@ -271,7 +272,7 @@ app.use('/api/cases', requireAuth, casesRouter);
 app.use('/api/products', requireAuth, productsRouter);
 app.use('/api/promotions', requireAuth, promotionsRouter);
 app.use('/api/social-proofs', socialProofsRouter); // Публичные и админские эндпоинты
-app.use('/api/quiz', quizRouter); // Публичные и админские эндпоинты
+app.use('/api/quiz', requireAuth, quizRouter); // Админские эндпоинты (публичные уже на /api/public/quiz)
 
 app.use('/api/carousels', requireAuth, carouselsRouter);
 app.use('/api/funnels', requireAuth, funnelsRouter);
