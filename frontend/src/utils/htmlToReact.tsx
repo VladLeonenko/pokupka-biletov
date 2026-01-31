@@ -65,7 +65,7 @@ export function htmlToReact(html: string): React.ReactElement[] {
           const [key, value] = style.split(':').map(s => s.trim());
           if (key && value) {
             const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-            styles[camelKey as keyof React.CSSProperties] = value;
+            (styles as any)[camelKey] = value;
           }
         });
         props.style = styles;

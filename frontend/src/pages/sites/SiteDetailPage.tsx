@@ -167,13 +167,13 @@ export default function SiteDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={page.isPublished ? 'Опубликована' : 'Черновик'}
+                          label={page.is_published ? 'Опубликована' : 'Черновик'}
                           size="small"
-                          color={page.isPublished ? 'success' : 'default'}
+                          color={page.is_published ? 'success' : 'default'}
                         />
                       </TableCell>
                       <TableCell>
-                        {new Date(page.createdAt).toLocaleDateString('ru-RU')}
+                        {new Date(page.created_at).toLocaleDateString('ru-RU')}
                       </TableCell>
                       <TableCell align="right">
                         <IconButton 
@@ -224,16 +224,16 @@ export default function SiteDetailPage() {
                 ) : (
                   leads.map((lead) => (
                     <TableRow key={lead.id}>
-                      <TableCell>{lead.name || '—'}</TableCell>
-                      <TableCell>{lead.email || '—'}</TableCell>
-                      <TableCell>{lead.phone || '—'}</TableCell>
-                      <TableCell>{lead.company || '—'}</TableCell>
-                      <TableCell>{lead.utmSource || '—'}</TableCell>
+                      <TableCell>{(lead.data as any)?.name || '—'}</TableCell>
+                      <TableCell>{(lead.data as any)?.email || '—'}</TableCell>
+                      <TableCell>{(lead.data as any)?.phone || '—'}</TableCell>
+                      <TableCell>{(lead.data as any)?.company || '—'}</TableCell>
+                      <TableCell>{lead.utm_source || '—'}</TableCell>
                       <TableCell>
-                        <Chip label={lead.status} size="small" />
+                        <Chip label={(lead.data as any)?.status || 'new'} size="small" />
                       </TableCell>
                       <TableCell>
-                        {new Date(lead.createdAt).toLocaleDateString('ru-RU')}
+                        {new Date(lead.created_at).toLocaleDateString('ru-RU')}
                       </TableCell>
                     </TableRow>
                   ))
@@ -259,7 +259,7 @@ export default function SiteDetailPage() {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" gutterBottom>Шаблон</Typography>
-                <Typography>{site.template}</Typography>
+                <Typography>{(site as any).template || 'default'}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Button variant="outlined">Редактировать настройки</Button>

@@ -43,10 +43,13 @@ export default function SitesListPage() {
     queryFn: listSites,
     enabled: !!token,
     retry: false,
-    onError: (error) => {
-      console.error('[SitesListPage] Failed to load sites:', error);
-    },
   });
+
+  useEffect(() => {
+    if (error) {
+      console.error('[SitesListPage] Failed to load sites:', error);
+    }
+  }, [error]);
 
   const createMutation = useMutation({
     mutationFn: createSite,

@@ -174,7 +174,7 @@ ${pollItems}
       if (innerContent.includes('<ul') && !innerContent.match(/class=["'][^"']*poll-item[^"']*["']/)) {
         const fixedContent = innerContent.replace(
           /<li([^>]*)>/gi,
-          (liMatch, attrs) => {
+          (liMatch: string, attrs: string) => {
             if (!attrs.match(/class=/)) {
               return `<li class="poll-item"${attrs}>`;
             } else if (!attrs.match(/class=["'][^"']*poll-item[^"']*["']/)) {
