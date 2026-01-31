@@ -11,16 +11,14 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Если уже авторизован, редиректим
+  // Если уже авторизован при загрузке страницы, редиректим
   useEffect(() => {
-    if (token && user) {
-      if (user.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/account', { replace: true });
-      }
+    if (token && user && !loading && !email && !password) {
+      // Только если это не попытка входа (поля пустые)
+      const targetPath = user.role === 'admin' ? '/admin' : '/account';
+      navigate(targetPath, { replace: true });
     }
-  }, [token, user, navigate]);
+  }, [token, user, navigate, loading, email, password]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +26,15 @@ export function LoginPage() {
     setLoading(true);
     try {
       const loggedUser = await login(email, password);
-      // Небольшая задержка, чтобы состояние успело обновиться
-      await new Promise(resolve => setTimeout(resolve, 100));
-      navigate(loggedUser.role === 'admin' ? '/admin' : '/account', { replace: true });
+      // Не делаем navigate здесь - useEffect обработает редирект после обновления состояния
+      // Просто ждем обновления состояния
+      await new Promise(resolve => setTimeout(resolve, 200));
+      // Если редирект не произошел автоматически, делаем его вручную
+      if (loggedUser.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/account', { replace: true });
+      }
     } catch (e: any) {
       setError(e.message || 'Ошибка входа');
       setLoading(false);

@@ -95,6 +95,11 @@ function Protected({ children }: { children: JSX.Element }) {
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
+  // Если user еще не загружен, но есть token - ждем (не редиректим сразу)
+  if (token && !user) {
+    // Возвращаем null или loading spinner, чтобы не было редиректа
+    return null; // или <CircularProgress /> если нужно показать загрузку
+  }
   if (user?.role !== 'admin') {
     return <Navigate to="/account" replace />;
   }
