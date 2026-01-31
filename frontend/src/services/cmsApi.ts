@@ -246,9 +246,20 @@ export async function deleteSemanticTopic(topic: string): Promise<void> {
 
 export async function generateArticleFromKeyword(keyword: string, categorySlug?: string): Promise<{ slug: string; title: string }> {
   const res = await doFetch(`${API_BASE}/api/ai/generate-article`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword, category_slug: categorySlug })
+    method: 'POST', 
+    headers: { 'Content-Type': 'application/json' }, 
+    body: JSON.stringify({ keyword, category_slug: categorySlug })
   });
-  if (!res.ok) throw new Error('Failed to generate article');
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Failed to generate article');
+    let errorData;
+    try {
+      errorData = JSON.parse(errorText);
+    } catch {
+      errorData = { error: errorText || 'Failed to generate article' };
+    }
+    throw new Error(errorData.error || `Failed to generate article: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
@@ -643,8 +654,31 @@ export async function setSeoOverrides(overrides: Record<string, SeoData>): Promi
 export async function uploadImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('image', file);
-  const res = await doFetch(`${API_BASE}/api/images`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Failed to upload image');
+  
+  // Для FormData не используем doFetch, так как нужно чтобы браузер сам установил Content-Type с boundary
+  const token = getToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  // НЕ устанавливаем Content-Type - браузер сам установит с boundary для FormData
+  
+  const res = await fetch(`${API_BASE}/api/images`, {
+    method: 'POST',
+    headers,
+    body: form,
+  });
+  
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Failed to upload image');
+    let errorData;
+    try {
+      errorData = JSON.parse(errorText);
+    } catch {
+      errorData = { error: errorText || 'Failed to upload image' };
+    }
+    throw new Error(errorData.error || `Upload failed: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 

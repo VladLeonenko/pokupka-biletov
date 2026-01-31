@@ -1171,12 +1171,18 @@ export function ProductEditorPage() {
                       return;
                     }
                     try {
+                      console.log('[ProductEditorPage] Starting image upload, file size:', file.size, 'bytes');
                       const result = await uploadImage(file);
-                      setImageUrl(result.url);
-                      showToast('Изображение загружено', 'success');
-                    } catch (error) {
-                      console.error('[ImageUpload] Error uploading:', error);
-                      showToast('Ошибка загрузки изображения', 'error');
+                      console.log('[ProductEditorPage] Image uploaded successfully:', result);
+                      if (result && result.url) {
+                        setImageUrl(result.url);
+                        showToast('Изображение загружено', 'success');
+                      } else {
+                        throw new Error('Не получен URL изображения');
+                      }
+                    } catch (error: any) {
+                      console.error('[ProductEditorPage] Error uploading image:', error);
+                      showToast(error?.message || 'Ошибка загрузки изображения', 'error');
                     }
                   };
                   input.click();

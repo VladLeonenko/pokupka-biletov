@@ -273,9 +273,24 @@ const SEED_MAP = {
 router.get('/semantic', async (req, res) => {
   try {
     const seed = String(req.query.seed || '').toLowerCase();
+    if (!seed || seed.trim() === '') {
+      return res.status(400).json({ error: 'seed parameter is required' });
+    }
+    
+    console.log('[semantic] Generating keywords for seed:', seed);
+    
     const system = 'Ты SEO-ассистент. Верни строго JSON вида {"high":string[],"medium":string[],"low":string[]}. Без пояснений.';
     const user = `Для темы: ${seed}. Дай 10 высокочастотных, 10 среднечастотных и 10 низкочастотных запросов на русском. Строго верни {high:[...10], medium:[...10], low:[...10]}.`;
-    const ai = await callOpenAIJSON(system, user);
+    
+    let ai;
+    try {
+      ai = await callOpenAIJSON(system, user);
+      console.log('[semantic] OpenAI response received, high:', ai?.high?.length, 'medium:', ai?.medium?.length, 'low:', ai?.low?.length);
+    } catch (openAiError) {
+      console.error('[semantic] OpenAI error:', openAiError);
+      // Продолжаем с fallback данными
+      ai = null;
+    }
     const base = SEED_MAP[seed] || [].concat(...Object.values(SEED_MAP));
 
     const hash = (s) => {

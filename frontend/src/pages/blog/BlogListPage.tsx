@@ -172,12 +172,25 @@ export function BlogListPage() {
   // частоты убраны из UI
 
   async function loadKeywords(s: string) {
+    if (!s || s.trim() === '') {
+      showToast('Введите тему для генерации запросов', 'warning');
+      return;
+    }
     setSeed(s);
     setLoadingKeywords(true);
+    setKeywords({ high: [], medium: [], low: [] }); // Очищаем предыдущие результаты
     try {
+      console.log('[BlogListPage] Loading keywords for seed:', s);
       const ks = await getSemanticKeywords(s);
-      setKeywords(ks);
+      console.log('[BlogListPage] Keywords received:', ks);
+      if (ks && (ks.high?.length > 0 || ks.medium?.length > 0 || ks.low?.length > 0)) {
+        setKeywords(ks);
+        showToast(`Загружено запросов: ВЧ ${ks.high?.length || 0}, СЧ ${ks.medium?.length || 0}, НЧ ${ks.low?.length || 0}`, 'success');
+      } else {
+        showToast('Не удалось получить запросы. Попробуйте другую тему.', 'warning');
+      }
     } catch (e: any) {
+      console.error('[BlogListPage] Error loading keywords:', e);
       showToast(e?.message || 'Не удалось получить семантику', 'error');
     } finally {
       setLoadingKeywords(false);
