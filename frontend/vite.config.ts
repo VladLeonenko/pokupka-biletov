@@ -161,7 +161,8 @@ export default defineConfig({
       },
     },
     // Увеличиваем лимит предупреждений для больших бандлов
-    chunkSizeWarningLimit: 1000,
+    // При inlineDynamicImports: true будет один большой bundle (~3MB)
+    chunkSizeWarningLimit: 5000,
     // Включаем source maps только для production (для отладки)
     sourcemap: false,
     // Оптимизация CSS
