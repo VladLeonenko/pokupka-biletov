@@ -104,3 +104,11 @@ pnpm-lock.yaml
 
 backend/backup-before-split-*.json
 backend/database-export.json
+
+# Protect .env files from being committed
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
