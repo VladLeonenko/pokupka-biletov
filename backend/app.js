@@ -20,6 +20,7 @@ import partialsRouter from './routes/partials.js';
 import blogCategoriesRouter from './routes/blogCategories.js';
 import carouselsRouter from './routes/carousels.js';
 import publicCarouselsRouter from './routes/publicCarousels.js';
+import errorsRouter from './routes/errors.js';
 import metricsRouter from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
