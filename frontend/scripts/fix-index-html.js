@@ -42,6 +42,18 @@ try {
     process.exit(0);
   }
   
+  // Находим react-vendor preload и преобразуем его в обычный script
+  const reactVendorPreload = reactVendorPreloads[0];
+  let reactVendorScript = '';
+  
+  if (reactVendorPreload) {
+    // Извлекаем путь к react-vendor из modulepreload
+    const hrefMatch = reactVendorPreload.match(/href="([^"]+)"/);
+    if (hrefMatch && hrefMatch[1]) {
+      reactVendorScript = `<script type="module" crossorigin src="${hrefMatch[1]}"></script>`;
+    }
+  }
+  
   // Удаляем все modulepreload и script теги
   let newHtml = html.replace(modulepreloadRegex, '');
   newHtml = newHtml.replace(scriptRegex, '');
@@ -50,14 +62,21 @@ try {
   const headEndIndex = newHtml.indexOf('</head>');
   if (headEndIndex !== -1) {
     // Собираем правильный порядок:
-    // 1. Основной script (который импортирует react-vendor)
-    // 2. Остальные preload (БЕЗ react-vendor - он загружается синхронно через основной script)
+    // 1. react-vendor как обычный script (синхронная загрузка)
+    // 2. Основной script (который использует react-vendor)
+    // 3. Остальные preload
     let toInsert = '';
+    
+    // ВАЖНО: react-vendor должен загружаться ПЕРВЫМ, синхронно
+    if (reactVendorScript) {
+      toInsert += reactVendorScript + '\n    ';
+    }
     
     if (scripts[0]) {
       toInsert += scripts[0] + '\n    ';
     }
-    // НЕ добавляем react-vendor preload - пусть загружается синхронно через основной script
+    
+    // Остальные preload
     if (otherPreloads.length > 0) {
       toInsert += otherPreloads.join('\n    ') + '\n    ';
     }
