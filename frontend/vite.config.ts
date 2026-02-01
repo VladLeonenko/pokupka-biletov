@@ -130,11 +130,13 @@ export default defineConfig({
     },
     // Code splitting для лучшей производительности
     rollupOptions: {
+      // ВАЖНО: Отключаем code splitting полностью для основного entry
+      // Это гарантирует, что React будет в основном bundle
       output: {
-        // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
-        // Временно отключаем code splitting полностью - все в одном bundle
-        // Это решит проблему с useState is not defined
+        // Отключаем manualChunks - все в одном bundle
         manualChunks: undefined,
+        // Отключаем автоматическое создание chunks
+        inlineDynamicImports: false, // Не используем, так как это для динамических импортов
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
