@@ -102,19 +102,41 @@ async function createOrUpdateCarousel(slug, title, items) {
       const captionHtml = item.caption_html || 
         (item.name ? `<div style="text-align: center;"><strong style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 18px;">${item.name}</strong><p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 14px;">${item.position || ''}</p></div>` : null);
       
+      // Проверяем какие колонки есть в таблице
+      const columnsCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'carousel_slides' AND column_name IN ('text', 'title')
+      `);
+      const hasTextColumn = columnsCheck.rows.some(row => row.column_name === 'text');
+      const hasTitleColumn = columnsCheck.rows.some(row => row.column_name === 'title');
+      
+      // Формируем список колонок и значений в зависимости от структуры таблицы
+      const columns = ['carousel_id', 'kind', 'image_url', 'caption_html', 'sort_order', 'is_active'];
+      const values = [
+        carouselId,
+        item.image ? 'image' : 'text',
+        item.image || null,
+        captionHtml || null,
+        item.sort_order || 0,
+        true,
+      ];
+      
+      // Добавляем text или title если колонка существует
+      if (hasTextColumn) {
+        columns.push('text');
+        values.push(item.text || item.name || null);
+      } else if (hasTitleColumn) {
+        columns.push('title');
+        values.push(item.text || item.name || null);
+      }
+      
+      const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+      
       await pool.query(
-        `INSERT INTO carousel_slides 
-         (carousel_id, kind, image_url, caption_html, text, sort_order, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          carouselId,
-          item.image ? 'image' : 'text',
-          item.image || null,
-          captionHtml || null,
-          item.text || item.name || null,
-          item.sort_order || 0,
-          true,
-        ]
+        `INSERT INTO carousel_slides (${columns.join(', ')})
+         VALUES (${placeholders})`,
+        values
       );
     }
 
