@@ -219,6 +219,7 @@ app.use('/api/ai-assistant', authenticatedLimiter);
 app.use('/api/ai-team', authenticatedLimiter);
 
 // public endpoints
+app.use('/api/errors', errorsRouter); // Логирование ошибок с фронтенда (публичный)
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);
