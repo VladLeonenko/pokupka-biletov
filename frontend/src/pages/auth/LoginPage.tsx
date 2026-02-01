@@ -10,34 +10,41 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Если уже авторизован при загрузке страницы, редиректим
+  // Если уже авторизован при загрузке страницы (не во время логина), редиректим
   useEffect(() => {
-    if (token && user && !loading && !email && !password) {
-      // Только если это не попытка входа (поля пустые)
+    // Не редиректим если идет процесс логина или уже редиректим
+    if (isRedirecting || loading) return;
+    
+    // Редиректим только если уже авторизован и это не попытка входа
+    if (token && user && !email && !password) {
       const targetPath = user.role === 'admin' ? '/admin' : '/account';
+      setIsRedirecting(true);
       navigate(targetPath, { replace: true });
     }
-  }, [token, user, navigate, loading, email, password]);
+  }, [token, user, navigate, loading, email, password, isRedirecting]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    setIsRedirecting(false); // Сбрасываем флаг редиректа перед логином
+    
     try {
       const loggedUser = await login(email, password);
-      // Не делаем navigate здесь - useEffect обработает редирект после обновления состояния
-      // Просто ждем обновления состояния
-      await new Promise(resolve => setTimeout(resolve, 200));
-      // Если редирект не произошел автоматически, делаем его вручную
-      if (loggedUser.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/account', { replace: true });
-      }
+      setLoading(false);
+      
+      // Ждем обновления состояния и делаем редирект один раз
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const targetPath = loggedUser.role === 'admin' ? '/admin' : '/account';
+      setIsRedirecting(true);
+      navigate(targetPath, { replace: true });
     } catch (e: any) {
       setError(e.message || 'Ошибка входа');
       setLoading(false);
+      setIsRedirecting(false);
     }
   };
 

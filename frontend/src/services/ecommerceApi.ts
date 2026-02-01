@@ -42,6 +42,22 @@ async function doFetch(input: string, init?: RequestInit): Promise<Response> {
     setSessionId(newSessionId);
   }
   
+  // Глобальная обработка 401 - токен истек или невалиден
+  if (response.status === 401 && !input.includes('/api/public/') && !input.includes('/api/auth/')) {
+    // Только для защищенных эндпоинтов
+    console.warn('[ecommerceApi] 401 Unauthorized - clearing auth and redirecting to login');
+    try {
+      localStorage.removeItem('auth.token');
+      localStorage.removeItem('auth.user');
+      // Редиректим на логин только если мы не на странице логина
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/login')) {
+        window.location.href = '/admin/login';
+      }
+    } catch (e) {
+      console.error('[ecommerceApi] Error handling 401:', e);
+    }
+  }
+  
   // Для публичных эндпоинтов не обрабатываем 401 как ошибку
   if (response.status === 401 && input.includes('/api/public/')) {
     // Публичные эндпоинты не должны требовать авторизацию

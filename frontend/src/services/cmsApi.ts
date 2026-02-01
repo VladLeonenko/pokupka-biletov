@@ -22,7 +22,25 @@ function authHeaders(init?: HeadersInit): HeadersInit {
 
 async function doFetch(input: string, init?: RequestInit): Promise<Response> {
   const headers = authHeaders(init?.headers as any);
-  return await fetch(input, { ...(init || {}), headers });
+  const response = await fetch(input, { ...(init || {}), headers });
+  
+  // Глобальная обработка 401 - токен истек или невалиден
+  if (response.status === 401 && !input.includes('/api/public/') && !input.includes('/api/auth/')) {
+    // Только для защищенных эндпоинтов
+    console.warn('[cmsApi] 401 Unauthorized - clearing auth and redirecting to login');
+    try {
+      localStorage.removeItem('auth.token');
+      localStorage.removeItem('auth.user');
+      // Редиректим на логин только если мы не на странице логина
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/admin/login')) {
+        window.location.href = '/admin/login';
+      }
+    } catch (e) {
+      console.error('[cmsApi] Error handling 401:', e);
+    }
+  }
+  
+  return response;
 }
 const LS_BLOG_KEY = 'cms.blog.posts.v1';
 

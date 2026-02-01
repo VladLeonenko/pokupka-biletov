@@ -96,18 +96,30 @@ import { QuizManagementPage } from '@/pages/admin/QuizManagementPage';
 
 function Protected({ children }: { children: JSX.Element }) {
   const { token, user } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
+  
+  useEffect(() => {
+    // Даем время на загрузку user из localStorage или API
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+  
   // Strict check: if no token, redirect immediately
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
-  // Если user еще не загружен, но есть token - ждем (не редиректим сразу)
-  if (token && !user) {
-    // Возвращаем null или loading spinner, чтобы не было редиректа
-    return null; // или <CircularProgress /> если нужно показать загрузку
+  
+  // Если user еще не загружен, но есть token - показываем загрузку
+  if (isChecking || (token && !user)) {
+    return null; // Или можно показать <CircularProgress />
   }
+  
   if (user?.role !== 'admin') {
     return <Navigate to="/account" replace />;
   }
+  
   return children;
 }
 

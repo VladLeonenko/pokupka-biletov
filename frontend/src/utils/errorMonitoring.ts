@@ -56,19 +56,29 @@ class ErrorMonitoring {
     console.error('[ErrorMonitoring]', error);
 
     // В продакшене можно отправлять на сервер
-    if (process.env.NODE_ENV === 'production') {
+    // Используем import.meta.env.PROD для Vite
+    if (typeof window !== 'undefined' && (import.meta as any).env?.PROD) {
       this.sendToServer(error);
     }
   }
 
   private async sendToServer(error: ErrorInfo) {
     try {
-      await fetch('/api/errors', {
+      // Проверяем, что endpoint существует перед отправкой
+      // Если endpoint не реализован, просто логируем в консоль
+      const response = await fetch('/api/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(error),
       });
+      
+      // Если endpoint не существует (404), просто игнорируем
+      if (!response.ok && response.status === 404) {
+        console.warn('[ErrorMonitoring] Endpoint /api/errors не реализован, ошибка не отправлена');
+        return;
+      }
     } catch (e) {
+      // Игнорируем ошибки отправки - не критично
       console.warn('[ErrorMonitoring] Не удалось отправить ошибку на сервер', e);
     }
   }

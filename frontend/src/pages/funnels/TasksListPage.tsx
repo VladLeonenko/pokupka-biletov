@@ -456,6 +456,8 @@ export function TasksListPage() {
               task={editingTask} 
               onChange={(t) => setEditingTask(t)}
               projects={projects}
+              clientProjects={clientProjects}
+              deals={deals}
             />
           )}
         </DialogContent>
@@ -483,7 +485,19 @@ export function TasksListPage() {
   );
 }
 
-function TaskForm({ task, onChange, projects = [] }: { task: Partial<Task>; onChange: (task: Partial<Task>) => void; projects?: Project[] }) {
+function TaskForm({ 
+  task, 
+  onChange, 
+  projects = [], 
+  clientProjects = [], 
+  deals = [] 
+}: { 
+  task: Partial<Task>; 
+  onChange: (task: Partial<Task>) => void; 
+  projects?: Project[];
+  clientProjects?: any[];
+  deals?: Deal[];
+}) {
   const [tagInput, setTagInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isParsing, setIsParsing] = useState(false);

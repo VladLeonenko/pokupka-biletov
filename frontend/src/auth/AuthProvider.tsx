@@ -166,29 +166,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  // Проверка валидности токена и автоматический logout при истечении
   useEffect(() => {
+    if (!token) return;
+    
     let cancelled = false;
-    const hydrateUser = async () => {
-      if (!token) return;
-      if (user) return;
+    let checkInterval: NodeJS.Timeout | null = null;
+    
+    const checkTokenValidity = async () => {
+      if (cancelled) return;
+      
       try {
         const { getCurrentUser } = await import('@/services/ecommerceApi');
         const data = await getCurrentUser();
+        
         if (cancelled) return;
+        
         if (data?.user) {
+          // Токен валиден, обновляем данные пользователя
           localStorage.setItem('auth.user', JSON.stringify(data.user));
           setUser(data.user);
         }
-      } catch (error) {
-        console.error('[AuthProvider] Failed to hydrate user from token:', error);
-        if (!cancelled) {
-          logout();
+      } catch (error: any) {
+        // Если получили 401, токен истек
+        if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+          console.warn('[AuthProvider] Token expired or invalid, logging out');
+          if (!cancelled) {
+            logout();
+            // Редиректим на логин только если не на странице логина
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/admin/login')) {
+              window.location.href = '/admin/login';
+            }
+          }
+        } else {
+          console.error('[AuthProvider] Failed to check token validity:', error);
         }
       }
     };
-    void hydrateUser();
+    
+    // Проверяем сразу при монтировании если есть токен но нет user
+    if (token && !user) {
+      void checkTokenValidity();
+    }
+    
+    // Периодически проверяем валидность токена (каждые 5 минут)
+    checkInterval = setInterval(() => {
+      if (token && !cancelled) {
+        void checkTokenValidity();
+      }
+    }, 5 * 60 * 1000); // 5 минут
+    
     return () => {
       cancelled = true;
+      if (checkInterval) {
+        clearInterval(checkInterval);
+      }
     };
   }, [token, user]);
 
