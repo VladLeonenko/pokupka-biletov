@@ -17,7 +17,8 @@
     "parse:services": "node scripts/parseServices.js",
     "import:services": "node scripts/importServices.js",
     "screenshot:cases": "node scripts/screenshot-case-sites.js",
-    "improve:descriptions": "node scripts/improve-case-descriptions.js"
+    "improve:descriptions": "node scripts/improve-case-descriptions.js",
+    "sync:uploads": "node scripts/sync-uploads.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
