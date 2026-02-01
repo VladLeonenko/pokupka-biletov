@@ -72,37 +72,41 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
-        // Отключаем code splitting для React полностью
+        // Используем функцию manualChunks с правильной логикой
         manualChunks: (id) => {
+          // Нормализуем путь
+          const normalizedId = id.replace(/\\/g, '/');
+          
           // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
-          // Используем более широкую проверку - любое упоминание react/react-dom в node_modules
-          // кроме react-router и react-query
-          if ((id.includes('react') || id.includes('react-dom')) && 
-              id.includes('node_modules') &&
-              !id.includes('react-router') && 
-              !id.includes('react-query') &&
-              !id.includes('react-hook-form') &&
-              !id.includes('react-quill') &&
-              !id.includes('react-chartjs') &&
-              !id.includes('react-dnd')) {
-            return undefined; // Включаем в основной bundle (index)
+          // Проверяем все возможные варианты путей
+          if (normalizedId.includes('node_modules/react/') && 
+              !normalizedId.includes('react-router') && 
+              !normalizedId.includes('react-query') &&
+              !normalizedId.includes('react-hook-form') &&
+              !normalizedId.includes('react-quill') &&
+              !normalizedId.includes('react-chartjs') &&
+              !normalizedId.includes('react-dnd')) {
+            return undefined; // Включаем в основной bundle
           }
           
-          // React Router отдельно
-          if (id.includes('node_modules/react-router-dom')) {
+          if (normalizedId.includes('node_modules/react-dom/')) {
+            return undefined; // Включаем в основной bundle
+          }
+          
+          // Остальные библиотеки в отдельные chunks
+          if (normalizedId.includes('node_modules/react-router-dom')) {
             return 'router-vendor';
           }
-          if (id.includes('node_modules/@mui/') || id.includes('node_modules/@emotion/')) {
+          if (normalizedId.includes('node_modules/@mui/') || normalizedId.includes('node_modules/@emotion/')) {
             return 'mui-vendor';
           }
-          if (id.includes('node_modules/@tanstack/react-query')) {
+          if (normalizedId.includes('node_modules/@tanstack/react-query')) {
             return 'query-vendor';
           }
-          if (id.includes('node_modules/date-fns') || id.includes('node_modules/zod') || id.includes('node_modules/classnames')) {
+          if (normalizedId.includes('node_modules/date-fns') || normalizedId.includes('node_modules/zod') || normalizedId.includes('node_modules/classnames')) {
             return 'utils-vendor';
           }
-          // Остальные vendor библиотеки
-          if (id.includes('node_modules')) {
+          if (normalizedId.includes('node_modules')) {
             return 'vendor';
           }
         },
