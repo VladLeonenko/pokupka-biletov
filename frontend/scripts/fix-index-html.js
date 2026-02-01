@@ -98,17 +98,6 @@ try {
       console.log('[fix-index-html] ⚠️  WARNING: react-vendor is NOT first in modulepreload list');
     }
   }
-  
-  // Сохраняем измененный HTML
-  fs.writeFileSync(indexPath, newHtml, 'utf-8');
-  console.log('[fix-index-html] ✅ Removed react-vendor from modulepreload');
-  console.log('[fix-index-html] File saved, new length:', newHtml.length);
-  
-  // Проверяем результат
-  const checkHtml = fs.readFileSync(indexPath, 'utf-8');
-  const checkPreloads = checkHtml.match(modulepreloadRegex) || [];
-  const checkReactVendor = checkPreloads.filter(m => m.includes('react-vendor'));
-  console.log('[fix-index-html] Verification - react-vendor preloads after fix:', checkReactVendor.length);
 } catch (error) {
   console.error('[fix-index-html] ❌ Error:', error.message);
   console.error('[fix-index-html] Stack:', error.stack);
