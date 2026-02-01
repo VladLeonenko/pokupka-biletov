@@ -64,12 +64,19 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
+// Проверяем пароль перед созданием пула
+const dbPassword = process.env.PGPASSWORD;
+if (!dbPassword || dbPassword.length !== 20) {
+  console.error(`[db.js] ⚠️  ПРОБЛЕМА: Пароль имеет длину ${dbPassword?.length || 0}, ожидается 20`);
+  console.error(`[db.js] Пароль (hex): ${dbPassword ? Buffer.from(dbPassword).toString('hex') : 'НЕТ'}`);
+}
+
 const pool = new Pool({
   user: process.env.PGUSER,
-  host: process.env.PGHOST,
+  host: process.env.PGHOST || 'localhost',
   database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  port: Number(process.env.PGPORT),
+  password: dbPassword, // Используем переменную напрямую
+  port: Number(process.env.PGPORT || 5432),
   // Настройки пула соединений для production
   max: 20, // Максимум 20 одновременных соединений
   idleTimeoutMillis: 30000, // Закрывать неактивные соединения через 30 секунд
