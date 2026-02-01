@@ -23,11 +23,20 @@ export function getAuthToken(): string | null {
 
   try {
     // 1. Пробуем sessionStorage (основной для Safari)
-    let token = sessionStorage.getItem(TOKEN_KEY);
+    let token: string | null = null;
+    try {
+      token = sessionStorage.getItem(TOKEN_KEY);
+    } catch (e) {
+      console.warn('[authStorage] sessionStorage.getItem failed:', e);
+    }
     if (token) return token;
 
     // 2. Fallback на localStorage
-    token = localStorage.getItem(TOKEN_KEY);
+    try {
+      token = localStorage.getItem(TOKEN_KEY);
+    } catch (e) {
+      console.warn('[authStorage] localStorage.getItem failed:', e);
+    }
     if (token) {
       // Синхронизируем в sessionStorage для будущего использования
       try {
@@ -39,16 +48,20 @@ export function getAuthToken(): string | null {
     }
 
     // 3. Fallback на cookies (для Safari ITP)
-    const cookieMatch = document.cookie.match(new RegExp(`(^| )${COOKIE_TOKEN_KEY}=([^;]+)`));
-    if (cookieMatch && cookieMatch[2]) {
-      token = cookieMatch[2];
-      // Синхронизируем в sessionStorage
-      try {
-        sessionStorage.setItem(TOKEN_KEY, token);
-      } catch (e) {
-        console.warn('[authStorage] Failed to sync cookie to sessionStorage:', e);
+    try {
+      const cookieMatch = document.cookie.match(new RegExp(`(^| )${COOKIE_TOKEN_KEY}=([^;]+)`));
+      if (cookieMatch && cookieMatch[2]) {
+        token = cookieMatch[2];
+        // Синхронизируем в sessionStorage
+        try {
+          sessionStorage.setItem(TOKEN_KEY, token);
+        } catch (e) {
+          console.warn('[authStorage] Failed to sync cookie to sessionStorage:', e);
+        }
+        return token;
       }
-      return token;
+    } catch (e) {
+      console.warn('[authStorage] Cookie read failed:', e);
     }
   } catch (error) {
     console.error('[authStorage] Error getting token:', error);
