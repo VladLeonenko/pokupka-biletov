@@ -342,13 +342,17 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   }
 }));
 
-// Serve static files from frontend/dist root (manifest.json, sw.js, etc.)
+// Serve static files from frontend/dist root (manifest.json, sw.js, stats.html, etc.)
 app.use(express.static(path.join(__dirname, '../frontend/dist'), {
   maxAge: '1y',
   setHeaders: (res, filePath) => {
     // Правильный Content-Type для manifest.json
     if (filePath.endsWith('manifest.json')) {
       res.setHeader('Content-Type', 'application/manifest+json');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    } else if (filePath.endsWith('stats.html')) {
+      // Bundle visualization
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600');
     } else if (filePath.endsWith('.js') && !filePath.includes('/assets/')) {
       // Service Worker и другие JS файлы в корне

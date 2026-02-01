@@ -88,22 +88,22 @@ try {
   
   // Сохраняем измененный HTML
   fs.writeFileSync(indexPath, newHtml, 'utf-8');
-  console.log('[fix-index-html] ✅ Reordered scripts: react-vendor preload FIRST for Safari compatibility');
+  console.log('[fix-index-html] ✅ Converted react-vendor to synchronous script for Safari compatibility');
   console.log('[fix-index-html] File saved, new length:', newHtml.length);
   
   // Проверяем результат
   const checkHtml = fs.readFileSync(indexPath, 'utf-8');
-  const checkPreloads = checkHtml.match(modulepreloadRegex) || [];
-  const checkReactVendor = checkPreloads.filter(m => m.includes('react-vendor'));
-  console.log('[fix-index-html] Verification - react-vendor preloads after fix:', checkReactVendor.length);
+  const checkScripts = checkHtml.match(/<script type="module"[^>]*>/g) || [];
+  const checkReactVendorScript = checkScripts.find(s => s.includes('react-vendor'));
+  const checkMainScript = checkScripts.find(s => s.includes('index-') && !s.includes('react-vendor'));
   
-  // Проверяем порядок - react-vendor должен быть первым
-  if (checkReactVendor.length > 0) {
-    const firstPreload = checkPreloads[0];
-    if (firstPreload && firstPreload.includes('react-vendor')) {
-      console.log('[fix-index-html] ✅ react-vendor is FIRST in modulepreload list');
+  if (checkReactVendorScript && checkMainScript) {
+    const reactVendorIndex = checkHtml.indexOf(checkReactVendorScript);
+    const mainIndex = checkHtml.indexOf(checkMainScript);
+    if (reactVendorIndex < mainIndex) {
+      console.log('[fix-index-html] ✅ react-vendor script is BEFORE main script');
     } else {
-      console.log('[fix-index-html] ⚠️  WARNING: react-vendor is NOT first in modulepreload list');
+      console.log('[fix-index-html] ⚠️  WARNING: react-vendor script is NOT before main script');
     }
   }
 } catch (error) {
