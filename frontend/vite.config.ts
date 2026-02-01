@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react-swc';
 import path from 'node:path';
 import { readFileSync, writeFileSync } from 'fs';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // Плагин для исправления порядка загрузки скриптов - React должен загружаться синхронно
 function fixReactLoadingOrder() {
@@ -72,6 +73,13 @@ const buildTimestamp = Date.now().toString();
 export default defineConfig({
   plugins: [
     react(),
+    // Визуализация bundle для анализа
+    visualizer({
+      filename: 'dist/stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
+    }),
     // Копируем legacy файлы в dist/legacy при сборке
     // Сохраняем структуру папок (css/, js/, img/, fonts/)
     viteStaticCopy({
@@ -132,13 +140,23 @@ export default defineConfig({
       // ВАЖНО: Отключаем code splitting полностью
       // Это гарантирует, что React будет в основном bundle
       output: {
-        // ВАЖНО: inlineDynamicImports инлайнит все динамические импорты в основной bundle
+        // ВАЖНО: Правильная группировка chunks для Safari
+        // React должен быть в отдельном chunk и загружаться ПЕРВЫМ
         // Это решает проблему с useState is not defined в Safari
-        inlineDynamicImports: true, // ВСЁ в один bundle (динамические импорты)
-        // ВАЖНО: Отключаем manualChunks полностью - все модули в одном bundle
-        // Это гарантирует, что React и все vendor библиотеки будут в основном bundle
-        // Используем функцию, которая всегда возвращает undefined - отключаем code splitting
-        manualChunks: () => undefined, // Всегда возвращаем undefined - отключаем code splitting
+        manualChunks(id) {
+          // MUI в отдельный chunk
+          if (id.includes('@mui')) return 'mui';
+          // React в отдельный chunk (ПЕРВЫЙ для загрузки)
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            return 'react-vendor';
+          }
+          // Остальные node_modules в vendor chunk
+          if (id.includes('node_modules') && !id.includes('vite')) {
+            return 'vendor';
+          }
+          // Все остальное в main bundle
+          return undefined;
+        },
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
