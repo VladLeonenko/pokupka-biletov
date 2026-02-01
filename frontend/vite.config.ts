@@ -74,10 +74,15 @@ export default defineConfig({
         manualChunks: (id) => {
           // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
           // Иначе useState может быть не определен при первом использовании
+          // Проверяем все возможные пути к React
           if (id.includes('node_modules/react/') || 
               id.includes('node_modules/react-dom/') ||
               id.includes('node_modules/react/jsx-runtime') ||
-              id.includes('node_modules/react/jsx-dev-runtime')) {
+              id.includes('node_modules/react/jsx-dev-runtime') ||
+              id.includes('react/index') ||
+              id.includes('react-dom/index') ||
+              id.includes('react/') ||
+              id.includes('react-dom/')) {
             return undefined; // Включаем в основной bundle (index)
           }
           if (id.includes('node_modules/react-router-dom')) {
