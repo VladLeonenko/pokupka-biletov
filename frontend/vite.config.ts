@@ -72,10 +72,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // React и React-DOM должны быть в основном bundle для синхронной загрузки
+          // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
           // Иначе useState может быть не определен при первом использовании
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
-            return undefined; // Включаем в основной bundle
+          if (id.includes('node_modules/react/') || 
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/react/jsx-runtime') ||
+              id.includes('node_modules/react/jsx-dev-runtime')) {
+            return undefined; // Включаем в основной bundle (index)
           }
           if (id.includes('node_modules/react-router-dom')) {
             return 'router-vendor';
