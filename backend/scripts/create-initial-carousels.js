@@ -16,15 +16,31 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
-// Проверяем переменные окружения
-const dbUser = process.env.PGUSER || process.env.DB_USER || 'primeuser';
-const dbHost = process.env.PGHOST || process.env.DB_HOST || 'localhost';
-const dbName = process.env.PGDATABASE || process.env.DB_NAME || 'primecoder_prod';
-const dbPassword = process.env.PGPASSWORD || process.env.DB_PASSWORD;
-const dbPort = Number(process.env.PGPORT || process.env.DB_PORT || 5432);
+// Проверяем переменные окружения (используем ТОЛЬКО из .env, без fallback)
+const dbUser = process.env.PGUSER;
+const dbHost = process.env.PGHOST || 'localhost';
+const dbName = process.env.PGDATABASE;
+const dbPassword = process.env.PGPASSWORD;
+const dbPort = Number(process.env.PGPORT || 5432);
 
+// Отладочный вывод (только в stderr, чтобы не мешать JSON выводу)
+console.error('🔍 Параметры подключения:');
+console.error(`   PGUSER: ${dbUser || 'НЕ УСТАНОВЛЕН'}`);
+console.error(`   PGHOST: ${dbHost}`);
+console.error(`   PGDATABASE: ${dbName || 'НЕ УСТАНОВЛЕН'}`);
+console.error(`   PGPASSWORD: ${dbPassword ? '***' : 'НЕ УСТАНОВЛЕН'}`);
+console.error(`   PGPORT: ${dbPort}\n`);
+
+if (!dbUser) {
+  console.error('❌ Ошибка: PGUSER не установлен в .env файле');
+  process.exit(1);
+}
+if (!dbName) {
+  console.error('❌ Ошибка: PGDATABASE не установлен в .env файле');
+  process.exit(1);
+}
 if (!dbPassword) {
-  console.error('❌ Ошибка: PGPASSWORD или DB_PASSWORD не установлен в .env файле');
+  console.error('❌ Ошибка: PGPASSWORD не установлен в .env файле');
   process.exit(1);
 }
 
