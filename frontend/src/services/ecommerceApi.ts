@@ -7,8 +7,10 @@ function getApiBaseUrl(): string {
   return getApiBase();
 }
 
+import { getAuthToken } from '@/utils/authStorage';
+
 function getToken(): string | null {
-  try { return localStorage.getItem('auth.token'); } catch { return null; }
+  return getAuthToken();
 }
 
 function getSessionId(): string | null {
@@ -47,8 +49,10 @@ async function doFetch(input: string, init?: RequestInit): Promise<Response> {
     // Только для защищенных эндпоинтов
     console.warn('[ecommerceApi] 401 Unauthorized - clearing auth and redirecting to login');
     try {
-      localStorage.removeItem('auth.token');
-      localStorage.removeItem('auth.user');
+      import('@/utils/authStorage').then(({ removeAuthToken, removeAuthUser }) => {
+        removeAuthToken();
+        removeAuthUser();
+      });
       // Редиректим на логин только если мы не на странице логина
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/login')) {
         window.location.href = '/admin/login';

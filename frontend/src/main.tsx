@@ -4,6 +4,7 @@ import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { AuthProvider } from '@/auth/AuthProvider';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import '@/utils/silenceWarnings';
 import '@/styles/theme.css';
 import '@/styles/global.css';
@@ -92,17 +93,19 @@ const queryClient = new QueryClient();
 let globalNavigate: ((path: string) => void) | null = null;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter future={{
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    }}>
-      <AuthProvider>
-        <App />
-        <NavigationExporter />
-      </AuthProvider>
-    </BrowserRouter>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}>
+        <AuthProvider>
+          <App />
+          <NavigationExporter />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 // Компонент для экспорта navigate в window
