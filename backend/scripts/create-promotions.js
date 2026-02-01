@@ -15,7 +15,11 @@ const __dirname = path.dirname(__filename);
 
 // Загружаем .env с явным указанием пути
 const envPath = path.join(__dirname, '../.env');
-dotenv.config({ path: envPath });
+// Используем override: true чтобы перезаписать системные переменные
+const envResult = dotenv.config({ path: envPath, override: true });
+if (envResult.error) {
+  console.error('⚠️  Ошибка загрузки .env:', envResult.error.message);
+}
 
 // Проверяем что файл существует и выводим отладочную информацию
 try {

@@ -61,7 +61,19 @@ try {
   if (pgpasswordLine) {
     const passwordValue = pgpasswordLine.split('=')[1] || '';
     console.error(`   PGPASSWORD=${passwordValue ? '***' + passwordValue.slice(-3) : 'НЕТ'}`);
-    console.error(`   Длина пароля: ${passwordValue.length} символов`);
+    console.error(`   Длина пароля в файле: ${passwordValue.length} символов`);
+    console.error(`   Пароль (первые 5 и последние 5): ${passwordValue ? passwordValue.substring(0,5) + '...' + passwordValue.slice(-5) : 'НЕТ'}`);
+    // Проверка на кавычки и пробелы
+    if (passwordValue) {
+      const trimmed = passwordValue.trim();
+      console.error(`   После trim: ${trimmed.length} символов`);
+      if (trimmed !== passwordValue) {
+        console.error(`   ⚠️  ВНИМАНИЕ: Есть пробелы в начале/конце!`);
+      }
+      if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
+        console.error(`   ⚠️  ВНИМАНИЕ: Пароль в кавычках!`);
+      }
+    }
   } else {
     console.error('   ⚠️  PGPASSWORD не найден в .env');
   }
@@ -74,6 +86,15 @@ console.error(`   PGUSER: ${dbUser || 'НЕ УСТАНОВЛЕН'}`);
 console.error(`   PGHOST: ${dbHost}`);
 console.error(`   PGDATABASE: ${dbName || 'НЕ УСТАНОВЛЕН'}`);
 console.error(`   PGPASSWORD: ${dbPassword ? '*** (' + dbPassword.length + ' символов)' : 'НЕ УСТАНОВЛЕН'}`);
+if (dbPassword) {
+  console.error(`   Первые 5 символов пароля: ${dbPassword.substring(0, Math.min(5, dbPassword.length))}...`);
+  console.error(`   Последние 5 символов пароля: ...${dbPassword.slice(-5)}`);
+  // Проверка на невидимые символы
+  const hasSpecialChars = /[\x00-\x1F\x7F]/.test(dbPassword);
+  if (hasSpecialChars) {
+    console.error(`   ⚠️  ВНИМАНИЕ: Обнаружены невидимые символы в пароле!`);
+  }
+}
 console.error(`   PGPORT: ${dbPort}`);
 
 if (!dbUser || !dbName || !dbPassword) {
