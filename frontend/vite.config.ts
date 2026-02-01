@@ -70,21 +70,23 @@ export default defineConfig({
     },
     // Code splitting для лучшей производительности
     rollupOptions: {
+      // Отключаем code splitting для основного entry point - React должен быть в основном bundle
       output: {
+        // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
+        // Используем inlineDynamicImports только для основного entry, но это может быть проблематично
+        // Вместо этого используем manualChunks с явным исключением React
         manualChunks: (id) => {
           // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
-          // Иначе useState может быть не определен при первом использовании
           // Проверяем все возможные пути к React
-          if (id.includes('node_modules/react/') || 
-              id.includes('node_modules/react-dom/') ||
-              id.includes('node_modules/react/jsx-runtime') ||
-              id.includes('node_modules/react/jsx-dev-runtime') ||
-              id.includes('react/index') ||
-              id.includes('react-dom/index') ||
-              id.includes('react/') ||
-              id.includes('react-dom/')) {
+          const isReact = id.includes('node_modules/react') || 
+                         id.includes('node_modules/react-dom') ||
+                         id.includes('react/jsx-runtime') ||
+                         id.includes('react/jsx-dev-runtime');
+          
+          if (isReact) {
             return undefined; // Включаем в основной bundle (index)
           }
+          
           if (id.includes('node_modules/react-router-dom')) {
             return 'router-vendor';
           }
