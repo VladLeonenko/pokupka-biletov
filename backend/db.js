@@ -2,12 +2,30 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Используем override: true чтобы перезаписать системные переменные
-const envResult = dotenv.config({ path: path.join(__dirname, '.env'), override: true });
-if (envResult.error) {
-  console.error('⚠️  Ошибка загрузки .env в db.js:', envResult.error.message);
+
+// Загружаем .env с override
+const envPath = path.join(__dirname, '.env');
+const envResult = dotenv.config({ path: envPath, override: true });
+
+// Если dotenv не сработал, читаем .env напрямую (как в скриптах)
+if (!process.env.PGPASSWORD || process.env.PGPASSWORD.length < 10) {
+  try {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    const lines = envContent.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('PGPASSWORD=')) {
+        const passwordValue = line.split('=').slice(1).join('=').trim();
+        process.env.PGPASSWORD = passwordValue;
+        break;
+      }
+    }
+  } catch (e) {
+    console.error('⚠️  Не удалось прочитать .env напрямую:', e.message);
+  }
 }
 
 const { Pool } = pg;
