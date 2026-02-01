@@ -115,6 +115,13 @@ export default defineConfig({
         pure_funcs: ['console.log', 'console.info', 'console.debug'],
       },
     },
+    // Отключаем автоматический code splitting для основного entry
+    // Это гарантирует, что React будет в основном bundle
+    rollupOptions: {
+      output: {
+        // Отключаем автоматическое создание vendor chunks
+        // Все будет в основном bundle, кроме явно указанных в manualChunks
+        manualChunks: undefined, // Временно отключаем для проверки
     // Code splitting для лучшей производительности
     rollupOptions: {
       output: {
