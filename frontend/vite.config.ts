@@ -72,26 +72,41 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          // Нормализуем путь для кроссплатформенности
+          const normalizedId = id.replace(/\\/g, '/');
+          
           // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
-          // Иначе useState может быть не определен при первом использовании
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+          // Используем более широкую проверку - любое упоминание react/react-dom
+          const isReact = normalizedId.includes('react') && 
+                         normalizedId.includes('node_modules') &&
+                         !normalizedId.includes('react-router') && 
+                         !normalizedId.includes('react-query') &&
+                         !normalizedId.includes('react-hook-form') &&
+                         !normalizedId.includes('react-quill') &&
+                         !normalizedId.includes('react-chartjs') &&
+                         !normalizedId.includes('react-dnd') &&
+                         !normalizedId.includes('react-select') &&
+                         !normalizedId.includes('react-beautiful-dnd') &&
+                         !normalizedId.includes('react-transition-group');
+          
+          if (isReact) {
             return undefined; // Включаем в основной bundle
           }
           
           // Остальные библиотеки в отдельные chunks
-          if (id.includes('node_modules/react-router-dom')) {
+          if (normalizedId.includes('node_modules/react-router-dom')) {
             return 'router-vendor';
           }
-          if (id.includes('node_modules/@mui/') || id.includes('node_modules/@emotion/')) {
+          if (normalizedId.includes('node_modules/@mui/') || normalizedId.includes('node_modules/@emotion/')) {
             return 'mui-vendor';
           }
-          if (id.includes('node_modules/@tanstack/react-query')) {
+          if (normalizedId.includes('node_modules/@tanstack/react-query')) {
             return 'query-vendor';
           }
-          if (id.includes('node_modules/date-fns') || id.includes('node_modules/zod') || id.includes('node_modules/classnames')) {
+          if (normalizedId.includes('node_modules/date-fns') || normalizedId.includes('node_modules/zod') || normalizedId.includes('node_modules/classnames')) {
             return 'utils-vendor';
           }
-          if (id.includes('node_modules')) {
+          if (normalizedId.includes('node_modules')) {
             return 'vendor';
           }
         },
