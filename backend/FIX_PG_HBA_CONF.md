@@ -58,6 +58,11 @@ sudo systemctl reload postgresql
 cd /var/www/primecoder-gulp/backend
 pm2 restart all --update-env
 pm2 logs --lines 20
+
+# Проверить что backend работает (через домен или напрямую на сервере)
+curl https://prime-coder.ru/api/public/pages?slug=/
+# или на сервере напрямую:
+curl http://localhost:3000/api/public/pages?slug=/
 ```
 
 ## Текущая конфигурация
