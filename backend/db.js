@@ -30,6 +30,20 @@ if (!process.env.PGPASSWORD || process.env.PGPASSWORD.length < 10) {
 
 const { Pool } = pg;
 
+// Отладочный вывод параметров подключения (всегда в stderr)
+console.error('='.repeat(60));
+console.error('🔍 [db.js] Параметры подключения к БД:');
+console.error(`   PGUSER: ${process.env.PGUSER || 'НЕ УСТАНОВЛЕН'}`);
+console.error(`   PGHOST: ${process.env.PGHOST || 'localhost'}`);
+console.error(`   PGDATABASE: ${process.env.PGDATABASE || 'НЕ УСТАНОВЛЕН'}`);
+console.error(`   PGPASSWORD: ${process.env.PGPASSWORD ? '*** (' + process.env.PGPASSWORD.length + ' символов)' : 'НЕ УСТАНОВЛЕН'}`);
+if (process.env.PGPASSWORD) {
+  console.error(`   Первые 3 символа пароля: ${process.env.PGPASSWORD.substring(0, 3)}...`);
+  console.error(`   Последние 3 символа пароля: ...${process.env.PGPASSWORD.slice(-3)}`);
+}
+console.error(`   PGPORT: ${process.env.PGPORT || 5432}`);
+console.error('='.repeat(60));
+
 // Проверка обязательных переменных окружения
 const requiredEnvVars = ['PGUSER', 'PGHOST', 'PGDATABASE', 'PGPASSWORD', 'PGPORT'];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
