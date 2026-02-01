@@ -130,14 +130,17 @@ export default defineConfig({
     },
     // Code splitting для лучшей производительности
     rollupOptions: {
-      // ВАЖНО: Отключаем code splitting полностью для основного entry
+      // ВАЖНО: Отключаем code splitting полностью
       // Это гарантирует, что React будет в основном bundle
       output: {
         // ВАЖНО: inlineDynamicImports инлайнит все динамические импорты в основной bundle
         // Это решает проблему с useState is not defined в Safari
-        inlineDynamicImports: true, // ВСЁ в один bundle
+        inlineDynamicImports: true, // ВСЁ в один bundle (динамические импорты)
         // Отключаем manualChunks - все в одном bundle
         manualChunks: undefined,
+        // Отключаем автоматическое создание vendor chunks
+        // Это гарантирует, что все статические импорты тоже в основном bundle
+        // Но Vite все равно может создавать chunks автоматически, поэтому используем плагин
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
