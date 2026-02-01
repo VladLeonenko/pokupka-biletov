@@ -1,32 +1,36 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { PagesListPage } from '@/pages/pages/PagesListPage';
-import { PageEditorPage } from '@/pages/pages/PageEditorPage';
-import { PagePageBuilderPage } from '@/pages/pages/PagePageBuilderPage';
-import { PagePreviewPage } from '@/pages/pages/PagePreviewPage';
-import { BlogListPage } from '@/pages/blog/BlogListPage';
-import { BlogEditorPage } from '@/pages/blog/BlogEditorPage';
-import { BlogPageBuilderPage } from '@/pages/blog/BlogPageBuilderPage';
-import { BlogCategoriesPage } from '@/pages/blog/BlogCategoriesPage';
-import { SeoPage } from '@/pages/seo/SeoPage';
-import { CarouselListPage } from '@/pages/carousels/CarouselListPage';
-import { CarouselEditorPage } from '@/pages/carousels/CarouselEditorPage';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { useAuth } from '@/auth/AuthProvider';
-import { CasesListPage } from '@/pages/cases/CasesListPage';
-import { CaseEditorPage } from '@/pages/cases/CaseEditorPage';
-import { CasePageBuilderPage } from '@/pages/cases/CasePageBuilderPage';
-import { ProductsListPage } from '@/pages/products/ProductsListPage';
-import { ProductEditorPage } from '@/pages/products/ProductEditorPage';
-import { ProductPageBuilderPage } from '@/pages/products/ProductPageBuilderPage';
-import { PromotionsListPage } from '@/pages/promotions/PromotionsListPage';
-import { PromotionEditorPage } from '@/pages/promotions/PromotionEditorPage';
-import { CasePreviewPage } from '@/pages/cases/CasePreviewPage';
-import { FormsManagementPage } from '@/pages/forms/FormsManagementPage';
-import { FunnelsListPage } from '@/pages/funnels/FunnelsListPage';
-import { FunnelViewPage } from '@/pages/funnels/FunnelViewPage';
-import { TasksListPage } from '@/pages/funnels/TasksListPage';
-import { TaskExecutor } from '@/components/tasks/TaskExecutor';
+import { CircularProgress, Box } from '@mui/material';
+
+// Lazy load всех админских страниц для уменьшения main bundle
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const PagesListPage = lazy(() => import('@/pages/pages/PagesListPage').then(m => ({ default: m.PagesListPage })));
+const PageEditorPage = lazy(() => import('@/pages/pages/PageEditorPage').then(m => ({ default: m.PageEditorPage })));
+const PagePageBuilderPage = lazy(() => import('@/pages/pages/PagePageBuilderPage').then(m => ({ default: m.PagePageBuilderPage })));
+const PagePreviewPage = lazy(() => import('@/pages/pages/PagePreviewPage').then(m => ({ default: m.PagePreviewPage })));
+const BlogListPage = lazy(() => import('@/pages/blog/BlogListPage').then(m => ({ default: m.BlogListPage })));
+const BlogEditorPage = lazy(() => import('@/pages/blog/BlogEditorPage').then(m => ({ default: m.BlogEditorPage })));
+const BlogPageBuilderPage = lazy(() => import('@/pages/blog/BlogPageBuilderPage').then(m => ({ default: m.BlogPageBuilderPage })));
+const BlogCategoriesPage = lazy(() => import('@/pages/blog/BlogCategoriesPage').then(m => ({ default: m.BlogCategoriesPage })));
+const SeoPage = lazy(() => import('@/pages/seo/SeoPage').then(m => ({ default: m.SeoPage })));
+const CarouselListPage = lazy(() => import('@/pages/carousels/CarouselListPage').then(m => ({ default: m.CarouselListPage })));
+const CarouselEditorPage = lazy(() => import('@/pages/carousels/CarouselEditorPage').then(m => ({ default: m.CarouselEditorPage })));
+const CasesListPage = lazy(() => import('@/pages/cases/CasesListPage').then(m => ({ default: m.CasesListPage })));
+const CaseEditorPage = lazy(() => import('@/pages/cases/CaseEditorPage').then(m => ({ default: m.CaseEditorPage })));
+const CasePageBuilderPage = lazy(() => import('@/pages/cases/CasePageBuilderPage').then(m => ({ default: m.CasePageBuilderPage })));
+const CasePreviewPage = lazy(() => import('@/pages/cases/CasePreviewPage').then(m => ({ default: m.CasePreviewPage })));
+const ProductsListPage = lazy(() => import('@/pages/products/ProductsListPage').then(m => ({ default: m.ProductsListPage })));
+const ProductEditorPage = lazy(() => import('@/pages/products/ProductEditorPage').then(m => ({ default: m.ProductEditorPage })));
+const ProductPageBuilderPage = lazy(() => import('@/pages/products/ProductPageBuilderPage').then(m => ({ default: m.ProductPageBuilderPage })));
+const PromotionsListPage = lazy(() => import('@/pages/promotions/PromotionsListPage').then(m => ({ default: m.PromotionsListPage })));
+const PromotionEditorPage = lazy(() => import('@/pages/promotions/PromotionEditorPage').then(m => ({ default: m.PromotionEditorPage })));
+const FormsManagementPage = lazy(() => import('@/pages/forms/FormsManagementPage').then(m => ({ default: m.FormsManagementPage })));
+const FunnelsListPage = lazy(() => import('@/pages/funnels/FunnelsListPage').then(m => ({ default: m.FunnelsListPage })));
+const FunnelViewPage = lazy(() => import('@/pages/funnels/FunnelViewPage').then(m => ({ default: m.FunnelViewPage })));
+const TasksListPage = lazy(() => import('@/pages/funnels/TasksListPage').then(m => ({ default: m.TasksListPage })));
+const TaskExecutor = lazy(() => import('@/components/tasks/TaskExecutor').then(m => ({ default: m.TaskExecutor })));
 import { HomePage } from '@/pages/public/HomePage';
 import PublicHomePageAI from '@/pages/public/PublicHomePageAI';
 import { PublicPageView } from '@/pages/public/PublicPageView';
@@ -51,19 +55,13 @@ import { SeoPositionCheckerPage } from '@/pages/public/SeoPositionCheckerPage';
 import { TechnicalAuditPage } from '@/pages/public/TechnicalAuditPage';
 import { ReputationMonitorPage } from '@/pages/public/ReputationMonitorPage';
 import { RoiCalculatorPage } from '@/pages/public/RoiCalculatorPage';
+// Публичные страницы остаются статическими импортами (не критичны для main bundle)
 import { ParsingPage } from '@/pages/parsing/ParsingPage';
 import { OrderDetailPage } from '@/pages/public/OrderDetailPage';
-import { ClientsListPage } from '@/pages/clients/ClientsListPage';
-import { ClientEditorPage } from '@/pages/clients/ClientEditorPage';
-import { ChatsListPage } from '@/pages/chat/ChatsListPage';
-import { ChatViewPage } from '@/pages/chat/ChatViewPage';
-import { ChatbotSettingsPage } from '@/pages/chatbot/ChatbotSettingsPage';
 import { RegisterPage } from '@/pages/public/RegisterPage';
 import { CharityPage } from '@/pages/public/CharityPage';
 import { ReviewsPage } from '@/pages/public/ReviewsPage';
-import { ReviewsManagePage } from '@/pages/admin/ReviewsManagePage';
 import { WinnersPage } from '@/pages/public/WinnersPage';
-import { AwardsManagePage } from '@/pages/admin/AwardsManagePage';
 import { PublicAIChatPage } from '@/pages/public/PublicAIChatPage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactsPage } from '@/pages/public/ContactsPage';
@@ -72,27 +70,44 @@ import { HousesCasePage } from '@/pages/public/HousesCasePage';
 import { MadeoCasePage } from '@/pages/public/MadeoCasePage';
 import { PolygonCasePage } from '@/pages/public/PolygonCasePage';
 import { StraumannCasePage } from '@/pages/public/StraumannCasePage';
-import TeamListPage from '@/pages/team/TeamListPage';
-import TeamEditorPage from '@/pages/team/TeamEditorPage';
-import SubscribersPage from '@/pages/email/SubscribersPage';
-import CampaignsPage from '@/pages/email/CampaignsPage';
-import SitesListPage from '@/pages/sites/SitesListPage';
-import SiteDetailPage from '@/pages/sites/SiteDetailPage';
-import SitePageEditorPage from '@/pages/sites/SitePageEditorPage';
-import SitePreviewPage from '@/pages/sites/SitePreviewPage';
-import { SitePageBuilderPage } from '@/pages/sites/SitePageBuilderPage';
-import PlannerDashboard from '@/pages/planner/PlannerDashboard';
-import PersonalDevelopment from '@/pages/planner/PersonalDevelopment';
-import TestAuth from '@/pages/planner/TestAuth';
-import ExerciseImagesPage from '@/pages/admin/ExerciseImagesPage';
-import { AIChatPage } from '@/pages/admin/AIChatPage';
-import AiTeamDashboardPage from '@/pages/admin/AiTeamDashboardPage';
-import ProjectsDashboardPage from '@/pages/admin/ProjectsDashboardPage';
-import { ProposalsListPage } from '@/pages/commercial-proposals/ProposalsListPage';
-import { ProposalViewPage } from '@/pages/commercial-proposals/ProposalViewPage';
-import { ProposalEditorPage } from '@/pages/commercial-proposals/ProposalEditorPage';
-import { DonorsManagePage } from '@/pages/donors/DonorsManagePage';
-import { QuizManagementPage } from '@/pages/admin/QuizManagementPage';
+
+// Lazy load остальных админских страниц
+const ParsingPage = lazy(() => import('@/pages/parsing/ParsingPage').then(m => ({ default: m.ParsingPage })));
+const ClientsListPage = lazy(() => import('@/pages/clients/ClientsListPage').then(m => ({ default: m.ClientsListPage })));
+const ClientEditorPage = lazy(() => import('@/pages/clients/ClientEditorPage').then(m => ({ default: m.ClientEditorPage })));
+const ChatsListPage = lazy(() => import('@/pages/chat/ChatsListPage').then(m => ({ default: m.ChatsListPage })));
+const ChatViewPage = lazy(() => import('@/pages/chat/ChatViewPage').then(m => ({ default: m.ChatViewPage })));
+const ChatbotSettingsPage = lazy(() => import('@/pages/chatbot/ChatbotSettingsPage').then(m => ({ default: m.ChatbotSettingsPage })));
+const ReviewsManagePage = lazy(() => import('@/pages/admin/ReviewsManagePage').then(m => ({ default: m.ReviewsManagePage })));
+const AwardsManagePage = lazy(() => import('@/pages/admin/AwardsManagePage').then(m => ({ default: m.AwardsManagePage })));
+const TeamListPage = lazy(() => import('@/pages/team/TeamListPage'));
+const TeamEditorPage = lazy(() => import('@/pages/team/TeamEditorPage'));
+const SubscribersPage = lazy(() => import('@/pages/email/SubscribersPage'));
+const CampaignsPage = lazy(() => import('@/pages/email/CampaignsPage'));
+const SitesListPage = lazy(() => import('@/pages/sites/SitesListPage'));
+const SiteDetailPage = lazy(() => import('@/pages/sites/SiteDetailPage'));
+const SitePageEditorPage = lazy(() => import('@/pages/sites/SitePageEditorPage'));
+const SitePreviewPage = lazy(() => import('@/pages/sites/SitePreviewPage'));
+const SitePageBuilderPage = lazy(() => import('@/pages/sites/SitePageBuilderPage').then(m => ({ default: m.SitePageBuilderPage })));
+const PlannerDashboard = lazy(() => import('@/pages/planner/PlannerDashboard'));
+const PersonalDevelopment = lazy(() => import('@/pages/planner/PersonalDevelopment'));
+const TestAuth = lazy(() => import('@/pages/planner/TestAuth'));
+const ExerciseImagesPage = lazy(() => import('@/pages/admin/ExerciseImagesPage'));
+const AIChatPage = lazy(() => import('@/pages/admin/AIChatPage').then(m => ({ default: m.AIChatPage })));
+const AiTeamDashboardPage = lazy(() => import('@/pages/admin/AiTeamDashboardPage'));
+const ProjectsDashboardPage = lazy(() => import('@/pages/admin/ProjectsDashboardPage'));
+const ProposalsListPage = lazy(() => import('@/pages/commercial-proposals/ProposalsListPage').then(m => ({ default: m.ProposalsListPage })));
+const ProposalViewPage = lazy(() => import('@/pages/commercial-proposals/ProposalViewPage').then(m => ({ default: m.ProposalViewPage })));
+const ProposalEditorPage = lazy(() => import('@/pages/commercial-proposals/ProposalEditorPage').then(m => ({ default: m.ProposalEditorPage })));
+const DonorsManagePage = lazy(() => import('@/pages/donors/DonorsManagePage').then(m => ({ default: m.DonorsManagePage })));
+const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
+
+// Loading fallback для lazy компонентов
+const LoadingFallback = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+    <CircularProgress />
+  </Box>
+);
 
 function Protected({ children }: { children: JSX.Element }) {
   const { token, user } = useAuth();
@@ -172,7 +187,7 @@ export function AppRoutes() {
         path="/admin/login"
         element={<LoginPage />}
       />
-      <Route path="/admin" element={<Protected><DashboardPage /></Protected>} />
+      <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
       <Route path="/admin/pages" element={<Protected><PagesListPage /></Protected>} />
       <Route path="/admin/pages/:id" element={<Protected><PageEditorPage /></Protected>} />
       <Route path="/admin/pages/:id/builder" element={<Protected><PagePageBuilderPage /></Protected>} />
