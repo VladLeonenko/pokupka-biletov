@@ -72,7 +72,6 @@ const buildTimestamp = Date.now().toString();
 export default defineConfig({
   plugins: [
     react(),
-    disableCodeSplitting(), // Полностью отключаем code splitting - все в один bundle
     // Копируем legacy файлы в dist/legacy при сборке
     // Сохраняем структуру папок (css/, js/, img/, fonts/)
     viteStaticCopy({
