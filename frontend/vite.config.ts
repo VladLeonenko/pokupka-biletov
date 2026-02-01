@@ -71,12 +71,29 @@ export default defineConfig({
     // Code splitting для лучшей производительности
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Выделяем vendor библиотеки в отдельные чанки
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'mui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-          'query-vendor': ['@tanstack/react-query'],
-          'utils-vendor': ['date-fns', 'zod', 'classnames'],
+        manualChunks: (id) => {
+          // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
+          // Иначе useState может быть не определен при первом использовании
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return undefined; // Включаем в основной bundle
+          }
+          
+          // Остальные библиотеки в отдельные chunks
+          if (id.includes('node_modules/react-router-dom')) {
+            return 'router-vendor';
+          }
+          if (id.includes('node_modules/@mui/') || id.includes('node_modules/@emotion/')) {
+            return 'mui-vendor';
+          }
+          if (id.includes('node_modules/@tanstack/react-query')) {
+            return 'query-vendor';
+          }
+          if (id.includes('node_modules/date-fns') || id.includes('node_modules/zod') || id.includes('node_modules/classnames')) {
+            return 'utils-vendor';
+          }
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         },
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
