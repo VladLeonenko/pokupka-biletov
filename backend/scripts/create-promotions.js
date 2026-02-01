@@ -8,11 +8,23 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '../.env') });
+// Загружаем .env с явным указанием пути
+const envPath = path.join(__dirname, '../.env');
+dotenv.config({ path: envPath });
+
+// Проверяем что файл существует и выводим отладочную информацию
+try {
+  await fs.access(envPath);
+  console.error(`✅ .env файл найден: ${envPath}`);
+} catch (e) {
+  console.error(`⚠️  .env файл не найден: ${envPath}`);
+  console.error('   Продолжаем с переменными окружения системы...');
+}
 
 const { Pool } = pg;
 
