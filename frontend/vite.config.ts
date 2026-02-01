@@ -4,6 +4,52 @@ import path from 'node:path';
 import { readFileSync } from 'fs';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+// Плагин для исправления порядка загрузки скриптов в index.html
+function fixScriptOrder() {
+  return {
+    name: 'fix-script-order',
+    transformIndexHtml(html: string) {
+      // Находим все modulepreload ссылки и основной script
+      const modulepreloadRegex = /<link rel="modulepreload"[^>]*>/g;
+      const scriptRegex = /<script type="module"[^>]*><\/script>/g;
+      
+      const modulepreloads = html.match(modulepreloadRegex) || [];
+      const scripts = html.match(scriptRegex) || [];
+      
+      // Удаляем все modulepreload и script теги
+      let newHtml = html.replace(modulepreloadRegex, '');
+      newHtml = newHtml.replace(scriptRegex, '');
+      
+      // Находим позицию перед закрывающим </head>
+      const headEndIndex = newHtml.indexOf('</head>');
+      if (headEndIndex !== -1) {
+        // Вставляем modulepreload для react-vendor ПЕРЕД основным скриптом
+        const reactVendorPreload = modulepreloads.find(m => m.includes('react-vendor'));
+        const otherPreloads = modulepreloads.filter(m => !m.includes('react-vendor'));
+        const mainScript = scripts[0];
+        
+        // Собираем правильный порядок: основной скрипт, затем все preload
+        const insertBefore = '</head>';
+        let toInsert = '';
+        
+        if (mainScript) {
+          toInsert += mainScript + '\n    ';
+        }
+        if (reactVendorPreload) {
+          toInsert += reactVendorPreload + '\n    ';
+        }
+        if (otherPreloads.length > 0) {
+          toInsert += otherPreloads.join('\n    ') + '\n    ';
+        }
+        
+        newHtml = newHtml.replace(insertBefore, toInsert + insertBefore);
+      }
+      
+      return newHtml;
+    }
+  };
+}
+
 // Читаем версию из package.json
 const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, './package.json'), 'utf-8'));
 const appVersion = packageJson.version || '1.0.0';
@@ -13,6 +59,7 @@ const buildTimestamp = Date.now().toString();
 export default defineConfig({
   plugins: [
     react(),
+    fixScriptOrder(), // Исправляем порядок загрузки скриптов
     // Копируем legacy файлы в dist/legacy при сборке
     // Сохраняем структуру папок (css/, js/, img/, fonts/)
     viteStaticCopy({
