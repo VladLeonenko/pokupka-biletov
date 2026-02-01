@@ -72,8 +72,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
+        // Отключаем автоматическое создание vendor chunks
         // Используем функцию manualChunks с приоритетной проверкой React
         manualChunks: (id) => {
+          // Отладочный вывод (только в dev)
+          if (process.env.NODE_ENV === 'development' && id.includes('react') && id.includes('node_modules')) {
+            console.log('[manualChunks] React module:', id);
+          }
           // Нормализуем путь для кроссплатформенности
           const normalizedId = id.replace(/\\/g, '/');
           
