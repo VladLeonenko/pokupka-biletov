@@ -7,9 +7,18 @@ import fs from 'node:fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Отладочный вывод - начало загрузки
+console.error('[db.js] Начало загрузки модуля db.js');
+
 // Загружаем .env с override
 const envPath = path.join(__dirname, '.env');
+console.error(`[db.js] Путь к .env: ${envPath}`);
 const envResult = dotenv.config({ path: envPath, override: true });
+if (envResult.error) {
+  console.error(`[db.js] Ошибка dotenv: ${envResult.error.message}`);
+} else {
+  console.error(`[db.js] dotenv загружен, найдено переменных: ${Object.keys(envResult.parsed || {}).length}`);
+}
 
 // Если dotenv не сработал, читаем .env напрямую (как в скриптах)
 if (!process.env.PGPASSWORD || process.env.PGPASSWORD.length < 10) {
