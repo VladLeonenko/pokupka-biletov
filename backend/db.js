@@ -7,17 +7,11 @@ import fs from 'node:fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Отладочный вывод - начало загрузки
-console.error('[db.js] Начало загрузки модуля db.js');
-
 // Загружаем .env с override
 const envPath = path.join(__dirname, '.env');
-console.error(`[db.js] Путь к .env: ${envPath}`);
 const envResult = dotenv.config({ path: envPath, override: true });
-if (envResult.error) {
+if (envResult.error && process.env.NODE_ENV !== 'production') {
   console.error(`[db.js] Ошибка dotenv: ${envResult.error.message}`);
-} else {
-  console.error(`[db.js] dotenv загружен, найдено переменных: ${Object.keys(envResult.parsed || {}).length}`);
 }
 
 // Если dotenv не сработал, читаем .env напрямую (как в скриптах)
@@ -39,19 +33,15 @@ if (!process.env.PGPASSWORD || process.env.PGPASSWORD.length < 10) {
 
 const { Pool } = pg;
 
-// Отладочный вывод параметров подключения (всегда в stderr)
-console.error('='.repeat(60));
-console.error('🔍 [db.js] Параметры подключения к БД:');
-console.error(`   PGUSER: ${process.env.PGUSER || 'НЕ УСТАНОВЛЕН'}`);
-console.error(`   PGHOST: ${process.env.PGHOST || 'localhost'}`);
-console.error(`   PGDATABASE: ${process.env.PGDATABASE || 'НЕ УСТАНОВЛЕН'}`);
-console.error(`   PGPASSWORD: ${process.env.PGPASSWORD ? '*** (' + process.env.PGPASSWORD.length + ' символов)' : 'НЕ УСТАНОВЛЕН'}`);
-if (process.env.PGPASSWORD) {
-  console.error(`   Первые 3 символа пароля: ${process.env.PGPASSWORD.substring(0, 3)}...`);
-  console.error(`   Последние 3 символа пароля: ...${process.env.PGPASSWORD.slice(-3)}`);
+// Отладочный вывод только в dev режиме
+if (process.env.NODE_ENV !== 'production') {
+  console.error('🔍 [db.js] Параметры подключения к БД:');
+  console.error(`   PGUSER: ${process.env.PGUSER || 'НЕ УСТАНОВЛЕН'}`);
+  console.error(`   PGHOST: ${process.env.PGHOST || 'localhost'}`);
+  console.error(`   PGDATABASE: ${process.env.PGDATABASE || 'НЕ УСТАНОВЛЕН'}`);
+  console.error(`   PGPASSWORD: ${process.env.PGPASSWORD ? '*** (' + process.env.PGPASSWORD.length + ' символов)' : 'НЕ УСТАНОВЛЕН'}`);
+  console.error(`   PGPORT: ${process.env.PGPORT || 5432}`);
 }
-console.error(`   PGPORT: ${process.env.PGPORT || 5432}`);
-console.error('='.repeat(60));
 
 // Проверка обязательных переменных окружения
 const requiredEnvVars = ['PGUSER', 'PGHOST', 'PGDATABASE', 'PGPASSWORD', 'PGPORT'];
