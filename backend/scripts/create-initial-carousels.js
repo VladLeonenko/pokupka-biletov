@@ -16,12 +16,24 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
+// Проверяем переменные окружения
+const dbUser = process.env.PGUSER || process.env.DB_USER || 'primeuser';
+const dbHost = process.env.PGHOST || process.env.DB_HOST || 'localhost';
+const dbName = process.env.PGDATABASE || process.env.DB_NAME || 'primecoder_prod';
+const dbPassword = process.env.PGPASSWORD || process.env.DB_PASSWORD;
+const dbPort = Number(process.env.PGPORT || process.env.DB_PORT || 5432);
+
+if (!dbPassword) {
+  console.error('❌ Ошибка: PGPASSWORD или DB_PASSWORD не установлен в .env файле');
+  process.exit(1);
+}
+
 const pool = new Pool({
-  user: process.env.PGUSER,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  port: Number(process.env.PGPORT),
+  user: dbUser,
+  host: dbHost,
+  database: dbName,
+  password: dbPassword,
+  port: dbPort,
 });
 
 // Вертикальная карусель для главной страницы
