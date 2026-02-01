@@ -9,16 +9,22 @@ const __dirname = path.dirname(__filename);
 
 const indexPath = path.join(__dirname, '../dist/index.html');
 
+console.log('[fix-index-html] Looking for file:', indexPath);
+console.log('[fix-index-html] File exists:', fs.existsSync(indexPath));
+
 try {
   let html = fs.readFileSync(indexPath, 'utf-8');
+  console.log('[fix-index-html] File read, length:', html.length);
   
   // Находим все modulepreload ссылки
   const modulepreloadRegex = /<link rel="modulepreload"[^>]*>/g;
   const modulepreloads = html.match(modulepreloadRegex) || [];
+  console.log('[fix-index-html] Found modulepreloads:', modulepreloads.length);
   
   // Находим основной script
   const scriptRegex = /<script type="module"[^>]*><\/script>/g;
   const scripts = html.match(scriptRegex) || [];
+  console.log('[fix-index-html] Found scripts:', scripts.length);
   
   if (modulepreloads.length === 0 || scripts.length === 0) {
     console.log('[fix-index-html] No modulepreload or scripts found');
@@ -26,9 +32,12 @@ try {
   }
   
   // Находим react-vendor preload и удаляем его
+  const reactVendorPreloads = modulepreloads.filter(m => m.includes('react-vendor'));
   const otherPreloads = modulepreloads.filter(m => !m.includes('react-vendor'));
+  console.log('[fix-index-html] react-vendor preloads:', reactVendorPreloads.length);
+  console.log('[fix-index-html] other preloads:', otherPreloads.length);
   
-  if (modulepreloads.length === otherPreloads.length) {
+  if (reactVendorPreloads.length === 0) {
     console.log('[fix-index-html] react-vendor not found in modulepreload, nothing to fix');
     process.exit(0);
   }
@@ -59,7 +68,15 @@ try {
   // Сохраняем измененный HTML
   fs.writeFileSync(indexPath, newHtml, 'utf-8');
   console.log('[fix-index-html] ✅ Removed react-vendor from modulepreload');
+  console.log('[fix-index-html] File saved, new length:', newHtml.length);
+  
+  // Проверяем результат
+  const checkHtml = fs.readFileSync(indexPath, 'utf-8');
+  const checkPreloads = checkHtml.match(modulepreloadRegex) || [];
+  const checkReactVendor = checkPreloads.filter(m => m.includes('react-vendor'));
+  console.log('[fix-index-html] Verification - react-vendor preloads after fix:', checkReactVendor.length);
 } catch (error) {
   console.error('[fix-index-html] ❌ Error:', error.message);
+  console.error('[fix-index-html] Stack:', error.stack);
   process.exit(1);
 }
