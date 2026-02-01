@@ -115,60 +115,13 @@ export default defineConfig({
         pure_funcs: ['console.log', 'console.info', 'console.debug'],
       },
     },
-    // Отключаем автоматический code splitting для основного entry
-    // Это гарантирует, что React будет в основном bundle
-    rollupOptions: {
-      output: {
-        // Отключаем автоматическое создание vendor chunks
-        // Все будет в основном bundle, кроме явно указанных в manualChunks
-        manualChunks: undefined, // Временно отключаем для проверки
     // Code splitting для лучшей производительности
     rollupOptions: {
       output: {
         // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
-        // Используем функцию manualChunks с правильной логикой
-        manualChunks: (id) => {
-          // Нормализуем путь
-          const normalizedId = id.replace(/\\/g, '/');
-          
-          // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
-          // Используем более широкую проверку - любое упоминание react/react-dom в node_modules
-          // кроме исключений
-          const isReactCore = normalizedId.includes('node_modules') && 
-                             (normalizedId.includes('/react/') || 
-                              normalizedId.includes('/react-dom/') ||
-                              normalizedId.match(/\/react$/) ||
-                              normalizedId.match(/\/react-dom$/)) &&
-                             !normalizedId.includes('react-router') && 
-                             !normalizedId.includes('react-query') &&
-                             !normalizedId.includes('react-hook-form') &&
-                             !normalizedId.includes('react-quill') &&
-                             !normalizedId.includes('react-chartjs') &&
-                             !normalizedId.includes('react-dnd') &&
-                             !normalizedId.includes('react-select') &&
-                             !normalizedId.includes('react-beautiful-dnd');
-          
-          if (isReactCore) {
-            return undefined; // Включаем в основной bundle
-          }
-          
-          // Остальные библиотеки в отдельные chunks
-          if (normalizedId.includes('node_modules/react-router-dom')) {
-            return 'router-vendor';
-          }
-          if (normalizedId.includes('node_modules/@mui/') || normalizedId.includes('node_modules/@emotion/')) {
-            return 'mui-vendor';
-          }
-          if (normalizedId.includes('node_modules/@tanstack/react-query')) {
-            return 'query-vendor';
-          }
-          if (normalizedId.includes('node_modules/date-fns') || normalizedId.includes('node_modules/zod') || normalizedId.includes('node_modules/classnames')) {
-            return 'utils-vendor';
-          }
-          if (normalizedId.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
+        // Временно отключаем manualChunks полностью - все будет в одном bundle
+        // Это решит проблему с useState is not defined
+        manualChunks: undefined,
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
