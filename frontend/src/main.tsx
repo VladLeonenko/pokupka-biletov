@@ -92,21 +92,56 @@ const queryClient = new QueryClient();
 // Экспортируем navigate для использования в legacy коде
 let globalNavigate: ((path: string) => void) | null = null;
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}>
-        <AuthProvider>
-          <App />
-          <NavigationExporter />
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+// Логирование для отладки
+console.log('[main.tsx] Starting React render...');
+console.log('[main.tsx] Root element:', document.getElementById('root'));
+
+try {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Root element not found!');
+  }
+
+  const root = ReactDOM.createRoot(rootElement);
+  console.log('[main.tsx] React root created');
+
+  root.render(
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}>
+          <AuthProvider>
+            <App />
+            <NavigationExporter />
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+  
+  console.log('[main.tsx] React render called successfully');
+} catch (error) {
+  console.error('[main.tsx] ❌ CRITICAL ERROR during React initialization:', error);
+  // Показываем ошибку в DOM если React не загрузился
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    rootElement.innerHTML = `
+      <div style="padding: 40px; text-align: center; background: #141414; color: #fff; min-height: 100vh;">
+        <h2>😿 Критическая ошибка при загрузке</h2>
+        <p style="color: #ff6b6b;">${error instanceof Error ? error.message : 'Неизвестная ошибка'}</p>
+        <button onclick="window.location.reload()" style="padding: 12px 24px; font-size: 16px; margin-top: 20px; cursor: pointer;">
+          🔄 Перезагрузить страницу
+        </button>
+        <details style="margin-top: 20px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+          <summary style="cursor: pointer; color: #999;">Детали ошибки</summary>
+          <pre style="background: #000; padding: 10px; overflow: auto; font-size: 12px;">${error instanceof Error ? error.stack : JSON.stringify(error, null, 2)}</pre>
+        </details>
+      </div>
+    `;
+  }
+}
 
 // Компонент для экспорта navigate в window
 function NavigationExporter() {

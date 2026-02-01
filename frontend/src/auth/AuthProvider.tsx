@@ -20,9 +20,24 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // Логирование для отладки
+  console.log('[AuthProvider] Initializing...');
+  
   // Используем универсальное хранилище с fallback для Safari ITP
-  const [token, setTokenState] = useState<string | null>(() => getAuthToken());
-  const [user, setUserState] = useState<User>(() => getAuthUser());
+  let initialToken: string | null = null;
+  let initialUser: User = null;
+  
+  try {
+    initialToken = getAuthToken();
+    initialUser = getAuthUser();
+    console.log('[AuthProvider] Initial token:', initialToken ? 'present' : 'missing');
+    console.log('[AuthProvider] Initial user:', initialUser ? 'present' : 'missing');
+  } catch (error) {
+    console.error('[AuthProvider] Error getting initial auth state:', error);
+  }
+  
+  const [token, setTokenState] = useState<string | null>(initialToken);
+  const [user, setUserState] = useState<User>(initialUser);
 
   // Обертка для setToken с синхронизацией в хранилище
   const setToken = (newToken: string | null) => {
