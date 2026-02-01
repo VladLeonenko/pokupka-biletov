@@ -72,7 +72,7 @@ const buildTimestamp = Date.now().toString();
 export default defineConfig({
   plugins: [
     react(),
-    fixReactLoadingOrder(), // Исправляем порядок загрузки - React должен загружаться синхронно
+    disableCodeSplitting(), // Полностью отключаем code splitting - все в один bundle
     // Копируем legacy файлы в dist/legacy при сборке
     // Сохраняем структуру папок (css/, js/, img/, fonts/)
     viteStaticCopy({
@@ -136,11 +136,9 @@ export default defineConfig({
         // ВАЖНО: inlineDynamicImports инлайнит все динамические импорты в основной bundle
         // Это решает проблему с useState is not defined в Safari
         inlineDynamicImports: true, // ВСЁ в один bundle (динамические импорты)
-        // Отключаем manualChunks - все в одном bundle
-        manualChunks: undefined,
-        // Отключаем автоматическое создание vendor chunks
-        // Это гарантирует, что все статические импорты тоже в основном bundle
-        // Но Vite все равно может создавать chunks автоматически, поэтому используем плагин
+        // ВАЖНО: Отключаем manualChunks полностью - все модули в одном bundle
+        // Это гарантирует, что React и все vendor библиотеки будут в основном bundle
+        manualChunks: undefined, // Отключаем code splitting - все в одном bundle
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
