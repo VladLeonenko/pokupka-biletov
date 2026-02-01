@@ -72,49 +72,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
-        // Отключаем автоматическое создание vendor chunks
-        // Используем функцию manualChunks с приоритетной проверкой React
-        manualChunks: (id) => {
-          // Отладочный вывод (только в dev)
-          if (process.env.NODE_ENV === 'development' && id.includes('react') && id.includes('node_modules')) {
-            console.log('[manualChunks] React module:', id);
-          }
-          // Нормализуем путь для кроссплатформенности
-          const normalizedId = id.replace(/\\/g, '/');
-          
-          // ПЕРВЫМ делом проверяем React - он должен быть в основном bundle
-          // Проверяем все возможные варианты путей к React
-          if ((normalizedId.includes('/react/') || normalizedId.includes('/react-dom/')) &&
-              normalizedId.includes('node_modules') &&
-              !normalizedId.includes('react-router') && 
-              !normalizedId.includes('react-query') &&
-              !normalizedId.includes('react-hook-form') &&
-              !normalizedId.includes('react-quill') &&
-              !normalizedId.includes('react-chartjs') &&
-              !normalizedId.includes('react-dnd') &&
-              !normalizedId.includes('react-select') &&
-              !normalizedId.includes('react-beautiful-dnd') &&
-              !normalizedId.includes('react-transition-group')) {
-            return undefined; // Включаем в основной bundle
-          }
-          
-          // Остальные библиотеки в отдельные chunks
-          if (normalizedId.includes('node_modules/react-router-dom')) {
-            return 'router-vendor';
-          }
-          if (normalizedId.includes('node_modules/@mui/') || normalizedId.includes('node_modules/@emotion/')) {
-            return 'mui-vendor';
-          }
-          if (normalizedId.includes('node_modules/@tanstack/react-query')) {
-            return 'query-vendor';
-          }
-          if (normalizedId.includes('node_modules/date-fns') || normalizedId.includes('node_modules/zod') || normalizedId.includes('node_modules/classnames')) {
-            return 'utils-vendor';
-          }
-          if (normalizedId.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
+        // Временно отключаем code splitting полностью - все в одном bundle
+        // Это решит проблему с useState is not defined
+        manualChunks: undefined,
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
