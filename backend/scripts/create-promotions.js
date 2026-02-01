@@ -239,26 +239,67 @@ async function applyMigration() {
       return;
     }
     
-    const migrationSQL = `
-      ALTER TABLE promotions 
-      ADD COLUMN slug TEXT,
-      ADD COLUMN conditions TEXT;
-      
-      CREATE INDEX IF NOT EXISTS idx_promotions_slug ON promotions(slug) WHERE slug IS NOT NULL;
-      
-      ALTER TABLE promotions 
-      ADD CONSTRAINT promotions_slug_unique UNIQUE (slug);
-    `;
-    
-    await pool.query(migrationSQL);
-    console.error('✅ Миграция применена\n');
-  } catch (error) {
-    if (error.message.includes('already exists') || error.code === '42710' || error.code === '42P07' || error.code === '23505') {
-      console.error('⚠️  Колонки уже существуют или ограничение уже есть, пропускаем миграцию\n');
-    } else {
-      console.error('❌ Ошибка применения миграции:', error.message);
-      throw error;
+    // Пытаемся добавить колонки по одной, чтобы обойти проблему с правами
+    try {
+      await pool.query(`ALTER TABLE promotions ADD COLUMN IF NOT EXISTS slug TEXT`);
+      console.error('   ✅ Колонка slug добавлена');
+    } catch (e) {
+      if (e.message.includes('already exists') || e.code === '42710' || e.code === '42P07') {
+        console.error('   ⚠️  Колонка slug уже существует');
+      } else {
+        console.error('   ⚠️  Не удалось добавить slug (возможно, нет прав):', e.message);
+        console.error('   💡 Запустите миграцию вручную от имени postgres:');
+        console.error('      sudo -u postgres psql -d primecoder_prod -c "ALTER TABLE promotions ADD COLUMN IF NOT EXISTS slug TEXT, ADD COLUMN IF NOT EXISTS conditions TEXT;"');
+      }
     }
+    
+    try {
+      await pool.query(`ALTER TABLE promotions ADD COLUMN IF NOT EXISTS conditions TEXT`);
+      console.error('   ✅ Колонка conditions добавлена');
+    } catch (e) {
+      if (e.message.includes('already exists') || e.code === '42710' || e.code === '42P07') {
+        console.error('   ⚠️  Колонка conditions уже существует');
+      } else {
+        console.error('   ⚠️  Не удалось добавить conditions (возможно, нет прав):', e.message);
+      }
+    }
+    
+    try {
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_promotions_slug ON promotions(slug) WHERE slug IS NOT NULL`);
+      console.error('   ✅ Индекс создан');
+    } catch (e) {
+      if (e.code === '42P07') {
+        console.error('   ⚠️  Индекс уже существует');
+      } else {
+        console.error('   ⚠️  Не удалось создать индекс:', e.message);
+      }
+    }
+    
+    // Проверяем существование constraint перед добавлением
+    try {
+      const constraintCheck = await pool.query(`
+        SELECT 1 FROM pg_constraint WHERE conname = 'promotions_slug_unique'
+      `);
+      if (constraintCheck.rows.length === 0) {
+        await pool.query(`ALTER TABLE promotions ADD CONSTRAINT promotions_slug_unique UNIQUE (slug)`);
+        console.error('   ✅ Constraint добавлен');
+      } else {
+        console.error('   ⚠️  Constraint уже существует');
+      }
+    } catch (e) {
+      if (e.code === '23505' || e.message.includes('already exists')) {
+        console.error('   ⚠️  Constraint уже существует');
+      } else {
+        console.error('   ⚠️  Не удалось добавить constraint:', e.message);
+      }
+    }
+    
+    console.error('✅ Миграция применена (с предупреждениями, если нет прав)\n');
+  } catch (error) {
+    console.error('❌ Ошибка применения миграции:', error.message);
+    console.error('💡 Если ошибка связана с правами, запустите миграцию вручную:');
+    console.error('   sudo -u postgres psql -d primecoder_prod -c "ALTER TABLE promotions ADD COLUMN IF NOT EXISTS slug TEXT, ADD COLUMN IF NOT EXISTS conditions TEXT;"');
+    // Не бросаем ошибку, продолжаем работу (скрипт может работать и без этих колонок)
   }
 }
 
