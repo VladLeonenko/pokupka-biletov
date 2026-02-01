@@ -102,6 +102,36 @@ export function AppLayout({ children }: PropsWithChildren) {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
+      {/* Разрешаем копирование текста в админ панели */}
+      <style>{`
+        /* Разрешаем выделение и копирование текста в админ панели */
+        body[data-admin="true"],
+        body[data-admin="true"] *,
+        .MuiBox-root,
+        .MuiPaper-root,
+        .MuiTypography-root,
+        .MuiTableCell-root,
+        .MuiListItemText-primary,
+        .MuiListItemText-secondary,
+        .MuiTextField-root input,
+        .MuiTextField-root textarea {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+          -moz-user-select: text !important;
+          -ms-user-select: text !important;
+        }
+        
+        /* Исключения - элементы управления не должны выделяться */
+        .MuiButton-root,
+        .MuiIconButton-root,
+        .MuiChip-root,
+        .MuiTab-root,
+        .MuiMenuItem-root,
+        .MuiListItemButton-root {
+          user-select: none !important;
+          -webkit-user-select: none !important;
+        }
+      `}</style>
       <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar>
           <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 2, display: { md: 'none' } }}>

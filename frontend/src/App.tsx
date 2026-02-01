@@ -13,6 +13,7 @@ import { GlobalFormValidator } from '@/components/common/GlobalFormValidator';
 import { FaviconNotificationTracker } from '@/components/common/FaviconNotificationTracker';
 // import { GlobalPreloader } from '@/components/common/GlobalPreloader'; // Закомментировано - preloader не работает
 import { useLocation, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
@@ -42,6 +43,18 @@ export default function App() {
   // Если пользователь авторизован и заходит на корень, редиректим в админку
   // НЕ редиректим - пусть публичная страница доступна
   
+  // Устанавливаем data-атрибут для админ панели для стилей
+  useEffect(() => {
+    if (shouldUseAdminLayout || (isAdminRoute && !isLoginPage)) {
+      document.body.setAttribute('data-admin', 'true');
+    } else {
+      document.body.removeAttribute('data-admin');
+    }
+    return () => {
+      document.body.removeAttribute('data-admin');
+    };
+  }, [shouldUseAdminLayout, isAdminRoute, isLoginPage]);
+
   return (
     <ThemeModeProvider>
       <ToastProvider>
