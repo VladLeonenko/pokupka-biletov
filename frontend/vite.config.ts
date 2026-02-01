@@ -4,6 +4,56 @@ import path from 'node:path';
 import { readFileSync } from 'fs';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+// Плагин для исправления порядка загрузки скриптов - React должен загружаться синхронно
+function fixReactLoadingOrder() {
+  return {
+    name: 'fix-react-loading-order',
+    transformIndexHtml(html: string) {
+      // Находим все modulepreload ссылки
+      const modulepreloadRegex = /<link rel="modulepreload"[^>]*>/g;
+      const modulepreloads = html.match(modulepreloadRegex) || [];
+      
+      // Находим основной script
+      const scriptRegex = /<script type="module"[^>]*><\/script>/g;
+      const scripts = html.match(scriptRegex) || [];
+      
+      if (modulepreloads.length === 0 || scripts.length === 0) {
+        return html; // Если нет preload или scripts, возвращаем как есть
+      }
+      
+      // Находим react-vendor preload
+      const reactVendorPreload = modulepreloads.find(m => m.includes('react-vendor'));
+      const otherPreloads = modulepreloads.filter(m => !m.includes('react-vendor'));
+      
+      // Удаляем все modulepreload и script теги
+      let newHtml = html.replace(modulepreloadRegex, '');
+      newHtml = newHtml.replace(scriptRegex, '');
+      
+      // Находим позицию перед закрывающим </head>
+      const headEndIndex = newHtml.indexOf('</head>');
+      if (headEndIndex !== -1) {
+        // Собираем правильный порядок:
+        // 1. Основной script (который импортирует react-vendor)
+        // 2. React-vendor preload (если есть)
+        // 3. Остальные preload
+        let toInsert = '';
+        
+        if (scripts[0]) {
+          toInsert += scripts[0] + '\n    ';
+        }
+        // НЕ добавляем react-vendor preload - пусть загружается синхронно через основной script
+        if (otherPreloads.length > 0) {
+          toInsert += otherPreloads.join('\n    ') + '\n    ';
+        }
+        
+        newHtml = newHtml.replace('</head>', toInsert + '</head>');
+      }
+      
+      return newHtml;
+    }
+  };
+}
+
 // Читаем версию из package.json
 const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, './package.json'), 'utf-8'));
 const appVersion = packageJson.version || '1.0.0';
@@ -13,6 +63,7 @@ const buildTimestamp = Date.now().toString();
 export default defineConfig({
   plugins: [
     react(),
+    fixReactLoadingOrder(), // Исправляем порядок загрузки - React должен загружаться синхронно
     // Копируем legacy файлы в dist/legacy при сборке
     // Сохраняем структуру папок (css/, js/, img/, fonts/)
     viteStaticCopy({
