@@ -53,6 +53,8 @@ export default defineConfig({
     // Инжектим версию и timestamp в код
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
     'import.meta.env.VITE_BUILD_TIMESTAMP': JSON.stringify(buildTimestamp),
+    // Убеждаемся, что PROD правильно определяется в production build
+    'import.meta.env.PROD': JSON.stringify(process.env.NODE_ENV === 'production'),
   },
   // Копируем Service Worker в корень dist
   publicDir: 'public',

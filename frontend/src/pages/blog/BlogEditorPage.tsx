@@ -6,6 +6,7 @@ import { useToast } from '@/components/common/ToastProvider';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import BuildIcon from '@mui/icons-material/Build';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -496,6 +497,13 @@ export function BlogEditorPage() {
               <Typography>В хайлайтах</Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+              <Button 
+                variant="outlined" 
+                startIcon={<BuildIcon />}
+                onClick={() => navigate(`/admin/blog/${isNew ? 'new' : id}/builder`)}
+              >
+                Page Builder
+              </Button>
               <Button variant="contained" onClick={() => mutation.mutate(model)}>Сохранить</Button>
               {!isNew && (
                 <Button color="error" onClick={() => remove.mutate(model.id)}>Удалить</Button>

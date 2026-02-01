@@ -117,14 +117,15 @@ router.get('/:slug', async (req, res) => {
 // Создать новую страницу
 router.post('/', async (req, res) => {
   const { slug, title, body, seo_title, seo_description, seo_keywords, is_published,
-    canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang } = req.body;
+    canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang, content_json } = req.body;
   try {
     await pool.query(
       `INSERT INTO pages (slug, title, body, seo_title, seo_description, seo_keywords, is_published,
-       canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang) 
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, FALSE), $8, COALESCE($9, TRUE), COALESCE($10, TRUE), $11, $12, $13, $14, $15, $16, $17, $18)`,
+       canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang, content_json) 
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, FALSE), $8, COALESCE($9, TRUE), COALESCE($10, TRUE), $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
       [slug, title, body, seo_title, seo_description, seo_keywords, is_published,
-        canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang]
+        canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang,
+        content_json ? (typeof content_json === 'string' ? JSON.parse(content_json) : content_json) : null]
     );
     res.status(201).json({ success: true });
   } catch (error) {
@@ -135,7 +136,7 @@ router.post('/', async (req, res) => {
 // Обновить страницу по slug
 router.put('/:slug', async (req, res) => {
   const { title, body, seo_title, seo_description, seo_keywords, is_published,
-    canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang } = req.body;
+    canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang, content_json } = req.body;
   try {
     // Build dynamic UPDATE query - only update fields that are provided (not undefined/null)
     const updates = [];

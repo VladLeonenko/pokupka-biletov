@@ -96,9 +96,10 @@ import { getApiBase } from './apiBase';
 
 export async function fetchCacheVersionFromServer(): Promise<string | null> {
   try {
-    const API_BASE = getApiBase();
+    // Вычисляем динамически при каждом вызове
+    const apiBase = getApiBase();
     
-    const response = await fetch(`${API_BASE}/api/public/cache/version`, {
+    const response = await fetch(`${apiBase}/api/public/cache/version`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

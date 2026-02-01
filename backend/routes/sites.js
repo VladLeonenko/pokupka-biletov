@@ -216,17 +216,58 @@ router.get('/:id/pages', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/sites/:id/pages/:pageId - Получить страницу по ID
+router.get('/:id/pages/:pageId', requireAuth, async (req, res) => {
+  try {
+    const { id, pageId } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM site_pages WHERE site_id = $1 AND id = $2`,
+      [id, pageId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Page not found' });
+    }
+    
+    const page = result.rows[0];
+    res.json({
+      id: page.id,
+      siteId: page.site_id,
+      slug: page.slug,
+      title: page.title,
+      content: page.content,
+      seo_title: page.meta_title,
+      seo_description: page.meta_description,
+      og_image: page.og_image,
+      template: page.template,
+      is_published: page.is_published,
+      publishedAt: page.published_at,
+      createdAt: page.created_at,
+      updatedAt: page.updated_at,
+    });
+  } catch (err) {
+    console.error('Error fetching page:', err);
+    res.status(500).json({ error: 'Failed to fetch page' });
+  }
+});
+
 // POST /api/sites/:id/pages - Создать страницу для сайта
 router.post('/:id/pages', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { slug, title, content, metaTitle, metaDescription, ogImage, template, isPublished } = req.body;
+    const { slug, title, content, metaTitle, metaDescription, ogImage, template, isPublished, seo_title, seo_description, og_image, is_published } = req.body;
+    
+    // Поддержка разных вариантов названий полей
+    const finalMetaTitle = metaTitle || seo_title;
+    const finalMetaDescription = metaDescription || seo_description;
+    const finalOgImage = ogImage || og_image;
+    const finalIsPublished = isPublished !== undefined ? isPublished : (is_published !== undefined ? is_published : false);
     
     const result = await pool.query(
       `INSERT INTO site_pages (site_id, slug, title, content, meta_title, meta_description, og_image, template, is_published, published_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [id, slug, title, content || {}, metaTitle, metaDescription, ogImage, template || 'default', isPublished || false, isPublished ? new Date() : null]
+      [id, slug, title, content || {}, finalMetaTitle, finalMetaDescription, finalOgImage, template || 'default', finalIsPublished, finalIsPublished ? new Date() : null]
     );
     
     const page = result.rows[0];
@@ -236,11 +277,11 @@ router.post('/:id/pages', requireAuth, async (req, res) => {
       slug: page.slug,
       title: page.title,
       content: page.content,
-      metaTitle: page.meta_title,
-      metaDescription: page.meta_description,
-      ogImage: page.og_image,
+      seo_title: page.meta_title,
+      seo_description: page.meta_description,
+      og_image: page.og_image,
       template: page.template,
-      isPublished: page.is_published,
+      is_published: page.is_published,
       publishedAt: page.published_at,
       createdAt: page.created_at,
       updatedAt: page.updated_at,
@@ -251,6 +292,120 @@ router.post('/:id/pages', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Page with this slug already exists for this site' });
     }
     res.status(500).json({ error: 'Failed to create page' });
+  }
+});
+
+// PUT /api/sites/:id/pages/:pageId - Обновить страницу
+router.put('/:id/pages/:pageId', requireAuth, async (req, res) => {
+  try {
+    const { id, pageId } = req.params;
+    const { slug, title, content, metaTitle, metaDescription, ogImage, template, isPublished, seo_title, seo_description, og_image, is_published } = req.body;
+    
+    // Поддержка разных вариантов названий полей
+    const finalMetaTitle = metaTitle !== undefined ? metaTitle : seo_title;
+    const finalMetaDescription = metaDescription !== undefined ? metaDescription : seo_description;
+    const finalOgImage = ogImage !== undefined ? ogImage : og_image;
+    const finalIsPublished = isPublished !== undefined ? isPublished : (is_published !== undefined ? is_published : undefined);
+    
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    if (slug !== undefined) {
+      updates.push(`slug = $${paramIndex++}`);
+      values.push(slug);
+    }
+    if (title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+    if (content !== undefined) {
+      updates.push(`content = $${paramIndex++}`);
+      values.push(content);
+    }
+    if (finalMetaTitle !== undefined) {
+      updates.push(`meta_title = $${paramIndex++}`);
+      values.push(finalMetaTitle);
+    }
+    if (finalMetaDescription !== undefined) {
+      updates.push(`meta_description = $${paramIndex++}`);
+      values.push(finalMetaDescription);
+    }
+    if (finalOgImage !== undefined) {
+      updates.push(`og_image = $${paramIndex++}`);
+      values.push(finalOgImage);
+    }
+    if (template !== undefined) {
+      updates.push(`template = $${paramIndex++}`);
+      values.push(template);
+    }
+    if (finalIsPublished !== undefined) {
+      updates.push(`is_published = $${paramIndex++}`);
+      values.push(finalIsPublished);
+      if (finalIsPublished) {
+        updates.push(`published_at = $${paramIndex++}`);
+        values.push(new Date());
+      }
+    }
+    
+    updates.push(`updated_at = NOW()`);
+    
+    values.push(id, pageId);
+    
+    const result = await pool.query(
+      `UPDATE site_pages 
+       SET ${updates.join(', ')}
+       WHERE site_id = $${paramIndex} AND id = $${paramIndex + 1}
+       RETURNING *`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Page not found' });
+    }
+    
+    const page = result.rows[0];
+    res.json({
+      id: page.id,
+      siteId: page.site_id,
+      slug: page.slug,
+      title: page.title,
+      content: page.content,
+      seo_title: page.meta_title,
+      seo_description: page.meta_description,
+      og_image: page.og_image,
+      template: page.template,
+      is_published: page.is_published,
+      publishedAt: page.published_at,
+      createdAt: page.created_at,
+      updatedAt: page.updated_at,
+    });
+  } catch (err) {
+    console.error('Error updating page:', err);
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Page with this slug already exists for this site' });
+    }
+    res.status(500).json({ error: 'Failed to update page' });
+  }
+});
+
+// DELETE /api/sites/:id/pages/:pageId - Удалить страницу
+router.delete('/:id/pages/:pageId', requireAuth, async (req, res) => {
+  try {
+    const { id, pageId } = req.params;
+    const result = await pool.query(
+      `DELETE FROM site_pages WHERE site_id = $1 AND id = $2 RETURNING *`,
+      [id, pageId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Page not found' });
+    }
+    
+    res.json({ message: 'Page deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting page:', err);
+    res.status(500).json({ error: 'Failed to delete page' });
   }
 });
 

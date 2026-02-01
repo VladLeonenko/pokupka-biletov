@@ -1,7 +1,10 @@
 // Public API functions (no authentication required)
 import { getApiBase } from '@/utils/apiBase';
 
-const API_BASE: string = getApiBase();
+// Вычисляем динамически, а не один раз при загрузке модуля
+function getApiBaseUrl(): string {
+  return getApiBase();
+}
 
 async function publicFetch(input: string, init?: RequestInit): Promise<Response> {
   return await fetch(input, { ...(init || {}), headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
@@ -21,10 +24,10 @@ export async function getPublicPage(slug: string): Promise<any | null> {
   let url: string;
   if (normalizedSlug === '/') {
     // Use query parameter for root slug to avoid Express routing issues with %2F
-    url = `${API_BASE}/api/public/pages?slug=/`;
+    url = `${getApiBaseUrl()}/api/public/pages?slug=/`;
   } else {
     // Use regular slug endpoint (no encoding needed, Express will handle it)
-    url = `${API_BASE}/api/public/pages${normalizedSlug}`;
+    url = `${getApiBaseUrl()}/api/public/pages${normalizedSlug}`;
   }
   
   const res = await publicFetch(url);
@@ -61,70 +64,70 @@ function mapRowToPage(row: any): any {
 }
 
 export async function getPublicPartials(): Promise<{ head?: string; header?: string; footer?: string }> {
-  const res = await publicFetch(`${API_BASE}/api/public/partials`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/partials`);
   if (!res.ok) throw new Error('Failed to fetch partials');
   return await res.json();
 }
 
 export async function listPublicBlogPosts(): Promise<any[]> {
-  const res = await publicFetch(`${API_BASE}/api/public/blog?published=true`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog?published=true`);
   if (!res.ok) throw new Error('Failed to fetch blog posts');
   return await res.json();
 }
 
 export async function listPublicBlogHighlights(): Promise<any[]> {
-  const res = await publicFetch(`${API_BASE}/api/public/blog?published=true&featured=true`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog?published=true&featured=true`);
   if (!res.ok) throw new Error('Failed to fetch blog highlights');
   return await res.json();
 }
 
 export async function getPublicBlogPost(slug: string): Promise<any> {
-  const res = await publicFetch(`${API_BASE}/api/public/blog/${encodeURIComponent(slug)}`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch blog post');
   return await res.json();
 }
 
 export async function listPublicProducts(): Promise<any[]> {
-  const res = await publicFetch(`${API_BASE}/api/public/products?active=true`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/products?active=true`);
   if (!res.ok) throw new Error('Failed to fetch products');
   return await res.json();
 }
 
 export async function getPublicProduct(slug: string): Promise<any> {
-  const res = await publicFetch(`${API_BASE}/api/public/products/${encodeURIComponent(slug)}`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/products/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch product');
   return await res.json();
 }
 
 export async function listPublicCases(): Promise<any[]> {
-  const res = await publicFetch(`${API_BASE}/api/public/cases?published=true`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases?published=true`);
   if (!res.ok) throw new Error('Failed to fetch cases');
   return await res.json();
 }
 
 export async function getPublicCase(slug: string): Promise<any> {
-  const res = await publicFetch(`${API_BASE}/api/public/cases/${encodeURIComponent(slug)}`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch case');
   return await res.json();
 }
 
 export async function listPublicPromotions(): Promise<any[]> {
-  const res = await publicFetch(`${API_BASE}/api/public/promotions`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/promotions`);
   if (!res.ok) throw new Error('Failed to fetch promotions');
   return await res.json();
 }
 
 export async function listPublicBlogCategories(): Promise<Array<{ slug: string; name: string }>> {
-  const res = await publicFetch(`${API_BASE}/api/public/blog/categories`);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog/categories`);
   if (!res.ok) throw new Error('Failed to fetch blog categories');
   return await res.json();
 }
 
 export async function validatePromoCode(promoCode: string): Promise<{ valid: boolean; promotion?: any; error?: string }> {
-  const res = await publicFetch(`${API_BASE}/api/promotions/validate-promo`, {
+  const res = await publicFetch(`${getApiBaseUrl()}/api/promotions/validate-promo`, {
     method: 'POST',
     body: JSON.stringify({ promoCode }),
   });
@@ -136,7 +139,7 @@ export async function validatePromoCode(promoCode: string): Promise<{ valid: boo
 }
 
 export async function submitQuizForm(data: Record<string, any>): Promise<any> {
-  const res = await publicFetch(`${API_BASE}/api/forms/quiz-form/submit`, {
+  const res = await publicFetch(`${getApiBaseUrl()}/api/forms/quiz-form/submit`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

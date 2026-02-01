@@ -23,13 +23,22 @@ export function CookieConsentModal({ open, onClose }: CookieConsentModalProps) {
   const [showSettings, setShowSettings] = useState(false);
   const { acceptAll, rejectAll, hasConsent } = useCookieConsent();
 
-  const handleAcceptAll = () => {
-    acceptAll();
+  // Проверяем согласие при открытии модального окна
+  // Убираем checkConsent из зависимостей чтобы избежать бесконечных циклов
+  useEffect(() => {
+    if (open && hasConsent) {
+      // Если согласие уже есть, закрываем модальное окно
+      onClose();
+    }
+  }, [open, hasConsent]); // Убрали checkConsent и onClose из зависимостей
+
+  const handleAcceptAll = async () => {
+    await acceptAll();
     onClose();
   };
 
-  const handleRejectAll = () => {
-    rejectAll();
+  const handleRejectAll = async () => {
+    await rejectAll();
     onClose();
   };
 

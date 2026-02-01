@@ -10,6 +10,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import BuildIcon from '@mui/icons-material/Build';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ProductItem, ProductContentJson } from '@/types/cms';
@@ -1297,6 +1298,13 @@ export function ProductEditorPage() {
               </AccordionDetails>
             </Accordion>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button 
+                variant="outlined" 
+                startIcon={<BuildIcon />}
+                onClick={() => navigate(`/admin/products/${isNew ? 'new' : id}/builder`)}
+              >
+                Page Builder
+              </Button>
               <Button variant="contained" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
                 {saveMut.isPending ? 'Сохранение...' : (isNew ? 'Создать' : 'Сохранить')}
               </Button>

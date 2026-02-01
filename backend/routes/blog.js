@@ -142,6 +142,7 @@ router.post('/', async (req, res) => {
     carousel_enabled,
     carousel_title,
     carousel_items,
+    content_json,
   } = req.body;
   const client = await pool.connect();
   try {
@@ -150,12 +151,12 @@ router.post('/', async (req, res) => {
       `INSERT INTO blog_posts (
          slug, title, body, seo_title, seo_description, seo_keywords,
          is_published, is_featured, cover_image_url, carousel_enabled,
-         carousel_title, carousel_items
+         carousel_title, carousel_items, content_json
        )
        VALUES (
          $1, $2, $3, $4, $5, $6,
          COALESCE($7, FALSE), COALESCE($8, FALSE), $9,
-         COALESCE($10, FALSE), $11, $12
+         COALESCE($10, FALSE), $11, $12, $13
        )
        RETURNING id`,
       [
@@ -171,6 +172,7 @@ router.post('/', async (req, res) => {
         carousel_enabled,
         carousel_title && typeof carousel_title === 'string' && carousel_title.trim() ? carousel_title.trim() : null,
         JSON.stringify(normalizeCarouselItems(carousel_items)),
+        content_json ? (typeof content_json === 'string' ? JSON.parse(content_json) : content_json) : null,
       ]
     );
     const postId = ins.rows[0].id;
@@ -224,6 +226,7 @@ router.put('/:slug', async (req, res) => {
     carousel_enabled,
     carousel_title,
     carousel_items,
+    content_json,
   } = req.body;
   const client = await pool.connect();
   try {
@@ -305,6 +308,12 @@ router.put('/:slug', async (req, res) => {
     if (is_featured !== undefined && is_featured !== null) {
       updates.push(`is_featured=$${paramIndex}`);
       values.push(Boolean(is_featured));
+      paramIndex++;
+    }
+
+    if (content_json !== undefined && content_json !== null) {
+      updates.push(`content_json=$${paramIndex}`);
+      values.push(typeof content_json === 'string' ? JSON.parse(content_json) : content_json);
       paramIndex++;
     }
 

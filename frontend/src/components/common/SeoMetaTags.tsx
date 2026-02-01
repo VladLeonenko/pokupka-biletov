@@ -17,7 +17,9 @@ export function SeoMetaTags({
   keywords, 
   image, 
   url, 
-  type = 'website' 
+  type = 'website',
+  ogTitle,
+  ogDescription
 }: SeoMetaTagsProps) {
   useEffect(() => {
     // Обновляем title
@@ -117,7 +119,7 @@ export function SeoMetaTags({
       
       script.textContent = JSON.stringify(structuredData);
     }
-  }, [title, description, keywords, image, url, type]);
+  }, [title, description, keywords, image, url, type, ogTitle, ogDescription]);
 
   return null;
 }

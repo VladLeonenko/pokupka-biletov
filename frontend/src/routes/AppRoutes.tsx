@@ -2,9 +2,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { PagesListPage } from '@/pages/pages/PagesListPage';
 import { PageEditorPage } from '@/pages/pages/PageEditorPage';
+import { PagePageBuilderPage } from '@/pages/pages/PagePageBuilderPage';
 import { PagePreviewPage } from '@/pages/pages/PagePreviewPage';
 import { BlogListPage } from '@/pages/blog/BlogListPage';
 import { BlogEditorPage } from '@/pages/blog/BlogEditorPage';
+import { BlogPageBuilderPage } from '@/pages/blog/BlogPageBuilderPage';
 import { BlogCategoriesPage } from '@/pages/blog/BlogCategoriesPage';
 import { SeoPage } from '@/pages/seo/SeoPage';
 import { CarouselListPage } from '@/pages/carousels/CarouselListPage';
@@ -13,8 +15,10 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { useAuth } from '@/auth/AuthProvider';
 import { CasesListPage } from '@/pages/cases/CasesListPage';
 import { CaseEditorPage } from '@/pages/cases/CaseEditorPage';
+import { CasePageBuilderPage } from '@/pages/cases/CasePageBuilderPage';
 import { ProductsListPage } from '@/pages/products/ProductsListPage';
 import { ProductEditorPage } from '@/pages/products/ProductEditorPage';
+import { ProductPageBuilderPage } from '@/pages/products/ProductPageBuilderPage';
 import { PromotionsListPage } from '@/pages/promotions/PromotionsListPage';
 import { PromotionEditorPage } from '@/pages/promotions/PromotionEditorPage';
 import { CasePreviewPage } from '@/pages/cases/CasePreviewPage';
@@ -76,6 +80,7 @@ import SitesListPage from '@/pages/sites/SitesListPage';
 import SiteDetailPage from '@/pages/sites/SiteDetailPage';
 import SitePageEditorPage from '@/pages/sites/SitePageEditorPage';
 import SitePreviewPage from '@/pages/sites/SitePreviewPage';
+import { SitePageBuilderPage } from '@/pages/sites/SitePageBuilderPage';
 import PlannerDashboard from '@/pages/planner/PlannerDashboard';
 import PersonalDevelopment from '@/pages/planner/PersonalDevelopment';
 import TestAuth from '@/pages/planner/TestAuth';
@@ -158,9 +163,11 @@ export function AppRoutes() {
       <Route path="/admin" element={<Protected><DashboardPage /></Protected>} />
       <Route path="/admin/pages" element={<Protected><PagesListPage /></Protected>} />
       <Route path="/admin/pages/:id" element={<Protected><PageEditorPage /></Protected>} />
+      <Route path="/admin/pages/:id/builder" element={<Protected><PagePageBuilderPage /></Protected>} />
       <Route path="/admin/pages/:id/preview" element={<Protected><PagePreviewPage /></Protected>} />
       <Route path="/admin/blog" element={<Protected><BlogListPage /></Protected>} />
       <Route path="/admin/blog/:id" element={<Protected><BlogEditorPage /></Protected>} />
+      <Route path="/admin/blog/:id/builder" element={<Protected><BlogPageBuilderPage /></Protected>} />
       <Route path="/admin/blog/categories" element={<Protected><BlogCategoriesPage /></Protected>} />
       <Route path="/admin/seo" element={<Protected><SeoPage /></Protected>} />
       <Route path="/admin/carousels" element={<Protected><CarouselListPage /></Protected>} />
@@ -168,8 +175,10 @@ export function AppRoutes() {
       <Route path="/admin/cases" element={<Protected><CasesListPage /></Protected>} />
       <Route path="/admin/cases/:id/preview" element={<Protected><CasePreviewPage /></Protected>} />
       <Route path="/admin/cases/:id" element={<Protected><CaseEditorPage /></Protected>} />
+      <Route path="/admin/cases/:id/builder" element={<Protected><CasePageBuilderPage /></Protected>} />
       <Route path="/admin/products" element={<Protected><ProductsListPage /></Protected>} />
       <Route path="/admin/products/:id" element={<Protected><ProductEditorPage /></Protected>} />
+      <Route path="/admin/products/:id/builder" element={<Protected><ProductPageBuilderPage /></Protected>} />
       <Route path="/admin/parsing" element={<Protected><ParsingPage /></Protected>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
       <Route path="/admin/quiz" element={<Protected><QuizManagementPage /></Protected>} />
@@ -196,6 +205,7 @@ export function AppRoutes() {
       <Route path="/admin/sites" element={<Protected><SitesListPage /></Protected>} />
       <Route path="/admin/sites/:siteId" element={<Protected><SiteDetailPage /></Protected>} />
       <Route path="/admin/sites/:siteId/pages/:pageId" element={<Protected><SitePageEditorPage /></Protected>} />
+      <Route path="/admin/sites/:siteId/pages/:pageId/builder" element={<Protected><SitePageBuilderPage /></Protected>} />
       <Route path="/admin/sites/:siteId/pages/:pageId/preview" element={<Protected><SitePreviewPage /></Protected>} />
       <Route path="/admin/exercise-images" element={<Protected><ExerciseImagesPage /></Protected>} />
       <Route path="/admin/ai-chat" element={<Protected><AIChatPage /></Protected>} />

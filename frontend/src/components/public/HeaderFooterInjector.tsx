@@ -648,7 +648,13 @@ export function HeaderFooterInjector() {
             'display: block; padding: 8px 0; text-decoration: none; font-weight: 500; cursor: pointer;';
           a.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = href;
+            // Используем React Router навигацию вместо полной перезагрузки
+            if (typeof window !== 'undefined' && (window as any).__navigate) {
+              (window as any).__navigate(href);
+            } else {
+              // Fallback на полную перезагрузку если navigate недоступен
+              window.location.href = href;
+            }
           });
           li.appendChild(a);
           menuNav.insertBefore(li, firstLi);

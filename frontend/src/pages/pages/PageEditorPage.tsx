@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteSitePage, getSitePage, movePage, publishPage, updateSitePage, getPartials } from '@/services/cmsApi';
 import { Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLabel, Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import BuildIcon from '@mui/icons-material/Build';
 import { useToast } from '@/components/common/ToastProvider';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMemo, useState, useEffect } from 'react';
@@ -146,7 +147,14 @@ export function PageEditorPage() {
               />
               <Typography>Опубликована</Typography>
             </Box>
-            <Box sx={{ mt: 2 }}>
+            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+              <Button 
+                variant="outlined" 
+                startIcon={<BuildIcon />}
+                onClick={() => navigate(`/admin/pages/${id}/builder`)}
+              >
+                Page Builder
+              </Button>
               <Button
                 variant="contained"
                 onClick={async () => {

@@ -67,12 +67,8 @@ export function AppLayout({ children }: PropsWithChildren) {
   const { token } = useAuth();
   
   // Redirect to login if no token (extra safety check)
-  useEffect(() => {
-    if (!token) {
-      navigate('/admin/login', { replace: true });
-      return;
-    }
-  }, [token, navigate]);
+  // Убираем этот useEffect - редирект уже обрабатывается в App.tsx
+  // Это предотвращает бесконечные циклы редиректов
   
   // Don't render layout if no token (security: prevent menu from showing)
   if (!token) {

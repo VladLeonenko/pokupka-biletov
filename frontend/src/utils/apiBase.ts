@@ -38,8 +38,16 @@ export function getApiBase(): string {
  * Получить абсолютный URL для API (если нужен)
  * Используется в редких случаях, когда нужен полный URL
  * ВАЖНО: Возвращает URL БЕЗ /api, т.к. /api добавляется в сервисах
+ * В production всегда возвращает пустую строку для относительных путей
  */
 export function getApiBaseAbsolute(): string {
+  // В production всегда используем пустую строку (относительные пути)
+  // Это работает когда frontend и backend на одном домене
+  // Vite заменит import.meta.env.PROD на true в production build
+  if (import.meta.env.PROD) {
+    return '';
+  }
+
   const explicitBase = (import.meta as any)?.env?.VITE_API_URL;
   if (explicitBase && typeof explicitBase === 'string' && explicitBase.trim().length > 0) {
     let base = explicitBase.trim().replace(/\/+$/, '');
@@ -52,13 +60,7 @@ export function getApiBaseAbsolute(): string {
     return base;
   }
 
-  if (import.meta.env.DEV) {
-    return 'http://localhost:3000';
-  }
-
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-
-  return '';
+  // В dev режиме используем localhost:3000
+  // Этот код будет удален Vite в production build благодаря проверке PROD выше
+  return 'http://localhost:3000';
 }

@@ -1,5 +1,5 @@
 // Service Worker для офлайн кэширования и оптимизации производительности
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.2';
 const CACHE_NAME = `primecoder-cache-${CACHE_VERSION}`;
 
 // Ресурсы для кэширования при установке
@@ -71,7 +71,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Пропускаем не-GET запросы
+  // Пропускаем не-GET запросы (POST, PUT, DELETE для форм и API)
+  // Это позволяет формам работать нормально без перехвата Service Worker
   if (request.method !== 'GET') {
     return;
   }
@@ -92,18 +93,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Стратегия для HTML (stale-while-revalidate)
+  // Стратегия для HTML - всегда сеть-первая (не кэшируем для SPA навигации)
+  // Это критично для React Router - нужно всегда получать свежий HTML
   if (
     url.pathname === '/' ||
     url.pathname.endsWith('.html') ||
     request.headers.get('accept')?.includes('text/html')
   ) {
-    event.respondWith(staleWhileRevalidate(request));
+    // Для SPA навигации всегда используем сеть, не кэшируем HTML
+    // Это позволяет React Router правильно обрабатывать навигацию
+    event.respondWith(networkOnly(request));
     return;
   }
 
   // Стратегия для API запросов (network-first)
+  // Пропускаем запросы на localhost - они не должны быть в production
   if (url.pathname.startsWith('/api/')) {
+    // В production не должно быть запросов на localhost
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      console.warn('[Service Worker] Blocked localhost request:', url.href);
+      return; // Пропускаем обработку - пусть браузер обработает сам
+    }
     event.respondWith(networkFirst(request));
     return;
   }
@@ -155,7 +165,18 @@ async function networkFirst(request) {
   }
 }
 
-// Стратегия: stale-while-revalidate (для HTML)
+// Стратегия: только сеть (для HTML в SPA)
+async function networkOnly(request) {
+  try {
+    const response = await fetch(request);
+    return response;
+  } catch (error) {
+    console.error('[Service Worker] Network failed for HTML:', error);
+    return new Response('Offline', { status: 503 });
+  }
+}
+
+// Стратегия: stale-while-revalidate (не используется для HTML в SPA)
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);

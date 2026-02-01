@@ -1,0 +1,25 @@
+#!/bin/bash
+# Финальное исправление CORS и API base URL
+
+echo "=== Исправление CORS и API Base URL ==="
+echo ""
+
+echo "1. Проверяем .env файл на сервере..."
+echo ""
+echo "Выполните на сервере:"
+echo ""
+echo "cd /var/www/primecoder-gulp/backend"
+echo "cat .env | grep CORS"
+echo ""
+echo "Если CORS_ORIGIN нет или неправильный, добавьте:"
+echo "echo 'CORS_ORIGIN=https://prime-coder.ru,https://www.prime-coder.ru' >> .env"
+echo ""
+echo "2. Перезапустите PM2:"
+echo "pm2 delete all"
+echo "cd /var/www/primecoder-gulp/backend"
+echo "pm2 start app.js --name primecoder-backend -i 2"
+echo "pm2 save"
+echo ""
+echo "3. Проверьте логи:"
+echo "pm2 logs primecoder-backend --lines 20"
+echo ""

@@ -31,14 +31,26 @@ export function useCookieConsent() {
     if (stored) {
       try {
         const data = JSON.parse(stored);
-        if (data.version === CONSENT_VERSION) {
+        if (data.version === CONSENT_VERSION && data.preferences) {
           setHasConsent(true);
           setPreferences(data.preferences);
           return true;
+        } else {
+          // Если версия не совпадает или нет preferences, очищаем старое согласие
+          localStorage.removeItem(STORAGE_KEY);
+          setHasConsent(false);
+          setPreferences(null);
         }
       } catch (e) {
         console.error('Error parsing cookie consent:', e);
+        // Очищаем поврежденные данные
+        localStorage.removeItem(STORAGE_KEY);
+        setHasConsent(false);
+        setPreferences(null);
       }
+    } else {
+      setHasConsent(false);
+      setPreferences(null);
     }
     return false;
   };

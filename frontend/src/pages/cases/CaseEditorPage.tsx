@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteCase, getCase, setCasePublished, upsertCase } from '@/services/cmsApi';
 import { Box, Button, Chip, Grid, Paper, Switch, TextField, Typography, FormControlLabel, MenuItem, Select, FormControl, InputLabel, Tabs, Tab, IconButton } from '@mui/material';
+import BuildIcon from '@mui/icons-material/Build';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ReactQuill from 'react-quill';
 import { uploadImage } from '@/services/cmsApi';
@@ -1006,6 +1007,15 @@ export function CaseEditorPage() {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Button 
+                variant="outlined" 
+                fullWidth 
+                startIcon={<BuildIcon />}
+                onClick={() => navigate(`/admin/cases/${isNew ? 'new' : id}/builder`)}
+                sx={{ mb: 1 }}
+              >
+                Page Builder
+              </Button>
               <Button variant="contained" fullWidth onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
                 {saveMut.isPending ? 'Сохранение...' : (isNew ? 'Создать' : 'Сохранить')}
               </Button>

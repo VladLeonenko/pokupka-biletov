@@ -32,15 +32,15 @@ export default function App() {
   // If user tries to access admin routes without auth, redirect to login
   // Except for the login page itself
   // ВАЖНО: Проверяем только admin роуты, публичные доступны всем
-  if (isAdminRoute && !isLoginPage && !token) {
+  // Используем useMemo для предотвращения бесконечных редиректов
+  const shouldRedirectToLogin = isAdminRoute && !isLoginPage && !token;
+  
+  if (shouldRedirectToLogin) {
     return <Navigate to="/admin/login" replace />;
   }
   
   // Если пользователь авторизован и заходит на корень, редиректим в админку
-  if (location.pathname === '/' && token && !isAdminRoute) {
-    // НЕ редиректим - пусть публичная страница доступна
-    // return <Navigate to="/admin" replace />;
-  }
+  // НЕ редиректим - пусть публичная страница доступна
   
   return (
     <ThemeModeProvider>

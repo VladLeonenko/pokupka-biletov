@@ -2,7 +2,10 @@ import { CartItem, WishlistItem, Order, SearchFilters, ProductItem, ProductCateg
 
 import { getApiBase } from '@/utils/apiBase';
 
-const API_BASE: string = getApiBase();
+// Вычисляем динамически, а не один раз при загрузке модуля
+function getApiBaseUrl(): string {
+  return getApiBase();
+}
 
 function getToken(): string | null {
   try { return localStorage.getItem('auth.token'); } catch { return null; }
@@ -50,7 +53,7 @@ async function doFetch(input: string, init?: RequestInit): Promise<Response> {
 
 // ==================== Корзина ====================
 export async function getCart(): Promise<{ items: CartItem[]; sessionId?: string }> {
-  const res = await doFetch(`${API_BASE}/api/public/cart`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/cart`);
   if (!res.ok) throw new Error('Failed to fetch cart');
   const data = await res.json();
   if (data.sessionId) setSessionId(data.sessionId);
@@ -58,7 +61,7 @@ export async function getCart(): Promise<{ items: CartItem[]; sessionId?: string
 }
 
 export async function addToCart(productSlug: string, quantity: number = 1): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/public/cart`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/cart`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productSlug, quantity }),
@@ -69,7 +72,7 @@ export async function addToCart(productSlug: string, quantity: number = 1): Prom
 }
 
 export async function updateCartItem(id: number, quantity: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/public/cart/${id}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/cart/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ quantity }),
@@ -78,17 +81,17 @@ export async function updateCartItem(id: number, quantity: number): Promise<void
 }
 
 export async function removeFromCart(id: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/public/cart/${id}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/cart/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to remove from cart');
 }
 
 export async function clearCart(): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/public/cart`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/cart`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to clear cart');
 }
 
 export async function syncCart(): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/public/cart/sync`, { method: 'POST' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/cart/sync`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to sync cart');
 }
 
@@ -160,7 +163,7 @@ export async function searchProducts(filters: SearchFilters & { limit?: number; 
   if (filters.limit) params.append('limit', filters.limit.toString());
   if (filters.offset) params.append('offset', filters.offset.toString());
   
-  const res = await doFetch(`${API_BASE}/api/public/search?${params.toString()}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/search?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to search products');
   return res.json();
 }
@@ -211,7 +214,7 @@ export async function getOrder(orderNumber: string): Promise<{ order: Order }> {
 export async function trackProductEvent(productSlug: string, eventType: 'view' | 'click' | 'add_to_cart' | 'add_to_wishlist' | 'purchase' | 'case_view', metadata?: any): Promise<void> {
   try {
     // Используем обычный fetch для публичного эндпоинта, без авторизации
-    const res = await fetch(`${API_BASE}/api/public/analytics/track`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/public/analytics/track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productSlug, eventType, metadata }),
@@ -232,8 +235,8 @@ export async function getProductAnalytics(productSlug?: string, days: number = 3
   if (productSlug) params.append('productSlug', productSlug);
   
   const url = productSlug 
-    ? `${API_BASE}/api/analytics/${encodeURIComponent(productSlug)}?${params.toString()}`
-    : `${API_BASE}/api/analytics?${params.toString()}`;
+    ? `${getApiBaseUrl()}/api/analytics/${encodeURIComponent(productSlug)}?${params.toString()}`
+    : `${getApiBaseUrl()}/api/analytics?${params.toString()}`;
   
   const res = await doFetch(url);
   if (!res.ok) throw new Error('Failed to fetch analytics');

@@ -3,7 +3,10 @@ import { readLocal, writeLocal } from '@/store/localStore';
 import { setStoredCacheVersion } from '@/utils/cacheVersion';
 import { getApiBase } from '@/utils/apiBase';
 
-const API_BASE: string = getApiBase();
+// Вычисляем динамически, а не один раз при загрузке модуля
+function getApiBaseUrl(): string {
+  return getApiBase();
+}
 
 function getToken(): string | null {
   try { return localStorage.getItem('auth.token'); } catch { return null; }
@@ -47,7 +50,8 @@ function mapFromApi(row: any): SitePage {
     html: row.body ?? '',
     seo,
     isPublished: Boolean(row.is_published),
-  } as SitePage as any;
+    contentJson: row.content_json || {},
+  } as SitePage & { contentJson?: any };
 }
 
 function mapToApi(update: Partial<SitePage>): any {
@@ -56,6 +60,7 @@ function mapToApi(update: Partial<SitePage>): any {
   if (update.title !== undefined) result.title = update.title;
   if (update.html !== undefined) result.body = update.html;
   if ((update as any).isPublished !== undefined) result.is_published = (update as any).isPublished;
+  if ((update as any).contentJson !== undefined) result.content_json = (update as any).contentJson;
   
   // SEO fields
   if (update.seo) {
@@ -87,7 +92,7 @@ export async function listSitePages(): Promise<SitePage[]> {
   if (!token) {
     throw new Error('Authentication required');
   }
-  const res = await doFetch(`${API_BASE}/api/pages`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages`);
   if (!res.ok) {
     if (res.status === 401) {
       throw new Error('Authentication required');
@@ -100,7 +105,7 @@ export async function listSitePages(): Promise<SitePage[]> {
 
 export async function getSitePage(id: string): Promise<SitePage | undefined> {
   const slug = id;
-  const res = await doFetch(`${API_BASE}/api/pages/${encodeURIComponent(slug)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch page');
   return mapFromApi(await res.json());
@@ -108,7 +113,7 @@ export async function getSitePage(id: string): Promise<SitePage | undefined> {
 
 export async function updateSitePage(id: string, update: Partial<SitePage>): Promise<SitePage | undefined> {
   const slug = id;
-  const res = await doFetch(`${API_BASE}/api/pages/${encodeURIComponent(slug)}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/${encodeURIComponent(slug)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(mapToApi(update)),
@@ -129,7 +134,7 @@ export async function createSitePage(page: SitePage): Promise<SitePage> {
     seo_keywords: page.seo?.metaKeywords,
     is_published: (page as any).isPublished || false,
   };
-  const res = await doFetch(`${API_BASE}/api/pages`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -141,12 +146,12 @@ export async function createSitePage(page: SitePage): Promise<SitePage> {
 }
 
 export async function deleteSitePage(id: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/pages/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete page');
 }
 
 export async function publishPage(id: string, isPublished: boolean): Promise<SitePage | undefined> {
-  const res = await doFetch(`${API_BASE}/api/pages/${encodeURIComponent(id)}/publish`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/${encodeURIComponent(id)}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ is_published: isPublished }),
@@ -158,7 +163,7 @@ export async function publishPage(id: string, isPublished: boolean): Promise<Sit
 }
 
 export async function movePage(id: string, newSlug: string): Promise<SitePage | undefined> {
-  const res = await doFetch(`${API_BASE}/api/pages/${encodeURIComponent(id)}/move`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/${encodeURIComponent(id)}/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newSlug }),
@@ -170,7 +175,7 @@ export async function movePage(id: string, newSlug: string): Promise<SitePage | 
 }
 
 export async function movePageToBlog(id: string, blogSlug?: string): Promise<{ blog_slug: string }> {
-  const res = await doFetch(`${API_BASE}/api/pages/${encodeURIComponent(id)}/move-to-blog`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/${encodeURIComponent(id)}/move-to-blog`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ slug: blogSlug }),
@@ -180,7 +185,7 @@ export async function movePageToBlog(id: string, blogSlug?: string): Promise<{ b
 }
 
 export async function movePageToCase(id: string, caseSlug?: string, extras?: { summary?: string; hero_image_url?: string; tools?: string[]; gallery?: string[]; metrics?: Record<string, number> }): Promise<{ case_slug: string }> {
-  const res = await doFetch(`${API_BASE}/api/pages/move-to-case`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/move-to-case`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ page_slug: id, slug: caseSlug || id, ...(extras || {}) }),
@@ -190,7 +195,7 @@ export async function movePageToCase(id: string, caseSlug?: string, extras?: { s
 }
 
 export async function movePageToProduct(id: string, product: { slug?: string; price_cents?: number; currency?: string; price_period?: 'one_time' | 'monthly' | 'yearly'; features?: string[]; sort_order?: number }): Promise<{ product_slug: string }> {
-  const res = await doFetch(`${API_BASE}/api/pages/move-to-product`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/move-to-product`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ page_slug: id, slug: product?.slug || id, ...(product || {}) }),
@@ -200,7 +205,7 @@ export async function movePageToProduct(id: string, product: { slug?: string; pr
 }
 
 export async function undoLastPageMove(): Promise<{ restored_slug: string }> {
-  const res = await doFetch(`${API_BASE}/api/pages/undo-last-move`, { method: 'POST' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/pages/undo-last-move`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to undo last move');
   return res.json();
 }
@@ -209,21 +214,21 @@ export async function undoLastPageMove(): Promise<{ restored_slug: string }> {
 export type SemanticKeyword = { q: string; ya: number; ga: number };
 export type SemanticBuckets = { high: SemanticKeyword[]; medium: SemanticKeyword[]; low: SemanticKeyword[] };
 export async function getSemanticKeywords(seed: string): Promise<SemanticBuckets> {
-  const res = await fetch(`${API_BASE}/api/ai/semantic?seed=${encodeURIComponent(seed)}`);
+  const res = await fetch(`${getApiBaseUrl()}/api/ai/semantic?seed=${encodeURIComponent(seed)}`);
   if (!res.ok) throw new Error('Failed to fetch semantic keywords');
   return res.json();
 }
 
 // Semantic Topics API
 export async function getSemanticTopics(): Promise<string[]> {
-  const res = await doFetch(`${API_BASE}/api/ai/semantic-topics`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/semantic-topics`);
   if (!res.ok) throw new Error('Failed to fetch semantic topics');
   const data = await res.json();
   return data.topics || [];
 }
 
 export async function addSemanticTopic(topic: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/ai/semantic-topics`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/semantic-topics`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic }),
@@ -235,7 +240,7 @@ export async function addSemanticTopic(topic: string): Promise<void> {
 }
 
 export async function deleteSemanticTopic(topic: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/ai/semantic-topics/${encodeURIComponent(topic)}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/semantic-topics/${encodeURIComponent(topic)}`, {
     method: 'DELETE',
   });
   if (!res.ok) {
@@ -245,7 +250,7 @@ export async function deleteSemanticTopic(topic: string): Promise<void> {
 }
 
 export async function generateArticleFromKeyword(keyword: string, categorySlug?: string): Promise<{ slug: string; title: string }> {
-  const res = await doFetch(`${API_BASE}/api/ai/generate-article`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/generate-article`, {
     method: 'POST', 
     headers: { 'Content-Type': 'application/json' }, 
     body: JSON.stringify({ keyword, category_slug: categorySlug })
@@ -275,7 +280,7 @@ export interface SeoContent {
 }
 
 export async function generateSeoContent(topic: string, currentTitle?: string, currentContent?: string): Promise<SeoContent> {
-  const res = await doFetch(`${API_BASE}/api/ai/generate-seo-content`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/generate-seo-content`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic, currentTitle, currentContent }),
@@ -315,7 +320,7 @@ export async function generateProductCard(
   currentPrice?: number,
   currentFeatures?: string[]
 ): Promise<ProductCardContent> {
-  const url = `${API_BASE}/api/ai/generate-product-card`;
+  const url = `${getApiBaseUrl()}/api/ai/generate-product-card`;
   const res = await doFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -336,7 +341,7 @@ export async function generateProductSeoContent(
   currentPrice?: number, 
   currentFeatures?: string[]
 ): Promise<ProductSeoContent> {
-  const res = await doFetch(`${API_BASE}/api/ai/generate-product-seo`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/generate-product-seo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productTitle, currentDescription, currentPrice, currentFeatures }),
@@ -349,7 +354,7 @@ export async function generateProductSeoContent(
 }
 
 export async function getPartials(): Promise<{ head?: string; header?: string; footer?: string }> {
-  const res = await doFetch(`${API_BASE}/api/partials`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/partials`);
   if (!res.ok) throw new Error('Failed to fetch partials');
   return res.json();
 }
@@ -359,7 +364,7 @@ export type Carousel = { slug: string; title: string };
 export type CarouselSlide = { id?: number; kind: 'image' | 'text'; image_url?: string; caption_html?: string; width?: number; height?: number; link_url?: string; sort_order?: number; is_active?: boolean };
 
 export async function listCarousels(): Promise<Carousel[]> {
-  const res = await doFetch(`${API_BASE}/api/carousels`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/carousels`);
   if (!res.ok) throw new Error('Failed to fetch carousels');
   return res.json();
 }
@@ -372,19 +377,19 @@ export type MetricsOverview = {
 };
 
 export async function getMetricsOverview(): Promise<MetricsOverview> {
-  const res = await doFetch(`${API_BASE}/api/metrics/overview`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/metrics/overview`);
   if (!res.ok) throw new Error('Failed to fetch metrics');
   return res.json();
 }
 
 export async function suggestSeo(payload: { slug?: string; title?: string; html?: string; type?: string; brandName?: string; siteUrl?: string; logoUrl?: string; lang?: string }): Promise<SeoData> {
-  const res = await doFetch(`${API_BASE}/api/seo/suggest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const res = await doFetch(`${getApiBaseUrl()}/api/seo/suggest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!res.ok) throw new Error('Failed to suggest SEO');
   return res.json();
 }
 
 export async function generateOgImageOnOwnDomain(payload: { title: string; logoUrl?: string; theme?: string; fontSize?: string }): Promise<{ url: string }> {
-  const res = await doFetch(`${API_BASE}/api/seo/og-image`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/seo/og-image`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -393,26 +398,26 @@ export async function generateOgImageOnOwnDomain(payload: { title: string; logoU
   return res.json();
 }
 export async function getCarousel(slug: string): Promise<{ slug: string; title: string; slides: CarouselSlide[] }> {
-  const res = await doFetch(`${API_BASE}/api/carousels/${encodeURIComponent(slug)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/carousels/${encodeURIComponent(slug)}`);
   if (!res.ok) throw new Error('Failed to fetch carousel');
   return res.json();
 }
 export async function createCarousel(slug: string, title?: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/carousels`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, title }) });
+  const res = await doFetch(`${getApiBaseUrl()}/api/carousels`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, title }) });
   if (!res.ok) throw new Error('Failed to create carousel');
 }
 export async function upsertSlide(slug: string, slide: CarouselSlide & { id?: number }): Promise<void> {
-  const url = slide.id ? `${API_BASE}/api/carousels/${encodeURIComponent(slug)}/slides/${slide.id}` : `${API_BASE}/api/carousels/${encodeURIComponent(slug)}/slides`;
+  const url = slide.id ? `${getApiBaseUrl()}/api/carousels/${encodeURIComponent(slug)}/slides/${slide.id}` : `${getApiBaseUrl()}/api/carousels/${encodeURIComponent(slug)}/slides`;
   const method = slide.id ? 'PUT' : 'POST';
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(slide) });
   if (!res.ok) throw new Error('Failed to save slide');
 }
 export async function deleteSlide(slug: string, id: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/carousels/${encodeURIComponent(slug)}/slides/${id}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/carousels/${encodeURIComponent(slug)}/slides/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete slide');
 }
 export async function reorderSlides(slug: string, order: Array<{ id: number; sort_order: number }>): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/carousels/${encodeURIComponent(slug)}/reorder`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
+  const res = await doFetch(`${getApiBaseUrl()}/api/carousels/${encodeURIComponent(slug)}/reorder`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
   if (!res.ok) throw new Error('Failed to reorder slides');
 }
 
@@ -482,17 +487,18 @@ function mapBlogFromApi(row: any): BlogPost {
     carouselEnabled: Boolean(row.carousel_enabled),
     carouselTitle: typeof row.carousel_title === 'string' && row.carousel_title.trim() ? row.carousel_title : undefined,
     carouselItems,
-  };
+    contentJson: row.content_json || {},
+  } as BlogPost & { contentJson?: any };
 }
 
 export async function listBlogPosts(): Promise<BlogPost[]> {
-  const res = await doFetch(`${API_BASE}/api/blog`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog`);
   if (!res.ok) throw new Error('Failed to fetch blog posts');
   const data = await res.json();
   return data.map(mapBlogFromApi);
 }
 export async function getBlogPost(id: string): Promise<BlogPost | undefined> {
-  const res = await doFetch(`${API_BASE}/api/blog/${encodeURIComponent(id)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog/${encodeURIComponent(id)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch blog post');
   return mapBlogFromApi(await res.json());
@@ -537,6 +543,9 @@ export async function upsertBlogPost(post: BlogPost): Promise<BlogPost> {
         }))
         .filter((item) => item.image_url);
     }
+    if ((post as any).contentJson !== undefined) {
+      payload.content_json = (post as any).contentJson;
+    }
   } else {
     // POST - все поля обязательны
     payload.title = post.title || '';
@@ -553,18 +562,21 @@ export async function upsertBlogPost(post: BlogPost): Promise<BlogPost> {
       : null;
     payload.carousel_enabled = post.carouselEnabled || false;
     payload.carousel_title = post.carouselTitle?.trim() || null;
-    payload.carousel_items = (post.carouselItems || [])
-      .map((item) => ({
-        image_url: item.imageUrl?.trim(),
-        caption: item.caption?.trim() || null,
-        alt: item.alt?.trim() || null,
-        link_url: item.linkUrl?.trim() || null,
-      }))
-      .filter((item) => item.image_url);
+      payload.carousel_items = (post.carouselItems || [])
+        .map((item) => ({
+          image_url: item.imageUrl?.trim(),
+          caption: item.caption?.trim() || null,
+          alt: item.alt?.trim() || null,
+          link_url: item.linkUrl?.trim() || null,
+        }))
+        .filter((item) => item.image_url);
+    if ((post as any).contentJson !== undefined) {
+      payload.content_json = (post as any).contentJson;
+    }
   }
   
   const method = post.slug ? 'PUT' : 'POST';
-  const url = post.slug ? `${API_BASE}/api/blog/${encodeURIComponent(post.slug)}` : `${API_BASE}/api/blog`;
+  const url = post.slug ? `${getApiBaseUrl()}/api/blog/${encodeURIComponent(post.slug)}` : `${getApiBaseUrl()}/api/blog`;
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!res.ok) {
     const errorText = await res.text();
@@ -591,13 +603,13 @@ export async function upsertBlogPost(post: BlogPost): Promise<BlogPost> {
 }
 
 export async function listBlogCategories(): Promise<Array<{ slug: string; name: string }>> {
-  const res = await doFetch(`${API_BASE}/api/blog/categories`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog/categories`);
   if (!res.ok) throw new Error('Failed to fetch blog categories');
   return res.json();
 }
 
 export async function createBlogCategory(slug: string, name?: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/blog/categories`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog/categories`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, name }),
   });
   if (!res.ok) {
@@ -607,16 +619,16 @@ export async function createBlogCategory(slug: string, name?: string): Promise<v
 }
 
 export async function deleteBlogCategory(slug: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/blog/categories/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog/categories/${encodeURIComponent(slug)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete blog category');
 }
 export async function deleteBlogPost(id: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/blog/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete blog post');
 }
 
 export async function setBlogPublished(slug: string, isPublished: boolean): Promise<BlogPost | undefined> {
-  const res = await doFetch(`${API_BASE}/api/blog/${encodeURIComponent(slug)}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/blog/${encodeURIComponent(slug)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ is_published: isPublished }),
@@ -663,7 +675,7 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   }
   // НЕ устанавливаем Content-Type - браузер сам установит с boundary для FormData
   
-  const res = await fetch(`${API_BASE}/api/images`, {
+  const res = await fetch(`${getApiBaseUrl()}/api/images`, {
     method: 'POST',
     headers,
     body: form,
@@ -684,7 +696,7 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
 
 // Cases API
 export async function listCases(): Promise<CaseItem[]> {
-  const res = await doFetch(`${API_BASE}/api/cases`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/cases`);
   if (!res.ok) throw new Error('Failed to fetch cases');
   const data = await res.json();
   return data.map((r: any) => ({
@@ -703,7 +715,7 @@ export async function listCases(): Promise<CaseItem[]> {
   }));
 }
 export async function getCase(slug: string): Promise<CaseItem | undefined> {
-  const res = await doFetch(`${API_BASE}/api/cases/${encodeURIComponent(slug)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/cases/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch case');
   const r = await res.json();
@@ -723,7 +735,7 @@ export async function getCase(slug: string): Promise<CaseItem | undefined> {
   };
 }
 export async function setCasePublished(slug: string, isPublished: boolean): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/cases/${encodeURIComponent(slug)}/publish`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/cases/${encodeURIComponent(slug)}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ is_published: isPublished }),
@@ -752,18 +764,18 @@ export async function upsertCase(item: CaseItem): Promise<void> {
   if ('category' in item) {
     payload.category = item.category || null;
   }
-  const url = `${API_BASE}/api/cases${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
+  const url = `${getApiBaseUrl()}/api/cases${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
   const method = item.slug ? 'PUT' : 'POST';
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!res.ok) throw new Error('Failed to save case');
 }
 export async function deleteCase(slug: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/cases/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/cases/${encodeURIComponent(slug)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete case');
 }
 // Products API
 export async function listProducts(activeOnly = false): Promise<ProductItem[]> {
-  const url = activeOnly ? `${API_BASE}/api/products?active=true` : `${API_BASE}/api/products`;
+  const url = activeOnly ? `${getApiBaseUrl()}/api/products?active=true` : `${getApiBaseUrl()}/api/products`;
   const res = await doFetch(url);
   if (!res.ok) throw new Error('Failed to fetch products');
   const products = await res.json();
@@ -784,7 +796,7 @@ export async function listProducts(activeOnly = false): Promise<ProductItem[]> {
   }));
 }
 export async function getProduct(slug: string): Promise<ProductItem | undefined> {
-  const res = await doFetch(`${API_BASE}/api/products/${encodeURIComponent(slug)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/products/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch product');
   const r = await res.json();
@@ -844,7 +856,7 @@ export async function upsertProduct(item: ProductItem): Promise<void> {
   if (item.caseSlugs !== undefined) payload.caseSlugs = item.caseSlugs;
   
   
-  const url = `${API_BASE}/api/products${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
+  const url = `${getApiBaseUrl()}/api/products${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
   const method = item.slug ? 'PUT' : 'POST';
   
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -856,32 +868,32 @@ export async function upsertProduct(item: ProductItem): Promise<void> {
   
 }
 export async function deleteProduct(slug: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/products/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/products/${encodeURIComponent(slug)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete product');
 }
 
 // Team Members API
 export async function listTeamMembers(activeOnly?: boolean): Promise<TeamMember[]> {
-  const url = `${API_BASE}/api/team${activeOnly ? '?active=true' : ''}`;
+  const url = `${getApiBaseUrl()}/api/team${activeOnly ? '?active=true' : ''}`;
   const res = await doFetch(url);
   if (!res.ok) throw new Error('Failed to fetch team members');
   return await res.json();
 }
 
 export async function getPublicTeamMembers(): Promise<TeamMember[]> {
-  const res = await doFetch(`${API_BASE}/api/team/public`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/team/public`);
   if (!res.ok) throw new Error('Failed to fetch public team members');
   return await res.json();
 }
 
 export async function getTeamMember(id: number): Promise<TeamMember> {
-  const res = await doFetch(`${API_BASE}/api/team/${id}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/team/${id}`);
   if (!res.ok) throw new Error('Failed to fetch team member');
   return await res.json();
 }
 
 export async function createTeamMember(member: Omit<TeamMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<TeamMember> {
-  const res = await doFetch(`${API_BASE}/api/team`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/team`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(member),
@@ -892,7 +904,7 @@ export async function createTeamMember(member: Omit<TeamMember, 'id' | 'createdA
 }
 
 export async function updateTeamMember(id: number, member: Partial<TeamMember>): Promise<TeamMember> {
-  const res = await doFetch(`${API_BASE}/api/team/${id}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/team/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(member),
@@ -903,12 +915,12 @@ export async function updateTeamMember(id: number, member: Partial<TeamMember>):
 }
 
 export async function deleteTeamMember(id: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/team/${id}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/team/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete team member');
 }
 
 export async function reorderTeamMembers(items: Array<{ id: number; sortOrder: number }>): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/team/reorder`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/team/reorder`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ items }),
@@ -917,7 +929,7 @@ export async function reorderTeamMembers(items: Array<{ id: number; sortOrder: n
 }
 
 export async function reorderProducts(items: Array<{ slug: string; sortOrder: number }>): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/products/reorder`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/products/reorder`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ items }),
@@ -927,7 +939,7 @@ export async function reorderProducts(items: Array<{ slug: string; sortOrder: nu
 
 export async function clearGlobalCache(reason?: string): Promise<{ ok: boolean; version: string }> {
   const payload = reason ? { reason } : {};
-  const res = await doFetch(`${API_BASE}/api/cache/clear`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/cache/clear`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -945,7 +957,7 @@ export async function clearGlobalCache(reason?: string): Promise<{ ok: boolean; 
 
 // Forms API
 export async function listForms(): Promise<Form[]> {
-  const res = await doFetch(`${API_BASE}/api/forms`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms`);
   if (!res.ok) throw new Error('Failed to fetch forms');
   const data = await res.json();
   return data.map((r: any) => ({
@@ -960,7 +972,7 @@ export async function listForms(): Promise<Form[]> {
 }
 
 export async function getForm(formId: string): Promise<Form | undefined> {
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch form');
   const r = await res.json();
@@ -982,21 +994,21 @@ export async function upsertForm(form: Form): Promise<void> {
     page_path: form.page_path,
     fields: form.fields || [],
   };
-  const url = `${API_BASE}/api/forms${form.form_id ? `/${encodeURIComponent(form.form_id)}` : ''}`;
+  const url = `${getApiBaseUrl()}/api/forms${form.form_id ? `/${encodeURIComponent(form.form_id)}` : ''}`;
   const method = form.form_id ? 'PUT' : 'POST';
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!res.ok) throw new Error('Failed to save form');
 }
 
 export async function deleteForm(formId: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete form');
 }
 
 export async function listFormSubmissions(formId: string, status?: string): Promise<FormSubmission[]> {
   const params = new URLSearchParams();
   if (status) params.set('status', status);
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/submissions?${params}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/submissions?${params}`);
   if (!res.ok) throw new Error('Failed to fetch submissions');
   const data = await res.json();
   return data.map((r: any) => ({
@@ -1014,7 +1026,7 @@ export async function listFormSubmissions(formId: string, status?: string): Prom
 }
 
 export async function getFormSubmission(formId: string, submissionId: number): Promise<FormSubmission | undefined> {
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch submission');
   const r = await res.json();
@@ -1033,7 +1045,7 @@ export async function getFormSubmission(formId: string, submissionId: number): P
 }
 
 export async function updateSubmissionStatus(formId: string, submissionId: number, status: 'new' | 'read' | 'replied' | 'archived'): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}/status`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
@@ -1042,12 +1054,12 @@ export async function updateSubmissionStatus(formId: string, submissionId: numbe
 }
 
 export async function deleteSubmission(formId: string, submissionId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete submission');
 }
 
 export async function listFormAbandonments(formId: string): Promise<FormAbandonment[]> {
-  const res = await doFetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/abandonments`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/abandonments`);
   if (!res.ok) throw new Error('Failed to fetch abandonments');
   const data = await res.json();
   return data.map((r: any) => ({
@@ -1063,14 +1075,14 @@ export async function listFormAbandonments(formId: string): Promise<FormAbandonm
 }
 
 export async function getFormStats(): Promise<FormStats> {
-  const res = await doFetch(`${API_BASE}/api/forms/stats/overview`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/stats/overview`);
   if (!res.ok) throw new Error('Failed to fetch form stats');
   return await res.json();
 }
 
 // Public form submission (no auth required)
 export async function submitForm(formId: string, formData: Record<string, any>): Promise<{ success: boolean; submission: FormSubmission }> {
-  const res = await fetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/submit`, {
+  const res = await fetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formData),
@@ -1094,7 +1106,7 @@ export async function submitForm(formId: string, formData: Record<string, any>):
 
 // Public form abandonment tracking (no auth required)
 export async function trackFormAbandonment(formId: string, formData: Record<string, any>, startedAt: string): Promise<void> {
-  await fetch(`${API_BASE}/api/forms/${encodeURIComponent(formId)}/abandon`, {
+  await fetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/abandon`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ form_data: formData, started_at: startedAt }),
@@ -1103,19 +1115,19 @@ export async function trackFormAbandonment(formId: string, formData: Record<stri
 
 // Funnels API
 export async function listFunnels(): Promise<SalesFunnel[]> {
-  const res = await doFetch(`${API_BASE}/api/funnels`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels`);
   if (!res.ok) throw new Error('Failed to fetch funnels');
   return await res.json();
 }
 
 export async function getFunnel(funnelId: number): Promise<SalesFunnel & { stages: FunnelStage[] }> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}`);
   if (!res.ok) throw new Error('Failed to fetch funnel');
   return await res.json();
 }
 
 export async function upsertFunnel(funnel: Partial<SalesFunnel>): Promise<SalesFunnel> {
-  const url = funnel.id ? `${API_BASE}/api/funnels/${funnel.id}` : `${API_BASE}/api/funnels`;
+  const url = funnel.id ? `${getApiBaseUrl()}/api/funnels/${funnel.id}` : `${getApiBaseUrl()}/api/funnels`;
   const method = funnel.id ? 'PUT' : 'POST';
   const res = await doFetch(url, {
     method,
@@ -1132,14 +1144,14 @@ export async function upsertFunnel(funnel: Partial<SalesFunnel>): Promise<SalesF
 }
 
 export async function deleteFunnel(funnelId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete funnel');
 }
 
 export async function upsertFunnelStage(funnelId: number, stage: Partial<FunnelStage>): Promise<FunnelStage> {
   const url = stage.id
-    ? `${API_BASE}/api/funnels/${funnelId}/stages/${stage.id}`
-    : `${API_BASE}/api/funnels/${funnelId}/stages`;
+    ? `${getApiBaseUrl()}/api/funnels/${funnelId}/stages/${stage.id}`
+    : `${getApiBaseUrl()}/api/funnels/${funnelId}/stages`;
   const method = stage.id ? 'PUT' : 'POST';
   const res = await doFetch(url, {
     method,
@@ -1156,12 +1168,12 @@ export async function upsertFunnelStage(funnelId: number, stage: Partial<FunnelS
 }
 
 export async function deleteFunnelStage(funnelId: number, stageId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}/stages/${stageId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}/stages/${stageId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete stage');
 }
 
 export async function reorderFunnelStages(funnelId: number, stageIds: number[]): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}/stages/reorder`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}/stages/reorder`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ stageIds }),
@@ -1171,13 +1183,13 @@ export async function reorderFunnelStages(funnelId: number, stageIds: number[]):
 
 // Deals API
 export async function listDeals(funnelId: number): Promise<Deal[]> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}/deals`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}/deals`);
   if (!res.ok) throw new Error('Failed to fetch deals');
   return await res.json();
 }
 
 export async function getDeal(funnelId: number, dealId: number): Promise<Deal> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}/deals/${dealId}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}/deals/${dealId}`);
   if (!res.ok) throw new Error('Failed to fetch deal');
   return await res.json();
 }
@@ -1185,8 +1197,8 @@ export async function getDeal(funnelId: number, dealId: number): Promise<Deal> {
 export async function upsertDeal(funnelId: number, deal: Partial<Deal>): Promise<Deal> {
   const isUpdate = deal.id && deal.id > 0;
   const url = isUpdate
-    ? `${API_BASE}/api/funnels/${funnelId}/deals/${deal.id}`
-    : `${API_BASE}/api/funnels/${funnelId}/deals`;
+    ? `${getApiBaseUrl()}/api/funnels/${funnelId}/deals/${deal.id}`
+    : `${getApiBaseUrl()}/api/funnels/${funnelId}/deals`;
   const method = isUpdate ? 'PUT' : 'POST';
   // Remove id from body when creating new deal
   const body = isUpdate ? deal : { ...deal, id: undefined };
@@ -1200,7 +1212,7 @@ export async function upsertDeal(funnelId: number, deal: Partial<Deal>): Promise
 }
 
 export async function deleteDeal(funnelId: number, dealId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/funnels/${funnelId}/deals/${dealId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}/deals/${dealId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete deal');
 }
 
@@ -1213,19 +1225,19 @@ export async function listTasks(params?: { status?: string; priority?: string; a
   if (params?.dealId) searchParams.set('dealId', String(params.dealId));
   if (params?.archived !== undefined) searchParams.set('archived', String(params.archived));
   if (params?.category) searchParams.set('category', params.category);
-  const res = await doFetch(`${API_BASE}/api/tasks?${searchParams}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/tasks?${searchParams}`);
   if (!res.ok) throw new Error('Failed to fetch tasks');
   return await res.json();
 }
 
 export async function getTask(taskId: number): Promise<Task & { comments?: TaskComment[] }> {
-  const res = await doFetch(`${API_BASE}/api/tasks/${taskId}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/tasks/${taskId}`);
   if (!res.ok) throw new Error('Failed to fetch task');
   return await res.json();
 }
 
 export async function upsertTask(task: Partial<Task>): Promise<Task> {
-  const url = (task.id && task.id > 0) ? `${API_BASE}/api/tasks/${task.id}` : `${API_BASE}/api/tasks`;
+  const url = (task.id && task.id > 0) ? `${getApiBaseUrl()}/api/tasks/${task.id}` : `${getApiBaseUrl()}/api/tasks`;
   const method = (task.id && task.id > 0) ? 'PUT' : 'POST';
   const res = await doFetch(url, {
     method,
@@ -1237,12 +1249,12 @@ export async function upsertTask(task: Partial<Task>): Promise<Task> {
 }
 
 export async function deleteTask(taskId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/tasks/${taskId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/tasks/${taskId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete task');
 }
 
 export async function applyTaskTemplateToDeal(funnelId: number, dealId: number, productSlug: string, productTitle?: string): Promise<{ success: boolean; tasksCreated: number }> {
-  const res = await doFetch(`${API_BASE}/api/funnels/apply-task-template`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/funnels/apply-task-template`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ funnelId, dealId, productSlug, productTitle }),
@@ -1255,7 +1267,7 @@ export async function applyTaskTemplateToDeal(funnelId: number, dealId: number, 
 }
 
 export async function addTaskComment(taskId: number, comment: string): Promise<TaskComment> {
-  const res = await doFetch(`${API_BASE}/api/tasks/${taskId}/comments`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/tasks/${taskId}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ comment }),
@@ -1265,7 +1277,7 @@ export async function addTaskComment(taskId: number, comment: string): Promise<T
 }
 
 export async function deleteTaskComment(taskId: number, commentId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete comment');
 }
 
@@ -1318,7 +1330,7 @@ export interface SuggestedTask {
 
 export async function getAITaskRecommendations(): Promise<{ recommendations: AIRecommendation[]; suggestedTasks: SuggestedTask[] }> {
   try {
-    const res = await doFetch(`${API_BASE}/api/tasks/ai-recommendations`);
+    const res = await doFetch(`${getApiBaseUrl()}/api/tasks/ai-recommendations`);
     if (!res.ok) {
       const errorText = await res.text();
       let errorData;
@@ -1345,7 +1357,7 @@ export async function getTaskStats(days?: number): Promise<TaskStats> {
   try {
     const searchParams = new URLSearchParams();
     if (days) searchParams.set('days', String(days));
-    const url = `${API_BASE}/api/tasks/stats?${searchParams}`;
+    const url = `${getApiBaseUrl()}/api/tasks/stats?${searchParams}`;
     const res = await doFetch(url);
     
     if (!res.ok) {
@@ -1383,19 +1395,19 @@ export interface PendingTask {
 }
 
 export async function getNextTaskToExecute(): Promise<{ task: PendingTask | null; message: string }> {
-  const res = await doFetch(`${API_BASE}/api/task-executor/execute-next`, { method: 'POST' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/task-executor/execute-next`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to get next task');
   return await res.json();
 }
 
 export async function getPendingTasks(): Promise<PendingTask[]> {
-  const res = await doFetch(`${API_BASE}/api/task-executor/pending`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/task-executor/pending`);
   if (!res.ok) throw new Error('Failed to fetch pending tasks');
   return await res.json();
 }
 
 export async function completeTask(taskId: number, notes?: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/task-executor/complete/${taskId}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/task-executor/complete/${taskId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ notes }),
@@ -1404,7 +1416,7 @@ export async function completeTask(taskId: number, notes?: string): Promise<void
 }
 
 export async function failTask(taskId: number, reason?: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/task-executor/fail/${taskId}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/task-executor/fail/${taskId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason }),
@@ -1432,20 +1444,20 @@ export interface PromotionItem {
 }
 
 export async function listPromotions(): Promise<PromotionItem[]> {
-  const res = await doFetch(`${API_BASE}/api/promotions`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/promotions`);
   if (!res.ok) throw new Error('Failed to fetch promotions');
   return await res.json();
 }
 
 export async function getPromotion(id: number): Promise<PromotionItem | undefined> {
-  const res = await doFetch(`${API_BASE}/api/promotions/${id}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/promotions/${id}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error('Failed to fetch promotion');
   return await res.json();
 }
 
 export async function validatePromoCode(promoCode: string): Promise<{ valid: boolean; promotion?: any; error?: string }> {
-  const res = await doFetch(`${API_BASE}/api/promotions/validate-promo`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/promotions/validate-promo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ promoCode }),
@@ -1474,8 +1486,8 @@ export async function upsertPromotion(item: PromotionItem): Promise<void> {
   };
 
   const url = item.id
-    ? `${API_BASE}/api/promotions/${item.id}`
-    : `${API_BASE}/api/promotions`;
+    ? `${getApiBaseUrl()}/api/promotions/${item.id}`
+    : `${getApiBaseUrl()}/api/promotions`;
   const method = item.id ? 'PUT' : 'POST';
 
   const res = await doFetch(url, {
@@ -1488,19 +1500,19 @@ export async function upsertPromotion(item: PromotionItem): Promise<void> {
 }
 
 export async function deletePromotion(id: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/promotions/${id}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/promotions/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete promotion');
 }
 
 // Payments API
 export async function listPayments(dealId: number): Promise<Payment[]> {
-  const res = await doFetch(`${API_BASE}/api/payments?dealId=${dealId}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/payments?dealId=${dealId}`);
   if (!res.ok) throw new Error('Failed to fetch payments');
   return await res.json();
 }
 
 export async function createPayment(payment: Partial<Payment>): Promise<Payment> {
-  const res = await doFetch(`${API_BASE}/api/payments`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/payments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payment),
@@ -1510,7 +1522,7 @@ export async function createPayment(payment: Partial<Payment>): Promise<Payment>
 }
 
 export async function updatePayment(paymentId: number, payment: Partial<Payment>): Promise<Payment> {
-  const res = await doFetch(`${API_BASE}/api/payments/${paymentId}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/payments/${paymentId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payment),
@@ -1520,13 +1532,13 @@ export async function updatePayment(paymentId: number, payment: Partial<Payment>
 }
 
 export async function deletePayment(paymentId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/payments/${paymentId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/payments/${paymentId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete payment');
 }
 
 // Documents API
 export async function listDocuments(dealId: number): Promise<DealDocument[]> {
-  const res = await doFetch(`${API_BASE}/api/documents?dealId=${dealId}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/documents?dealId=${dealId}`);
   if (!res.ok) throw new Error('Failed to fetch documents');
   return await res.json();
 }
@@ -1539,7 +1551,7 @@ export async function uploadDocument(dealId: number, file: File, name: string, d
   formData.append('documentType', documentType);
   if (description) formData.append('description', description);
 
-  const res = await doFetch(`${API_BASE}/api/documents`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/documents`, {
     method: 'POST',
     body: formData,
   });
@@ -1548,7 +1560,7 @@ export async function uploadDocument(dealId: number, file: File, name: string, d
 }
 
 export async function deleteDocument(documentId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/documents/${documentId}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/documents/${documentId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete document');
 }
 
@@ -1562,7 +1574,7 @@ export async function listCommercialProposals(params?: { clientId?: number; deal
   if (params?.clientId) searchParams.set('clientId', String(params.clientId));
   if (params?.dealId) searchParams.set('dealId', String(params.dealId));
   if (params?.status) searchParams.set('status', params.status);
-  const url = `${API_BASE}/api/commercial-proposals${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+  const url = `${getApiBaseUrl()}/api/commercial-proposals${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
   const res = await doFetch(url);
   if (!res.ok) {
     if (res.status === 401) {
@@ -1575,8 +1587,8 @@ export async function listCommercialProposals(params?: { clientId?: number; deal
 
 export async function getCommercialProposal(id: number, shareToken?: string): Promise<CommercialProposal> {
   const url = shareToken 
-    ? `${API_BASE}/api/commercial-proposals/${id}?shareToken=${shareToken}`
-    : `${API_BASE}/api/commercial-proposals/${id}`;
+    ? `${getApiBaseUrl()}/api/commercial-proposals/${id}?shareToken=${shareToken}`
+    : `${getApiBaseUrl()}/api/commercial-proposals/${id}`;
   const res = await doFetch(url);
   if (!res.ok) {
     if (res.status === 401) {
@@ -1592,7 +1604,7 @@ export async function createCommercialProposal(proposal: Partial<CommercialPropo
   if (!token) {
     throw new Error('Authentication required');
   }
-  const res = await doFetch(`${API_BASE}/api/commercial-proposals`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/commercial-proposals`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(proposal),
@@ -1606,7 +1618,7 @@ export async function updateCommercialProposal(id: number, proposal: Partial<Com
   if (!token) {
     throw new Error('Authentication required');
   }
-  const res = await doFetch(`${API_BASE}/api/commercial-proposals/${id}`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/commercial-proposals/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(proposal),
@@ -1620,7 +1632,7 @@ export async function deleteCommercialProposal(id: number): Promise<void> {
   if (!token) {
     throw new Error('Authentication required');
   }
-  const res = await doFetch(`${API_BASE}/api/commercial-proposals/${id}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/commercial-proposals/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete commercial proposal');
 }
 
@@ -1629,7 +1641,7 @@ export async function generateProposalShareLink(id: number): Promise<{ shareToke
   if (!token) {
     throw new Error('Authentication required');
   }
-  const res = await doFetch(`${API_BASE}/api/commercial-proposals/${id}/generate-share-link`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/commercial-proposals/${id}/generate-share-link`, {
     method: 'POST',
   });
   if (!res.ok) throw new Error('Failed to generate share link');
@@ -1643,7 +1655,7 @@ export async function listNotifications(unreadOnly?: boolean): Promise<Notificat
     throw new Error('Authentication required');
   }
   const params = unreadOnly ? '?unreadOnly=true' : '';
-  const res = await doFetch(`${API_BASE}/api/notifications${params}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/notifications${params}`);
   if (!res.ok) {
     if (res.status === 401) {
       throw new Error('Authentication required');
@@ -1654,12 +1666,12 @@ export async function listNotifications(unreadOnly?: boolean): Promise<Notificat
 }
 
 export async function markNotificationRead(notificationId: number): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/notifications/${notificationId}/read`, { method: 'PUT' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/notifications/${notificationId}/read`, { method: 'PUT' });
   if (!res.ok) throw new Error('Failed to mark notification as read');
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/notifications/read-all`, { method: 'PUT' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/notifications/read-all`, { method: 'PUT' });
   if (!res.ok) throw new Error('Failed to mark all notifications as read');
 }
 
@@ -1687,7 +1699,7 @@ export interface ProductAnalysis {
 }
 
 export async function analyzeProducts(products: ProductItem[], promotions: PromotionItem[], competitorData?: any): Promise<ProductAnalysis> {
-  const res = await doFetch(`${API_BASE}/api/ai/analyze-products`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/ai/analyze-products`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ products, promotions, competitorData }),

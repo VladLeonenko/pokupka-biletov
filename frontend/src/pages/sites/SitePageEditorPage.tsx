@@ -21,14 +21,11 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { getSite, getSitePages, createSitePage, SitePage } from '@/services/sitesApi';
-
-interface PageBlock {
-  id: string;
-  type: 'hero' | 'features' | 'pricing' | 'calculator' | 'testimonials' | 'faq' | 'cta' | 'text';
-  title: string;
-  content: any;
-}
+import AddIcon from '@mui/icons-material/Add';
+import { getSite, getSitePages, createSitePage, updateSitePage, getSitePage, SitePage } from '@/services/sitesApi';
+import { SectionEditor } from '@/components/pageBuilder/SectionEditor';
+import { BlockTypeSelector } from '@/components/pageBuilder/BlockTypeSelector';
+import { PageSection, PageContent, SectionLayout, PageBlock, BlockType } from '@/types/pageBuilder';
 
 export default function SitePageEditorPage() {
   const { siteId, pageId } = useParams<{ siteId: string; pageId: string }>();
@@ -45,12 +42,18 @@ export default function SitePageEditorPage() {
     isPublished: false,
   });
 
-  const [blocks, setBlocks] = useState<PageBlock[]>([]);
+  const [sections, setSections] = useState<PageSection[]>([]);
 
   const { data: site } = useQuery({
     queryKey: ['site', siteId],
     queryFn: () => getSite(Number(siteId)),
     enabled: !!siteId,
+  });
+
+  const { data: page } = useQuery({
+    queryKey: ['sitePage', siteId, pageId],
+    queryFn: () => getSitePage(Number(siteId), Number(pageId)),
+    enabled: !!siteId && !!pageId && pageId !== 'new',
   });
 
   const { data: pages = [] } = useQuery({
@@ -59,49 +62,171 @@ export default function SitePageEditorPage() {
     enabled: !!siteId,
   });
 
-  const createPageMutation = useMutation({
-    mutationFn: (data: Partial<SitePage>) => createSitePage(Number(siteId), data),
+  // Загружаем данные страницы при редактировании
+  useEffect(() => {
+    if (page) {
+      setPageData({
+        slug: page.slug || '',
+        title: page.title || '',
+        metaTitle: page.seo_title || '',
+        metaDescription: page.seo_description || '',
+        ogImage: page.og_image || '',
+        isPublished: page.is_published || false,
+      });
+
+      // Загружаем секции из content
+      if (page.content?.sections) {
+        setSections(page.content.sections);
+      } else if (page.content?.blocks) {
+        // Миграция старых блоков в секции
+        const migratedSections: PageSection[] = (page.content.blocks || []).map((block: any, index: number) => ({
+          id: `section-${index}`,
+          layout: 'full-width' as SectionLayout,
+          columns: [{
+            id: `column-${index}`,
+            blocks: [{
+              id: block.id || `block-${index}`,
+              type: block.type as BlockType,
+              title: block.title || '',
+              content: block.content || {},
+            }],
+          }],
+        }));
+        setSections(migratedSections);
+      }
+    }
+  }, [page]);
+
+  const savePageMutation = useMutation({
+    mutationFn: (data: Partial<SitePage>) => {
+      if (pageId === 'new') {
+        return createSitePage(Number(siteId), data);
+      } else {
+        return updateSitePage(Number(siteId), Number(pageId), data);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sitePages'] });
-      navigate(`/admin/sites/${siteId}`);
+      queryClient.invalidateQueries({ queryKey: ['sitePage', siteId, pageId] });
+      if (pageId === 'new') {
+        navigate(`/admin/sites/${siteId}`);
+      }
     },
   });
 
   const handleSave = () => {
-    createPageMutation.mutate({
+    const content: PageContent = {
+      sections,
+    };
+    
+    savePageMutation.mutate({
       ...pageData,
-      content: { blocks },
+      content,
+      seo_title: pageData.metaTitle,
+      seo_description: pageData.metaDescription,
+      og_image: pageData.ogImage,
+      is_published: pageData.isPublished,
     });
   };
 
-  const addBlock = (type: PageBlock['type']) => {
-    const newBlock: PageBlock = {
-      id: `block-${Date.now()}`,
-      type,
-      title: '',
-      content: {},
+  const addSection = (layout: SectionLayout = 'full-width') => {
+    const columnCount = layout === 'full-width' ? 1 : 
+                       layout.startsWith('two-') ? 2 : 
+                       layout.startsWith('three-') ? 3 : 4;
+    
+    const newSection: PageSection = {
+      id: `section-${Date.now()}`,
+      layout,
+      columns: Array.from({ length: columnCount }, (_, i) => ({
+        id: `column-${Date.now()}-${i}`,
+        blocks: [],
+      })),
     };
-    setBlocks([...blocks, newBlock]);
+    setSections([...sections, newSection]);
   };
 
-  const updateBlock = (id: string, updates: Partial<PageBlock>) => {
-    setBlocks(blocks.map(b => b.id === id ? { ...b, ...updates } : b));
+  const updateSection = (sectionId: string, updates: Partial<PageSection>) => {
+    setSections(sections.map(s => s.id === sectionId ? { ...s, ...updates } : s));
   };
 
-  const removeBlock = (id: string) => {
-    setBlocks(blocks.filter(b => b.id !== id));
+  const deleteSection = (sectionId: string) => {
+    setSections(sections.filter(s => s.id !== sectionId));
   };
 
-  const moveBlock = (id: string, direction: 'up' | 'down') => {
-    const index = blocks.findIndex(b => b.id === id);
+  const moveSection = (sectionId: string, direction: 'up' | 'down') => {
+    const index = sections.findIndex(s => s.id === sectionId);
     if (index === -1) return;
     
     const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= blocks.length) return;
+    if (newIndex < 0 || newIndex >= sections.length) return;
     
-    const newBlocks = [...blocks];
-    [newBlocks[index], newBlocks[newIndex]] = [newBlocks[newIndex], newBlocks[index]];
-    setBlocks(newBlocks);
+    const newSections = [...sections];
+    [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
+    setSections(newSections);
+  };
+
+  const addBlock = (columnId: string, blockType: BlockType) => {
+    const newBlock: PageBlock = {
+      id: `block-${Date.now()}`,
+      type: blockType,
+      title: '',
+      content: {},
+    };
+    
+    setSections(sections.map(section => ({
+      ...section,
+      columns: section.columns.map(col => 
+        col.id === columnId 
+          ? { ...col, blocks: [...col.blocks, newBlock] }
+          : col
+      ),
+    })));
+  };
+
+  const updateBlock = (columnId: string, blockId: string, updates: Partial<PageBlock>) => {
+    setSections(sections.map(section => ({
+      ...section,
+      columns: section.columns.map(col =>
+        col.id === columnId
+          ? {
+              ...col,
+              blocks: col.blocks.map(block =>
+                block.id === blockId ? { ...block, ...updates } : block
+              ),
+            }
+          : col
+      ),
+    })));
+  };
+
+  const deleteBlock = (columnId: string, blockId: string) => {
+    setSections(sections.map(section => ({
+      ...section,
+      columns: section.columns.map(col =>
+        col.id === columnId
+          ? { ...col, blocks: col.blocks.filter(b => b.id !== blockId) }
+          : col
+      ),
+    })));
+  };
+
+  const moveBlock = (columnId: string, blockId: string, direction: 'up' | 'down') => {
+    setSections(sections.map(section => ({
+      ...section,
+      columns: section.columns.map(col => {
+        if (col.id !== columnId) return col;
+        
+        const index = col.blocks.findIndex(b => b.id === blockId);
+        if (index === -1) return col;
+        
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= col.blocks.length) return col;
+        
+        const newBlocks = [...col.blocks];
+        [newBlocks[index], newBlocks[newIndex]] = [newBlocks[newIndex], newBlocks[index]];
+        return { ...col, blocks: newBlocks };
+      }),
+    })));
   };
 
   return (
@@ -127,12 +252,19 @@ export default function SitePageEditorPage() {
           Предпросмотр
         </Button>
         <Button
+          variant="outlined"
+          disabled={pageId === 'new'}
+          onClick={() => navigate(`/admin/sites/${siteId}/pages/${pageId}/builder`)}
+        >
+          Page Builder
+        </Button>
+        <Button
           variant="contained"
           startIcon={<SaveIcon />}
           onClick={handleSave}
-          disabled={createPageMutation.isPending}
+          disabled={savePageMutation.isPending}
         >
-          {createPageMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+          {savePageMutation.isPending ? 'Сохранение...' : 'Сохранить'}
         </Button>
       </Box>
 
@@ -183,58 +315,54 @@ export default function SitePageEditorPage() {
       {tabValue === 1 && (
         <Box>
           <Alert severity="info" sx={{ mb: 3 }}>
-            Добавьте блоки для построения страницы. Блоки будут отображаться в том порядке, в котором вы их добавляете.
+            Добавьте секции с разными типами колонок для построения страницы. Внутри каждой секции можно добавлять блоки контента.
           </Alert>
           
           <Paper sx={{ p: 2, mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom>Добавить блок:</Typography>
+            <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>Добавить секцию:</Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button size="small" onClick={() => addBlock('hero')}>Hero</Button>
-              <Button size="small" onClick={() => addBlock('features')}>Преимущества</Button>
-              <Button size="small" onClick={() => addBlock('pricing')}>Тарифы</Button>
-              <Button size="small" onClick={() => addBlock('calculator')}>Калькулятор</Button>
-              <Button size="small" onClick={() => addBlock('testimonials')}>Отзывы</Button>
-              <Button size="small" onClick={() => addBlock('faq')}>FAQ</Button>
-              <Button size="small" onClick={() => addBlock('cta')}>Призыв к действию</Button>
-              <Button size="small" onClick={() => addBlock('text')}>Текстовый блок</Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => addSection('full-width')}>
+                Одна колонка
+              </Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => addSection('two-50-50')}>
+                2 колонки (50/50)
+              </Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => addSection('two-33-67')}>
+                2 колонки (33/67)
+              </Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => addSection('two-67-33')}>
+                2 колонки (67/33)
+              </Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => addSection('three-equal')}>
+                3 колонки
+              </Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => addSection('four-equal')}>
+                4 колонки
+              </Button>
             </Box>
           </Paper>
 
-          {blocks.map((block, index) => (
-            <Card key={block.id} sx={{ mb: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">
-                    {block.type} - {block.title || 'Без названия'}
-                  </Typography>
-                  <Box>
-                    <Button size="small" onClick={() => moveBlock(block.id, 'up')} disabled={index === 0}>
-                      ↑
-                    </Button>
-                    <Button size="small" onClick={() => moveBlock(block.id, 'down')} disabled={index === blocks.length - 1}>
-                      ↓
-                    </Button>
-                    <Button size="small" color="error" onClick={() => removeBlock(block.id)}>
-                      Удалить
-                    </Button>
-                  </Box>
-                </Box>
-                <TextField
-                  fullWidth
-                  label="Заголовок блока"
-                  value={block.title}
-                  onChange={(e) => updateBlock(block.id, { title: e.target.value })}
-                  sx={{ mb: 2 }}
-                />
-                {/* Здесь будут специфичные поля для каждого типа блока */}
-              </CardContent>
-            </Card>
+          {sections.map((section, index) => (
+            <SectionEditor
+              key={section.id}
+              section={section}
+              onUpdate={(updated) => updateSection(section.id, updated)}
+              onDelete={() => deleteSection(section.id)}
+              onMoveUp={() => moveSection(section.id, 'up')}
+              onMoveDown={() => moveSection(section.id, 'down')}
+              canMoveUp={index > 0}
+              canMoveDown={index < sections.length - 1}
+              onAddBlock={addBlock}
+              onUpdateBlock={updateBlock}
+              onDeleteBlock={deleteBlock}
+              onMoveBlock={moveBlock}
+            />
           ))}
 
-          {blocks.length === 0 && (
+          {sections.length === 0 && (
             <Paper sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary">
-                Добавьте блоки для построения страницы
+                Добавьте секции для построения страницы
               </Typography>
             </Paper>
           )}

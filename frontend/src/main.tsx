@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { AuthProvider } from '@/auth/AuthProvider';
@@ -88,6 +88,9 @@ initializeTheme();
 
 const queryClient = new QueryClient();
 
+// Экспортируем navigate для использования в legacy коде
+let globalNavigate: ((path: string) => void) | null = null;
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>
     <BrowserRouter future={{
@@ -96,9 +99,26 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     }}>
       <AuthProvider>
         <App />
+        <NavigationExporter />
       </AuthProvider>
     </BrowserRouter>
   </QueryClientProvider>
 );
+
+// Компонент для экспорта navigate в window
+function NavigationExporter() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    globalNavigate = (path: string) => navigate(path);
+    (window as any).__navigate = (path: string) => navigate(path);
+    return () => {
+      globalNavigate = null;
+      delete (window as any).__navigate;
+    };
+  }, [navigate]);
+  
+  return null;
+}
 
 
