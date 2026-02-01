@@ -37,9 +37,9 @@ try {
   console.log('[fix-index-html] react-vendor preloads:', reactVendorPreloads.length);
   console.log('[fix-index-html] other preloads:', otherPreloads.length);
   
-  // ВАЖНО: В Safari нужен modulepreload для react-vendor, чтобы он предзагружался
-  // до основного скрипта (иначе race condition - useState не определен)
-  // Поэтому НЕ удаляем react-vendor preload, а наоборот - убеждаемся, что он есть и идет ПЕРВЫМ
+  // ВАЖНО: В Safari modulepreload НЕ гарантирует синхронную загрузку
+  // Нужно преобразовать react-vendor preload в обычный <script type="module">
+  // чтобы он загружался СИНХРОННО перед main bundle
   
   if (reactVendorPreloads.length === 0) {
     console.log('[fix-index-html] react-vendor not found in modulepreload');
@@ -47,6 +47,16 @@ try {
     console.log('[fix-index-html] No fix needed - React is in main bundle');
     process.exit(0);
   }
+  
+  // Извлекаем href из react-vendor preload
+  const reactVendorHref = reactVendorPreloads[0].match(/href="([^"]+)"/)?.[1];
+  if (!reactVendorHref) {
+    console.log('[fix-index-html] Could not extract href from react-vendor preload');
+    process.exit(0);
+  }
+  
+  // Преобразуем react-vendor preload в обычный script (синхронная загрузка)
+  const reactVendorScript = `<script type="module" crossorigin src="${reactVendorHref}"></script>`;
   
   // Удаляем все modulepreload и script теги
   let newHtml = html.replace(modulepreloadRegex, '');
@@ -56,15 +66,13 @@ try {
   const headEndIndex = newHtml.indexOf('</head>');
   if (headEndIndex !== -1) {
     // Собираем правильный порядок для Safari:
-    // 1. react-vendor preload ПЕРВЫМ (предзагрузка для Safari)
+    // 1. react-vendor как ОБЫЧНЫЙ script (синхронная загрузка ПЕРЕД main)
     // 2. Основной script (который использует react-vendor)
-    // 3. Остальные preload
+    // 3. Остальные preload (не критичны)
     let toInsert = '';
     
-    // ВАЖНО: react-vendor preload должен быть ПЕРВЫМ для Safari
-    if (reactVendorPreloads[0]) {
-      toInsert += reactVendorPreloads[0] + '\n    ';
-    }
+    // ВАЖНО: react-vendor должен загружаться СИНХРОННО как обычный script
+    toInsert += reactVendorScript + '\n    ';
     
     if (scripts[0]) {
       toInsert += scripts[0] + '\n    ';

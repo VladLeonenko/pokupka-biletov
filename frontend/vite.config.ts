@@ -75,10 +75,11 @@ export default defineConfig({
     react(),
     // Визуализация bundle для анализа
     visualizer({
-      filename: 'dist/stats.html',
+      filename: './dist/stats.html',
       open: false,
       gzipSize: true,
       brotliSize: true,
+      template: 'treemap', // treemap, sunburst, network
     }),
     // Копируем legacy файлы в dist/legacy при сборке
     // Сохраняем структуру папок (css/, js/, img/, fonts/)
