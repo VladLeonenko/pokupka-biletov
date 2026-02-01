@@ -71,25 +71,25 @@ export default defineConfig({
     // Code splitting для лучшей производительности
     rollupOptions: {
       output: {
+        // ВАЖНО: React должен быть в основном bundle для синхронной загрузки
+        // Используем функцию manualChunks с приоритетной проверкой React
         manualChunks: (id) => {
           // Нормализуем путь для кроссплатформенности
           const normalizedId = id.replace(/\\/g, '/');
           
-          // React и React-DOM ОБЯЗАТЕЛЬНО должны быть в основном bundle
-          // Используем более широкую проверку - любое упоминание react/react-dom
-          const isReact = normalizedId.includes('react') && 
-                         normalizedId.includes('node_modules') &&
-                         !normalizedId.includes('react-router') && 
-                         !normalizedId.includes('react-query') &&
-                         !normalizedId.includes('react-hook-form') &&
-                         !normalizedId.includes('react-quill') &&
-                         !normalizedId.includes('react-chartjs') &&
-                         !normalizedId.includes('react-dnd') &&
-                         !normalizedId.includes('react-select') &&
-                         !normalizedId.includes('react-beautiful-dnd') &&
-                         !normalizedId.includes('react-transition-group');
-          
-          if (isReact) {
+          // ПЕРВЫМ делом проверяем React - он должен быть в основном bundle
+          // Проверяем все возможные варианты путей к React
+          if ((normalizedId.includes('/react/') || normalizedId.includes('/react-dom/')) &&
+              normalizedId.includes('node_modules') &&
+              !normalizedId.includes('react-router') && 
+              !normalizedId.includes('react-query') &&
+              !normalizedId.includes('react-hook-form') &&
+              !normalizedId.includes('react-quill') &&
+              !normalizedId.includes('react-chartjs') &&
+              !normalizedId.includes('react-dnd') &&
+              !normalizedId.includes('react-select') &&
+              !normalizedId.includes('react-beautiful-dnd') &&
+              !normalizedId.includes('react-transition-group')) {
             return undefined; // Включаем в основной bundle
           }
           
