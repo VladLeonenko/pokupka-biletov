@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 // Загружаем переменные окружения из .env файла ДО всех остальных импортов
+// НЕ используем override здесь, чтобы db.js мог перезаписать переменные
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
