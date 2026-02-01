@@ -138,7 +138,8 @@ export default defineConfig({
         inlineDynamicImports: true, // ВСЁ в один bundle (динамические импорты)
         // ВАЖНО: Отключаем manualChunks полностью - все модули в одном bundle
         // Это гарантирует, что React и все vendor библиотеки будут в основном bundle
-        manualChunks: undefined, // Отключаем code splitting - все в одном bundle
+        // Используем функцию, которая всегда возвращает undefined - отключаем code splitting
+        manualChunks: () => undefined, // Всегда возвращаем undefined - отключаем code splitting
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
