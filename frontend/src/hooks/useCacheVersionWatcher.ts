@@ -1,47 +1,14 @@
 import { useEffect } from 'react';
-import { CACHE_VERSION_KEY, fetchCacheVersionFromServer, getStoredCacheVersion, setStoredCacheVersion } from '@/utils/cacheVersion';
+import { fetchCacheVersionFromServer, getStoredCacheVersion, setStoredCacheVersion } from '@/utils/cacheVersion';
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
-const PRESERVE_KEYS = ['auth.token', 'token'];
+const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
 
-const clearClientCaches = (nextVersion: string) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const preserved = new Map<string, string | null>();
-  PRESERVE_KEYS.forEach((key) => {
-    try {
-      preserved.set(key, window.localStorage.getItem(key));
-    } catch {
-      preserved.set(key, null);
-    }
-  });
-
-  try {
-    window.localStorage.clear();
-    window.sessionStorage.clear();
-  } catch {
-    // ignore storage clearing errors
-  }
-
-  preserved.forEach((value, key) => {
-    if (value) {
-      try {
-        window.localStorage.setItem(key, value);
-      } catch {
-        // ignore restore errors
-      }
-    }
-  });
-
-  setStoredCacheVersion(nextVersion);
-  window.location.reload();
-};
-
+/**
+ * Хук для отслеживания версии кэша
+ * ВРЕМЕННО ОТКЛЮЧЕН автоматический reload - вызывал проблемы с перезагрузкой страницы
+ */
 export const useCacheVersionWatcher = () => {
   useEffect(() => {
-    let stopped = false;
     let intervalId: number | null = null;
 
     const checkVersion = async () => {
@@ -51,11 +18,21 @@ export const useCacheVersionWatcher = () => {
       }
       const storedVersion = getStoredCacheVersion();
       if (!storedVersion) {
+        // Первый раз - просто сохраняем версию
         setStoredCacheVersion(serverVersion);
         return;
       }
-      if (storedVersion !== serverVersion && !stopped) {
-        clearClientCaches(serverVersion);
+      
+      if (storedVersion !== serverVersion) {
+        // Вместо reload - просто логируем и обновляем версию
+        // Пользователь сам обновит страницу когда нужно
+        console.log('[CacheVersion] New version available:', serverVersion, '(current:', storedVersion, ')');
+        setStoredCacheVersion(serverVersion);
+        
+        // Можно показать toast уведомление вместо автоматического reload
+        if ((window as any).__showToast) {
+          (window as any).__showToast('Доступна новая версия сайта. Обновите страницу для применения изменений.', 'info');
+        }
       }
     };
 
@@ -63,11 +40,9 @@ export const useCacheVersionWatcher = () => {
     intervalId = window.setInterval(checkVersion, POLL_INTERVAL_MS);
 
     return () => {
-      stopped = true;
       if (intervalId) {
         window.clearInterval(intervalId);
       }
     };
   }, []);
 };
-

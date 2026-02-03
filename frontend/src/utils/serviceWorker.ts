@@ -1,6 +1,6 @@
 // Утилиты для регистрации и управления Service Worker
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = import.meta.env.PROD;
 
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || !isProduction) {
@@ -14,10 +14,10 @@ export function registerServiceWorker() {
       .then((registration) => {
         console.log('[Service Worker] Registered:', registration.scope);
 
-        // Проверяем обновления каждые 60 секунд
+        // Проверяем обновления каждые 5 минут (вместо 60 секунд)
         setInterval(() => {
           registration.update();
-        }, 60000);
+        }, 5 * 60 * 1000);
 
         // Обработка обновления Service Worker
         registration.addEventListener('updatefound', () => {
@@ -25,9 +25,11 @@ export function registerServiceWorker() {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // Новый Service Worker установлен, можно обновить страницу
                 console.log('[Service Worker] New version available');
-                // Можно показать уведомление пользователю
+                // Показываем уведомление вместо автоматического reload
+                if ((window as any).__showToast) {
+                  (window as any).__showToast('Доступна новая версия. Обновите страницу.', 'info');
+                }
               }
             });
           }
@@ -38,14 +40,11 @@ export function registerServiceWorker() {
       });
   });
 
-  // Обработка контроллера Service Worker
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
-  });
+  // ОТКЛЮЧЕНО: автоматический reload при смене контроллера
+  // Это вызывало проблемы с неожиданной перезагрузкой страницы
+  // navigator.serviceWorker.addEventListener('controllerchange', () => {
+  //   window.location.reload();
+  // });
 }
 
 // Функция для кэширования URL по требованию
@@ -75,9 +74,3 @@ export async function updateServiceWorker() {
     }
   }
 }
-
-
-
-
-
-
