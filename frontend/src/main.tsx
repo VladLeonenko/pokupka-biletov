@@ -43,44 +43,21 @@ if (import.meta.env.PROD) {
 
 // Инициализация темы при загрузке страницы
 const initializeTheme = () => {
-  const savedTheme = localStorage.getItem('public.theme') as 'light' | 'dark' | null;
-  const systemTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  const theme = savedTheme || systemTheme;
-
-  // Применяем тему к document
-  document.documentElement.setAttribute('data-theme', theme);
+  // Всегда тёмная тема
+  document.documentElement.setAttribute('data-theme', 'dark');
+  document.documentElement.classList.add('dark-theme');
+  document.documentElement.classList.remove('light-theme');
+  document.body.classList.add('dark-theme');
+  document.body.classList.remove('light-theme');
   
-  // Добавляем/удаляем класс для темной темы
-  if (theme === 'dark') {
-    document.documentElement.classList.add('dark-theme');
-    document.documentElement.classList.remove('light-theme');
-    document.body.classList.add('dark-theme');
-    document.body.classList.remove('light-theme');
-  } else {
-    document.documentElement.classList.add('light-theme');
-    document.documentElement.classList.remove('dark-theme');
-    document.body.classList.add('light-theme');
-    document.body.classList.remove('dark-theme');
-  }
-
-  // Применяем CSS переменные для темы
+  // Применяем CSS переменные для тёмной темы
   const root = document.documentElement;
-  if (theme === 'dark') {
-    root.style.setProperty('--bg-color', '#141414');
-    root.style.setProperty('--text-color', '#ffffff');
-    root.style.setProperty('--header-bg', '#1a1a1a');
-    root.style.setProperty('--border-color', '#333333');
-    document.body.style.backgroundColor = '#141414';
-    document.body.style.color = '#ffffff';
-  } else {
-    // Светлая тема тоже темная (всегда темная тема)
-    root.style.setProperty('--bg-color', '#141414');
-    root.style.setProperty('--text-color', '#ffffff');
-    root.style.setProperty('--header-bg', '#1a1a1a');
-    root.style.setProperty('--border-color', '#333333');
-    document.body.style.backgroundColor = '#141414';
-    document.body.style.color = '#ffffff';
-  }
+  root.style.setProperty('--bg-color', '#141414');
+  root.style.setProperty('--text-color', '#ffffff');
+  root.style.setProperty('--header-bg', '#1a1a1a');
+  root.style.setProperty('--border-color', '#333333');
+  document.body.style.backgroundColor = '#141414';
+  document.body.style.color = '#ffffff';
 };
 
 // Инициализируем тему перед рендером React
