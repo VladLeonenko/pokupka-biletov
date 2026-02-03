@@ -1,0 +1,14 @@
+.mockup {
+  background-color: #141414;
+  width: 100%;
+}
+
+.mockup-container {
+  width: 100%;
+}
+
+.mockup-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}

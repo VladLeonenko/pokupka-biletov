@@ -74,6 +74,7 @@ import commercialProposalsRouter from './routes/commercialProposals.js';
 import donorsRouter from './routes/donors.js';
 import socialProofsRouter from './routes/socialProofs.js';
 import quizRouter from './routes/quiz.js';
+import calculatorRouter from './routes/calculator.js';
 
 const app = express();
 
@@ -291,6 +292,9 @@ app.use('/api/internal-linking', internalLinkingRouter);
 app.use('/api/payments', requireAuth, paymentsRouter);
 app.use('/api/documents', requireAuth, documentsRouter);
 app.use('/api/commercial-proposals', commercialProposalsRouter); // Public routes are handled inside
+
+// Calculator routes
+app.use('/api/public/calculator', calculatorRouter);
 app.use('/api/donors', (req, res, next) => {
   console.log('Donors router middleware hit:', req.method, req.path);
   next();
@@ -648,7 +652,7 @@ app.use((req, res, next) => {
   }
 });
 
-app.listen(3000, () => {
+app.listen(4000, () => {
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line no-console
     console.log('Backend started on port 3000');

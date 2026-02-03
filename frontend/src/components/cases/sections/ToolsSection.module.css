@@ -1,0 +1,113 @@
+.tools {
+  background-color: white;
+  padding: 100px 0;
+  width: 100%;
+}
+
+.toolsContainer {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 135px;
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+}
+
+.toolsContent {
+  display: flex;
+  gap: 130px;
+  align-items: center;
+}
+
+.toolsDescription {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.descriptionText {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.toolsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  flex-shrink: 0;
+}
+
+.toolsRow {
+  display: flex;
+  gap: 30px;
+}
+
+.toolCard {
+  width: 120px;
+  height: 120px;
+  background-color: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.toolCard img {
+  max-width: 80px;
+  max-height: 80px;
+  object-fit: contain;
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 30px;
+  background-color: #141414;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: fit-content;
+}
+
+.ctaButton:hover {
+  background-color: #333;
+}
+
+@media (max-width: 1024px) {
+  .tools { padding: 80px 0; }
+  .toolsContainer { padding: 0 60px; }
+  .toolsContent { flex-direction: column; gap: 50px; }
+  .toolsGrid { align-self: center; }
+}
+
+@media (max-width: 767px) {
+  .tools { padding: 60px 0; }
+  .toolsContainer { padding: 0 20px; }
+  .toolsRow { flex-wrap: wrap; justify-content: center; }
+  .toolCard { width: 100px; height: 100px; padding: 15px; }
+  .toolCard img { max-width: 70px; max-height: 70px; }
+}
+
+.toolName {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 14px;
+  color: #141414;
+  margin-top: 8px;
+  text-align: center;
+}

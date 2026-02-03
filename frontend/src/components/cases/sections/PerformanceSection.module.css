@@ -1,0 +1,132 @@
+.performance {
+  background-color: #141414;
+  padding: 100px 0;
+  width: 100%;
+}
+
+.performanceContainer {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 135px;
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+}
+
+.performanceContent {
+  display: flex;
+  gap: 70px;
+  align-items: center;
+}
+
+.performanceScore {
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+  align-items: center;
+  min-width: 570px;
+}
+
+.circularScore {
+  position: relative;
+  width: 300px;
+  height: 300px;
+}
+
+.circularBg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(#FD9C12 0deg, #FD9C12 calc(var(--score) * 3.6deg), #333 calc(var(--score) * 3.6deg), #333 360deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circularInner {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  background-color: #1D1D1D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.performanceDescription {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  align-items: center;
+  text-align: center;
+  max-width: 500px;
+}
+
+.performanceLegend {
+  display: flex;
+  justify-content: space-between;
+  width: 440px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legendDot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+}
+
+.metricsList {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.metricItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #727272;
+}
+
+.metricContent {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.metricIndicator {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.metricText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
+  .performance { padding: 80px 0; }
+  .performanceContainer { padding: 0 60px; }
+  .performanceContent { flex-direction: column; gap: 50px; }
+  .performanceScore { min-width: auto; width: 100%; }
+  .performanceLegend { width: 100%; max-width: 440px; }
+}
+
+@media (max-width: 767px) {
+  .performance { padding: 60px 0; }
+  .performanceContainer { padding: 0 20px; }
+  .circularScore { width: 250px; height: 250px; }
+  .performanceLegend { flex-direction: column; gap: 15px; align-items: flex-start; }
+}

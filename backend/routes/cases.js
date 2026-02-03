@@ -18,7 +18,7 @@ function rowToCase(r) {
     templateType: r.template_type,
     isTemplate: r.is_template,
     isPublished: r.is_published,
-    category: r.category || undefined,
+    category: r.category || null,
     donorUrl: r.donor_url || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
