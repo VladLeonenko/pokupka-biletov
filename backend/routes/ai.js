@@ -828,14 +828,18 @@ router.post('/generate-article', requireAuth, async (req, res) => {
     const title = String(ai?.title || keyword).slice(0, 160);
     const html = String(ai?.html || `<h1>${title}</h1><p>${keyword}</p>`);
     
-    // Простая функция slugify если не импортирована
+    // Транслитерация и slugify для кириллицы
+    const translitMap = {
+      'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+      'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+      'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts',
+      'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+    };
     const slugify = (str) => {
-      return String(str || '')
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'article';
+      let result = String(str || '').toLowerCase().trim();
+      result = result.split('').map(char => translitMap[char] || char).join('');
+      result = result.replace(/[^a-z0-9\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+      return result || ('article-' + Date.now());
     };
     
     const slug = slugify(title) || slugify(keyword);
