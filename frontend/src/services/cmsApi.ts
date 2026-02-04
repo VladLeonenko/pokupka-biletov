@@ -749,7 +749,12 @@ export async function getCase(slug: string): Promise<CaseItem | undefined> {
     metrics: r.metrics || {},
     tools: Array.isArray(r.tools) ? r.tools : [],
     contentJson: r.contentJson || r.content_json || {},
-    isPublished: !!r.is_published,
+    isPublished: r.isPublished !== undefined ? !!r.isPublished : !!r.is_published,
+    category: r.category || '',
+    seoTitle: r.seoTitle || '',
+    seoDescription: r.seoDescription || '',
+    seoKeywords: r.seoKeywords || '',
+    ogImageUrl: r.ogImageUrl || '',
   };
 }
 export async function setCasePublished(slug: string, isPublished: boolean): Promise<void> {
