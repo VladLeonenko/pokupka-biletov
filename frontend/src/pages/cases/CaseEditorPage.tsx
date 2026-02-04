@@ -5,12 +5,23 @@ import { Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLab
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ReactQuill from 'react-quill';
 import { SafeImage } from '@/components/common/SafeImage';
 import { useToast } from '@/components/common/ToastProvider';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { TOOLS_PRESETS, TOOLS_BY_CATEGORY, CATEGORY_LABELS, ToolPreset } from '@/data/toolsPresets';
+const CASE_CATEGORIES = [
+  { value: '', label: 'Не выбрана' },
+  { value: 'website', label: 'Сайт' },
+  { value: 'mobile', label: 'Приложение' },
+  { value: 'ai', label: 'AI Boost Team' },
+  { value: 'seo', label: 'SEO' },
+  { value: 'marketing', label: 'Маркетинг' },
+  { value: 'advertising', label: 'Реклама' }
+];
 
 export function CaseEditorPage() {
   const { id } = useParams();
@@ -46,9 +57,28 @@ export function CaseEditorPage() {
   const [contentJson, setContentJson] = useState<any>({});
   const [category, setCategory] = useState<string>('');
   const [activeTab, setActiveTab] = useState(0);
+  // SEO поля
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDescription, setSeoDescription] = useState('');
+  const [seoKeywords, setSeoKeywords] = useState('');
+  const [ogImageUrl, setOgImageUrl] = useState('');
+
   const quillRef = useRef<any>(null);
   const navigate = useNavigate();
   const isSavingRef = useRef(false);
+  // Функция автозаполнения SEO
+  const generateSeoFromContent = () => {
+    const newSeoTitle = title ? `${title} | Кейс Prime Coder`.slice(0, 60) : '';
+    const newSeoDescription = summary ? summary.slice(0, 160) : '';
+    const toolsKeywords = tools || [];
+    const keywords = [...toolsKeywords, 'кейс', 'портфолио', 'разработка сайта'].join(', ');
+    const newOgImageUrl = heroImageUrl || getCJ('hero.backgroundImage', '');
+    setSeoTitle(newSeoTitle);
+    setSeoDescription(newSeoDescription);
+    setSeoKeywords(keywords);
+    setOgImageUrl(newOgImageUrl);
+    showToast('SEO поля заполнены!', 'success');
+  };
 
   useEffect(() => {
     if (caseData && !isSavingRef.current) {
@@ -76,6 +106,11 @@ export function CaseEditorPage() {
         setIsPublished(!!data.isPublished);
         setContentJson(data.contentJson || {});
         setCategory((data as any).category || '');
+        setSeoTitle((data as any).seoTitle || '');
+        setSeoDescription((data as any).seoDescription || '');
+        setSeoKeywords((data as any).seoKeywords || '');
+        setOgImageUrl((data as any).ogImageUrl || '');
+
       }
     }
   }, [caseData, templateData, data, isNew]);
@@ -87,8 +122,10 @@ export function CaseEditorPage() {
         slug: isNew ? slug : (id as string), 
         title, summary, heroImageUrl, contentHtml, 
         metrics, tools, gallery, contentJson, 
-        isPublished, category: category || null 
+        isPublished, category: category || null,
+        seoTitle, seoDescription, seoKeywords, ogImageUrl
       } as any;
+
       await upsertCase(payload);
     },
     onSuccess: async () => {
@@ -198,7 +235,9 @@ export function CaseEditorPage() {
           <Tab label="Madeo Template" />
           <Tab label="Галерея" />
           <Tab label="KPI" />
+          <Tab label="SEO" />
         </Tabs>
+
       </Paper>
 
       <Grid container spacing={2}>
@@ -211,20 +250,14 @@ export function CaseEditorPage() {
               )}
               <TextField fullWidth label="Заголовок" sx={{ mb: 2 }} value={title} onChange={(e) => setTitle(e.target.value)} required />
               <TextField fullWidth label="Краткое описание" multiline rows={3} sx={{ mb: 2 }} value={summary} onChange={(e) => setSummary(e.target.value)} />
-              <FormControl fullWidth sx={{ mb: 2 }}>
+<FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel>Категория</InputLabel>
                 <Select value={category} label="Категория" onChange={(e) => setCategory(e.target.value)}>
-                  <MenuItem value="">Не выбрана</MenuItem>
-                  <MenuItem value="website">Сайт</MenuItem>
-                  <MenuItem value="mobile">Приложение</MenuItem>
-                  <MenuItem value="ai">AI Boost Team</MenuItem>
-                  <MenuItem value="seo">SEO продвижение</MenuItem>
-                  <MenuItem value="marketing">Маркетинг</MenuItem>
-                  <MenuItem value="advertising">Реклама</MenuItem>
-                  <MenuItem value="design">Дизайн</MenuItem>
+                  {CASE_CATEGORIES.map(cat => (
+                    <MenuItem key={cat.value} value={cat.value}>{cat.label}</MenuItem>
+                  ))}
                 </Select>
-              </FormControl>
-              
+              </FormControl>              
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="subtitle1">Дополнительный контент</Typography>
                 <FormControlLabel control={<Switch checked={htmlMode} onChange={(e) => setHtmlMode(e.target.checked)} />} label="HTML" />
@@ -485,6 +518,20 @@ export function CaseEditorPage() {
               <Button size="small" onClick={() => setMetrics({ ...metrics, [`kpi_${metricsPairs.length+1}`]: 0 })}>+ KPI</Button>
             </Paper>
           )}
+          {activeTab === 4 && (
+            <Paper sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Typography variant="h6">SEO настройки</Typography>
+                <Button variant="contained" startIcon={<AutoFixHighIcon />} onClick={generateSeoFromContent}>Заполнить автоматически</Button>
+              </Box>
+              <TextField fullWidth label="Meta Title" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} sx={{ mb: 2 }} inputProps={{ maxLength: 60 }} helperText={`${seoTitle.length}/60`} />
+              <TextField fullWidth label="Meta Description" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} sx={{ mb: 2 }} multiline rows={3} inputProps={{ maxLength: 160 }} helperText={`${seoDescription.length}/160`} />
+              <TextField fullWidth label="Meta Keywords" value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} sx={{ mb: 2 }} />
+              <TextField fullWidth label="OG Image URL" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} sx={{ mb: 2 }} />
+              {ogImageUrl && <Box sx={{ mt: 2, maxWidth: 400 }}><SafeImage src={ogImageUrl} alt="OG preview" sx={{ width: '100%' }} /></Box>}
+            </Paper>
+          )}
+
         </Grid>
         
         <Grid item xs={12} md={4}>

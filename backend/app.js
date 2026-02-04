@@ -27,6 +27,7 @@ import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
 import authRouter from './routes/auth.js';
 import { requireAuth } from './middleware/auth.js';
+import { seoRenderer } from './middleware/seoRenderer.js';
 import aiRouter from './routes/ai.js';
 import blogRouter from './routes/blog.js';
 import casesRouter from './routes/cases.js';
@@ -239,6 +240,18 @@ app.use('/api/public/partials', partialsRouter);
 app.use('/api/public/blog/categories', blogCategoriesRouter);
 app.use('/api/public/blog', blogRouter);
 app.use('/api/public/products', productsRouter);
+app.get('/api/cases-categories', (req, res) => {
+  const categories = {
+    'website': 'Сайт',
+    'mobile': 'Приложение', 
+    'ai': 'AI Boost Team',
+    'seo': 'SEO',
+    'marketing': 'Маркетинг',
+    'advertising': 'Реклама'
+  };
+  res.json(Object.entries(categories).map(([value, label]) => ({ value, label })));
+});
+
 app.use('/api/public/cases', casesRouter);
 app.use('/api/public/promotions', promotionsRouter);
 app.use('/api/public/social-proofs', socialProofsRouter);
@@ -347,24 +360,24 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 }));
 
 // Serve static files from frontend/dist root (manifest.json, sw.js, stats.html, etc.)
-app.use(express.static(path.join(__dirname, '../frontend/dist'), {
-  maxAge: '1y',
-  setHeaders: (res, filePath) => {
-    // Правильный Content-Type для manifest.json
-    if (filePath.endsWith('manifest.json')) {
-      res.setHeader('Content-Type', 'application/manifest+json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else if (filePath.endsWith('stats.html')) {
-      // Bundle visualization
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else if (filePath.endsWith('.js') && !filePath.includes('/assets/')) {
-      // Service Worker и другие JS файлы в корне
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    }
-  }
-}));
+// app.use(express.static(path.join(__dirname, '../frontend/dist'), {
+//   maxAge: '1y',
+//   setHeaders: (res, filePath) => {
+//     // Правильный Content-Type для manifest.json
+//     if (filePath.endsWith('manifest.json')) {
+//       res.setHeader('Content-Type', 'application/manifest+json');
+//       res.setHeader('Cache-Control', 'public, max-age=3600');
+//     } else if (filePath.endsWith('stats.html')) {
+//       // Bundle visualization
+//       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+//       res.setHeader('Cache-Control', 'public, max-age=3600');
+//     } else if (filePath.endsWith('.js') && !filePath.includes('/assets/')) {
+//       // Service Worker и другие JS файлы в корне
+//       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+//       res.setHeader('Cache-Control', 'public, max-age=3600');
+//     }
+//   }
+// }));
 
 // Serve static files from frontend/dist (React build assets)
 app.use('/assets', express.static(path.join(__dirname, '../frontend/dist/assets'), {
@@ -618,39 +631,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Отдача продакшен сборки React приложения (SPA fallback)
-// Это должно быть ПОСЛЕ всех API маршрутов и 404 обработчика
-app.use((req, res, next) => {
-  // Пропускаем статические файлы и API
-  if (req.path.startsWith('/api/') ||
-      req.path.startsWith('/legacy/') || 
-      req.path.startsWith('/img/') || 
-      req.path.startsWith('/css/') ||
-      req.path.startsWith('/assets/') ||
-      req.path.startsWith('/uploads/')) {
-    return next(); // Передаем управление следующему middleware
-  }
-  
-  // Пропускаем запросы к файлам с расширениями (изображения, CSS, JS и т.д.)
-  if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2|ttf|eot|pdf|zip|json)$/i)) {
-    return next();
-  }
-  
-  // Отдаем index.html только для GET запросов (SPA routing)
-  if (req.method === 'GET') {
-    const indexPath = path.join(__dirname, '../frontend/dist/index.html');
-    if (fs.existsSync(indexPath)) {
-      // HTML файлы кэшируем меньше, так как они могут изменяться
-      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
-      res.setHeader('Vary', 'Accept-Encoding');
-      res.sendFile(path.resolve(indexPath));
-    } else {
-      res.status(404).send('Not found');
-    }
-  } else {
-    next();
-  }
-});
+// SSR для динамических meta-тегов (SEO)
+// Это должно быть ПОСЛЕ всех API маршрутов
+app.use(seoRenderer);
 
 app.listen(4000, () => {
   if (process.env.NODE_ENV !== 'production') {
