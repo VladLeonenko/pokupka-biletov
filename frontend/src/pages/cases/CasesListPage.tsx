@@ -104,7 +104,14 @@ export function CasesListPage() {
                         const heroUrl = c.heroImageUrl?.trim();
                         const donorUrl = c.donorImageUrl?.trim();
                         const slug = c.slug?.trim();
-                        
+                        console.log('🖼️ Image logic for case:', {
+  slug: c.slug,
+  title: c.title,
+  heroUrl,
+  donorUrl,
+  willUse: heroUrl || donorUrl || (slug ? `/legacy/img/cases/${slug}/cover.png` : 'fallback')
+});
+
                         // 1. Используем heroImageUrl если есть
                         if (heroUrl && heroUrl.length > 0) {
                           return heroUrl;
@@ -130,8 +137,7 @@ export function CasesListPage() {
                         objectFit: 'cover',
                         position: 'relative',
                         '& img': {
-                          position: 'relative',
-                          zIndex: 1,
+                          display: "none",
                         }
                       }}
                       hideOnError={false}
@@ -259,8 +265,7 @@ export function CasesListPage() {
                         objectFit: 'cover',
                         position: 'relative',
                         '& img': {
-                          position: 'relative',
-                          zIndex: 1,
+                          display: "none",
                         }
                       }}
                       hideOnError={false}

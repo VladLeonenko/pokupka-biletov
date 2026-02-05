@@ -117,17 +117,39 @@ export function CaseEditorPage() {
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      // Валидация для нового кейса
+      if (isNew) {
+        if (!slug || slug.trim() === '') {
+          throw new Error('Slug обязателен для создания кейса');
+        }
+        if (!title || title.trim() === '') {
+          throw new Error('Название обязательно для создания кейса');
+        }
+      }
+      
       isSavingRef.current = true;
       const payload = { 
-        slug: isNew ? slug : (id as string), 
-        title, summary, heroImageUrl, contentHtml, 
-        metrics, tools, gallery, contentJson, 
-        isPublished, category: category || null,
-        seoTitle, seoDescription, seoKeywords, ogImageUrl
+        slug: isNew ? slug.trim() : (id as string), 
+        title, 
+        summary, 
+        heroImageUrl, 
+        contentHtml, 
+        metrics, 
+        tools, 
+        gallery, 
+        contentJson, 
+        isPublished, 
+        category: category || null,
+        seoTitle, 
+        seoDescription, 
+        seoKeywords, 
+        ogImageUrl
       } as any;
 
       await upsertCase(payload);
     },
+
+
     onSuccess: async () => {
       showToast(isNew ? 'Кейс создан!' : 'Кейс сохранен!', 'success');
       await queryClient.invalidateQueries({ queryKey: ['cases'] });

@@ -22,7 +22,7 @@ export function SafeImage({
   image, // Для совместимости с CardMedia
   alt = '', 
   fallback, 
-  hideOnError = true,
+  hideOnError = false,
   lazy = true,
   sx,
   ...boxProps 

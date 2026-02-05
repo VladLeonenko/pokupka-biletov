@@ -779,19 +779,45 @@ export async function upsertCase(item: CaseItem): Promise<void> {
     contentJson: item.contentJson || {},
     templateType: item.templateType,
     isTemplate: item.isTemplate,
-    // Передаем оба варианта для совместимости с бэкендом
     isPublished: !!item.isPublished,
     is_published: !!item.isPublished,
   };
-  // Добавляем category если она есть (даже если null, чтобы сбросить значение)
-  if ('category' in item) {
-    payload.category = item.category || null;
+  
+  if (item.category !== undefined) payload.category = item.category;
+  if (item.donorUrl !== undefined) payload.donorUrl = item.donorUrl;
+  if (item.donorImageUrl !== undefined) payload.donorImageUrl = item.donorImageUrl;
+  if (item.seoTitle !== undefined) payload.seoTitle = item.seoTitle;
+  if (item.seoDescription !== undefined) payload.seoDescription = item.seoDescription;
+  if (item.seoKeywords !== undefined) payload.seoKeywords = item.seoKeywords;
+  if (item.ogImageUrl !== undefined) payload.ogImageUrl = item.ogImageUrl;
+  
+  // Проверяем: если slug пустой - это создание (POST)
+  // Если slug есть - проверяем существование в БД
+  let isUpdate = false;
+  
+  if (item.slug && item.slug.trim() !== '') {
+    try {
+      const existingCase = await getCase(item.slug);
+      isUpdate = !!existingCase;
+    } catch (err) {
+      // Кейс не найден - создаем новый
+      isUpdate = false;
+    }
   }
-  const url = `${getApiBaseUrl()}/api/cases${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
-  const method = item.slug ? 'PUT' : 'POST';
+  
+  const url = isUpdate 
+    ? `${getApiBaseUrl()}/api/cases/${encodeURIComponent(item.slug)}` 
+    : `${getApiBaseUrl()}/api/cases`;
+  const method = isUpdate ? 'PUT' : 'POST';
+  
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('Failed to save case');
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to save case: ${errorText}`);
+  }
 }
+
+
 export async function deleteCase(slug: string): Promise<void> {
   const res = await doFetch(`${getApiBaseUrl()}/api/cases/${encodeURIComponent(slug)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete case');

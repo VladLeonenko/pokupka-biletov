@@ -15,22 +15,14 @@
   pointer-events: none;
 }
 
-.heroGradient {
-  position: absolute;
-  right: 0;
-  top: 454px;
-  width: 375px;
-  height: 246px;
-  background: linear-gradient(269.236deg, rgb(224, 226, 226) 0.416%, rgba(224, 226, 226, 0) 99.566%);
-  pointer-events: none;
-}
-
 @media (max-width: 1024px) {
-  .hero { height: 550px; }
-  .heroGradient { top: 350px; width: 300px; }
+  .hero { 
+    height: 550px; 
+  }
 }
 
 @media (max-width: 767px) {
-  .hero { height: 400px; }
-  .heroGradient { display: none; }
+  .hero { 
+    height: 400px; 
+  }
 }
