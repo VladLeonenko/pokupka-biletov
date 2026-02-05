@@ -2,8 +2,11 @@ import pool from '../db.js';
 import { getTaskTemplateByProduct } from './taskTemplates.js';
 
 // Создать сделку в воронке продаж для клиента
-export async function createDealForClient(clientId, clientName, clientEmail, clientPhone, source = 'form') {
+// Создать сделку в воронке продаж для клиента
+export async function createDealForClient(clientId, clientName, clientEmail, clientPhone, source = 'chatbot') {
   try {
+    console.log('[funnelHelper] 🎯 Creating deal for client:', { clientId, clientName, source });
+
     // Находим основную воронку продаж (или создаем, если нет)
     let funnelResult = await pool.query(
       "SELECT id FROM sales_funnels WHERE name = 'Основная воронка продаж' AND is_active = TRUE ORDER BY created_at ASC LIMIT 1"
@@ -11,32 +14,35 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
 
     let funnelId;
     if (funnelResult.rows.length === 0) {
+      console.log('[funnelHelper] 📝 Creating default funnel...');
       // Создаем основную воронку, если её нет
       const newFunnel = await pool.query(
-        `INSERT INTO sales_funnels (name, description, is_active, sort_order)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        ['Основная воронка продаж', 'Основная воронка продаж для всех клиентов', true, 0]
+        `INSERT INTO sales_funnels (name, description, is_active)
+         VALUES ($1, $2, $3) RETURNING id`,
+        ['Основная воронка продаж', 'Основная воронка продаж для всех клиентов', true]
       );
       funnelId = newFunnel.rows[0].id;
 
       // Создаем стандартные этапы
       const defaultStages = [
-        { name: 'Первичный контакт', color: '#ff9800', sortOrder: 1, probability: 10 },
-        { name: 'Переговоры', color: '#2196f3', sortOrder: 2, probability: 30 },
-        { name: 'Коммерческое предложение', color: '#9c27b0', sortOrder: 3, probability: 50 },
-        { name: 'Согласование', color: '#00bcd4', sortOrder: 4, probability: 70 },
-        { name: 'Закрытие', color: '#4caf50', sortOrder: 5, probability: 100 },
+        { name: 'Первичный контакт', color: '#ff9800', order: 1, probability: 10 },
+        { name: 'Переговоры', color: '#2196f3', order: 2, probability: 30 },
+        { name: 'Коммерческое предложение', color: '#9c27b0', order: 3, probability: 50 },
+        { name: 'Согласование', color: '#00bcd4', order: 4, probability: 70 },
+        { name: 'Закрытие', color: '#4caf50', order: 5, probability: 100 },
       ];
 
       for (const stage of defaultStages) {
         await pool.query(
           `INSERT INTO funnel_stages (funnel_id, name, color, sort_order, probability)
            VALUES ($1, $2, $3, $4, $5)`,
-          [funnelId, stage.name, stage.color, stage.sortOrder, stage.probability]
+          [funnelId, stage.name, stage.color, stage.order, stage.probability]
         );
       }
+      console.log('[funnelHelper] ✅ Default funnel created with stages');
     } else {
       funnelId = funnelResult.rows[0].id;
+      console.log('[funnelHelper] ✅ Found existing funnel:', funnelId);
     }
 
     // Получаем первый этап воронки
@@ -46,17 +52,16 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
     );
 
     if (stageResult.rows.length === 0) {
-      console.error('[funnelHelper] No stages in funnel', funnelId);
+      console.error('[funnelHelper] ❌ No stages in funnel', funnelId);
       return null;
     }
 
     const stageId = stageResult.rows[0].id;
+    console.log('[funnelHelper] 📊 First stage:', stageId);
 
     // Получаем client_id, если передан
-    let finalClientId = null;
-    if (clientId) {
-      finalClientId = clientId;
-    } else if (clientEmail || clientPhone) {
+    let finalClientId = clientId;
+    if (!finalClientId && (clientEmail || clientPhone)) {
       // Пытаемся найти клиента по email или телефону
       if (clientEmail) {
         const clientRes = await pool.query('SELECT id FROM clients WHERE email = $1 LIMIT 1', [clientEmail]);
@@ -72,29 +77,46 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
       }
     }
 
+    console.log('[funnelHelper] 👤 Final client ID:', finalClientId);
+
     // Создаем сделку
     const dealResult = await pool.query(
-      `INSERT INTO deals (funnel_id, stage_id, title, client_id, client_name, client_email, client_phone, description, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       RETURNING id`,
+      `INSERT INTO deals (
+        funnel_id, 
+        stage_id, 
+        title, 
+        client_id, 
+        client_name, 
+        client_email, 
+        client_phone, 
+        description,
+        source,
+        status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id`,
       [
         funnelId,
         stageId,
-        `Сделка: ${clientName || clientEmail || clientPhone || 'Новый клиент'}`,
+        `Лид из ${source}: ${clientName || clientEmail || clientPhone || 'Новый клиент'}`,
         finalClientId || null,
         clientName || null,
         clientEmail || null,
         clientPhone || null,
-        `Создано автоматически из ${source}`
+        `Создано автоматически из ${source}`,
+        source,
+        'active'
       ]
     );
 
-    return dealResult.rows[0].id;
+    const dealId = dealResult.rows[0].id;
+    console.log('[funnelHelper] ✅ Deal created:', dealId);
+    return dealId;
   } catch (error) {
-    console.error('[funnelHelper] Error creating deal:', error);
+    console.error('[funnelHelper] ❌ Error creating deal:', error.message, error.stack);
     return null;
   }
 }
+
 
 // Создать или получить воронку для клиента (Product + имя клиента/компания)
 export async function getOrCreateClientFunnel(clientId, productTitle, clientName, companyName) {
