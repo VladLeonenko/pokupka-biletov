@@ -76,6 +76,7 @@ import donorsRouter from './routes/donors.js';
 import socialProofsRouter from './routes/socialProofs.js';
 import quizRouter from './routes/quiz.js';
 import calculatorRouter from './routes/calculator.js';
+import productCategoriesRouter from './routes/productCategories.js';
 
 const app = express();
 
@@ -286,6 +287,8 @@ app.use('/api/partials', requireAuth, partialsRouter);
 app.use('/api/blog/categories', requireAuth, blogCategoriesRouter);
 app.use('/api/blog', requireAuth, blogRouter);
 app.use('/api/cases', requireAuth, casesRouter);
+app.use('/api/product-categories', requireAuth, productCategoriesRouter);
+app.use('/api/public/product-categories', productCategoriesRouter);
 app.use('/api/products', requireAuth, productsRouter);
 app.use('/api/promotions', requireAuth, promotionsRouter);
 app.use('/api/social-proofs', socialProofsRouter); // Публичные и админские эндпоинты
