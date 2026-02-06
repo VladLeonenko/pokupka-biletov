@@ -25,6 +25,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import LanguageIcon from '@mui/icons-material/Language';
 import ImageIcon from '@mui/icons-material/Image';
 import LinkIcon from '@mui/icons-material/Link';
+import CategoryIcon from '@mui/icons-material/Category';
 import { NotificationsBell } from '@/components/common/NotificationsBell';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Кейсы', icon: <WorkIcon />, path: '/admin/cases' },
   { label: 'Доноры кейсов', icon: <LinkIcon />, path: '/admin/donors' },
   { label: 'Продукты и стоимость', icon: <PriceIcon />, path: '/admin/products' },
+  { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories' },
   { label: 'Парсинг', icon: <CloudDownloadIcon />, path: '/admin/parsing' },
   { label: 'Акции', icon: <LocalOfferIcon />, path: '/admin/promotions' },
   { label: 'Формы', icon: <AssignmentIcon />, path: '/admin/forms' },

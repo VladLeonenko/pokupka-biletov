@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteProduct, getProduct, upsertProduct, uploadImage, generateProductSeoContent, generateProductCard, listTeamMembers } from '@/services/cmsApi';
-import { getSearchCategories } from '@/services/ecommerceApi';
+import { listProductCategories } from '@/services/ecommerceApi';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { slugify } from '@/utils/slugify';
 import { getApiBase } from '@/utils/apiBase';
@@ -57,7 +57,7 @@ export function ProductEditorPage() {
   
   const { data: categories = [] } = useQuery({
     queryKey: ['productCategories'],
-    queryFn: getSearchCategories,
+    queryFn: () => listProductCategories(false),
   });
 
   // Получаем список сотрудников команды
