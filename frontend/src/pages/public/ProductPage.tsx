@@ -829,8 +829,6 @@ export function ProductPage() {
         </Grid>
       </Grid>
 
-      {hasHeaderBlock && (
-      )}
 
       {hasDescriptionBlock && (
         <MotionBox
