@@ -24,6 +24,7 @@ const CasePreviewPage = lazy(() => import('@/pages/cases/CasePreviewPage').then(
 const ProductsListPage = lazy(() => import('@/pages/products/ProductsListPage').then(m => ({ default: m.ProductsListPage })));
 const ProductEditorPage = lazy(() => import('@/pages/products/ProductEditorPage').then(m => ({ default: m.ProductEditorPage })));
 const ProductPageBuilderPage = lazy(() => import('@/pages/products/ProductPageBuilderPage').then(m => ({ default: m.ProductPageBuilderPage })));
+const ProductCategoriesPage = lazy(() => import('@/pages/products/ProductCategoriesPage').then(m => ({ default: m.ProductCategoriesPage })));
 const PromotionsListPage = lazy(() => import('@/pages/promotions/PromotionsListPage').then(m => ({ default: m.PromotionsListPage })));
 const PromotionEditorPage = lazy(() => import('@/pages/promotions/PromotionEditorPage').then(m => ({ default: m.PromotionEditorPage })));
 const FormsManagementPage = lazy(() => import('@/pages/forms/FormsManagementPage').then(m => ({ default: m.FormsManagementPage })));
@@ -203,6 +204,7 @@ export function AppRoutes() {
       <Route path="/admin/cases/:id/preview" element={<Protected><CasePreviewPage /></Protected>} />
       <Route path="/admin/cases/:id" element={<Protected><CaseEditorPage /></Protected>} />
       <Route path="/admin/cases/:id/builder" element={<Protected><CasePageBuilderPage /></Protected>} />
+      <Route path="/admin/product-categories" element={<Protected><ProductCategoriesPage /></Protected>} />
       <Route path="/admin/products" element={<Protected><ProductsListPage /></Protected>} />
       <Route path="/admin/products/:id" element={<Protected><ProductEditorPage /></Protected>} />
       <Route path="/admin/products/:id/builder" element={<Protected><ProductPageBuilderPage /></Protected>} />
