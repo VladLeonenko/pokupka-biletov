@@ -905,8 +905,13 @@ export async function upsertProduct(item: ProductItem): Promise<void> {
   if (item.caseSlugs !== undefined) payload.caseSlugs = item.caseSlugs;
   
   
-  const url = `${getApiBaseUrl()}/api/products${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
-  const method = item.slug ? 'PUT' : 'POST';
+// Определяем новый ли это товар по наличию createdAt
+const isNew = !item.createdAt;
+
+const url = `${getApiBaseUrl()}/api/products${!isNew ? `/${encodeURIComponent(item.slug)}` : ''}`;
+const method = isNew ? 'POST' : 'PUT';
+
+
   
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!res.ok) {
