@@ -1,0 +1,44 @@
+                                              Table "public.products"
+        Column         |            Type             | Collation | Nullable |               Default                
+-----------------------+-----------------------------+-----------+----------+--------------------------------------
+ id                    | integer                     |           | not null | nextval('products_id_seq'::regclass)
+ slug                  | text                        |           | not null | 
+ title                 | text                        |           | not null | 
+ description_html      | text                        |           |          | 
+ price_cents           | integer                     |           |          | 0
+ currency              | text                        |           |          | 'RUB'::text
+ price_period          | text                        |           |          | 'one_time'::text
+ features              | text[]                      |           |          | 
+ is_active             | boolean                     |           |          | true
+ sort_order            | integer                     |           |          | 0
+ created_at            | timestamp without time zone |           |          | now()
+ updated_at            | timestamp without time zone |           |          | now()
+ content_json          | jsonb                       |           |          | 
+ category_id           | integer                     |           |          | 
+ image_url             | text                        |           |          | 
+ gallery               | text[]                      |           |          | 
+ stock_quantity        | integer                     |           |          | 0
+ sku                   | text                        |           |          | 
+ tags                  | text[]                      |           |          | 
+ meta_title            | text                        |           |          | 
+ meta_description      | text                        |           |          | 
+ meta_keywords         | text                        |           |          | 
+ case_slugs            | text[]                      |           |          | 
+ summary               | text                        |           |          | 
+ full_description_html | text                        |           |          | 
+Indexes:
+    "products_pkey" PRIMARY KEY, btree (id)
+    "idx_products_active" btree (is_active)
+    "idx_products_category" btree (category_id)
+    "idx_products_content_json" gin (content_json)
+    "idx_products_sku" btree (sku)
+    "idx_products_slug" btree (slug)
+    "products_slug_key" UNIQUE CONSTRAINT, btree (slug)
+Foreign-key constraints:
+    "products_category_id_fkey" FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE SET NULL
+Referenced by:
+    TABLE "cart" CONSTRAINT "cart_product_slug_fkey" FOREIGN KEY (product_slug) REFERENCES products(slug) ON DELETE CASCADE DEFERRABLE
+    TABLE "product_analytics" CONSTRAINT "product_analytics_product_slug_fkey" FOREIGN KEY (product_slug) REFERENCES products(slug) ON DELETE CASCADE DEFERRABLE
+    TABLE "product_cases" CONSTRAINT "product_cases_product_slug_fkey" FOREIGN KEY (product_slug) REFERENCES products(slug) ON DELETE CASCADE DEFERRABLE
+    TABLE "wishlist" CONSTRAINT "wishlist_product_slug_fkey" FOREIGN KEY (product_slug) REFERENCES products(slug) ON DELETE CASCADE DEFERRABLE
+

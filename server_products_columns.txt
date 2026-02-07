@@ -1,0 +1,29 @@
+      column_name      |          data_type          | is_nullable 
+-----------------------+-----------------------------+-------------
+ id                    | integer                     | NO
+ slug                  | text                        | NO
+ title                 | text                        | NO
+ description_html      | text                        | YES
+ price_cents           | integer                     | YES
+ currency              | text                        | YES
+ price_period          | text                        | YES
+ features              | ARRAY                       | YES
+ is_active             | boolean                     | YES
+ sort_order            | integer                     | YES
+ created_at            | timestamp without time zone | YES
+ updated_at            | timestamp without time zone | YES
+ content_json          | jsonb                       | YES
+ category_id           | integer                     | YES
+ image_url             | text                        | YES
+ gallery               | ARRAY                       | YES
+ stock_quantity        | integer                     | YES
+ sku                   | text                        | YES
+ tags                  | ARRAY                       | YES
+ meta_title            | text                        | YES
+ meta_description      | text                        | YES
+ meta_keywords         | text                        | YES
+ case_slugs            | ARRAY                       | YES
+ summary               | text                        | YES
+ full_description_html | text                        | YES
+(25 rows)
+
