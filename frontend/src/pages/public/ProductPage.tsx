@@ -24,7 +24,7 @@ import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { motion } from 'framer-motion';
 import { TeamCarousel } from '@/components/public/TeamCarousel';
 import { useToast } from '@/components/common/ToastProvider';
-import { PriceCalculator } from '@/components/products/PriceCalculator';
+import { ServiceCalculator } from '@/components/calculator';
 import { TariffQuiz } from '@/components/products/TariffQuiz';
 import { SocialProofs } from '@/components/products/SocialProofs';
 
@@ -851,14 +851,14 @@ export function ProductPage() {
       {/* Калькулятор стоимости */}
       {product.priceCents && (
         <Container maxWidth="lg" sx={{ mt: 8 }}>
-          <PriceCalculator
-            basePrice={product.priceCents}
-            productSlug={product.slug}
-            onCalculate={(price) => {
+          <ServiceCalculator
+            service={product.slug}
+            
+            onCalculate={(result) => {
               setContactFormOpen(true);
               setContactForm((prev) => ({
                 ...prev,
-                message: prev.message || `Рассчитанная стоимость: ${Math.round(price / 100).toLocaleString('ru-RU')} ₽`,
+                message: prev.message || `Рассчитанная стоимость: ${result.totalCost.toLocaleString('ru-RU')} ₽. Окупаемость: ${result.paybackMonths} мес. ROI: ${result.totalROI}%`,
               }));
             }}
           />
