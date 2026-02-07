@@ -1,6 +1,6 @@
 import { useState, useEffect, SyntheticEvent, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { searchProducts, getSearchCategories, getSearchTags, trackProductEvent } from '@/services/ecommerceApi';
+import { searchProducts, listProductCategories, getSearchTags, trackProductEvent } from '@/services/ecommerceApi';
 import { ProductItem, SearchFilters } from '@/types/cms';
 import {
   Box,
@@ -44,7 +44,7 @@ export function CatalogPage() {
 
   const { data: categoriesData } = useQuery({ 
     queryKey: ['searchCategories'], 
-    queryFn: getSearchCategories,
+    queryFn: () => listProductCategories(false),
     staleTime: 60000, // Категории меняются редко
   });
   const { data: tagsData } = useQuery({ 

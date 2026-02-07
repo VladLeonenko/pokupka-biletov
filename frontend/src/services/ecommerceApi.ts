@@ -345,3 +345,56 @@ export async function getCurrentUser(): Promise<{ user: any }> {
   return res.json();
 }
 
+
+// ==================== Product Categories ====================
+export async function listProductCategories(activeOnly = false): Promise<ProductCategory[]> {
+  const url = activeOnly 
+    ? `${getApiBaseUrl()}/api/public/product-categories`
+    : `${getApiBaseUrl()}/api/product-categories`;
+  const res = await doFetch(url);
+  if (!res.ok) throw new Error('Failed to fetch product categories');
+  return res.json();
+}
+
+export async function getProductCategory(id: number): Promise<ProductCategory> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/product-categories/${id}`);
+  if (!res.ok) throw new Error('Failed to fetch product category');
+  return res.json();
+}
+
+export async function createProductCategory(data: Partial<ProductCategory>): Promise<ProductCategory> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/product-categories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Failed to create category' }));
+    throw new Error(error.error || 'Failed to create product category');
+  }
+  return res.json();
+}
+
+export async function updateProductCategory(id: number, data: Partial<ProductCategory>): Promise<ProductCategory> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/product-categories/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Failed to update category' }));
+    throw new Error(error.error || 'Failed to update product category');
+  }
+  const result = await res.json();
+  return result.updated || result;
+}
+
+export async function deleteProductCategory(id: number): Promise<void> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/product-categories/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Failed to delete category' }));
+    throw new Error(error.error || 'Failed to delete product category');
+  }
+}

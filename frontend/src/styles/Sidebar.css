@@ -35,3 +35,34 @@
     padding: 30px 40px;
   }
   
+/* Разделы меню */
+.sidebar-section {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #999;
+  padding: 1rem 1rem 0.5rem;
+  margin-top: 1rem;
+  border-top: 1px solid #eee;
+  pointer-events: none;
+}
+
+.sidebar-section:first-of-type {
+  margin-top: 0;
+  border-top: none;
+}
+
+/* Подсветка активной ссылки */
+.admin-sidebar nav a.active {
+  background-color: #007bff;
+  color: white;
+  font-weight: 500;
+}
+
+.admin-sidebar nav a:hover {
+  background-color: #f0f0f0;
+}
+
+.admin-sidebar nav a.active:hover {
+  background-color: #0056b3;
+}

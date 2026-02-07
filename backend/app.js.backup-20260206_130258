@@ -1,0 +1,1288 @@
+import dotenv from 'dotenv';
+import productCategoriesRoutes from './routes/productCategories.js';
+import path from 'path';
+import productCategoriesRoutes from './routes/productCategories.js';
+import { fileURLToPath } from 'url';
+import productCategoriesRoutes from './routes/productCategories.js';
+import fs from 'fs';
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Загружаем переменные окружения из .env файла ДО всех остальных импортов
+import productCategoriesRoutes from './routes/productCategories.js';
+// НЕ используем override здесь, чтобы db.js мог перезаписать переменные
+import productCategoriesRoutes from './routes/productCategories.js';
+const __filename = fileURLToPath(import.meta.url);
+import productCategoriesRoutes from './routes/productCategories.js';
+const __dirname = path.dirname(__filename);
+import productCategoriesRoutes from './routes/productCategories.js';
+dotenv.config({ path: path.join(__dirname, '.env') });
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+import express from 'express';
+import productCategoriesRoutes from './routes/productCategories.js';
+import cors from 'cors';
+import productCategoriesRoutes from './routes/productCategories.js';
+import helmet from 'helmet';
+import productCategoriesRoutes from './routes/productCategories.js';
+import compression from 'compression';
+import productCategoriesRoutes from './routes/productCategories.js';
+import rateLimit from 'express-rate-limit';
+import productCategoriesRoutes from './routes/productCategories.js';
+import pagesRouter from './routes/pages.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import imagesRouter from './routes/images.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import exerciseImagesRouter from './routes/exerciseImages.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import partialsRouter from './routes/partials.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import blogCategoriesRouter from './routes/blogCategories.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import carouselsRouter from './routes/carousels.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import publicCarouselsRouter from './routes/publicCarousels.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import errorsRouter from './routes/errors.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import metricsRouter from './routes/metrics.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import seoSuggestRouter from './routes/seoSuggest.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import seoOgImageRouter from './routes/seoOgImage.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import authRouter from './routes/auth.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import { requireAuth } from './middleware/auth.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import { seoRenderer } from './middleware/seoRenderer.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import aiRouter from './routes/ai.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import blogRouter from './routes/blog.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import casesRouter from './routes/cases.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import productsRouter from './routes/products.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import promotionsRouter from './routes/promotions.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import formsRouter from './routes/forms.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import funnelsRouter from './routes/funnels.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import tasksRouter from './routes/tasks.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import paymentsRouter from './routes/payments.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import documentsRouter from './routes/documents.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import notificationsRouter from './routes/notifications.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import paymentRemindersRouter from './routes/paymentReminders.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import taskExecutorRouter from './routes/taskExecutor.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import cartRouter from './routes/cart.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import wishlistRouter from './routes/wishlist.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import searchRouter from './routes/search.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import ordersRouter from './routes/orders.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import productAnalyticsRouter from './routes/productAnalytics.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import parsingRouter from './routes/parsing.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import seoToolsRouter from './routes/seoTools.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import clientsRouter from './routes/clients.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import chatRouter from './routes/chat.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import chatbotRouter from './routes/chatbot.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import reviewsRouter from './routes/reviews.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import awardsRouter from './routes/awards.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import teamRouter from './routes/team.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import emailCampaignsRouter from './routes/emailCampaigns.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import sitesRouter from './routes/sites.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import plannerRouter from './routes/planner.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import aiAssistantRouter from './routes/aiAssistant.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import aiChatRouter from './routes/aiChat.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import readingBooksRouter from './routes/readingBooks.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import consentsRouter from './routes/consents.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import sitemapRouter from './routes/sitemap.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import seoOptimizeRouter from './routes/seoOptimize.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import competitorAnalysisRouter from './routes/competitorAnalysis.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import seoPositionMonitoringRouter from './routes/seoPositionMonitoring.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import structuredDataRouter from './routes/structuredData.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import internalLinkingRouter from './routes/internalLinking.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import imageOptimizationRouter from './routes/imageOptimization.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import { cachePublicRouter, cacheAdminRouter } from './routes/cache.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import aiTeamRouter from './routes/aiTeam.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import projectsRouter from './routes/projects.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import commercialProposalsRouter from './routes/commercialProposals.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import donorsRouter from './routes/donors.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import socialProofsRouter from './routes/socialProofs.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import quizRouter from './routes/quiz.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+import calculatorRouter from './routes/calculator.js';
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+const app = express();
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Trust proxy для работы за Nginx (нужно для express-rate-limit)
+import productCategoriesRoutes from './routes/productCategories.js';
+// Доверяем только первому прокси (Nginx на localhost)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.set('trust proxy', 1);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use(cors({ 
+import productCategoriesRoutes from './routes/productCategories.js';
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3000'], 
+import productCategoriesRoutes from './routes/productCategories.js';
+  credentials: true,
+import productCategoriesRoutes from './routes/productCategories.js';
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+import productCategoriesRoutes from './routes/productCategories.js';
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id']
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Compression middleware - сжимаем все ответы (gzip/brotli)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use(compression({
+import productCategoriesRoutes from './routes/productCategories.js';
+  level: 6, // Баланс между сжатием и скоростью
+import productCategoriesRoutes from './routes/productCategories.js';
+  filter: (req, res) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Сжимаем все, кроме уже сжатых файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (req.headers['x-no-compression']) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      return false;
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+    return compression.filter(req, res);
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Content Security Policy configuration
+import productCategoriesRoutes from './routes/productCategories.js';
+const isDevelopment = process.env.NODE_ENV !== 'production';
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use(helmet({ 
+import productCategoriesRoutes from './routes/productCategories.js';
+  contentSecurityPolicy: {
+import productCategoriesRoutes from './routes/productCategories.js';
+    directives: {
+import productCategoriesRoutes from './routes/productCategories.js';
+      defaultSrc: ["'self'"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      scriptSrc: [
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'self'",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'unsafe-inline'", // Нужно для inline скриптов React
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'unsafe-eval'", // Нужно для dev mode
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://cdn.jsdelivr.net", // GSAP
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://www.googletagmanager.com",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://www.google-analytics.com",
+import productCategoriesRoutes from './routes/productCategories.js';
+        ...(isDevelopment ? ["'unsafe-eval'"] : []),
+import productCategoriesRoutes from './routes/productCategories.js';
+      ],
+import productCategoriesRoutes from './routes/productCategories.js';
+      styleSrc: [
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'self'",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'unsafe-inline'", // Нужно для styled-components и inline стилей
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://fonts.googleapis.com",
+import productCategoriesRoutes from './routes/productCategories.js';
+      ],
+import productCategoriesRoutes from './routes/productCategories.js';
+      imgSrc: [
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'self'",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "data:",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "blob:",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https:", // Разрешаем все HTTPS изображения
+import productCategoriesRoutes from './routes/productCategories.js';
+        "http://localhost:3000", // Для локальной разработки
+import productCategoriesRoutes from './routes/productCategories.js';
+      ],
+import productCategoriesRoutes from './routes/productCategories.js';
+      fontSrc: [
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'self'",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "data:",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://fonts.gstatic.com",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://cdn.jsdelivr.net",
+import productCategoriesRoutes from './routes/productCategories.js';
+      ],
+import productCategoriesRoutes from './routes/productCategories.js';
+      connectSrc: [
+import productCategoriesRoutes from './routes/productCategories.js';
+        "'self'",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "https://api.openai.com",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "http://localhost:3000",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "http://localhost:5173",
+import productCategoriesRoutes from './routes/productCategories.js';
+        "ws://localhost:5173", // WebSocket для Vite HMR
+import productCategoriesRoutes from './routes/productCategories.js';
+      ],
+import productCategoriesRoutes from './routes/productCategories.js';
+      frameSrc: ["'self'", "https://www.youtube.com", "https://player.vimeo.com"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      objectSrc: ["'none'"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      mediaSrc: ["'self'", "https:", "data:"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      workerSrc: ["'self'", "blob:"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      childSrc: ["'self'", "blob:"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      formAction: ["'self'"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      frameAncestors: ["'self'"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      baseUri: ["'self'"],
+import productCategoriesRoutes from './routes/productCategories.js';
+      upgradeInsecureRequests: isDevelopment ? null : [],
+import productCategoriesRoutes from './routes/productCategories.js';
+    },
+import productCategoriesRoutes from './routes/productCategories.js';
+  },
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Отключаем X-Content-Type-Options только для legacy JS файлов (обрабатываем ниже)
+import productCategoriesRoutes from './routes/productCategories.js';
+  xContentTypeOptions: false,
+import productCategoriesRoutes from './routes/productCategories.js';
+  crossOriginEmbedderPolicy: false,
+import productCategoriesRoutes from './routes/productCategories.js';
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Дополнительные настройки безопасности
+import productCategoriesRoutes from './routes/productCategories.js';
+  strictTransportSecurity: {
+import productCategoriesRoutes from './routes/productCategories.js';
+    maxAge: 31536000, // 1 год
+import productCategoriesRoutes from './routes/productCategories.js';
+    includeSubDomains: true,
+import productCategoriesRoutes from './routes/productCategories.js';
+    preload: true,
+import productCategoriesRoutes from './routes/productCategories.js';
+  },
+import productCategoriesRoutes from './routes/productCategories.js';
+  xFrameOptions: { action: 'deny' }, // Защита от clickjacking
+import productCategoriesRoutes from './routes/productCategories.js';
+  xXssProtection: true, // XSS защита
+import productCategoriesRoutes from './routes/productCategories.js';
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use(express.json({ limit: '50mb' })); // Увеличено для загрузки больших файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Для form-data
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Rate limiting configuration
+import productCategoriesRoutes from './routes/productCategories.js';
+// Общий лимит для всех запросов
+import productCategoriesRoutes from './routes/productCategories.js';
+const generalLimiter = rateLimit({
+import productCategoriesRoutes from './routes/productCategories.js';
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 минут
+import productCategoriesRoutes from './routes/productCategories.js';
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // 1000 запросов на IP (для dev режима)
+import productCategoriesRoutes from './routes/productCategories.js';
+  message: { error: 'Слишком много запросов с вашего IP, попробуйте позже' },
+import productCategoriesRoutes from './routes/productCategories.js';
+  standardHeaders: true, // Отправляем RateLimit-* заголовки
+import productCategoriesRoutes from './routes/productCategories.js';
+  legacyHeaders: false, // Отключаем X-RateLimit-* заголовки
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Расширенный лимит для авторизованных пользователей
+import productCategoriesRoutes from './routes/productCategories.js';
+const authenticatedLimiter = rateLimit({
+import productCategoriesRoutes from './routes/productCategories.js';
+  windowMs: 15 * 60 * 1000, // 15 минут
+import productCategoriesRoutes from './routes/productCategories.js';
+  max: 500, // 500 запросов на IP (для авторизованных пользователей)
+import productCategoriesRoutes from './routes/productCategories.js';
+  message: { error: 'Слишком много запросов, попробуйте позже' },
+import productCategoriesRoutes from './routes/productCategories.js';
+  standardHeaders: true,
+import productCategoriesRoutes from './routes/productCategories.js';
+  legacyHeaders: false,
+import productCategoriesRoutes from './routes/productCategories.js';
+  skip: (req) => !req.headers.authorization, // Пропускаем неавторизованные запросы
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Строгий лимит для аутентификации (защита от brute-force)
+import productCategoriesRoutes from './routes/productCategories.js';
+const authLimiter = rateLimit({
+import productCategoriesRoutes from './routes/productCategories.js';
+  windowMs: 15 * 60 * 1000, // 15 минут
+import productCategoriesRoutes from './routes/productCategories.js';
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 5, // 5 попыток входа
+import productCategoriesRoutes from './routes/productCategories.js';
+  message: { error: 'Слишком много попыток входа, попробуйте через 15 минут' },
+import productCategoriesRoutes from './routes/productCategories.js';
+  standardHeaders: true,
+import productCategoriesRoutes from './routes/productCategories.js';
+  legacyHeaders: false,
+import productCategoriesRoutes from './routes/productCategories.js';
+  skipSuccessfulRequests: false, // Считаем даже успешные попытки
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Лимит для форм (защита от спама)
+import productCategoriesRoutes from './routes/productCategories.js';
+const formsLimiter = rateLimit({
+import productCategoriesRoutes from './routes/productCategories.js';
+  windowMs: 60 * 60 * 1000, // 1 час
+import productCategoriesRoutes from './routes/productCategories.js';
+  max: 10, // 10 отправок формы в час
+import productCategoriesRoutes from './routes/productCategories.js';
+  message: { error: 'Слишком много отправок форм, попробуйте позже' },
+import productCategoriesRoutes from './routes/productCategories.js';
+  standardHeaders: true,
+import productCategoriesRoutes from './routes/productCategories.js';
+  legacyHeaders: false,
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Применяем общий лимит ко всем API запросам
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/', generalLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Применяем расширенный лимит для авторизованных эндпоинтов
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/planner', authenticatedLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/tasks', authenticatedLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/projects', authenticatedLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/metrics', authenticatedLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/ai-assistant', authenticatedLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/ai-team', authenticatedLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// public endpoints
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/errors', errorsRouter); // Логирование ошибок с фронтенда (публичный)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/auth/login', authLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/auth/register', authLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/auth/verify', authLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/auth/oauth', authLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/auth', authRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+// Forms: submit/abandon are public, management is protected
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/forms/submit', formsLimiter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/forms', formsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+// AI: semantic is public, generation is protected at route-level
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/ai', aiRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+// Public API endpoints (no auth required)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/pages', pagesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/partials', partialsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+// Blog categories must come before blog router to avoid conflict with /:slug route
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/blog/categories', blogCategoriesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/blog', blogRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/products', productsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.get('/api/cases-categories', (req, res) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  const categories = {
+import productCategoriesRoutes from './routes/productCategories.js';
+    'website': 'Сайт',
+import productCategoriesRoutes from './routes/productCategories.js';
+    'mobile': 'Приложение', 
+import productCategoriesRoutes from './routes/productCategories.js';
+    'ai': 'AI Boost Team',
+import productCategoriesRoutes from './routes/productCategories.js';
+    'seo': 'SEO',
+import productCategoriesRoutes from './routes/productCategories.js';
+    'marketing': 'Маркетинг',
+import productCategoriesRoutes from './routes/productCategories.js';
+    'advertising': 'Реклама'
+import productCategoriesRoutes from './routes/productCategories.js';
+  };
+import productCategoriesRoutes from './routes/productCategories.js';
+  res.json(Object.entries(categories).map(([value, label]) => ({ value, label })));
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/cases', casesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/promotions', promotionsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/social-proofs', socialProofsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/quiz', quizRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/carousels', publicCarouselsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/search', searchRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/cart', cartRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/orders', ordersRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/analytics', productAnalyticsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/cache', cachePublicRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/seo', seoToolsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/reviews', reviewsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/awards', awardsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/awards', requireAuth, awardsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/team', teamRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/email', emailCampaignsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/sites', sitesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/planner', plannerRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/ai-assistant', aiAssistantRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/ai-chat', aiChatRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/reading-books', requireAuth, readingBooksRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/consents', consentsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/ai-team', requireAuth, aiTeamRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/projects', requireAuth, projectsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// protected admin APIs
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/pages', requireAuth, pagesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/images', requireAuth, imagesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/exercise-images', requireAuth, exerciseImagesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/partials', requireAuth, partialsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+// register categories BEFORE blog to avoid ":slug" catch
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/blog/categories', requireAuth, blogCategoriesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/blog', requireAuth, blogRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/cases', requireAuth, casesRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/products', requireAuth, productsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/promotions', requireAuth, promotionsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/social-proofs', socialProofsRouter); // Публичные и админские эндпоинты
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/quiz', requireAuth, quizRouter); // Админские эндпоинты (публичные уже на /api/public/quiz)
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/carousels', requireAuth, carouselsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/funnels', requireAuth, funnelsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/tasks', requireAuth, tasksRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/metrics', requireAuth, metricsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/seo', requireAuth, seoSuggestRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/seo', requireAuth, seoOgImageRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/seo-optimize', seoOptimizeRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/competitor-analysis', competitorAnalysisRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/seo-monitoring', seoPositionMonitoringRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/structured-data', structuredDataRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/internal-linking', internalLinkingRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/payments', requireAuth, paymentsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/documents', requireAuth, documentsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/commercial-proposals', commercialProposalsRouter); // Public routes are handled inside
+app.use('/api/product-categories', productCategoriesRoutes);
+app.use('/api/public/product-categories', productCategoriesRoutes);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Calculator routes
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/public/calculator', calculatorRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/donors', (req, res, next) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  console.log('Donors router middleware hit:', req.method, req.path);
+import productCategoriesRoutes from './routes/productCategories.js';
+  next();
+import productCategoriesRoutes from './routes/productCategories.js';
+}, donorsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/notifications', requireAuth, notificationsRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/payment-reminders', paymentRemindersRouter); // No auth required for cron job
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/task-executor', requireAuth, taskExecutorRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/cart', cartRouter); // Публичный, но с поддержкой авторизации
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/wishlist', wishlistRouter); // Требует авторизации
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/orders', ordersRouter); // Публичный, но с поддержкой авторизации
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/analytics', productAnalyticsRouter); // Публичный для трекинга, админ для просмотра
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/clients', clientsRouter); // Требует авторизации
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/cache', requireAuth, cacheAdminRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/chat', chatRouter); // Публичные и админские эндпоинты
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/chatbot', chatbotRouter); // Требует авторизации
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский парсинг
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Sitemap (публичный, должен быть до статических файлов)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/', sitemapRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+import productCategoriesRoutes from './routes/productCategories.js';
+  maxAge: '1y',
+import productCategoriesRoutes from './routes/productCategories.js';
+  setHeaders: (res, filePath) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // CORS заголовки для всех статических файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Origin', '*');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import productCategoriesRoutes from './routes/productCategories.js';
+    
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Правильные MIME типы для изображений
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (filePath.endsWith('.png')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/png');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/jpeg');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.gif')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/gif');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.svg')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/svg+xml');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.webp')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/webp');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.ico')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/x-icon');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Serve static files from frontend/dist root (manifest.json, sw.js, stats.html, etc.)
+import productCategoriesRoutes from './routes/productCategories.js';
+// app.use(express.static(path.join(__dirname, '../frontend/dist'), {
+import productCategoriesRoutes from './routes/productCategories.js';
+//   maxAge: '1y',
+import productCategoriesRoutes from './routes/productCategories.js';
+//   setHeaders: (res, filePath) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+//     // Правильный Content-Type для manifest.json
+import productCategoriesRoutes from './routes/productCategories.js';
+//     if (filePath.endsWith('manifest.json')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+//       res.setHeader('Content-Type', 'application/manifest+json');
+import productCategoriesRoutes from './routes/productCategories.js';
+//       res.setHeader('Cache-Control', 'public, max-age=3600');
+import productCategoriesRoutes from './routes/productCategories.js';
+//     } else if (filePath.endsWith('stats.html')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+//       // Bundle visualization
+import productCategoriesRoutes from './routes/productCategories.js';
+//       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+//       res.setHeader('Cache-Control', 'public, max-age=3600');
+import productCategoriesRoutes from './routes/productCategories.js';
+//     } else if (filePath.endsWith('.js') && !filePath.includes('/assets/')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+//       // Service Worker и другие JS файлы в корне
+import productCategoriesRoutes from './routes/productCategories.js';
+//       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+//       res.setHeader('Cache-Control', 'public, max-age=3600');
+import productCategoriesRoutes from './routes/productCategories.js';
+//     }
+import productCategoriesRoutes from './routes/productCategories.js';
+//   }
+import productCategoriesRoutes from './routes/productCategories.js';
+// }));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Serve static files from frontend/dist (React build assets)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/assets', express.static(path.join(__dirname, '../frontend/dist/assets'), {
+import productCategoriesRoutes from './routes/productCategories.js';
+  maxAge: '1y', // Кэширование на 1 год
+import productCategoriesRoutes from './routes/productCategories.js';
+  immutable: true, // Файлы с хешами в именах не изменяются
+import productCategoriesRoutes from './routes/productCategories.js';
+  setHeaders: (res, filePath) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // CORS заголовки для всех статических файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Origin', '*');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import productCategoriesRoutes from './routes/productCategories.js';
+    
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Агрессивное кэширование для статических ресурсов с хешами
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (filePath.match(/\.(js|css|woff|woff2|ttf|eot|svg)$/)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.match(/\.(png|jpg|jpeg|gif|webp|ico|svg)$/)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Serve static files from frontend/dist/legacy (legacy assets)
+import productCategoriesRoutes from './routes/productCategories.js';
+// В dev режиме также проверяем frontend/public/legacy
+import productCategoriesRoutes from './routes/productCategories.js';
+const distLegacyPath = path.join(__dirname, '../frontend/dist/legacy');
+import productCategoriesRoutes from './routes/productCategories.js';
+const publicLegacyPath = path.join(__dirname, '../frontend/public/legacy');
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Сначала пробуем public (dev режим) - должен быть первым
+import productCategoriesRoutes from './routes/productCategories.js';
+if (fs.existsSync(publicLegacyPath)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+  app.use('/legacy', express.static(publicLegacyPath, {
+import productCategoriesRoutes from './routes/productCategories.js';
+    maxAge: '1y',
+import productCategoriesRoutes from './routes/productCategories.js';
+    setHeaders: setLegacyHeaders,
+import productCategoriesRoutes from './routes/productCategories.js';
+  }));
+import productCategoriesRoutes from './routes/productCategories.js';
+}
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Затем пробуем dist (production)
+import productCategoriesRoutes from './routes/productCategories.js';
+if (fs.existsSync(distLegacyPath)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+  app.use('/legacy', express.static(distLegacyPath, {
+import productCategoriesRoutes from './routes/productCategories.js';
+    maxAge: '1y',
+import productCategoriesRoutes from './routes/productCategories.js';
+    setHeaders: setLegacyHeaders,
+import productCategoriesRoutes from './routes/productCategories.js';
+  }));
+import productCategoriesRoutes from './routes/productCategories.js';
+}
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+function setLegacyHeaders(res, filePath) {
+import productCategoriesRoutes from './routes/productCategories.js';
+  // CORS заголовки для всех статических файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+  res.setHeader('Access-Control-Allow-Origin', '*');
+import productCategoriesRoutes from './routes/productCategories.js';
+  
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Убираем X-Content-Type-Options для JS файлов, чтобы браузер мог их выполнить
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (filePath.endsWith('.js')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.removeHeader('X-Content-Type-Options');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.css')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'text/css; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.png')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'image/png');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'image/jpeg');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.gif')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'image/gif');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.svg')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'image/svg+xml');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.webp')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'image/webp');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.ico')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'image/x-icon');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  } else if (filePath.endsWith('.woff') || filePath.endsWith('.woff2')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'font/woff2');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Image optimization router (должен быть перед статическими файлами)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/api/images', imageOptimizationRouter);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Image optimization через роутер (должен быть перед статическими файлами)
+import productCategoriesRoutes from './routes/productCategories.js';
+// Обрабатываем запросы к /img через роутер оптимизации
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/img', (req, res, next) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Если это запрос к изображению, обрабатываем через роутер оптимизации
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (req.path.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Передаем в роутер оптимизации
+import productCategoriesRoutes from './routes/productCategories.js';
+    req.url = `/img${req.path}`;
+import productCategoriesRoutes from './routes/productCategories.js';
+    return imageOptimizationRouter(req, res, next);
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+  next();
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Serve images directly from frontend/dist/legacy/img (fallback)
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/img', express.static(path.join(__dirname, '../frontend/dist/legacy/img'), {
+import productCategoriesRoutes from './routes/productCategories.js';
+  maxAge: '1y', // Кэширование на 1 год
+import productCategoriesRoutes from './routes/productCategories.js';
+  setHeaders: (res, filePath) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // CORS заголовки для изображений
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Origin', '*');
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Убираем Cross-Origin-Resource-Policy для локальной разработки
+import productCategoriesRoutes from './routes/productCategories.js';
+    
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (filePath.endsWith('.png')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/png');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/jpeg');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.gif')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/gif');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.svg')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/svg+xml');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.webp')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/webp');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    } else if (filePath.endsWith('.ico')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'image/x-icon');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Middleware для установки правильного MIME типа для CSS файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use((req, res, next) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Проверяем все пути, которые могут содержать CSS файлы
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (req.path.endsWith('.css')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Content-Type', 'text/css; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+  next();
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Дублирующий роут удален - используем основной /legacy выше
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Middleware для удаления X-Content-Type-Options для JS файлов из /legacy
+import productCategoriesRoutes from './routes/productCategories.js';
+// Это нужно делать ПОСЛЕ express.static, так как serve-static устанавливает этот заголовок
+import productCategoriesRoutes from './routes/productCategories.js';
+// НО только для JS файлов, чтобы не перехватывать запросы к изображениям
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/legacy', (req, res, next) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Пропускаем все, кроме JS файлов
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (!req.path.endsWith('.js')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    return next();
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (req.path.endsWith('.js')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Перехватываем writeHead для удаления заголовка перед отправкой
+import productCategoriesRoutes from './routes/productCategories.js';
+    const originalWriteHead = res.writeHead.bind(res);
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.writeHead = function(statusCode, statusMessage, headers) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      if (typeof statusMessage === 'object') {
+import productCategoriesRoutes from './routes/productCategories.js';
+        headers = statusMessage;
+import productCategoriesRoutes from './routes/productCategories.js';
+        statusMessage = undefined;
+import productCategoriesRoutes from './routes/productCategories.js';
+      }
+import productCategoriesRoutes from './routes/productCategories.js';
+      if (headers) {
+import productCategoriesRoutes from './routes/productCategories.js';
+        // Удаляем заголовок из объекта заголовков
+import productCategoriesRoutes from './routes/productCategories.js';
+        Object.keys(headers).forEach(key => {
+import productCategoriesRoutes from './routes/productCategories.js';
+          if (key.toLowerCase() === 'x-content-type-options') {
+import productCategoriesRoutes from './routes/productCategories.js';
+            delete headers[key];
+import productCategoriesRoutes from './routes/productCategories.js';
+          }
+import productCategoriesRoutes from './routes/productCategories.js';
+        });
+import productCategoriesRoutes from './routes/productCategories.js';
+      }
+import productCategoriesRoutes from './routes/productCategories.js';
+      // Удаляем заголовок из response
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.removeHeader('X-Content-Type-Options');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.removeHeader('x-content-type-options');
+import productCategoriesRoutes from './routes/productCategories.js';
+      if (statusMessage) {
+import productCategoriesRoutes from './routes/productCategories.js';
+        return originalWriteHead(statusCode, statusMessage, headers);
+import productCategoriesRoutes from './routes/productCategories.js';
+      } else if (headers) {
+import productCategoriesRoutes from './routes/productCategories.js';
+        return originalWriteHead(statusCode, headers);
+import productCategoriesRoutes from './routes/productCategories.js';
+      } else {
+import productCategoriesRoutes from './routes/productCategories.js';
+        return originalWriteHead(statusCode);
+import productCategoriesRoutes from './routes/productCategories.js';
+      }
+import productCategoriesRoutes from './routes/productCategories.js';
+    };
+import productCategoriesRoutes from './routes/productCategories.js';
+    
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Перехватываем setHeader для блокировки установки заголовка
+import productCategoriesRoutes from './routes/productCategories.js';
+    const originalSetHeader = res.setHeader.bind(res);
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader = function(name, value) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      if (name && name.toLowerCase() === 'x-content-type-options') {
+import productCategoriesRoutes from './routes/productCategories.js';
+        return res;
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+      return originalSetHeader(name, value);
+import productCategoriesRoutes from './routes/productCategories.js';
+    };
+import productCategoriesRoutes from './routes/productCategories.js';
+    
+import productCategoriesRoutes from './routes/productCategories.js';
+    // НЕ удаляем заголовки в событии 'finish' - к этому моменту они уже отправлены
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Вместо этого блокируем их установку через setHeader выше
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+  next();
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Serve chat files
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/uploads/chat-files', express.static(path.join(__dirname, 'uploads/chat-files'), {
+import productCategoriesRoutes from './routes/productCategories.js';
+  setHeaders: (res, filePath) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Origin', '*');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+import productCategoriesRoutes from './routes/productCategories.js';
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Serve CSS files with correct MIME type - обрабатываем все возможные пути
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use('/css', express.static(path.join(__dirname, '../frontend/dist/legacy/css'), {
+import productCategoriesRoutes from './routes/productCategories.js';
+  maxAge: '1y', // Кэширование на 1 год
+import productCategoriesRoutes from './routes/productCategories.js';
+  setHeaders: (res, filePath) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (filePath.endsWith('.css')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+}));
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Обработчик для CSS файлов из dist (для прямых запросов)
+import productCategoriesRoutes from './routes/productCategories.js';
+// Это должно быть ПЕРЕД общим express.static, но ПОСЛЕ специфичных маршрутов
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use((req, res, next) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Если это запрос к CSS файлу, пытаемся отдать его из dist
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (req.path.endsWith('.css') && !req.path.startsWith('/api/')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Проверяем в css подпапке (приоритет для путей вида /css/filename.css)
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (req.path.startsWith('/css/')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      const cssPathAlt = path.join(__dirname, '../frontend/dist/legacy/css', path.basename(req.path));
+import productCategoriesRoutes from './routes/productCategories.js';
+      if (fs.existsSync(cssPathAlt)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+        res.setHeader('Vary', 'Accept-Encoding');
+import productCategoriesRoutes from './routes/productCategories.js';
+        res.sendFile(path.resolve(cssPathAlt));
+import productCategoriesRoutes from './routes/productCategories.js';
+        return;
+import productCategoriesRoutes from './routes/productCategories.js';
+      }
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Проверяем прямой путь в css подпапке
+import productCategoriesRoutes from './routes/productCategories.js';
+    const cssPathAlt = path.join(__dirname, '../frontend/dist/legacy/css', path.basename(req.path));
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (fs.existsSync(cssPathAlt)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Vary', 'Accept-Encoding');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.sendFile(path.resolve(cssPathAlt));
+import productCategoriesRoutes from './routes/productCategories.js';
+      return;
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+    // Проверяем прямой путь в frontend/dist/legacy
+import productCategoriesRoutes from './routes/productCategories.js';
+    const cssPath = path.join(__dirname, '../frontend/dist/legacy', req.path);
+import productCategoriesRoutes from './routes/productCategories.js';
+    if (fs.existsSync(cssPath)) {
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.setHeader('Vary', 'Accept-Encoding');
+import productCategoriesRoutes from './routes/productCategories.js';
+      res.sendFile(path.resolve(cssPath));
+import productCategoriesRoutes from './routes/productCategories.js';
+      return;
+import productCategoriesRoutes from './routes/productCategories.js';
+    }
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+  next();
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// Обработчик 404 для всех необработанных маршрутов (только для API)
+import productCategoriesRoutes from './routes/productCategories.js';
+// ВАЖНО: Это должно быть ПЕРЕД SPA fallback, чтобы API запросы правильно обрабатывались
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use((req, res, next) => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Если это API запрос и он не был обработан роутерами выше, возвращаем 404
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (req.path.startsWith('/api/')) {
+import productCategoriesRoutes from './routes/productCategories.js';
+    return res.status(404).json({ error: 'Not found' });
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+  // Для не-API маршрутов передаем дальше
+import productCategoriesRoutes from './routes/productCategories.js';
+  next();
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+// SSR для динамических meta-тегов (SEO)
+import productCategoriesRoutes from './routes/productCategories.js';
+// Это должно быть ПОСЛЕ всех API маршрутов
+import productCategoriesRoutes from './routes/productCategories.js';
+app.use(seoRenderer);
+import productCategoriesRoutes from './routes/productCategories.js';
+
+import productCategoriesRoutes from './routes/productCategories.js';
+app.listen(4000, () => {
+import productCategoriesRoutes from './routes/productCategories.js';
+  if (process.env.NODE_ENV !== 'production') {
+import productCategoriesRoutes from './routes/productCategories.js';
+    // eslint-disable-next-line no-console
+import productCategoriesRoutes from './routes/productCategories.js';
+    console.log('Backend started on port 3000');
+import productCategoriesRoutes from './routes/productCategories.js';
+  }
+import productCategoriesRoutes from './routes/productCategories.js';
+});
+import productCategoriesRoutes from './routes/productCategories.js';
