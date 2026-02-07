@@ -1329,6 +1329,59 @@ export function ProductPage() {
         </MotionBox>
       )}
 
+      {/* CTA блок после FAQ */}
+      {hasHeaderBlock && (
+        <MotionPaper
+          {...sectionAnimation(0.75)}
+          elevation={0}
+          sx={{
+            mt: 8,
+            p: { xs: 3, md: 4 },
+            borderRadius: 4,
+            bgcolor: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            backdropFilter: 'blur(18px)',
+            boxShadow: '0 40px 60px -45px rgba(0,0,0,0.55)',
+          }}
+        >
+          {headerSection?.title && (
+            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+              {headerSection.title}
+            </Typography>
+          )}
+          {headerSection?.description && (
+            <Typography variant="body1" color="rgba(255,255,255,0.72)" sx={{ mb: 3, whiteSpace: 'pre-line', maxWidth: 820 }}>
+              {headerSection.description}
+            </Typography>
+          )}
+          {(headerSection?.primaryButtonText || headerSection?.secondaryButtonText) && (
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {headerSection?.primaryButtonText && (
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => setContactFormOpen(true)}
+                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600 }}
+                >
+                  {headerSection.primaryButtonText}
+                </Button>
+              )}
+              {headerSection?.secondaryButtonText && (
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => setContactFormOpen(true)}
+                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.85)', '&:hover': { borderColor: 'rgba(255,255,255,0.5)' } }}
+                >
+                  {headerSection.secondaryButtonText}
+                </Button>
+              )}
+            </Stack>
+          )}
+        </MotionPaper>
+      )}
+
+
       {(cases && cases.length > 0) && <Divider sx={{ my: 8, borderColor: 'rgba(255,255,255,0.08)' }} />}
 
       {/* Примеры работ (кейсы) */}
@@ -1414,7 +1467,8 @@ export function ProductPage() {
         </MotionBox>
       )}
 
-      {/* Форма обратной связи */}
+
+      {/* CTA блок внизу страницы */}
       <Dialog open={contactFormOpen} onClose={() => setContactFormOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           Заказать услугу: {product.title}
