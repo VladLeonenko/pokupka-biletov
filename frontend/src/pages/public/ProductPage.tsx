@@ -24,10 +24,8 @@ import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { motion } from 'framer-motion';
 import { TeamCarousel } from '@/components/public/TeamCarousel';
 import { useToast } from '@/components/common/ToastProvider';
-import { PriceCalculator } from '@/components/products/PriceCalculator';
-import { TariffComparison } from '@/components/products/TariffComparison';
+import { ServiceCalculator } from '@/components/calculator';
 import { TariffQuiz } from '@/components/products/TariffQuiz';
-import { WorkTimeline } from '@/components/products/WorkTimeline';
 import { SocialProofs } from '@/components/products/SocialProofs';
 
 const MotionBox = motion.create(Box);
@@ -831,56 +829,6 @@ export function ProductPage() {
         </Grid>
       </Grid>
 
-      {hasHeaderBlock && (
-        <MotionPaper
-          {...sectionAnimation(0.25)}
-          elevation={0}
-          sx={{
-            mt: 8,
-            p: { xs: 3, md: 4 },
-            borderRadius: 4,
-            bgcolor: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            backdropFilter: 'blur(18px)',
-            boxShadow: '0 40px 60px -45px rgba(0,0,0,0.55)',
-          }}
-        >
-          {headerSection?.title && (
-            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
-              {headerSection.title}
-            </Typography>
-          )}
-          {headerSection?.description && (
-            <Typography variant="body1" color="rgba(255,255,255,0.72)" sx={{ mb: 3, whiteSpace: 'pre-line', maxWidth: 820 }}>
-              {headerSection.description}
-            </Typography>
-          )}
-          {(headerSection?.primaryButtonText || headerSection?.secondaryButtonText) && (
-            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-              {headerSection?.primaryButtonText && (
-                <Button
-                  variant="contained"
-                  size="large"
-                  onClick={() => setContactFormOpen(true)}
-                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600 }}
-                >
-                  {headerSection.primaryButtonText}
-                </Button>
-              )}
-              {headerSection?.secondaryButtonText && (
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={() => setContactFormOpen(true)}
-                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.85)', '&:hover': { borderColor: 'rgba(255,255,255,0.5)' } }}
-                >
-                  {headerSection.secondaryButtonText}
-                </Button>
-              )}
-            </Stack>
-          )}
-        </MotionPaper>
-      )}
 
       {hasDescriptionBlock && (
         <MotionBox
@@ -903,24 +851,17 @@ export function ProductPage() {
       {/* Калькулятор стоимости */}
       {product.priceCents && (
         <Container maxWidth="lg" sx={{ mt: 8 }}>
-          <PriceCalculator
-            basePrice={product.priceCents}
-            productSlug={product.slug}
-            onCalculate={(price) => {
+          <ServiceCalculator
+            service={product.slug}
+            
+            onCalculate={(result) => {
               setContactFormOpen(true);
               setContactForm((prev) => ({
                 ...prev,
-                message: prev.message || `Рассчитанная стоимость: ${Math.round(price / 100).toLocaleString('ru-RU')} ₽`,
+                message: prev.message || `Рассчитанная стоимость: ${result.totalCost.toLocaleString('ru-RU')} ₽. Окупаемость: ${result.paybackMonths} мес. ROI: ${result.totalROI}%`,
               }));
             }}
           />
-        </Container>
-      )}
-
-      {/* Визуальное сравнение тарифов */}
-      {tariffs && tariffs.length > 1 && (
-        <Container maxWidth="xl" sx={{ mt: 8 }}>
-          <TariffComparison tariffs={tariffs} title={priceSection?.title || 'Сравнение тарифов'} />
         </Container>
       )}
 
@@ -1050,21 +991,6 @@ export function ProductPage() {
             ))}
           </Grid>
         </MotionBox>
-      )}
-
-      {/* Timeline процесса работы */}
-      {workStepsList && workStepsList.length > 0 && (
-        <Container maxWidth="xl" sx={{ mt: 8 }}>
-          <WorkTimeline
-            steps={workStepsList.map((step) => ({
-              number: typeof step.number === 'number' ? step.number : parseInt(String(step.number || 0), 10),
-              title: step.title || '',
-              description: step.description || '',
-              duration: (step as any).duration,
-            }))}
-            title={workSteps?.title || 'Как мы работаем'}
-          />
-        </Container>
       )}
 
       {/* Социальные доказательства */}
@@ -1403,6 +1329,59 @@ export function ProductPage() {
         </MotionBox>
       )}
 
+      {/* CTA блок после FAQ */}
+      {hasHeaderBlock && (
+        <MotionPaper
+          {...sectionAnimation(0.75)}
+          elevation={0}
+          sx={{
+            mt: 8,
+            p: { xs: 3, md: 4 },
+            borderRadius: 4,
+            bgcolor: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            backdropFilter: 'blur(18px)',
+            boxShadow: '0 40px 60px -45px rgba(0,0,0,0.55)',
+          }}
+        >
+          {headerSection?.title && (
+            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+              {headerSection.title}
+            </Typography>
+          )}
+          {headerSection?.description && (
+            <Typography variant="body1" color="rgba(255,255,255,0.72)" sx={{ mb: 3, whiteSpace: 'pre-line', maxWidth: 820 }}>
+              {headerSection.description}
+            </Typography>
+          )}
+          {(headerSection?.primaryButtonText || headerSection?.secondaryButtonText) && (
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {headerSection?.primaryButtonText && (
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => setContactFormOpen(true)}
+                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600 }}
+                >
+                  {headerSection.primaryButtonText}
+                </Button>
+              )}
+              {headerSection?.secondaryButtonText && (
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => setContactFormOpen(true)}
+                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.85)', '&:hover': { borderColor: 'rgba(255,255,255,0.5)' } }}
+                >
+                  {headerSection.secondaryButtonText}
+                </Button>
+              )}
+            </Stack>
+          )}
+        </MotionPaper>
+      )}
+
+
       {(cases && cases.length > 0) && <Divider sx={{ my: 8, borderColor: 'rgba(255,255,255,0.08)' }} />}
 
       {/* Примеры работ (кейсы) */}
@@ -1488,7 +1467,8 @@ export function ProductPage() {
         </MotionBox>
       )}
 
-      {/* Форма обратной связи */}
+
+      {/* CTA блок внизу страницы */}
       <Dialog open={contactFormOpen} onClose={() => setContactFormOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           Заказать услугу: {product.title}
