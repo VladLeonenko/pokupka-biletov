@@ -10,95 +10,74 @@ const __dirname = path.dirname(__filename);
 const indexPath = path.join(__dirname, '../dist/index.html');
 
 console.log('[fix-index-html] Looking for file:', indexPath);
-console.log('[fix-index-html] File exists:', fs.existsSync(indexPath));
+
+if (!fs.existsSync(indexPath)) {
+  console.log('[fix-index-html] File not found, skipping');
+  process.exit(0);
+}
 
 try {
   let html = fs.readFileSync(indexPath, 'utf-8');
   console.log('[fix-index-html] File read, length:', html.length);
-  
-  // Находим все modulepreload ссылки
+
+  // Находим основной script module src (динамически!)
+  const scriptMatch = html.match(/<script type="module"[^>]*src="([^"]*)"[^>]*><\/script>/);
+  if (!scriptMatch || !scriptMatch[1]) {
+    console.log('[fix-index-html] No module script found, skipping');
+    process.exit(0);
+  }
+
+  const mainScriptSrc = scriptMatch[1]; // e.g. "/assets/js/index-AbCdEf.js"
+  console.log('[fix-index-html] Main script src:', mainScriptSrc);
+
+  // Находим modulepreload ссылки
   const modulepreloadRegex = /<link rel="modulepreload"[^>]*>/g;
   const modulepreloads = html.match(modulepreloadRegex) || [];
   console.log('[fix-index-html] Found modulepreloads:', modulepreloads.length);
-  
-  // Находим основной script (ИСПРАВЛЕНО: захватываем src)
-  const scriptRegex = /<script type="module"[^>]*src="([^"]*)"[^>]*><\/script>/g;
-  let scripts = [];
-  let match;
-  while ((match = scriptRegex.exec(html)) !== null) {
-    scripts.push(match[0]);
-  }
-  console.log('[fix-index-html] Found scripts:', scripts.length);
-  
-  if (modulepreloads.length === 0 || scripts.length === 0) {
-    console.log('[fix-index-html] No modulepreload or scripts found');
-    process.exit(0);
-  }
-  
-  // Находим react-vendor preload
-  const reactVendorPreloads = modulepreloads.filter(m => m.includes('react-vendor'));
-  const otherPreloads = modulepreloads.filter(m => !m.includes('react-vendor'));
-  console.log('[fix-index-html] react-vendor preloads:', reactVendorPreloads.length);
-  console.log('[fix-index-html] other preloads:', otherPreloads.length);
-  
-  if (reactVendorPreloads.length === 0) {
-    console.log('[fix-index-html] react-vendor not found in modulepreload');
-    console.log('[fix-index-html] No fix needed - React is in main bundle');
-    process.exit(0);
-  }
-  
-  // Извлекаем href из react-vendor preload
-  const reactVendorHref = reactVendorPreloads[0].match(/href="([^"]+)"/)?.[1];
-  if (!reactVendorHref) {
-    console.log('[fix-index-html] Could not extract href from react-vendor preload');
-    process.exit(0);
-  }
-  
-  // 🔥 SAFARI ДИНАМИЧЕСКИЙ BOOTSTRAP (БЕЗ SyntaxError)
-  const mainScriptHref = scripts[0]?.match(/src="([^"]+)"/)?.[1] || '';
-  // 🔥 ТОЧНОЕ имя main bundle из твоего build!
-const MAIN_BUNDLE = 'index-CsnplM-C.js'; // Твой самый большой!
 
-const bootstrapScript = `(function() {
-  console.log('🔥 Admin bootstrap START');
-  
-  const script = document.createElement('script');
-  script.src = '/assets/js/${MAIN_BUNDLE}';  // ✅ ТОЧНОЕ имя!
-  script.async = true;
-  script.crossOrigin = 'anonymous';
-  
-  script.onload = () => {
-    console.log('✅ MAIN EXECUTED! 899KB loaded');
+  // Собираем href всех preloads для предзагрузки
+  const preloadHrefs = modulepreloads
+    .map(tag => tag.match(/href="([^"]+)"/)?.[1])
+    .filter(Boolean);
+
+  // Safari-совместимый bootstrap: динамическая загрузка скриптов
+  const preloadScript = preloadHrefs.length > 0
+    ? preloadHrefs.map(href => `    fetch('${href}');`).join('\n')
+    : '';
+
+  const bootstrapScript = `<script>
+(function() {
+  // Предзагружаем чанки
+${preloadScript}
+  // Загружаем основной бандл
+  var s = document.createElement('script');
+  s.type = 'module';
+  s.src = '${mainScriptSrc}';
+  s.crossOrigin = 'anonymous';
+  s.onerror = function(e) {
+    console.error('Failed to load:', '${mainScriptSrc}', e);
   };
-  
-  script.onerror = (e) => {
-    console.error('❌ 404 ERROR:', e);
-    document.body.innerHTML += '<div style="padding:40px;color:red;background:rgba(255,0,0,0.1);">❌ JS 404 - check Network tab</div>';
-  };
-  
-  document.head.appendChild(script);
-  console.log('🚀 Script added:', script.src);
+  document.head.appendChild(s);
 })();
+</script>`;
 
-  `;
-  
-  // Удаляем все modulepreload и script теги
+  // Удаляем оригинальные modulepreload и script module теги
   let newHtml = html
     .replace(modulepreloadRegex, '')
-    .replace(/<script type="module"[^>]*><\/script>/g, '');
+    .replace(/<script type="module"[^>]*src="[^"]*"[^>]*><\/script>/g, '');
 
-  // Вставляем Safari bootstrap ПЕРЕД </head>
-  newHtml = newHtml.replace('</head>', `    ${bootstrapScript}\n  </head>`);
+  // Вставляем bootstrap перед </head>
+  newHtml = newHtml.replace('</head>', `${bootstrapScript}\n</head>`);
 
-  // Сохраняем измененный HTML
+  // Убираем пустые строки подряд
+  newHtml = newHtml.replace(/\n{3,}/g, '\n\n');
+
   fs.writeFileSync(indexPath, newHtml, 'utf-8');
-  console.log('[fix-index-html] ✅ Safari dynamic bootstrap created');
-  console.log('[fix-index-html] React vendor:', reactVendorHref);
-  console.log('[fix-index-html] Main script:', mainScriptHref);
-  console.log('[fix-index-html] File saved, new length:', newHtml.length);
-  
+  console.log('[fix-index-html] ✅ Dynamic bootstrap created');
+  console.log('[fix-index-html] Main bundle:', mainScriptSrc);
+  console.log('[fix-index-html] Preloads:', preloadHrefs.length);
+
 } catch (error) {
   console.error('[fix-index-html] ❌ Error:', error.message);
-  console.error('[fix-index-html] Stack:', error.stack);
   process.exit(1);
 }
