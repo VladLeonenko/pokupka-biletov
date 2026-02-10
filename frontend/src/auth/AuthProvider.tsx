@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getApiBase } from '@/utils/apiBase';
+import { getAuthToken, setAuthToken, removeAuthToken, getAuthUser, setAuthUser, removeAuthUser } from '@/utils/authStorage';
 
 type User = { id: number; email: string; role: string; name?: string; phone?: string } | null;
 
@@ -19,49 +20,91 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      return localStorage.getItem('auth.token');
-    } catch {
-      return null;
-    }
-  });
-  const [user, setUser] = useState<User>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const stored = localStorage.getItem('auth.user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Логирование для отладки
+  console.log('[AuthProvider] Initializing...');
+  
+  // Используем универсальное хранилище с fallback для Safari ITP
+  let initialToken: string | null = null;
+  let initialUser: User = null;
+  
+  try {
+    initialToken = getAuthToken();
+    initialUser = getAuthUser();
+    console.log('[AuthProvider] Initial token:', initialToken ? 'present' : 'missing');
+    console.log('[AuthProvider] Initial user:', initialUser ? 'present' : 'missing');
+  } catch (error) {
+    console.error('[AuthProvider] Error getting initial auth state:', error);
+  }
+  
+  const [token, setTokenState] = useState<string | null>(initialToken);
+  const [user, setUserState] = useState<User>(initialUser);
 
+  // Обертка для setToken с синхронизацией в хранилище
+  const setToken = (newToken: string | null) => {
+    setTokenState(newToken);
+    if (newToken) {
+      setAuthToken(newToken);
+    } else {
+      removeAuthToken();
+    }
+  };
+
+  // Обертка для setUser с синхронизацией в хранилище
+  const setUser = (newUser: User) => {
+    setUserState(newUser);
+    if (newUser) {
+      setAuthUser(newUser);
+    } else {
+      removeAuthUser();
+    }
+  };
+
+  // Слушаем изменения в хранилище (для синхронизации между вкладками)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'auth.token') {
-        setToken(event.newValue);
+        const newToken = event.newValue || getAuthToken();
+        setTokenState(newToken);
+        if (newToken) setAuthToken(newToken);
       }
       if (event.key === 'auth.user') {
         try {
-          setUser(event.newValue ? JSON.parse(event.newValue) : null);
+          const newUser = event.newValue ? JSON.parse(event.newValue) : getAuthUser();
+          setUserState(newUser);
+          if (newUser) setAuthUser(newUser);
         } catch {
-          setUser(null);
+          setUserState(null);
         }
       }
     };
+    
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+    
+    // Периодически проверяем токен из хранилища (для Safari ITP recovery)
+    const checkInterval = setInterval(() => {
+      const storedToken = getAuthToken();
+      if (storedToken !== token) {
+        setTokenState(storedToken);
+      }
+      const storedUser = getAuthUser();
+      if (JSON.stringify(storedUser) !== JSON.stringify(user)) {
+        setUserState(storedUser);
+      }
+    }, 30000); // Каждые 30 секунд
+    
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(checkInterval);
+    };
+  }, [token, user]);
 
   const login = async (email: string, password: string) => {
     const base = getApiBase();
     const res = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     if (!res.ok) throw new Error('Неверный логин или пароль');
     const data = await res.json();
-    localStorage.setItem('auth.token', data.token);
-    localStorage.setItem('auth.user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
     
@@ -85,8 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const { register: registerApi } = await import('@/services/ecommerceApi');
     const data = await registerApi(email, password, name, phone, agreeToTerms, agreeToPrivacy);
-    localStorage.setItem('auth.token', data.token);
-    localStorage.setItem('auth.user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
     return { requiresVerification: data.requiresVerification };
@@ -100,8 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyCode = async (emailOrPhone: string, code: string, isEmail: boolean) => {
     const { verifyCode: verifyCodeApi } = await import('@/services/ecommerceApi');
     const data = await verifyCodeApi(emailOrPhone, code, isEmail);
-    localStorage.setItem('auth.token', data.token);
-    localStorage.setItem('auth.user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
     
@@ -117,8 +156,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const oauthGoogle = async (token: string) => {
     const { oauthGoogle: oauthGoogleApi } = await import('@/services/ecommerceApi');
     const data = await oauthGoogleApi(token);
-    localStorage.setItem('auth.token', data.token);
-    localStorage.setItem('auth.user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
     
@@ -134,8 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const oauthYandex = async (token: string) => {
     const { oauthYandex: oauthYandexApi } = await import('@/services/ecommerceApi');
     const data = await oauthYandexApi(token);
-    localStorage.setItem('auth.token', data.token);
-    localStorage.setItem('auth.user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
     
@@ -152,7 +187,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { getCurrentUser } = await import('@/services/ecommerceApi');
       const data = await getCurrentUser();
-      localStorage.setItem('auth.user', JSON.stringify(data.user));
       setUser(data.user);
     } catch (e) {
       console.error('Failed to refresh user:', e);
@@ -160,10 +194,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('auth.token');
-    localStorage.removeItem('auth.user');
-    setToken(null);
-    setUser(null);
+    removeAuthToken();
+    removeAuthUser();
+    setTokenState(null);
+    setUserState(null);
   };
 
   // Проверка валидности токена и автоматический logout при истечении
@@ -184,7 +218,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (data?.user) {
           // Токен валиден, обновляем данные пользователя
-          localStorage.setItem('auth.user', JSON.stringify(data.user));
           setUser(data.user);
         }
       } catch (error: any) {
