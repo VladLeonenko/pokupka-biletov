@@ -1,0 +1,65 @@
+# Заготовка CI/CD: линт, сборка, опционально деплой.
+# Добавьте секреты в Settings → Secrets: DEPLOY_HOST, DEPLOY_USER, SSH_PRIVATE_KEY (или используйте rsync over SSH).
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        id: build-frontend
+        run: cd frontend && npm run build
+        env:
+          # На проде при другом домене бэка задать VITE_API_URL
+          VITE_API_URL: ${{ vars.VITE_API_URL || '' }}
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      # Раскомментировать при появлении тестов:
+      # - name: Run tests
+      #   run: npm run test
+
+  # Деплой — раскомментировать и настроить секреты (DEPLOY_HOST, DEPLOY_USER, SSH_PRIVATE_KEY)
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Deploy frontend
+  #       uses: appleboy/scp-action@v0.1.7
+  #       with:
+  #         host: ${{ secrets.DEPLOY_HOST }}
+  #         username: ${{ secrets.DEPLOY_USER }}
+  #         key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         source: 'frontend/dist/*'
+  #         target: '/var/www/primecoder-gulp/frontend/'
+  #     - name: Restart backend (optional)
+  #       uses: appleboy/ssh-action@v1.0.3
+  #       with:
+  #         host: ${{ secrets.DEPLOY_HOST }}
+  #         username: ${{ secrets.DEPLOY_USER }}
+  #         key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         script: 'cd /var/www/primecoder-gulp/backend && git pull && npm ci && pm2 restart all'

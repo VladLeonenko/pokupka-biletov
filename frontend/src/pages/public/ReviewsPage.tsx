@@ -64,7 +64,7 @@ export function ReviewsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Загружаем отзывы
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['reviews', ratingFilter, serviceFilter, sortBy],
     queryFn: () => getPublicReviews({
       rating: ratingFilter || undefined,
@@ -182,6 +182,27 @@ export function ReviewsPage() {
               )}
             </Box>
           </Box>
+
+          {/* Ошибка загрузки отзывов */}
+          {isError && (
+            <Box
+              sx={{
+                p: 3,
+                mb: 4,
+                bgcolor: 'rgba(211,47,47,0.1)',
+                borderRadius: 2,
+                border: '1px solid rgba(211,47,47,0.3)',
+                textAlign: 'center',
+              }}
+            >
+              <Typography sx={{ color: 'rgba(255,255,255,0.9)', mb: 2 }}>
+                Не удалось загрузить отзывы. {error instanceof Error ? error.message : 'Проверьте подключение.'}
+              </Typography>
+              <Button variant="outlined" onClick={() => refetch()} sx={{ color: '#ffbb00', borderColor: '#ffbb00' }}>
+                Повторить
+              </Button>
+            </Box>
+          )}
 
           {/* Распределение рейтингов */}
           {stats && (
