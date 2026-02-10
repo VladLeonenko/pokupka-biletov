@@ -16,6 +16,16 @@ export function useCursor(currentPath?: string) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Отключаем кастомный курсор на экранах меньше 1024px (планшеты и мобильные)
+    if (window.innerWidth < 1024) {
+      return;
+    }
+    
+    // Отключаем на touch-устройствах
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      return;
+    }
+
     const rawPath = currentPath ?? window.location.pathname;
     const normalizedPath = rawPath.replace(/\/+$/, '') || '/';
 

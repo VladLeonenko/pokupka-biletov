@@ -1,4 +1,5 @@
 import { CartItem, WishlistItem, Order, SearchFilters, ProductItem, ProductCategory } from '@/types/cms';
+import Cookies from 'js-cookie';
 
 import { getApiBase } from '@/utils/apiBase';
 
@@ -6,11 +7,8 @@ import { getApiBase } from '@/utils/apiBase';
 function getApiBaseUrl(): string {
   return getApiBase();
 }
-
-import { getAuthToken } from '@/utils/authStorage';
-
 function getToken(): string | null {
-  return getAuthToken();
+  return Cookies.get('auth_token') || null;
 }
 
 function getSessionId(): string | null {
@@ -44,23 +42,20 @@ async function doFetch(input: string, init?: RequestInit): Promise<Response> {
     setSessionId(newSessionId);
   }
   
-  // Глобальная обработка 401 - токен истек или невалиден
-  if (response.status === 401 && !input.includes('/api/public/') && !input.includes('/api/auth/')) {
-    // Только для защищенных эндпоинтов
-    console.warn('[ecommerceApi] 401 Unauthorized - clearing auth and redirecting to login');
-    try {
-      import('@/utils/authStorage').then(({ removeAuthToken, removeAuthUser }) => {
-        removeAuthToken();
-        removeAuthUser();
-      });
-      // Редиректим на логин только если мы не на странице логина
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/login')) {
-        window.location.href = '/admin/login';
-      }
-    } catch (e) {
-      console.error('[ecommerceApi] Error handling 401:', e);
-    }
+// Глобальная обработка 401 - токен истек или невалиден
+if (response.status === 401 && !input.includes('/api/public/') && !input.includes('/api/auth/')) {
+  // Только для защищенных эндпоинтов - просто очищаем токен
+  console.warn('[ecommerceApi] 401 Unauthorized - clearing auth token (no redirect)');
+  try {
+    Cookies.remove('auth_token');
+    localStorage.removeItem('auth_user');
+    // НЕ редиректим! Пусть роутер (App.tsx) сам решает что делать
+  } catch (e) {
+    console.error('[ecommerceApi] Error handling 401:', e);
   }
+}
+
+
   
   // Для публичных эндпоинтов не обрабатываем 401 как ошибку
   if (response.status === 401 && input.includes('/api/public/')) {

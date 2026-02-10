@@ -1,4 +1,5 @@
 import { getApiBase } from '@/utils/apiBase';
+import Cookies from 'js-cookie';
 
 export interface SocialProof {
   id: number;
@@ -19,6 +20,11 @@ export interface SocialProof {
   updatedAt: string;
 }
 
+function getAuthHeaders(): HeadersInit {
+  const token = Cookies.get('auth_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 export async function getPublicSocialProofs(): Promise<SocialProof[]> {
   const base = getApiBase();
   const response = await fetch(`${base}/api/public/social-proofs`);
@@ -30,11 +36,8 @@ export async function getPublicSocialProofs(): Promise<SocialProof[]> {
 
 export async function getSocialProofs(): Promise<SocialProof[]> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
   const response = await fetch(`${base}/api/social-proofs`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     throw new Error('Failed to fetch social proofs');
@@ -44,12 +47,11 @@ export async function getSocialProofs(): Promise<SocialProof[]> {
 
 export async function createSocialProof(data: Partial<SocialProof>): Promise<SocialProof> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
   const response = await fetch(`${base}/api/social-proofs`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -61,12 +63,11 @@ export async function createSocialProof(data: Partial<SocialProof>): Promise<Soc
 
 export async function updateSocialProof(id: number, data: Partial<SocialProof>): Promise<SocialProof> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
   const response = await fetch(`${base}/api/social-proofs/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(data),
   });
@@ -78,12 +79,9 @@ export async function updateSocialProof(id: number, data: Partial<SocialProof>):
 
 export async function deleteSocialProof(id: number): Promise<void> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
   const response = await fetch(`${base}/api/social-proofs/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     throw new Error('Failed to delete social proof');

@@ -120,6 +120,24 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
     recurring: true,
     upsells: ['marketing-prodazhi', 'ai-prodvizhenie', 'tech-support']
   },
+  'react-prilozhenie': {
+    name: 'React приложение',
+    basePrices: { basic: 850000, standard: 1800000, premium: 3000000 },
+    marketAvg: 850000,
+    hours: { basic: 480, standard: 680, premium: 920 },
+    roiMultiplier: 9,
+    complexity: 'high',
+    upsells: ['tech-support', 'ai-boost', 'seo-prodvizhenie']
+  },
+'analitika-setup': {
+    name: 'Аналитика setup',
+    basePrices: { basic: 20000, standard: 45000, premium: 85000 },
+    marketAvg: 110000,
+    hours: { basic: 24, standard: 40, premium: 56 },
+    roiMultiplier: 5,
+    complexity: 'high',
+    upsells: ['tech-support', 'seo-audit', 'seo-prodvizhenie']
+  },
   'autsorsing-digital-agentstvo': {
     name: 'Аутсорсинг Digital-агенство',
     basePrices: { monthly: 200000 },

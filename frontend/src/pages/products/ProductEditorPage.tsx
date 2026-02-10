@@ -55,11 +55,10 @@ export function ProductEditorPage() {
   const [generatingSeo, setGeneratingSeo] = useState(false);
   const [generatingCard, setGeneratingCard] = useState(false);
   
-  const { data: categories = [] } = useQuery({
-    queryKey: ['productCategories'],
-    queryFn: () => listProductCategories(false),
-  });
-
+const { data: categories = [] } = useQuery({
+  queryKey: ['productCategories'],
+  queryFn: () => listProductCategories(false), // false = все категории (не только активные)
+});
   // Получаем список сотрудников команды
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['teamMembers'],
