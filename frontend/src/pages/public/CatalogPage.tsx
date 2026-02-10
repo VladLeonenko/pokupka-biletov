@@ -272,7 +272,7 @@ export function CatalogPage() {
                           {product.summary || product.descriptionHtml?.replace(/<[^>]*>/g, '').substring(0, 100) || 'Описание товара'}
                         </Typography>
                         <Typography variant="h6" color="primary">
-                          {product.priceCents ? `${(product.priceCents / 100).toFixed(2)} ${product.currency}` : 'Цена по запросу'}
+                          {product.priceCents ? `${Math.round(product.priceCents / 100).toLocaleString('ru-RU')} ₽` : 'Цена по запросу'}
                         </Typography>
                       </CardContent>
                     </Card>

@@ -57,10 +57,12 @@ async function submitQuizResult(recommendedTariff: string, answers: Record<numbe
 }
 
 export function TariffQuiz({ onComplete }: TariffQuizProps) {
-  const { data: questions = [], isLoading } = useQuery({
+  const { data: questions, isLoading } = useQuery({
     queryKey: ['quiz-questions'],
     queryFn: fetchQuizQuestions,
   });
+
+  const questionList = questions ?? [];
 
   const [activeStep, setActiveStep] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -69,12 +71,15 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
   const [userEmail, setUserEmail] = useState('');
   const [recommendedTariff, setRecommendedTariff] = useState<string>('');
 
+  // Сбрасываем при загрузке новых вопросов (стабильная зависимость по длине)
+  const questionsLength = questionList.length;
   useEffect(() => {
-    // Сбрасываем очки при изменении вопросов
-    setScores({ start: 0, business: 0, premium: 0 });
-    setAnswers({});
-    setActiveStep(0);
-  }, [questions]);
+    if (questionsLength > 0) {
+      setScores({ start: 0, business: 0, premium: 0 });
+      setAnswers({});
+      setActiveStep(0);
+    }
+  }, [questionsLength]);
 
   const handleAnswer = (questionId: number, optionId: number, option: QuizOption) => {
     const newAnswers = { ...answers, [questionId]: optionId };
@@ -89,7 +94,7 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
   };
 
   const handleNext = () => {
-    if (activeStep < questions.length - 1) {
+    if (activeStep < questionList.length - 1) {
       setActiveStep(activeStep + 1);
     } else {
       // Определяем рекомендуемый тариф
@@ -126,12 +131,12 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
     );
   }
 
-  if (!questions || questions.length === 0) {
+  if (!questionList.length) {
     return null;
   }
 
-  const currentQuestion = questions[activeStep];
-  const isLastStep = activeStep === questions.length - 1;
+  const currentQuestion = questionList[activeStep];
+  const isLastStep = activeStep === questionList.length - 1;
   const canProceed = answers[currentQuestion?.id] !== undefined;
 
   return (
@@ -144,7 +149,7 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
       </Typography>
 
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {questions.map((q) => (
+        {questionList.map((q) => (
           <Step key={q.id}>
             <StepLabel>{q.questionText}</StepLabel>
           </Step>
@@ -168,7 +173,7 @@ export function TariffQuiz({ onComplete }: TariffQuizProps) {
               {currentQuestion.questionText}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Вопрос {activeStep + 1} из {questions.length}
+              Вопрос {activeStep + 1} из {questionList.length}
             </Typography>
 
             <FormControl component="fieldset" fullWidth>

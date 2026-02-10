@@ -638,9 +638,9 @@ app.use((req, res, next) => {
 // Это должно быть ПОСЛЕ всех API маршрутов
 app.use(seoRenderer);
 
-app.listen(4000, () => {
+const APP_PORT = Number(process.env.PORT) || 3000;
+app.listen(APP_PORT, () => {
   if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.log('Backend started on port 3000');
+    console.log(`Backend started on port ${APP_PORT}`);
   }
 });

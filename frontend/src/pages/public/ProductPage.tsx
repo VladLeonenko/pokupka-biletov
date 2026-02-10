@@ -836,7 +836,7 @@ export function ProductPage() {
           sx={{ mt: 6, maxWidth: 820 }}
         >
           {contentJson.description?.title && (
-            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <Typography variant="h1" component="h1" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em', fontSize: { xs: '2rem', md: '2.5rem' } }}>
               {contentJson.description.title}
             </Typography>
           )}
@@ -1059,15 +1059,13 @@ export function ProductPage() {
                     >
                       {step.number || idx + 1}
                     </Box>
-                    <Typography variant="overline" sx={{ fontSize: '0.85rem', color: 'rgba(149,140,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      Этап {step.number || idx + 1}
-                    </Typography>
+                    {step.title && (
+                      <Typography variant="overline" sx={{ fontSize: '0.85rem', color: 'rgba(149,140,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        {step.title}
+                      </Typography>
+                    )}
                   </Box>
-                  {step.title && (
-                    <Typography variant="h5" sx={{ fontWeight: 600, mb: 1.5, fontSize: { xs: '1.25rem', md: '1.5rem' }, lineHeight: 1.3 }}>
-                      {step.title}
-                    </Typography>
-                  )}
+                  {/* title already shown in the header above */}
                   {step.description && (
                     <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.85)', whiteSpace: 'pre-line', lineHeight: 1.7, fontSize: '1rem', flexGrow: 1 }}>
                       {step.description}
@@ -1080,14 +1078,92 @@ export function ProductPage() {
         </MotionBox>
       )}
 
-      {statsItems && statsItems.length > 0 && (
+      {/* Stats: category-based layout */}
+      {statsSection?.categories && statsSection.categories.length > 0 && (
+        <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
+          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            {statsSection?.title || 'Наши результаты'}
+          </Typography>
+          {statsSection?.description && (
+            <Typography variant="body1" color="rgba(255,255,255,0.78)" sx={{ mb: 4, whiteSpace: 'pre-line', maxWidth: 820 }}>
+              {statsSection.description}
+            </Typography>
+          )}
+          <Grid container spacing={3}>
+            {statsSection.categories.map((cat, idx) => (
+              <Grid item xs={12} sm={6} md={3} key={cat.title || idx}>
+                <MotionPaper
+                  {...sectionAnimation(0.52 + idx * 0.05)}
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    height: '100%',
+                    borderRadius: 3,
+                    position: 'relative',
+                    bgcolor: 'rgba(17,18,36,0.78)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    boxShadow: '0 35px 50px -45px rgba(0,0,0,0.55)',
+                    overflow: 'hidden',
+                    transition: 'transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: '-25%',
+                      background: 'radial-gradient(circle at 50% 20%, rgba(120,82,255,0.22) 0%, transparent 55%)',
+                      opacity: 0.6,
+                      pointerEvents: 'none',
+                    },
+                    '&:hover': {
+                      transform: 'translateY(-6px)',
+                      borderColor: 'rgba(149,140,255,0.4)',
+                      boxShadow: '0 45px 60px -40px rgba(0,0,0,0.6)',
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      mb: 2,
+                      fontWeight: 700,
+                      fontSize: { xs: '1.1rem', md: '1.25rem' },
+                      lineHeight: 1.3,
+                      color: '#fff',
+                    }}
+                  >
+                    {cat.title}
+                  </Typography>
+                  <Stack spacing={1}>
+                    {cat.bullets.map((bullet, bIdx) => (
+                      <Typography
+                        key={bIdx}
+                        variant="body2"
+                        sx={{
+                          color: 'rgba(255,255,255,0.75)',
+                          lineHeight: 1.5,
+                          fontSize: '0.85rem',
+                          '&::before': { content: '"• "' },
+                        }}
+                      >
+                        {bullet}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </MotionPaper>
+              </Grid>
+            ))}
+          </Grid>
+        </MotionBox>
+      )}
+
+      {/* Stats: flat value/label layout (legacy) */}
+      {statsItems && statsItems.length > 0 && !statsSection?.categories?.length && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
           <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (
             <Typography variant="body1" color="rgba(255,255,255,0.78)" sx={{ mb: 3, whiteSpace: 'pre-line', maxWidth: 820 }}>
-              {(statsSection as any).description}
+              {statsSection.description}
             </Typography>
           )}
           <Grid container spacing={3}>
@@ -1168,6 +1244,7 @@ export function ProductPage() {
                 <MotionCard
                   {...sectionAnimation(0.66 + idx * 0.05)}
                   sx={{
+                    cursor: service.link ? 'pointer' : 'default',
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1192,7 +1269,25 @@ export function ProductPage() {
                       boxShadow: '0 34px 58px -42px rgba(0,0,0,0.68)',
                     },
                   }}
+                  onClick={() => service.link && handleSmartNavigate(service.link)}
                 >
+                  {service.imageUrl && (
+                    <Box
+                      component="img"
+                      src={resolveImageUrl(service.imageUrl)}
+                      alt={service.title}
+                      loading="lazy"
+                      sx={{
+                        width: '100%',
+                        height: 180,
+                        objectFit: 'cover',
+                        backgroundColor: 'rgba(20,20,40,0.5)',
+                      }}
+                      onError={(e: SyntheticEvent<HTMLImageElement, Event>) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  )}
                   <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {service.title}
@@ -1207,10 +1302,10 @@ export function ProductPage() {
                     <Button
                       variant="text"
                       color="inherit"
-                      onClick={() => handleSmartNavigate(service.link)}
+                      component="span"
                       sx={{ py: 1.2, textTransform: 'none', fontWeight: 600, color: 'rgba(149,140,255,0.9)' }}
                     >
-                      Перейти
+                      Подробнее →
                     </Button>
                   )}
                 </MotionCard>
@@ -1366,16 +1461,7 @@ export function ProductPage() {
                   {headerSection.primaryButtonText}
                 </Button>
               )}
-              {headerSection?.secondaryButtonText && (
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={() => setContactFormOpen(true)}
-                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.85)', '&:hover': { borderColor: 'rgba(255,255,255,0.5)' } }}
-                >
-                  {headerSection.secondaryButtonText}
-                </Button>
-              )}
+              {/* secondaryButton removed from CTA — only primary CTA here */}
             </Stack>
           )}
         </MotionPaper>

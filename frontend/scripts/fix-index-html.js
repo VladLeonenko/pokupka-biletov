@@ -21,9 +21,13 @@ try {
   const modulepreloads = html.match(modulepreloadRegex) || [];
   console.log('[fix-index-html] Found modulepreloads:', modulepreloads.length);
   
-  // Находим основной script
-  const scriptRegex = /<script type="module"[^>]*><\/script>/g;
-  const scripts = html.match(scriptRegex) || [];
+  // Находим основной script (ИСПРАВЛЕНО: захватываем src)
+  const scriptRegex = /<script type="module"[^>]*src="([^"]*)"[^>]*><\/script>/g;
+  let scripts = [];
+  let match;
+  while ((match = scriptRegex.exec(html)) !== null) {
+    scripts.push(match[0]);
+  }
   console.log('[fix-index-html] Found scripts:', scripts.length);
   
   if (modulepreloads.length === 0 || scripts.length === 0) {
@@ -31,19 +35,14 @@ try {
     process.exit(0);
   }
   
-  // Находим react-vendor preload и удаляем его
+  // Находим react-vendor preload
   const reactVendorPreloads = modulepreloads.filter(m => m.includes('react-vendor'));
   const otherPreloads = modulepreloads.filter(m => !m.includes('react-vendor'));
   console.log('[fix-index-html] react-vendor preloads:', reactVendorPreloads.length);
   console.log('[fix-index-html] other preloads:', otherPreloads.length);
   
-  // ВАЖНО: В Safari modulepreload НЕ гарантирует синхронную загрузку
-  // Нужно преобразовать react-vendor preload в обычный <script type="module">
-  // чтобы он загружался СИНХРОННО перед main bundle
-  
   if (reactVendorPreloads.length === 0) {
     console.log('[fix-index-html] react-vendor not found in modulepreload');
-    console.log('[fix-index-html] This means code splitting is disabled - all in one bundle');
     console.log('[fix-index-html] No fix needed - React is in main bundle');
     process.exit(0);
   }
@@ -55,57 +54,49 @@ try {
     process.exit(0);
   }
   
-  // Преобразуем react-vendor preload в обычный script (синхронная загрузка)
-  const reactVendorScript = `<script type="module" crossorigin src="${reactVendorHref}"></script>`;
+  // 🔥 SAFARI ДИНАМИЧЕСКИЙ BOOTSTRAP (БЕЗ SyntaxError)
+  const mainScriptHref = scripts[0]?.match(/src="([^"]+)"/)?.[1] || '';
+  // 🔥 ТОЧНОЕ имя main bundle из твоего build!
+const MAIN_BUNDLE = 'index-CsnplM-C.js'; // Твой самый большой!
+
+const bootstrapScript = `(function() {
+  console.log('🔥 Admin bootstrap START');
+  
+  const script = document.createElement('script');
+  script.src = '/assets/js/${MAIN_BUNDLE}';  // ✅ ТОЧНОЕ имя!
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  
+  script.onload = () => {
+    console.log('✅ MAIN EXECUTED! 899KB loaded');
+  };
+  
+  script.onerror = (e) => {
+    console.error('❌ 404 ERROR:', e);
+    document.body.innerHTML += '<div style="padding:40px;color:red;background:rgba(255,0,0,0.1);">❌ JS 404 - check Network tab</div>';
+  };
+  
+  document.head.appendChild(script);
+  console.log('🚀 Script added:', script.src);
+})();
+
+  `;
   
   // Удаляем все modulepreload и script теги
-  let newHtml = html.replace(modulepreloadRegex, '');
-  newHtml = newHtml.replace(scriptRegex, '');
-  
-  // Находим позицию перед закрывающим </head>
-  const headEndIndex = newHtml.indexOf('</head>');
-  if (headEndIndex !== -1) {
-    // Собираем правильный порядок для Safari:
-    // 1. react-vendor как ОБЫЧНЫЙ script (синхронная загрузка ПЕРЕД main)
-    // 2. Основной script (который использует react-vendor)
-    // 3. Остальные preload (не критичны)
-    let toInsert = '';
-    
-    // ВАЖНО: react-vendor должен загружаться СИНХРОННО как обычный script
-    toInsert += reactVendorScript + '\n    ';
-    
-    if (scripts[0]) {
-      toInsert += scripts[0] + '\n    ';
-    }
-    
-    // Остальные preload
-    if (otherPreloads.length > 0) {
-      toInsert += otherPreloads.join('\n    ') + '\n    ';
-    }
-    
-    newHtml = newHtml.replace('</head>', toInsert + '</head>');
-  }
-  
+  let newHtml = html
+    .replace(modulepreloadRegex, '')
+    .replace(/<script type="module"[^>]*><\/script>/g, '');
+
+  // Вставляем Safari bootstrap ПЕРЕД </head>
+  newHtml = newHtml.replace('</head>', `    ${bootstrapScript}\n  </head>`);
+
   // Сохраняем измененный HTML
   fs.writeFileSync(indexPath, newHtml, 'utf-8');
-  console.log('[fix-index-html] ✅ Converted react-vendor to synchronous script for Safari compatibility');
+  console.log('[fix-index-html] ✅ Safari dynamic bootstrap created');
+  console.log('[fix-index-html] React vendor:', reactVendorHref);
+  console.log('[fix-index-html] Main script:', mainScriptHref);
   console.log('[fix-index-html] File saved, new length:', newHtml.length);
   
-  // Проверяем результат
-  const checkHtml = fs.readFileSync(indexPath, 'utf-8');
-  const checkScripts = checkHtml.match(/<script type="module"[^>]*>/g) || [];
-  const checkReactVendorScript = checkScripts.find(s => s.includes('react-vendor'));
-  const checkMainScript = checkScripts.find(s => s.includes('index-') && !s.includes('react-vendor'));
-  
-  if (checkReactVendorScript && checkMainScript) {
-    const reactVendorIndex = checkHtml.indexOf(checkReactVendorScript);
-    const mainIndex = checkHtml.indexOf(checkMainScript);
-    if (reactVendorIndex < mainIndex) {
-      console.log('[fix-index-html] ✅ react-vendor script is BEFORE main script');
-    } else {
-      console.log('[fix-index-html] ⚠️  WARNING: react-vendor script is NOT before main script');
-    }
-  }
 } catch (error) {
   console.error('[fix-index-html] ❌ Error:', error.message);
   console.error('[fix-index-html] Stack:', error.stack);

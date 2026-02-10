@@ -149,13 +149,17 @@ export type ProductContentJson = {
       description: string;
     }>;
   };
-  // Stats section
+  // Stats section — supports both flat items and category-based layout
   stats?: {
     title: string;
-    description: string;
-    items: Array<{
+    description?: string;
+    items?: Array<{
       value: string;
       label: string;
+    }>;
+    categories?: Array<{
+      title: string;
+      bullets: string[];
     }>;
   };
   // Team section (carousel)

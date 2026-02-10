@@ -23,7 +23,7 @@ interface SocialProof {
 
 async function fetchSocialProofs(): Promise<SocialProof[]> {
   const base = getApiBase();
-  const response = await fetch(`${base}/api/public/social-proofs`);
+  const response = await fetch(`${base}/api/social-proofs/public`);
   if (!response.ok) throw new Error('Failed to fetch social proofs');
   return response.json();
 }
