@@ -53,6 +53,7 @@ export function AccountPage() {
         title="Личный кабинет - Primecoder"
         description="Личный кабинет пользователя"
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>Личный кабинет</Typography>

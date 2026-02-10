@@ -51,6 +51,7 @@ export function OrderDetailPage() {
         title={`Заказ №${order.orderNumber} - Primecoder`}
         description={`Детали заказа №${order.orderNumber}`}
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Button

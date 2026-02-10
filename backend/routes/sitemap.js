@@ -158,8 +158,13 @@ router.get('/sitemap.xml', async (req, res) => {
     const staticPages = [
       { path: '/catalog', priority: '0.9', changefreq: 'weekly' },
       { path: '/blog', priority: '0.8', changefreq: 'weekly' },
+      { path: '/portfolio', priority: '0.8', changefreq: 'weekly' },
+      { path: '/reviews', priority: '0.7', changefreq: 'weekly' },
+      { path: '/promotion', priority: '0.7', changefreq: 'weekly' },
       { path: '/contacts', priority: '0.7', changefreq: 'monthly' },
-      { path: '/about', priority: '0.7', changefreq: 'monthly' }
+      { path: '/about', priority: '0.7', changefreq: 'monthly' },
+      { path: '/new-client', priority: '0.8', changefreq: 'monthly' },
+      { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
     ];
     
     for (const staticPage of staticPages) {

@@ -167,6 +167,11 @@ export function ReviewsManagePage() {
                           {review.email}
                         </Typography>
                       )}
+                      {(review.author_position || review.author_company) && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                          {review.author_position}{review.author_company ? `, ${review.author_company}` : ''}
+                        </Typography>
+                      )}
                     </Box>
                   </TableCell>
                   <TableCell>
@@ -180,6 +185,9 @@ export function ReviewsManagePage() {
                   <TableCell>
                     {review.service_type && (
                       <Chip label={review.service_type} size="small" />
+                    )}
+                    {review.product_slug && (
+                      <Chip label={review.product_slug} size="small" variant="outlined" sx={{ mt: 0.5 }} />
                     )}
                   </TableCell>
                   <TableCell>

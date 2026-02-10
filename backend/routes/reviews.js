@@ -7,13 +7,14 @@ const router = express.Router();
 // PUBLIC: Получить опубликованные отзывы с фильтрацией
 router.get('/public', async (req, res) => {
   try {
-    const { rating, service_type, sort = 'recent', limit = 50, offset = 0 } = req.query;
+    const { rating, service_type, product_slug, sort = 'recent', limit = 50, offset = 0 } = req.query;
     
     let query = `
       SELECT 
         id, brand_name, author, email, rating, text, source, 
         is_verified, helpful_count, response_text, response_author, 
-        response_date, photo_url, service_type, created_at
+        response_date, photo_url, service_type, product_slug,
+        author_position, author_company, created_at
       FROM brand_reviews 
       WHERE is_published = true
     `;
@@ -31,6 +32,13 @@ router.get('/public', async (req, res) => {
     if (service_type && service_type !== 'all') {
       query += ` AND service_type = $${paramIndex}`;
       params.push(service_type);
+      paramIndex++;
+    }
+    
+    // Фильтр по продукту/услуге
+    if (product_slug) {
+      query += ` AND product_slug = $${paramIndex}`;
+      params.push(product_slug);
       paramIndex++;
     }
     

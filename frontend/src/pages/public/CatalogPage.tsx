@@ -190,6 +190,13 @@ export function CatalogPage() {
 
   return (
     <>
+      <SeoMetaTags
+        title="Каталог услуг веб-разработки и digital-маркетинга | PrimeCoder"
+        description="Услуги разработки сайтов, SEO-продвижения, рекламы у блогеров, маркетинга. Цены от 150 000 ₽. Москва."
+        keywords="каталог услуг, разработка сайтов, SEO продвижение, реклама у блогеров, веб-разработка, PrimeCoder"
+        url="https://prime-coder.ru/catalog"
+        type="website"
+      />
       <div ref={catalogRef}>
       <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" sx={{ mb: 3, fontSize: { xs: '1.5rem', sm: '2rem' } }}>Каталог услуг</Typography>

@@ -154,6 +154,7 @@ export function CartPage() {
         title="Корзина - Primecoder"
         description="Ваша корзина покупок"
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>Корзина</Typography>

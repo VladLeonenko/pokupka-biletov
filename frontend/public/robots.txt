@@ -1,36 +1,59 @@
+# robots.txt — prime-coder.ru
+# Обновлён: 2026-02-10
+
 User-agent: *
 Allow: /
 
-# Исключаем административные разделы
+# Закрываем административные и служебные разделы
 Disallow: /admin
+Disallow: /admin/
 Disallow: /api/
 Disallow: /uploads/chat-files/
+Disallow: /register
+Disallow: /account
+Disallow: /account/
+Disallow: /commercial-proposals/
 
-# Исключаем служебные файлы
-Disallow: /*.json$
-Disallow: /*.xml$
+# Закрываем внутренние инструменты
+Disallow: /tools/
+Disallow: /ai-chat
 
-# Разрешаем статические файлы
+# Закрываем дубликаты и технические страницы
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+Disallow: /*?*page=
+
+# Разрешаем статические ресурсы
 Allow: /assets/
-Allow: /img/
-Allow: /css/
-Allow: /js/
-Allow: /fonts/
+Allow: /assets/js/
+Allow: /assets/css/
+Allow: /uploads/images/
 
-# Карта сайта
+# Явно разрешаем sitemap.xml
+Allow: /sitemap.xml
+
+# Карта сайта (динамическая)
 Sitemap: https://prime-coder.ru/sitemap.xml
 
-# Индексация изображений
-User-agent: Googlebot-Image
-Allow: /img/
-Allow: /assets/
-
-# Яндекс
-User-agent: Yandex
-Allow: /
-Crawl-delay: 0
+# Основной хост
+Host: https://prime-coder.ru
 
 # Google
 User-agent: Googlebot
 Allow: /
 Crawl-delay: 0
+
+# Yandex
+User-agent: Yandex
+Allow: /
+Crawl-delay: 1
+Host: https://prime-coder.ru
+
+# Индексация изображений
+User-agent: Googlebot-Image
+Allow: /uploads/images/
+Allow: /assets/
+
+User-agent: YandexImages
+Allow: /uploads/images/
+Allow: /assets/

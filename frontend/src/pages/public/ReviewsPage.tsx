@@ -501,6 +501,11 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful: (id: num
                     />
                   )}
                 </Box>
+                {(review.author_position || review.author_company) && (
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mt: -0.3, mb: 0.5 }}>
+                    {review.author_position}{review.author_company ? `, ${review.author_company}` : ''}
+                  </Typography>
+                )}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Rating value={review.rating} readOnly size="small" />
                   <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>

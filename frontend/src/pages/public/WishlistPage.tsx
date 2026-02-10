@@ -82,6 +82,7 @@ export function WishlistPage() {
         title="Избранное - Primecoder"
         description="Ваш список избранных товаров"
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>Избранное</Typography>

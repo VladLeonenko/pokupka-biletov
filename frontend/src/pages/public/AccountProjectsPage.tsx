@@ -262,6 +262,7 @@ export function AccountProjectsPage() {
         title="Мои проекты - Primecoder"
         description="Прогресс проектов и запросы на изменения"
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant="h4" sx={{ mb: 3 }}>

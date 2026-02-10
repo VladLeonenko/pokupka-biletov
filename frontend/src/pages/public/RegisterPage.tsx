@@ -205,6 +205,7 @@ export function RegisterPage() {
         title="Регистрация - Primecoder"
         description="Создайте аккаунт для доступа к личному кабинету и всем услугам"
         url={currentUrl}
+        noindex={true}
       />
       <Box
         sx={{

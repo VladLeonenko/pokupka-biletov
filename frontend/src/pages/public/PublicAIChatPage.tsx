@@ -156,6 +156,7 @@ export function PublicAIChatPage() {
         title="AI Ассистент - Primecoder"
         description="Задайте вопрос нашему AI-ассистенту. Поддержка голосового ввода и вывода."
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="md" sx={{ py: 4, minHeight: '80vh' }}>
         <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold', textAlign: 'center' }}>

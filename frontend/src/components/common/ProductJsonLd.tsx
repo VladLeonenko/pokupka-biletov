@@ -12,48 +12,69 @@ interface ProductJsonLdProps {
   url: string;
 }
 
+const SITE_URL = 'https://prime-coder.ru';
+
 export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
   useEffect(() => {
     const scriptId = 'product-jsonld';
-    
-    // Удаляем старый скрипт если есть
     const existingScript = document.getElementById(scriptId);
-    if (existingScript) {
-      existingScript.remove();
-    }
+    if (existingScript) existingScript.remove();
 
-    // Создаем расширенную JSON-LD разметку
-    const jsonLd = {
+    const priceRubles = product.priceCents ? Math.round(product.priceCents / 100) : 0;
+
+    const jsonLd: Record<string, unknown> = {
       '@context': 'https://schema.org',
       '@type': 'Service',
       name: product.title,
       description: product.description || product.title,
-      image: product.imageUrl,
       url: url,
       provider: {
         '@type': 'Organization',
         name: 'PrimeCoder',
-        url: typeof window !== 'undefined' ? window.location.origin : '',
+        url: SITE_URL,
+        logo: `${SITE_URL}/legacy/img/logo.png`,
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Москва',
+          addressCountry: 'RU',
+        },
       },
       areaServed: {
         '@type': 'Country',
         name: 'Russia',
       },
-      serviceType: 'Web Development',
-      ...(product.priceCents && product.currency && {
-        offers: {
-          '@type': 'Offer',
-          price: (product.priceCents / 100).toFixed(2),
-          priceCurrency: product.currency,
-          availability: 'https://schema.org/InStock',
-          priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      serviceType: 'Digital Services',
+    };
+
+    // Изображение
+    if (product.imageUrl) {
+      jsonLd.image = product.imageUrl.startsWith('http')
+        ? product.imageUrl
+        : `${SITE_URL}${product.imageUrl}`;
+    }
+
+    // Цена
+    if (priceRubles > 0 && product.currency) {
+      jsonLd.offers = {
+        '@type': 'Offer',
+        price: priceRubles.toString(),
+        priceCurrency: product.currency,
+        availability: 'https://schema.org/InStock',
+        priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        seller: {
+          '@type': 'Organization',
+          name: 'PrimeCoder',
         },
-      }),
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: '4.9',
-        reviewCount: '150',
-      },
+      };
+    }
+
+    // Рейтинг
+    jsonLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: '4.9',
+      bestRating: '5',
+      worstRating: '1',
+      reviewCount: '150',
     };
 
     const script = document.createElement('script');
@@ -63,13 +84,9 @@ export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
     document.head.appendChild(script);
 
     return () => {
-      const scriptToRemove = document.getElementById(scriptId);
-      if (scriptToRemove) {
-        scriptToRemove.remove();
-      }
+      document.getElementById(scriptId)?.remove();
     };
   }, [product, url]);
 
   return null;
 }
-

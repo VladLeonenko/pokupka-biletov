@@ -20,12 +20,18 @@ import { useAuth } from '@/auth/AuthProvider';
 import DOMPurify from 'dompurify';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { ProductJsonLd } from '@/components/common/ProductJsonLd';
+import { FaqJsonLd } from '@/components/common/FaqJsonLd';
+import { BreadcrumbJsonLd } from '@/components/common/BreadcrumbJsonLd';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { motion } from 'framer-motion';
 import { TeamCarousel } from '@/components/public/TeamCarousel';
 import { useToast } from '@/components/common/ToastProvider';
 import { ServiceCalculator } from '@/components/calculator';
 import { TariffQuiz } from '@/components/products/TariffQuiz';
+import { Star } from '@mui/icons-material';
+import Rating from '@mui/material/Rating';
+import Avatar from '@mui/material/Avatar';
+import { getApiBase } from '@/utils/apiBase';
 import { SocialProofs } from '@/components/products/SocialProofs';
 
 const MotionBox = motion.create(Box);
@@ -83,6 +89,20 @@ export function ProductPage() {
     },
     enabled: !!product?.caseSlugs && product.caseSlugs.length > 0,
   });
+
+  // Отзывы по данному продукту
+  const { data: reviewsData } = useQuery({
+    queryKey: ['product-reviews', slug],
+    queryFn: async () => {
+      const base = getApiBase();
+      const res = await fetch(`${base}/api/reviews/public?product_slug=${slug}&limit=6&sort=rating_desc`);
+      if (!res.ok) return { reviews: [] };
+      return res.json();
+    },
+    enabled: !!slug,
+    staleTime: 60000,
+  });
+  const productReviews = reviewsData?.reviews || [];
 
   useEffect(() => {
     if (product) {
@@ -256,6 +276,16 @@ export function ProductPage() {
         }}
         url={currentUrl}
       />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Главная', url: 'https://prime-coder.ru/' },
+          { name: 'Каталог', url: 'https://prime-coder.ru/catalog' },
+          { name: product.title, url: currentUrl },
+        ]}
+      />
+      {faqItems && faqItems.length > 0 && (
+        <FaqJsonLd items={faqItems} />
+      )}
       <Box
         sx={{
           position: 'relative',
@@ -1364,6 +1394,77 @@ export function ProductPage() {
               </Grid>
             ))}
           </Grid>
+        </MotionBox>
+      )}
+
+      {/* Отзывы клиентов по данной услуге */}
+      {productReviews.length > 0 && (
+        <MotionBox {...sectionAnimation(0.68)} sx={{ mt: 8 }}>
+          <Typography variant="h4" sx={{ mb: 1, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            Отзывы клиентов
+          </Typography>
+          <Typography variant="body1" color="rgba(255,255,255,0.65)" sx={{ mb: 4 }}>
+            {productReviews.length} отзыв{productReviews.length > 4 ? 'ов' : productReviews.length > 1 ? 'а' : ''} по данной услуге
+          </Typography>
+          <Grid container spacing={3}>
+            {productReviews.slice(0, 6).map((review: any, idx: number) => (
+              <Grid item xs={12} md={6} key={review.id}>
+                <MotionPaper
+                  {...sectionAnimation(0.7 + idx * 0.04)}
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    height: '100%',
+                    borderRadius: 3,
+                    bgcolor: 'rgba(17,18,36,0.78)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ width: 44, height: 44, bgcolor: 'rgba(129,108,255,0.3)', fontSize: '1rem', fontWeight: 600 }}>
+                      {review.author?.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#fff' }}>
+                          {review.author}
+                        </Typography>
+                        {review.is_verified && (
+                          <Chip label="✓" size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'rgba(76,175,80,0.2)', color: '#66bb6a' }} />
+                        )}
+                      </Box>
+                      {(review.author_position || review.author_company) && (
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                          {review.author_position}{review.author_company ? `, ${review.author_company}` : ''}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  <Rating value={review.rating} readOnly size="small" sx={{ '& .MuiRating-iconFilled': { color: '#ffb300' } }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.65, flexGrow: 1 }}>
+                    {review.text.length > 250 ? review.text.slice(0, 250) + '…' : review.text}
+                  </Typography>
+                  {review.source && (
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)' }}>
+                      {review.source}
+                    </Typography>
+                  )}
+                </MotionPaper>
+              </Grid>
+            ))}
+          </Grid>
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/reviews')}
+              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.75)', '&:hover': { borderColor: 'rgba(149,140,255,0.5)' } }}
+            >
+              Все отзывы →
+            </Button>
+          </Box>
         </MotionBox>
       )}
 

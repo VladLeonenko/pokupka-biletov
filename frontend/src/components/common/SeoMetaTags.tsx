@@ -9,7 +9,12 @@ interface SeoMetaTagsProps {
   type?: string;
   ogTitle?: string;
   ogDescription?: string;
+  noindex?: boolean;
 }
+
+const SITE_NAME = 'PrimeCoder';
+const DEFAULT_LOCALE = 'ru_RU';
+const DEFAULT_IMAGE = 'https://prime-coder.ru/legacy/img/logo.png';
 
 export function SeoMetaTags({ 
   title, 
@@ -19,69 +24,67 @@ export function SeoMetaTags({
   url, 
   type = 'website',
   ogTitle,
-  ogDescription
+  ogDescription,
+  noindex = false,
 }: SeoMetaTagsProps) {
   useEffect(() => {
-    // Обновляем title
     if (title) {
       document.title = title;
     }
 
-    // Функция для обновления/создания meta тега
     const setMetaTag = (name: string, content: string, property?: boolean) => {
       const attribute = property ? 'property' : 'name';
       let meta = document.querySelector(`meta[${attribute}="${name}"]`);
-      
       if (!meta) {
         meta = document.createElement('meta');
         meta.setAttribute(attribute, name);
         document.head.appendChild(meta);
       }
-      
       meta.setAttribute('content', content);
     };
 
-    // Обновляем description
+    // robots
+    setMetaTag('robots', noindex ? 'noindex, nofollow' : 'index, follow');
+
+    // Description
     if (description) {
       setMetaTag('description', description);
-      setMetaTag('og:description', description, true);
     }
 
-    // Обновляем keywords
+    // Keywords
     if (keywords) {
       setMetaTag('keywords', keywords);
     }
 
-    // Open Graph теги
+    // Open Graph
+    setMetaTag('og:type', type, true);
+    setMetaTag('og:site_name', SITE_NAME, true);
+    setMetaTag('og:locale', DEFAULT_LOCALE, true);
+
     if (ogTitle || title) {
       setMetaTag('og:title', ogTitle || title || '', true);
     }
-    
     if (ogDescription || description) {
       setMetaTag('og:description', ogDescription || description || '', true);
     }
-
     if (image) {
       setMetaTag('og:image', image, true);
+    } else {
+      setMetaTag('og:image', DEFAULT_IMAGE, true);
     }
-
     if (url) {
       setMetaTag('og:url', url, true);
     }
 
-    setMetaTag('og:type', type, true);
-
     // Twitter Card
-    if (title) {
-      setMetaTag('twitter:title', title);
-    }
-
-    if (description) {
-      setMetaTag('twitter:description', description);
-    }
-
+    setMetaTag('twitter:card', 'summary_large_image');
+    setMetaTag('twitter:site', '@primecoder');
+    if (title) setMetaTag('twitter:title', title);
+    if (description) setMetaTag('twitter:description', description);
     if (image) {
       setMetaTag('twitter:image', image);
+    } else {
+      setMetaTag('twitter:image', DEFAULT_IMAGE);
     }
 
     // Canonical URL
@@ -95,7 +98,7 @@ export function SeoMetaTags({
       canonical.setAttribute('href', url);
     }
 
-    // Структурированные данные (JSON-LD) для SEO
+    // JSON-LD Organization (глобальный, один раз)
     if (title && description) {
       let script = document.querySelector('script[type="application/ld+json"][data-seo-schema]');
       if (!script) {
@@ -108,19 +111,27 @@ export function SeoMetaTags({
       const structuredData = {
         '@context': 'https://schema.org',
         '@type': 'Organization',
-        name: title.includes('PrimeCoder') ? 'PrimeCoder' : title,
+        name: 'PrimeCoder',
         description: description,
-        url: url || (typeof window !== 'undefined' ? window.location.origin : ''),
-        logo: image || (typeof window !== 'undefined' ? `${window.location.origin}/legacy/img/logo.png` : ''),
-        sameAs: [
-          // Добавьте ссылки на соцсети если есть
-        ],
+        url: 'https://prime-coder.ru',
+        logo: 'https://prime-coder.ru/legacy/img/logo.png',
+        contactPoint: {
+          '@type': 'ContactPoint',
+          telephone: '+7-XXX-XXX-XXXX',
+          contactType: 'customer service',
+          areaServed: 'RU',
+          availableLanguage: 'Russian',
+        },
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Москва',
+          addressCountry: 'RU',
+        },
       };
       
       script.textContent = JSON.stringify(structuredData);
     }
-  }, [title, description, keywords, image, url, type, ogTitle, ogDescription]);
+  }, [title, description, keywords, image, url, type, ogTitle, ogDescription, noindex]);
 
   return null;
 }
-

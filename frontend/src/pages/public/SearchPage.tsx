@@ -41,6 +41,7 @@ export function SearchPage() {
         title={searchTerm ? `Поиск: ${searchTerm} - Primecoder` : 'Умный поиск - Primecoder'}
         description={searchTerm ? `Результаты поиска по запросу: ${searchTerm}` : 'Поиск товаров и услуг'}
         url={currentUrl}
+        noindex={true}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>Умный поиск</Typography>
