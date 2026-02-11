@@ -47,10 +47,21 @@ export function PublicBlogPostPage() {
     if (!post) return null;
     const fmt = (d: string | null | undefined) => { if (!d) return null; try { const dt = new Date(d); return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()}`; } catch { return null; } };
     const cj = post.content_json || (post as any).contentJson || {};
-    const blocks = Array.isArray(cj.blocks) ? cj.blocks : [];
+    const rawBlocks = Array.isArray(cj.blocks) ? cj.blocks : [];
+    const body = post.body || post.contentHtml || post.content_html || '';
+    const hasMeaningfulBlocks = rawBlocks.some((b: any) => {
+      const html = (b.content?.html ?? b.content?.text ?? '').trim();
+      if (html.length > 0) return true;
+      if (b.type === 'intro' && (b.content?.title || b.content?.text)) return true;
+      if (b.type === 'image' && b.content?.src) return true;
+      if (b.type === 'faq' && Array.isArray(b.content?.items) && b.content.items.length > 0) return true;
+      if (['table', 'stats', 'cta'].includes(b.type) && b.content) return true;
+      return false;
+    });
+    const blocks = hasMeaningfulBlocks ? rawBlocks : [];
     return {
       title: post.title || 'Без названия',
-      body: post.body || post.contentHtml || post.content_html || '',
+      body,
       blocks,
       date: fmt(post.created_at || post.createdAt || post.published_at || post.publishedAt),
       categoryName: post.category_slug || post.categorySlug || '',
