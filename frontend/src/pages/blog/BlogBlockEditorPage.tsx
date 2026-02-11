@@ -63,17 +63,21 @@ export function BlogBlockEditorPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        slug: isNew ? slug : (id as string),
+      if (isNew && !slug.trim()) {
+        throw new Error('Введите slug статьи');
+      }
+      const payload: any = {
+        slug: isNew ? '' : (id as string),
         title,
-        contentHtml: '', // Блоки рендерятся отдельно
+        contentHtml: '',
         contentJson: { blocks },
         seo: { metaDescription: seoDescription },
         coverImageUrl: coverImageUrl || undefined,
         categorySlug: categorySlug || undefined,
         isPublished,
       };
-      return upsertBlogPost(payload as any);
+      if (isNew) payload.desiredSlug = slug.trim();
+      return upsertBlogPost(payload);
     },
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['blog'] });
