@@ -2,9 +2,11 @@ import { PageBuilderWrapper } from '@/components/page-builder/PageBuilderWrapper
 import { useToast } from '@/components/common/ToastProvider';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getBlogPost, upsertBlogPost } from '@/services/cmsApi';
 import { PageBlock, PageSection } from '@/types/pageBuilder';
+import { slugify } from '@/utils/slugify';
 
 export function BlogPageBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,24 +27,39 @@ export function BlogPageBuilderPage() {
         throw new Error('Post not found');
       }
 
+      const title = (data.settings?.title || post?.title || '').trim();
+      if (isNew && !title) {
+        throw new Error('Заполните название статьи в панели настроек (⚙️) перед сохранением');
+      }
+
       const contentJson = {
         blocks: data.blocks || [],
         sections: data.sections || [],
       };
 
-      const updatedPost = {
+      const slugForApi = isNew
+        ? (title ? slugify(title) : '')
+        : (post?.slug || id || '');
+      if (isNew && !slugForApi) {
+        throw new Error('Название не содержит допустимых символов для slug');
+      }
+
+      const updatedPost: any = {
         ...post,
         id: post?.id || '',
-        slug: post?.slug || id || '',
-        title: data.settings?.title || post?.title || '',
+        slug: isNew ? '' : (post?.slug || id || ''),
+        title: title || post?.title || '',
         contentHtml: post?.contentHtml || '',
         seo: {
           ...post?.seo,
           metaTitle: data.settings?.title || post?.seo?.metaTitle || '',
           metaDescription: data.settings?.description || post?.seo?.metaDescription || '',
         },
-        contentJson, // Добавляем contentJson
+        contentJson,
       };
+      if (isNew) {
+        updatedPost.desiredSlug = slugForApi;
+      }
 
       return await upsertBlogPost(updatedPost as any);
     },
@@ -80,6 +97,18 @@ export function BlogPageBuilderPage() {
   const initialSections = contentJson.sections || [];
 
   return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+        <Button size="small" startIcon={<ArrowBackIcon />} onClick={() => navigate(`/admin/blog/${isNew ? 'new' : id}`)}>
+          К редактору блоков
+        </Button>
+        {isNew && (
+          <Typography variant="body2" color="text.secondary">
+            Заполните название в панели ⚙️ перед сохранением
+          </Typography>
+        )}
+      </Box>
+    <Box sx={{ flex: 1, minHeight: 0 }}>
     <PageBuilderWrapper
       initialBlocks={initialBlocks}
       initialSections={initialSections}
@@ -96,5 +125,7 @@ export function BlogPageBuilderPage() {
         await saveMutation.mutateAsync(data);
       }}
     />
+    </Box>
+    </Box>
   );
 }

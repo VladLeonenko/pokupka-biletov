@@ -575,7 +575,10 @@ export async function upsertBlogPost(post: BlogPost): Promise<BlogPost> {
       payload.content_json = (post as any).contentJson;
     }
   } else {
-    // POST - все поля обязательны
+    // POST - создание новой статьи
+    if ((post as any).desiredSlug) {
+      payload.slug = (post as any).desiredSlug;
+    }
     payload.title = post.title || '';
     payload.body = post.contentHtml || '';
     payload.seo_title = post.seo?.metaTitle;

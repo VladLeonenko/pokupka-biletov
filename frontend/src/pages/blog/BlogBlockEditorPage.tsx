@@ -3,6 +3,8 @@ import { slugify } from '@/utils/slugify';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBlogPost, listBlogCategories, upsertBlogPost, uploadImage } from '@/services/cmsApi';
 import { Box, Button, Paper, TextField, Typography, CircularProgress, Switch, FormControlLabel, Alert } from '@mui/material';
+import BuildIcon from '@mui/icons-material/Build';
+import CodeIcon from '@mui/icons-material/Code';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BlogBlockEditor } from '@/components/blog-editor/BlogBlockEditor';
 import { BlogBlock } from '@/types/blogBlocks';
@@ -104,7 +106,31 @@ export function BlogBlockEditorPage() {
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 3 }}>{isNew ? 'Новая статья' : 'Редактирование статьи'}</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+        <Typography variant="h5">{isNew ? 'Новая статья' : 'Редактирование статьи'}</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CodeIcon />}
+            onClick={() => navigate(`/admin/blog/${isNew ? 'new' : id}/html`)}
+          >
+            HTML
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<BuildIcon />}
+            onClick={() => navigate(`/admin/blog/${isNew ? 'new' : id}/builder`)}
+          >
+            Page Builder
+          </Button>
+        </Box>
+      </Box>
+
+      <Alert severity="info" sx={{ mb: 2 }}>
+        <strong>Редактор блоков</strong> — добавляйте блоки (текст, intro, код, FAQ), перетаскивайте для смены порядка. Для визуального конструктора секций — Page Builder.
+      </Alert>
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <TextField fullWidth label="Slug" value={slug} onChange={(e) => setSlug(e.target.value)} disabled={!isNew} sx={{ mb: 2 }} />
