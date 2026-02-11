@@ -33,8 +33,14 @@ class ErrorMonitoring {
 
     // Отлавливаем необработанные Promise rejection
     window.addEventListener('unhandledrejection', (event) => {
+      const msg = String(event.reason ?? '');
+      // Игнорируем безвредные SW-гонки (newestWorker is null при обновлении)
+      if (msg.includes('newestWorker is null')) {
+        event.preventDefault();
+        return;
+      }
       this.logError({
-        message: `Unhandled Promise Rejection: ${event.reason}`,
+        message: `Unhandled Promise Rejection: ${msg}`,
         stack: event.reason?.stack,
         url: window.location.href,
         userAgent: navigator.userAgent,

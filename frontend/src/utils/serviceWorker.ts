@@ -14,25 +14,31 @@ export function registerServiceWorker() {
       .then((registration) => {
         console.log('[Service Worker] Registered:', registration.scope);
 
-        // Проверяем обновления каждые 5 минут (вместо 60 секунд)
+        // Проверяем обновления каждые 5 минут
         setInterval(() => {
-          registration.update();
+          try {
+            registration?.update?.();
+          } catch (_) {
+            // Игнорируем newestWorker is null и подобные гонки
+          }
         }, 5 * 60 * 1000);
 
         // Обработка обновления Service Worker
         registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
+          const newWorker = registration?.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            try {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('[Service Worker] New version available');
-                // Показываем уведомление вместо автоматического reload
                 if ((window as any).__showToast) {
                   (window as any).__showToast('Доступна новая версия. Обновите страницу.', 'info');
                 }
               }
-            });
-          }
+            } catch (_) {
+              // Игнорируем гонки при смене SW
+            }
+          });
         });
       })
       .catch((error) => {
@@ -61,16 +67,15 @@ export async function cacheUrls(urls: string[]) {
 
 // Функция для принудительного обновления Service Worker
 export async function updateServiceWorker() {
-  if (!('serviceWorker' in navigator)) {
-    return;
-  }
-
-  const registration = await navigator.serviceWorker.getRegistration();
-  if (registration) {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return;
     await registration.update();
-    
     if (registration.waiting) {
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     }
+  } catch (_) {
+    // Игнорируем newestWorker is null и подобные гонки
   }
 }
