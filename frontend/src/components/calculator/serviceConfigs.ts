@@ -86,8 +86,8 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
   },
   'seo-prodvizhenie': {
     name: 'SEO продвижение',
-    basePrices: { monthly: 80000 },
-    marketAvg: 120000,
+    basePrices: { monthly: 85000 },
+    marketAvg: 210000,
     hours: { basic: 40 },
     roiMultiplier: 15,
     recurring: true,
@@ -95,12 +95,12 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
   },
   'ai-prodvizhenie': {
     name: 'AI продвижение',
-    basePrices: { monthly: 90000 },
-    marketAvg: 150000,
-    hours: { basic: 35 },
+    basePrices: { basic: 320000, standard: 750000, premium: 1500000 },
+    marketAvg: 1100000,
+    hours: { basic: 80, standard: 188, premium: 375 },
     roiMultiplier: 14,
-    recurring: true,
-    upsells: ['seo-prodvizhenie', 'marketing-prodazhi', 'tech-support']
+    complexity: 'high',
+    upsells: ['seo-prodvizhenie', 'tech-support', 'ai-boost']
   },
   'marketing-prodazhi': {
     name: 'Маркетинг + Продажи',
@@ -146,5 +146,113 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
     roiMultiplier: 20,
     recurring: true,
     upsells: ['ai-prodvizhenie', 'marketing-prodazhi', 'tech-support']
+  },
+  'ai-boost-team': {
+    name: 'AI Boost Team',
+    basePrices: { monthly: 79000 },
+    marketAvg: 293000,
+    hours: { basic: 32 },
+    roiMultiplier: 10,
+    recurring: true,
+    upsells: ['seo-audit', 'tech-support', 'ai-boost']
+  },
+  'tekhpodderzhka': {
+    name: 'Техподдержка',
+    basePrices: { monthly: 35000 },
+    marketAvg: 95000,
+    hours: { basic: 14 },
+    roiMultiplier: 10,
+    recurring: true,
+    upsells: ['seo-audit', 'speed', 'tech-support']
+  },
+  'kontent-smm': {
+    name: 'Контент + SMM',
+    basePrices: { monthly: 55000 },
+    marketAvg: 134000,
+    hours: { basic: 22 },
+    roiMultiplier: 10,
+    recurring: true,
+    upsells: ['seo-audit', 'seo-monthly', 'ai-marketing']
+  },
+  'devops-vps': {
+    name: 'DevOps/VPS',
+    basePrices: { monthly: 65000 },
+    marketAvg: 180000,
+    hours: { basic: 26 },
+    roiMultiplier: 10,
+    recurring: true,
+    upsells: ['tech-support', 'seo-audit', 'analytics-setup']
+  },
+  'skorost-sayta': {
+    name: 'Скорость сайта',
+    basePrices: { basic: 35000, standard: 65000, premium: 120000 },
+    marketAvg: 95000,
+    hours: { basic: 9, standard: 16, premium: 30 },
+    roiMultiplier: 8,
+    complexity: 'medium',
+    upsells: ['tech-support', 'seo-audit', 'speed']
+  },
+  'reklama-audit': {
+    name: 'Реклама-аудит',
+    basePrices: { basic: 28000, standard: 55000, premium: 95000 },
+    marketAvg: 77000,
+    hours: { basic: 7, standard: 14, premium: 24 },
+    roiMultiplier: 8,
+    complexity: 'medium',
+    upsells: ['seo-audit', 'analytics-setup', 'crm-integration']
+  },
+  'wp-migratsiya': {
+    name: 'WP-миграция',
+    basePrices: { basic: 30000, standard: 55000, premium: 95000 },
+    marketAvg: 78000,
+    hours: { basic: 8, standard: 14, premium: 24 },
+    roiMultiplier: 8,
+    complexity: 'medium',
+    upsells: ['tech-support', 'speed', 'seo-audit']
+  },
+  'pwa-mobilnoe-app': {
+    name: 'PWA + мобильное app',
+    basePrices: { basic: 250000, standard: 450000, premium: 850000 },
+    marketAvg: 672000,
+    hours: { basic: 63, standard: 113, premium: 213 },
+    roiMultiplier: 8,
+    complexity: 'high',
+    upsells: ['tech-support', 'mobile-app', 'seo-audit']
+  },
+  'chat-boty': {
+    name: 'Чат-боты',
+    basePrices: { basic: 85000, standard: 180000, premium: 320000 },
+    marketAvg: 254000,
+    hours: { basic: 21, standard: 45, premium: 80 },
+    roiMultiplier: 8,
+    complexity: 'medium',
+    upsells: ['ai-boost', 'crm-integration', 'tech-support']
+  },
+  'kontekstnaya-reklama': {
+    name: 'Контекстная реклама',
+    basePrices: { monthly: 85000 },
+    marketAvg: 210000,
+    hours: { basic: 34 },
+    roiMultiplier: 10,
+    recurring: true,
+    upsells: ['seo-audit', 'analytics-setup', 'crm-integration']
+  },
+  'mobilnoe-prilozhenie': {
+    name: 'Мобильное приложение',
+    basePrices: { basic: 450000, standard: 750000, premium: 1200000 },
+    marketAvg: 1040000,
+    hours: { basic: 113, standard: 188, premium: 300 },
+    roiMultiplier: 8,
+    complexity: 'high',
+    upsells: ['tech-support', 'crm-integration', 'mobile-app']
+  },
+  'seo-audit': {
+    name: 'SEO-аудит',
+    basePrices: { basic: 25000, standard: 45000, premium: 75000 },
+    marketAvg: 63000,
+    hours: { basic: 6, standard: 11, premium: 19 },
+    roiMultiplier: 8,
+    complexity: 'medium',
+    upsells: ['seo-monthly', 'tech-support', 'analytics-setup']
   }
 };

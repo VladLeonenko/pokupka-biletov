@@ -28,7 +28,11 @@
     
     <!-- Canonical URL -->
     <link rel="canonical" href="https://prime-coder.ru/" />
-    
+
+    <!-- LLMs context (Perplexity, ChatGPT, Claude и др.) -->
+    <link rel="alternate" type="text/markdown" href="https://prime-coder.ru/llms.txt" title="Prime Coder — контекст для ИИ" />
+    <link rel="alternate" type="text/markdown" href="https://prime-coder.ru/llms-full.txt" title="Prime Coder — полный контекст" />
+
     <!-- Manifest для PWA -->
     <link rel="manifest" href="/manifest.json" />
     
@@ -105,15 +109,28 @@
     }
     </script>
 
-    <!-- LocalBusiness JSON-LD -->
+    <!-- LocalBusiness / ProfessionalService JSON-LD (SEO + ИИ-выдача) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "ProfessionalService",
-      "name": "PrimeCoder",
+      "name": "Prime Coder",
+      "alternateName": "PrimeCoder",
       "url": "https://prime-coder.ru",
       "logo": "https://prime-coder.ru/legacy/img/logo.png",
-      "description": "Профессиональная разработка сайтов, интернет-магазинов, SEO-продвижение и digital-маркетинг в Москве",
+      "description": "Разработка сайтов под ключ (WordPress, Tilda, Битрикс), интернет-магазины, SEO-продвижение, AI-автоматизация, чат-боты, контекстная реклама. Москва.",
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Услуги Prime Coder",
+        "itemListElement": [{"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Разработка сайтов"}}, {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "SEO-продвижение"}}, {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "AI-автоматизация"}}, {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Контекстная реклама"}}],
+        "url": "https://prime-coder.ru/catalog"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "url": "https://prime-coder.ru/contacts",
+        "availableLanguage": "Russian"
+      },
       "address": {
         "@type": "PostalAddress",
         "addressLocality": "Москва",

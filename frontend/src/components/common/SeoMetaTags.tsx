@@ -10,6 +10,8 @@ interface SeoMetaTagsProps {
   ogTitle?: string;
   ogDescription?: string;
   noindex?: boolean;
+  /** Schema.org Article для статей блога (Perplexity, Google AI) */
+  articleSchema?: { headline: string; datePublished?: string; dateModified?: string };
 }
 
 const SITE_NAME = 'PrimeCoder';
@@ -26,6 +28,7 @@ export function SeoMetaTags({
   ogTitle,
   ogDescription,
   noindex = false,
+  articleSchema,
 }: SeoMetaTagsProps) {
   useEffect(() => {
     if (title) {
@@ -98,7 +101,7 @@ export function SeoMetaTags({
       canonical.setAttribute('href', url);
     }
 
-    // JSON-LD Organization (глобальный, один раз)
+    // JSON-LD: Article для блога или Organization по умолчанию
     if (title && description) {
       let script = document.querySelector('script[type="application/ld+json"][data-seo-schema]');
       if (!script) {
@@ -107,31 +110,32 @@ export function SeoMetaTags({
         script.setAttribute('data-seo-schema', 'true');
         document.head.appendChild(script);
       }
-      
-      const structuredData = {
-        '@context': 'https://schema.org',
-        '@type': 'Organization',
-        name: 'PrimeCoder',
-        description: description,
-        url: 'https://prime-coder.ru',
-        logo: 'https://prime-coder.ru/legacy/img/logo.png',
-        contactPoint: {
-          '@type': 'ContactPoint',
-          telephone: '+7-XXX-XXX-XXXX',
-          contactType: 'customer service',
-          areaServed: 'RU',
-          availableLanguage: 'Russian',
-        },
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: 'Москва',
-          addressCountry: 'RU',
-        },
-      };
-      
+
+      const structuredData = articleSchema
+        ? {
+            '@context': 'https://schema.org',
+            '@type': 'Article',
+            headline: articleSchema.headline,
+            datePublished: articleSchema.datePublished,
+            dateModified: articleSchema.dateModified || articleSchema.datePublished,
+            author: { '@type': 'Organization', name: 'PrimeCoder', url: 'https://prime-coder.ru' },
+            publisher: { '@type': 'Organization', name: 'PrimeCoder', logo: { '@type': 'ImageObject', url: 'https://prime-coder.ru/legacy/img/logo.png' } },
+            mainEntityOfPage: url ? { '@type': 'WebPage', '@id': url } : undefined,
+          }
+        : {
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: 'PrimeCoder',
+            description: description,
+            url: 'https://prime-coder.ru',
+            logo: 'https://prime-coder.ru/legacy/img/logo.png',
+            contactPoint: { '@type': 'ContactPoint', contactType: 'customer service', areaServed: 'RU', availableLanguage: 'Russian' },
+            address: { '@type': 'PostalAddress', addressLocality: 'Москва', addressCountry: 'RU' },
+          };
+
       script.textContent = JSON.stringify(structuredData);
     }
-  }, [title, description, keywords, image, url, type, ogTitle, ogDescription, noindex]);
+  }, [title, description, keywords, image, url, type, ogTitle, ogDescription, noindex, articleSchema]);
 
   return null;
 }

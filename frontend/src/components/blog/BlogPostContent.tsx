@@ -1,7 +1,17 @@
 import { useEffect, useRef } from 'react';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-jsx';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-markup';
 import { InlineImageCarousel, InlineCarouselSlide } from '@/components/public/InlineImageCarousel';
 import { processHtmlContent } from '@/utils/processHtmlContent';
 import { preserveTableHtml } from '@/utils/preserveTableHtml';
+import { resolveImageUrl } from '@/utils/resolveImageUrl';
 
 interface BlogPostContentProps {
   contentHtml: string;
@@ -20,69 +30,20 @@ export function BlogPostContent({
   carouselSlides = [] 
 }: BlogPostContentProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const revealObserverRef = useRef<IntersectionObserver | null>(null);
 
-  // Анимация появления элементов при скролле
+  // data-scroll-child для GSAP stagger + подсветка кода Prism
   useEffect(() => {
     if (!contentRef.current) return;
-
-    const root = contentRef.current.closest('.blog-post');
-    if (!root) return;
-
-    // Небольшая задержка, чтобы DOM успел отрендериться
+    const contentDiv = contentRef.current;
     const timeoutId = setTimeout(() => {
-      if (revealObserverRef.current) {
-        revealObserverRef.current.disconnect();
-        revealObserverRef.current = null;
-      }
-
-      // Выбираем только прямые дочерние элементы контента, исключая сам контейнер
-      const contentDiv = contentRef.current;
-      if (!contentDiv) return;
-
-      // Получаем все прямые дочерние элементы .blog-post-content
-      const targets = Array.from(contentDiv.children) as HTMLElement[];
-      
-      // Также добавляем заголовок статьи
-      const header = root.querySelector('.blog-post-header') as HTMLElement;
-      const allTargets = header ? [header, ...targets] : targets;
-      
-      if (allTargets.length === 0) return;
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('is-visible');
-              observer.unobserve(entry.target);
-            }
-          });
-        },
-        {
-          threshold: 0.1, // Уменьшил threshold для более раннего срабатывания
-          rootMargin: '0px 0px -5% 0px', // Уменьшил отступ
-        }
-      );
-
-      revealObserverRef.current = observer;
-
-      allTargets.forEach((element, index) => {
-        if (!element) return;
-        element.classList.remove('is-visible');
-        element.classList.add('will-reveal');
-        const delay = Math.min(index * 80, 420);
-        element.style.setProperty('--reveal-delay', `${delay}ms`);
-        observer.observe(element);
+      // data-scroll-child для анимации как на главной
+      Array.from(contentDiv.children).forEach((el) => {
+        (el as HTMLElement).setAttribute('data-scroll-child', '');
       });
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (revealObserverRef.current) {
-        revealObserverRef.current.disconnect();
-        revealObserverRef.current = null;
-      }
-    };
+      // Подсветка кода (Cursor-стиль через prism-tomorrow)
+      Prism.highlightAllUnder(contentDiv);
+    }, 50);
+    return () => clearTimeout(timeoutId);
   }, [contentHtml, carouselEnabled]);
 
   // Обработка карусели в контенте - удаляем placeholder из HTML, если он есть
@@ -92,8 +53,12 @@ export function BlogPostContent({
   );
 
   // ВАЖНО: Сначала обрабатываем опросы и таблицы, потом пути к изображениям
-  // Это нужно, чтобы preserveTableHtml работал с оригинальным HTML
-  const processedContent = processHtmlContent(preserveTableHtml(contentWithoutPlaceholder));
+  const baseProcessed = processHtmlContent(preserveTableHtml(contentWithoutPlaceholder));
+  // Разрешаем пути /uploads/ для img (dev proxy, prod same-origin)
+  const processedContent = baseProcessed.replace(
+    /(<img[^>]+src=)(["'])(\/uploads\/[^"']+)\2/gi,
+    (_, prefix, q, path) => `${prefix}${q}${resolveImageUrl(path, '')}${q}`,
+  );
   
   // DEBUG: логируем в dev режиме
   useEffect(() => {
@@ -110,21 +75,13 @@ export function BlogPostContent({
   }, [contentWithoutPlaceholder, processedContent]);
 
   return (
-    <div 
-      className="blog-post-content" 
-      ref={contentRef}
-      style={{
-        opacity: 1,
-        visibility: 'visible',
-        color: 'rgba(241,244,255,0.84)',
-      }}
-    >
+    <div className="blog-post-content" style={{ opacity: 1, visibility: 'visible', color: 'rgba(241,244,255,0.84)' }}>
       {carouselEnabled && carouselSlides.length > 0 && (
         <div style={{ margin: '40px 0' }}>
           <InlineImageCarousel slides={carouselSlides} title={carouselTitle} />
         </div>
       )}
-      <div dangerouslySetInnerHTML={{ __html: processedContent }} />
+      <div ref={contentRef} dangerouslySetInnerHTML={{ __html: processedContent }} />
     </div>
   );
 }

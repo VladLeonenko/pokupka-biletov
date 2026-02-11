@@ -1060,10 +1060,10 @@ export function ProductPage() {
                         color: '#ffbb00',
                       }}
                     >
-                      {step.number || idx + 1}
+                      {idx + 1}
                     </Box>
                     {step.title && (
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.95)', fontSize: '1rem' }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#fff', fontSize: '1rem' }}>
                         {String(step.title).replace(/^\d+\.\s*/, '')}
                       </Typography>
                     )}
@@ -1084,7 +1084,7 @@ export function ProductPage() {
       {/* Stats: category-based layout */}
       {statsSection?.categories && statsSection.categories.length > 0 && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
-          <Typography variant="h2" sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' }, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', mb: 2 }}>
+          <Typography variant="h2" sx={{ fontSize: '2rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', mb: 2 }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (
@@ -1161,7 +1161,7 @@ export function ProductPage() {
       {/* Stats: flat value/label layout (legacy) */}
       {statsItems && statsItems.length > 0 && !statsSection?.categories?.length && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
-          <Typography variant="h2" sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' }, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', mb: 2 }}>
+          <Typography variant="h2" sx={{ fontSize: '2rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', mb: 2 }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (
@@ -1205,6 +1205,7 @@ export function ProductPage() {
                     sx={{
                       mb: 1,
                       fontWeight: 700,
+                      fontSize: '2rem',
                       color: '#ffbb00',
                       textShadow: '0 0 20px rgba(255,187,0,0.3)',
                     }}

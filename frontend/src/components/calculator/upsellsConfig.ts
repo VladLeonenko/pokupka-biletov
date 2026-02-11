@@ -21,7 +21,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 8,
     margin: 0.84,
     description: '25+ ошибок + план роста трафика ×3',
-    targets: ['sajt-na-wordpress', 'sajt-vizitka', 'landing-page', 'razrabotka-sajta-na-tilda'],
+    targets: ['sajt-na-wordpress', 'sajt-vizitka', 'landing-page', 'razrabotka-sajta-na-tilda', 'tekhpodderzhka', 'skorost-sayta', 'devops-vps', 'wp-migratsiya', 'seo-audit', 'reklama-audit', 'kontekstnaya-reklama'],
     conversionBoost: '+120% трафика за 3 мес',
     priority: 1
   },
@@ -32,7 +32,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 10,
     margin: 0.83,
     description: 'PageSpeed 90+ баллов',
-    targets: ['sajt-na-wordpress', 'sajt-vizitka', 'razrabotka-sajta-na-tilda'],
+    targets: ['sajt-na-wordpress', 'sajt-vizitka', 'razrabotka-sajta-na-tilda', 'tekhpodderzhka', 'skorost-sayta', 'wp-migratsiya'],
     conversionBoost: '+25% конверсия',
     priority: 2
   },
@@ -44,7 +44,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 15,
     margin: 0.77,
     description: '15ч/мес • uptime 99.9% • backup',
-    targets: ['sajt-na-wordpress', 'sajt-na-1s-bitriks', 'internet-magazin', 'korporativnyj-sajt'],
+    targets: ['sajt-na-wordpress', 'sajt-na-1s-bitriks', 'internet-magazin', 'korporativnyj-sajt', 'tekhpodderzhka', 'ai-prodvizhenie', 'chat-boty', 'devops-vps', 'wp-migratsiya', 'pwa-mobilnoe-app', 'mobilnoe-prilozhenie'],
     ltvMultiplier: 12,
     priority: 3
   },
@@ -69,7 +69,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 40,
     margin: 0.75,
     description: 'Комплексное SEO • ТОП-10 Яндекс/Google',
-    targets: ['sajt-na-wordpress', 'internet-magazin', 'korporativnyj-sajt', 'sajt-na-1s-bitriks'],
+    targets: ['sajt-na-wordpress', 'internet-magazin', 'korporativnyj-sajt', 'sajt-na-1s-bitriks', 'seo-prodvizhenie', 'ai-prodvizhenie', 'tekhpodderzhka'],
     conversionBoost: '+200% органический трафик',
     ltvMultiplier: 12,
     priority: 5
@@ -82,7 +82,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 35,
     margin: 0.79,
     description: 'Автоматизация маркетинга + AI аналитика',
-    targets: ['internet-magazin', 'korporativnyj-sajt', 'sajt-na-1s-bitriks'],
+    targets: ['internet-magazin', 'korporativnyj-sajt', 'sajt-na-1s-bitriks', 'ai-prodvizhenie', 'kontent-smm', 'chat-boty'],
     conversionBoost: '+150% эффективность рекламы',
     ltvMultiplier: 12,
     priority: 6
@@ -105,7 +105,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 200,
     margin: 0.73,
     description: 'iOS + Android • React Native',
-    targets: ['internet-magazin', 'sajt-na-1s-bitriks'],
+    targets: ['internet-magazin', 'sajt-na-1s-bitriks', 'pwa-mobilnoe-app', 'chat-boty'],
     conversionBoost: '+60% retention',
     priority: 8
   },
@@ -116,7 +116,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 35,
     margin: 0.78,
     description: 'AmoCRM/Bitrix24 • автоматизация продаж',
-    targets: ['sajt-na-wordpress', 'internet-magazin', 'korporativnyj-sajt', 'landing-page'],
+    targets: ['sajt-na-wordpress', 'internet-magazin', 'korporativnyj-sajt', 'landing-page', 'chat-boty', 'kontekstnaya-reklama', 'reklama-audit'],
     conversionBoost: '+45% обработка лидов',
     priority: 9
   },
@@ -127,7 +127,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 12,
     margin: 0.85,
     description: 'GA4 + Яндекс.Метрика • dashboard',
-    targets: ['sajt-na-wordpress', 'internet-magazin', 'landing-page', 'razrabotka-sajta-na-tilda'],
+    targets: ['sajt-na-wordpress', 'internet-magazin', 'landing-page', 'razrabotka-sajta-na-tilda', 'devops-vps', 'reklama-audit', 'kontekstnaya-reklama'],
     conversionBoost: '+30% понимание ЦА',
     priority: 10
   }

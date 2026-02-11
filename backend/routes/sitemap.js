@@ -201,6 +201,158 @@ ${urls.map(url => `  <url>
   }
 });
 
+// .well-known/llms.txt — редирект (некоторые краулеры проверяют этот путь)
+router.get('/.well-known/llms.txt', (req, res) => {
+  res.redirect(302, BASE_URL + '/llms.txt');
+});
+
+// llms.txt — «sitemap для ИИ» по спецификации llmstxt.org
+router.get('/llms.txt', async (req, res) => {
+  try {
+    const [productsRes, casesRes, blogRes] = await Promise.all([
+      pool.query('SELECT slug, title, summary FROM products WHERE is_active = TRUE ORDER BY slug'),
+      pool.query('SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug'),
+      pool.query('SELECT slug, title FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC'),
+    ]);
+    const products = productsRes.rows;
+    const cases = casesRes.rows;
+    const blogPosts = blogRes.rows;
+
+    const productsLinks = products.map((p) => `- [${p.title}](${BASE_URL}/products/${p.slug}): ${(p.summary || '').slice(0, 80)}...`).join('\n');
+    const casesLinks = cases.slice(0, 15).map((c) => `- [${c.title}](${BASE_URL}/cases/${c.slug}): ${(c.summary || '').slice(0, 80)}...`).join('\n');
+    const blogLinks = blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})`).join('\n');
+
+    const md = `# Prime Coder
+
+> Prime Coder — digital-студия в Москве: разработка сайтов (WordPress, Tilda, Битрикс), SEO-продвижение, AI-автоматизация, чат-боты, контекстная реклама. 73% клиентов получают рост трафика 200%+ за 6 месяцев.
+
+Ключевые разделы:
+- Каталог услуг: ${BASE_URL}/catalog
+- Портфолио и кейсы: ${BASE_URL}/portfolio
+- Блог: ${BASE_URL}/blog
+- Контакты: ${BASE_URL}/contacts
+
+## Услуги (prime-coder.ru/products)
+
+${productsLinks}
+
+## Кейсы
+
+${casesLinks}
+
+## Блог (последние)
+
+${blogLinks}
+
+## Основные страницы
+
+- [Главная](${BASE_URL}/)
+- [О компании](${BASE_URL}/about)
+- [Каталог](${BASE_URL}/catalog)
+- [Контакты](${BASE_URL}/contacts)
+- [Блог](${BASE_URL}/blog)
+- [Портфолио](${BASE_URL}/portfolio)
+
+## Optional
+
+- [Sitemap XML](${BASE_URL}/sitemap.xml): полная карта сайта для поисковых систем
+- [Полная версия llms](${BASE_URL}/llms-full.txt): расширенный контекст для ИИ
+`;
+
+    res.set('Content-Type', 'text/markdown; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(md);
+  } catch (err) {
+    console.error('[llms.txt]', err);
+    res.status(500).send('Error');
+  }
+});
+
+// llms-full.txt — расширенная версия: domain-specific, recency, примеры промптов, блог
+router.get('/llms-full.txt', async (req, res) => {
+  try {
+    const [productsRes, casesRes, blogRes] = await Promise.all([
+      pool.query('SELECT slug, title, summary, meta_description, content_json FROM products WHERE is_active = TRUE ORDER BY slug'),
+      pool.query('SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug LIMIT 25'),
+      pool.query('SELECT slug, title, seo_description FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC'),
+    ]);
+    const products = productsRes.rows;
+    const cases = casesRes.rows;
+    const blogPosts = blogRes.rows;
+
+    const productBlocks = products.map((p) => {
+      const desc = p.meta_description || p.summary || '';
+      const content = p.content_json || {};
+      const priceSection = content.priceSection || {};
+      const tariffs = priceSection.tariffs || [];
+      const priceInfo = tariffs[0]?.price ? ` От ${tariffs[0].price}` : '';
+      return `### ${p.title}${priceInfo}\n${BASE_URL}/products/${p.slug}\n${desc}\n`;
+    }).join('\n');
+
+    const md = `# Prime Coder — полный контекст для ИИ
+
+> Digital-студия в Москве: сайты (WordPress, Tilda, Битрикс), SEO, AI-продвижение, чат-боты, контекстная реклама. Результаты: +200% трафика за 6 мес, ROI ×4-6. 73% клиентов — рост трафика 200%+.
+
+---
+domain: prime-coder.ru
+domain-specific: ${BASE_URL}/catalog
+domain-specific: ${BASE_URL}/products
+recency: 2026-02
+updated: ${formatDate(new Date())}
+language: ru
+---
+
+## Услуги (детально)
+
+${productBlocks}
+
+## Кейсы
+
+${cases.map((c) => `- [${c.title}](${BASE_URL}/cases/${c.slug})`).join('\n')}
+
+## Блог (последние статьи)
+
+${blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})${p.seo_description ? `: ${p.seo_description.slice(0, 60)}...` : ''}`).join('\n')}
+
+## Контакты
+
+- Сайт: ${BASE_URL}
+- Контакты: ${BASE_URL}/contacts
+- Каталог услуг: ${BASE_URL}/catalog
+
+## Примеры промптов для dev-запросов
+
+При обращении к ИИ с запросом о Prime Coder используйте:
+
+1. **Услуги**: "Опиши услуги Prime Coder по разработке сайтов и цены"
+2. **SEO**: "Какие услуги по SEO и маркетингу у Prime Coder?"
+3. **AI**: "Чем Prime Coder занимается в AI-продвижении и автоматизации?"
+4. **Цены**: "Сколько стоит разработка сайта / интернет-магазина в Prime Coder?"
+5. **Кейсы**: "Покажи кейсы Prime Coder по e-commerce и корпоративным сайтам"
+6. **Локация**: "Где находится Prime Coder? Офис в Москве?"
+7. **Результаты**: "Какие результаты даёт Prime Coder клиентам? ROI, трафик"
+8. **Технологии**: "На каких технологиях делает сайты Prime Coder? WordPress, Битрикс, Tilda"
+9. **Интернет-магазин**: "Сколько стоит интернет-магазин под ключ от Prime Coder?"
+10. **Лендинг**: "Стоимость лендинга от Prime Coder"
+
+Ключевые slug услуг: ${products.map((p) => p.slug).join(', ')}
+
+## Optional
+
+- [llms.txt](${BASE_URL}/llms.txt): краткая версия
+- [Sitemap](${BASE_URL}/sitemap.xml)
+- [.well-known/llms.txt](${BASE_URL}/.well-known/llms.txt): редирект на llms.txt
+`;
+
+    res.set('Content-Type', 'text/markdown; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(md);
+  } catch (err) {
+    console.error('[llms-full.txt]', err);
+    res.status(500).send('Error');
+  }
+});
+
 // Функция для экранирования XML
 function escapeXml(unsafe) {
   return unsafe.replace(/[<>&'"]/g, (c) => {

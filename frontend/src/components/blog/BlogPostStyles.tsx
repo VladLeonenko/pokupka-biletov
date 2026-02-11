@@ -255,6 +255,34 @@ export function BlogPostStyles() {
         '.blog-post-content li p:last-child': {
           marginBottom: 0,
         },
+        // Hero/CTA блок (градиент, как на главной)
+        '.article-intro': {
+          gridColumn: '1 / span 12',
+          margin: '40px 0',
+          padding: '40px 36px',
+          borderRadius: '28px',
+          background: 'linear-gradient(135deg, rgba(121,108,255,0.35) 0%, rgba(255,143,168,0.3) 100%)',
+          border: '1px solid rgba(195,188,255,0.25)',
+          position: 'relative',
+          overflow: 'hidden',
+        },
+        '.article-intro:first-of-type': { marginTop: 0 },
+        '.article-intro:last-of-type': { marginBottom: 0 },
+        '.article-intro h2': { color: '#fff !important', marginTop: '0 !important', marginBottom: '16px !important' },
+        '.article-intro h2::before': { display: 'none' },
+        '.article-intro p': { color: 'rgba(255,255,255,0.95) !important', marginBottom: '16px' },
+        '.article-intro a': {
+          display: 'inline-block',
+          marginTop: '8px',
+          padding: '14px 28px',
+          borderRadius: '12px',
+          background: 'rgba(255,107,107,0.9)',
+          color: '#fff !important',
+          fontWeight: 600,
+          textDecoration: 'none',
+          transition: 'background 0.3s, transform 0.2s',
+        },
+        '.article-intro a:hover': { background: 'rgba(255,82,82,1)', transform: 'translateY(-2px)' },
         '.article-callout': {
           gridColumn: '1 / span 12',
           background: 'rgba(28, 32, 54, 0.8)',
@@ -301,6 +329,13 @@ export function BlogPostStyles() {
           padding: '24px',
           position: 'relative',
           overflow: 'hidden',
+        },
+        '.blog-post-content .grid-item .stat-number': {
+          fontSize: '2.5rem',
+          fontWeight: 700,
+          color: '#9D8CFF',
+          textAlign: 'center',
+          marginBottom: '8px',
         },
         '.blog-post-content .grid-item::after': {
           content: '""',
@@ -355,13 +390,14 @@ export function BlogPostStyles() {
         },
         '.blog-post-content pre': {
           margin: '32px 0',
-          padding: '28px',
-          borderRadius: '22px',
-          background: 'rgba(22, 24, 40, 0.88)',
-          border: '1px solid rgba(140, 136, 255, 0.18)',
+          padding: '24px 28px',
+          borderRadius: '12px',
+          background: '#1e1e1e',
+          border: '1px solid rgba(255,255,255,0.08)',
           overflowX: 'auto',
-          fontSize: '0.95rem',
-          lineHeight: 1.7,
+          fontSize: '0.9rem',
+          lineHeight: 1.65,
+          fontFamily: '"JetBrains Mono","Fira Code","Cascadia Code",monospace',
         },
         '.blog-post-content pre:first-of-type': {
           marginTop: 0,
@@ -547,6 +583,41 @@ export function BlogPostStyles() {
         '.article-tip p:last-child': {
           marginBottom: 0,
         },
+        // FAQ-блоки (как article-tip, но с бордером слева)
+        '.article-faq': {
+          margin: '24px 0',
+          padding: '24px 28px',
+          borderRadius: '0 16px 16px 0',
+          background: 'rgba(139,118,255,0.08)',
+          borderLeft: '4px solid #9D8CFF',
+        },
+        '.article-faq h3': { marginTop: 0, marginBottom: '12px', fontSize: '1.2rem' },
+        '.article-faq h3::before': { display: 'none' },
+        '.article-faq p': { marginBottom: 0 },
+        // Финальный CTA блок (центрированный)
+        '.article-cta': {
+          gridColumn: '1 / span 12',
+          margin: '56px 0',
+          padding: '48px 40px',
+          borderRadius: '28px',
+          background: 'linear-gradient(135deg, rgba(121,108,255,0.4) 0%, rgba(255,143,168,0.35) 100%)',
+          border: '1px solid rgba(195,188,255,0.3)',
+          textAlign: 'center',
+        },
+        '.article-cta h2': { color: '#fff !important', marginBottom: '20px' },
+        '.article-cta h2::before': { display: 'none' },
+        '.article-cta p': { color: 'rgba(255,255,255,0.95) !important', marginBottom: '24px' },
+        '.article-cta a': {
+          display: 'inline-block',
+          margin: '8px',
+          padding: '14px 28px',
+          borderRadius: '12px',
+          background: 'rgba(255,107,107,0.9)',
+          color: '#fff !important',
+          fontWeight: 600,
+          textDecoration: 'none',
+        },
+        '.article-cta a:hover': { background: 'rgba(255,82,82,1)' },
         // Анимации
         '@keyframes slideInUp': {
           '0%': {

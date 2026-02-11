@@ -4,6 +4,37 @@
 User-agent: *
 Allow: /
 
+# ИИ-краулеры: разрешаем индексацию для Perplexity, ChatGPT, Claude и др.
+User-agent: PerplexityBot
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: GPTBot
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: Claude-Web
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: Anthropic-AI
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: Bytespider
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: Cohere-AI
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
 # Закрываем административные и служебные разделы
 Disallow: /admin
 Disallow: /admin/
@@ -29,11 +60,17 @@ Allow: /assets/js/
 Allow: /assets/css/
 Allow: /uploads/images/
 
-# Явно разрешаем sitemap.xml
+# Явно разрешаем sitemap и llms
 Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /.well-known/llms.txt
 
 # Карта сайта (динамическая)
 Sitemap: https://prime-coder.ru/sitemap.xml
+
+# Контекст для ИИ (Perplexity, ChatGPT, Claude)
+# https://llmstxt.org
 
 # Основной хост
 Host: https://prime-coder.ru

@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '../.env') });
+if (process.argv.includes('--prod')) process.env.PROD = '1';
+const envFile = process.env.NODE_ENV === 'production' || process.env.PROD ? '.env.prod' : '.env';
+dotenv.config({ path: path.join(__dirname, '..', envFile) });
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -39,7 +41,9 @@ async function upsertProduct(p) {
         title = $1, description_html = $2, summary = $3, full_description_html = $4,
         price_cents = $5, currency = $6, price_period = $7, features = $8, tags = $9,
         meta_title = $10, meta_description = $11, meta_keywords = $12,
-        content_json = $13, is_active = $14, image_url = $15, updated_at = NOW()
+        content_json = $13, is_active = $14,
+        image_url = COALESCE($15::text, products.image_url),
+        updated_at = NOW()
       WHERE slug = $16
     `, [
       p.title, p.description_html || '', p.summary || '', p.full_description_html || '',
@@ -71,9 +75,9 @@ async function upsertProduct(p) {
 }
 
 async function main() {
-  const jsonPath = process.argv[2];
+  const jsonPath = process.argv.slice(2).find((a) => a !== '--prod');
   if (!jsonPath) {
-    console.error('Использование: node scripts/import-product.js <path-to-json>');
+    console.error('Использование: node scripts/import-product.js <path-to-json> [--prod]');
     process.exit(1);
   }
 
@@ -81,10 +85,10 @@ async function main() {
   const data = JSON.parse(raw);
   const products = Array.isArray(data) ? data : [data];
 
-  console.log(`📦 Импорт ${products.length} товаров...\n`);
+  console.log(`📦 Импорт ${products.length} товаров...${process.env.PROD ? ' [PRODUCTION]' : ''}\n`);
 
   await pool.query('SELECT NOW()');
-  console.log('✅ БД подключена\n');
+  console.log(`✅ БД подключена (${process.env.PGHOST || 'localhost'})\n`);
 
   let created = 0, updated = 0, errors = 0;
   for (const p of products) {

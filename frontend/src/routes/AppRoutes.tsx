@@ -12,6 +12,7 @@ const PagePageBuilderPage = lazy(() => import('@/pages/pages/PagePageBuilderPage
 const PagePreviewPage = lazy(() => import('@/pages/pages/PagePreviewPage').then(m => ({ default: m.PagePreviewPage })));
 const BlogListPage = lazy(() => import('@/pages/blog/BlogListPage').then(m => ({ default: m.BlogListPage })));
 const BlogEditorPage = lazy(() => import('@/pages/blog/BlogEditorPage').then(m => ({ default: m.BlogEditorPage })));
+const BlogBlockEditorPage = lazy(() => import('@/pages/blog/BlogBlockEditorPage').then(m => ({ default: m.BlogBlockEditorPage })));
 const BlogPageBuilderPage = lazy(() => import('@/pages/blog/BlogPageBuilderPage').then(m => ({ default: m.BlogPageBuilderPage })));
 const BlogCategoriesPage = lazy(() => import('@/pages/blog/BlogCategoriesPage').then(m => ({ default: m.BlogCategoriesPage })));
 const SeoPage = lazy(() => import('@/pages/seo/SeoPage').then(m => ({ default: m.SeoPage })));
@@ -194,7 +195,8 @@ export function AppRoutes() {
       <Route path="/admin/pages/:id/builder" element={<Protected><PagePageBuilderPage /></Protected>} />
       <Route path="/admin/pages/:id/preview" element={<Protected><PagePreviewPage /></Protected>} />
       <Route path="/admin/blog" element={<Protected><BlogListPage /></Protected>} />
-      <Route path="/admin/blog/:id" element={<Protected><BlogEditorPage /></Protected>} />
+      <Route path="/admin/blog/:id" element={<Protected><BlogBlockEditorPage /></Protected>} />
+      <Route path="/admin/blog/:id/html" element={<Protected><BlogEditorPage /></Protected>} />
       <Route path="/admin/blog/:id/builder" element={<Protected><BlogPageBuilderPage /></Protected>} />
       <Route path="/admin/blog/categories" element={<Protected><BlogCategoriesPage /></Protected>} />
       <Route path="/admin/seo" element={<Protected><SeoPage /></Protected>} />
