@@ -41,6 +41,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "terser": "^5.36.0",
     "@types/classnames": "^2.3.4",
     "@types/dompurify": "^3.0.5",
     "@types/html2canvas": "^1.0.0",
