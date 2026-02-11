@@ -89,7 +89,7 @@ export function SearchPage() {
                     alt={product.title}
                     loading="lazy"
                     onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
-                    sx={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }}
+                    sx={{ width: '100%', height: 220, objectFit: 'contain', display: 'block', bgcolor: 'rgba(0,0,0,0.15)' }}
                   />
                   <Box sx={{ p: 2.5 }}>
                     <Typography sx={{ fontWeight: 600, color: '#fff', fontSize: '1rem', mb: 0.75, lineHeight: 1.3 }}>{product.title}</Typography>

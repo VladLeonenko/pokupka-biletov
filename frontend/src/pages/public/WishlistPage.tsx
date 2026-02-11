@@ -84,7 +84,7 @@ export function WishlistPage() {
                     alt={item.product?.title || 'Товар'}
                     loading="lazy"
                     onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
-                    sx={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }}
+                    sx={{ width: '100%', height: 220, objectFit: 'contain', display: 'block', bgcolor: 'rgba(0,0,0,0.15)' }}
                   />
                   <IconButton
                     onClick={(e) => { e.stopPropagation(); removeMutation.mutate(item.productSlug); }}

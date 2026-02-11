@@ -1042,27 +1042,29 @@ export function ProductPage() {
                     },
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                     <Box
                       sx={{
-                        minWidth: 48,
-                        height: 48,
+                        minWidth: 36,
+                        width: 36,
+                        height: 36,
+                        flexShrink: 0,
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         background: 'rgba(255,187,0,0.15)',
-                        border: '2px solid rgba(255,187,0,0.3)',
+                        border: '2px solid rgba(255,187,0,0.5)',
                         fontWeight: 700,
-                        fontSize: '1.25rem',
-                        color: 'rgba(255,255,255,0.95)',
+                        fontSize: '1rem',
+                        color: '#ffbb00',
                       }}
                     >
                       {step.number || idx + 1}
                     </Box>
                     {step.title && (
-                      <Typography variant="overline" sx={{ fontSize: '0.85rem', color: 'rgba(255,187,0,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                        {step.title}
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.95)', fontSize: '1rem' }}>
+                        {String(step.title).replace(/^\d+\.\s*/, '')}
                       </Typography>
                     )}
                   </Box>
@@ -1082,7 +1084,7 @@ export function ProductPage() {
       {/* Stats: category-based layout */}
       {statsSection?.categories && statsSection.categories.length > 0 && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
-          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' }, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', mb: 2 }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (
@@ -1159,7 +1161,7 @@ export function ProductPage() {
       {/* Stats: flat value/label layout (legacy) */}
       {statsItems && statsItems.length > 0 && !statsSection?.categories?.length && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
-          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' }, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', mb: 2 }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (

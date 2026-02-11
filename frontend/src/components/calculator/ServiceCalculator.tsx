@@ -372,18 +372,19 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
             </MotionCard>
 
             <Button
-              variant="contained"
+              variant="outlined"
               size="large"
               fullWidth
               onClick={() => onCalculate?.(roiResult)}
               sx={{
-                py: 2,
-                fontSize: '1.1rem',
+                py: 1.5,
+                fontSize: '1rem',
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #ffbb00 0%, #e5a800 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #e5a800 0%, #ffbb00 100%)',
-                },
+                borderColor: 'rgba(255,255,255,0.3)',
+                color: '#fff',
+                borderRadius: 2,
+                letterSpacing: '0.05em',
+                '&:hover': { borderColor: '#ffbb00', color: '#ffbb00', bgcolor: 'rgba(255,187,0,0.05)' },
               }}
             >
               Получить коммерческое предложение

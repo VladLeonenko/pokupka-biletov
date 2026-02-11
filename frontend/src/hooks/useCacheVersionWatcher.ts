@@ -24,15 +24,10 @@ export const useCacheVersionWatcher = () => {
       }
       
       if (storedVersion !== serverVersion) {
-        // Вместо reload - просто логируем и обновляем версию
-        // Пользователь сам обновит страницу когда нужно
-        console.log('[CacheVersion] New version available:', serverVersion, '(current:', storedVersion, ')');
         setStoredCacheVersion(serverVersion);
-        
-        // Можно показать toast уведомление вместо автоматического reload
-        if ((window as any).__showToast) {
-          (window as any).__showToast('Доступна новая версия сайта. Обновите страницу для применения изменений.', 'info');
-        }
+        // Toast отключён: версия меняется при каждом pm2 restart (Date.now()),
+        // что вызывало постоянные ложные «новая версия». Реальные обновления
+        // отслеживает Service Worker.
       }
     };
 
