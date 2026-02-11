@@ -41,7 +41,8 @@ export async function seoRenderer(req, res, next) {
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    // SPA entry: короткий cache чтобы деплой быстрее подхватывался
+    res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
     res.setHeader('Vary', 'Accept-Encoding');
     
     res.send(html);

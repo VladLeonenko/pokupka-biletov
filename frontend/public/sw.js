@@ -1,5 +1,5 @@
 // Service Worker для офлайн кэширования и оптимизации производительности
-const CACHE_VERSION = 'v1.0.3';
+const CACHE_VERSION = 'v1.0.4';
 const CACHE_NAME = `primecoder-cache-${CACHE_VERSION}`;
 
 // Ресурсы для кэширования при установке
