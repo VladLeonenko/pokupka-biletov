@@ -120,7 +120,7 @@ export async function getWishlist(): Promise<{ items: WishlistItem[] }> {
   }
   
   try {
-    const res = await doFetch(`${API_BASE}/api/wishlist`);
+    const res = await doFetch(`${getApiBaseUrl()}/api/wishlist`);
     if (!res.ok) {
       // Если пользователь не авторизован, возвращаем пустой список
       if (res.status === 401 || res.status === 403) {
@@ -137,7 +137,7 @@ export async function getWishlist(): Promise<{ items: WishlistItem[] }> {
 }
 
 export async function addToWishlist(productSlug: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/wishlist`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/wishlist`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productSlug }),
@@ -146,12 +146,12 @@ export async function addToWishlist(productSlug: string): Promise<void> {
 }
 
 export async function removeFromWishlist(productSlug: string): Promise<void> {
-  const res = await doFetch(`${API_BASE}/api/wishlist/${encodeURIComponent(productSlug)}`, { method: 'DELETE' });
+  const res = await doFetch(`${getApiBaseUrl()}/api/wishlist/${encodeURIComponent(productSlug)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to remove from wishlist');
 }
 
 export async function checkInWishlist(productSlug: string): Promise<boolean> {
-  const res = await doFetch(`${API_BASE}/api/wishlist/check/${encodeURIComponent(productSlug)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/wishlist/check/${encodeURIComponent(productSlug)}`);
   if (!res.ok) return false;
   const data = await res.json();
   return data.inWishlist;
@@ -184,13 +184,13 @@ export async function searchProducts(filters: SearchFilters & { limit?: number; 
 }
 
 export async function getSearchCategories(): Promise<ProductCategory[]> {
-  const res = await doFetch(`${API_BASE}/api/public/search/categories`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/search/categories`);
   if (!res.ok) throw new Error('Failed to fetch categories');
   return res.json();
 }
 
 export async function getSearchTags(): Promise<string[]> {
-  const res = await doFetch(`${API_BASE}/api/public/search/tags`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/search/tags`);
   if (!res.ok) throw new Error('Failed to fetch tags');
   return res.json();
 }
@@ -204,7 +204,7 @@ export async function createOrder(orderData: {
   paymentMethod?: string;
   notes?: string;
 }): Promise<{ order: Order }> {
-  const res = await doFetch(`${API_BASE}/api/public/orders`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/orders`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
@@ -214,13 +214,13 @@ export async function createOrder(orderData: {
 }
 
 export async function getMyOrders(): Promise<{ orders: Order[] }> {
-  const res = await doFetch(`${API_BASE}/api/orders/my`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/orders/my`);
   if (!res.ok) throw new Error('Failed to fetch orders');
   return res.json();
 }
 
 export async function getOrder(orderNumber: string): Promise<{ order: Order }> {
-  const res = await doFetch(`${API_BASE}/api/public/orders/${encodeURIComponent(orderNumber)}`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/public/orders/${encodeURIComponent(orderNumber)}`);
   if (!res.ok) throw new Error('Failed to fetch order');
   return res.json();
 }
@@ -267,7 +267,7 @@ export async function register(
   agreeToTerms?: boolean,
   agreeToPrivacy?: boolean
 ): Promise<{ token: string; user: any; requiresVerification?: boolean }> {
-  const res = await doFetch(`${API_BASE}/api/auth/register`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -287,7 +287,7 @@ export async function register(
 }
 
 export async function registerPhone(phone: string, name?: string): Promise<{ userId: number; requiresVerification: boolean }> {
-  const res = await doFetch(`${API_BASE}/api/auth/register-phone`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/auth/register-phone`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, name }),
@@ -300,7 +300,7 @@ export async function registerPhone(phone: string, name?: string): Promise<{ use
 }
 
 export async function verifyCode(emailOrPhone: string, code: string, isEmail: boolean): Promise<{ token: string; user: any }> {
-  const res = await doFetch(`${API_BASE}/api/auth/verify`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/auth/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(isEmail ? { email: emailOrPhone, code } : { phone: emailOrPhone, code }),
@@ -313,7 +313,7 @@ export async function verifyCode(emailOrPhone: string, code: string, isEmail: bo
 }
 
 export async function oauthGoogle(token: string): Promise<{ token: string; user: any }> {
-  const res = await doFetch(`${API_BASE}/api/auth/oauth/google`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/auth/oauth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
@@ -326,7 +326,7 @@ export async function oauthGoogle(token: string): Promise<{ token: string; user:
 }
 
 export async function oauthYandex(token: string): Promise<{ token: string; user: any }> {
-  const res = await doFetch(`${API_BASE}/api/auth/oauth/yandex`, {
+  const res = await doFetch(`${getApiBaseUrl()}/api/auth/oauth/yandex`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
@@ -339,7 +339,7 @@ export async function oauthYandex(token: string): Promise<{ token: string; user:
 }
 
 export async function getCurrentUser(): Promise<{ user: any }> {
-  const res = await doFetch(`${API_BASE}/api/auth/me`);
+  const res = await doFetch(`${getApiBaseUrl()}/api/auth/me`);
   if (!res.ok) throw new Error('Failed to get current user');
   return res.json();
 }

@@ -283,17 +283,25 @@ export function BlogCarousel({ posts }: BlogCarouselProps) {
         py: 6,
       }}
     >
-      <Typography
-        variant="h3"
-        sx={{
-          textAlign: 'center',
-          mb: 4,
-          fontWeight: 700,
-          color: '#ffffff',
-        }}
-      >
-        Блог
-      </Typography>
+      <Box sx={{ textAlign: 'center', mb: 4 }}>
+        <Typography
+          variant="overline"
+          sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 0.5 }}
+        >
+          Блог
+        </Typography>
+        <Typography
+          variant="h2"
+          sx={{
+            fontSize: { xs: '2rem', md: '2.75rem' },
+            fontWeight: 700,
+            color: '#fff',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Полезные материалы
+        </Typography>
+      </Box>
 
       <Box
         ref={carouselRef}
@@ -317,11 +325,14 @@ export function BlogCarousel({ posts }: BlogCarouselProps) {
                 flexShrink: 0,
                 cursor: 'pointer',
                 transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                bgcolor: '#1e1e1e',
-                color: '#ffffff',
+                bgcolor: 'rgba(20,20,20,0.6)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 3,
                 '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 12px 24px rgba(255, 187, 0, 0.3)',
+                  transform: 'translateY(-4px)',
+                  borderColor: 'rgba(255,187,0,0.25)',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
                 },
               }}
             >
@@ -364,7 +375,7 @@ export function BlogCarousel({ posts }: BlogCarouselProps) {
                   sx={{
                     fontWeight: 600,
                     fontSize: '0.95rem',
-                    color: '#ffffff',
+                    color: '#fff',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     display: '-webkit-box',
@@ -377,7 +388,7 @@ export function BlogCarousel({ posts }: BlogCarouselProps) {
                 <Typography
                   variant="body2"
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.7)',
+                    color: 'rgba(255,255,255,0.55)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     display: '-webkit-box',

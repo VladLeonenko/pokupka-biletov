@@ -7,10 +7,10 @@ import {
   DialogContent, DialogActions, IconButton, ImageList, ImageListItem,
   Divider, Paper, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText, Stack
 } from '@mui/material';
-import { keyframes } from '@mui/system';
+
 import { 
   ShoppingCart, Favorite, Share, 
-  ArrowBack, Send, Close, Visibility, ExpandMore
+  ArrowBack, Send, Close, Visibility, ExpandMore, ZoomIn, NavigateBefore, NavigateNext
 } from '@mui/icons-material';
 import { ProductItem } from '@/types/cms';
 import { submitForm } from '@/services/cmsApi';
@@ -41,17 +41,6 @@ const MotionCard = motion.create(Card);
 const MotionAccordion = motion.create(Accordion);
 const MotionTypography = motion.create(Typography);
 
-const floatingAurora = keyframes`
-  0% {
-    transform: translate3d(-6%, -4%, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(5%, 6%, 0) scale(1.08);
-  }
-  100% {
-    transform: translate3d(-6%, -4%, 0) scale(1);
-  }
-`;
 
 export function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -63,6 +52,7 @@ export function ProductPage() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const [fullDescriptionExpanded, setFullDescriptionExpanded] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const { data: product, isLoading } = useQuery<ProductItem | undefined>({
     queryKey: ['product', slug],
@@ -251,6 +241,12 @@ export function ProductPage() {
     }
   };
 
+  const allImages = [product.imageUrl, ...(product.gallery || [])].filter(Boolean);
+  const openLightbox = (index: number) => setLightboxIndex(index);
+  const closeLightbox = () => setLightboxIndex(null);
+  const lightboxPrev = () => setLightboxIndex((i) => (i === null ? null : i > 0 ? i - 1 : allImages.length - 1));
+  const lightboxNext = () => setLightboxIndex((i) => (i === null ? null : i < allImages.length - 1 ? i + 1 : 0));
+
   return (
     <>
       <SeoMetaTags
@@ -294,7 +290,7 @@ export function ProductPage() {
           backgroundColor: '#141414',
         }}
       >
-        <Container maxWidth="lg" sx={{ py: { xs: 8, md: 10 }, position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="lg" sx={{ pt: { xs: 12, md: 14 }, pb: { xs: 6, md: 10 }, position: 'relative', zIndex: 1 }}>
       {/* Кнопка назад */}
       <MotionBox
         {...sectionAnimation(0)}
@@ -333,51 +329,27 @@ export function ProductPage() {
               position: 'relative',
               p: { xs: 2.5, md: 3 },
               borderRadius: 4,
-              bgcolor: 'rgba(20, 24, 44, 0.82)',
-              border: '1px solid rgba(255,255,255,0.05)',
-              boxShadow: '0 40px 70px -45px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.02)',
-              backdropFilter: 'blur(18px)',
+              bgcolor: 'rgba(20,20,20,0.6)',
+              border: '1px solid rgba(255,255,255,0.06)',
               overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                inset: 1,
-                borderRadius: 3.5,
-                border: '1px solid rgba(255,255,255,0.06)',
-                pointerEvents: 'none',
-              },
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                inset: '-30%',
-                background: 'radial-gradient(circle at 30% 30%, rgba(120, 82, 255, 0.18) 0%, transparent 50%)',
-                opacity: 0.6,
-                animation: `${floatingAurora} 24s ease-in-out infinite`,
-              },
             }}
           >
             <Box
+              onClick={() => allImages.length > 0 && openLightbox(0)}
               sx={{
                 position: 'relative',
                 borderRadius: 3,
                 overflow: 'hidden',
                 mb: product.gallery && product.gallery.length > 0 ? 3 : 0,
-                background: 'linear-gradient(145deg, rgba(42,46,74,0.84), rgba(18,20,40,0.94))',
+                background: 'rgba(20,20,20,0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)',
+                cursor: 'pointer',
+                '&:hover .product-img-zoom-hint': { opacity: 1 },
               }}
             >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'radial-gradient(circle at 18% 22%, rgba(120, 82, 255, 0.22) 0%, transparent 45%), radial-gradient(circle at 82% 28%, rgba(255,117,168,0.18) 0%, transparent 52%)',
-                  mixBlendMode: 'screen',
-                  opacity: 0.8,
-                }}
-              />
               <Box
                 component="img"
                 src={resolveImageUrl(product.imageUrl)}
@@ -389,8 +361,8 @@ export function ProductPage() {
                   maxHeight: 480,
                   objectFit: 'contain',
                   filter: 'drop-shadow(0px 12px 30px rgba(0,0,0,0.45))',
-                  transition: 'transform 0.6s ease',
-                  '&:hover': { transform: 'scale(1.03)' },
+                  transition: 'transform 0.5s ease',
+                  '&:hover': { transform: 'scale(1.04)' },
                 }}
                 onError={(e: SyntheticEvent<HTMLImageElement, Event>) => {
                   const target = e.target as HTMLImageElement;
@@ -398,12 +370,38 @@ export function ProductPage() {
                   target.src = fallbackImageUrl();
                 }}
               />
+              <Box
+                className="product-img-zoom-hint"
+                sx={{
+                  position: 'absolute',
+                  bottom: 12,
+                  right: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(0,0,0,0.6)',
+                  color: '#fff',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  opacity: 0,
+                  transition: 'opacity 0.3s',
+                }}
+              >
+                <ZoomIn sx={{ fontSize: 18 }} /> Увеличить
+              </Box>
             </Box>
 
             {product.gallery && product.gallery.length > 0 && (
               <ImageList cols={3} gap={8} sx={{ m: 0 }}>
                 {product.gallery.map((img, idx) => (
-                  <ImageListItem key={idx} sx={{ overflow: 'hidden', borderRadius: 2 }}>
+                  <ImageListItem
+                    key={idx}
+                    sx={{ overflow: 'hidden', borderRadius: 2, cursor: 'pointer' }}
+                    onClick={() => openLightbox(idx + 1)}
+                  >
                     <Box
                       component="img"
                       src={resolveImageUrl(img)}
@@ -411,17 +409,17 @@ export function ProductPage() {
                       loading="lazy"
                       sx={{
                         width: '100%',
-                        height: '100%',
+                        height: 120,
                         objectFit: 'cover',
-                        transition: 'transform 0.4s ease',
+                        transition: 'transform 0.3s ease, border-color 0.3s',
+                        border: '2px solid transparent',
+                        '&:hover': { transform: 'scale(1.05)', borderColor: 'rgba(255,187,0,0.4)' },
                       }}
                       onError={(e: SyntheticEvent<HTMLImageElement, Event>) => {
                         const target = e.target as HTMLImageElement;
                         target.onerror = null;
                         target.src = fallbackImageUrl();
                       }}
-                      onMouseOver={(e: SyntheticEvent<HTMLImageElement, Event>) => ((e.target as HTMLImageElement).style.transform = 'scale(1.06)')}
-                      onMouseOut={(e: SyntheticEvent<HTMLImageElement, Event>) => ((e.target as HTMLImageElement).style.transform = 'scale(1)')}
                     />
                   </ImageListItem>
                 ))}
@@ -442,9 +440,9 @@ export function ProductPage() {
                 px: 2,
                 py: 1,
                 borderRadius: 999,
-                background: 'linear-gradient(135deg, rgba(103,95,255,0.16), rgba(255,117,168,0.12))',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: 'rgba(214,219,255,0.78)',
+                background: 'rgba(255,187,0,0.08)',
+                border: '1px solid rgba(255,187,0,0.2)',
+                color: 'rgba(255,187,0,0.9)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.32em',
                 fontSize: '0.7rem',
@@ -453,22 +451,19 @@ export function ProductPage() {
                 width: 'fit-content',
               }}
             >
-              <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: 'linear-gradient(120deg, #816CFF, #FF7AB0)' }} />
-              Услуга Primecoder
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#ffbb00' }} />
+              УСЛУГА PRIMECODER
             </MotionBox>
             <Box>
               <MotionTypography
                 {...sectionAnimation(0.26)}
-                variant="h2"
+                variant="h1"
                 sx={{
-                  fontWeight: 700,
-                  letterSpacing: '-0.045em',
-                  fontSize: { xs: '2.4rem', md: '3.3rem' },
-                  lineHeight: { xs: 1.15, md: 1.1 },
-                  fontFamily: '"Manrope","Inter","Roboto","Helvetica",sans-serif',
-                  background: 'linear-gradient(120deg, rgba(241,244,255,1) 0%, rgba(168,179,255,0.92) 45%, rgba(255,198,220,0.88) 100%)',
-                  WebkitBackgroundClip: 'text',
-                  color: 'transparent',
+                  fontWeight: 800,
+                  letterSpacing: '-0.03em',
+                  fontSize: { xs: '2rem', md: '2.75rem' },
+                  lineHeight: 1.1,
+                  color: '#fff',
                   mt: 1.5,
                 }}
               >
@@ -481,7 +476,7 @@ export function ProductPage() {
                   sx={{
                     maxWidth: 580,
                     mt: 2,
-                    color: 'rgba(235,236,255,0.78)',
+                    color: 'rgba(255,255,255,0.65)',
                     lineHeight: 1.68,
                     fontWeight: 400,
                     fontSize: { xs: '1.05rem', md: '1.15rem' },
@@ -510,14 +505,14 @@ export function ProductPage() {
                   px: 2,
                   py: 1.5,
                   borderRadius: 2.5,
-                  bgcolor: 'rgba(20,24,44,0.78)',
+                  bgcolor: 'rgba(20,20,20,0.6)',
                   border: '1px solid rgba(255,255,255,0.06)',
                   backdropFilter: 'blur(12px)',
                   boxShadow: '0 24px 45px -30px rgba(0,0,0,0.56)',
                 }}
               >
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', background: 'linear-gradient(135deg,#816CFF,#64E6FF)' }} />
-                <Typography variant="body2" sx={{ color: 'rgba(215,218,255,0.78)', fontWeight: 500 }}>
+                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#ffbb00' }} />
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>
                   Индивидуальные сценарии внедрения
                 </Typography>
               </Box>
@@ -529,14 +524,14 @@ export function ProductPage() {
                   px: 2,
                   py: 1.5,
                   borderRadius: 2.5,
-                  bgcolor: 'rgba(20,24,44,0.78)',
+                  bgcolor: 'rgba(20,20,20,0.6)',
                   border: '1px solid rgba(255,255,255,0.06)',
                   backdropFilter: 'blur(12px)',
                   boxShadow: '0 24px 45px -30px rgba(0,0,0,0.56)',
                 }}
               >
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', background: 'linear-gradient(135deg,#FF7AA0,#FFB66D)' }} />
-                <Typography variant="body2" sx={{ color: 'rgba(215,218,255,0.78)', fontWeight: 500 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#ffbb00' }} />
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>
                   Комплексное сопровождение и аналитика
                 </Typography>
               </Box>
@@ -548,29 +543,10 @@ export function ProductPage() {
                 p: 3,
                 borderRadius: 3,
                 position: 'relative',
-                bgcolor: 'rgba(32, 28, 62, 0.75)',
-                border: '1px solid rgba(117,116,255,0.28)',
+                bgcolor: 'rgba(20,20,20,0.7)',
+                border: '1px solid rgba(255,187,0,0.2)',
                 color: '#fff',
                 maxWidth: 420,
-                boxShadow: '0 28px 50px -38px rgba(0,0,0,0.75)',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(130deg, rgba(103,95,255,0.38) 0%, rgba(255,123,160,0.22) 52%, transparent 100%)',
-                  opacity: 0.6,
-                  mixBlendMode: 'screen',
-                  pointerEvents: 'none',
-                },
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  inset: 2,
-                  borderRadius: 2.6,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  pointerEvents: 'none',
-                },
               }}
             >
               <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.18em', mb: 1.5, color: 'rgba(255,255,255,0.7)' }}>
@@ -581,10 +557,7 @@ export function ProductPage() {
                 sx={{
                   fontWeight: 700,
                   letterSpacing: '-0.03em',
-                  fontFamily: '"Manrope","Inter","Roboto","Helvetica",sans-serif',
-                  background: 'linear-gradient(120deg, #F8F9FF 0%, #B8C1FF 55%, #FFD4EC 100%)',
-                  WebkitBackgroundClip: 'text',
-                  color: 'transparent',
+                  color: '#ffbb00',
                 }}
               >
                 {formatPrice(product.priceCents, product.currency)}
@@ -641,8 +614,11 @@ export function ProductPage() {
                   flexGrow: 1,
                   borderRadius: 2,
                   py: 1.4,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textTransform: 'none',
+                  bgcolor: '#ffbb00',
+                  color: '#141414',
+                  '&:hover': { bgcolor: '#e5a800', color: '#141414' },
                 }}
               >
                 В корзину
@@ -682,16 +658,15 @@ export function ProductPage() {
                   fontWeight: 600,
                   textTransform: 'none',
                   borderWidth: 2,
-                  borderColor: 'rgba(103,95,255,0.4)',
-                  color: 'rgba(149,140,255,0.92)',
-                  '&:hover': { borderColor: 'rgba(103,95,255,0.6)', bgcolor: 'rgba(103,95,255,0.08)' },
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  color: 'rgba(255,255,255,0.7)',
+                  '&:hover': { borderColor: 'rgba(255,187,0,0.4)', color: '#ffbb00', bgcolor: 'rgba(255,187,0,0.05)' },
                 }}
               >
                 Поделиться
               </Button>
               <Button
                 variant="contained"
-                color="secondary"
                 size="large"
                 onClick={() => setContactFormOpen(true)}
                 sx={{
@@ -701,12 +676,9 @@ export function ProductPage() {
                   py: 1.4,
                   fontWeight: 700,
                   textTransform: 'none',
-                  bgcolor: 'linear-gradient(135deg, rgba(255,99,146,0.95), rgba(255,143,102,0.92))',
-                  boxShadow: '0 18px 30px -18px rgba(255,120,150,0.55)',
-                  '&:hover': {
-                    bgcolor: 'linear-gradient(135deg, rgba(255,99,146,1), rgba(255,143,102,1))',
-                    boxShadow: '0 22px 36px -18px rgba(255,120,150,0.65)',
-                  },
+                  bgcolor: '#ffbb00',
+                  color: '#141414',
+                  '&:hover': { bgcolor: '#e5a800', color: '#141414' },
                 }}
               >
                 Заказать услугу
@@ -762,7 +734,7 @@ export function ProductPage() {
                         },
                       },
                       '& blockquote': {
-                        borderLeft: '3px solid rgba(129,108,255,0.5)',
+                        borderLeft: '3px solid rgba(255,187,0,0.3)',
                         pl: 2,
                         ml: 0,
                         mb: 2,
@@ -817,8 +789,8 @@ export function ProductPage() {
                             borderRadius: '50%',
                             mt: '6px',
                             flexShrink: 0,
-                            background: 'linear-gradient(135deg, #816CFF 0%, #64E6FF 100%)',
-                            boxShadow: '0 0 12px rgba(129,108,255,0.45)',
+                            background: 'rgba(255,187,0,0.15)',
+                            boxShadow: '0 0 12px rgba(255,187,0,0.25)',
                           }}
                         />
                         <Typography variant="body2" sx={{ color: 'inherit' }}>
@@ -912,7 +884,7 @@ export function ProductPage() {
 
       {tariffs && tariffs.length > 0 && (
         <MotionBox {...sectionAnimation(0.34)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 3, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3 }}>
             {priceSection?.title || 'Тарифы и стоимость'}
           </Typography>
           <Grid container spacing={3}>
@@ -938,13 +910,13 @@ export function ProductPage() {
                       content: '""',
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(140deg, rgba(120,82,255,0.16) 0%, rgba(255,118,169,0.12) 48%, transparent 100%)',
+                      background: 'rgba(255,255,255,0.02)',
                       opacity: 0.6,
                       pointerEvents: 'none',
                     },
                     '&:hover': {
                       transform: 'translateY(-6px)',
-                      borderColor: 'rgba(129,108,255,0.38)',
+                      borderColor: 'rgba(255,187,0,0.2)',
                       boxShadow: '0 40px 70px -38px rgba(0,0,0,0.65)',
                     },
                   }}
@@ -959,7 +931,7 @@ export function ProductPage() {
                       </Typography>
                     )}
                     {tariff.price && (
-                      <Typography variant="h4" color="primary" sx={{ mb: 2, fontWeight: 700 }}>
+                      <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, color: '#ffbb00' }}>
                         {tariff.price}
                       </Typography>
                     )}
@@ -1003,9 +975,8 @@ export function ProductPage() {
                   </Box>
                   <Button
                     variant="contained"
-                    color="primary"
                     fullWidth
-                    sx={{ mt: 3, py: 1.2, borderRadius: 2, fontWeight: 600, textTransform: 'none' }}
+                    sx={{ mt: 3, py: 1.2, borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: '#ffbb00', color: '#141414', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}
                     onClick={() => {
                       setContactFormOpen(true);
                       setContactForm((prev) => ({
@@ -1030,7 +1001,7 @@ export function ProductPage() {
 
       {workStepsList && workStepsList.length > 0 && (
         <MotionBox {...sectionAnimation(0.42)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
             {workSteps?.title || 'Как мы работаем'}
           </Typography>
           {workSteps?.description && (
@@ -1060,13 +1031,13 @@ export function ProductPage() {
                       content: '""',
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(130deg, rgba(120,82,255,0.12) 0%, rgba(255,122,160,0.12) 50%, transparent 100%)',
+                      background: 'rgba(255,255,255,0.02)',
                       opacity: 0.6,
                       pointerEvents: 'none',
                     },
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      borderColor: 'rgba(129,108,255,0.35)',
+                      borderColor: 'rgba(255,187,0,0.2)',
                       boxShadow: '0 26px 45px -35px rgba(0,0,0,0.65)',
                     },
                   }}
@@ -1080,8 +1051,8 @@ export function ProductPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: 'linear-gradient(135deg, rgba(129,108,255,0.3), rgba(255,122,160,0.3))',
-                        border: '2px solid rgba(129,108,255,0.5)',
+                        background: 'rgba(255,187,0,0.15)',
+                        border: '2px solid rgba(255,187,0,0.3)',
                         fontWeight: 700,
                         fontSize: '1.25rem',
                         color: 'rgba(255,255,255,0.95)',
@@ -1090,7 +1061,7 @@ export function ProductPage() {
                       {step.number || idx + 1}
                     </Box>
                     {step.title && (
-                      <Typography variant="overline" sx={{ fontSize: '0.85rem', color: 'rgba(149,140,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      <Typography variant="overline" sx={{ fontSize: '0.85rem', color: 'rgba(255,187,0,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                         {step.title}
                       </Typography>
                     )}
@@ -1111,7 +1082,7 @@ export function ProductPage() {
       {/* Stats: category-based layout */}
       {statsSection?.categories && statsSection.categories.length > 0 && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (
@@ -1139,13 +1110,13 @@ export function ProductPage() {
                       content: '""',
                       position: 'absolute',
                       inset: '-25%',
-                      background: 'radial-gradient(circle at 50% 20%, rgba(120,82,255,0.22) 0%, transparent 55%)',
+                      background: 'rgba(255,255,255,0.015)',
                       opacity: 0.6,
                       pointerEvents: 'none',
                     },
                     '&:hover': {
                       transform: 'translateY(-6px)',
-                      borderColor: 'rgba(149,140,255,0.4)',
+                      borderColor: 'rgba(255,187,0,0.2)',
                       boxShadow: '0 45px 60px -40px rgba(0,0,0,0.6)',
                     },
                   }}
@@ -1188,7 +1159,7 @@ export function ProductPage() {
       {/* Stats: flat value/label layout (legacy) */}
       {statsItems && statsItems.length > 0 && !statsSection?.categories?.length && (
         <MotionBox {...sectionAnimation(0.5)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
             {statsSection?.title || 'Наши результаты'}
           </Typography>
           {statsSection?.description && (
@@ -1216,13 +1187,13 @@ export function ProductPage() {
                       content: '""',
                       position: 'absolute',
                       inset: '-25%',
-                      background: 'radial-gradient(circle at 50% 20%, rgba(120,82,255,0.22) 0%, transparent 55%)',
+                      background: 'rgba(255,255,255,0.015)',
                       opacity: 0.6,
                       pointerEvents: 'none',
                     },
                     '&:hover': {
                       transform: 'translateY(-6px)',
-                      borderColor: 'rgba(149,140,255,0.4)',
+                      borderColor: 'rgba(255,187,0,0.2)',
                       boxShadow: '0 45px 60px -40px rgba(0,0,0,0.6)',
                     },
                   }}
@@ -1232,8 +1203,8 @@ export function ProductPage() {
                     sx={{
                       mb: 1,
                       fontWeight: 700,
-                      color: 'rgba(149,140,255,0.95)',
-                      textShadow: '0 0 20px rgba(120, 82, 255, 0.45)',
+                      color: '#ffbb00',
+                      textShadow: '0 0 20px rgba(255,187,0,0.3)',
                     }}
                   >
                     {item.value || '—'}
@@ -1260,7 +1231,7 @@ export function ProductPage() {
 
       {relatedServices && relatedServices.length > 0 && (
         <MotionBox {...sectionAnimation(0.64)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
             {relatedServicesSection?.title || 'Похожие услуги'}
           </Typography>
           {relatedServicesSection?.description && (
@@ -1289,13 +1260,13 @@ export function ProductPage() {
                       content: '""',
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(145deg, rgba(120,82,255,0.12) 0%, rgba(255,122,160,0.12) 45%, transparent 100%)',
+                      background: 'rgba(255,255,255,0.02)',
                       opacity: 0.6,
                       pointerEvents: 'none',
                     },
                     '&:hover': {
                       transform: 'translateY(-6px)',
-                      borderColor: 'rgba(149,140,255,0.32)',
+                      borderColor: 'rgba(255,187,0,0.15)',
                       boxShadow: '0 34px 58px -42px rgba(0,0,0,0.68)',
                     },
                   }}
@@ -1333,7 +1304,7 @@ export function ProductPage() {
                       variant="text"
                       color="inherit"
                       component="span"
-                      sx={{ py: 1.2, textTransform: 'none', fontWeight: 600, color: 'rgba(149,140,255,0.9)' }}
+                      sx={{ py: 1.2, textTransform: 'none', fontWeight: 600, color: '#ffbb00' }}
                     >
                       Подробнее →
                     </Button>
@@ -1347,7 +1318,7 @@ export function ProductPage() {
 
       {subscribeItems && subscribeItems.length > 0 && (
         <MotionBox {...sectionAnimation(0.7)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
             {contentJson.subscribe?.title || 'Следующий шаг'}
           </Typography>
           {contentJson.subscribe?.description && (
@@ -1383,9 +1354,8 @@ export function ProductPage() {
                   {item.linkText && item.linkUrl && (
                     <Button
                       variant="contained"
-                      color="primary"
                       onClick={() => handleSmartNavigate(item.linkUrl)}
-                      sx={{ mt: 'auto', textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                      sx={{ mt: 'auto', textTransform: 'none', fontWeight: 700, borderRadius: 2, bgcolor: '#ffbb00', color: '#141414', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}
                     >
                       {item.linkText}
                     </Button>
@@ -1400,7 +1370,7 @@ export function ProductPage() {
       {/* Отзывы клиентов по данной услуге */}
       {productReviews.length > 0 && (
         <MotionBox {...sectionAnimation(0.68)} sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 1, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 1 }}>
             Отзывы клиентов
           </Typography>
           <Typography variant="body1" color="rgba(255,255,255,0.65)" sx={{ mb: 4 }}>
@@ -1424,7 +1394,7 @@ export function ProductPage() {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ width: 44, height: 44, bgcolor: 'rgba(129,108,255,0.3)', fontSize: '1rem', fontWeight: 600 }}>
+                    <Avatar sx={{ width: 44, height: 44, bgcolor: 'rgba(255,187,0,0.15)', fontSize: '1rem', fontWeight: 600 }}>
                       {review.author?.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
                     </Avatar>
                     <Box sx={{ flex: 1 }}>
@@ -1460,7 +1430,7 @@ export function ProductPage() {
             <Button
               variant="outlined"
               onClick={() => navigate('/reviews')}
-              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.75)', '&:hover': { borderColor: 'rgba(149,140,255,0.5)' } }}
+              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.75)', '&:hover': { borderColor: 'rgba(255,187,0,0.4)' } }}
             >
               Все отзывы →
             </Button>
@@ -1471,7 +1441,7 @@ export function ProductPage() {
       {faqItems && faqItems.length > 0 && (
         <MotionBox {...sectionAnimation(0.7)} sx={{ mt: 8 }}>
           {faqSection?.title && (
-            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
               {faqSection.title}
             </Typography>
           )}
@@ -1541,7 +1511,7 @@ export function ProductPage() {
           }}
         >
           {headerSection?.title && (
-            <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 2 }}>
               {headerSection.title}
             </Typography>
           )}
@@ -1557,7 +1527,7 @@ export function ProductPage() {
                   variant="contained"
                   size="large"
                   onClick={() => setContactFormOpen(true)}
-                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 600 }}
+                  sx={{ px: 4, py: 1.4, borderRadius: 999, textTransform: 'none', fontWeight: 700, bgcolor: '#ffbb00', color: '#141414', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}
                 >
                   {headerSection.primaryButtonText}
                 </Button>
@@ -1574,7 +1544,7 @@ export function ProductPage() {
       {/* Примеры работ (кейсы) */}
       {cases && cases.length > 0 && (
         <MotionBox {...sectionAnimation(0.78)} sx={{ mb: 6 }}>
-          <Typography variant="h4" sx={{ mb: 3, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3 }}>
             Примеры работ
           </Typography>
           <Grid container spacing={3}>
@@ -1598,7 +1568,7 @@ export function ProductPage() {
                       content: '""',
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(145deg, rgba(120,82,255,0.14) 0%, rgba(255,122,160,0.14) 52%, transparent 100%)',
+                      background: 'rgba(255,255,255,0.02)',
                       opacity: 0.6,
                       pointerEvents: 'none',
                     },
@@ -1641,7 +1611,7 @@ export function ProductPage() {
                         mt: 1,
                         textTransform: 'none',
                         fontWeight: 600,
-                        color: 'rgba(149,140,255,0.9)',
+                        color: '#ffbb00',
                       }}
                     >
                       Смотреть кейс
@@ -1704,11 +1674,67 @@ export function ProductPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setContactFormOpen(false)}>Отмена</Button>
-            <Button type="submit" variant="contained" startIcon={<Send />}>
+            <Button type="submit" variant="contained" startIcon={<Send />} sx={{ bgcolor: '#ffbb00', color: '#141414', fontWeight: 700, '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}>
               Отправить
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Лайтбокс изображений */}
+      <Dialog
+        open={lightboxIndex !== null}
+        onClose={closeLightbox}
+        maxWidth={false}
+        fullScreen
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(0,0,0,0.94)',
+            '& .MuiDialogContent-root': { p: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+          },
+        }}
+      >
+        <IconButton
+          onClick={closeLightbox}
+          sx={{ position: 'absolute', top: 16, right: 16, zIndex: 2, color: '#fff', '&:hover': { color: '#ffbb00' } }}
+          size="large"
+        >
+          <Close />
+        </IconButton>
+        {allImages.length > 1 && (
+          <>
+            <IconButton
+              onClick={lightboxPrev}
+              sx={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 2, color: '#fff', '&:hover': { color: '#ffbb00' } }}
+              size="large"
+            >
+              <NavigateBefore sx={{ fontSize: 48 }} />
+            </IconButton>
+            <IconButton
+              onClick={lightboxNext}
+              sx={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 2, color: '#fff', '&:hover': { color: '#ffbb00' } }}
+              size="large"
+            >
+              <NavigateNext sx={{ fontSize: 48 }} />
+            </IconButton>
+          </>
+        )}
+        <DialogContent>
+          {lightboxIndex !== null && allImages[lightboxIndex] && (
+            <Box
+              component="img"
+              src={resolveImageUrl(allImages[lightboxIndex])}
+              alt={`${product.title} ${lightboxIndex + 1}`}
+              onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
+              sx={{ maxWidth: '95vw', maxHeight: '90vh', objectFit: 'contain' }}
+            />
+          )}
+        </DialogContent>
+        {lightboxIndex !== null && allImages.length > 1 && (
+          <Typography sx={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
+            {lightboxIndex + 1} / {allImages.length}
+          </Typography>
+        )}
       </Dialog>
         </Container>
       </Box>

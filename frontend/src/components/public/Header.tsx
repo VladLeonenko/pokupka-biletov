@@ -1,13 +1,56 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { EcommerceHeaderIcons } from './EcommerceHeaderIcons';
+import gsap from 'gsap';
 import './Header.css';
+
+interface MenuItem {
+  to: string;
+  label: string;
+  preview?: string; // short label for rotating text
+}
+
+const MENU_ITEMS: MenuItem[][] = [
+  [
+    { to: '/catalog', label: 'Каталог услуг', preview: 'КАТАЛОГ' },
+    { to: '/ai-team', label: 'AI Boost Team', preview: 'AI TEAM' },
+    { to: '/ai-chat', label: 'AI Ассистент', preview: 'AI CHAT' },
+    { to: '/portfolio', label: 'Кейсы', preview: 'КЕЙСЫ' },
+  ],
+  [
+    { to: '/about', label: 'О нас', preview: 'О НАС' },
+    { to: '/new-client', label: 'Стать клиентом', preview: 'КЛИЕНТ' },
+    { to: '/promotion', label: 'Акции и скидки', preview: 'АКЦИИ' },
+    { to: '/blog', label: 'Блог', preview: 'БЛОГ' },
+  ],
+  [
+    { to: '/charity', label: 'Благотворительность', preview: 'CHARITY' },
+    { to: '/reviews', label: 'Отзывы', preview: 'ОТЗЫВЫ' },
+    { to: '/contacts', label: 'Контакты', preview: 'КОНТАКТЫ' },
+  ],
+];
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<MenuItem | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const iconWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Обработчик для закрытия меню при клике вне его
+    if (!hoveredItem || !iconWrapRef.current) return;
+    const el = iconWrapRef.current;
+    gsap.killTweensOf(el);
+    gsap.set(el, { scale: 0.4, opacity: 0, rotation: -90 });
+    gsap.to(el, { scale: 1, opacity: 1, rotation: 0, duration: 0.4, ease: 'back.out(1.2)' });
+    const pulse = gsap.to(el, { scale: 1.08, duration: 0.6, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    return () => {
+      gsap.killTweensOf(el);
+      pulse.kill();
+    };
+  }, [hoveredItem]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (isMenuOpen && !target.closest('.menu') && !target.closest('.burger-menu') && target.id !== 'burger-toggle') {
@@ -16,19 +59,25 @@ export function Header() {
         if (checkbox) checkbox.checked = false;
       }
     };
-
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [isMenuOpen]);
 
   const handleBurgerToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsMenuOpen(e.target.checked);
+    if (!e.target.checked) setHoveredItem(null);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+    setHoveredItem(null);
+    const checkbox = document.getElementById('burger-toggle') as HTMLInputElement;
+    if (checkbox) checkbox.checked = false;
   };
 
   return (
     <header>
       <div className="d-flex container header jcsb align-items-center">
-        {/* Логотип */}
         <div className="col-md-2 col-sm-3 col-xs-8">
           <div className="logo ptb-22">
             <Link to="/">
@@ -37,12 +86,10 @@ export function Header() {
           </div>
         </div>
 
-        {/* Иконки: поиск, избранное, корзина, личный кабинет */}
         <div className="ecommerce-icons-container-global">
           <EcommerceHeaderIcons />
         </div>
 
-        {/* Burger menu */}
         <input
           type="checkbox"
           id="burger-toggle"
@@ -55,38 +102,61 @@ export function Header() {
           <div className="line"></div>
         </label>
 
-        {/* Меню */}
         <div className={`menu ${isMenuOpen ? 'active' : ''}`}>
           <div className="menu-inner">
             <div className="container pt-100">
               <div className="d-flex main-menu-nav">
-                {/* Первая колонка */}
-                <div className="col-33 menu-col">
-                  <ul className="d-flex gap-v-20 flex-column menu-navigation">
-                    <li><Link to="/catalog" onClick={() => setIsMenuOpen(false)}>Каталог услуг</Link></li>
-                    <li><Link to="/ai-team" onClick={() => setIsMenuOpen(false)}>AI Boost Team</Link></li>
-                    <li><Link to="/ai-chat" onClick={() => setIsMenuOpen(false)}>🤖 AI Ассистент</Link></li>
-                    <li><Link to="/portfolio" onClick={() => setIsMenuOpen(false)}>Кейсы</Link></li>
-                  </ul>
-                </div>
-                {/* Вторая колонка */}
-                <div className="col-33 menu-col">
-                  <ul className="d-flex gap-v-20 flex-column menu-navigation">
-                    <li><Link to="/about" onClick={() => setIsMenuOpen(false)}>О нас</Link></li>
-                    <li><Link to="/new-client" onClick={() => setIsMenuOpen(false)}>Стать клиентом</Link></li>
-                    <li><Link to="/promotion" onClick={() => setIsMenuOpen(false)}>Акции и скидки</Link></li>
-                    <li><Link to="/blog" onClick={() => setIsMenuOpen(false)}>Блог</Link></li>
-                  </ul>
-                </div>
-                {/* Третья колонка */}
-                <div className="col-33 menu-col">
-                  <ul className="d-flex gap-v-20 flex-column menu-navigation">
-                    <li><Link to="/charity" onClick={() => setIsMenuOpen(false)}>Благотворительность</Link></li>
-                    <li><Link to="/reviews" onClick={() => setIsMenuOpen(false)}>Отзывы</Link></li>
-                    <li><Link to="/contacts" onClick={() => setIsMenuOpen(false)}>Контакты</Link></li>
-                  </ul>
-                </div>
+                {MENU_ITEMS.map((col, colIdx) => (
+                  <div key={colIdx} className="col-33 menu-col">
+                    <ul className="d-flex gap-v-20 flex-column menu-navigation">
+                      {col.map((item) => (
+                        <li
+                          key={item.to}
+                          onMouseEnter={() => setHoveredItem(item)}
+                          onMouseLeave={() => setHoveredItem(null)}
+                          className="menu-item-wrapper"
+                        >
+                          <Link to={item.to} onClick={closeMenu} className="menu-link-styled">
+                            {item.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
+
+              {/* Hover preview — rotating text circle */}
+              <div
+                ref={previewRef}
+                className={`menu-hover-preview ${hoveredItem ? 'visible' : ''}`}
+              >
+                {hoveredItem && (
+                  <>
+                    <div className="preview-circle">
+                      <svg viewBox="0 0 200 200" className="rotating-text-svg">
+                        <defs>
+                          <path
+                            id="circlePath"
+                            d="M 100,100 m -75,0 a 75,75 0 1,1 150,0 a 75,75 0 1,1 -150,0"
+                          />
+                        </defs>
+                        <text>
+                          <textPath href="#circlePath" className="circle-text">
+                            {`${hoveredItem.preview} · `.repeat(4)}
+                          </textPath>
+                        </text>
+                      </svg>
+                      <div className="preview-inner">
+                        <div className="preview-icon-wrap" ref={iconWrapRef}>
+                          <ArrowForwardRoundedIcon sx={{ fontSize: 36, color: '#ffbb00' }} />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <div className="footer-header d-flex jcsb mt-100">
                 <div className="social-icons d-flex jscb gap-h-20">
                   <a href="https://wa.me/79999849107" target="_blank" rel="noopener noreferrer">
@@ -119,7 +189,7 @@ export function Header() {
         </div>
       </div>
 
-      {/* Боковая панель с кнопками связи */}
+      {/* Sidebar buttons */}
       <div className="btn-sidebar">
         <a href="https://t.me/+79999849107" target="_blank" rel="noopener noreferrer" aria-label="Telegram">
           <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -127,39 +197,32 @@ export function Header() {
               <circle cx="32" cy="36" r="25" fill="#1D1D1D"/>
               <circle cx="32" cy="36" r="24.5" stroke="url(#paint0_linear_1262_15618)"/>
             </g>
-            <path fillRule="evenodd" clipRule="evenodd" d="M52.6668 35.833C52.6668 47.3389 43.3394 56.6663 31.8335 56.6663C20.3276 56.6663 11.0001 47.3389 11.0001 35.833C11.0001 24.3271 20.3276 14.9997 31.8335 14.9997C43.3394 14.9997 52.6668 24.3271 52.6668 35.833ZM24.9511 33.9246C22.8641 34.8358 20.7198 35.7721 18.759 36.8521C17.7352 37.6017 19.0959 38.132 20.3726 38.6294C20.3736 38.6298 20.3747 38.6302 20.3757 38.6306C20.5776 38.7093 20.7773 38.7871 20.9651 38.8649C21.1223 38.9132 21.282 38.9641 21.4439 39.0156C22.8638 39.468 24.4469 39.9724 25.8254 39.2136C28.0896 37.913 30.2262 36.4093 32.3614 34.9068L32.362 34.9063C33.0616 34.414 33.761 33.9218 34.4646 33.4369C34.4976 33.4158 34.5348 33.3917 34.5755 33.3654C35.1749 32.9767 36.523 32.1029 36.0243 33.307C34.8463 34.5954 33.5845 35.7359 32.3158 36.8827C32.3146 36.8838 32.3134 36.8849 32.3122 36.886C31.4563 37.6595 30.5973 38.4359 29.7587 39.2623C29.0284 39.8557 28.27 41.049 29.0878 41.88C30.9691 43.1969 32.8798 44.4821 34.7894 45.7665C34.7917 45.768 34.794 45.7696 34.7963 45.7711C35.4184 46.1895 36.0406 46.6079 36.6614 47.0274C37.7137 47.8675 39.3582 47.1879 39.5895 45.8751C39.6897 45.2868 39.7904 44.6986 39.891 44.1103C39.8937 44.0947 39.8963 44.0791 39.899 44.0635C40.4698 40.7261 41.0408 37.3874 41.5453 34.0392C41.6138 33.5139 41.6915 32.9887 41.7693 32.4633L41.7694 32.4624C41.9579 31.1891 42.1465 29.9144 42.2054 28.6343C42.0535 27.3565 40.5042 27.6375 39.6421 27.9248C35.2105 29.6111 30.8231 31.4224 26.4532 33.2656C25.9581 33.4849 25.4563 33.704 24.9511 33.9246Z" fill="#1D1D1D"/>
+            <path fillRule="evenodd" clipRule="evenodd" d="M52.6668 35.833C52.6668 47.3389 43.3394 56.6663 31.8335 56.6663C20.3276 56.6663 11.0001 47.3389 11.0001 35.833C11.0001 24.3271 20.3276 14.9997 31.8335 14.9997C43.3394 14.9997 52.6668 24.3271 52.6668 35.833ZM24.9511 33.9246C22.8641 34.8358 20.7198 35.7721 18.759 36.8521C17.7352 37.6017 19.0959 38.132 20.3726 38.6294L20.3757 38.6306C20.5776 38.7093 20.7773 38.7871 20.9651 38.8649C21.1223 38.9132 21.282 38.9641 21.4439 39.0156C22.8638 39.468 24.4469 39.9724 25.8254 39.2136C28.0896 37.913 30.2262 36.4093 32.3614 34.9068L32.362 34.9063C33.0616 34.414 33.761 33.9218 34.4646 33.4369C34.4976 33.4158 34.5348 33.3917 34.5755 33.3654C35.1749 32.9767 36.523 32.1029 36.0243 33.307C34.8463 34.5954 33.5845 35.7359 32.3158 36.8827L32.3122 36.886C31.4563 37.6595 30.5973 38.4359 29.7587 39.2623C29.0284 39.8557 28.27 41.049 29.0878 41.88C30.9691 43.1969 32.8798 44.4821 34.7894 45.7665L34.7963 45.7711C35.4184 46.1895 36.0406 46.6079 36.6614 47.0274C37.7137 47.8675 39.3582 47.1879 39.5895 45.8751C39.6897 45.2868 39.7904 44.6986 39.891 44.1103L39.899 44.0635C40.4698 40.7261 41.0408 37.3874 41.5453 34.0392C41.6138 33.5139 41.6915 32.9887 41.7693 32.4633L41.7694 32.4624C41.9579 31.1891 42.1465 29.9144 42.2054 28.6343C42.0535 27.3565 40.5042 27.6375 39.6421 27.9248C35.2105 29.6111 30.8231 31.4224 26.4532 33.2656C25.9581 33.4849 25.4563 33.704 24.9511 33.9246Z" fill="#1D1D1D"/>
             <path d="M24.9511 33.9246C22.8641 34.8358 20.7198 35.7721 18.759 36.8521C17.7352 37.6017 19.0959 38.132 20.3726 38.6294L20.3757 38.6306C20.5776 38.7093 20.7773 38.7871 20.9651 38.8649C21.1223 38.9132 21.282 38.9641 21.4439 39.0156C22.8638 39.468 24.4469 39.9724 25.8254 39.2136C28.0896 37.913 30.2262 36.4093 32.3614 34.9068L32.362 34.9063C33.0616 34.414 33.761 33.9218 34.4646 33.4369C34.4976 33.4158 34.5348 33.3917 34.5755 33.3654C35.1749 32.9767 36.523 32.1029 36.0243 33.307C34.8463 34.5954 33.5845 35.7359 32.3158 36.8827L32.3122 36.886C31.4563 37.6595 30.5973 38.4359 29.7587 39.2623C29.0284 39.8557 28.27 41.049 29.0878 41.88C30.9691 43.1969 32.8798 44.4821 34.7894 45.7665L34.7963 45.7711C35.4184 46.1895 36.0406 46.6079 36.6614 47.0274C37.7137 47.8675 39.3582 47.1879 39.5895 45.8751C39.6897 45.2868 39.7904 44.6986 39.891 44.1103L39.899 44.0635C40.4698 40.7261 41.0408 37.3874 41.5453 34.0392C41.6138 33.5139 41.6915 32.9887 41.7693 32.4633L41.7694 32.4624C41.9579 31.1891 42.1465 29.9144 42.2054 28.6343C42.0535 27.3565 40.5042 27.6375 39.6421 27.9248C35.2105 29.6111 30.8231 31.4224 26.4532 33.2656C25.9581 33.4849 25.4563 33.704 24.9511 33.9246Z" fill="#434343"/>
             <defs>
               <filter id="filter0_ddii_1262_15618" x="0" y="0" width="64" height="64" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
                 <feFlood floodOpacity="0" result="BackgroundImageFix"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="2"/>
-                <feGaussianBlur stdDeviation="0.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
+                <feOffset dy="2"/><feGaussianBlur stdDeviation="0.5"/><feComposite in2="hardAlpha" operator="out"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0.0291667 0 0 0 0 0.0291667 0 0 0 0 0.0291667 0 0 0 1 0"/>
                 <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1262_15618"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="-4"/>
-                <feGaussianBlur stdDeviation="3.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
+                <feOffset dy="-4"/><feGaussianBlur stdDeviation="3.5"/><feComposite in2="hardAlpha" operator="out"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
                 <feBlend mode="normal" in2="effect2_dropShadow_1262_15618" result="shape"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dx="3" dy="1"/>
-                <feGaussianBlur stdDeviation="6"/>
+                <feOffset dx="3" dy="1"/><feGaussianBlur stdDeviation="6"/>
                 <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0.0833333 0 0 0 0 0.0833333 0 0 0 0 0.0833333 0 0 0 0.25 0"/>
                 <feBlend mode="normal" in2="shape" result="effect3_innerShadow_1262_15618"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dx="-2"/>
-                <feGaussianBlur stdDeviation="2"/>
+                <feOffset dx="-2"/><feGaussianBlur stdDeviation="2"/>
                 <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0"/>
                 <feBlend mode="normal" in2="effect3_innerShadow_1262_15618" result="effect4_innerShadow_1262_15618"/>
               </filter>
               <linearGradient id="paint0_linear_1262_15618" x1="40.5" y1="58" x2="17.5" y2="15.5" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#232323"/>
-                <stop offset="1" stopColor="#232323" stopOpacity="0"/>
+                <stop stopColor="#232323"/><stop offset="1" stopColor="#232323" stopOpacity="0"/>
               </linearGradient>
             </defs>
           </svg>
@@ -176,33 +239,26 @@ export function Header() {
               <filter id="filter0_ddii_1262_15446" x="0" y="0" width="64" height="64" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
                 <feFlood floodOpacity="0" result="BackgroundImageFix"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="2"/>
-                <feGaussianBlur stdDeviation="0.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
+                <feOffset dy="2"/><feGaussianBlur stdDeviation="0.5"/><feComposite in2="hardAlpha" operator="out"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0.0291667 0 0 0 0 0.0291667 0 0 0 0 0.0291667 0 0 0 1 0"/>
                 <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1262_15446"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="-4"/>
-                <feGaussianBlur stdDeviation="3.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
+                <feOffset dy="-4"/><feGaussianBlur stdDeviation="3.5"/><feComposite in2="hardAlpha" operator="out"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
                 <feBlend mode="normal" in2="effect2_dropShadow_1262_15446" result="shape"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dx="3" dy="1"/>
-                <feGaussianBlur stdDeviation="6"/>
+                <feOffset dx="3" dy="1"/><feGaussianBlur stdDeviation="6"/>
                 <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0.0833333 0 0 0 0 0.0833333 0 0 0 0 0.0833333 0 0 0 0.25 0"/>
-                <feBlend mode="normal" in2="effect3_innerShadow_1262_15446" result="shape"/>
+                <feBlend mode="normal" in2="shape" result="effect3_innerShadow_1262_15446"/>
                 <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dx="-2"/>
-                <feGaussianBlur stdDeviation="2"/>
+                <feOffset dx="-2"/><feGaussianBlur stdDeviation="2"/>
                 <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
                 <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0"/>
                 <feBlend mode="normal" in2="effect3_innerShadow_1262_15446" result="effect4_innerShadow_1262_15446"/>
               </filter>
               <linearGradient id="paint0_linear_1262_15446" x1="40.5" y1="58" x2="17.5" y2="15.5" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#232323"/>
-                <stop offset="1" stopColor="#232323" stopOpacity="0"/>
+                <stop stopColor="#232323"/><stop offset="1" stopColor="#232323" stopOpacity="0"/>
               </linearGradient>
             </defs>
           </svg>
@@ -218,4 +274,3 @@ export function Header() {
     </header>
   );
 }
-

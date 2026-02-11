@@ -123,8 +123,9 @@ export function UserFinancePlannerPage() {
             >
               ← Вернуться в кабинет
             </Button>
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-              💰 Финансовый планировщик
+            <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>Инструменты</Typography>
+            <Typography variant="h1" sx={{ fontSize: { xs: '1.8rem', md: '2.5rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 1 }}>
+              Финансовый планировщик
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Управляйте личными финансами и достигайте целей

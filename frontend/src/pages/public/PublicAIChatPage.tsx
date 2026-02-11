@@ -158,9 +158,10 @@ export function PublicAIChatPage() {
         url={currentUrl}
         noindex={true}
       />
-      <Container maxWidth="md" sx={{ py: 4, minHeight: '80vh' }}>
-        <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold', textAlign: 'center' }}>
-          AI Ассистент
+      <Container maxWidth="md" sx={{ pt: { xs: 12, md: 14 }, pb: 6, minHeight: '80vh' }}>
+        <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1, textAlign: 'center' }}>AI Ассистент</Typography>
+        <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3, textAlign: 'center' }}>
+          Задайте вопрос
         </Typography>
 
         <Paper

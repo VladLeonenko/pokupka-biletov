@@ -108,8 +108,8 @@ export function ReviewsPage() {
         sx={{
           minHeight: '100vh',
           color: '#fff',
-          pt: { xs: '120px', md: '140px' },
-          pb: { xs: '60px', md: '80px' },
+          pt: { xs: 12, md: 14 },
+          pb: { xs: 6, md: 10 },
         }}
       >
         <Container maxWidth="lg">
@@ -120,22 +120,26 @@ export function ReviewsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <Box sx={{ mb: 6, textAlign: 'center' }}>
+            <Box sx={{ mb: 6, position: 'relative' }}>
+              <Typography sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 'clamp(4rem,12vw,10rem)', fontWeight: 900, color: '#fff', opacity: 0.025, whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none', letterSpacing: '-0.04em' }}>
+                REVIEWS
+              </Typography>
+              <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>
+                Отзывы
+              </Typography>
               <Typography
                 variant="h1"
                 sx={{
-                  fontSize: { xs: '2.5rem', md: '4rem' },
-                  fontWeight: 700,
-                  mb: 2,
-                  background: 'linear-gradient(135deg, #ffbb00 0%, #ff9500 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  fontSize: { xs: '2rem', md: '3rem' },
+                  fontWeight: 800,
+                  color: '#fff',
+                  letterSpacing: '-0.03em',
+                  mb: 1.5,
                 }}
               >
                 Отзывы наших клиентов
               </Typography>
-              <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4 }}>
+              <Typography sx={{ color: 'rgba(255,255,255,0.55)', mb: 4, fontSize: { xs: '1rem', md: '1.15rem' } }}>
                 Честные мнения о работе с PrimeCoder
               </Typography>
 
@@ -358,7 +362,7 @@ export function ReviewsPage() {
                 onClick={() => setIsFormOpen(true)}
                 sx={{
                   bgcolor: '#ffbb00',
-                  color: '#000',
+                  color: '#141414',
                   fontWeight: 600,
                   px: 3,
                   py: 1.5,
@@ -471,7 +475,7 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful: (id: num
                   width: 56,
                   height: 56,
                   bgcolor: '#ffbb00',
-                  color: '#000',
+                  color: '#141414',
                   fontWeight: 700,
                   fontSize: '1.5rem',
                 }}

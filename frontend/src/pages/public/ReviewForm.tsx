@@ -311,7 +311,7 @@ export function ReviewForm({ onClose }: ReviewFormProps) {
               startIcon={mutation.isPending ? <CircularProgress size={20} /> : <SendIcon />}
               sx={{
                 bgcolor: '#ffbb00',
-                color: '#000',
+                color: '#141414',
                 fontWeight: 600,
                 px: 4,
                 '&:hover': {

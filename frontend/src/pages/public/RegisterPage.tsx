@@ -227,10 +227,11 @@ export function RegisterPage() {
           >
             {!requiresVerification ? (
               <>
-                <Typography variant="h4" component="h1" gutterBottom align="center">
+                <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1, textAlign: 'center' }}>Аккаунт</Typography>
+                <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.8rem', md: '2.25rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 1, textAlign: 'center' }}>
                   Регистрация
                 </Typography>
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+                <Typography sx={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', mb: 3 }}>
                   Создайте аккаунт для доступа к личному кабинету
                 </Typography>
 

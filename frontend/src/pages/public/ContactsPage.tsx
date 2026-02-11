@@ -1,71 +1,35 @@
-import { useEffect } from 'react';
-import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
+import { Box, Container } from '@mui/material';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import { PageHeader } from '@/components/common/PageHeader';
 import { ContactsInfoSection } from '@/components/contacts/ContactsInfoSection';
 import { SocialNetworkSection } from '@/components/contacts/SocialNetworkSection';
 import { ContactFormSection } from '@/components/contacts/ContactFormSection';
-import { BackgroundImagesSection } from '@/components/contacts/BackgroundImagesSection';
 
-/**
- * Страница "Контакты" - полностью на React компонентах
- * Структура: контактная информация, социальные сети, форма обратной связи, фоновые изображения
- */
 export function ContactsPage() {
-  useEffect(() => {
-    document.body.setAttribute('data-page', '/contacts');
-    
-    // Убеждаемся, что стили загружены
-    const ensureStylesLoaded = () => {
-      const pageContent = document.querySelector('.page-content');
-      if (pageContent) {
-        pageContent.classList.add('styles-loaded');
-      }
-    };
-    
-    // Проверяем, загружены ли уже стили
-    const styleLoaded = document.querySelector('link[href*="style.min.css"]');
-    if (styleLoaded) {
-      ensureStylesLoaded();
-    } else {
-      // Если стили не загружены, загружаем их
-      const styleLink = document.createElement('link');
-      styleLink.rel = 'stylesheet';
-      styleLink.href = '/legacy/css/style.min.css';
-      styleLink.media = 'all';
-      styleLink.onload = ensureStylesLoaded;
-      document.head.appendChild(styleLink);
-      
-      // Fallback: если стили не загрузились за 200ms, показываем контент все равно
-      setTimeout(ensureStylesLoaded, 200);
-    }
-  }, []);
-
   const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://primecoder.ru/contacts';
 
   return (
     <>
       <SeoMetaTags
         title="Контакты PrimeCoder - Свяжитесь с нами"
-        description="Контактная информация веб-студии PrimeCoder. Телефон, email, адрес, график работы. Оставьте заявку через форму обратной связи."
-        keywords="контакты PrimeCoder, связаться с PrimeCoder, телефон веб-студии, email PrimeCoder, адрес PrimeCoder"
+        description="Контактная информация веб-студии PrimeCoder. Телефон, email, адрес, график работы."
+        keywords="контакты PrimeCoder, связаться с PrimeCoder, телефон, email, адрес"
         url={currentUrl}
-        image="https://primecoder.ru/legacy/img/logo.png"
       />
-      <HeaderFooterInjector />
-      <div className="page-content" style={{ minHeight: '100vh', paddingTop: '100px', position: 'relative' }}>
-        <div className="container">
-          <section>
-            <div className="d-flex jcsb gap-h-30 contacts-block">
-              <div className="d-flex flex-column">
-                <ContactsInfoSection />
-                <SocialNetworkSection />
-              </div>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+        <Container maxWidth="lg">
+          <PageHeader overline="Контакты" title="Свяжитесь с нами" description="Москва, ул. Земляной Вал, 50Ас5. Пн–Пт 9:00–22:00." decoText="CONTACT" />
+          <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }} data-anim="fade-up">
+            <Box sx={{ flex: 1 }}>
+              <ContactsInfoSection />
+              <SocialNetworkSection />
+            </Box>
+            <Box sx={{ flex: 1 }}>
               <ContactFormSection />
-            </div>
-          </section>
-        </div>
-        <BackgroundImagesSection />
-      </div>
+            </Box>
+          </Box>
+        </Container>
+      </Box>
     </>
   );
 }

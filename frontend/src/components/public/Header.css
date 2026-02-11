@@ -52,6 +52,41 @@ header .header .header {
   padding: 0;
 }
 
+/* Menu link — крупнее, жирнее */
+.menu-link-styled {
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-decoration: none !important;
+  display: block;
+  padding: 12px 0;
+  font-family: 'Raleway', sans-serif !important;
+  font-size: 1.35rem;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  transition: color 0.3s ease, transform 0.2s ease, letter-spacing 0.3s ease !important;
+  position: relative;
+}
+
+.menu-link-styled:hover {
+  color: #fff !important;
+  letter-spacing: 0.04em;
+  transform: translateX(6px);
+}
+
+.menu-link-styled::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #ffbb00;
+  transition: width 0.3s ease;
+}
+
+.menu-link-styled:hover::after {
+  width: 100%;
+}
+
 .menu-navigation a {
   color: inherit;
   text-decoration: none;
@@ -62,6 +97,95 @@ header .header .header {
 
 .menu-navigation a:hover {
   color: #ffbb00;
+}
+
+/* Меню: на всю ширину контейнера + навигация по центру по вертикали */
+.menu .menu-inner {
+  display: flex;
+  align-items: center;
+  min-height: 100vh;
+  padding-top: 0;
+  width: 100%;
+}
+.menu .menu-inner .container {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+  padding-top: 12vh !important;
+  padding-bottom: 12vh !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Hover preview — rotating text circle */
+.menu-hover-preview {
+  position: absolute;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 180px;
+  height: 180px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.menu-hover-preview.visible {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.preview-circle {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+
+.rotating-text-svg {
+  width: 100%;
+  height: 100%;
+  animation: rotateSvg 12s linear infinite;
+}
+
+.circle-text {
+  fill: rgba(255, 187, 0, 0.35);
+  font-size: 11px;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.preview-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 187, 0, 0.2);
+  background: rgba(255, 187, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview-icon-wrap svg {
+  width: 36px;
+  height: 36px;
+  color: #ffbb00;
+}
+
+@keyframes rotateSvg {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Адаптивность для планшетов (768px - 1024px) */

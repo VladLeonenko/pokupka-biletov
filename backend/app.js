@@ -117,6 +117,8 @@ app.use(helmet({
         "https://cdn.jsdelivr.net", // GSAP
         "https://www.googletagmanager.com",
         "https://www.google-analytics.com",
+        "https://cc.calltracking.ru", // Коллтрекинг
+        "https://mc.yandex.ru", // Яндекс.Метрика
         ...(isDevelopment ? ["'unsafe-eval'"] : []),
       ],
       styleSrc: [
@@ -140,6 +142,8 @@ app.use(helmet({
       connectSrc: [
         "'self'",
         "https://api.openai.com",
+        "https://mc.yandex.ru", // Яндекс.Метрика
+        "https://cc.calltracking.ru", // Коллтрекинг
         "http://localhost:3000",
         "http://localhost:5173",
         "ws://localhost:5173", // WebSocket для Vite HMR

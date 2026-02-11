@@ -62,7 +62,8 @@ export function OrderDetailPage() {
           Назад в личный кабинет
         </Button>
 
-        <Typography variant="h4" sx={{ mb: 3 }}>
+        <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>Заказ</Typography>
+        <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3 }}>
           Заказ №{order.orderNumber}
         </Typography>
 

@@ -168,8 +168,9 @@ export function SeoPositionCheckerPage() {
         description="Инструмент для мониторинга позиций сайта по ключевым запросам"
         url={currentUrl}
       />
-      <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-        <Typography variant="h4" sx={{ mb: 3 }}>Проверка видимости и позиций</Typography>
+      <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto', pt: { xs: 10, md: 12 } }}>
+        <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>SEO</Typography>
+        <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3 }}>Проверка позиций</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           Мониторинг позиций вашего сайта по ключевым запросам в поисковых системах
         </Typography>

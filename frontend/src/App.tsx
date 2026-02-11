@@ -8,6 +8,7 @@ import { CookieConsentProvider } from '@/components/privacy/CookieConsentProvide
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
 import { Header } from '@/components/public/Header';
 import { Footer } from '@/components/public/Footer';
+import { BackgroundSphere } from '@/components/common/BackgroundSphere';
 import { HiddenPromoCodeInjector } from '@/components/public/HiddenPromoCodeInjector';
 import { GlobalFormValidator } from '@/components/common/GlobalFormValidator';
 import { FaviconNotificationTracker } from '@/components/common/FaviconNotificationTracker';
@@ -17,6 +18,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
+import { usePageAnimations } from '@/hooks/usePageAnimations';
 
 export default function App() {
   const location = useLocation();
@@ -26,9 +28,9 @@ export default function App() {
   const isLoginPage = /^\/admin\/login$/i.test(normalizedPath);
   const shouldUseAdminLayout = isAdminRoute && !isLoginPage && !!token && user?.role === 'admin';
   useCacheVersionWatcher();
-  // Включаем кастомный курсор на нужных публичных React-страницах (AI-команда, AI-ассистент, ЛК и т.п.).
-  // Хук сам проверяет маршрут и не трогает legacy-страницы, где работает оригинальный cursor/app.min.js.
   useCursor(normalizedPath);
+  // GSAP scroll animations for [data-anim] elements on all public pages
+  usePageAnimations(normalizedPath);
   
   // If user tries to access admin routes without auth, redirect to login
   // Except for the login page itself
@@ -82,6 +84,8 @@ export default function App() {
                 padding-top: 0 !important;
               }
             `}</style>
+            {/* Фоновая сфера для всех публичных страниц */}
+            <BackgroundSphere />
             {/* React Header компонент для всех публичных React страниц */}
             <Header />
             {/* Скрытые промокоды на сайте */}

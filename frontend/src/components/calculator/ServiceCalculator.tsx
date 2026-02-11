@@ -105,19 +105,17 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
           sx={{
             fontWeight: 700,
             mb: 2,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            color: '#fff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 2,
           }}
         >
-          <Calculate sx={{ fontSize: '2.5rem', color: '#667eea' }} />
+          <Calculate sx={{ fontSize: '2.5rem', color: '#ffbb00' }} />
           Калькулятор стоимости
         </Typography>
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.5)' }}>
           {serviceConfig.name}
         </Typography>
       </Box>
@@ -147,10 +145,10 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                         p: 2.5,
                         cursor: 'pointer',
                         border: '2px solid',
-                        borderColor: state.tariff === tariff.id ? '#667eea' : 'transparent',
+                        borderColor: state.tariff === tariff.id ? '#ffbb00' : 'transparent',
                         transition: 'all 0.3s',
                         position: 'relative',
-                        '&:hover': { borderColor: '#667eea', transform: 'translateY(-2px)' },
+                        '&:hover': { borderColor: '#ffbb00', transform: 'translateY(-2px)' },
                       }}
                       onClick={() => handleTariffChange(tariff.id)}
                     >
@@ -163,7 +161,7 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                             position: 'absolute',
                             top: -12,
                             right: 16,
-                            bgcolor: '#667eea',
+                            bgcolor: '#ffbb00',
                             color: 'white',
                             fontWeight: 600,
                           }}
@@ -171,16 +169,16 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                       )}
                       <FormControlLabel
                         value={tariff.id}
-                        control={<Radio sx={{ color: '#667eea' }} />}
+                        control={<Radio sx={{ color: '#ffbb00' }} />}
                         label={
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', ml: 1 }}>
                             <Box>
                               <Typography variant="h6" fontWeight={600}>{tariff.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                                 {serviceConfig.hours[tariff.id]}ч работы
                               </Typography>
                             </Box>
-                            <Typography variant="h5" fontWeight={700} color="primary">
+                            <Typography variant="h5" fontWeight={700} sx={{ color: '#ffbb00' }}>
                               {formatPrice(tariff.price)}
                             </Typography>
                           </Box>
@@ -208,9 +206,9 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                       p: 2,
                       cursor: 'pointer',
                       border: '2px solid',
-                      borderColor: state.selectedUpsells.includes(upsell.id) ? '#764ba2' : 'transparent',
+                      borderColor: state.selectedUpsells.includes(upsell.id) ? '#e5a800' : 'transparent',
                       transition: 'all 0.3s',
-                      '&:hover': { borderColor: '#764ba2' },
+                      '&:hover': { borderColor: '#e5a800' },
                     }}
                     onClick={() => handleUpsellToggle(upsell.id)}
                   >
@@ -218,7 +216,7 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                       control={
                         <Checkbox
                           checked={state.selectedUpsells.includes(upsell.id)}
-                          sx={{ color: '#764ba2' }}
+                          sx={{ color: '#e5a800' }}
                         />
                       }
                       label={
@@ -228,10 +226,10 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                             <Chip
                               label={upsell.recurring ? `${formatPrice(upsell.price)}/мес` : formatPrice(upsell.price)}
                               size="small"
-                              color="secondary"
+                              sx={{ bgcolor: 'rgba(255,187,0,0.15)', color: '#ffbb00' }}
                             />
                           </Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>
                             {upsell.description}
                           </Typography>
                           {upsell.conversionBoost && (
@@ -239,7 +237,7 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                               label={upsell.conversionBoost}
                               size="small"
                               icon={<TrendingUp />}
-                              sx={{ bgcolor: 'rgba(118, 75, 162, 0.1)', color: '#764ba2', fontWeight: 600 }}
+                              sx={{ bgcolor: 'rgba(255, 187, 0, 0.1)', color: '#e5a800', fontWeight: 600 }}
                             />
                           )}
                         </Box>
@@ -265,7 +263,7 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                 onChange={(e) => handleRevenueChange(parseInt(e.target.value))}
                 sx={{ mb: 2 }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                 * Укажите примерную выручку для расчёта окупаемости
               </Typography>
             </Box>
@@ -279,7 +277,7 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
               sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #ffbb00 0%, #e5a800 100%)',
                 color: 'white',
               }}
             >
@@ -309,20 +307,20 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                 </Typography>
                 <Stack spacing={2}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Доп. прибыль в месяц</Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>Доп. прибыль в месяц</Typography>
                     <Typography variant="h5" fontWeight={600} color="success.main">
                       +{formatPrice(roiResult.monthlyProfit)}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Окупаемость</Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>Окупаемость</Typography>
                     <Typography variant="h5" fontWeight={600}>
                       {formatMonths(roiResult.paybackMonths)}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Прибыль за год</Typography>
-                    <Typography variant="h5" fontWeight={600} color="primary">
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>Прибыль за год</Typography>
+                    <Typography variant="h5" fontWeight={600} sx={{ color: '#ffbb00' }}>
                       +{formatPrice(roiResult.yearlyProfit)}
                     </Typography>
                   </Box>
@@ -342,16 +340,16 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                 </Typography>
                 <Stack spacing={2}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Средняя цена на рынке:</Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.5)' }}>Средняя цена на рынке:</Typography>
                     <Typography fontWeight={600}>{formatPrice(roiResult.marketComparison)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Prime Coder:</Typography>
-                    <Typography fontWeight={600} color="primary">{formatPrice(roiResult.totalCost)}</Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.5)' }}>Prime Coder:</Typography>
+                    <Typography fontWeight={600} sx={{ color: '#ffbb00' }}>{formatPrice(roiResult.totalCost)}</Typography>
                   </Box>
                   <Divider />
                   <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Ваша экономия:</Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mb: 1 }}>Ваша экономия:</Typography>
                     <Typography variant="h4" fontWeight={700} color="success.main">
                       {formatPrice(roiResult.savings)}
                     </Typography>
@@ -382,9 +380,9 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                 py: 2,
                 fontSize: '1.1rem',
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #ffbb00 0%, #e5a800 100%)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  background: 'linear-gradient(135deg, #e5a800 0%, #ffbb00 100%)',
                 },
               }}
             >

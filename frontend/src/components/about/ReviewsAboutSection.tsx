@@ -93,7 +93,7 @@ export function ReviewsAboutSection() {
                       width: 56,
                       height: 56,
                       bgcolor: '#ffbb00',
-                      color: '#000',
+                      color: '#141414',
                       fontWeight: 700,
                       fontSize: '1.5rem',
                     }}

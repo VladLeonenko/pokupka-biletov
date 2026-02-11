@@ -138,32 +138,23 @@ export function EcommerceHeaderIcons() {
               order: 998;
             }
             
-            /* Все иконки одинакового размера 40x40 */
             .ecommerce-icons-container-global .MuiIconButton-root {
               width: 40px;
               height: 40px;
               padding: 8px;
             }
-            
             .ecommerce-icons-container-global .MuiSvgIcon-root {
               font-size: 24px;
             }
             
-            /* Адаптивность - используем оригинальные стили из CSS */
-              
-              .ecommerce-icons-container-global {
-                gap: 2px;
-              }
-              
+            @media (max-width: 768px) {
+              .ecommerce-icons-container-global { gap: 2px; }
               .ecommerce-icons-container-global .MuiIconButton-root {
                 width: 36px;
                 height: 36px;
                 padding: 6px;
               }
-              
-              .ecommerce-icons-container-global .MuiSvgIcon-root {
-                font-size: 20px;
-              }
+              .ecommerce-icons-container-global .MuiSvgIcon-root { font-size: 20px; }
             }
           `;
           document.head.appendChild(style);
@@ -220,54 +211,21 @@ export function EcommerceHeaderIcons() {
   }
 
   const iconsContent = (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
+    <Box sx={{
+      display: 'flex',
+      alignItems: 'center',
       gap: 0.5,
-      '& .MuiIconButton-root': {
-        width: '40px',
-        height: '40px',
-        padding: '8px',
-      },
-      '& .MuiSvgIcon-root': {
-        fontSize: '24px',
-      },
+      '& .MuiIconButton-root': { width: 40, height: 40, padding: 1 },
+      '& .MuiSvgIcon-root': { fontSize: 24 },
     }}>
-      <IconButton
-        onClick={() => navigate('/search')}
-        sx={{ color: 'inherit' }}
-        aria-label="Поиск"
-      >
-        <Search />
+      <IconButton onClick={() => navigate('/search')} sx={{ color: 'inherit' }} aria-label="Поиск"><Search /></IconButton>
+      <IconButton onClick={() => navigate('/wishlist')} sx={{ color: 'inherit' }} aria-label="Избранное">
+        <Badge badgeContent={wishlistCount} color="error" max={99}><Favorite /></Badge>
       </IconButton>
-
-      <IconButton
-        onClick={() => navigate('/wishlist')}
-        sx={{ color: 'inherit' }}
-        aria-label="Избранное"
-      >
-        <Badge badgeContent={wishlistCount} color="error" max={99}>
-          <Favorite />
-        </Badge>
+      <IconButton onClick={() => navigate('/cart')} sx={{ color: 'inherit' }} aria-label="Корзина">
+        <Badge badgeContent={cartCount} color="error" max={99}><ShoppingCart /></Badge>
       </IconButton>
-
-      <IconButton
-        onClick={() => navigate('/cart')}
-        sx={{ color: 'inherit' }}
-        aria-label="Корзина"
-      >
-        <Badge badgeContent={cartCount} color="error" max={99}>
-          <ShoppingCart />
-        </Badge>
-      </IconButton>
-
-      <IconButton
-        onClick={() => navigate('/account')}
-        sx={{ color: 'inherit' }}
-        aria-label="Личный кабинет"
-      >
-        <Person />
-      </IconButton>
+      <IconButton onClick={() => navigate('/account')} sx={{ color: 'inherit' }} aria-label="Личный кабинет"><Person /></IconButton>
     </Box>
   );
 

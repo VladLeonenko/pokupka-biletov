@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Box, Button } from '@mui/material';
 
 const cases = [
   {
@@ -128,6 +130,25 @@ export function CasesSection() {
           </div>
         ))}
       </div>
+        <Box sx={{ textAlign: 'center', mt: 5 }}>
+          <Button
+            component={Link}
+            to="/portfolio"
+            variant="outlined"
+            sx={{
+              borderColor: 'rgba(255,255,255,0.3)',
+              color: '#fff',
+              fontSize: '1rem',
+              px: 4,
+              py: 1.5,
+              borderRadius: 2,
+              letterSpacing: '0.05em',
+              '&:hover': { borderColor: '#ffbb00', color: '#ffbb00' },
+            }}
+          >
+            Смотреть все кейсы
+          </Button>
+        </Box>
       </section>
     </div>
   );

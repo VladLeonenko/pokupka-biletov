@@ -1,1082 +1,268 @@
-import { useState, useMemo, useEffect, useRef, useLayoutEffect, SyntheticEvent } from 'react';
+import { useState, useMemo, useRef, useCallback, SyntheticEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box, Container, Typography, CircularProgress
-} from '@mui/material';
+import { Box, Container, Typography, CircularProgress, Chip, IconButton } from '@mui/material';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { listPublicCases } from '@/services/publicApi';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import { PageHeader } from '@/components/common/PageHeader';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
-import { SafeImage } from '@/components/common/SafeImage';
 
 type Category = 'all' | 'website' | 'mobile' | 'ai' | 'seo' | 'advertising' | 'design' | 'marketing';
 
-function getCategoryFromCase(caseItem: any): 'website' | 'mobile' | 'ai' | 'seo' | 'advertising' | 'design' | 'marketing' {
-  // Если категория указана явно, используем её
-  if (caseItem.category && ['website', 'mobile', 'ai', 'seo', 'advertising', 'design', 'marketing'].includes(caseItem.category)) {
-    return caseItem.category;
-  }
-  
-  // Определяем категорию по tools, title, summary или другим признакам
-  const tools = caseItem.tools || [];
-  const title = (caseItem.title || '').toLowerCase();
-  const summary = (caseItem.summary || '').toLowerCase();
-  const tags = (caseItem.tags || []).map((t: string) => t.toLowerCase());
-  
-  // AI Boost Team
-  if (
-    title.includes('ai') ||
-    title.includes('искусственный интеллект') ||
-    title.includes('boost team') ||
-    summary.includes('ai') ||
-    summary.includes('искусственный интеллект') ||
-    summary.includes('boost team') ||
-    tags.some((t: string) => t.includes('ai') || t.includes('boost'))
-  ) {
-    return 'ai';
-  }
-  
-  // SEO / Продвижение
-  if (
-    title.includes('seo') ||
-    title.includes('продвижение') ||
-    title.includes('вывод в топ') ||
-    title.includes('позиции') ||
-    summary.includes('seo') ||
-    summary.includes('продвижение') ||
-    summary.includes('вывод в топ') ||
-    tags.some((t: string) => t.includes('seo') || t.includes('продвижение'))
-  ) {
-    return 'seo';
-  }
-  
-  // Маркетинг (проверяем перед рекламой)
-  if (
-    title.includes('маркетинг') ||
-    title.includes('marketing') ||
-    title.includes('smm') ||
-    title.includes('социальные сети') ||
-    title.includes('контент-маркетинг') ||
-    title.includes('email-маркетинг') ||
-    summary.includes('маркетинг') ||
-    summary.includes('marketing') ||
-    summary.includes('smm') ||
-    summary.includes('социальные сети') ||
-    tags.some((t: string) => t.includes('маркетинг') || t.includes('marketing') || t.includes('smm'))
-  ) {
-    return 'marketing';
-  }
-  
-  // Реклама
-  if (
-    title.includes('реклама') ||
-    title.includes('контекст') ||
-    title.includes('таргет') ||
-    summary.includes('реклама') ||
-    summary.includes('контекст') ||
-    summary.includes('таргет') ||
-    tags.some((t: string) => t.includes('реклама') || t.includes('контекст'))
-  ) {
-    return 'advertising';
-  }
-  
-  // Дизайн
-  if (
-    title.includes('дизайн') ||
-    title.includes('брендинг') ||
-    title.includes('логотип') ||
-    summary.includes('дизайн') ||
-    summary.includes('брендинг') ||
-    tags.some((t: string) => t.includes('дизайн') || t.includes('брендинг'))
-  ) {
-    return 'design';
-  }
-  
-  // Мобильное приложение
-  if (
-    title.includes('app') || 
-    title.includes('приложение') || 
-    title.includes('mobile') ||
-    summary.includes('app') ||
-    summary.includes('приложение') ||
-    summary.includes('mobile') ||
-    tools.some((t: string) => {
-      const toolLower = t.toLowerCase();
-      return toolLower.includes('react native') || 
-             toolLower.includes('flutter') || 
-             toolLower.includes('ios') || 
-             toolLower.includes('android') ||
-             toolLower.includes('swift') ||
-             toolLower.includes('kotlin');
-    })
-  ) {
-    return 'mobile';
-  }
-  
-  // По умолчанию - веб-сайт
+const CATS: { val: Category; label: string }[] = [
+  { val: 'all', label: 'Все' },
+  { val: 'website', label: 'Сайты' },
+  { val: 'mobile', label: 'Мобильные' },
+  { val: 'ai', label: 'AI' },
+  { val: 'seo', label: 'SEO' },
+  { val: 'advertising', label: 'Реклама' },
+  { val: 'design', label: 'Дизайн' },
+  { val: 'marketing', label: 'Маркетинг' },
+];
+
+function getCat(c: any): Category {
+  if (c.category && ['website', 'mobile', 'ai', 'seo', 'advertising', 'design', 'marketing'].includes(c.category)) return c.category;
+  const t = ((c.title || '') + ' ' + (c.summary || '')).toLowerCase();
+  const tags = (c.tags || []).join(' ').toLowerCase();
+  const all = t + ' ' + tags;
+  if (all.includes('ai') || all.includes('boost')) return 'ai';
+  if (all.includes('seo') || all.includes('продвижение')) return 'seo';
+  if (all.includes('маркетинг') || all.includes('smm')) return 'marketing';
+  if (all.includes('реклама') || all.includes('контекст') || all.includes('таргет')) return 'advertising';
+  if (all.includes('дизайн') || all.includes('figma') || all.includes('ui/ux')) return 'design';
+  if (all.includes('мобил') || all.includes('app') || all.includes('flutter') || all.includes('react native')) return 'mobile';
   return 'website';
 }
 
 export function PortfolioPage() {
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState<Category>('all');
-  const [slidesToShow, setSlidesToShow] = useState(4);
-  const [slideWidth, setSlideWidth] = useState<number>(0); // State для ширины слайда
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const carouselContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Состояние для плавной прокрутки
-  const scrollPositionRef = useRef(0); // Текущая позиция прокрутки в пикселях
-  const velocityRef = useRef(0); // Скорость прокрутки
-  const animationFrameRef = useRef<number | null>(null);
-  const isPausedRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const isHorizontalDragRef = useRef(false);
-  
-  // Автопрокрутка: скорость в пикселях в секунду (увеличено для плавности)
-  const AUTO_SCROLL_SPEED = 50; // пикселей в секунду - плавная непрерывная прокрутка
-  const FRICTION = 0.95; // Коэффициент трения для плавной остановки
+  const [cat, setCat] = useState<Category>('all');
+  const [current, setCurrent] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  const { data: cases = [], isLoading } = useQuery({
-    queryKey: ['publicCases'],
-    queryFn: listPublicCases,
-  });
+  const { data: cases = [], isLoading } = useQuery({ queryKey: ['publicCases'], queryFn: listPublicCases });
+  const filtered = useMemo(() => {
+    const f = cat === 'all' ? cases : cases.filter((c: any) => getCat(c) === cat);
+    return f;
+  }, [cases, cat]);
 
-  // Определяем количество слайдов в зависимости от ширины экрана (уменьшено для увеличения размера карточек на 20%)
-  useEffect(() => {
-    const updateSlidesToShow = () => {
-      const width = window.innerWidth;
-      if (width < 600) {
-        setSlidesToShow(1); // xs: 1 слайд
-      } else if (width < 960) {
-        setSlidesToShow(1.6); // sm: ~1.6 слайда (вместо 2, чтобы карточки были на ~20% больше)
-      } else if (width < 1280) {
-        setSlidesToShow(2.4); // md: ~2.4 слайда (вместо 3)
-      } else {
-        setSlidesToShow(3.2); // lg+: ~3.2 слайда (вместо 4, чтобы карточки были на ~20% больше)
-      }
-    };
-
-    updateSlidesToShow();
-    window.addEventListener('resize', updateSlidesToShow);
-    return () => window.removeEventListener('resize', updateSlidesToShow);
+  const handleCatChange = useCallback((val: Category) => {
+    setCat(val);
+    setCurrent(0);
   }, []);
 
-  // Фильтруем кейсы по категории
-  const filteredCases = useMemo(() => {
-    if (selectedCategory === 'all') {
-      // Для "Портфолио" показываем микс всех категорий в случайном порядке
-      const shuffled = [...cases].sort(() => Math.random() - 0.5);
-      return shuffled;
-    }
-    return cases.filter((caseItem: any) => {
-      const category = getCategoryFromCase(caseItem);
-      return category === selectedCategory;
-    });
-  }, [cases, selectedCategory]);
-  
-  // Генерируем заглушку для кейса (как в TeamCarousel)
-  const getCasePlaceholder = (caseItem: any): string => {
-    // Получаем первые буквы из названия
-    const title = caseItem.title || 'Кейс';
-    const words = title.split(' ').filter(w => w.length > 0);
-    if (words.length >= 2) {
-      return (words[0][0] + words[1][0]).toUpperCase();
-    }
-    if (words.length === 1 && words[0].length >= 2) {
-      return words[0].substring(0, 2).toUpperCase();
-    }
-    return 'КЕ';
-  };
-  
-  // Проверяем, нужно ли показывать заглушку
-  const shouldShowPlaceholder = (caseItem: any): boolean => {
-    // Показываем заглушку только если нет ни одного источника изображения
-    const hasHeroImage = caseItem.heroImageUrl && caseItem.heroImageUrl.trim().length > 0;
-    const hasDonorImage = caseItem.donorImageUrl && caseItem.donorImageUrl.trim().length > 0;
-    const hasCoverPath = caseItem.slug && caseItem.slug.trim().length > 0; // cover.png будет проверен при загрузке
-    return !hasHeroImage && !hasDonorImage && !hasCoverPath;
-  };
+  const prev = () => setCurrent((p) => Math.max(0, p - 1));
+  const next = () => setCurrent((p) => Math.min(filtered.length - 1, p + 1));
+  const handleClick = (slug: string) => navigate(`/cases/${slug}`);
 
-  // Сортируем кейсы по дате создания (новые сначала)
-  const sortedCases = useMemo(() => {
-    return [...filteredCases].sort((a: any, b: any) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
-    });
-  }, [filteredCases]);
+  if (isLoading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 20 }}><CircularProgress sx={{ color: '#ffbb00' }} /></Box>;
+  }
 
-  // Плавная бесконечная прокрутка с requestAnimationFrame
-  useLayoutEffect(() => {
-    if (sortedCases.length === 0 || !carouselContainerRef.current || !carouselRef.current) {
-      return;
-    }
-    const container = carouselContainerRef.current;
-    const carousel = carouselRef.current;
-    
-    // Принудительно вызываем reflow для обновления размеров
-    void carousel.offsetHeight;
-    
-    // Ждем несколько кадров для гарантии правильного расчета размеров DOM
-    let rafCount = 0;
-    const initCarousel = () => {
-      if (!container || !carousel) return;
-      
-      // Вычисляем ширину одного слайда
-      const getSlideWidth = () => {
-        return carousel.offsetWidth / slidesToShow;
-      };
-
-      // Вычисляем общую ширину всех слайдов в одном наборе
-      const getSetWidth = () => {
-        return sortedCases.length * getSlideWidth();
-      };
-
-      // Проверяем, что размеры рассчитаны корректно
-      const slideWidth = getSlideWidth();
-      
-      if ((slideWidth === 0 || !isFinite(slideWidth)) && rafCount < 10) {
-        rafCount++;
-        requestAnimationFrame(initCarousel);
-        return;
-      }
-      
-      if (slideWidth === 0 || !isFinite(slideWidth)) {
-        return;
-      }
-
-      // Обновляем state для ширины слайда (триггерит ре-рендер с правильными размерами)
-      setSlideWidth(slideWidth);
-
-      // Инициализируем позицию (начинаем со второго набора)
-      const setWidth = getSetWidth();
-      scrollPositionRef.current = setWidth;
-
-      const animate = (currentTime: number) => {
-        if (!container || !carousel) return;
-
-        const slideWidth = getSlideWidth();
-        const setWidth = getSetWidth();
-      
-      // Вычисляем deltaTime для плавной анимации
-      const deltaTime = lastTimeRef.current ? (currentTime - lastTimeRef.current) / 1000 : 0.016; // ~60fps
-      lastTimeRef.current = currentTime;
-
-      // Применяем автопрокрутку, если не на паузе и не перетаскиваем
-      // Изменено направление: теперь прокручивается ВПРАВО (было влево)
-      if (!isPausedRef.current && !isDraggingRef.current && !isHorizontalDragRef.current) {
-        scrollPositionRef.current += AUTO_SCROLL_SPEED * deltaTime;
-      }
-
-      // Применяем инерцию от перетаскивания
-      if (velocityRef.current !== 0) {
-        scrollPositionRef.current += velocityRef.current * deltaTime;
-        velocityRef.current *= FRICTION;
-        
-        // Останавливаем, если скорость стала слишком малой
-        if (Math.abs(velocityRef.current) < 0.1) {
-          velocityRef.current = 0;
-        }
-      }
-
-      // Смещение от перетаскивания применяется напрямую в обработчиках мыши и тача
-
-      // Бесконечная прокрутка: зацикливание
-      if (scrollPositionRef.current < 0) {
-        scrollPositionRef.current += setWidth * 2;
-      } else if (scrollPositionRef.current > setWidth * 2) {
-        scrollPositionRef.current -= setWidth * 2;
-      }
-
-      // Применяем трансформацию без transition для максимальной плавности
-      container.style.transform = `translateX(-${scrollPositionRef.current}px)`;
-      container.style.transition = 'none';
-
-        // Продолжаем анимацию
-        animationFrameRef.current = requestAnimationFrame(animate);
-      };
-
-      // Запускаем анимацию
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    // Запускаем инициализацию через несколько кадров для гарантии
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(initCarousel);
-      });
-    });
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    };
-  }, [sortedCases.length, slidesToShow]);
-
-  // Сбрасываем позицию при изменении категории (но НЕ останавливаем анимацию)
-  useEffect(() => {
-    // Сбрасываем состояние взаимодействия
-    velocityRef.current = 0;
-    isPausedRef.current = false;
-    isDraggingRef.current = false;
-    isHorizontalDragRef.current = false;
-    
-    // Устанавливаем начальную позицию для новой категории
-    if (sortedCases.length > 0 && carouselRef.current) {
-      const slideWidth = carouselRef.current.offsetWidth / slidesToShow;
-      const setWidth = sortedCases.length * slideWidth;
-      scrollPositionRef.current = setWidth; // Начинаем со второго набора
-    }
-  }, [selectedCategory]);
-
-  const handleCaseClick = (slug: string) => {
-    if (!isDraggingRef.current && !isHorizontalDragRef.current) {
-      navigate(`/cases/${slug}`);
-    }
-  };
-
-  const handleMouseEnter = () => {
-    // НЕ останавливаем автопрокрутку при наведении - только при активном взаимодействии
-    if (carouselRef.current && !isDraggingRef.current) {
-      carouselRef.current.style.cursor = 'grab';
-    }
-  };
-
-  const handleMouseLeave = () => {
-    // Убираем паузу (если была установлена)
-    isPausedRef.current = false;
-    if (carouselRef.current && !isDraggingRef.current) {
-      carouselRef.current.style.cursor = '';
-    }
-  };
-
-  // Обработчики для drag and drop
-  const lastDragXRef = useRef(0);
-  const lastDragTimeRef = useRef(0);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!carouselRef.current) return;
-    
-    const rect = carouselRef.current.getBoundingClientRect();
-    dragStartXRef.current = e.clientX - rect.left;
-    lastDragXRef.current = e.clientX;
-    lastDragTimeRef.current = Date.now();
-    isDraggingRef.current = true;
-    isHorizontalDragRef.current = false;
-    isPausedRef.current = true;
-    velocityRef.current = 0;
-    
-    // Устанавливаем курсор
-    if (document.body) {
-      document.body.style.cursor = 'grabbing';
-      document.body.style.userSelect = 'none';
-    }
-    if (carouselRef.current) {
-      carouselRef.current.style.cursor = 'grabbing';
-    }
-  };
-
-  // Обработка глобальных событий мыши для drag and drop
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !carouselRef.current) return;
-      
-      const currentTime = Date.now();
-      const deltaTime = (currentTime - lastDragTimeRef.current) / 1000 || 0.016;
-      lastDragTimeRef.current = currentTime;
-      
-      const currentX = e.clientX;
-      const currentY = e.clientY;
-      const deltaX = currentX - lastDragXRef.current;
-      const rect = carouselRef.current.getBoundingClientRect();
-      const startY = dragStartXRef.current + rect.top;
-      const deltaY = Math.abs(currentY - startY);
-      
-      // Определяем направление движения
-      if (!isHorizontalDragRef.current) {
-        if (Math.abs(deltaX) > 5 && Math.abs(deltaX) > deltaY * 1.5) {
-          isHorizontalDragRef.current = true;
-          // Обновляем курсор при начале горизонтального движения
-          if (document.body) {
-            document.body.style.cursor = 'grabbing';
-          }
-          if (carouselRef.current) {
-            carouselRef.current.style.cursor = 'grabbing';
-          }
-        }
-      }
-      
-      if (isHorizontalDragRef.current) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Вычисляем скорость для инерции
-        if (deltaTime > 0) {
-          velocityRef.current = deltaX / deltaTime;
-        }
-        
-        // Применяем смещение напрямую к позиции
-        scrollPositionRef.current -= deltaX;
-        lastDragXRef.current = currentX;
-      }
-    };
-
-    const handleGlobalMouseUp = () => {
-      if (!isDraggingRef.current) return;
-      
-      isDraggingRef.current = false;
-      isPausedRef.current = false;
-      
-      // Восстанавливаем курсор
-      if (document.body) {
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-      if (carouselRef.current) {
-        carouselRef.current.style.cursor = 'grab';
-      }
-      
-      // Не сбрасываем isHorizontalDragRef сразу, чтобы не сбрасывать инерцию
-      setTimeout(() => {
-        isHorizontalDragRef.current = false;
-      }, 100);
-    };
-
-    document.addEventListener('mousemove', handleGlobalMouseMove, { passive: false, capture: true });
-    document.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-    document.addEventListener('mouseleave', handleGlobalMouseUp, { capture: true });
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
-      document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-      document.removeEventListener('mouseleave', handleGlobalMouseUp, { capture: true });
-    };
-  }, []);
-
-  const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Обработчик скролла тачпада (wheel event)
-  useEffect(() => {
-    // Ждем, пока карусель будет готова
-    const initWheelHandler = () => {
-      if (!carouselRef.current || !slideWidth) {
-        return;
-      }
-
-      const handleWheel = (e: WheelEvent) => {
-        if (!carouselRef.current) return;
-        
-        // Проверяем, является ли скролл горизонтальным
-        const isHorizontalScroll = Math.abs(e.deltaX) > Math.abs(e.deltaY) || (e.shiftKey && Math.abs(e.deltaY) > 0);
-        
-        if (isHorizontalScroll) {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // Временно останавливаем автопрокрутку при активном скролле
-          isPausedRef.current = true;
-          
-          // Определяем направление скролла (инвертируем для правильного направления)
-          const scrollDelta = e.deltaX !== 0 ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
-          
-          // Применяем скролл к позиции (инвертируем знак для правильного направления)
-          scrollPositionRef.current += scrollDelta;
-          
-          // Вычисляем скорость для инерции (инвертируем знак)
-          velocityRef.current = scrollDelta * 0.3;
-          
-          // Возобновляем автопрокрутку быстрее после окончания скролла
-          if (wheelTimeoutRef.current) {
-            clearTimeout(wheelTimeoutRef.current);
-          }
-          wheelTimeoutRef.current = setTimeout(() => {
-            isPausedRef.current = false;
-            velocityRef.current *= 0.5; // Быстро убираем инерцию для возврата к autoplay
-          }, 500); // Увеличено с 200 до 500мс
-        }
-      };
-
-      const carousel = carouselRef.current;
-      carousel.addEventListener('wheel', handleWheel, { passive: false });
-
-      return () => {
-        carousel.removeEventListener('wheel', handleWheel);
-        if (wheelTimeoutRef.current) {
-          clearTimeout(wheelTimeoutRef.current);
-        }
-      };
-    };
-
-    // Запускаем после того, как slideWidth установлен
-    if (slideWidth > 0) {
-      return initWheelHandler();
-    }
-  }, [slideWidth]);
-
-  // Обработчики для touch событий
-  const lastTouchXRef = useRef(0);
-  const lastTouchTimeRef = useRef(0);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!carouselRef.current) return;
-    
-    const touch = e.touches[0];
-    const rect = carouselRef.current.getBoundingClientRect();
-    dragStartXRef.current = touch.clientX - rect.left;
-    lastTouchXRef.current = touch.clientX;
-    lastTouchTimeRef.current = Date.now();
-    isDraggingRef.current = true;
-    isHorizontalDragRef.current = false;
-    isPausedRef.current = true;
-    velocityRef.current = 0;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDraggingRef.current || !carouselRef.current) return;
-    
-    const touch = e.touches[0];
-    const currentTime = Date.now();
-    const deltaTime = (currentTime - lastTouchTimeRef.current) / 1000 || 0.016;
-    lastTouchTimeRef.current = currentTime;
-    
-    const rect = carouselRef.current.getBoundingClientRect();
-    const currentX = touch.clientX;
-    const currentY = touch.clientY;
-    const deltaX = currentX - lastTouchXRef.current;
-    const startY = dragStartXRef.current + rect.top;
-    const deltaY = Math.abs(touch.clientY - startY);
-    
-    if (!isHorizontalDragRef.current) {
-      if (Math.abs(deltaX) > 5 && Math.abs(deltaX) > deltaY * 1.5) {
-        isHorizontalDragRef.current = true;
-      }
-    }
-    
-    if (isHorizontalDragRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      if (deltaTime > 0) {
-        velocityRef.current = deltaX / deltaTime;
-      }
-      
-      // Применяем смещение (инвертируем для правильного направления)
-      scrollPositionRef.current -= deltaX;
-      lastTouchXRef.current = currentX;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDraggingRef.current) return;
-    
-    isDraggingRef.current = false;
-    isPausedRef.current = false;
-    isHorizontalDragRef.current = false;
-  };
+  const VISIBLE = 3; // cards visible at once on desktop
 
   return (
     <>
       <SeoMetaTags
-        title="Портфолио - Примеры работ PrimeCoder"
-        description="Портфолио выполненных проектов веб-студии PrimeCoder. Разработка сайтов, мобильных приложений, дизайн и продвижение."
-        keywords="портфолио, кейсы, примеры работ, разработка сайтов, мобильные приложения"
+        title="Портфолио — Примеры работ PrimeCoder"
+        description="Портфолио проектов: сайты, приложения, дизайн, SEO, маркетинг."
+        keywords="портфолио, кейсы, примеры работ, PrimeCoder"
         url={typeof window !== 'undefined' ? window.location.href : ''}
       />
-    <Box
-      sx={{
-        minHeight: '100vh',
-          color: '#fff',
-          pt: 0,
-          pb: 0,
-        }}
-      >
-        <Container maxWidth="xl" sx={{ pt: { xs: '100px', md: '120px' }, pb: { xs: '60px', md: '80px' } }}>
-          {/* Header with filters and counter */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 3,
-              mb: { xs: 4, md: 6 },
-            }}
-          >
-            {/* Title - ОГРОМНЫЙ ТЕКСТ ПО ЦЕНТРУ */}
-            <Box sx={{ 
-              position: 'relative',
-              width: '100%',
-              mb: 4,
-              py: { xs: 4, md: 6 },
-            }}>
-              <Typography
-                variant="h1"
-                sx={{
-                  fontSize: { xs: '4rem', sm: '6rem', md: '10rem', lg: '12rem' },
-                  fontWeight: 700,
-                  color: '#fff',
-                  opacity: 0.35,
-                  textTransform: 'uppercase',
-                  letterSpacing: { xs: '-0.03em', md: '-0.05em' },
-                  lineHeight: 1,
-                  textAlign: 'center',
-                  userSelect: 'none',
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,187,0,0.3) 50%, rgba(255,255,255,0.2) 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  animation: 'fadeInScale 1.5s ease-out',
-                  '@keyframes fadeInScale': {
-                    '0%': {
-                      opacity: 0,
-                      transform: 'scale(0.8)',
-                    },
-                    '100%': {
-                      opacity: 0.35,
-                      transform: 'scale(1)',
-                    },
-                  },
-                }}
-              >
-                Портфолио
-              </Typography>
-            </Box>
 
-            {/* Filters */}
-            <Box
-              sx={{
-                display: 'flex',
-                gap: { xs: 1, md: 2 },
-                alignItems: 'center',
-              }}
-            >
-              <Box
-                onClick={() => setSelectedCategory('all')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'all' ? 500 : 300,
-                  color: selectedCategory === 'all' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                Портфолио
-              </Box>
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '16px',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                }}
-              />
-              <Box
-                onClick={() => setSelectedCategory('website')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'website' ? 500 : 300,
-                  color: selectedCategory === 'website' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                Сайты
-              </Box>
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '16px',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                }}
-              />
-              <Box
-                onClick={() => setSelectedCategory('mobile')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'mobile' ? 500 : 300,
-                  color: selectedCategory === 'mobile' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                Приложения
-              </Box>
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '16px',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                }}
-              />
-              <Box
-                onClick={() => setSelectedCategory('ai')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'ai' ? 500 : 300,
-                  color: selectedCategory === 'ai' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                AI Boost Team
-              </Box>
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '16px',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                }}
-              />
-              <Box
-                onClick={() => setSelectedCategory('seo')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'seo' ? 500 : 300,
-                  color: selectedCategory === 'seo' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                SEO
-              </Box>
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '16px',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                }}
-              />
-              <Box
-                onClick={() => setSelectedCategory('marketing')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'marketing' ? 500 : 300,
-                  color: selectedCategory === 'marketing' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                Маркетинг
-              </Box>
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '16px',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                }}
-              />
-              <Box
-                onClick={() => setSelectedCategory('advertising')}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: { xs: '0.875rem', md: '1rem' },
-                  fontWeight: selectedCategory === 'advertising' ? 500 : 300,
-                  color: selectedCategory === 'advertising' ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                  transition: 'color 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  '&:hover': {
-                    color: '#fff',
-                  },
-                }}
-              >
-                Реклама
-              </Box>
-            </Box>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+        <Container maxWidth="lg">
+          <PageHeader
+            overline="Портфолио"
+            title="Наши кейсы"
+            description="Реальные проекты — от разработки сайтов и мобильных приложений до SEO, рекламы и комплексного маркетинга."
+            decoText="PORTFOLIO"
+          />
 
-            {/* Counter */}
-            <Typography
-              sx={{
-                fontSize: { xs: '0.875rem', md: '1rem' },
-                color: 'rgba(255, 255, 255, 0.6)',
-                fontWeight: 300,
-                letterSpacing: '0.05em',
-              }}
-            >
-              {sortedCases.length} / {sortedCases.length}
-            </Typography>
+          {/* Category filters */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 4 }}>
+            {CATS.map((c) => (
+              <Chip
+                key={c.val}
+                label={c.label}
+                onClick={() => handleCatChange(c.val)}
+                sx={{
+                  bgcolor: cat === c.val ? 'rgba(255,187,0,0.15)' : 'rgba(255,255,255,0.04)',
+                  color: cat === c.val ? '#ffbb00' : 'rgba(255,255,255,0.5)',
+                  border: '1px solid',
+                  borderColor: cat === c.val ? 'rgba(255,187,0,0.4)' : 'transparent',
+                  fontWeight: 600,
+                  '&:hover': { bgcolor: 'rgba(255,187,0,0.1)' },
+                }}
+              />
+            ))}
           </Box>
 
+          {filtered.length > 0 && (
+            <Typography sx={{ color: 'rgba(255,255,255,0.3)', mb: 3, fontSize: '0.85rem' }}>
+              {filtered.length} {filtered.length === 1 ? 'проект' : filtered.length < 5 ? 'проекта' : 'проектов'}
+            </Typography>
+          )}
+
           {/* Carousel */}
-          {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress sx={{ color: '#fff' }} />
-            </Box>
-          ) : sortedCases.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                Проекты не найдены
-              </Typography>
-            </Box>
-          ) : (
-            <Box
-              ref={carouselRef}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-              onMouseDown={handleMouseDown}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              sx={{
-                position: 'relative',
-                width: '100%',
-                overflow: 'hidden',
-                cursor: 'grab',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'pan-x',
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {/* Carousel Container - Бесконечная прокрутка */}
-              <Box
-                ref={carouselContainerRef}
-                sx={{
-                  display: 'flex',
-                  willChange: 'transform',
-                }}
-              >
-                {/* Дублируем кейсы для бесконечной прокрутки */}
-                {[...sortedCases, ...sortedCases, ...sortedCases].map((caseItem: any, index: number) => {
-                  const category = getCategoryFromCase(caseItem);
-                  const showPlaceholder = shouldShowPlaceholder(caseItem);
-                  const placeholderText = getCasePlaceholder(caseItem);
-                  
-                  return (
-                    <Box
-                      key={`${caseItem.slug}-${Math.floor(index / sortedCases.length)}-${index % sortedCases.length}`}
-                      sx={{
-                        width: slideWidth > 0 ? `${slideWidth}px` : (carouselRef.current ? (carouselRef.current.offsetWidth / slidesToShow) : '100%'),
-                        minWidth: slideWidth > 0 ? `${slideWidth}px` : (carouselRef.current ? (carouselRef.current.offsetWidth / slidesToShow) : '100%'),
-                        px: { xs: 1, sm: 1.5, md: 2 },
-                        flexShrink: 0,
-                      }}
-                    >
+          {filtered.length > 0 ? (
+            <>
+              <Box sx={{ position: 'relative', overflow: 'hidden', mb: 4 }}>
+                <Box
+                  ref={trackRef}
+                  sx={{
+                    display: 'flex',
+                    gap: 3,
+                    transition: 'transform 0.5s cubic-bezier(0.25,0.8,0.25,1)',
+                    transform: `translateX(calc(-${current} * (calc(100% / ${VISIBLE}) + 24px * ${VISIBLE - 1} / ${VISIBLE})))`,
+                  }}
+                >
+                  {filtered.map((c: any, idx: number) => {
+                    const imgSrc = resolveImageUrl(c.heroImageUrl || c.donorImageUrl || '');
+                    const hasImg = !!imgSrc;
+                    return (
                       <Box
-                        className="MuiBox-root portfolio-card"
+                        key={c.slug}
+                        onClick={() => handleClick(c.slug)}
+                        data-anim-child
                         sx={{
+                          flexShrink: 0,
+                          width: { xs: '85%', sm: `calc(50% - 12px)`, md: `calc(${100 / VISIBLE}% - ${24 * (VISIBLE - 1) / VISIBLE}px)` },
+                          height: { xs: 360, md: 440 },
+                          borderRadius: 4,
+                          overflow: 'hidden',
                           position: 'relative',
                           cursor: 'pointer',
-                          overflow: 'hidden',
-                          transition: 'transform 0.4s ease',
-                          width: '100%',
-                          height: '300px',
-                          maxHeight: '300px',
-                          flexShrink: 0,
-                          '&:hover': {
-                            transform: !isDraggingRef.current ? 'scale(1.05)' : 'none',
-                          },
-                        }}
-                        onClick={(e) => {
-                          if (!isDraggingRef.current && !isHorizontalDragRef.current) {
-                            handleCaseClick(caseItem.slug);
-                          }
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          transition: 'border-color 0.4s, transform 0.4s',
+                          '&:hover': { borderColor: 'rgba(255,187,0,0.3)', transform: 'translateY(-6px)' },
+                          '&:hover .pf-overlay': { opacity: 1 },
                         }}
                       >
-                        {/* Заглушка или изображение */}
-                        {showPlaceholder ? (
+                        {hasImg ? (
                           <Box
-                            sx={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '100%',
-                              height: '100%',
-                              zIndex: 1,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                              border: '1px solid rgba(255, 255, 255, 0.12)',
-                              fontSize: '64px',
-                              color: 'rgba(255, 255, 255, 0.4)',
-                              fontWeight: 300,
-                              letterSpacing: '4px',
-                            }}
-                          >
-                            {placeholderText}
-                          </Box>
-                        ) : (
-                          <SafeImage
-                            src={
-                              caseItem.heroImageUrl?.trim() || 
-                              (caseItem.slug ? `/legacy/img/cases/${caseItem.slug}/cover.png` : null) ||
-                              caseItem.donorImageUrl?.trim() ||
-                              null
-                            }
-                            fallback={fallbackImageUrl()}
-                            alt={caseItem.title || 'Кейс'}
-                            className="portfolio-image"
-                            sx={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '100%',
-                              height: '100%',
-                              zIndex: 1,
-                              objectFit: 'cover',
-                              display: 'block',
-                              visibility: 'visible',
-                              opacity: 1,
-                            }}
-                            hideOnError={false}
-                            lazy={true}
+                            component="img"
+                            src={imgSrc}
+                            alt={c.title}
+                            loading="lazy"
+                            onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
+                            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                           />
+                        ) : (
+                          <Box sx={{ width: '100%', height: '100%', bgcolor: 'rgba(30,30,30,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography sx={{ fontSize: '4rem', fontWeight: 900, color: 'rgba(255,255,255,0.06)' }}>
+                              {(c.title || 'КЕ').substring(0, 2).toUpperCase()}
+                            </Typography>
+                          </Box>
                         )}
-                        
-                        {/* Overlay с градиентом для текста */}
+
+                        <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)' }} />
+
                         <Box
+                          className="pf-overlay"
                           sx={{
-                            position: 'absolute',
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            zIndex: 2,
-                            background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 40%, rgba(0,0,0,0) 100%)',
-                            p: { xs: 2, md: 3 },
-                            pt: { xs: 4, md: 6 },
+                            position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.55)',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                            opacity: 0, transition: 'opacity 0.4s', p: 3,
                           }}
                         >
-                          {/* Title and Category */}
-                          <Typography
-                            sx={{
-                              fontSize: { xs: '1.2rem', sm: '1.35rem', md: '1.5rem' },
-                              fontWeight: 400,
-                              color: '#fff',
-                              mb: 0.5,
-                              lineHeight: 1.3,
-                              letterSpacing: '-0.01em',
-                            }}
-                          >
-                            {caseItem.title || 'Без названия'}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontSize: { xs: '0.9rem', sm: '1rem', md: '1.125rem' },
-                              color: 'rgba(255, 255, 255, 0.8)',
-                              fontWeight: 300,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em',
-                            }}
-                          >
-                            {category === 'mobile' ? 'Мобильное приложение' :
-                             category === 'ai' ? 'AI Boost Team' :
-                             category === 'seo' ? 'SEO продвижение' :
-                             category === 'marketing' ? 'Маркетинг' :
-                             category === 'advertising' ? 'Реклама' :
-                             category === 'design' ? 'Дизайн' :
-                             'Корпоративный сайт'}
+                          <Typography sx={{ color: '#ffbb00', fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                            Подробнее
                           </Typography>
                         </Box>
+
+                        <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, p: { xs: 2, md: 2.5 }, zIndex: 2 }}>
+                          <Chip
+                            label={CATS.find((cc) => cc.val === getCat(c))?.label || 'Сайт'}
+                            size="small"
+                            sx={{ bgcolor: 'rgba(255,187,0,0.15)', color: '#ffbb00', fontWeight: 600, mb: 1 }}
+                          />
+                          <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: { xs: '1rem', md: '1.2rem' }, lineHeight: 1.25, mb: 0.5 }}>
+                            {c.title}
+                          </Typography>
+                          {c.summary && (
+                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {c.summary}
+                            </Typography>
+                          )}
+                          {c.tools && c.tools.length > 0 && (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                              {c.tools.slice(0, 4).map((tool: string) => (
+                                <Typography key={tool} variant="caption" sx={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 1, px: 0.8, py: 0.15 }}>
+                                  {tool}
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
                       </Box>
-                    </Box>
-                  );
-                })}
+                    );
+                  })}
+                </Box>
               </Box>
+
+              {/* Navigation */}
+              {filtered.length > VISIBLE && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                  <IconButton
+                    onClick={prev}
+                    disabled={current === 0}
+                    sx={{
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: '#fff',
+                      '&:hover': { borderColor: '#ffbb00', color: '#ffbb00' },
+                      '&.Mui-disabled': { color: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.06)' },
+                    }}
+                  >
+                    <ArrowBackIosNewIcon fontSize="small" />
+                  </IconButton>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', minWidth: 60, textAlign: 'center' }}>
+                    {current + 1} / {Math.max(1, filtered.length - VISIBLE + 1)}
+                  </Typography>
+                  <IconButton
+                    onClick={next}
+                    disabled={current >= filtered.length - VISIBLE}
+                    sx={{
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: '#fff',
+                      '&:hover': { borderColor: '#ffbb00', color: '#ffbb00' },
+                      '&.Mui-disabled': { color: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.06)' },
+                    }}
+                  >
+                    <ArrowForwardIosIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+            </>
+          ) : (
+            <Box sx={{ py: 10, textAlign: 'center' }}>
+              <Typography sx={{ color: 'rgba(255,255,255,0.4)' }}>Кейсы не найдены</Typography>
             </Box>
           )}
-        </Container>
 
-        <style>{`
-          /* Стили для меню - скрыто по умолчанию, показывается только при открытии */
-          .menu {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            z-index: 50 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease, visibility 0.3s ease !important;
-          }
-          
-          /* Меню показывается только когда чекбокс отмечен */
-          #burger-toggle:checked ~ .menu {
-            opacity: 1 !important;
-            visibility: visible !important;
-            pointer-events: auto !important;
-            z-index: 52 !important;
-          }
-          
-          /* Убеждаемся, что portfolio-image видим */
-          .portfolio-image {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            max-width: 100% !important;
-            height: auto !important;
-          }
-          
-          /* Ограничиваем высоту карточек портфолио */
-          .portfolio-card,
-          .portfolio-card.MuiBox-root,
-          .MuiBox-root.portfolio-card {
-            max-height: 300px !important;
-            height: 300px !important;
-            min-height: 300px !important;
-          }
-          
-          /* Ограничиваем высоту всех контейнеров карточек портфолио в карусели */
-          [class*="MuiBox-root"].portfolio-card {
-            max-height: 300px !important;
-            height: 300px !important;
-            min-height: 300px !important;
-          }
-          
-          /* Отключаем выделение текста при перетаскивании */
-          .portfolio-card * {
-            pointer-events: none;
-            user-select: none;
-            -webkit-user-select: none;
-          }
-          
-          /* Убеждаемся, что изображение заполняет весь контейнер */
-          .portfolio-card .portfolio-image {
-            height: 100% !important;
-            min-height: 300px !important;
-            max-height: 300px !important;
-          }
-        `}</style>
+          {/* CTA */}
+          <Box sx={{ py: { xs: 6, md: 8 }, textAlign: 'center' }} data-anim="fade-up">
+            <Typography variant="h2" sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 1.5 }}>
+              Хотите такой же проект?
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.5)', mb: 3 }}>
+              Расскажите о задаче — подготовим КП за 24 часа.
+            </Typography>
+            <Box
+              component="a"
+              href="/new-client"
+              sx={{
+                display: 'inline-block', bgcolor: '#ffbb00', color: '#141414', fontWeight: 700,
+                px: 5, py: 1.5, borderRadius: 2, textDecoration: 'none',
+                transition: 'background 0.3s', '&:hover': { bgcolor: '#e5a800', color: '#141414' },
+              }}
+            >
+              Обсудить проект
+            </Box>
+          </Box>
+        </Container>
       </Box>
     </>
   );

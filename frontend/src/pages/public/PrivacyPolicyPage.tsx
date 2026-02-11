@@ -13,7 +13,7 @@ export function PrivacyPolicyPage() {
       />
       <Container maxWidth="md" sx={{ py: 6 }}>
         <Paper elevation={3} sx={{ p: { xs: 3, md: 6 }, borderRadius: 2 }}>
-          <Typography variant="h3" sx={{ fontWeight: 700, mb: 4, textAlign: 'center' }}>
+          <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 4, textAlign: 'center' }}>
             Политика конфиденциальности
           </Typography>
 

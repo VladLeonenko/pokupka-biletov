@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import pool from '../db.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { createAiTeamIncident } from './aiTeam.js';
+import { callOpenAIText } from './ai.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -232,6 +233,80 @@ router.post('/public/send', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// AI System Prompt для чат-бота (используется при промахе правил)
+// ═══════════════════════════════════════════════════════════════
+const CHATBOT_SYSTEM_PROMPT = `Ты — AI-консультант компании PrimeCoder (prime-coder.ru). Отвечай дружелюбно, по делу, на русском языке.
+
+## О компании
+PrimeCoder — маркетплейс digital-услуг и веб-студия полного цикла. На рынке с 2017 года. 150+ проектов. Команда: разработчики, дизайнеры, маркетологи, SEO-специалисты. Москва.
+
+## Услуги и цены
+
+### Разработка сайтов
+- **Сайт-визитка** — от 50 000 ₽, 7-14 дней
+- **Лендинг** — от 80 000 ₽, 10-14 дней (конверсия 8-15%)
+- **Корпоративный сайт** — от 150 000 ₽, 30-60 дней
+- **Интернет-магазин** — от 250 000 ₽, 45-90 дней (интеграция 1С, CRM, доставка)
+- **Сайт на WordPress** — от 80 000 ₽, 14-30 дней
+- **Сайт на 1С-Битрикс** — от 200 000 ₽, 30-60 дней
+- **Сайт на Tilda** — от 40 000 ₽, 5-10 дней
+
+### SEO-продвижение
+- **SEO старт** — от 65 000 ₽/мес (аудит, оптимизация, 20+ запросов)
+- **SEO бизнес** — от 120 000 ₽/мес (60+ запросов, контент, ссылки)
+- **SEO премиум** — от 250 000 ₽/мес (100+ запросов, полный контроль)
+
+### Реклама у блогеров
+- **Старт** — от 150 000 ₽, 14 дней (5 блогеров, 100к охвата)
+- **Малый бизнес** — от 350 000 ₽, 21 день (15 блогеров, 500к охвата)
+- **Prime** — от 750 000 ₽, 30 дней (30+ блогеров, 1.5 млн охвата)
+- Платформы: Telegram, VK, YouTube, Instagram, TikTok
+
+### UI/UX дизайн
+- **Дизайн лендинга** — от 60 000 ₽
+- **Дизайн корпоративного сайта** — от 120 000 ₽
+- **Редизайн** — от 80 000 ₽
+- **UI-kit / дизайн-система** — от 100 000 ₽
+
+### Маркетинг и продажи
+- **Комплексный маркетинг** — от 280 000 ₽/мес (7 каналов + CRM)
+- **Контент/SMM** — от 55 000 ₽/мес (30 постов + видео)
+- **Реклама-аудит** — от 28 000 ₽
+
+### AI-продвижение
+- Автоматическая генерация контента, AI-чатбот, предиктивная аналитика
+
+### Аутсорсинг (digital-агентствам)
+- Разработка и поддержка сайтов ваших клиентов, SLA 99.5%
+
+## Преимущества PrimeCoder
+- Персональный менеджер на связи 24/7
+- Гарантия от 1 года
+- Поэтапная оплата
+- Договор с фиксированной стоимостью
+- Еженедельные отчёты
+- Участие в благотворительности
+
+## Полезные страницы сайта
+- Каталог услуг: /catalog
+- Портфолио: /portfolio
+- Отзывы: /reviews
+- О компании: /about
+- Контакты: /contacts
+- Блог: /blog
+
+## Правила общения
+1. Отвечай конкретно, без воды. 2-5 предложений на ответ, максимум 10.
+2. Если клиент описывает задачу — предложи 1-2 подходящие услуги с ценой.
+3. НЕ выдумывай цены — используй только те, что указаны выше. Если точной цены нет — скажи "от X ₽, точную стоимость рассчитаем под ваш проект".
+4. НЕ запрашивай телефон/email агрессивно. Если клиент хочет оставить контакты — прими. Если нет — продолжай помогать.
+5. Если вопрос не по теме digital-услуг — вежливо верни к теме.
+6. Предлагай релевантные страницы сайта в формате: "Подробнее: /catalog"
+7. Если клиент готов к заказу — предложи оставить заявку на /contacts или написать в Telegram: @primecoder
+8. Используй маркированные списки для читаемости.
+9. НЕ используй эмодзи.`;
+
 // Функция обработки сообщения чат-ботом
 async function processBotMessage(chatId, userMessage) {
   try {
@@ -317,42 +392,39 @@ async function processBotMessage(chatId, userMessage) {
       }
     }
 
-    // Проверяем, есть ли контактные данные у клиента
-    const chatInfo = await pool.query('SELECT client_name, client_email, client_phone FROM chats WHERE id = $1', [chatId]);
-    const hasContactInfo = chatInfo.rows.length > 0 && 
-      (chatInfo.rows[0].client_email || chatInfo.rows[0].client_phone);
+    // Если не найдено подходящего правила — отдаём OpenAI с контекстом беседы
+    let aiResponse;
+    try {
+      // Последние 10 сообщений для контекста
+      const historyResult = await pool.query(
+        `SELECT sender_type, message_text FROM chat_messages
+         WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 10`,
+        [chatId]
+      );
+      const history = historyResult.rows.reverse();
 
-    // Если не найдено подходящего правила, отправляем умный дефолтный ответ
-    let defaultResponse = 'Спасибо за ваше сообщение! ';
-    
-    if (!hasContactInfo) {
-      // Если нет контактных данных, запрашиваем их
-      defaultResponse += 'Для того чтобы мы могли связаться с вами и отправить коммерческое предложение, пожалуйста, укажите:\n\n';
-      defaultResponse += '📧 Email или 📱 Телефон\n\n';
-      defaultResponse += 'Также укажите, как вам удобнее получить КП:\n';
-      defaultResponse += '• Email\n';
-      defaultResponse += '• Telegram\n';
-      defaultResponse += '• WhatsApp\n';
-      defaultResponse += '• Звонок менеджера\n\n';
-      defaultResponse += 'После получения ваших данных мы подготовим персональное коммерческое предложение!';
-    } else {
-      // Если есть контакты, спрашиваем способ связи для КП
-      defaultResponse += 'Наш менеджер свяжется с вами в ближайшее время.\n\n';
-      defaultResponse += 'Как вам удобнее получить коммерческое предложение?\n';
-      defaultResponse += '• Email\n';
-      defaultResponse += '• Telegram\n';
-      defaultResponse += '• WhatsApp\n';
-      defaultResponse += '• Звонок менеджера';
+      const messages = [
+        { role: 'system', content: CHATBOT_SYSTEM_PROMPT },
+        ...history.map(m => ({
+          role: m.sender_type === 'client' ? 'user' : 'assistant',
+          content: m.message_text || '',
+        })),
+        { role: 'user', content: userMessage },
+      ];
+
+      aiResponse = await callOpenAIText(messages);
+    } catch (aiErr) {
+      console.error('[chat] AI fallback error:', aiErr.message);
+      aiResponse = 'Спасибо за ваше сообщение! Наш менеджер свяжется с вами в ближайшее время. Если хотите получить ответ быстрее — напишите нам в Telegram: @primecoder';
     }
-    
+
     const defaultMessageResult = await pool.query(
       `INSERT INTO chat_messages (chat_id, sender_type, message_text, message_type, is_bot_message)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [chatId, 'bot', defaultResponse, 'text', true]
+      [chatId, 'bot', aiResponse, 'text', true]
     );
 
-    // Обновляем last_message_at в чате
     await pool.query(
       `UPDATE chats SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [chatId]
