@@ -49,7 +49,15 @@ export function BlogBlockEditorPage() {
       setCategorySlug(post.categorySlug || '');
       setIsPublished(!!post.isPublished);
       const cj = (post as any).contentJson || {};
-      setBlocks(Array.isArray(cj.blocks) ? cj.blocks : []);
+      const rawBlocks = Array.isArray(cj.blocks) ? cj.blocks : [];
+      const body = (post as any).body || (post as any).contentHtml || '';
+      if (rawBlocks.length > 0) {
+        setBlocks(rawBlocks);
+      } else if (body && typeof body === 'string') {
+        setBlocks([{ id: `text-${Date.now()}`, type: 'text', content: { html: body } }]);
+      } else {
+        setBlocks([]);
+      }
     } else if (isNew) {
       setSlug('');
       setTitle('');
@@ -69,7 +77,7 @@ export function BlogBlockEditorPage() {
       const payload: any = {
         slug: isNew ? '' : (id as string),
         title,
-        contentHtml: '',
+        contentHtml: blocks.length > 0 ? '' : undefined,
         contentJson: { blocks },
         seo: { metaDescription: seoDescription },
         coverImageUrl: coverImageUrl || undefined,
