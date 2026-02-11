@@ -638,6 +638,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// Защита /admin: редирект на логин если нет auth cookie (двойная защита поверх client-side)
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
+  if (!req.path.startsWith('/admin')) return next();
+  if (req.path === '/admin/login' || req.path === '/admin/login/') return next();
+  const cookie = req.headers.cookie || '';
+  const hasAuth = /auth_token=([^;\s]+)/.test(cookie);
+  if (!hasAuth) {
+    return res.redirect(302, '/admin/login');
+  }
+  next();
+});
+
 // SSR для динамических meta-тегов (SEO)
 // Это должно быть ПОСЛЕ всех API маршрутов
 app.use(seoRenderer);

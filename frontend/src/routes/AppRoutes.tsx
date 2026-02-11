@@ -182,13 +182,9 @@ export function AppRoutes() {
       <Route path="/madeo-case" element={<MadeoCasePage />} />
       <Route path="/polygon" element={<PolygonCasePage />} />
       <Route path="/straumann-case" element={<StraumannCasePage />} />
-      <Route path="/:slug" element={<PublicPageView />} />
       
-      {/* Admin routes */}
-      <Route
-        path="/admin/login"
-        element={<LoginPage />}
-      />
+      {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
+      <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
       <Route path="/admin/pages" element={<Protected><PagesListPage /></Protected>} />
       <Route path="/admin/pages/:id" element={<Protected><PageEditorPage /></Protected>} />
@@ -259,6 +255,7 @@ export function AppRoutes() {
       <Route path="/promotions" element={<Navigate to="/admin/promotions" replace />} />
       <Route path="/forms" element={<Navigate to="/admin/forms" replace />} />
       <Route path="/funnels" element={<Navigate to="/admin/funnels" replace />} />
+      <Route path="/:slug" element={<PublicPageView />} />
       <Route path="*" element={<PublicPageView />} />
     </Routes>
   );
