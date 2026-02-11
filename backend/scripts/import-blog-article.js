@@ -21,8 +21,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 if (process.argv.includes('--prod')) process.env.PROD = '1';
-const envFile = process.env.NODE_ENV === 'production' || process.env.PROD ? '.env.prod' : '.env';
-dotenv.config({ path: path.join(__dirname, '..', envFile) });
+const envDir = path.join(__dirname, '..');
+if (process.env.NODE_ENV === 'production' || process.env.PROD) {
+  dotenv.config({ path: path.join(envDir, '.env.prod') });
+}
+dotenv.config({ path: path.join(envDir, '.env') });
 
 const { Pool } = pg;
 const pool = new Pool({
