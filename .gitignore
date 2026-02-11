@@ -87,6 +87,10 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
+# Import data (локальные, не в репо)
+data/products-import.json
+data/*-import.json
+
 # Backups
 *.bak
 *.backup
