@@ -17,7 +17,7 @@ const advantages = [
 
 const stats = [
   { val: '150+', label: 'проектов' },
-  { val: '6+', label: 'специалистов' },
+  { val: '12+', label: 'специалистов' },
   { val: '8', label: 'лет опыта' },
 ];
 

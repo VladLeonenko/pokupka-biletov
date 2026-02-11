@@ -331,7 +331,8 @@ export default function PublicHomePageAI() {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            textAlign: 'center',
+            alignItems: 'flex-start',
+            textAlign: 'left',
             py: 8,
             position: 'relative',
             zIndex: 1,
@@ -346,10 +347,9 @@ export default function PublicHomePageAI() {
               fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4.5rem' },
               fontWeight: 800,
               mb: 2,
-              background: 'linear-gradient(135deg, #ffffff 0%, #4caf50 50%, #2196f3 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: '#fff',
+              fontFamily: '"Raleway", sans-serif',
+              textAlign: 'left',
             }}
           >
             AI Boost Team
@@ -364,7 +364,8 @@ export default function PublicHomePageAI() {
               fontSize: { xs: '1.2rem', md: '1.8rem' },
               mb: 1,
               fontWeight: 600,
-              color: 'rgba(255,255,255,0.85)',
+              color: '#fff',
+              fontFamily: '"Raleway", sans-serif',
             }}
           >
             Ваша AI-команда за 1/3 стоимости штата
@@ -375,30 +376,25 @@ export default function PublicHomePageAI() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.3 }}
             variant="body1"
-            sx={{ mb: 6, color: 'rgba(255,255,255,0.7)', maxWidth: 700, mx: 'auto' }}
+            sx={{ mb: 6, color: 'rgba(255,255,255,0.7)', maxWidth: 700, textAlign: 'left' }}
           >
             Экономьте до 67% на ФОТ. Масштабируйте команду за 1 неделю. Гарантия возврата за 14 дней.
           </MotionTypography>
 
           <Button
             variant="contained"
-            size="large"
+            size="medium"
             sx={{
-              fontSize: '1.2rem',
-              py: 2,
-              px: 4,
+              fontSize: '1rem',
+              py: 1.5,
+              px: 3,
               borderRadius: 2,
-              background: 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)',
-              color: '#ffffff',
+              bgcolor: '#ffbb00',
+              color: '#141414',
               fontWeight: 700,
-              boxShadow: '0 8px 24px rgba(76, 175, 80, 0.4)',
               transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #43a047 0%, #1e88e5 100%)',
-                boxShadow: '0 12px 32px rgba(76, 175, 80, 0.6)',
-                transform: 'translateY(-2px)',
-              },
-              mx: 'auto',
+              '&:hover': { bgcolor: '#e5a800', color: '#141414', transform: 'translateY(-2px)' },
+              alignSelf: 'flex-start',
             }}
             href="#calculator"
           >
@@ -408,23 +404,21 @@ export default function PublicHomePageAI() {
       </Container>
 
       {/* Команды и их функционал */}
-      <Box sx={{ bgcolor: 'rgba(255,255,255,0.05)', py: 10 }}>
+      <Box sx={{ bgcolor: '#141414', py: 10 }}>
         <Container maxWidth="lg">
           <Typography 
             variant="h3" 
-            align="center" 
             sx={{ 
               fontWeight: 700, 
               mb: 2,
-              background: 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: '#fff',
+              fontFamily: '"Raleway", sans-serif',
+              textAlign: 'left',
             }}
           >
             Выберите свой тариф
           </Typography>
-          <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 8, maxWidth: 700, mx: 'auto' }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 8, maxWidth: 700, textAlign: 'left' }}>
             Все тарифы включают гарантию возврата денег за 14 дней
           </Typography>
 
@@ -440,31 +434,31 @@ export default function PublicHomePageAI() {
                   sx={{
                     height: '100%',
                     borderRadius: 3,
-                    border: index === 1 ? '2px solid #4caf50' : '1px solid rgba(255,255,255,0.1)',
+                    border: index === 1 ? '2px solid #ffbb00' : '1px solid rgba(255,255,255,0.1)',
                     position: 'relative',
-                    background: index === 1 
-                      ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(33, 150, 243, 0.1) 100%)' 
-                      : 'transparent',
+                    bgcolor: 'rgba(255,255,255,0.04)',
                     transition: 'all 0.3s ease',
+                    overflow: 'visible',
                   }}
                 >
                   {index === 1 && (
                     <Chip
-                      label="⭐ Популярный"
+                      label="Рекомендуем"
+                      className="chip-white-bg"
                       sx={{
                         position: 'absolute',
                         top: -12,
                         right: 20,
-                        background: 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)',
-                        color: '#ffffff',
+                        bgcolor: '#fff',
+                        color: '#141414',
                         fontWeight: 700,
-                        boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)',
+                        zIndex: 1,
                       }}
                     />
                   )}
 
                   <CardContent sx={{ p: 4 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: '#fff', fontFamily: '"Raleway", sans-serif' }}>
                       {option.name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontStyle: 'italic' }}>
@@ -499,20 +493,20 @@ export default function PublicHomePageAI() {
                     <Button
                       fullWidth
                       variant={index === 1 ? 'contained' : 'outlined'}
-                      size="large"
+                      size="medium"
                       sx={{ 
                         mt: 4, 
                         fontWeight: 600, 
-                        py: 1.5,
-                        background: index === 1 ? 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)' : 'transparent',
-                        borderColor: index === 1 ? 'transparent' : '#ffffff',
-                        color: '#ffffff',
-                        boxShadow: index === 1 ? '0 4px 12px rgba(76, 175, 80, 0.3)' : 'none',
+                        py: 1.2,
+                        fontSize: '1rem',
+                        bgcolor: index === 1 ? '#ffbb00' : 'transparent',
+                        borderColor: index === 1 ? 'transparent' : 'rgba(255,255,255,0.5)',
+                        color: index === 1 ? '#141414' : '#fff',
                         transition: 'all 0.3s ease',
                         '&:hover': {
-                          background: index === 1 ? 'linear-gradient(135deg, #43a047 0%, #1e88e5 100%)' : 'rgba(255,255,255,0.1)',
-                          borderColor: '#ffffff',
-                          boxShadow: index === 1 ? '0 6px 16px rgba(76, 175, 80, 0.4)' : 'none',
+                          bgcolor: index === 1 ? '#e5a800' : 'rgba(255,255,255,0.1)',
+                          borderColor: 'rgba(255,255,255,0.5)',
+                          color: index === 1 ? '#141414' : '#fff',
                           transform: 'translateY(-2px)',
                         }
                       }}
@@ -529,23 +523,21 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* Калькулятор выгоды */}
-      <Box sx={{ bgcolor: 'rgba(255,255,255,0.03)', py: 10 }}>
+      <Box sx={{ bgcolor: '#141414', py: 10 }}>
       <Container maxWidth="lg" id="calculator">
         <Typography 
           variant="h3" 
-          align="center" 
           sx={{ 
             fontWeight: 700, 
             mb: 2,
-            background: 'linear-gradient(135deg, #ff9800 0%, #e91e63 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            color: '#fff',
+            fontFamily: '"Raleway", sans-serif',
+            textAlign: 'left',
           }}
         >
           Калькулятор выгоды
         </Typography>
-        <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 6, maxWidth: 700, mx: 'auto' }}>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 6, maxWidth: 700, textAlign: 'left' }}>
           Рассчитайте, сколько вы сэкономите, используя AI Boost Team вместо найма сотрудников
         </Typography>
 
@@ -828,21 +820,16 @@ export default function PublicHomePageAI() {
                 <Button
                   fullWidth
                   variant="contained"
-                  size="large"
+                  size="medium"
                   sx={{
                     mt: 4,
-                    py: 2,
-                    background: 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)',
-                    color: '#ffffff',
+                    py: 1.2,
+                    fontSize: '1rem',
+                    bgcolor: '#ffbb00',
+                    color: '#141414',
                     fontWeight: 700,
-                    fontSize: '1.1rem',
-                    boxShadow: '0 8px 24px rgba(76, 175, 80, 0.4)',
                     transition: 'all 0.3s ease',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #43a047 0%, #1e88e5 100%)',
-                      boxShadow: '0 12px 32px rgba(76, 175, 80, 0.6)',
-                      transform: 'translateY(-2px)',
-                    },
+                    '&:hover': { bgcolor: '#e5a800', color: '#141414', transform: 'translateY(-2px)' },
                   }}
                   href="#contact-form"
                 >
@@ -856,23 +843,21 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* Кейсы и отзывы */}
-      <Box sx={{ bgcolor: 'rgba(255,255,255,0.05)', py: 10 }}>
+      <Box sx={{ bgcolor: '#141414', py: 10 }}>
         <Container maxWidth="lg">
           <Typography 
             variant="h3" 
-            align="center" 
             sx={{ 
               fontWeight: 700, 
               mb: 2,
-              background: 'linear-gradient(135deg, #9c27b0 0%, #e91e63 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: '#fff',
+              fontFamily: '"Raleway", sans-serif',
+              textAlign: 'left',
             }}
           >
             Кейсы и отзывы клиентов
           </Typography>
-          <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 8, maxWidth: 700, mx: 'auto' }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 8, maxWidth: 700, textAlign: 'left' }}>
             Реальные результаты наших клиентов
           </Typography>
 
@@ -894,11 +879,11 @@ export default function PublicHomePageAI() {
                     <Chip label={caseItem.industry} size="small" sx={{ mr: 1, mb: 1 }} />
                     {caseItem.verified && (
                       <Chip
-                        icon={<VerifiedUser sx={{ fontSize: 16 }} />}
+                        icon={<VerifiedUser sx={{ fontSize: 16, color: 'inherit' }} />}
                         label="Проверено"
                         size="small"
-                        color="primary"
-                        sx={{ mb: 1 }}
+                        className="chip-white-bg"
+                        sx={{ mb: 1, bgcolor: '#fff', color: '#141414' }}
                       />
                     )}
                   </Box>
@@ -940,7 +925,7 @@ export default function PublicHomePageAI() {
                   </Typography>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: '#000000' }}>
+                    <Avatar sx={{ bgcolor: '#ffbb00', color: '#141414', fontWeight: 700 }}>
                       {caseItem.author.charAt(0)}
                     </Avatar>
                     <Box>
@@ -960,12 +945,12 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* FAQ */}
-      <Box sx={{ bgcolor: 'rgba(255,255,255,0.03)', py: 10 }}>
-      <Container maxWidth="md">
-        <Typography variant="h3" align="center" sx={{ fontWeight: 700, mb: 2 }}>
+      <Box sx={{ bgcolor: '#141414', py: 10 }}>
+      <Container maxWidth="lg">
+        <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', fontFamily: '"Raleway", sans-serif', textAlign: 'left' }}>
           Частые вопросы
         </Typography>
-        <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 6 }}>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 6, textAlign: 'left' }}>
           Ответы на популярные вопросы об AI Boost Team
         </Typography>
 
@@ -1025,7 +1010,7 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* Контактная форма */}
-      <Container maxWidth="md" sx={{ py: 10 }} id="contact-form">
+      <Container maxWidth="lg" sx={{ py: 10 }} id="contact-form">
         <MotionCard
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1037,10 +1022,10 @@ export default function PublicHomePageAI() {
             boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
           }}
         >
-          <Typography variant="h3" align="center" sx={{ fontWeight: 700, mb: 2 }}>
+          <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', fontFamily: '"Raleway", sans-serif', textAlign: 'left' }}>
             Начните экономить уже сегодня
           </Typography>
-          <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 5 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 5, textAlign: 'left' }}>
             Оставьте заявку, и мы свяжемся с вами в течение 2 часов
           </Typography>
 
@@ -1080,28 +1065,22 @@ export default function PublicHomePageAI() {
               <Button
                 fullWidth
                 variant="contained"
-                size="large"
+                size="medium"
                 onClick={() => {
                   if (!agreeToPrivacy) {
                     showToast('Необходимо согласие на обработку персональных данных', 'error');
                     return;
                   }
-                  // Здесь будет отправка формы
                   showToast('Спасибо за заявку! Мы свяжемся с вами в течение 2 часов.', 'success');
                 }}
                 sx={{
-                  py: 2,
-                  fontSize: '1.1rem',
+                  py: 1.2,
+                  fontSize: '1rem',
                   fontWeight: 700,
-                  background: 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)',
-                  color: '#ffffff',
-                  boxShadow: '0 8px 24px rgba(76, 175, 80, 0.4)',
+                  bgcolor: '#ffbb00',
+                  color: '#141414',
                   transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #43a047 0%, #1e88e5 100%)',
-                    boxShadow: '0 12px 32px rgba(76, 175, 80, 0.6)',
-                    transform: 'translateY(-2px)',
-                  },
+                  '&:hover': { bgcolor: '#e5a800', color: '#141414', transform: 'translateY(-2px)' },
                 }}
               >
                 Получить бесплатный аудит

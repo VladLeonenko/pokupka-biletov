@@ -26,7 +26,7 @@ export function PublicPromotionsPage() {
         keywords="акции, скидки, PrimeCoder, разработка, SEO"
         url={currentUrl}
       />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Акции" title="Акции и скидки" description="Выгодные предложения на разработку, дизайн и продвижение." decoText="PROMO" />
           <Box data-anim="fade-up">

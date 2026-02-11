@@ -90,7 +90,7 @@ export function HeroSection() {
             <Stack direction="row" spacing={{ xs: 3, md: 5 }} className="hero-stats" sx={{ mb: 4 }}>
               {[
                 { val: '150+', label: 'проектов' },
-                { val: '6+', label: 'в команде' },
+                { val: '12+', label: 'в команде' },
                 { val: '10+', label: 'дней на заказ' },
               ].map((s) => (
                 <Box key={s.label}>
@@ -126,7 +126,7 @@ export function HeroSection() {
           </Box>
 
           {/* Right — Vertical carousel */}
-          <Box className="hero-carousel" sx={{ flex: 1, maxWidth: { md: '40%' }, width: '100%' }}>
+          <Box className="hero-carousel" sx={{ flex: 1, maxWidth: { md: '40%' }, width: '100%', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: { xs: 'flex-start', md: 'center' } }}>
             <VerticalCarousel items={carouselItems} speed={3000} />
           </Box>
         </Box>

@@ -31,7 +31,7 @@ export function PublicBlogPage() {
         keywords="блог, статьи, веб-разработка, дизайн, маркетинг, SEO, PrimeCoder"
         url={currentUrl}
       />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Блог" title="Полезные материалы" description="Статьи о разработке, дизайне, SEO и маркетинге от команды PrimeCoder." decoText="BLOG" />
           <Box data-anim="fade-up">

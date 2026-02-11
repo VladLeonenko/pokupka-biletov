@@ -156,6 +156,14 @@ select,
 .MuiChip-root {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
+/* Белые плашки (AI Boost Team: Проверено, Рекомендуем) */
+.MuiChip-root.chip-white-bg {
+  background-color: #fff !important;
+  color: #141414 !important;
+}
+.MuiChip-root.chip-white-bg .MuiChip-icon {
+  color: #4caf50 !important;
+}
 
 /* Табы */
 .MuiTab-root {
@@ -249,8 +257,21 @@ main a, .MuiContainer-root a, article a {
   color: #ffbb00 !important;
   transition: opacity 0.2s !important;
 }
+/* Жёлтые кнопки-ссылки: текст #141414 */
+main a.btn, main a.submit-order, .MuiContainer-root a.btn, .MuiContainer-root a.submit-order,
+article a.btn, article a.submit-order,
+main a.MuiButton-root.MuiButton-contained, .MuiContainer-root a.MuiButton-root.MuiButton-contained,
+.hero-cta a, .hero-cta a.MuiButton-root,
+a.new-client-cta, .MuiContainer-root a.new-client-cta,
+main a[style*="ffbb00"], .MuiContainer-root a[style*="ffbb00"] {
+  color: #141414 !important;
+}
 main a:hover, .MuiContainer-root a:hover, article a:hover {
   opacity: 0.8 !important;
+}
+main a.btn:hover, main a.submit-order:hover, .MuiContainer-root a.btn:hover, .MuiContainer-root a.submit-order:hover,
+a.new-client-cta:hover, .MuiContainer-root a.new-client-cta:hover {
+  color: #141414 !important;
 }
 
 /* Overrides for admin panel – keep original styles */

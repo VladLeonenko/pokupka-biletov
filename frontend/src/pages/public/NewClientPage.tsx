@@ -15,7 +15,7 @@ export function NewClientPage() {
         keywords="стать клиентом, веб-студия, разработка сайтов, PrimeCoder"
         url={currentUrl}
       />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Сотрудничество" title="Стать клиентом" description="Заполните мини-бриф — мы подберём оптимальное решение под ваш бюджет и задачи." decoText="CLIENT" />
           <Box data-anim="fade-up">

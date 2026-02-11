@@ -81,6 +81,13 @@ function buildTheme(mode: Mode) {
           'p, span, a, li, td, th, label, input, textarea, select, button': {
             fontFamily: 'inherit',
           },
+          /* Текст в жёлтых кнопках (и <button>, и <a>) — #141414 */
+          'a.btn, a.submit-order, .btn.submit-order, .btn-mode a.btn, .btn-mode a.submit-order': {
+            color: '#141414 !important',
+          },
+          'a.btn:hover, a.submit-order:hover': {
+            color: '#141414 !important',
+          },
         },
       },
     },

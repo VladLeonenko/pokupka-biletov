@@ -42,7 +42,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarou
     const baseSx = {
       width: '100%',
       marginBottom: '1em',
-      textAlign: 'right' as const,
+      textAlign: { xs: 'left' as const, md: 'right' as const },
       transition: 'opacity 0.8s ease, color 0.8s ease',
       // Всегда используем block для видимых элементов (перекрывает legacy CSS)
       display: 'block',
@@ -327,7 +327,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarou
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'flex-end',
+          alignItems: { xs: 'flex-start', md: 'flex-end' },
           position: 'relative',
           transform: 'translateY(0)',
           // Оптимизация для предотвращения reflow и дергания
@@ -354,7 +354,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarou
             : {
                 width: '100%',
                 marginBottom: '1em',
-                textAlign: 'right' as const,
+                textAlign: { xs: 'left' as const, md: 'right' as const },
                 opacity: 0,
                 visibility: 'hidden' as const,
                 position: 'absolute' as const,
@@ -375,7 +375,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarou
                   dangerouslySetInnerHTML={{ __html: content }}
                   sx={{
                     fontSize: '2.5em',
-                    textAlign: 'right',
+                    textAlign: { xs: 'left', md: 'right' },
                     textTransform: 'uppercase',
                     fontFamily: '"Raleway", sans-serif',
                     fontWeight: 400,
@@ -390,7 +390,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarou
                   component="h2"
                   sx={{
                     fontSize: '2.5em',
-                    textAlign: 'right',
+                    textAlign: { xs: 'left', md: 'right' },
                     textTransform: 'uppercase',
                     fontFamily: '"Raleway", sans-serif',
                     fontWeight: 400,

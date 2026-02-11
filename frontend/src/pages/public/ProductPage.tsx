@@ -290,7 +290,7 @@ export function ProductPage() {
           backgroundColor: '#141414',
         }}
       >
-        <Container maxWidth="lg" sx={{ pt: { xs: 12, md: 14 }, pb: { xs: 6, md: 10 }, position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="lg" sx={{ pt: { xs: 6.25, md: 6.25 }, pb: { xs: 6, md: 10 }, position: 'relative', zIndex: 1 }}>
       {/* Кнопка назад */}
       <MotionBox
         {...sectionAnimation(0)}

@@ -16,7 +16,7 @@ export function ContactsPage() {
         keywords="контакты PrimeCoder, связаться с PrimeCoder, телефон, email, адрес"
         url={currentUrl}
       />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Контакты" title="Свяжитесь с нами" description="Москва, ул. Земляной Вал, 50Ас5. Пн–Пт 9:00–22:00." decoText="CONTACT" />
           <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }} data-anim="fade-up">

@@ -59,14 +59,14 @@ export function AboutPage() {
           minHeight: '100vh',
           bgcolor: '#141414',
           color: '#fff',
-          pt: { xs: 10, md: 12 },
+          pt: { xs: 6.25, md: 6.25 },
           pb: 8,
         }}
       >
         {/* Hero */}
         <Box
           sx={{
-            minHeight: { xs: '70vh', md: '85vh' },
+            minHeight: 'auto',
             display: 'flex',
             alignItems: 'center',
             position: 'relative',
@@ -403,7 +403,7 @@ export function AboutPage() {
               </Box>
               <Box>
                 <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#ffbb00', lineHeight: 1 }}>
-                  6+
+                  12+
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mt: 0.5 }}>
                   в команде

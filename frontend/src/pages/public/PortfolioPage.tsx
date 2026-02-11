@@ -72,7 +72,7 @@ export function PortfolioPage() {
         url={typeof window !== 'undefined' ? window.location.href : ''}
       />
 
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader
             overline="Портфолио"

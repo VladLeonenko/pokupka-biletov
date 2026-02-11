@@ -409,7 +409,7 @@ export function AccountAiTeamPage() {
         url={currentUrl}
         noindex={true}
       />
-      <Container maxWidth="lg" sx={{ pt: { xs: 12, md: 14 }, pb: 6 }}>
+      <Container maxWidth="lg" sx={{ pt: 0, pb: 6 }}>
         <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>AI Boost Team</Typography>
         <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3 }}>
           Управление задачами

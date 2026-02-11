@@ -68,6 +68,35 @@ footer {
   object-fit: contain;
 }
 
+/* Стиль: белая иконка в чёрном круге (как на макете) */
+.social-icons-circle a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #000 !important;
+  padding: 0;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+.social-icons-circle a:hover {
+  background: #1a1a1a !important;
+  transform: scale(1.1);
+}
+.social-icons-circle img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(1);
+}
+.social-icons-circle svg {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+  color: #fff;
+}
+
 /* Форма обратной связи */
 #submitForm {
   position: fixed;

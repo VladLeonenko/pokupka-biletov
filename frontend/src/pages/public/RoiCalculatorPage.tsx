@@ -65,7 +65,7 @@ export function RoiCalculatorPage() {
         description="Калькулятор возврата инвестиций для рекламных кампаний"
         url={currentUrl}
       />
-      <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto', pt: { xs: 10, md: 12 } }}>
+      <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto', pt: { xs: 6.25, md: 6.25 } }}>
         <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>ROI</Typography>
         <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 3 }}>Прогноз окупаемости</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>

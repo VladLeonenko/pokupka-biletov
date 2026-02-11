@@ -71,7 +71,7 @@ export function CatalogPage() {
         type="website"
       />
 
-      <Box component="main" ref={catalogRef} sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" ref={catalogRef} sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Каталог" title="Услуги и решения" description="Разработка сайтов, SEO, реклама, дизайн — всё в одном месте." decoText="CATALOG" />
 

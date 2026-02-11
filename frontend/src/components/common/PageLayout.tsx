@@ -71,9 +71,9 @@ export function PageLayout({ children, maxWidth = 'lg', contained = true }: Page
       ref={ref}
       component="main"
       sx={{
-        minHeight: '100vh',
+        minHeight: { xs: 'auto', md: '100vh' },
         color: '#fff',
-        pt: { xs: 12, md: 14 },
+        pt: { xs: 6.25, md: 6.25 }, /* 50px */
         pb: { xs: 6, md: 10 },
       }}
     >

@@ -144,7 +144,7 @@ export function EcommerceHeaderIcons() {
               padding: 8px;
             }
             .ecommerce-icons-container-global .MuiSvgIcon-root {
-              font-size: 24px;
+              font-size: 32px;
             }
             
             @media (max-width: 768px) {
@@ -216,7 +216,7 @@ export function EcommerceHeaderIcons() {
       alignItems: 'center',
       gap: 0.5,
       '& .MuiIconButton-root': { width: 40, height: 40, padding: 1 },
-      '& .MuiSvgIcon-root': { fontSize: 24 },
+      '& .MuiSvgIcon-root': { fontSize: { xs: 24, md: 32 } },
     }}>
       <IconButton onClick={() => navigate('/search')} sx={{ color: 'inherit' }} aria-label="Поиск"><Search /></IconButton>
       <IconButton onClick={() => navigate('/wishlist')} sx={{ color: 'inherit' }} aria-label="Избранное">

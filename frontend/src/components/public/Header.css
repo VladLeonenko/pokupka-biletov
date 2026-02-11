@@ -99,6 +99,30 @@ header .header .header {
   color: #ffbb00;
 }
 
+/* Соцсети в меню: белая иконка в чёрном круге */
+.menu .social-icons-circle a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #000 !important;
+  padding: 0;
+}
+.menu .social-icons-circle img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+.menu .social-icons-circle svg {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+  color: #fff;
+}
+
 /* Меню: на всю ширину контейнера + навигация по центру по вертикали */
 .menu .menu-inner {
   display: flex;
@@ -109,13 +133,14 @@ header .header .header {
 }
 .menu .menu-inner .container {
   width: 100% !important;
-  max-width: 100% !important;
-  padding-left: 24px !important;
-  padding-right: 24px !important;
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
   padding-top: 12vh !important;
   padding-bottom: 12vh !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  box-sizing: border-box !important;
 }
 
 /* Hover preview — rotating text circle */
@@ -242,9 +267,17 @@ header .header .header {
     padding: 8px 0;
   }
   
-  /* Уменьшаем отступы в меню */
+  /* Отступ меню от шапки — первый пункт не налазит на логотип */
   .menu-inner .container {
-    padding-top: 60px !important;
+    margin-top: 150px !important;
+    padding-top: 0 !important;
+  }
+  .menu .menu-inner {
+    padding-top: 0 !important;
+  }
+  .menu .menu-inner .container {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
   }
   
   .footer-header {
@@ -275,6 +308,23 @@ header .header .header {
   .burger-menu {
     height: 36px !important;
     margin-left: 2px !important;
+  }
+  /* Иконка закрытия (X) — ровный крест: линии по центру, одинаковые */
+  #burger-toggle:checked ~ .burger-menu .line {
+    left: 50% !important;
+    width: 56% !important;
+    margin-left: -28% !important; /* центр линии в 50% */
+    top: 50% !important;
+    transform-origin: 50% 50% !important;
+  }
+  #burger-toggle:checked ~ .burger-menu .line:nth-child(1) {
+    transform: translateY(-50%) rotate(45deg) !important;
+  }
+  #burger-toggle:checked ~ .burger-menu .line:nth-child(2) {
+    transform: translateY(-50%) scaleX(0) !important;
+  }
+  #burger-toggle:checked ~ .burger-menu .line:nth-child(3) {
+    transform: translateY(-50%) rotate(-45deg) !important;
   }
 }
 

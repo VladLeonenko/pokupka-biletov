@@ -69,7 +69,7 @@ export function PublicBlogPostPage() {
     <>
       <BlogPostStyles />
       <SeoMetaTags title={seoData.title} description={seoData.description} keywords={seoData.keywords} url={seoData.canonicalUrl} image={seoData.ogImage} ogTitle={seoData.ogTitle} ogDescription={seoData.ogDescription} />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="md">
           {postData.coverImageUrl && (
             <Box component="img" src={postData.coverImageUrl} alt={postData.title} sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 3, mb: 4 }} data-anim="fade-up" />

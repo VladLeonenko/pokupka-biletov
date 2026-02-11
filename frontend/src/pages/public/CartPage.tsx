@@ -84,7 +84,7 @@ export function CartPage() {
 
   if (items.length === 0) {
     return (
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Корзина" title="Ваша корзина" decoText="CART" />
           <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -102,7 +102,7 @@ export function CartPage() {
   return (
     <>
       <SeoMetaTags title="Корзина — Primecoder" description="Ваша корзина покупок" url={currentUrl} noindex />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Корзина" title="Ваша корзина" decoText="CART" />
 

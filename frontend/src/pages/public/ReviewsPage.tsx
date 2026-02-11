@@ -21,6 +21,7 @@ import {
   Fade,
   Slide,
   CircularProgress,
+  Grid,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -34,6 +35,8 @@ import {
   TrendingUp as TrendingUpIcon,
   Schedule as ScheduleIcon,
   Image as ImageIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { getPublicReviews, createReview, markReviewHelpful, type Review, type CreateReviewData } from '@/services/reviewsApi';
 import { ReviewForm } from './ReviewForm';
@@ -62,6 +65,7 @@ export function ReviewsPage() {
   const [serviceFilter, setServiceFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'recent' | 'rating_desc' | 'rating_asc' | 'helpful'>('recent');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'tile' | 'list'>('tile');
 
   // Загружаем отзывы
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -106,9 +110,9 @@ export function ReviewsPage() {
     <>
       <Box
         sx={{
-          minHeight: '100vh',
+          minHeight: { xs: 'auto', md: '100vh' },
           color: '#fff',
-          pt: { xs: 12, md: 14 },
+          pt: { xs: 6.25, md: 6.25 },
           pb: { xs: 6, md: 10 },
         }}
       >
@@ -121,7 +125,7 @@ export function ReviewsPage() {
             transition={{ duration: 0.6 }}
           >
             <Box sx={{ mb: 6, position: 'relative' }}>
-              <Typography sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 'clamp(4rem,12vw,10rem)', fontWeight: 900, color: '#fff', opacity: 0.025, whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none', letterSpacing: '-0.04em' }}>
+              <Typography sx={{ position: 'absolute', top: '50%', right: '10%', transform: 'translateY(-50%)', fontSize: 'clamp(4rem,12vw,10rem)', fontWeight: 900, color: '#fff', opacity: 0.025, whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none', letterSpacing: '-0.04em' }}>
                 REVIEWS
               </Typography>
               <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1 }}>
@@ -356,26 +360,51 @@ export function ReviewsPage() {
                 )}
               </Box>
 
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setIsFormOpen(true)}
-                sx={{
-                  bgcolor: '#ffbb00',
-                  color: '#141414',
-                  fontWeight: 600,
-                  px: 3,
-                  py: 1.5,
-                  '&:hover': {
-                    bgcolor: '#e6a800',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 24px rgba(255,187,0,0.4)',
-                  },
-                  transition: 'all 0.3s',
-                }}
-              >
-                Оставить отзыв
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Tooltip title="Плитка">
+                  <IconButton
+                    onClick={() => setViewMode('tile')}
+                    sx={{
+                      color: viewMode === 'tile' ? '#ffbb00' : 'rgba(255,255,255,0.5)',
+                      '&:hover': { color: viewMode === 'tile' ? '#ffbb00' : 'rgba(255,255,255,0.8)' },
+                    }}
+                  >
+                    <ViewModuleIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Список">
+                  <IconButton
+                    onClick={() => setViewMode('list')}
+                    sx={{
+                      color: viewMode === 'list' ? '#ffbb00' : 'rgba(255,255,255,0.5)',
+                      '&:hover': { color: viewMode === 'list' ? '#ffbb00' : 'rgba(255,255,255,0.8)' },
+                    }}
+                  >
+                    <ViewListIcon />
+                  </IconButton>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setIsFormOpen(true)}
+                  sx={{
+                    bgcolor: '#ffbb00',
+                    color: '#141414',
+                    fontWeight: 600,
+                    px: 3,
+                    py: 1.5,
+                    ml: 1,
+                    '&:hover': {
+                      bgcolor: '#e6a800',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 24px rgba(255,187,0,0.4)',
+                    },
+                    transition: 'all 0.3s',
+                  }}
+                >
+                  Оставить отзыв
+                </Button>
+              </Box>
             </Box>
           </Box>
 
@@ -400,6 +429,22 @@ export function ReviewsPage() {
                 </Typography>
               </Box>
             </Box>
+          ) : viewMode === 'tile' ? (
+            <Grid container spacing={3}>
+              {reviews.map((review, index) => (
+                <Grid item xs={12} sm={6} md={4} key={review.id}>
+                  <Box
+                    component={motion.div}
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: 0.6 + index * 0.05, duration: 0.4 }}
+                  >
+                    <ReviewCard review={review} onHelpful={handleHelpful} compact />
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
           ) : (
             <Box>
               {reviews.map((review, index) => (
@@ -442,9 +487,9 @@ export function ReviewsPage() {
 }
 
 // Карточка отзыва
-function ReviewCard({ review, onHelpful }: { review: Review; onHelpful: (id: number) => void }) {
+function ReviewCard({ review, onHelpful, compact }: { review: Review; onHelpful: (id: number) => void; compact?: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const isLongText = review.text.length > 300;
+  const isLongText = review.text.length > (compact ? 150 : 300);
 
   return (
     <motion.div
@@ -453,7 +498,10 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful: (id: num
     >
       <Card
         sx={{
-          mb: 3,
+          mb: compact ? 0 : 3,
+          height: compact ? '100%' : 'auto',
+          display: compact ? 'flex' : 'block',
+          flexDirection: compact ? 'column' : 'row',
           bgcolor: 'rgba(255,255,255,0.02)',
           backgroundImage: 'none',
           border: '1px solid rgba(255,255,255,0.1)',
@@ -466,18 +514,18 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful: (id: num
           },
         }}
       >
-        <CardContent sx={{ p: 3 }}>
+        <CardContent sx={{ p: compact ? 2 : 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Заголовок отзыва */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flex: 1 }}>
               <Avatar
                 sx={{
-                  width: 56,
-                  height: 56,
+                  width: compact ? 44 : 56,
+                  height: compact ? 44 : 56,
                   bgcolor: '#ffbb00',
                   color: '#141414',
                   fontWeight: 700,
-                  fontSize: '1.5rem',
+                  fontSize: compact ? '1.2rem' : '1.5rem',
                 }}
               >
                 {review.author[0].toUpperCase()}
@@ -530,7 +578,7 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful: (id: num
               whiteSpace: 'pre-wrap',
             }}
           >
-            {isLongText && !expanded ? `${review.text.substring(0, 300)}...` : review.text}
+            {isLongText && !expanded ? `${review.text.substring(0, compact ? 150 : 300)}...` : review.text}
           </Typography>
 
           {isLongText && (

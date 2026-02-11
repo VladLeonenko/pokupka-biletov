@@ -33,7 +33,7 @@ export function WishlistPage() {
 
   if (!user) {
     return (
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ textAlign: 'center' }}>
           <Typography sx={{ fontSize: '1.3rem', fontWeight: 600, color: '#fff', mb: 2 }}>Войдите, чтобы просмотреть избранное</Typography>
           <Button onClick={() => navigate('/admin/login')} sx={{ bgcolor: '#ffbb00', color: '#141414', fontWeight: 700, px: 4, py: 1.2, borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}>
@@ -52,7 +52,7 @@ export function WishlistPage() {
 
   if (items.length === 0) {
     return (
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Избранное" title="Список желаний" decoText="WISHLIST" />
           <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -70,7 +70,7 @@ export function WishlistPage() {
   return (
     <>
       <SeoMetaTags title="Избранное — Primecoder" description="Ваш список избранных товаров" url={currentUrl} noindex />
-      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 12, md: 14 }, pb: 8 }}>
+      <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Избранное" title="Список желаний" decoText="WISHLIST" />
 

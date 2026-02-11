@@ -12,7 +12,7 @@ export function ContactsInfoSection() {
         </div>
         <div className="email">
           <h5>Почта</h5>
-          <a href="mailto:info@primecoder.ru">info@primecoder.ru</a>
+          <a href="mailto:info@prime-coder.ru">info@prime-coder.ru</a>
         </div>
         <div className="adres">
           <h5>Адрес</h5>
@@ -23,7 +23,7 @@ export function ContactsInfoSection() {
         </div>
         <div className="tel">
           <h5>Телефон</h5>
-          <a href="tel:84951476577">+7 (495)-147-65-77</a>
+          <a href="tel:+79999849107">+7 (999) 984-91-07</a>
         </div>
       </div>
     </div>

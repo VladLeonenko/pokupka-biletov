@@ -67,6 +67,7 @@ const MIGRATION_FILES = [
   '026_blog_cover_carousel.sql',
   '027_add_faq_to_products.sql',
   '030_add_task_categories.sql',
+  '032_add_content_json_to_blog_and_pages.sql',
   '032_personal_planner.sql',
   '033_fix_personal_entries_types.sql',
   '034_fix_projects_duplicates.sql',

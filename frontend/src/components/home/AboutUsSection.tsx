@@ -6,7 +6,7 @@ const MotionBox = motion.create(Box);
 const stats = [
   { value: '150+', label: 'проектов' },
   { value: 'c 2017', label: 'на рынке' },
-  { value: '6+', label: 'в команде' },
+  { value: '12+', label: 'в команде' },
 ];
 
 export function AboutUsSection() {
