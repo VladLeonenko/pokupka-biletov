@@ -29,7 +29,7 @@ const pool = new Pool({
   user: process.env.PGUSER,
   host: process.env.PGHOST,
   database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
+  password: String(process.env.PGPASSWORD || ''),
   port: Number(process.env.PGPORT),
 });
 
@@ -119,15 +119,21 @@ async function upsertPost(data) {
 }
 
 async function main() {
-  const filePath = process.argv[2];
+  const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+  const filePath = args[0];
+  const forceSlug = process.argv.includes('--slug')
+    ? process.argv[process.argv.indexOf('--slug') + 1]
+    : null;
+
   if (!filePath || !fs.existsSync(filePath)) {
-    console.error('Использование: node scripts/import-blog-article.js <path-to-html>');
-    console.error('Пример: node scripts/import-blog-article.js data/marketing-pod-klyuch-300k.html');
+    console.error('Использование: node scripts/import-blog-article.js <path-to-html> [--slug <slug>] [--prod]');
+    console.error('Пример: node scripts/import-blog-article.js data/marketing-pod-klyuch-300k.html --slug marketing-pod-klyuch-sayt-seo-reklama-za-300k-v-2026-godu-primecoder --prod');
     process.exit(1);
   }
 
   const html = fs.readFileSync(filePath, 'utf-8');
   const data = extractFromHtml(html);
+  if (forceSlug) data.slug = forceSlug;
 
   if (!data.slug.match(/^[a-z0-9-]+$/i)) {
     data.slug = transliterateSlug(data.slug) || data.slug.replace(/[^a-z0-9-]/gi, '-');
