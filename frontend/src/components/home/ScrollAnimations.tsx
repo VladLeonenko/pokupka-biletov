@@ -18,6 +18,18 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
 
     const ctx = gsap.context(() => {
       sections.forEach((section) => {
+        const visibleOnLoad = section.getAttribute('data-scroll-visible-on-load') === '1';
+
+        if (visibleOnLoad) {
+          section.style.opacity = '1';
+          const cards = section.querySelectorAll<HTMLElement>('[data-scroll-child]');
+          cards.forEach((el) => {
+            (el as HTMLElement).style.opacity = '1';
+            (el as HTMLElement).style.transform = 'none';
+          });
+          return;
+        }
+
         // Main section reveal
         gsap.fromTo(
           section,
@@ -66,10 +78,29 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
 /**
  * Invisible wrapper — оборачивает секцию для scroll-reveal.
  * Начальный opacity=0 чтобы GSAP мог анимировать появление.
+ * visibility: hidden до анимации, иначе контент мерцает при load.
  */
-export function ScrollSection({ children, id }: { children: React.ReactNode; id?: string }) {
+export function ScrollSection({
+  children,
+  id,
+  /** Если true, секция видна сразу (для страниц где контент выше сгиба — блог, кейсы) */
+  visibleOnLoad = false,
+}: {
+  children: React.ReactNode;
+  id?: string;
+  visibleOnLoad?: boolean;
+}) {
   return (
-    <div data-scroll-section id={id} style={{ opacity: 0, willChange: 'transform, opacity' }}>
+    <div
+      data-scroll-section
+      data-scroll-visible-on-load={visibleOnLoad ? '1' : undefined}
+      id={id}
+      style={
+        visibleOnLoad
+          ? { willChange: 'transform, opacity' }
+          : { opacity: 0, willChange: 'transform, opacity' }
+      }
+    >
       {children}
     </div>
   );

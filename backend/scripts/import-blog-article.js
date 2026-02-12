@@ -106,7 +106,7 @@ async function upsertPost(data) {
       `UPDATE blog_posts SET
         title = $1, body = $2, seo_title = $3, seo_description = $4,
         cover_image_url = COALESCE($5::text, cover_image_url),
-        updated_at = NOW()
+        is_published = TRUE, updated_at = NOW()
        WHERE slug = $6`,
       [title, body, seo_title, seo_description || null, cover_image_url, slug]
     );
