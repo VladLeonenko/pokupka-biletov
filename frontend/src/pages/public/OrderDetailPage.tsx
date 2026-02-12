@@ -1,24 +1,23 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Box, Container, Typography, Button, Card, CardContent, Grid, CircularProgress, Divider, Chip } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, Grid, CircularProgress, Chip } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
-import { getApiBase } from '@/utils/apiBase';
+import { getOrder } from '@/services/ecommerceApi';
 
 export function OrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
 
-  const { data: order, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['order', orderNumber],
     queryFn: async () => {
-      const apiBase = getApiBase();
-      const res = await fetch(`${apiBase}/api/public/orders/${encodeURIComponent(orderNumber || '')}`);
-      if (!res.ok) throw new Error('Failed to fetch order');
-      return res.json();
+      const result = await getOrder(orderNumber || '');
+      return result.order;
     },
     enabled: !!orderNumber,
   });
+  const order = data;
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 

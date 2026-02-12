@@ -105,14 +105,9 @@ export function ProductPage() {
     try {
       await trackProductEvent(product.slug, 'add_to_cart');
       await addToCart(product.slug, 1);
-      // Показываем уведомление об успешном добавлении
-      if (typeof window !== 'undefined' && (window as any).showSuccessNotification) {
-        (window as any).showSuccessNotification('Товар добавлен в корзину');
-      }
+      showToast('Товар добавлен в корзину', 'success');
     } catch (error) {
-      if (typeof window !== 'undefined' && (window as any).showErrorNotification) {
-        (window as any).showErrorNotification('Ошибка при добавлении товара в корзину');
-      }
+      showToast('Ошибка при добавлении товара в корзину', 'error');
     }
   };
 
@@ -124,14 +119,9 @@ export function ProductPage() {
     try {
       await trackProductEvent(product.slug, 'add_to_wishlist');
       await addToWishlist(product.slug);
-      // Показываем уведомление об успешном добавлении
-      if (typeof window !== 'undefined' && (window as any).showSuccessNotification) {
-        (window as any).showSuccessNotification('Товар добавлен в избранное');
-      }
+      showToast('Товар добавлен в избранное', 'success');
     } catch (error) {
-      if (typeof window !== 'undefined' && (window as any).showErrorNotification) {
-        (window as any).showErrorNotification('Ошибка при добавлении товара в избранное');
-      }
+      showToast('Ошибка при добавлении товара в избранное', 'error');
     }
   };
 
