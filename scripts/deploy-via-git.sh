@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Деплой на прод через git. Запускать на сервере.
+# Первый раз: git pull (чтобы скрипт появился), затем ./scripts/deploy-via-git.sh
+# Использование:
+#   ssh root@85.239.44.40 "cd /var/www/primecoder-gulp && ./scripts/deploy-via-git.sh main"
+# или на сервере:
+#   cd /var/www/primecoder-gulp && ./scripts/deploy-via-git.sh [main|feature/...]
+
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+BRANCH="${1:-main}"
+
+echo "🚀 Деплой через git (ветка: $BRANCH)"
+echo ""
+
+# Сохранить .env backend
+BACKEND_ENV="$PROJECT_ROOT/backend/.env"
+ENV_BACKUP=""
+if [ -f "$BACKEND_ENV" ]; then
+  ENV_BACKUP=$(mktemp)
+  cp "$BACKEND_ENV" "$ENV_BACKUP"
+  echo "✅ .env сохранён"
+fi
+
+# Git pull
+echo "📥 git pull origin $BRANCH"
+git fetch origin
+git checkout "$BRANCH" 2>/dev/null || true
+git pull origin "$BRANCH" || { echo "❌ git pull failed"; exit 1; }
+
+# Восстановить .env
+if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
+  if [ ! -f "$BACKEND_ENV" ] || ! diff -q "$BACKEND_ENV" "$ENV_BACKUP" > /dev/null 2>&1; then
+    cp "$ENV_BACKUP" "$BACKEND_ENV"
+    echo "✅ .env восстановлен"
+  fi
+  rm -f "$ENV_BACKUP"
+fi
+
+# Frontend
+echo ""
+echo "📦 Сборка frontend..."
+cd "$PROJECT_ROOT/frontend"
+npm ci --prefer-offline --no-audit
+npm run build
+chown -R www-data:www-data dist 2>/dev/null || true
+echo "✅ Frontend собран"
+
+# Backend
+echo ""
+echo "📦 Backend зависимости..."
+cd "$PROJECT_ROOT/backend"
+npm ci --prefer-offline --no-audit
+
+if [ -f "scripts/apply-migrations-to-db.js" ]; then
+  echo "🔄 Миграции..."
+  node scripts/apply-migrations-to-db.js 2>/dev/null || echo "⚠️ Миграции: проверьте вручную"
+fi
+
+# PM2 restart
+echo ""
+echo "🔄 Перезапуск PM2..."
+pm2 restart all --update-env || echo "⚠️ pm2 restart: проверьте вручную"
+
+echo ""
+echo "✅ Деплой завершён. Проверьте: pm2 status && pm2 logs"
