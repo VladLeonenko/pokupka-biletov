@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { getPublicPage, getPublicPartials } from '@/services/publicApi';
 import { useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { PublicPageRenderer } from '@/components/public/PublicPageRenderer';
-import { QuizInjector } from '@/components/public/QuizInjector';
+import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 export function PublicPageView() {
   const location = useLocation();
@@ -16,14 +16,7 @@ export function PublicPageView() {
   
   // Не пытаемся загружать админские страницы через pages API
   if (pathSlug.startsWith('/admin')) {
-    return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h5">Страница не найдена</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Админские страницы доступны только авторизованным пользователям
-        </Typography>
-      </Box>
-    );
+    return <NotFoundPage />;
   }
   
   // Normalize slug: remove trailing slash (except root), handle .html extension
@@ -37,11 +30,12 @@ export function PublicPageView() {
     pageSlug = '/' + pageSlug;
   }
   
-  const { data: page, isLoading } = useQuery({ 
+  const { data: page, isLoading, isError } = useQuery({ 
     queryKey: ['public-page', pageSlug], 
     queryFn: () => getPublicPage(pageSlug),
     enabled: !!pageSlug,
     staleTime: 30000,
+    retry: false,
   });
   const { data: partials } = useQuery({ 
     queryKey: ['public-partials'], 
@@ -151,15 +145,8 @@ ${conditionalScripts}
     );
   }
 
-  if (!page || page === null) {
-    return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h5">Страница не найдена</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Убедитесь, что страница опубликована или проверьте правильность URL.
-        </Typography>
-      </Box>
-    );
+  if (isError || !page || page === null) {
+    return <NotFoundPage />;
   }
 
   return (
