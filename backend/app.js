@@ -112,15 +112,17 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
-        "'unsafe-inline'", // Нужно для inline скриптов React
-        "'unsafe-eval'", // Нужно для dev mode
-        "https://cdn.jsdelivr.net", // GSAP
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "'strict-dynamic'", // скрипты, загруженные доверенным кодом (напр. Metrika → yastatic)
+        "https://cdn.jsdelivr.net",
         "https://www.googletagmanager.com",
         "https://www.google-analytics.com",
-        "https://cc.calltracking.ru", // Коллтрекинг
-        "https://mc.yandex.ru", // Яндекс.Метрика
-        "https://ymv43udrja.ru", // Яндекс.Метрика (асинхронная загрузка)
-        "https://yastatic.net", // Яндекс.Метрика form-selector, phonos и др.
+        "https://cc.calltracking.ru",
+        "https://mc.yandex.ru",
+        "https://ymv43udrja.ru",
+        "https://yastatic.net",
+        "https://*.yastatic.net",
         ...(isDevelopment ? ["'unsafe-eval'"] : []),
       ],
       styleSrc: [
