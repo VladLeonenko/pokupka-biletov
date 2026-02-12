@@ -30,13 +30,13 @@ export function Portfolio3D({ cases }: Portfolio3DProps) {
     { id: '2', title: 'ПОЛИГОН', year: '2018', url: '/polygon', position: [-15, 0, 5] },
     { id: '3', title: 'MADEO', year: '2020', url: '/madeo-case', position: [20, 0, -10] },
     { id: '4', title: 'STRAUMANN GROUP', year: '2019', url: '/straumann-case', position: [-10, 0, -15] },
-    { id: '5', title: 'ALASKA FIREWOOD', year: '2022', url: '#', position: [5, 0, 20] },
-    { id: '6', title: 'МЕДИЦИНСКИЙ ЦЕНТР', year: '2022', url: '#', position: [-20, 0, 10] },
-    { id: '7', title: 'УРСУС', year: '2019', url: '#', position: [15, 0, -20] },
-    { id: '8', title: 'STRAUMANN MOBILE', year: '2021', url: '#', position: [-5, 0, -25] },
-    { id: '9', title: 'LETA', year: '2017', url: '#', position: [25, 0, 5] },
-    { id: '10', title: 'WINWIN CHINA', year: '2019', url: '#', position: [-25, 0, -5] },
-    { id: '11', title: 'GREENDENT', year: '2021', url: '#', position: [0, 0, 30] },
+    { id: '5', title: 'ALASKA FIREWOOD', year: '2022', url: '/cases/alaska-case', position: [5, 0, 20] },
+    { id: '6', title: 'МЕДИЦИНСКИЙ ЦЕНТР', year: '2022', url: '/cases/litclinic-case', position: [-20, 0, 10] },
+    { id: '7', title: 'УРСУС', year: '2019', url: '/cases/ursus-case', position: [15, 0, -20] },
+    { id: '8', title: 'STRAUMANN MOBILE', year: '2021', url: '/cases/straumann-mobile-case', position: [-5, 0, -25] },
+    { id: '9', title: 'LETA', year: '2017', url: '/cases/leta-case', position: [25, 0, 5] },
+    { id: '10', title: 'WINWIN CHINA', year: '2019', url: '/cases/winwin-case', position: [-25, 0, -5] },
+    { id: '11', title: 'GREENDENT', year: '2021', url: '/cases/greendent-case', position: [0, 0, 30] },
   ];
 
   const portfolioCases = cases.length > 0 ? cases : defaultCases;

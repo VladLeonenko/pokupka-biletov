@@ -1,4 +1,5 @@
 import { Box, Container, Typography, Button, Grid, Card, CardContent, Paper, TextField, Slider, Accordion, AccordionSummary, AccordionDetails, Rating, Avatar, Chip, Divider, Checkbox, FormControlLabel } from '@mui/material';
+import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { PrivacyConsentCheckbox } from '@/components/privacy/PrivacyConsentCheckbox';
 import { MarketingConsentCheckbox } from '@/components/privacy/MarketingConsentCheckbox';
 import { motion } from 'framer-motion';
@@ -307,8 +308,16 @@ export default function PublicHomePageAI() {
     };
   }, []);
 
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://prime-coder.ru/ai-team';
   return (
-    <Box sx={{ bgcolor: '#141414', color: '#ffffff' }}>
+    <>
+      <SeoMetaTags
+        title="AI-команда маркетинга под ключ от 79 000 ₽/мес"
+        description="Подписка на AI-специалистов: SMM, SEO, аналитика, контент. Замена 1–2 штатных сотрудников. Пилот бесплатно — оцените результат."
+        keywords="AI маркетинг, подписка на маркетолога, AI SMM, автоматизация маркетинга"
+        url={currentUrl}
+      />
+      <Box sx={{ bgcolor: '#141414', color: '#ffffff' }}>
       {/* Hero Section */}
       <Container maxWidth="lg" sx={{ position: 'relative' }}>
         {/* Canvas для частиц */}
@@ -1154,5 +1163,6 @@ export default function PublicHomePageAI() {
         </Box>
       )}
     </Box>
+    </>
   );
 }

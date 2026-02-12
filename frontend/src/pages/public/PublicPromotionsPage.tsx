@@ -21,9 +21,9 @@ export function PublicPromotionsPage() {
   return (
     <>
       <SeoMetaTags
-        title="Акции и скидки — PrimeCoder"
-        description="Выгодные акции на разработку сайтов, дизайн, SEO и рекламу."
-        keywords="акции, скидки, PrimeCoder, разработка, SEO"
+        title="Акции на разработку сайтов и SEO | PrimeCoder"
+        description="Скидки на создание сайтов, лендингов и SEO-продвижение. Текущие акции — экономьте на digital-услугах. О limited предложениях."
+        keywords="скидки на сайт, акции веб-студия, разработка сайта со скидкой, SEO акция"
         url={currentUrl}
       />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>

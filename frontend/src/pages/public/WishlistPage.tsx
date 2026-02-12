@@ -69,7 +69,7 @@ export function WishlistPage() {
 
   return (
     <>
-      <SeoMetaTags title="Избранное — Primecoder" description="Ваш список избранных товаров" url={currentUrl} noindex />
+      <SeoMetaTags title="Избранное — PrimeCoder" description="Ваш список избранных товаров" url={currentUrl} noindex />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Избранное" title="Список желаний" decoText="WISHLIST" />

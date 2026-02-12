@@ -100,9 +100,9 @@ export function StraumannCasePage() {
   return (
     <>
       <SeoMetaTags
-        title={page?.seo?.metaTitle || page?.title || 'Кейс Straumann - Разработка сайта | PrimeCoder'}
-        description={page?.seo?.metaDescription || 'Разработка сайта для компании Straumann. Современный дизайн, адаптивная верстка, интеграция с CRM.'}
-        keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс, разработка сайта, Straumann, веб-разработка, PrimeCoder'}
+        title={page?.seo?.metaTitle || page?.title || 'Кейс: сайт Straumann | PrimeCoder'}
+        description={page?.seo?.metaDescription || 'Сайт для Straumann: premium-разработка, адаптив, CRM. Кейс международного бренда в медицине и стоматологии.'}
+        keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс Straumann, корпоративный сайт, веб-разработка медицина'}
         url={currentUrl}
         image={page?.seo?.ogImageUrl}
       />

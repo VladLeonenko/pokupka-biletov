@@ -87,6 +87,7 @@ const MIGRATION_FILES = [
   '046_commercial_proposals.sql',
   '047_semantic_topics.sql',
   '048_fix_cases_gallery_type.sql',
+  '053_product_category_links.sql',
   'add_team_page.sql'
 ];
 

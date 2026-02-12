@@ -41,7 +41,7 @@ const cases = [
     year: '2022',
     type: 'кейс по редизайну сайта',
     image: '/legacy/img/alaska-case.png',
-    link: null,
+    link: '/cases/alaska-case',
   },
   {
     id: 'litclinic',
@@ -49,7 +49,7 @@ const cases = [
     year: '2022',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/litclinic-case.png',
-    link: null,
+    link: '/cases/litclinic-case',
   },
   {
     id: 'ursus',
@@ -57,7 +57,7 @@ const cases = [
     year: '2019',
     type: 'кейс по продвижению САЙТа',
     image: '/legacy/img/ursus-case.png',
-    link: null,
+    link: '/cases/ursus-case',
   },
   {
     id: 'straumann-mobile',
@@ -65,7 +65,7 @@ const cases = [
     year: '2021',
     type: 'кейс по МОБИЛЬНОму ПРИЛОЖЕНИю',
     image: '/legacy/img/mobile-straumann-case.png',
-    link: null,
+    link: '/cases/straumann-mobile-case',
   },
   {
     id: 'leta',
@@ -73,7 +73,7 @@ const cases = [
     year: '2017',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/leta-case.png',
-    link: null,
+    link: '/cases/leta-case',
   },
   {
     id: 'winwin',
@@ -81,7 +81,7 @@ const cases = [
     year: '2019',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/winwin-case.png',
-    link: null,
+    link: '/cases/winwin-case',
   },
   {
     id: 'greendent',
@@ -89,7 +89,7 @@ const cases = [
     year: '2021',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/greendent-case.png',
-    link: null,
+    link: '/cases/greendent-case',
   },
 ];
 

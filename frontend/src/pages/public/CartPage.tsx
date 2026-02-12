@@ -122,7 +122,7 @@ export function CartPage() {
 
   return (
     <>
-      <SeoMetaTags title="Корзина — Primecoder" description="Ваша корзина покупок" url={currentUrl} noindex />
+      <SeoMetaTags title="Корзина — PrimeCoder" description="Ваша корзина покупок" url={currentUrl} noindex />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Корзина" title="Ваша корзина" decoText="CART" />

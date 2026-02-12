@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listCases, deleteCase, setCasePublished } from '@/services/cmsApi';
-import { Box, Button, Card, CardActionArea, CardContent, CardMedia, Grid, Typography, Chip, Select, MenuItem, FormControl, InputLabel, ToggleButton, ToggleButtonGroup, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText, Paper } from '@mui/material';
+import { Box, Button, Card, CardActionArea, CardContent, CardMedia, Grid, Typography, Chip, Select, MenuItem, FormControl, InputLabel, ToggleButton, ToggleButtonGroup, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText, Paper, TextField } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import ArticleIcon from '@mui/icons-material/Article';
@@ -19,15 +19,25 @@ export function CasesListPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'grid'>(() => (localStorage.getItem('cases.viewMode') as 'list' | 'grid') || 'grid');
+
+  const PORTFOLIO_SLUGS = ['alaska-case', 'litclinic-case', 'leta-case', 'ursus-case', 'winwin-case', 'greendent-case', 'polygon-case', 'straumann-mobile-case'];
   
   const templates = useMemo(() => {
     return cases.filter(c => c.isTemplate);
   }, [cases]);
   
   const regularCases = useMemo(() => {
-    return cases.filter(c => !c.isTemplate);
-  }, [cases]);
+    const list = cases.filter(c => !c.isTemplate);
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter(c =>
+      (c.title || '').toLowerCase().includes(q) ||
+      (c.slug || '').toLowerCase().includes(q) ||
+      (c.summary || '').toLowerCase().includes(q)
+    );
+  }, [cases, search]);
   
   const handleCreateFromTemplate = (templateSlug: string) => {
     navigate(`/admin/cases/new?template=${templateSlug}`);
@@ -87,6 +97,25 @@ export function CasesListPage() {
           </ToggleButtonGroup>
           <Button variant="contained" onClick={() => navigate('/admin/cases/new')}>Добавить кейс</Button>
         </Box>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по названию или slug"
+          size="small"
+          sx={{ flex: 1, minWidth: 200 }}
+        />
+        {PORTFOLIO_SLUGS.map((slug) => (
+          <Chip
+            key={slug}
+            label={slug}
+            size="small"
+            variant="outlined"
+            onClick={() => navigate(`/admin/cases/${encodeURIComponent(slug)}`)}
+            sx={{ cursor: 'pointer' }}
+          />
+        ))}
       </Box>
       {templates.length > 0 && (
         <Box sx={{ mb: 3 }}>

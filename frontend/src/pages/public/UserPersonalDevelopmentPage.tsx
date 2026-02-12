@@ -26,6 +26,7 @@ import { EducationOnboarding } from '@/components/planner/EducationOnboarding';
 import { FinanceOnboarding } from '@/components/planner/FinanceOnboarding';
 import { useAuth } from '@/auth/AuthProvider';
 import { useNavigate } from 'react-router-dom';
+import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -172,8 +173,10 @@ export function UserPersonalDevelopmentPage() {
     { label: '💰 Финансы', icon: <AccountBalanceWalletIcon /> },
   ];
 
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
   return (
     <>
+      <SeoMetaTags title="Личное развитие — PrimeCoder" description="Тренировки, питание, чтение, образование, финансы" url={currentUrl} noindex />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Заголовок */}
         <Box sx={{ mb: 4 }}>

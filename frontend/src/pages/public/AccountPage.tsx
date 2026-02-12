@@ -53,7 +53,7 @@ export function AccountPage() {
 
   return (
     <>
-      <SeoMetaTags title="Личный кабинет — Primecoder" description="Личный кабинет пользователя" url={currentUrl} noindex={true} />
+      <SeoMetaTags title="Личный кабинет — PrimeCoder" description="Личный кабинет пользователя" url={currentUrl} noindex={true} />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Аккаунт" title="Личный кабинет" decoText="ACCOUNT" />

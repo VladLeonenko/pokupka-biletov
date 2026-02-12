@@ -18,7 +18,10 @@ router.get('/', async (req, res) => {
       offset = 0,
     } = req.query || {};
     
-    let query = 'SELECT p.* FROM products p';
+    let query = `SELECT p.*, 
+      COALESCE((SELECT array_agg(pcl.category_id ORDER BY pcl.category_id) FROM product_category_links pcl WHERE pcl.product_slug = p.slug), 
+        CASE WHEN p.category_id IS NOT NULL THEN ARRAY[p.category_id] ELSE ARRAY[]::integer[] END) as category_ids
+      FROM products p`;
     const conditions = [];
     const params = [];
     let paramIndex = 1;
@@ -40,9 +43,9 @@ router.get('/', async (req, res) => {
       paramIndex++;
     }
     
-    // Фильтр по категории
+    // Фильтр по категории (товар в product_category_links или в category_id)
     if (categoryId) {
-      conditions.push(`p.category_id = $${paramIndex}`);
+      conditions.push(`(EXISTS (SELECT 1 FROM product_category_links pcl WHERE pcl.product_slug = p.slug AND pcl.category_id = $${paramIndex}) OR p.category_id = $${paramIndex})`);
       params.push(categoryId);
       paramIndex++;
     }
@@ -141,7 +144,7 @@ router.get('/', async (req, res) => {
       }
       
       if (categoryId) {
-        countConditions.push(`p.category_id = $${countParamIndex}`);
+        countConditions.push(`(EXISTS (SELECT 1 FROM product_category_links pcl WHERE pcl.product_slug = p.slug AND pcl.category_id = $${countParamIndex}) OR p.category_id = $${countParamIndex})`);
         countParams.push(categoryId);
         countParamIndex++;
       }
@@ -188,6 +191,7 @@ router.get('/', async (req, res) => {
         isActive: row.is_active,
         sortOrder: row.sort_order,
         categoryId: row.category_id,
+        categoryIds: row.category_ids || (row.category_id ? [row.category_id] : undefined),
         imageUrl: row.image_url,
         gallery: row.gallery || [],
         stockQuantity: row.stock_quantity,
@@ -229,11 +233,13 @@ router.get('/categories', async (req, res) => {
     const isActiveFilter = hasIsActive ? 'WHERE c.is_active = TRUE' : '';
     
     const r = await pool.query(`
-      SELECT c.*, COUNT(p.id) as product_count
+      SELECT c.*, (
+        SELECT COUNT(DISTINCT p.slug) FROM products p
+        WHERE p.is_active = TRUE
+        AND (p.category_id = c.id OR EXISTS (SELECT 1 FROM product_category_links pcl WHERE pcl.product_slug = p.slug AND pcl.category_id = c.id))
+      ) as product_count
       FROM product_categories c
-      LEFT JOIN products p ON p.category_id = c.id AND p.is_active = TRUE
       ${isActiveFilter}
-      GROUP BY c.id
       ORDER BY c.sort_order ASC, c.name ASC
     `);
     

@@ -39,7 +39,7 @@ export function SearchPage() {
 
   return (
     <>
-      <SeoMetaTags title={searchTerm ? `Поиск: ${searchTerm} — Primecoder` : 'Умный поиск — Primecoder'} description="Поиск товаров и услуг" url={currentUrl} noindex />
+      <SeoMetaTags title={searchTerm ? `Поиск: ${searchTerm} — PrimeCoder` : 'Умный поиск — PrimeCoder'} description="Поиск товаров и услуг" url={currentUrl} noindex />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
           <PageHeader overline="Поиск" title="Умный поиск" description="Найдите нужную услугу или решение." decoText="SEARCH" />

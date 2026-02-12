@@ -16,18 +16,14 @@ export function CasesMetrics() {
   const [animatedSecond, setAnimatedSecond] = useState(0);
   const metricsRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
-  
-  // Ранний возврат если нет slug - компонент не должен рендериться
-  if (!slug) {
-    return null;
-  }
-  
+
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
     enabled: !!slug,
   });
 
+  if (!slug) return null;
   if (!caseData) {
     return null;
   }

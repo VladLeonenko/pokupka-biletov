@@ -153,7 +153,7 @@ export function PublicAIChatPage() {
   return (
     <>
       <SeoMetaTags
-        title="AI Ассистент - Primecoder"
+        title="AI Ассистент — PrimeCoder"
         description="Задайте вопрос нашему AI-ассистенту. Поддержка голосового ввода и вывода."
         url={currentUrl}
         noindex={true}

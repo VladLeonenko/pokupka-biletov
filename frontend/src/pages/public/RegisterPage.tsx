@@ -202,7 +202,7 @@ export function RegisterPage() {
   return (
     <>
       <SeoMetaTags
-        title="Регистрация - Primecoder"
+        title="Регистрация — PrimeCoder"
         description="Создайте аккаунт для доступа к личному кабинету и всем услугам"
         url={currentUrl}
         noindex={true}

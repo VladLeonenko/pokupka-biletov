@@ -100,9 +100,9 @@ export function PolygonCasePage() {
   return (
     <>
       <SeoMetaTags
-        title={page?.seo?.metaTitle || page?.title || 'Кейс Полигон - Разработка сайта | PrimeCoder'}
-        description={page?.seo?.metaDescription || 'Разработка сайта для компании Полигон. Современный дизайн, адаптивная верстка, интеграция с CRM.'}
-        keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс, разработка сайта, Полигон, веб-разработка, PrimeCoder'}
+        title={page?.seo?.metaTitle || page?.title || 'Кейс: сайт Полигон | PrimeCoder'}
+        description={page?.seo?.metaDescription || 'Сайт для компании Полигон: дизайн, адаптивность, CRM. Реальный кейс — смотрите подход и результат.'}
+        keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс Полигон, корпоративный сайт, веб-разработка'}
         url={currentUrl}
         image={page?.seo?.ogImageUrl}
       />

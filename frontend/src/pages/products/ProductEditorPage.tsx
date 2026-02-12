@@ -43,7 +43,7 @@ export function ProductEditorPage() {
   const [features, setFeatures] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [contentJson, setContentJson] = useState<ProductContentJson>({});
-  const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [gallery, setGallery] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -111,7 +111,7 @@ const { data: categories = [] } = useQuery({
       setFeatures(data.features || []);
       setSortOrder(data.sortOrder || 0);
       setContentJson(data.contentJson || {});
-      setCategoryId(data.categoryId);
+      setCategoryIds(data.categoryIds?.length ? data.categoryIds : (data.categoryId ? [data.categoryId] : []));
       setImageUrl(data.imageUrl || '');
       setGallery(data.gallery || []);
       setTags(data.tags || []);
@@ -160,7 +160,7 @@ const { data: categories = [] } = useQuery({
         features,
         sortOrder,
         contentJson: Object.keys(contentJson).length > 0 ? contentJson : undefined,
-        categoryId,
+        categoryIds: categoryIds.length ? categoryIds : undefined,
         imageUrl: imageUrl && imageUrl.trim() ? imageUrl.trim() : undefined,
         gallery: filteredGallery.length > 0 ? filteredGallery : undefined,
         tags: tags.length > 0 ? tags : undefined,
@@ -1275,23 +1275,18 @@ const { data: categories = [] } = useQuery({
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                      Категория (для фильтрации)
+                      Категории (можно несколько)
                     </Typography>
-                    <TextField 
-                      select 
-                      fullWidth 
-                      label="Категория" 
-                      value={categoryId || ''} 
-                      onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : undefined)}
-                      helperText="Выберите категорию для группировки товаров"
-                    >
-                      <MenuItem value="">Без категории</MenuItem>
-                      {categories.map((cat) => (
-                        <MenuItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                    <Autocomplete
+                      multiple
+                      options={categories}
+                      getOptionLabel={(c) => c.name}
+                      value={categories.filter((c) => categoryIds.includes(c.id))}
+                      onChange={(_, selected) => setCategoryIds(selected.map((c) => c.id))}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Категории" placeholder="Выберите категории" />
+                      )}
+                    />
                   </Grid>
                 </Grid>
               </AccordionDetails>

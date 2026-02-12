@@ -1,9 +1,11 @@
 {
   "scripts": {
+    "seo:audit": "node scripts/seo-audit.js",
     "products:seed": "cd backend && node scripts/create-all-products.js",
     "migrate": "cd backend && node scripts/apply-migrations-to-db.js",
     "test": "cd frontend && npm run test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed:case-seo": "cd backend && node scripts/seed-case-pages-seo.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"

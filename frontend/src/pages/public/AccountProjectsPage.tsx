@@ -259,7 +259,7 @@ export function AccountProjectsPage() {
         }
       `}</style>
       <SeoMetaTags
-        title="Мои проекты - Primecoder"
+        title="Мои проекты — PrimeCoder"
         description="Прогресс проектов и запросы на изменения"
         url={currentUrl}
         noindex={true}

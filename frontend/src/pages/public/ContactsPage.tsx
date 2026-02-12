@@ -11,9 +11,9 @@ export function ContactsPage() {
   return (
     <>
       <SeoMetaTags
-        title="Контакты PrimeCoder - Свяжитесь с нами"
-        description="Контактная информация веб-студии PrimeCoder. Телефон, email, адрес, график работы."
-        keywords="контакты PrimeCoder, связаться с PrimeCoder, телефон, email, адрес"
+        title="Контакты PrimeCoder — заказать разработку сайта"
+        description="Свяжитесь с нами: телефон, email, мессенджеры. Консультация и расчёт стоимости бесплатно. Работаем по Москве и всей России."
+        keywords="контакты PrimeCoder, заказать сайт, веб-студия Москва телефон, связаться с разработчиком"
         url={currentUrl}
       />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>

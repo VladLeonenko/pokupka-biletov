@@ -7,8 +7,9 @@ export function PrivacyPolicyPage() {
   return (
     <>
       <SeoMetaTags
-        title="Политика конфиденциальности - PrimeCoder"
-        description="Политика конфиденциальности и обработки персональных данных веб-студии PrimeCoder"
+        title="Политика конфиденциальности | PrimeCoder"
+        description="Политика обработки персональных данных веб-студии PrimeCoder. Условия сбора, хранения и защиты информации клиентов."
+        keywords="политика конфиденциальности, обработка персональных данных, PrimeCoder"
         url={currentUrl}
       />
       <Container maxWidth="md" sx={{ py: 6 }}>

@@ -115,9 +115,9 @@ export function HousesCasePage() {
     return (
       <>
         <SeoMetaTags
-          title="Кейс Дома России - Разработка сайта | PrimeCoder"
-          description="Разработка сайта для компании Дома России. Современный дизайн, адаптивная верстка, интеграция с CRM."
-          keywords="кейс, разработка сайта, Дома России, веб-разработка, PrimeCoder"
+          title="Кейс: сайт Дома России | PrimeCoder"
+          description="Корпоративный сайт для Дома России: современный дизайн, адаптивная вёрстка, интеграция с CRM. Смотрите реализацию и результат."
+          keywords="кейс Дома России, корпоративный сайт, разработка сайта компания"
           url={currentUrl}
         />
         <HeaderFooterInjector />
@@ -144,9 +144,9 @@ export function HousesCasePage() {
   return (
     <>
       <SeoMetaTags
-        title={page?.seo?.metaTitle || page?.title || 'Кейс Дома России - Разработка сайта | PrimeCoder'}
-        description={page?.seo?.metaDescription || 'Разработка сайта для компании Дома России. Современный дизайн, адаптивная верстка, интеграция с CRM.'}
-        keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс, разработка сайта, Дома России, веб-разработка, PrimeCoder'}
+        title={page?.seo?.metaTitle || page?.title || 'Кейс: сайт Дома России | PrimeCoder'}
+        description={page?.seo?.metaDescription || 'Корпоративный сайт для Дома России: современный дизайн, адаптивная вёрстка, интеграция с CRM. Смотрите реализацию и результат.'}
+        keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс Дома России, корпоративный сайт, разработка сайта компания'}
         url={currentUrl}
         image={page?.seo?.ogImageUrl}
       />

@@ -100,7 +100,7 @@ export function MadeoCasePage() {
   return (
     <>
       <SeoMetaTags
-        title={page?.seo?.metaTitle || page?.title || 'Кейс Madeo - Разработка сайта | PrimeCoder'}
+        title={page?.seo?.metaTitle || page?.title || 'Кейс Madeo — Разработка сайта | PrimeCoder'}
         description={page?.seo?.metaDescription || 'Разработка сайта для компании Madeo. Современный дизайн, адаптивная верстка, интеграция с CRM.'}
         keywords={page?.seo?.metaKeywords?.join(', ') || 'кейс, разработка сайта, Madeo, веб-разработка, PrimeCoder'}
         url={currentUrl}

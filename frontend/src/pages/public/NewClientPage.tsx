@@ -10,9 +10,9 @@ export function NewClientPage() {
   return (
     <>
       <SeoMetaTags
-        title="Стать клиентом PrimeCoder - Заполните анкету"
-        description="Станьте клиентом PrimeCoder! Заполните мини-бриф и получите персональное предложение."
-        keywords="стать клиентом, веб-студия, разработка сайтов, PrimeCoder"
+        title="Заявка на разработку сайта — бриф | PrimeCoder"
+        description="Заполните короткий бриф — получите персональное КП и расчёт стоимости за 24 часа. Без обязательств. Разработка сайтов, SEO, реклама."
+        keywords="заказать сайт, бриф на разработку, заявка веб-студия, расчёт стоимости сайта"
         url={currentUrl}
       />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>

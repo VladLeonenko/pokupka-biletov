@@ -66,9 +66,9 @@ export function PortfolioPage() {
   return (
     <>
       <SeoMetaTags
-        title="Портфолио — Примеры работ PrimeCoder"
-        description="Портфолио проектов: сайты, приложения, дизайн, SEO, маркетинг."
-        keywords="портфолио, кейсы, примеры работ, PrimeCoder"
+        title="Портфолио PrimeCoder — кейсы и примеры сайтов"
+        description="Реальные проекты: корпоративные сайты, интернет-магазины, лендинги, SEO. Убедитесь в качестве — смотрите 150+ кейсов."
+        keywords="портфолио веб-студии, кейсы разработки сайтов, примеры работ, PrimeCoder"
         url={typeof window !== 'undefined' ? window.location.href : ''}
       />
 

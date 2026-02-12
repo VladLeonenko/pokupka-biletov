@@ -31,9 +31,10 @@ export function WinnersPage() {
   return (
     <>
       <SeoMetaTags
-        title="Кейсы-победители Awwwards - PrimeCoder"
-        description="Наши проекты, получившие признание на Awwwards. Лучшие работы веб-студии PrimeCoder."
-        url={typeof window !== 'undefined' ? window.location.href : 'https://primecoder.ru/cases/winners'}
+        title="Кейсы Awwwards — награждённые проекты | PrimeCoder"
+        description="Проекты PrimeCoder, отмеченные Awwwards. Примеры премиум-разработки сайтов, дизайна и UX. Смотрите наши лучшие кейсы."
+        keywords="кейсы Awwwards, примеры сайтов, веб-дизайн награды, портфолио PrimeCoder"
+        url={typeof window !== 'undefined' ? window.location.href : 'https://prime-coder.ru/cases/winners'}
       />
       <HeaderFooterInjector />
       <div className="page-content" style={{ minHeight: '100vh', paddingTop: '100px' }}>

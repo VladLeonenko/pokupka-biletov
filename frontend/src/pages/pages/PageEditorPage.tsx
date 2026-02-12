@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteSitePage, getSitePage, movePage, publishPage, updateSitePage, getPartials } from '@/services/cmsApi';
-import { Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLabel, Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
+import { Accordion, AccordionSummary, AccordionDetails, Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLabel, Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import BuildIcon from '@mui/icons-material/Build';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useToast } from '@/components/common/ToastProvider';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMemo, useState, useEffect } from 'react';
@@ -24,6 +25,10 @@ export function PageEditorPage() {
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlRaw, setHtmlRaw] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaDescription, setMetaDescription] = useState('');
+  const [metaKeywords, setMetaKeywords] = useState('');
+  const [ogImageUrl, setOgImageUrl] = useState('');
 
   useMemo(() => {
     if (page) {
@@ -31,6 +36,10 @@ export function PageEditorPage() {
       setSlug(page.path);
       setHtml(page.html);
       setPublished(Boolean(page.isPublished));
+      setMetaTitle(page.seo?.metaTitle || '');
+      setMetaDescription(page.seo?.metaDescription || '');
+      setMetaKeywords(Array.isArray(page.seo?.metaKeywords) ? page.seo.metaKeywords.join(', ') : (page.seo?.metaKeywords || ''));
+      setOgImageUrl(page.seo?.ogImageUrl || '');
     }
   }, [page]);
 
@@ -55,7 +64,7 @@ export function PageEditorPage() {
   }, [htmlMode]);
 
   const mutation = useMutation({
-    mutationFn: (payload: { title?: string; html?: string }) => updateSitePage(id, payload),
+    mutationFn: (payload: { title?: string; html?: string; seo?: any }) => updateSitePage(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pages'] });
       queryClient.invalidateQueries({ queryKey: ['page', id] });
@@ -164,7 +173,17 @@ export function PageEditorPage() {
                       const m = htmlRaw.match(/<!--CONTENT_START-->([\s\S]*?)<!--CONTENT_END-->/);
                       return m ? m[1].trim() : htmlRaw;
                     })() : html;
-                    await mutation.mutateAsync({ title, html: contentToSave });
+                    const kw = metaKeywords.trim() ? metaKeywords.split(/,\s*/).filter(Boolean) : undefined;
+                    await mutation.mutateAsync({
+                      title,
+                      html: contentToSave,
+                      seo: {
+                        metaTitle: metaTitle || undefined,
+                        metaDescription: metaDescription || undefined,
+                        metaKeywords: kw,
+                        ogImageUrl: ogImageUrl || undefined,
+                      },
+                    });
                     await publishMut.mutateAsync(published);
                   } catch (err: any) {
                     showToast(err?.message || 'Ошибка сохранения', 'error');
@@ -203,19 +222,17 @@ export function PageEditorPage() {
               }}>Перенести в продукт</Button>
             </Box>
           </Paper>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>SEO</Typography>
-            <TextField
-              fullWidth
-              label="Meta Title"
-              value={page.seo.metaTitle || ''}
-              onChange={(e) => mutation.mutate({ html: page.html, title: page.title, })}
-              placeholder="Заполните на вкладке SEO"
-            />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Подробное редактирование в разделе SEO
-            </Typography>
-          </Paper>
+          <Accordion defaultExpanded sx={{ mt: 2 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle1">SEO и мета-теги</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TextField fullWidth label="Meta Title (50-60 символов)" value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} placeholder="Кейс: сайт X | PrimeCoder" sx={{ mb: 2 }} helperText={`${metaTitle.length}/60`} />
+              <TextField fullWidth label="Meta Description (120-160 символов)" value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} placeholder="Краткое описание для поисковиков" multiline minRows={2} sx={{ mb: 2 }} helperText={`${metaDescription.length}/160`} />
+              <TextField fullWidth label="Keywords (через запятую)" value={metaKeywords} onChange={(e) => setMetaKeywords(e.target.value)} placeholder="кейс, корпоративный сайт, веб-разработка" sx={{ mb: 2 }} />
+              <TextField fullWidth label="OG Image URL" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} placeholder="https://prime-coder.ru/legacy/img/..." />
+            </AccordionDetails>
+          </Accordion>
         </Grid>
       </Grid>
 

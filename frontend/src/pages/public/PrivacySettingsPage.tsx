@@ -29,6 +29,7 @@ import { CookieSettingsModal } from '@/components/privacy/CookieSettingsModal';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useCookieConsent } from '@/hooks/useCookieConsent';
+import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 
 export function PrivacySettingsPage() {
   const { user } = useAuth();
@@ -95,8 +96,10 @@ export function PrivacySettingsPage() {
     );
   };
 
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
   return (
     <>
+      <SeoMetaTags title="Настройки конфиденциальности — PrimeCoder" description="Управление согласиями на обработку персональных данных" url={currentUrl} noindex />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Box sx={{ mb: 4 }}>
           <Button variant="text" onClick={() => navigate('/account')} sx={{ mb: 2 }}>

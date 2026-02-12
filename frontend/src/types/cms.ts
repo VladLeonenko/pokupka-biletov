@@ -96,7 +96,8 @@ export type ProductItem = {
   isActive?: boolean;
   sortOrder?: number;
   contentJson?: ProductContentJson; // Structured content based on /ads template
-  categoryId?: number;
+  categoryId?: number; // deprecated, use categoryIds
+  categoryIds?: number[]; // множественные категории
   imageUrl?: string;
   gallery?: string[];
   stockQuantity?: number;
@@ -617,7 +618,7 @@ export type User = {
 
 export type SearchFilters = {
   isActive?: boolean;
-  categoryId?: number;
+  categoryId?: number; // фильтр по одной категории (товар должен быть в ней)
   minPrice?: number;
   maxPrice?: number;
   tags?: string[];

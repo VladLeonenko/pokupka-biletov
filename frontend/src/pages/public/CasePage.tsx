@@ -80,9 +80,9 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
   return (
     <>
       <SeoMetaTags
-        title={caseData.title ? `${caseData.title} - Кейс | PrimeCoder` : 'Кейс - PrimeCoder'}
-        description={caseData.summary || 'Детальное описание проекта'}
-        keywords={caseData.title || 'кейс, проект, разработка'}
+        title={caseData.title ? `${caseData.title} — кейс | PrimeCoder` : 'Кейсы разработки сайтов | PrimeCoder'}
+        description={caseData.summary || 'Реальный кейс разработки сайта. Дизайн, вёрстка, интеграции. Смотрите процесс и результат работы PrimeCoder.'}
+        keywords={caseData.title ? `кейс ${caseData.title}, разработка сайта` : 'кейсы веб-разработки, портфолио PrimeCoder'}
         url={currentUrl}
         image={caseData.heroImageUrl}
       />

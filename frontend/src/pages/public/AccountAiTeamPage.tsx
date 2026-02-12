@@ -404,7 +404,7 @@ export function AccountAiTeamPage() {
   return (
     <>
       <SeoMetaTags
-        title="AI Boost Team - личный кабинет"
+        title="AI Boost Team — личный кабинет"
         description="Управление задачами AI Boost Team, лимитами и качеством"
         url={currentUrl}
         noindex={true}

@@ -11,18 +11,13 @@ import { SafeImage } from '@/components/common/SafeImage';
  */
 export function CasesAdaptiveNew() {
   const { slug } = useParams<{ slug?: string }>();
-  
-  // Ранний возврат если нет slug - компонент не должен рендериться
-  if (!slug) {
-    return null;
-  }
-  
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
     enabled: !!slug,
   });
 
+  if (!slug) return null;
   if (!caseData) {
     return null;
   }

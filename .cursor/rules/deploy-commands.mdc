@@ -17,6 +17,12 @@ git commit -m "fix: краткое описание"
 git push origin feature/safari-auth-fix   # или main, если мержили
 ```
 
+## 1.5. (Опционально) Заполнить SEO кейсов на проде
+
+```bash
+npm run seed:case-seo   # заполняет meta для houses-case, madeo-case, polygon, straumann-case
+```
+
 ## 2. На сервере — деплой одной командой
 
 ```bash

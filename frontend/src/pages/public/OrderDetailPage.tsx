@@ -47,7 +47,7 @@ export function OrderDetailPage() {
   return (
     <>
       <SeoMetaTags
-        title={`Заказ №${order.orderNumber} - Primecoder`}
+        title={`Заказ №${order.orderNumber} — PrimeCoder`}
         description={`Детали заказа №${order.orderNumber}`}
         url={currentUrl}
         noindex={true}

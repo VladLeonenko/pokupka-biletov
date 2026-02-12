@@ -107,9 +107,9 @@ export function CatalogPage() {
   return (
     <>
       <SeoMetaTags
-        title="Каталог услуг веб-разработки и digital-маркетинга | PrimeCoder"
-        description="Услуги разработки сайтов, SEO-продвижения, рекламы у блогеров, маркетинга. Цены от 150 000 ₽. Москва."
-        keywords="каталог услуг, разработка сайтов, SEO продвижение, реклама у блогеров, веб-разработка, PrimeCoder"
+        title="Услуги разработки сайтов и SEO — цены | PrimeCoder"
+        description="Полный каталог: создание сайтов от 150 000 ₽, SEO-продвижение, реклама у блогеров, дизайн. Выберите услугу и получите расчёт за 24 часа."
+        keywords="каталог услуг, разработка сайтов цена, SEO продвижение стоимость, реклама у блогеров, создание лендинга, PrimeCoder"
         url="https://prime-coder.ru/catalog"
         type="website"
       />
@@ -183,7 +183,7 @@ export function CatalogPage() {
                           alt={p.title}
                           loading="lazy"
                           onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
-                          sx={{ width: '100%', height: 220, objectFit: 'contain', display: 'block', bgcolor: 'rgba(0,0,0,0.15)' }}
+                          sx={{ width: '100%', height: 220, objectFit: 'cover', display: 'block', bgcolor: 'rgba(0,0,0,0.15)' }}
                         />
                         <Box sx={{ p: 2.5 }}>
                           <Typography sx={{ fontWeight: 600, color: '#fff', fontSize: '1rem', mb: 0.75, lineHeight: 1.3 }}>{p.title}</Typography>

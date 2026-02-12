@@ -39,6 +39,7 @@ import {
   ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { getPublicReviews, createReview, markReviewHelpful, type Review, type CreateReviewData } from '@/services/reviewsApi';
+import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { ReviewForm } from './ReviewForm';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -106,8 +107,15 @@ export function ReviewsPage() {
     ];
   }, [stats]);
 
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://prime-coder.ru/reviews';
   return (
     <>
+      <SeoMetaTags
+        title="Отзывы о PrimeCoder — реальные клиенты о разработке сайтов"
+        description="Честные отзывы заказчиков о создании сайтов, SEO и маркетинге. Рейтинг 4.9. Узнайте, что говорят те, кто уже работал с нами."
+        keywords="отзывы PrimeCoder, отзывы веб-студия, разработка сайтов отзывы"
+        url={currentUrl}
+      />
       <Box
         sx={{
           minHeight: { xs: 'auto', md: '100vh' },

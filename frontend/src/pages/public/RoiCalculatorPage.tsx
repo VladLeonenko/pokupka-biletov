@@ -61,8 +61,9 @@ export function RoiCalculatorPage() {
   return (
     <>
       <SeoMetaTags
-        title="Калькулятор ROI - Primecoder"
-        description="Калькулятор возврата инвестиций для рекламных кампаний"
+        title="Калькулятор ROI рекламы — окупаемость вложений"
+        description="Рассчитайте возврат инвестиций в рекламу и маркетинг. Введите данные — получите прогноз окупаемости и рекомендации."
+        keywords="калькулятор ROI, окупаемость рекламы, ROI маркетинга, расчёт эффективности"
         url={currentUrl}
       />
       <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto', pt: { xs: 6.25, md: 6.25 } }}>

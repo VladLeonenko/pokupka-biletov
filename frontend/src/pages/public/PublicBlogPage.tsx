@@ -26,9 +26,9 @@ export function PublicBlogPage() {
   return (
     <>
       <SeoMetaTags
-        title="Блог веб-студии PrimeCoder — статьи о разработке, дизайне и маркетинге"
-        description="Полезные статьи о создании сайтов, веб-дизайне, SEO-продвижении и маркетинге."
-        keywords="блог, статьи, веб-разработка, дизайн, маркетинг, SEO, PrimeCoder"
+        title="Блог о создании сайтов и SEO | PrimeCoder"
+        description="Статьи о разработке сайтов, продвижении, рекламе. Практические советы от практиков. Читайте — применяйте в бизнесе."
+        keywords="блог веб-разработка, статьи про SEO, создание сайта советы, маркетинг статьи"
         url={currentUrl}
       />
       <Box component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>

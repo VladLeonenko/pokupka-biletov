@@ -18,6 +18,7 @@ import { getFinanceProfile, saveFinanceProfile } from '@/services/plannerApi';
 import { FinanceOnboarding } from '@/components/planner/FinanceOnboarding';
 import { useAuth } from '@/auth/AuthProvider';
 import { useNavigate } from 'react-router-dom';
+import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import SavingsIcon from '@mui/icons-material/Savings';
@@ -69,8 +70,10 @@ export function UserFinancePlannerPage() {
   }
 
   if (showOnboarding || !profile) {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
     return (
       <>
+        <SeoMetaTags title="Финансовый планировщик — PrimeCoder" description="Планирование бюджета, целей и инвестиций" url={currentUrl} noindex />
         <Container maxWidth="md" sx={{ py: 4 }}>
           <Button
             variant="text"
@@ -110,8 +113,10 @@ export function UserFinancePlannerPage() {
   const totalBudgeted = expenseCategories.reduce((sum, cat) => sum + (cat.budget || 0), 0);
   const unallocated = monthlyBudget - totalBudgeted;
 
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
   return (
     <>
+      <SeoMetaTags title="Финансовый планировщик — PrimeCoder" description="Планирование бюджета, целей и инвестиций" url={currentUrl} noindex />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Заголовок */}
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

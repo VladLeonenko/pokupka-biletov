@@ -145,19 +145,19 @@ export function AppLayout({ children }: PropsWithChildren) {
             Панель управления
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
-          <Tooltip title="Открыть продакшен в новой вкладке для тестирования">
+          <Tooltip title="Открыть главную в новой вкладке">
             <Button
               color="inherit"
               startIcon={<LaunchIcon />}
-              onClick={() => {
-                const win = window.open('/', '_blank');
-                if (win) {
-                  win.focus();
-                }
-              }}
+              onClick={() => window.open('/', '_blank')}
               sx={{ mr: 1 }}
             >
               Продакшен
+            </Button>
+          </Tooltip>
+          <Tooltip title="Открыть каталог услуг в новой вкладке">
+            <Button color="inherit" size="small" onClick={() => window.open('/catalog', '_blank')} sx={{ mr: 1 }}>
+              Каталог
             </Button>
           </Tooltip>
           <NotificationsBell />

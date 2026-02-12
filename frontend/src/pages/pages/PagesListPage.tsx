@@ -69,14 +69,27 @@ export function PagesListPage() {
           <ToggleButton value="grid" aria-label="Плитка">Плитка</ToggleButton>
         </ToggleButtonGroup>
       </Box>
-      <TextField
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Поиск по названию или пути"
-        fullWidth
-        size="small"
-        sx={{ mb: 2 }}
-      />
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+        <TextField
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по названию или пути"
+          size="small"
+          sx={{ flex: 1, minWidth: 200 }}
+        />
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {['houses-case', 'madeo-case', 'polygon', 'straumann-case'].map((slug) => (
+            <Chip
+              key={slug}
+              label={slug}
+              size="small"
+              variant="outlined"
+              onClick={() => navigate(`/admin/pages/${encodeURIComponent(slug.startsWith('/') ? slug : '/' + slug)}`)}
+              sx={{ cursor: 'pointer' }}
+            />
+          ))}
+        </Box>
+      </Box>
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
       ) : isError ? (
