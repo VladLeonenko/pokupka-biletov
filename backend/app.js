@@ -119,6 +119,7 @@ app.use(helmet({
         "https://www.google-analytics.com",
         "https://cc.calltracking.ru", // Коллтрекинг
         "https://mc.yandex.ru", // Яндекс.Метрика
+        "https://ymv43udrja.ru", // Яндекс.Метрика (асинхронная загрузка)
         ...(isDevelopment ? ["'unsafe-eval'"] : []),
       ],
       styleSrc: [
