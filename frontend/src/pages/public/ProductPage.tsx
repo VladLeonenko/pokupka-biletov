@@ -241,7 +241,6 @@ export function ProductPage() {
   }
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const contentJson = product.contentJson || {};
   const headerSection = contentJson?.header;
   const hasHeaderBlock = headerSection && (headerSection.title || headerSection.description || headerSection.primaryButtonText || headerSection.secondaryButtonText);
   const priceSection = contentJson?.priceSection;
