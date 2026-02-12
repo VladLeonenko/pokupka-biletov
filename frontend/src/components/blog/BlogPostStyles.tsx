@@ -13,13 +13,13 @@ export function BlogPostStyles() {
     <GlobalStyles
       styles={{
         '.blog-post': {
-          maxWidth: 'min(960px, 100%)',
+          maxWidth: 'min(1280px, 100%)',
           margin: 0,
           padding: 0,
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          gap: '48px',
+          gap: '38px',
           color: '#F3F4FF',
         },
         '.blog-post-header': {
@@ -27,7 +27,7 @@ export function BlogPostStyles() {
           zIndex: 1,
           display: 'flex',
           flexDirection: 'column',
-          gap: '28px',
+          gap: '22px',
         },
         '.will-reveal': {
           opacity: 0,
@@ -74,14 +74,7 @@ export function BlogPostStyles() {
           isolation: 'isolate',
         },
         '.blog-post-image::after': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background:
-            'linear-gradient(120deg, rgba(122, 108, 255, 0.24), rgba(255, 120, 150, 0.22))',
-          mixBlendMode: 'screen',
-          opacity: 0.65,
-          pointerEvents: 'none',
+          display: 'none',
         },
         '.blog-post-image img': {
           width: '100%',
@@ -95,7 +88,7 @@ export function BlogPostStyles() {
           position: 'relative',
           zIndex: 1,
           display: 'grid',
-          gap: '40px',
+          gap: '32px',
           fontSize: '1.08rem',
           lineHeight: 1.85,
           color: 'rgba(241,244,255,0.84)',
@@ -106,7 +99,7 @@ export function BlogPostStyles() {
         '@media (min-width: 960px)': {
           '.blog-post-content': {
             gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
-            rowGap: '56px',
+            rowGap: '45px',
           },
           '.blog-post-content > *': {
             gridColumn: '2 / span 10',
@@ -131,13 +124,12 @@ export function BlogPostStyles() {
           width: '64px',
           height: '3px',
           borderRadius: '999px',
-          background:
-            'linear-gradient(120deg, rgba(121,108,255,0.8), rgba(255,143,168,0.8))',
+          background: 'rgba(157, 140, 255, 0.8)',
         },
         '.blog-post-content h2': {
           fontSize: 'clamp(1.6rem, 2.6vw, 2.3rem)',
-          marginTop: '48px',
-          marginBottom: '20px',
+          marginTop: '38px',
+          marginBottom: '16px',
           lineHeight: 1.3,
         },
         '.blog-post-content h2:first-of-type': {
@@ -145,8 +137,8 @@ export function BlogPostStyles() {
         },
         '.blog-post-content h3': {
           fontSize: 'clamp(1.35rem, 2.1vw, 1.85rem)',
-          marginTop: '40px',
-          marginBottom: '18px',
+          marginTop: '32px',
+          marginBottom: '14px',
           lineHeight: 1.35,
         },
         '.blog-post-content h3:first-of-type': {
@@ -154,12 +146,12 @@ export function BlogPostStyles() {
         },
         '.blog-post-content h4': {
           fontSize: 'clamp(1.2rem, 1.8vw, 1.5rem)',
-          marginTop: '32px',
-          marginBottom: '16px',
+          marginTop: '26px',
+          marginBottom: '13px',
           lineHeight: 1.4,
         },
         '.blog-post-content p': {
-          margin: '0 0 24px 0',
+          margin: '0 0 19px 0',
           color: 'rgba(225,229,255,0.82)',
           lineHeight: 1.85,
         },
@@ -198,11 +190,11 @@ export function BlogPostStyles() {
           lineHeight: 1.6,
         },
         '.blog-post-content blockquote': {
-          margin: '40px 0',
-          padding: '36px 40px',
+          margin: '32px 0',
+          padding: '29px 32px',
           borderRadius: '24px',
           backdropFilter: 'blur(10px)',
-          background: 'linear-gradient(135deg, rgba(139,118,255,0.18), rgba(255,120,150,0.14))',
+          background: 'rgba(139,118,255,0.12)',
           border: '1px solid rgba(195,188,255,0.18)',
           position: 'relative',
           color: '#F4F5FF',
@@ -226,7 +218,7 @@ export function BlogPostStyles() {
           position: 'absolute',
           inset: '0 auto 0 0',
           width: '4px',
-          background: 'linear-gradient(180deg, rgba(121,108,255,1), rgba(255,143,168,1))',
+          background: 'rgba(157, 140, 255, 0.9)',
           borderRadius: '999px',
         },
         '.blog-post-content ul, .blog-post-content ol': {
@@ -255,13 +247,12 @@ export function BlogPostStyles() {
         '.blog-post-content li p:last-child': {
           marginBottom: 0,
         },
-        // Hero/CTA блок (градиент, как на главной)
         '.article-intro': {
           gridColumn: '1 / span 12',
-          margin: '40px 0',
-          padding: '40px 36px',
+          margin: '32px 0',
+          padding: '32px 29px',
           borderRadius: '28px',
-          background: 'linear-gradient(135deg, rgba(121,108,255,0.35) 0%, rgba(255,143,168,0.3) 100%)',
+          background: 'rgba(121,108,255,0.2)',
           border: '1px solid rgba(195,188,255,0.25)',
           position: 'relative',
           overflow: 'hidden',
@@ -303,14 +294,7 @@ export function BlogPostStyles() {
           marginBottom: 0,
         },
         '.article-callout::after': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background:
-            'linear-gradient(120deg, rgba(127, 103, 255, 0.18), rgba(255, 133, 168, 0.16))',
-          opacity: 0.9,
-          mixBlendMode: 'screen',
-          pointerEvents: 'none',
+          display: 'none',
         },
         '.article-callout strong': {
           fontSize: '1.13rem',
@@ -338,15 +322,7 @@ export function BlogPostStyles() {
           marginBottom: '8px',
         },
         '.blog-post-content .grid-item::after': {
-          content: '""',
-          position: 'absolute',
-          inset: '-40% -60% auto auto',
-          width: '120%',
-          height: '120%',
-          background: 'linear-gradient(120deg, rgba(129,108,255,0.16), rgba(255,143,168,0.15))',
-          opacity: 0,
-          transform: 'skewX(-18deg)',
-          animation: `${shimmer} 8s ease-in-out infinite`,
+          display: 'none',
         },
         '.blog-post-content table': {
           width: '100%',
@@ -425,9 +401,9 @@ export function BlogPostStyles() {
           animation: 'slideInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
         },
         '.article-table h3': {
-          padding: '28px 32px 20px',
+          padding: '22px 26px 16px',
           margin: 0,
-          background: 'linear-gradient(135deg, rgba(139,118,255,0.2), rgba(255,120,150,0.18))',
+          background: 'rgba(139,118,255,0.15)',
           borderBottom: '1px solid rgba(153, 140, 255, 0.2)',
           color: '#ffffff',
           fontSize: '1.5rem',
@@ -454,10 +430,10 @@ export function BlogPostStyles() {
         },
         // Чек-листы
         '.article-checklist': {
-          margin: '48px 0',
-          padding: '32px 40px',
+          margin: '38px 0',
+          padding: '26px 32px',
           borderRadius: '28px',
-          background: 'linear-gradient(135deg, rgba(139,118,255,0.18), rgba(255,120,150,0.14))',
+          background: 'rgba(139,118,255,0.12)',
           border: '1px solid rgba(195,188,255,0.25)',
           boxShadow: '0 35px 80px -48px rgba(0, 0, 0, 0.85)',
           position: 'relative',
@@ -469,7 +445,7 @@ export function BlogPostStyles() {
           position: 'absolute',
           inset: '0 auto 0 0',
           width: '4px',
-          background: 'linear-gradient(180deg, rgba(121,108,255,1), rgba(255,143,168,1))',
+          background: 'rgba(157, 140, 255, 0.9)',
           borderRadius: '999px',
         },
         '.article-checklist h3': {
@@ -551,10 +527,10 @@ export function BlogPostStyles() {
         },
         // Блоки с важной информацией
         '.article-tip': {
-          margin: '48px 0',
-          padding: '32px 40px',
+          margin: '38px 0',
+          padding: '26px 32px',
           borderRadius: '28px',
-          background: 'linear-gradient(135deg, rgba(139,118,255,0.22), rgba(255,120,150,0.18))',
+          background: 'rgba(139,118,255,0.15)',
           border: '2px solid rgba(195,188,255,0.35)',
           boxShadow: '0 35px 80px -48px rgba(0, 0, 0, 0.85)',
           position: 'relative',
@@ -566,7 +542,7 @@ export function BlogPostStyles() {
           position: 'absolute',
           inset: '0 auto 0 0',
           width: '4px',
-          background: 'linear-gradient(180deg, rgba(121,108,255,1), rgba(255,143,168,1))',
+          background: 'rgba(157, 140, 255, 0.9)',
           borderRadius: '999px',
         },
         '.article-tip h3': {
@@ -594,13 +570,12 @@ export function BlogPostStyles() {
         '.article-faq h3': { marginTop: 0, marginBottom: '12px', fontSize: '1.2rem' },
         '.article-faq h3::before': { display: 'none' },
         '.article-faq p': { marginBottom: 0 },
-        // Финальный CTA блок (центрированный)
         '.article-cta': {
           gridColumn: '1 / span 12',
-          margin: '56px 0',
-          padding: '48px 40px',
+          margin: '45px 0',
+          padding: '38px 32px',
           borderRadius: '28px',
-          background: 'linear-gradient(135deg, rgba(121,108,255,0.4) 0%, rgba(255,143,168,0.35) 100%)',
+          background: 'rgba(121,108,255,0.25)',
           border: '1px solid rgba(195,188,255,0.3)',
           textAlign: 'center',
         },

@@ -31,16 +31,18 @@ export function BlogPostContent({
 }: BlogPostContentProps) {
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // data-scroll-child для GSAP stagger + подсветка кода Prism
+  // data-scroll-child, data-scroll-label для ParticleSphere + подсветка кода
   useEffect(() => {
     if (!contentRef.current) return;
     const contentDiv = contentRef.current;
     const timeoutId = setTimeout(() => {
-      // data-scroll-child для анимации как на главной
       Array.from(contentDiv.children).forEach((el) => {
         (el as HTMLElement).setAttribute('data-scroll-child', '');
       });
-      // Подсветка кода (Cursor-стиль через prism-tomorrow)
+      contentDiv.querySelectorAll('h2, h3').forEach((el) => {
+        const text = (el.textContent || '').trim().slice(0, 60);
+        if (text) el.setAttribute('data-scroll-label', text);
+      });
       Prism.highlightAllUnder(contentDiv);
     }, 50);
     return () => clearTimeout(timeoutId);

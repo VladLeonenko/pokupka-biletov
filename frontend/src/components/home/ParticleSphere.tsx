@@ -23,7 +23,12 @@ const SECTION_LABELS = [
   'БЛОГ',
 ];
 
-export function ParticleSphere() {
+interface ParticleSphereProps {
+  /** Селектор контейнера с [data-scroll-label] (h2/h3). Если задан — подписи берутся из блоков статьи */
+  labelsFromSelector?: string;
+}
+
+export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -184,47 +189,113 @@ export function ParticleSphere() {
     });
 
     // Per-section label change
-    if (labelRef.current) {
-      sections.forEach((section, i) => {
+    const setupLabelTriggers = (labelElements: HTMLElement[], labels: string[]) => {
+      if (!labelRef.current || labels.length === 0) return;
+      const defaultLabel = labels[0] || SECTION_LABELS[0];
+      labelRef.current.textContent = defaultLabel;
+      labelElements.forEach((el, i) => {
         ScrollTrigger.create({
-          trigger: section,
-          start: 'top 60%',
-          end: 'bottom 40%',
+          trigger: el,
+          start: 'top 55%',
+          end: 'bottom 45%',
           onEnter: () => {
             if (labelRef.current) {
-              gsap.to(labelRef.current, {
-                opacity: 0,
-                duration: 0.2,
-                onComplete: () => {
-                  if (labelRef.current) {
-                    // +1 because index 0 is the hero (before any scroll-section)
-                    labelRef.current.textContent = SECTION_LABELS[i + 1] || '';
-                    gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
-                  }
-                },
-              });
+              gsap.to(labelRef.current, { opacity: 0, duration: 0.2, onComplete: () => {
+                if (labelRef.current) {
+                  labelRef.current.textContent = labels[i] || defaultLabel;
+                  gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
+                }
+              } });
             }
           },
           onEnterBack: () => {
             if (labelRef.current) {
-              gsap.to(labelRef.current, {
-                opacity: 0,
-                duration: 0.2,
-                onComplete: () => {
-                  if (labelRef.current) {
-                    labelRef.current.textContent = SECTION_LABELS[i] || SECTION_LABELS[0];
-                    gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
-                  }
-                },
-              });
+              gsap.to(labelRef.current, { opacity: 0, duration: 0.2, onComplete: () => {
+                if (labelRef.current) {
+                  labelRef.current.textContent = i > 0 ? labels[i - 1] : defaultLabel;
+                  gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
+                }
+              } });
             }
           },
         });
       });
+    };
+
+    let labelTimeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (labelRef.current) {
+      if (labelsFromSelector) {
+        labelTimeoutId = setTimeout(() => {
+          const labelEls = document.querySelectorAll<HTMLElement>(
+            `${labelsFromSelector} [data-scroll-label], ${labelsFromSelector} h2, ${labelsFromSelector} h3`
+          );
+          const labels = Array.from(labelEls).map((el) => el.getAttribute('data-scroll-label') || el.textContent?.trim().slice(0, 60) || '');
+          if (labels.length > 0) {
+            setupLabelTriggers(Array.from(labelEls), labels);
+          } else {
+            sections.forEach((section, i) => {
+              ScrollTrigger.create({
+                trigger: section,
+                start: 'top 60%',
+                end: 'bottom 40%',
+                onEnter: () => {
+                  if (labelRef.current) {
+                    gsap.to(labelRef.current, { opacity: 0, duration: 0.2, onComplete: () => {
+                      if (labelRef.current) {
+                        labelRef.current.textContent = SECTION_LABELS[i + 1] || '';
+                        gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
+                      }
+                    } });
+                  }
+                },
+                onEnterBack: () => {
+                  if (labelRef.current) {
+                    gsap.to(labelRef.current, { opacity: 0, duration: 0.2, onComplete: () => {
+                      if (labelRef.current) {
+                        labelRef.current.textContent = SECTION_LABELS[i] || SECTION_LABELS[0];
+                        gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
+                      }
+                    } });
+                  }
+                },
+              });
+            });
+          }
+        }, 400);
+      } else {
+        sections.forEach((section, i) => {
+          ScrollTrigger.create({
+            trigger: section,
+            start: 'top 60%',
+            end: 'bottom 40%',
+            onEnter: () => {
+              if (labelRef.current) {
+                gsap.to(labelRef.current, { opacity: 0, duration: 0.2, onComplete: () => {
+                  if (labelRef.current) {
+                    labelRef.current.textContent = SECTION_LABELS[i + 1] || '';
+                    gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
+                  }
+                } });
+              }
+            },
+            onEnterBack: () => {
+              if (labelRef.current) {
+                gsap.to(labelRef.current, { opacity: 0, duration: 0.2, onComplete: () => {
+                  if (labelRef.current) {
+                    labelRef.current.textContent = SECTION_LABELS[i] || SECTION_LABELS[0];
+                    gsap.to(labelRef.current, { opacity: 1, duration: 0.3 });
+                  }
+                } });
+              }
+            },
+          });
+        });
+      }
     }
 
     // --- Cleanup ---
     return () => {
+      if (labelTimeoutId) clearTimeout(labelTimeoutId);
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       ScrollTrigger.getAll().forEach((t) => t.kill());

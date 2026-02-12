@@ -92,10 +92,10 @@ export function PublicBlogPostPage() {
     <>
       <BlogPostStyles />
       <SeoMetaTags title={seoData.title} description={seoData.description} keywords={seoData.keywords} url={seoData.canonicalUrl} image={seoData.ogImage} ogTitle={seoData.ogTitle} ogDescription={seoData.ogDescription} type="article" articleSchema={{ headline: postData.title, datePublished: (post as any).created_at, dateModified: (post as any).updated_at || (post as any).created_at }} />
-      <ParticleSphere />
+      <ParticleSphere labelsFromSelector=".blog-post-content" />
       <Box ref={mainRef} component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <ScrollSection visibleOnLoad>
-          <Container maxWidth="md">
+          <Container maxWidth="lg">
             {postData.coverImageUrl && (
               <Box component="img" src={postData.coverImageUrl} alt={postData.title} sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 3, mb: 4 }} data-scroll-child />
             )}
