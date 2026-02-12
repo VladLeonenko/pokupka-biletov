@@ -223,7 +223,7 @@ async function addPortfolioCases() {
           `INSERT INTO cases(
             slug, title, summary, content_html, hero_image_url, 
             gallery, metrics, tools, is_published, category, created_at, updated_at
-          ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())`,
+          ) VALUES($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, NOW(), NOW())`,
           [
             caseData.slug,
             caseData.title,
@@ -232,7 +232,7 @@ async function addPortfolioCases() {
             caseData.heroImageUrl || null,
             JSON.stringify(caseData.gallery || []),
             JSON.stringify(caseData.metrics || {}),
-            caseData.tools || [],
+            JSON.stringify(caseData.tools || []),
             caseData.isPublished || false,
             caseData.category || null
           ]
