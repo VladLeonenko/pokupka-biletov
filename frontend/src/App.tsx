@@ -8,7 +8,6 @@ import { CookieConsentProvider } from '@/components/privacy/CookieConsentProvide
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
 import { Header } from '@/components/public/Header';
 import { Footer } from '@/components/public/Footer';
-import { BackgroundSphere } from '@/components/common/BackgroundSphere';
 import { HiddenPromoCodeInjector } from '@/components/public/HiddenPromoCodeInjector';
 import { GlobalFormValidator } from '@/components/common/GlobalFormValidator';
 import { FaviconNotificationTracker } from '@/components/common/FaviconNotificationTracker';
@@ -96,8 +95,6 @@ export default function App() {
                 padding-top: 0 !important;
               }
             `}</style>
-            {/* Фоновая сфера для всех публичных страниц */}
-            <BackgroundSphere />
             {/* React Header компонент для всех публичных React страниц */}
             <Header />
             {/* Скрытые промокоды на сайте */}

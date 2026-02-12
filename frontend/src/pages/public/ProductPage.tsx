@@ -1,5 +1,5 @@
 import { useState, useEffect, SyntheticEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Box, Container, Typography, Button, Card, CardContent, 
@@ -228,6 +228,40 @@ export function ProductPage() {
   const teamMembers = teamSection?.members?.filter((member) => member && (member.name || member.role || member.imageUrl));
   const relatedServicesSection = contentJson.relatedServices;
   const relatedServices = relatedServicesSection?.services?.filter((service) => service && (service.title || service.link));
+
+  // Нормализуем ссылки: /catalog/foo -> /products/foo
+  const toProductUrl = (url?: string) => {
+    if (!url) return null;
+    if (url.startsWith('/catalog/')) return url.replace(/^\/catalog/, '/products');
+    if (url.startsWith('/')) return url;
+    return `/${url}`.replace(/^\/catalog\//, '/products/');
+  };
+
+  // Слаги связанных услуг для подгрузки обложек
+  const relatedSlugs = (relatedServices || [])
+    .filter((s) => s.link && !s.imageUrl)
+    .map((s) => {
+      const p = toProductUrl(s.link) || s.link;
+      const slug = p.replace(/^\/products\//, '').split('?')[0].trim();
+      return slug;
+    })
+    .filter(Boolean);
+  const { data: relatedProducts = [] } = useQuery({
+    queryKey: ['related-products', relatedSlugs.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        relatedSlugs.map((slug) =>
+          getPublicProduct(slug).then((p) => (p ? { slug, imageUrl: p.imageUrl } : null))
+        )
+      );
+      return results.filter(Boolean) as { slug: string; imageUrl?: string }[];
+    },
+    enabled: relatedSlugs.length > 0,
+    staleTime: 60000,
+  });
+  const relatedImageBySlug = Object.fromEntries(
+    (relatedProducts as { slug: string; imageUrl?: string }[]).map((r) => [r.slug, r.imageUrl])
+  );
   const subscribeItems = contentJson.subscribe?.items?.filter((item) => item && (item.title || item.description || item.linkText));
   const faqSection = contentJson.faq;
   const faqItems = faqSection?.items?.filter((item) => item && (item.question || item.answer));
@@ -1249,78 +1283,87 @@ export function ProductPage() {
             </Typography>
           )}
           <Grid container spacing={3}>
-            {relatedServices.map((service, idx) => (
-              <Grid item xs={12} sm={6} md={Math.min(12 / Math.max(relatedServices.length, 1), 4)} key={service.title || idx}>
-                <MotionCard
-                  {...sectionAnimation(0.66 + idx * 0.05)}
-                  sx={{
-                    cursor: service.link ? 'pointer' : 'default',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    borderRadius: 3,
-                    position: 'relative',
-                    bgcolor: 'rgba(17,18,36,0.78)',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    overflow: 'hidden',
-                    boxShadow: '0 28px 52px -46px rgba(0,0,0,0.65)',
-                    transition: 'transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'rgba(255,255,255,0.02)',
-                      opacity: 0.6,
-                      pointerEvents: 'none',
-                    },
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      borderColor: 'rgba(255,187,0,0.15)',
-                      boxShadow: '0 34px 58px -42px rgba(0,0,0,0.68)',
-                    },
-                  }}
-                  onClick={() => service.link && handleSmartNavigate(service.link)}
-                >
-                  {service.imageUrl && (
-                    <Box
-                      component="img"
-                      src={resolveImageUrl(service.imageUrl)}
-                      alt={service.title}
-                      loading="lazy"
+            {relatedServices.map((service, idx) => {
+              const href = toProductUrl(service.link);
+              const slug = href ? href.replace(/^\/products\//, '').split('?')[0] : '';
+              const coverUrl = service.imageUrl || (slug ? relatedImageBySlug[slug] : undefined);
+              const CardWrapper = href ? Link : Box;
+              const cardProps = href ? { to: href, style: { textDecoration: 'none', color: 'inherit' } } : {};
+              return (
+                <Grid item xs={12} sm={6} md={Math.min(12 / Math.max(relatedServices!.length, 1), 4)} key={service.title || idx}>
+                  <CardWrapper {...cardProps}>
+                    <MotionCard
+                      {...sectionAnimation(0.66 + idx * 0.05)}
+                      component={href ? 'div' : undefined}
                       sx={{
-                        width: '100%',
-                        height: 180,
-                        objectFit: 'cover',
-                        backgroundColor: 'rgba(20,20,40,0.5)',
+                        cursor: href ? 'pointer' : 'default',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: 3,
+                        position: 'relative',
+                        bgcolor: 'rgba(17,18,36,0.78)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        overflow: 'hidden',
+                        boxShadow: '0 28px 52px -46px rgba(0,0,0,0.65)',
+                        transition: 'transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'rgba(255,255,255,0.02)',
+                          opacity: 0.6,
+                          pointerEvents: 'none',
+                        },
+                        '&:hover': {
+                          transform: 'translateY(-6px)',
+                          borderColor: 'rgba(255,187,0,0.15)',
+                          boxShadow: '0 34px 58px -42px rgba(0,0,0,0.68)',
+                        },
                       }}
-                      onError={(e: SyntheticEvent<HTMLImageElement, Event>) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  )}
-                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {service.title}
-                    </Typography>
-                    {((service as any).description) && (
-                      <Typography variant="body2" color="rgba(255,255,255,0.72)" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6 }}>
-                        {(service as any).description}
-                      </Typography>
-                    )}
-                  </CardContent>
-                  {service.link && (
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      component="span"
-                      sx={{ py: 1.2, textTransform: 'none', fontWeight: 600, color: '#ffbb00' }}
                     >
-                      Подробнее →
-                    </Button>
-                  )}
-                </MotionCard>
-              </Grid>
-            ))}
+                      {coverUrl && (
+                        <Box
+                          component="img"
+                          src={resolveImageUrl(coverUrl)}
+                          alt={service.title}
+                          loading="lazy"
+                          sx={{
+                            width: '100%',
+                            height: 180,
+                            objectFit: 'cover',
+                            backgroundColor: 'rgba(20,20,40,0.5)',
+                          }}
+                          onError={(e: SyntheticEvent<HTMLImageElement, Event>) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          {service.title}
+                        </Typography>
+                        {((service as any).description) && (
+                          <Typography variant="body2" color="rgba(255,255,255,0.72)" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+                            {(service as any).description}
+                          </Typography>
+                        )}
+                      </CardContent>
+                      {href && (
+                        <Button
+                          variant="text"
+                          color="inherit"
+                          component="span"
+                          sx={{ py: 1.2, textTransform: 'none', fontWeight: 600, color: '#ffbb00' }}
+                        >
+                          Подробнее →
+                        </Button>
+                      )}
+                    </MotionCard>
+                  </CardWrapper>
+                </Grid>
+              );
+            })}
           </Grid>
         </MotionBox>
       )}

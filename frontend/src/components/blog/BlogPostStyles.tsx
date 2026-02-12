@@ -231,11 +231,17 @@ export function BlogPostStyles() {
           gridColumn: 1,
           margin: '32px 0',
           padding: '32px 29px',
-          borderRadius: '28px',
-          background: 'rgba(20, 20, 28, 0.9)',
-          border: '1px solid rgba(255,187,0,0.25)',
+          borderRadius: '24px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           position: 'relative',
           overflow: 'hidden',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.article-intro:hover': {
+          borderColor: 'rgba(255, 187, 0, 0.4)',
+          boxShadow: '0 16px 48px rgba(255, 187, 0, 0.12)',
         },
         '.article-intro:first-of-type': { marginTop: 0 },
         '.article-intro:last-of-type': { marginBottom: 0 },
@@ -539,13 +545,9 @@ export function BlogPostStyles() {
         '.article-tip p:last-child': {
           marginBottom: 0,
         },
-        // FAQ-аккордеон (контейнер и элементы)
+        // FAQ-аккордеон — без фона и рамки, плавное раскрытие
         '.article-faq-accordion': {
           margin: '32px 0',
-          borderRadius: '28px',
-          overflow: 'hidden',
-          background: 'rgba(20, 20, 28, 0.9)',
-          border: '1px solid rgba(255,187,0,0.2)',
         },
         '.article-faq-accordion .article-faq-item': {
           borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -554,7 +556,7 @@ export function BlogPostStyles() {
           borderBottom: 'none',
         },
         '.article-faq-accordion .article-faq-summary': {
-          padding: '20px 24px',
+          padding: '20px 0',
           cursor: 'pointer',
           fontSize: '1.1rem',
           fontWeight: 600,
@@ -568,7 +570,7 @@ export function BlogPostStyles() {
         },
         '.article-faq-accordion .article-faq-summary::-webkit-details-marker': { display: 'none' },
         '.article-faq-accordion .article-faq-summary:hover': {
-          background: 'rgba(255,187,0,0.06)',
+          color: '#ffbb00',
         },
         '.article-faq-accordion .article-faq-summary::after': {
           content: '""',
@@ -578,16 +580,26 @@ export function BlogPostStyles() {
           borderBottom: '2px solid #ffbb00',
           transform: 'rotate(45deg)',
           flexShrink: 0,
-          transition: 'transform 0.25s',
+          transition: 'transform 0.3s ease',
         },
         '.article-faq-accordion .article-faq-item[open] .article-faq-summary::after': {
           transform: 'rotate(-135deg)',
         },
         '.article-faq-accordion .article-faq-content': {
-          padding: '0 24px 20px',
+          display: 'grid',
+          gridTemplateRows: '0fr',
+          transition: 'grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.article-faq-accordion .article-faq-item[open] .article-faq-content': {
+          gridTemplateRows: '1fr',
+        },
+        '.article-faq-accordion .article-faq-content > *': {
+          overflow: 'hidden',
+          minHeight: 0,
         },
         '.article-faq-accordion .article-faq-content p': {
           margin: 0,
+          padding: '0 0 20px 0',
           color: 'rgba(225,229,255,0.9)',
           lineHeight: 1.7,
         },
@@ -595,10 +607,16 @@ export function BlogPostStyles() {
           gridColumn: 1,
           margin: '45px 0',
           padding: '38px 32px',
-          borderRadius: '28px',
-          background: 'rgba(20, 20, 28, 0.9)',
-          border: '1px solid rgba(255,187,0,0.25)',
+          borderRadius: '24px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           textAlign: 'center',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        },
+        '.article-cta:hover': {
+          borderColor: 'rgba(255, 187, 0, 0.4)',
+          boxShadow: '0 16px 48px rgba(255, 187, 0, 0.12)',
         },
         '.article-cta h2': { color: '#fff !important', marginBottom: '20px' },
         '.article-cta h2::before': { display: 'none' },

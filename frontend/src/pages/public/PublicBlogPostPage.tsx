@@ -8,6 +8,7 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { BlogPostContent } from '@/components/blog/BlogPostContent';
 import { BlogBlocksContent } from '@/components/blog/BlogBlocksContent';
 import { BlogPostStyles } from '@/components/blog/BlogPostStyles';
+import { ArticleProgressBar } from '@/components/blog/ArticleProgressBar';
 import { InlineCarouselSlide } from '@/components/public/InlineImageCarousel';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { ParticleSphere } from '@/components/home/ParticleSphere';
@@ -90,6 +91,7 @@ export function PublicBlogPostPage() {
 
   return (
     <>
+      <ArticleProgressBar />
       <BlogPostStyles />
       <SeoMetaTags title={seoData.title} description={seoData.description} keywords={seoData.keywords} url={seoData.canonicalUrl} image={seoData.ogImage} ogTitle={seoData.ogTitle} ogDescription={seoData.ogDescription} type="article" articleSchema={{ headline: postData.title, datePublished: (post as any).created_at, dateModified: (post as any).updated_at || (post as any).created_at }} />
       <ParticleSphere labelsFromSelector=".blog-post-content" />
@@ -97,7 +99,7 @@ export function PublicBlogPostPage() {
         <ScrollSection visibleOnLoad>
           <Container maxWidth="lg">
             {postData.coverImageUrl && (
-              <Box component="img" src={postData.coverImageUrl} alt={postData.title} sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 3, mb: 4 }} data-scroll-child />
+              <Box component="img" src={postData.coverImageUrl} alt={postData.title} sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 3, mb: 4 }} data-scroll-child />
             )}
             <Box data-scroll-child>
               {postData.date && <Typography variant="overline" sx={{ letterSpacing: '0.2em', color: '#ffbb00' }}>{postData.date}</Typography>}

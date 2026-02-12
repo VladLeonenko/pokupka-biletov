@@ -23,12 +23,17 @@ const SECTION_LABELS = [
   'БЛОГ',
 ];
 
-/** Ограничивает надпись: до 3 слов; при наличии ":" — только часть до двоеточия (напр. "Этап 1: Разработка" → "Этап 1") */
+/** Обрезает надпись до первого из: ", ", ": ", " в ", " под "; иначе до 3 слов */
 function truncateLabel(text: string): string {
   if (!text?.trim()) return '';
-  const colonIdx = text.indexOf(':');
-  if (colonIdx >= 0) {
-    return text.slice(0, colonIdx).trim();
+  const delimiters = [',', ':', ' в ', ' под '];
+  let minIdx = text.length;
+  for (const d of delimiters) {
+    const i = text.indexOf(d);
+    if (i >= 0 && i < minIdx) minIdx = i;
+  }
+  if (minIdx < text.length) {
+    return text.slice(0, minIdx).trim();
   }
   const words = text.trim().split(/\s+/).slice(0, 3);
   return words.join(' ');

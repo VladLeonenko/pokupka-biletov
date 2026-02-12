@@ -4,9 +4,46 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/forms - List all forms
+// Список известных форм на сайте (из кода, акций, страниц)
+const KNOWN_FORMS = [
+  { form_id: 'contact-form', form_name: 'Форма обратной связи (контакты)', page_path: '/contacts' },
+  { form_id: 'contact', form_name: 'Заявка с карточки товара', page_path: '/products' },
+  { form_id: 'quiz-form', form_name: 'Калькулятор стоимости (Quiz)', page_path: '/' },
+  { form_id: 'regForm', form_name: 'Quiz (regForm)', page_path: '/' },
+  { form_id: 'quizForm', form_name: 'Quiz (quizForm)', page_path: '/' },
+  { form_id: 'new-client-form', form_name: 'Стать клиентом', page_path: '/new-client' },
+  { form_id: 'submit', form_name: 'Форма в футере', page_path: '/' },
+];
+
+async function ensureFormExists(pool, formId, formName, pagePath) {
+  const check = await pool.query('SELECT form_id FROM forms WHERE form_id = $1', [formId]);
+  if (check.rows.length === 0) {
+    await pool.query(
+      'INSERT INTO forms (form_id, form_name, page_path, fields, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) ON CONFLICT (form_id) DO NOTHING',
+      [formId, formName || `Форма ${formId}`, pagePath || null, JSON.stringify([])]
+    );
+  }
+}
+
+// GET /api/forms - List all forms (sync from submissions, abandonments, promotions, known list)
 router.get('/', requireAuth, async (req, res) => {
   try {
+    // 1. Добавляем известные формы
+    for (const f of KNOWN_FORMS) {
+      await ensureFormExists(pool, f.form_id, f.form_name, f.page_path);
+    }
+    // 2. Формы из акций (promotions.form_id)
+    const promos = await pool.query('SELECT DISTINCT form_id FROM promotions WHERE form_id IS NOT NULL AND form_id != \'\'');
+    for (const r of promos.rows || []) {
+      await ensureFormExists(pool, r.form_id, `Акция: ${r.form_id}`, '/promotion');
+    }
+    // 3. Формы из submission/abandonment (на случай если были до FK)
+    const fromSub = await pool.query('SELECT DISTINCT form_id FROM form_submissions');
+    const fromAb = await pool.query('SELECT DISTINCT form_id FROM form_abandonments');
+    for (const r of [...(fromSub.rows || []), ...(fromAb.rows || [])]) {
+      if (r.form_id) await ensureFormExists(pool, r.form_id);
+    }
+
     const result = await pool.query('SELECT * FROM forms ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
@@ -314,6 +351,9 @@ router.post('/:formId/abandon', async (req, res) => {
     const ip = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for']?.split(',')[0]?.trim();
     const userAgent = req.headers['user-agent'];
     const referrer = req.headers['referer'] || req.headers['referrer'];
+
+    // FK требует наличия формы — создаём при необходимости
+    await ensureFormExists(pool, formId);
 
     await pool.query(
       `INSERT INTO form_abandonments (form_id, form_data, started_at, abandoned_at, ip_address, user_agent, referrer)
