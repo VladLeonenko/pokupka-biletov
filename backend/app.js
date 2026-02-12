@@ -106,7 +106,8 @@ app.use(compression({
 // Content Security Policy configuration
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
-app.use(helmet({ 
+app.use(helmet({
+  // CSP временно ослаблен — разрешаем https: скрипты для восстановления работы сайта
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -114,15 +115,7 @@ app.use(helmet({
         "'self'",
         "'unsafe-inline'",
         "'unsafe-eval'",
-        "'strict-dynamic'", // скрипты, загруженные доверенным кодом (напр. Metrika → yastatic)
-        "https://cdn.jsdelivr.net",
-        "https://www.googletagmanager.com",
-        "https://www.google-analytics.com",
-        "https://cc.calltracking.ru",
-        "https://mc.yandex.ru",
-        "https://ymv43udrja.ru",
-        "https://yastatic.net",
-        "https://*.yastatic.net",
+        "https:", // разрешить любые HTTPS-скрипты (Metrika, GTM и др.)
         ...(isDevelopment ? ["'unsafe-eval'"] : []),
       ],
       styleSrc: [
