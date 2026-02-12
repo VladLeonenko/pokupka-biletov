@@ -133,13 +133,6 @@ export function CasesListPage() {
                         const heroUrl = c.heroImageUrl?.trim();
                         const donorUrl = c.donorImageUrl?.trim();
                         const slug = c.slug?.trim();
-                        console.log('🖼️ Image logic for case:', {
-  slug: c.slug,
-  title: c.title,
-  heroUrl,
-  donorUrl,
-  willUse: heroUrl || donorUrl || (slug ? `/legacy/img/cases/${slug}/cover.png` : 'fallback')
-});
 
                         // 1. Используем heroImageUrl если есть
                         if (heroUrl && heroUrl.length > 0) {

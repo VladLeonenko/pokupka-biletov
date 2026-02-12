@@ -260,4 +260,14 @@ router.delete('/:slug', async (req, res) => {
   res.json({ deleted: true });
 });
 
+router.post('/:slug/publish', async (req, res) => {
+  const { is_published } = req.body;
+  const r = await pool.query(
+    'UPDATE cases SET is_published=$1, updated_at=NOW() WHERE slug=$2 RETURNING *',
+    [Boolean(is_published), req.params.slug]
+  );
+  if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+  res.json({ updated: rowToCase(r.rows[0]) });
+});
+
 export default router;

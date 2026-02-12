@@ -253,6 +253,7 @@ export function PortfolioPage() {
             <Box
               component="a"
               href="/new-client"
+              className="new-client-cta"
               sx={{
                 display: 'inline-block', bgcolor: '#ffbb00', color: '#141414', fontWeight: 700,
                 px: 5, py: 1.5, borderRadius: 2, textDecoration: 'none',

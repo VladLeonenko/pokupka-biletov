@@ -37,6 +37,8 @@ const TARGET_SLUGS = [
   'winwin-case',
   'greendent-case',
   'polygon-case',
+  'madeo-case',
+  'houses-case',
 ];
 
 function buildContentJson(c) {
