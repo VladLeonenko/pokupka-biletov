@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { slugify } from '@/utils/slugify';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getBlogPost, listBlogCategories, upsertBlogPost, uploadImage } from '@/services/cmsApi';
-import { Box, Button, Paper, TextField, Typography, CircularProgress, Switch, FormControlLabel, Alert } from '@mui/material';
+import { getBlogPost, listBlogCategories, createBlogCategory, upsertBlogPost, uploadImage } from '@/services/cmsApi';
+import { Box, Button, Paper, TextField, Typography, CircularProgress, Switch, FormControlLabel, Alert, MenuItem } from '@mui/material';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import BuildIcon from '@mui/icons-material/Build';
 import CodeIcon from '@mui/icons-material/Code';
@@ -169,6 +169,64 @@ export function BlogBlockEditorPage() {
       <Paper sx={{ p: 3, mb: 3 }}>
         <TextField fullWidth label="Slug" value={slug} onChange={(e) => setSlug(e.target.value)} disabled={!isNew} sx={{ mb: 2 }} />
         <TextField fullWidth label="Название" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ mb: 2 }} />
+        <TextField
+          select
+          fullWidth
+          label="Категория"
+          value={categorySlug || ''}
+          onChange={(e) => setCategorySlug(e.target.value)}
+          sx={{ mb: 2 }}
+        >
+          <MenuItem value="">(без категории)</MenuItem>
+          {categories.map((c) => (
+            <MenuItem key={c.slug} value={c.slug}>{c.name}</MenuItem>
+          ))}
+        </TextField>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'flex-start' }}>
+          <TextField
+            size="small"
+            placeholder="новая категория (slug)"
+            id="new-cat-slug-block"
+            fullWidth
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                (document.querySelector('#add-category-btn-block') as HTMLButtonElement)?.click();
+              }
+            }}
+          />
+          <Button
+            id="add-category-btn-block"
+            size="small"
+            variant="outlined"
+            onClick={async () => {
+              const el = document.getElementById('new-cat-slug-block') as HTMLInputElement | null;
+              const newSlug = (el?.value || '').trim();
+              if (!newSlug) {
+                showToast('Введите slug категории', 'warning');
+                el?.focus();
+                return;
+              }
+              if (categories.some((c) => c.slug === newSlug)) {
+                showToast('Категория уже существует', 'warning');
+                setCategorySlug(newSlug);
+                if (el) el.value = '';
+                return;
+              }
+              try {
+                await createBlogCategory(newSlug, newSlug);
+                await queryClient.invalidateQueries({ queryKey: ['blog-categories'] });
+                await queryClient.refetchQueries({ queryKey: ['blog-categories'] });
+                setCategorySlug(newSlug);
+                if (el) el.value = '';
+                showToast('Категория добавлена', 'success');
+              } catch (err: any) {
+                showToast(err?.message || 'Ошибка создания категории', 'error');
+              }
+            }}
+          >
+            Добавить категорию
+          </Button>
+        </Box>
         <TextField fullWidth label="SEO описание" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} multiline sx={{ mb: 2 }} />
         <Box sx={{ mb: 2 }}>
           <TextField

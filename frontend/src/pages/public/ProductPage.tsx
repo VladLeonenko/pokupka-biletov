@@ -95,6 +95,35 @@ export function ProductPage() {
   });
   const productReviews = reviewsData?.reviews || [];
 
+  const contentJson = product?.contentJson || {};
+  const relatedServices = contentJson?.relatedServices?.services?.filter(
+    (s: any) => s && (s.title || s.link)
+  ) || [];
+  const relatedSlugs = relatedServices
+    .filter((s: any) => s.link && !s.imageUrl)
+    .map((s: any) => {
+      const p = s.link?.startsWith('/catalog/') ? s.link.replace(/^\/catalog/, '/products') : s.link;
+      return (p || '').replace(/^\/products\//, '').split('?')[0].trim();
+    })
+    .filter(Boolean);
+
+  const { data: relatedProducts = [] } = useQuery({
+    queryKey: ['related-products', relatedSlugs.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        relatedSlugs.map((slug: string) =>
+          getPublicProduct(slug).then((p) => (p ? { slug, imageUrl: p.imageUrl } : null))
+        )
+      );
+      return results.filter(Boolean) as { slug: string; imageUrl?: string }[];
+    },
+    enabled: !!product && relatedSlugs.length > 0,
+    staleTime: 60000,
+  });
+  const relatedImageBySlug = Object.fromEntries(
+    (relatedProducts as { slug: string; imageUrl?: string }[]).map((r) => [r.slug, r.imageUrl])
+  );
+
   useEffect(() => {
     if (product) {
       trackProductEvent(product.slug, 'view');
@@ -227,41 +256,12 @@ export function ProductPage() {
   const teamSection = contentJson.team;
   const teamMembers = teamSection?.members?.filter((member) => member && (member.name || member.role || member.imageUrl));
   const relatedServicesSection = contentJson.relatedServices;
-  const relatedServices = relatedServicesSection?.services?.filter((service) => service && (service.title || service.link));
-
-  // Нормализуем ссылки: /catalog/foo -> /products/foo
   const toProductUrl = (url?: string) => {
     if (!url) return null;
     if (url.startsWith('/catalog/')) return url.replace(/^\/catalog/, '/products');
     if (url.startsWith('/')) return url;
     return `/${url}`.replace(/^\/catalog\//, '/products/');
   };
-
-  // Слаги связанных услуг для подгрузки обложек
-  const relatedSlugs = (relatedServices || [])
-    .filter((s) => s.link && !s.imageUrl)
-    .map((s) => {
-      const p = toProductUrl(s.link) || s.link;
-      const slug = p.replace(/^\/products\//, '').split('?')[0].trim();
-      return slug;
-    })
-    .filter(Boolean);
-  const { data: relatedProducts = [] } = useQuery({
-    queryKey: ['related-products', relatedSlugs.join(',')],
-    queryFn: async () => {
-      const results = await Promise.all(
-        relatedSlugs.map((slug) =>
-          getPublicProduct(slug).then((p) => (p ? { slug, imageUrl: p.imageUrl } : null))
-        )
-      );
-      return results.filter(Boolean) as { slug: string; imageUrl?: string }[];
-    },
-    enabled: relatedSlugs.length > 0,
-    staleTime: 60000,
-  });
-  const relatedImageBySlug = Object.fromEntries(
-    (relatedProducts as { slug: string; imageUrl?: string }[]).map((r) => [r.slug, r.imageUrl])
-  );
   const subscribeItems = contentJson.subscribe?.items?.filter((item) => item && (item.title || item.description || item.linkText));
   const faqSection = contentJson.faq;
   const faqItems = faqSection?.items?.filter((item) => item && (item.question || item.answer));
