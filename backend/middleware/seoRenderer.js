@@ -5,7 +5,24 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
+function findIndexHtml() {
+  const candidates = [
+    path.resolve(__dirname, '../../frontend/dist/index.html'),
+    path.resolve(process.cwd(), 'frontend/dist/index.html'),
+    path.resolve(process.cwd(), '../frontend/dist/index.html'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[seoRenderer] Using index.html at:', p);
+      }
+      return p;
+    }
+  }
+  console.error('[seoRenderer] index.html not found in:', candidates);
+  return candidates[0];
+}
+const indexPath = findIndexHtml();
 
 export async function seoRenderer(req, res, next) {
   // Пропускаем статические файлы и API
@@ -26,13 +43,17 @@ export async function seoRenderer(req, res, next) {
     return next();
   }
 
-  if (!fs.existsSync(indexPath)) {
-    console.error('[SSR] index.html not found at:', indexPath);
-    return res.status(404).send('Not found');
+  let currentPath = indexPath;
+  if (!fs.existsSync(currentPath)) {
+    currentPath = findIndexHtml();
+    if (!fs.existsSync(currentPath)) {
+      console.error('[SSR] index.html not found. Tried:', currentPath);
+      return res.status(404).send('Not found');
+    }
   }
 
   try {
-    let html = fs.readFileSync(indexPath, 'utf-8');
+    let html = fs.readFileSync(currentPath, 'utf-8');
     const seoTags = await generateSeoTags(req.path);
     
     if (seoTags) {

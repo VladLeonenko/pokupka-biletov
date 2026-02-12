@@ -13,13 +13,9 @@ export function BlogPostStyles() {
     <GlobalStyles
       styles={{
         '.blog-post': {
-          maxWidth: 'min(1280px, 100%)',
           margin: 0,
           padding: 0,
           position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '38px',
           color: '#F3F4FF',
         },
         '.blog-post-header': {
@@ -87,26 +83,16 @@ export function BlogPostStyles() {
         '.blog-post-content': {
           position: 'relative',
           zIndex: 1,
-          display: 'grid',
-          gap: '32px',
+          display: 'block',
+          width: '100%',
+          maxWidth: '100%',
+          gridColumn: '1 / -1',
           fontSize: '1.08rem',
           lineHeight: 1.85,
           color: 'rgba(241,244,255,0.84)',
           opacity: 1,
           visibility: 'visible',
           minHeight: '1px',
-        },
-        '@media (min-width: 960px)': {
-          '.blog-post-content': {
-            gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
-            rowGap: '45px',
-          },
-          '.blog-post-content > *': {
-            gridColumn: '2 / span 10',
-          },
-          '.blog-post-content blockquote, .blog-post-content figure, .blog-post-content .wide': {
-            gridColumn: '1 / span 12',
-          },
         },
         '.blog-post-content h2, .blog-post-content h3, .blog-post-content h4': {
           fontFamily: '"Manrope","Inter","Roboto","Helvetica",sans-serif',
@@ -118,13 +104,7 @@ export function BlogPostStyles() {
           marginBottom: 0,
         },
         '.blog-post-content h2::before, .blog-post-content h3::before': {
-          content: '""',
-          position: 'absolute',
-          inset: '-20px auto auto 0',
-          width: '64px',
-          height: '3px',
-          borderRadius: '999px',
-          background: 'rgba(157, 140, 255, 0.8)',
+          display: 'none',
         },
         '.blog-post-content h2': {
           fontSize: 'clamp(1.6rem, 2.6vw, 2.3rem)',
@@ -248,7 +228,7 @@ export function BlogPostStyles() {
           marginBottom: 0,
         },
         '.article-intro': {
-          gridColumn: '1 / span 12',
+          gridColumn: 1,
           margin: '32px 0',
           padding: '32px 29px',
           borderRadius: '28px',
@@ -275,7 +255,7 @@ export function BlogPostStyles() {
         },
         '.article-intro a:hover': { background: 'rgba(255,82,82,1)', transform: 'translateY(-2px)' },
         '.article-callout': {
-          gridColumn: '1 / span 12',
+          gridColumn: 1,
           background: 'rgba(28, 32, 54, 0.8)',
           borderRadius: '28px',
           padding: '36px 40px',
@@ -571,7 +551,7 @@ export function BlogPostStyles() {
         '.article-faq h3::before': { display: 'none' },
         '.article-faq p': { marginBottom: 0 },
         '.article-cta': {
-          gridColumn: '1 / span 12',
+          gridColumn: 1,
           margin: '45px 0',
           padding: '38px 32px',
           borderRadius: '28px',

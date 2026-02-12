@@ -108,7 +108,7 @@
             
             // Optional: trigger analytics event
             if (typeof ym !== 'undefined') {
-              ym(88795306, 'reachGoal', 'formSubmitted');
+              ym(106795462, 'reachGoal', 'formSubmitted');
             }
           } else {
             throw new Error('Failed to submit form');

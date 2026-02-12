@@ -15,7 +15,7 @@ function showTab(n) {
   if (n == (x.length - 1)) {
     document.getElementById("nextBtn").setAttribute("type", "submit");
 
-    document.getElementById("nextBtn").setAttribute("onclick", "ym(88795306,'reachGoal','sendForm')");
+    document.getElementById("nextBtn").setAttribute("onclick", "ym(106795462,'reachGoal','sendForm')");
   } 
   if (n == (x.length - 2)) {
     document.getElementById("nextBtn").innerHTML = "Отправить";

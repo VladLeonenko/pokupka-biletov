@@ -190,10 +190,10 @@ export function useCookieConsent() {
             k.defer=1; // Добавляем defer
             k.src=r;
             a.parentNode.insertBefore(k,a);
-          })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+          })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js?id=106795462", "ym");
           
-          // Инициализируем с оптимизациями
-          window.ym(88795306, "init", {
+          // Инициализируем
+          window.ym(106795462, "init", {
             clickmap: true,
             trackLinks: true,
             accurateTrackBounce: true,

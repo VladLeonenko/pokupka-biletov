@@ -10,7 +10,6 @@ import '@/styles/theme.css';
 import '@/styles/global.css';
 import { errorMonitoring } from './utils/errorMonitoring';
 import { registerServiceWorker } from './utils/serviceWorker';
-
 // Инициализируем мониторинг ошибок
 errorMonitoring.init();
 

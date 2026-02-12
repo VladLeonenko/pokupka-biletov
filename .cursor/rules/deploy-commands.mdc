@@ -1,0 +1,55 @@
+---
+description: Всегда указывать команды деплоя через git, когда изменения требуют выкладки
+globs: 
+alwaysApply: true
+---
+
+# Деплой — через Git
+
+Когда изменения требуют деплоя на прод, **всегда пиши конкретные команды** с указанием где выполнять (локально / на сервере). Работаем через git.
+
+## 1. Локально — коммит и пуш
+
+```bash
+git add -A
+git status
+git commit -m "fix: краткое описание"
+git push origin feature/safari-auth-fix   # или main, если мержили
+```
+
+## 2. На сервере — получение и сборка
+
+```bash
+ssh root@85.239.44.40
+cd /var/www/primecoder-gulp
+
+# Подтянуть код
+git pull origin main
+# или: git pull origin feature/safari-auth-fix
+
+# Фронтенд — сборка
+cd frontend
+npm ci
+npm run build
+chown -R www-data:www-data dist
+
+# Бэкенд — зависимости и миграции (если менялся)
+cd ../backend
+npm ci
+node scripts/apply-migrations-to-db.js   # если были миграции
+pm2 restart all --update-env
+```
+
+## Альтернатива: backend deploy-safe.sh (если только backend)
+
+На сервере, если менялся только backend и не нужна сборка фронта:
+```bash
+cd /var/www/primecoder-gulp
+./backend/deploy-safe.sh   # git pull + restore .env + pm2 restart
+```
+
+## Замечания
+
+- `.env` на сервере не должен перезаписываться git pull — deploy-safe.sh восстанавливает бэкап
+- Если деплой с feature-ветки — на сервере `git pull origin feature/имя-ветки`
+- После мержа в main — на сервере `git pull origin main`

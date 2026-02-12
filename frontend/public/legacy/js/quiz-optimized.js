@@ -1532,7 +1532,7 @@ try {
       console.log('[Quiz] Delegation handler: Last step, calling submitQuizForm');
       if (typeof ym !== 'undefined' && nextBtn && nextBtn.getAttribute('data-ym-goal')) {
         try {
-          ym(88795306, 'reachGoal', nextBtn.getAttribute('data-ym-goal'));
+          ym(106795462, 'reachGoal', nextBtn.getAttribute('data-ym-goal'));
         } catch (err) {
           // ignore YM errors
         }
@@ -1771,7 +1771,7 @@ try {
         console.log('[Quiz] nextBtnHandler: Last step, calling submitQuizForm');
         if (typeof ym !== 'undefined' && nextBtn.getAttribute('data-ym-goal')) {
           try {
-            ym(88795306, 'reachGoal', nextBtn.getAttribute('data-ym-goal'));
+            ym(106795462, 'reachGoal', nextBtn.getAttribute('data-ym-goal'));
           } catch (err) {
             // ignore YM errors
           }

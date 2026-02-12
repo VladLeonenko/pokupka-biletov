@@ -14,7 +14,8 @@ import { GlobalFormValidator } from '@/components/common/GlobalFormValidator';
 import { FaviconNotificationTracker } from '@/components/common/FaviconNotificationTracker';
 // import { GlobalPreloader } from '@/components/common/GlobalPreloader'; // Закомментировано - preloader не работает
 import { useLocation, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { hitYandexMetrika } from '@/utils/yandexMetrika';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
@@ -56,6 +57,17 @@ export default function App() {
       document.body.removeAttribute('data-admin');
     };
   }, [shouldUseAdminLayout, isAdminRoute, isLoginPage]);
+
+  // Yandex.Metrika: hit при смене SPA-маршрута (пропускаем первый рендер — init уже отправил)
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const url = `${window.location.origin}${location.pathname}${location.search || ''}`;
+    hitYandexMetrika(url);
+  }, [location.pathname, location.search]);
 
   return (
     <ThemeModeProvider>

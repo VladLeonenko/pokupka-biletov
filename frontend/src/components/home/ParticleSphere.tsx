@@ -138,9 +138,6 @@ export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {})
     window.addEventListener('resize', onResize);
 
     // --- GSAP ScrollTrigger: shrink + move + label change ---
-    const scrollState = { scale: 1, xPct: 0, yPct: 0 };
-
-    // Wrapper for smooth interpolation
     const wrapper = container.parentElement || container;
     const sections = document.querySelectorAll<HTMLElement>('[data-scroll-section]');
 
