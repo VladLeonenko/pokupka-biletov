@@ -1,17 +1,32 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Box, Typography } from '@mui/material';
 import { CarouselItem } from '@/services/carouselsApi';
+import type { ProductCategory } from '@/types/cms';
 
 interface VerticalCarouselProps {
   items: CarouselItem[];
-  speed?: number; // миллисекунды между переходами
+  speed?: number;
+  categories?: ProductCategory[];
 }
 
 const VISIBLE_ITEMS = 5;
 const DEFAULT_SPEED = 3000; // 3 секунды
 const ANIMATION_DURATION = 800; // миллисекунды
 
-export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarouselProps) {
+/** Ссылка на каталог: link_url, или /catalog?category=slug при совпадении с категорией */
+function getItemHref(item: CarouselItem, categories: ProductCategory[]): string | null {
+  const link = item.link_url || item.link;
+  if (link && (link.startsWith('/') || link.startsWith('?'))) {
+    return link.startsWith('?') ? `/catalog${link}` : link;
+  }
+  const text = (item.caption_html || item.text || item.title || '').replace(/<[^>]*>/g, '').trim();
+  if (!text || categories.length === 0) return '/catalog';
+  const cat = categories.find((c) => c.name?.toLowerCase() === text.toLowerCase());
+  return cat ? `/catalog?category=${encodeURIComponent(cat.slug)}` : '/catalog';
+}
+
+export function VerticalCarousel({ items, speed = DEFAULT_SPEED, categories = [] }: VerticalCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -361,47 +376,41 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED }: VerticalCarou
                 display: 'none',
               };
           
+          const href = getItemHref(item, categories);
+          const typographySx = {
+            fontSize: '2.5em',
+            textAlign: { xs: 'left' as const, md: 'right' as const },
+            textTransform: 'uppercase' as const,
+            fontFamily: '"Raleway", sans-serif',
+            fontWeight: 400,
+            margin: 0,
+            color: textColor,
+            transition: 'color 0.8s ease',
+          };
           return (
             <Box
               key={`item-${index}`}
               component="li"
               className={`carousel-item ${position > 0 ? `slide-position-${position}` : ''}`}
-              sx={itemSx}
+              sx={{ ...itemSx, cursor: href ? 'pointer' : undefined }}
             >
-              {isHtml ? (
-                <Typography
-                  variant="h2"
-                  component="h2"
-                  dangerouslySetInnerHTML={{ __html: content }}
-                  sx={{
-                    fontSize: '2.5em',
-                    textAlign: { xs: 'left', md: 'right' },
-                    textTransform: 'uppercase',
-                    fontFamily: '"Raleway", sans-serif',
-                    fontWeight: 400,
-                    margin: 0,
-                    color: textColor,
-                    transition: 'color 0.8s ease',
-                  }}
-                />
-              ) : (
-                <Typography
-                  variant="h2"
-                  component="h2"
-                  sx={{
-                    fontSize: '2.5em',
-                    textAlign: { xs: 'left', md: 'right' },
-                    textTransform: 'uppercase',
-                    fontFamily: '"Raleway", sans-serif',
-                    fontWeight: 400,
-                    margin: 0,
-                    color: textColor,
-                    transition: 'color 0.8s ease',
-                  }}
-                >
-                  {content}
-                </Typography>
-              )}
+              <Box
+                component={Link}
+                to={href || '/catalog'}
+                sx={{
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  '&:hover': { opacity: 0.9 },
+                }}
+              >
+                {isHtml ? (
+                  <Typography variant="h2" component="h2" dangerouslySetInnerHTML={{ __html: content }} sx={typographySx} />
+                ) : (
+                  <Typography variant="h2" component="h2" sx={typographySx}>
+                    {content}
+                  </Typography>
+                )}
+              </Box>
             </Box>
           );
         })}

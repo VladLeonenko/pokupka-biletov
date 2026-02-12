@@ -72,19 +72,15 @@ Sitemap: https://prime-coder.ru/sitemap.xml
 # Контекст для ИИ (Perplexity, ChatGPT, Claude)
 # https://llmstxt.org
 
-# Основной хост
-Host: https://prime-coder.ru
-
-# Google
+# Google (Crawl-delay не поддерживается, пропускается)
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 0
 
-# Yandex
+# Yandex (Host и Crawl-delay — только для Яндекса, Bing их не понимает)
 User-agent: Yandex
 Allow: /
 Crawl-delay: 1
-Host: https://prime-coder.ru
+Host: prime-coder.ru
 
 # Индексация изображений
 User-agent: Googlebot-Image

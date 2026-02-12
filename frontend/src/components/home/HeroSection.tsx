@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Stack } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { getPublicCarousel, CarouselItem } from '@/services/carouselsApi';
+import { listProductCategories } from '@/services/ecommerceApi';
 import { VerticalCarousel } from './VerticalCarousel';
 import gsap from 'gsap';
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
 
+  const { data: categories } = useQuery({ queryKey: ['productCategories'], queryFn: () => listProductCategories(true), staleTime: 5 * 60 * 1000 });
   const { data: carousel, isLoading: carouselLoading } = useQuery({
     queryKey: ['public-carousel', 'vertical-carousel-home'],
     queryFn: () => getPublicCarousel('vertical-carousel-home'),
@@ -127,7 +129,7 @@ export function HeroSection() {
 
           {/* Right — Vertical carousel */}
           <Box className="hero-carousel" sx={{ flex: 1, maxWidth: { md: '40%' }, width: '100%', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: { xs: 'flex-start', md: 'center' } }}>
-            <VerticalCarousel items={carouselItems} speed={3000} />
+            <VerticalCarousel items={carouselItems} categories={categories || []} speed={3000} />
           </Box>
         </Box>
       </Container>

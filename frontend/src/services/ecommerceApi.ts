@@ -225,6 +225,24 @@ export async function getOrder(orderNumber: string): Promise<{ order: Order }> {
   return res.json();
 }
 
+export type AdminOrder = Order & { clientId?: number };
+
+export async function listAdminOrders(): Promise<{ orders: AdminOrder[] }> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/orders/admin`);
+  if (!res.ok) throw new Error('Failed to fetch orders');
+  return res.json();
+}
+
+export async function updateOrderStatus(orderNumber: string, data: { status?: string; paymentStatus?: string }): Promise<{ updated: Order }> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/orders/${encodeURIComponent(orderNumber)}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update order');
+  return res.json();
+}
+
 // ==================== Аналитика ====================
 export async function trackProductEvent(productSlug: string, eventType: 'view' | 'click' | 'add_to_cart' | 'add_to_wishlist' | 'purchase' | 'case_view', metadata?: any): Promise<void> {
   try {

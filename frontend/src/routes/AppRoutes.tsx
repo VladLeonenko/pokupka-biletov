@@ -103,6 +103,7 @@ const ProposalViewPage = lazy(() => import('@/pages/commercial-proposals/Proposa
 const ProposalEditorPage = lazy(() => import('@/pages/commercial-proposals/ProposalEditorPage').then(m => ({ default: m.ProposalEditorPage })));
 const DonorsManagePage = lazy(() => import('@/pages/donors/DonorsManagePage').then(m => ({ default: m.DonorsManagePage })));
 const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
+const OrdersAdminPage = lazy(() => import('@/pages/admin/OrdersAdminPage').then(m => ({ default: m.default })));
 
 // Loading fallback для lazy компонентов
 const LoadingFallback = () => (
@@ -206,6 +207,7 @@ export function AppRoutes() {
       <Route path="/admin/products" element={<Protected><ProductsListPage /></Protected>} />
       <Route path="/admin/products/:id" element={<Protected><ProductEditorPage /></Protected>} />
       <Route path="/admin/products/:id/builder" element={<Protected><ProductPageBuilderPage /></Protected>} />
+      <Route path="/admin/orders" element={<Protected><Suspense fallback={<LoadingFallback />}><OrdersAdminPage /></Suspense></Protected>} />
       <Route path="/admin/parsing" element={<Protected><ParsingPage /></Protected>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
       <Route path="/admin/quiz" element={<Protected><QuizManagementPage /></Protected>} />

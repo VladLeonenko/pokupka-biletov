@@ -71,13 +71,16 @@ export function BlogBlockRenderer({ block }: BlogBlockRendererProps) {
 
   if (block.type === 'faq') {
     const c = content as FaqBlockContent;
+    const items = c.items || [];
     return (
-      <div data-scroll-child>
-        {(c.items || []).map((item, i) => (
-          <div key={i} className="article-faq">
-            <h3>{item.question}</h3>
-            <p>{item.answer}</p>
-          </div>
+      <div className="article-faq-accordion" data-scroll-child>
+        {items.map((item, i) => (
+          <details key={i} className="article-faq-item">
+            <summary className="article-faq-summary">{item.question}</summary>
+            <div className="article-faq-content">
+              <p dangerouslySetInnerHTML={{ __html: (item.answer || '').replace(/\n/g, '<br/>') }} />
+            </div>
+          </details>
         ))}
       </div>
     );

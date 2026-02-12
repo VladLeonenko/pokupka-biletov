@@ -3,6 +3,7 @@ import pool from '../db.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { createAiTeamSubscriptionForUser } from './aiTeam.js';
 import { createClientProjectFromOrder } from './projects.js';
+import { createDealForClient } from '../utils/funnelHelper.js';
 
 const router = express.Router();
 
@@ -55,7 +56,7 @@ function generateOrderNumber() {
 // Создать заказ
 router.post('/', async (req, res) => {
   try {
-    const {
+    let {
       customerName,
       customerEmail,
       customerPhone,
@@ -66,6 +67,17 @@ router.post('/', async (req, res) => {
     
     const userId = req.user?.id;
     const sessionId = userId ? null : req.headers['x-session-id'];
+
+    // Если авторизован, но данные не переданы — подставляем из users
+    if (userId && (!customerEmail || !customerName || !customerPhone)) {
+      const userRes = await pool.query('SELECT name, email, phone FROM users WHERE id = $1', [userId]);
+      if (userRes.rows[0]) {
+        const u = userRes.rows[0];
+        customerName = customerName || u.name || null;
+        customerEmail = customerEmail || u.email || null;
+        customerPhone = customerPhone || u.phone || null;
+      }
+    }
     
     if (!userId && !sessionId) {
       return res.status(400).json({ error: 'User or session required' });
@@ -151,7 +163,8 @@ router.post('/', async (req, res) => {
       `, [item.product_slug, 'purchase', userId, sessionId]);
     }
     
-    // Автоматически связываем заказ с клиентом
+    // Автоматически связываем заказ с клиентом и добавляем в воронку
+    let linkedClientId = null;
     try {
       if (customerEmail || customerPhone) {
         // Ищем клиента по email или телефону
@@ -188,17 +201,29 @@ router.post('/', async (req, res) => {
 
         // Связываем заказ с клиентом
         if (clientId) {
+          linkedClientId = clientId;
           await pool.query(
             'INSERT INTO client_orders (client_id, order_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
             [clientId, order.id]
           );
           // Обновляем метрики клиента
           await pool.query('SELECT update_client_metrics($1)', [clientId]);
+          // Добавляем сделку в основную воронку продаж
+          await createDealForClient(clientId, customerName, customerEmail, customerPhone, 'cart');
         }
       }
     } catch (clientErr) {
       // Логируем ошибку, но не прерываем создание заказа
       console.warn('[orders] Error linking order to client:', clientErr);
+    }
+
+    // Создать сделку в воронке даже если клиент не найден по email/phone (гость)
+    if (!linkedClientId && (customerName || customerEmail || customerPhone)) {
+      try {
+        await createDealForClient(null, customerName, customerEmail, customerPhone, 'cart');
+      } catch (funnelErr) {
+        console.warn('[orders] Error creating funnel deal:', funnelErr);
+      }
     }
 
     // Пытаемся автоматически создать проект для клиента из заказа
@@ -217,6 +242,48 @@ router.post('/', async (req, res) => {
       currency: order.currency,
       createdAt: order.created_at,
     } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Список всех заказов для админа
+router.get('/admin', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const r = await pool.query(
+      `SELECT o.*, 
+        (SELECT json_agg(json_build_object(
+          'productSlug', oi.product_slug,
+          'productTitle', oi.product_title,
+          'priceCents', oi.price_cents,
+          'quantity', oi.quantity
+        )) FROM order_items oi WHERE oi.order_id = o.id) as items,
+        (SELECT c.id FROM client_orders co JOIN clients c ON c.id = co.client_id WHERE co.order_id = o.id LIMIT 1) as client_id
+      FROM orders o
+      ORDER BY o.created_at DESC
+      LIMIT 500`
+    );
+    const orders = r.rows.map((row) => ({
+      id: row.id,
+      orderNumber: row.order_number,
+      status: row.status,
+      totalCents: row.total_cents,
+      currency: row.currency,
+      customerName: row.customer_name,
+      customerEmail: row.customer_email,
+      customerPhone: row.customer_phone,
+      paymentMethod: row.payment_method,
+      paymentStatus: row.payment_status,
+      notes: row.notes,
+      items: row.items || [],
+      clientId: row.client_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+    res.json({ orders });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

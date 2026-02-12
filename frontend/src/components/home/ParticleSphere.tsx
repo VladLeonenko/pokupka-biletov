@@ -23,6 +23,17 @@ const SECTION_LABELS = [
   'БЛОГ',
 ];
 
+/** Ограничивает надпись: до 3 слов; при наличии ":" — только часть до двоеточия (напр. "Этап 1: Разработка" → "Этап 1") */
+function truncateLabel(text: string): string {
+  if (!text?.trim()) return '';
+  const colonIdx = text.indexOf(':');
+  if (colonIdx >= 0) {
+    return text.slice(0, colonIdx).trim();
+  }
+  const words = text.trim().split(/\s+/).slice(0, 3);
+  return words.join(' ');
+}
+
 interface ParticleSphereProps {
   /** Селектор контейнера с [data-scroll-label] (h2/h3). Если задан — подписи берутся из блоков статьи */
   labelsFromSelector?: string;
@@ -226,7 +237,9 @@ export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {})
           const labelEls = document.querySelectorAll<HTMLElement>(
             `${labelsFromSelector} [data-scroll-label], ${labelsFromSelector} h2, ${labelsFromSelector} h3`
           );
-          const labels = Array.from(labelEls).map((el) => el.getAttribute('data-scroll-label') || el.textContent?.trim().slice(0, 60) || '');
+          const labels = Array.from(labelEls).map((el) =>
+            truncateLabel(el.getAttribute('data-scroll-label') || el.textContent?.trim() || '')
+          );
           if (labels.length > 0) {
             setupLabelTriggers(Array.from(labelEls), labels);
           } else {

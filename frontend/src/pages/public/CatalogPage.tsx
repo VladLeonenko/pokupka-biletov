@@ -1,4 +1,5 @@
 import { useState, useEffect, SyntheticEvent, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { searchProducts, listProductCategories, getSearchTags, trackProductEvent } from '@/services/ecommerceApi';
 import { ProductItem, SearchFilters } from '@/types/cms';
@@ -15,6 +16,7 @@ import { pushProductList, pushProductClick } from '@/utils/dataLayer';
 
 export function CatalogPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const catalogRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<SearchFilters>({ sortBy: 'created_desc', isActive: true });
@@ -24,6 +26,14 @@ export function CatalogPage() {
   const isInitialMount = useRef(true);
 
   const { data: categoriesData } = useQuery({ queryKey: ['searchCategories'], queryFn: () => listProductCategories(false), staleTime: 60000 });
+  const categories = categoriesData || [];
+
+  const categorySlugFromUrl = searchParams.get('category');
+  useEffect(() => {
+    if (!categorySlugFromUrl || categories.length === 0) return;
+    const cat = categories.find((c) => c.slug?.toLowerCase() === categorySlugFromUrl.toLowerCase());
+    if (cat) setFilters((p) => ({ ...p, categoryId: cat.id }));
+  }, [categorySlugFromUrl, categories]);
   const { data: tagsData } = useQuery({ queryKey: ['searchTags'], queryFn: getSearchTags, staleTime: 60000 });
   const { data, isLoading } = useQuery({
     queryKey: ['searchProducts', filters, page],
@@ -42,7 +52,14 @@ export function CatalogPage() {
     catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [page]);
 
-  const handleFilterChange = (key: keyof SearchFilters, value: any) => { setFilters(p => ({ ...p, [key]: value })); setPage(0); };
+  const handleFilterChange = (key: keyof SearchFilters, value: any) => {
+    setFilters((p) => ({ ...p, [key]: value }));
+    setPage(0);
+    if (key === 'categoryId') {
+      const cat = categories.find((c) => c.id === value);
+      setSearchParams(cat ? { category: cat.slug } : {}, { replace: true });
+    }
+  };
   const handleProductClick = async (product: ProductItem) => {
     pushProductClick({
       id: product.slug,
@@ -55,7 +72,6 @@ export function CatalogPage() {
   };
 
   const products = data?.products || [];
-  const categories = categoriesData || [];
   const tags = tagsData || [];
 
   // dataLayer: просмотр списка товаров (цели ecommerce)

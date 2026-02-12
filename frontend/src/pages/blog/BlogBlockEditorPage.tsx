@@ -3,12 +3,14 @@ import { slugify } from '@/utils/slugify';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBlogPost, listBlogCategories, upsertBlogPost, uploadImage } from '@/services/cmsApi';
 import { Box, Button, Paper, TextField, Typography, CircularProgress, Switch, FormControlLabel, Alert } from '@mui/material';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import BuildIcon from '@mui/icons-material/Build';
 import CodeIcon from '@mui/icons-material/Code';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BlogBlockEditor } from '@/components/blog-editor/BlogBlockEditor';
 import { BlogBlock } from '@/types/blogBlocks';
 import { useToast } from '@/components/common/ToastProvider';
+import { resolveImageUrl } from '@/utils/resolveImageUrl';
 
 export function BlogBlockEditorPage() {
   const { id = '' } = useParams();
@@ -68,6 +70,26 @@ export function BlogBlockEditorPage() {
       setIsPublished(false);
     }
   }, [post, isNew]);
+
+  const handleCoverUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (!target?.files?.length) return;
+      try {
+        const result = await uploadImage(target.files[0]);
+        setCoverImageUrl(result.url);
+        showToast('Обложка загружена', 'success');
+      } catch (err) {
+        showToast('Не удалось загрузить изображение', 'error');
+      } finally {
+        target.value = '';
+      }
+    };
+    input.click();
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -148,7 +170,30 @@ export function BlogBlockEditorPage() {
         <TextField fullWidth label="Slug" value={slug} onChange={(e) => setSlug(e.target.value)} disabled={!isNew} sx={{ mb: 2 }} />
         <TextField fullWidth label="Название" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ mb: 2 }} />
         <TextField fullWidth label="SEO описание" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} multiline sx={{ mb: 2 }} />
-        <TextField fullWidth label="Обложка (URL)" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="/uploads/images/..." sx={{ mb: 2 }} />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            label="Обложка (URL)"
+            value={coverImageUrl}
+            onChange={(e) => setCoverImageUrl(e.target.value)}
+            placeholder="/uploads/images/..."
+            sx={{ mb: 1 }}
+          />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button variant="outlined" size="small" startIcon={<AddPhotoAlternateIcon />} onClick={handleCoverUpload}>
+              Загрузить с компьютера
+            </Button>
+            {coverImageUrl && (
+              <Box
+                component="img"
+                src={resolveImageUrl(coverImageUrl)}
+                alt="Обложка"
+                sx={{ maxHeight: 60, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+          </Box>
+        </Box>
         <FormControlLabel control={<Switch checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />} label="Опубликовано" />
       </Paper>
 
