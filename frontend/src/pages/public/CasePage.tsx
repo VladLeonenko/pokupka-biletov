@@ -12,6 +12,7 @@ import {
   HeroSection,
   AboutSection,
   TypographySection,
+  ColorsImageSection,
   ToolsSection,
   PerformanceSection,
   MockupSection,
@@ -92,6 +93,7 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
       <HeroSection />
       <AboutSection />
       {showColorsAndTypography && <TypographySection />}
+      {showColorsAndTypography && <ColorsImageSection />}
       <ToolsSection />
       <PerformanceSection />
       <MockupSection />

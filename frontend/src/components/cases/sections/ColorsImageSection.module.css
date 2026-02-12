@@ -1,0 +1,25 @@
+.colors {
+  background-color: #141414;
+  width: 100%;
+}
+
+.colors-container {
+  max-width: 1170px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.colors-title {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 1.5;
+  color: #fff;
+  margin: 0 0 2rem;
+}
+
+.colors-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}

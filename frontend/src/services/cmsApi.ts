@@ -741,7 +741,7 @@ export async function listCases(): Promise<CaseItem[]> {
     tools: Array.isArray(r.tools) ? r.tools : [],
     templateType: r.templateType || r.template_type,
     isTemplate: r.isTemplate || r.is_template || false,
-    contentJson: r.content_json || {},
+    contentJson: r.contentJson || r.content_json || {},
     isPublished: !!r.is_published,
   }));
 }
@@ -761,7 +761,7 @@ export async function getCase(slug: string): Promise<CaseItem | undefined> {
     gallery: Array.isArray(r.gallery) ? r.gallery : [],
     metrics: r.metrics || {},
     tools: Array.isArray(r.tools) ? r.tools : [],
-    contentJson: r.content_json || {},
+    contentJson: r.contentJson || r.content_json || {},
     isPublished: !!r.is_published,
   };
 }

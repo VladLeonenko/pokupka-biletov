@@ -33,6 +33,7 @@ const TARGET_SLUGS = [
   'litclinic-case',
   'leta-case',
   'ursus-case',
+  'straumann-case',
   'straumann-mobile-case',
   'winwin-case',
   'greendent-case',
@@ -103,6 +104,9 @@ function buildContentJson(c) {
       screens: metrics['Страниц'] || metrics['страниц'] || '',
       features: Object.entries(metrics).map(([k, v]) => `${k}: ${v}`),
     },
+    colors: {
+      image: gallery[2] || gallery[1] || gallery[0] || heroUrl || '',
+    },
   };
 }
 
@@ -122,12 +126,14 @@ async function main() {
 
   console.log(`Найдено кейсов: ${r.rows.length}`);
 
+  const forceOverwrite = process.argv.includes('--force');
+
   for (const row of r.rows) {
     const existing = row.content_json || {};
     const hasContent = existing.hero?.title || existing.about?.description;
 
-    if (hasContent) {
-      console.log(`⏭️ ${row.slug}: content_json уже заполнен, пропуск`);
+    if (hasContent && !forceOverwrite) {
+      console.log(`⏭️ ${row.slug}: content_json уже заполнен, пропуск (используйте --force для перезаписи)`);
       continue;
     }
 
