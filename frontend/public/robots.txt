@@ -35,6 +35,9 @@ Allow: /
 Allow: /llms.txt
 Allow: /llms-full.txt
 
+# Страница 404 — не индексировать (если явно залинкована)
+Disallow: /404
+
 # Закрываем административные и служебные разделы
 Disallow: /admin
 Disallow: /admin/

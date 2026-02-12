@@ -72,6 +72,7 @@ import { HousesCasePage } from '@/pages/public/HousesCasePage';
 import { MadeoCasePage } from '@/pages/public/MadeoCasePage';
 import { PolygonCasePage } from '@/pages/public/PolygonCasePage';
 import { StraumannCasePage } from '@/pages/public/StraumannCasePage';
+import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 // Lazy load остальных админских страниц
 const ParsingPage = lazy(() => import('@/pages/parsing/ParsingPage').then(m => ({ default: m.ParsingPage })));
@@ -257,8 +258,9 @@ export function AppRoutes() {
       <Route path="/promotions" element={<Navigate to="/admin/promotions" replace />} />
       <Route path="/forms" element={<Navigate to="/admin/forms" replace />} />
       <Route path="/funnels" element={<Navigate to="/admin/funnels" replace />} />
+      <Route path="/404" element={<NotFoundPage />} />
       <Route path="/:slug" element={<PublicPageView />} />
-      <Route path="*" element={<PublicPageView />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
