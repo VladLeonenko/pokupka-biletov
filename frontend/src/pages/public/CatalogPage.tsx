@@ -11,6 +11,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { PageHeader } from '@/components/common/PageHeader';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
+import { pushProductList, pushProductClick } from '@/utils/dataLayer';
 
 export function CatalogPage() {
   const navigate = useNavigate();
@@ -42,11 +43,37 @@ export function CatalogPage() {
   }, [page]);
 
   const handleFilterChange = (key: keyof SearchFilters, value: any) => { setFilters(p => ({ ...p, [key]: value })); setPage(0); };
-  const handleProductClick = async (product: ProductItem) => { await trackProductEvent(product.slug, 'click'); navigate(`/products/${product.slug}`); };
+  const handleProductClick = async (product: ProductItem) => {
+    pushProductClick({
+      id: product.slug,
+      name: product.title,
+      price: product.priceCents ? product.priceCents / 100 : undefined,
+      list: 'Catalog',
+    });
+    await trackProductEvent(product.slug, 'click');
+    navigate(`/products/${product.slug}`);
+  };
 
   const products = data?.products || [];
   const categories = categoriesData || [];
   const tags = tagsData || [];
+
+  // dataLayer: просмотр списка товаров (цели ecommerce)
+  useEffect(() => {
+    if (products.length > 0) {
+      pushProductList(
+        products.map((p, i) => ({
+          id: p.slug,
+          name: p.title,
+          price: p.priceCents ? p.priceCents / 100 : undefined,
+          category: p.category?.name,
+          list: 'Catalog',
+          position: i + 1,
+        })),
+        'Catalog'
+      );
+    }
+  }, [products]);
 
   /* ---------- Inline styles ---------- */
   const inputSx = {

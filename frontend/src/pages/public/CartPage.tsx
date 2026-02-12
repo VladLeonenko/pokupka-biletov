@@ -11,6 +11,7 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { PageHeader } from '@/components/common/PageHeader';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { useToast } from '@/components/common/ToastProvider';
+import { pushPurchase, pushRemoveFromCart } from '@/utils/dataLayer';
 
 const inputSx = {
   '& .MuiOutlinedInput-root': { color: '#fff', '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' }, '&:hover fieldset': { borderColor: 'rgba(255,187,0,0.4)' }, '&.Mui-focused fieldset': { borderColor: '#ffbb00' } },
@@ -42,7 +43,17 @@ export function CartPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
   });
   const removeMutation = useMutation({
-    mutationFn: (id: number) => removeFromCart(id),
+    mutationFn: ({ id, product }: { id: number; product: CartItem['product'] }) => {
+      if (product) {
+        pushRemoveFromCart({
+          id: product.slug || String(id),
+          name: product.title || 'Товар',
+          price: product.priceCents ? product.priceCents / 100 : undefined,
+          quantity: 1,
+        });
+      }
+      return removeFromCart(id);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
   });
   const clearMutation = useMutation({
@@ -52,6 +63,16 @@ export function CartPage() {
   const orderMutation = useMutation({
     mutationFn: () => createOrder(orderData),
     onSuccess: (data) => {
+      pushPurchase(
+        data.order.orderNumber,
+        items.map((item) => ({
+          id: item.product?.slug || String(item.id),
+          name: item.product?.title || 'Товар',
+          price: item.product?.priceCents ? item.product.priceCents / 100 : undefined,
+          quantity: item.quantity,
+        })),
+        total > 0 ? total / 100 : undefined
+      );
       queryClient.invalidateQueries({ queryKey: ['cart'] });
       setOrderDialogOpen(false);
       navigate(`/orders/${data.order.orderNumber}`);
@@ -128,7 +149,7 @@ export function CartPage() {
                       <Button size="small" onClick={() => handleQuantityChange(item, -1)} sx={{ minWidth: 32, color: '#fff', borderColor: 'rgba(255,255,255,0.15)' }} variant="outlined">−</Button>
                       <Typography sx={{ color: '#fff', fontWeight: 600, minWidth: 24, textAlign: 'center' }}>{item.quantity}</Typography>
                       <Button size="small" onClick={() => handleQuantityChange(item, 1)} sx={{ minWidth: 32, color: '#fff', borderColor: 'rgba(255,255,255,0.15)' }} variant="outlined">+</Button>
-                      <IconButton onClick={() => removeMutation.mutate(item.id)} sx={{ color: 'rgba(255,255,255,0.4)', '&:hover': { color: '#ff5252' } }} size="small">
+                      <IconButton onClick={() => removeMutation.mutate({ id: item.id, product: item.product })} sx={{ color: 'rgba(255,255,255,0.4)', '&:hover': { color: '#ff5252' } }} size="small">
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Box>

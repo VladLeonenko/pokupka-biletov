@@ -16,6 +16,7 @@ import { ProductItem } from '@/types/cms';
 import { submitForm } from '@/services/cmsApi';
 import { getPublicProduct, getPublicCase } from '@/services/publicApi';
 import { trackProductEvent, addToCart, addToWishlist } from '@/services/ecommerceApi';
+import { pushProductView, pushAddToCart, pushReachGoal } from '@/utils/dataLayer';
 import { useAuth } from '@/auth/AuthProvider';
 import DOMPurify from 'dompurify';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
@@ -97,12 +98,26 @@ export function ProductPage() {
   useEffect(() => {
     if (product) {
       trackProductEvent(product.slug, 'view');
+      pushProductView({
+        id: product.slug,
+        name: product.title,
+        price: product.priceCents ? product.priceCents / 100 : undefined,
+        category: product.category?.name,
+        list: 'Product detail',
+      });
     }
   }, [product]);
 
   const handleAddToCart = async () => {
     if (!product) return;
     try {
+      pushAddToCart({
+        id: product.slug,
+        name: product.title,
+        price: product.priceCents ? product.priceCents / 100 : undefined,
+        quantity: 1,
+        list: 'Product detail',
+      });
       await trackProductEvent(product.slug, 'add_to_cart');
       await addToCart(product.slug, 1);
       showToast('Товар добавлен в корзину', 'success');
@@ -117,6 +132,7 @@ export function ProductPage() {
       return;
     }
     try {
+      pushReachGoal('add_to_wishlist');
       await trackProductEvent(product.slug, 'add_to_wishlist');
       await addToWishlist(product.slug);
       showToast('Товар добавлен в избранное', 'success');
@@ -147,8 +163,8 @@ export function ProductPage() {
     }
 
     try {
+      pushReachGoal('contact_form_submit');
       // Используем форму обратной связи из CMS
-      // Если форма 'contact' не существует, API создаст её автоматически или вернет ошибку
       await submitForm('contact', {
         name: contactForm.name.trim(),
         email: contactForm.email.trim(),

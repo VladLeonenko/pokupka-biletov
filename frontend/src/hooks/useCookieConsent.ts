@@ -192,15 +192,15 @@ export function useCookieConsent() {
             a.parentNode.insertBefore(k,a);
           })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js?id=106795462", "ym");
           
-          // Инициализируем
+          // Инициализируем (ecommerce: dataLayer — цели через dataLayer)
           window.ym(106795462, "init", {
             clickmap: true,
             trackLinks: true,
             accurateTrackBounce: true,
             webvisor: true,
-            // Оптимизации производительности
+            ecommerce: "dataLayer",
             defer: true,
-            trackHash: false, // Отключаем отслеживание хеша для SPA
+            trackHash: false,
           });
         }
       };
