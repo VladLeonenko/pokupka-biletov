@@ -120,6 +120,7 @@ app.use(helmet({
         "https://cc.calltracking.ru", // Коллтрекинг
         "https://mc.yandex.ru", // Яндекс.Метрика
         "https://ymv43udrja.ru", // Яндекс.Метрика (асинхронная загрузка)
+        "https://yastatic.net", // Яндекс.Метрика form-selector, phonos и др.
         ...(isDevelopment ? ["'unsafe-eval'"] : []),
       ],
       styleSrc: [
