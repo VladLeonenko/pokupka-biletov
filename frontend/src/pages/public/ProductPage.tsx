@@ -35,7 +35,7 @@ import Avatar from '@mui/material/Avatar';
 import { getApiBase } from '@/utils/apiBase';
 import { dedupeRepeatedPhrase } from '@/utils/text';
 import { SocialProofs } from '@/components/products/SocialProofs';
-import { SMART_RELATED_PRODUCTS } from '@/config/relatedProducts';
+import { getRelatedProductSlugs, getRelatedProductsWithBenefits } from '@/config/relatedProducts';
 
 const MotionBox = motion.create(Box);
 const MotionPaper = motion.create(Paper);
@@ -109,9 +109,10 @@ export function ProductPage() {
     })
     .filter(Boolean);
 
-  const smartSlugs = product?.slug ? (SMART_RELATED_PRODUCTS[product.slug] || []) : [];
-  const useSmartRelated = smartSlugs.length > 0;
-  const relatedSlugs = useSmartRelated ? smartSlugs : cmsRelatedSlugs;
+  const matrixUpsells = product?.slug ? getRelatedProductsWithBenefits(product.slug) : [];
+  const smartSlugs = matrixUpsells.map((u) => u.slug);
+  const benefitBySlug = Object.fromEntries(matrixUpsells.map((u) => [u.slug, u.benefit]));
+  const relatedSlugs = cmsRelatedSlugs.length > 0 ? cmsRelatedSlugs : smartSlugs;
 
   const { data: relatedProducts = [] } = useQuery({
     queryKey: ['related-products', relatedSlugs.join(',')],
@@ -130,14 +131,15 @@ export function ProductPage() {
     (relatedProducts as { slug: string; imageUrl?: string }[]).map((r) => [r.slug, r.imageUrl])
   );
 
-  const relatedServices = useSmartRelated
-    ? (relatedProducts as { slug: string; imageUrl?: string; title?: string; description?: string }[]).map((p) => ({
-        title: p.title,
-        link: `/products/${p.slug}`,
-        description: p.description,
-        imageUrl: p.imageUrl,
-      }))
-    : cmsRelatedServices;
+  const relatedServices =
+    relatedSlugs.length > 0 && (relatedProducts as { slug: string; imageUrl?: string; title?: string; description?: string }[]).length > 0
+      ? (relatedProducts as { slug: string; imageUrl?: string; title?: string; description?: string }[]).map((p) => ({
+          title: p.title,
+          link: `/products/${p.slug}`,
+          description: benefitBySlug[p.slug] || p.description,
+          imageUrl: p.imageUrl,
+        }))
+      : cmsRelatedServices;
 
   useEffect(() => {
     if (product) {
@@ -336,7 +338,9 @@ export function ProductPage() {
       {faqItems && faqItems.length > 0 && (
         <FaqJsonLd items={faqItems} />
       )}
+      {/* class "product-shopping" снижает вероятность срабатывания Reader Mode (Яндекс/Safari) — Readability помечает "shopping" как не-статью */}
       <Box
+        className="product-shopping"
         sx={{
           position: 'relative',
           overflow: 'hidden',
@@ -1344,7 +1348,7 @@ export function ProductPage() {
                           loading="lazy"
                           sx={{
                             width: '100%',
-                            height: 180,
+                            height: 320,
                             objectFit: 'cover',
                             backgroundColor: 'rgba(20,20,40,0.5)',
                           }}
