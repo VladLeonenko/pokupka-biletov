@@ -63,8 +63,59 @@ export function DashboardPage() {
     datasets: [{ label: 'Среднее время (сек)', data: (data?.avgSessionSec || []).map(d => d.seconds), borderColor: '#2e7d32', backgroundColor: 'rgba(46,125,50,0.2)', tension: 0.3 }],
   };
 
+  const stats = data?.stats;
+  const analyticsLabel = data?.analyticsSource === 'ga' ? 'Google Analytics' : data?.analyticsSource === 'yandex' ? 'Яндекс.Метрика' : 'Внутренняя аналитика';
+
   return (
     <Grid container spacing={2}>
+      {stats && (
+        <Grid item xs={12}>
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Бизнес-метрики</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6} sm={4} md={2}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Заказов всего</Typography>
+                  <Typography variant="h5">{stats.ordersTotal}</Typography>
+                </Card>
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Заказов за 30 дней</Typography>
+                  <Typography variant="h5">{stats.ordersMonth}</Typography>
+                </Card>
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Выручка всего</Typography>
+                  <Typography variant="h6">{(stats.revenueTotalCents / 100).toLocaleString('ru-RU')} ₽</Typography>
+                </Card>
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Клиентов</Typography>
+                  <Typography variant="h5">{stats.clientsTotal}</Typography>
+                </Card>
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Заявок (форм)</Typography>
+                  <Typography variant="h5">{stats.formSubmissionsTotal}</Typography>
+                  {stats.formSubmissionsNew > 0 && (
+                    <Typography variant="caption" color="error">+{stats.formSubmissionsNew} новых</Typography>
+                  )}
+                </Card>
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <Card variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Просмотров товаров (30 д)</Typography>
+                  <Typography variant="h5">{stats.productViewsMonth}</Typography>
+                </Card>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      )}
       <Grid item xs={12}>
         <Paper variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}>
           <Box>
@@ -89,7 +140,12 @@ export function DashboardPage() {
       </Grid>
       <Grid item xs={12} md={8}>
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Посетители (30 дней)</Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Посетители (30 дней)
+            {analyticsLabel && (
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>— {analyticsLabel}</Typography>
+            )}
+          </Typography>
           <Box sx={{ height: 260 }}>
             <Line data={visitorsData} options={{ maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
           </Box>
@@ -114,14 +170,18 @@ export function DashboardPage() {
                 <TableCell align="right">Просмотры</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
-              {(data?.topPages || []).map((p) => (
-                <TableRow key={p.path} hover>
+<TableBody>
+              {(data?.topPages || []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ color: 'text.secondary' }}>Нет данных</TableCell>
+                </TableRow>
+              ) : (data?.topPages || []).map((p) => (
+                  <TableRow key={p.path} hover>
                   <TableCell>{p.path}</TableCell>
                   <TableCell>{p.title}</TableCell>
                   <TableCell align="right">{p.views}</TableCell>
                 </TableRow>
-              ))}
+              )))}
             </TableBody>
           </Table>
         </Paper>

@@ -1,6 +1,44 @@
 import express from 'express';
+import pool from '../db.js';
 
 const router = express.Router();
+
+/** Реальные бизнес-метрики из БД */
+async function fetchBusinessStats() {
+  try {
+    const [
+      ordersRes,
+      ordersMonthRes,
+      clientsRes,
+      clientsMonthRes,
+      formsRes,
+      formsNewRes,
+      viewsRes,
+    ] = await Promise.all([
+      pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(total_cents), 0) as revenue FROM orders WHERE status != 'cancelled'`),
+      pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(total_cents), 0) as revenue FROM orders WHERE status != 'cancelled' AND created_at > NOW() - INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) as cnt FROM clients`),
+      pool.query(`SELECT COUNT(*) as cnt FROM clients WHERE created_at > NOW() - INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) as cnt FROM form_submissions`),
+      pool.query(`SELECT COUNT(*) as cnt FROM form_submissions WHERE status = 'new'`),
+      pool.query(`SELECT COUNT(*) as cnt FROM product_analytics WHERE event_type = 'view' AND created_at > NOW() - INTERVAL '30 days'`),
+    ]);
+    return {
+      ordersTotal: parseInt(ordersRes.rows[0]?.cnt || 0),
+      revenueTotalCents: parseInt(ordersRes.rows[0]?.revenue || 0),
+      ordersMonth: parseInt(ordersMonthRes.rows[0]?.cnt || 0),
+      revenueMonthCents: parseInt(ordersMonthRes.rows[0]?.revenue || 0),
+      clientsTotal: parseInt(clientsRes.rows[0]?.cnt || 0),
+      clientsMonth: parseInt(clientsMonthRes.rows[0]?.cnt || 0),
+      formSubmissionsTotal: parseInt(formsRes.rows[0]?.cnt || 0),
+      formSubmissionsNew: parseInt(formsNewRes.rows[0]?.cnt || 0),
+      productViewsMonth: parseInt(viewsRes.rows[0]?.cnt || 0),
+    };
+  } catch (e) {
+    console.warn('[metrics] fetchBusinessStats error:', e.message);
+    return null;
+  }
+}
 
 function rangeDays(n) {
   const arr = [];
@@ -104,34 +142,69 @@ async function fetchGoogle() {
 
 router.get('/overview', async (_req, res) => {
   try {
-    const [ya, ga] = await Promise.all([fetchYandex(30), fetchGoogle()]);
-    if (ga) return res.json(ga);
-    if (ya) return res.json(ya);
-    // fallback mock
+    const [ya, ga, business] = await Promise.all([fetchYandex(30), fetchGoogle(), fetchBusinessStats()]);
     const days = rangeDays(30);
-    const visitors = days.map((d, idx) => ({ date: d, users: 200 + Math.round(80 * Math.sin(idx / 3) + Math.random() * 30) }));
-    const avgSessionSec = days.map((d, idx) => ({ date: d, seconds: 120 + Math.round(60 * Math.cos(idx / 5) + Math.random() * 20) }));
-    const topPages = [
-      { path: '/', title: 'Главная', views: 1523 },
-      { path: '/services', title: 'Услуги', views: 974 },
-      { path: '/blog', title: 'Блог', views: 812 },
-      { path: '/contacts', title: 'Контакты', views: 405 },
-      { path: '/portfolio', title: 'Портфолио', views: 362 },
-    ];
-    res.json({ visitors, avgSessionSec, topPages });
+    let visitors, avgSessionSec, topPages, analyticsSource = 'internal';
+
+    if (ga) {
+      visitors = ga.visitors;
+      avgSessionSec = ga.avgSessionSec;
+      topPages = ga.topPages || [];
+      analyticsSource = 'ga';
+    } else if (ya) {
+      visitors = ya.visitors;
+      avgSessionSec = ya.avgSessionSec;
+      topPages = ya.topPages || [];
+      analyticsSource = 'yandex';
+    } else {
+      // Топ страниц из product_analytics (просмотры товаров)
+      try {
+        const topRes = await pool.query(`
+          SELECT product_slug as path, p.title, COUNT(*)::int as views
+          FROM product_analytics pa
+          LEFT JOIN products p ON p.slug = pa.product_slug
+          WHERE pa.event_type = 'view' AND pa.created_at > NOW() - INTERVAL '7 days'
+          GROUP BY pa.product_slug, p.title
+          ORDER BY views DESC
+          LIMIT 10
+        `);
+        topPages = topRes.rows.map((r) => ({ path: `/products/${r.path}`, title: r.title || r.path, views: r.views }));
+      } catch {
+        topPages = [];
+      }
+      // Посетители по дням из product_analytics (уникальные session_id + user_id)
+      try {
+        const visRes = await pool.query(`
+          SELECT date_trunc('day', created_at)::date as d,
+            COUNT(DISTINCT COALESCE(session_id, 'u'||user_id))::int as users
+          FROM product_analytics
+          WHERE created_at > NOW() - INTERVAL '30 days'
+          GROUP BY 1 ORDER BY 1
+        `);
+        const visMap = Object.fromEntries((visRes.rows || []).map((r) => [r.d?.toISOString?.()?.slice(0, 10) || r.d, r.users]));
+        visitors = days.map((d) => ({ date: d, users: visMap[d] || 0 }));
+        avgSessionSec = days.map((d) => ({ date: d, seconds: 90 }));
+      } catch {
+        visitors = days.map((d) => ({ date: d, users: 0 }));
+        avgSessionSec = days.map((d) => ({ date: d, seconds: 0 }));
+      }
+    }
+
+    res.json({
+      visitors,
+      avgSessionSec,
+      topPages,
+      analyticsSource,
+      stats: business || undefined,
+    });
   } catch (e) {
-    // never fail hard; always return mock
-    const days = rangeDays(30);
-    const visitors = days.map((d, idx) => ({ date: d, users: 200 + Math.round(80 * Math.sin(idx / 3) + Math.random() * 30) }));
-    const avgSessionSec = days.map((d, idx) => ({ date: d, seconds: 120 + Math.round(60 * Math.cos(idx / 5) + Math.random() * 20) }));
-    const topPages = [
-      { path: '/', title: 'Главная', views: 1523 },
-      { path: '/services', title: 'Услуги', views: 974 },
-      { path: '/blog', title: 'Блог', views: 812 },
-      { path: '/contacts', title: 'Контакты', views: 405 },
-      { path: '/portfolio', title: 'Портфолио', views: 362 },
-    ];
-    res.json({ visitors, avgSessionSec, topPages });
+    console.error('[metrics] overview error:', e);
+    res.status(500).json({
+      visitors: rangeDays(30).map((d) => ({ date: d, users: 0 })),
+      avgSessionSec: rangeDays(30).map((d) => ({ date: d, seconds: 0 })),
+      topPages: [],
+      analyticsSource: 'error',
+    });
   }
 });
 

@@ -402,6 +402,18 @@ export type MetricsOverview = {
   visitors: Array<{ date: string; users: number }>;
   avgSessionSec: Array<{ date: string; seconds: number }>;
   topPages: Array<{ path: string; title: string; views: number }>;
+  analyticsSource?: 'yandex' | 'ga' | 'internal' | 'error';
+  stats?: {
+    ordersTotal: number;
+    revenueTotalCents: number;
+    ordersMonth: number;
+    revenueMonthCents: number;
+    clientsTotal: number;
+    clientsMonth: number;
+    formSubmissionsTotal: number;
+    formSubmissionsNew: number;
+    productViewsMonth: number;
+  };
 };
 
 export async function getMetricsOverview(): Promise<MetricsOverview> {
