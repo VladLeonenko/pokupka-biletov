@@ -116,7 +116,7 @@ export const upsellsConfig: UpsellConfig[] = [
     hours: 35,
     margin: 0.78,
     description: 'AmoCRM/Bitrix24 • автоматизация продаж',
-    targets: ['sajt-na-wordpress', 'internet-magazin', 'korporativnyj-sajt', 'landing-page', 'chat-boty', 'kontekstnaya-reklama', 'reklama-audit'],
+    targets: ['sajt-na-wordpress', 'internet-magazin', 'korporativnyj-sajt', 'landing-page', 'chat-boty', 'kontekstnaya-reklama', 'reklama-audit', 'mobilnoe-prilozhenie'],
     conversionBoost: '+45% обработка лидов',
     priority: 9
   },

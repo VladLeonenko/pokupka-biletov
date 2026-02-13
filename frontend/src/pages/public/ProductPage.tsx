@@ -35,6 +35,7 @@ import Avatar from '@mui/material/Avatar';
 import { getApiBase } from '@/utils/apiBase';
 import { dedupeRepeatedPhrase } from '@/utils/text';
 import { SocialProofs } from '@/components/products/SocialProofs';
+import { SMART_RELATED_PRODUCTS } from '@/config/relatedProducts';
 
 const MotionBox = motion.create(Box);
 const MotionPaper = motion.create(Paper);
@@ -97,10 +98,10 @@ export function ProductPage() {
   const productReviews = reviewsData?.reviews || [];
 
   const contentJson = product?.contentJson || {};
-  const relatedServices = contentJson?.relatedServices?.services?.filter(
+  const cmsRelatedServices = contentJson?.relatedServices?.services?.filter(
     (s: any) => s && (s.title || s.link)
   ) || [];
-  const relatedSlugs = relatedServices
+  const cmsRelatedSlugs = cmsRelatedServices
     .filter((s: any) => s.link && !s.imageUrl)
     .map((s: any) => {
       const p = s.link?.startsWith('/catalog/') ? s.link.replace(/^\/catalog/, '/products') : s.link;
@@ -108,15 +109,19 @@ export function ProductPage() {
     })
     .filter(Boolean);
 
+  const smartSlugs = product?.slug ? (SMART_RELATED_PRODUCTS[product.slug] || []) : [];
+  const useSmartRelated = smartSlugs.length > 0;
+  const relatedSlugs = useSmartRelated ? smartSlugs : cmsRelatedSlugs;
+
   const { data: relatedProducts = [] } = useQuery({
     queryKey: ['related-products', relatedSlugs.join(',')],
     queryFn: async () => {
       const results = await Promise.all(
         relatedSlugs.map((slug: string) =>
-          getPublicProduct(slug).then((p) => (p ? { slug, imageUrl: p.imageUrl } : null))
+          getPublicProduct(slug).then((p) => (p ? { slug, imageUrl: p.imageUrl, title: p.title, description: p.summary || (p.contentJson as any)?.shortDescription } : null))
         )
       );
-      return results.filter(Boolean) as { slug: string; imageUrl?: string }[];
+      return results.filter(Boolean) as { slug: string; imageUrl?: string; title?: string; description?: string }[];
     },
     enabled: !!product && relatedSlugs.length > 0,
     staleTime: 60000,
@@ -124,6 +129,15 @@ export function ProductPage() {
   const relatedImageBySlug = Object.fromEntries(
     (relatedProducts as { slug: string; imageUrl?: string }[]).map((r) => [r.slug, r.imageUrl])
   );
+
+  const relatedServices = useSmartRelated
+    ? (relatedProducts as { slug: string; imageUrl?: string; title?: string; description?: string }[]).map((p) => ({
+        title: p.title,
+        link: `/products/${p.slug}`,
+        description: p.description,
+        imageUrl: p.imageUrl,
+      }))
+    : cmsRelatedServices;
 
   useEffect(() => {
     if (product) {
