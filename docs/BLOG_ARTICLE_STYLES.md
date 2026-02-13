@@ -13,6 +13,7 @@
 | `article-cta` | Финальный призыв к действию (центр, кнопки) |
 | `article-table` | Таблица с заголовком |
 | `article-checklist` | Чек-лист |
+| `checklist-item--excluded` | Пункт «не входит» (✗, приглушённо) |
 | `article-poll` | Опрос |
 | `grid` + `grid-item` | Сетка карточек (статистика, преимущества) |
 | `stat-number` (в grid-item) | Крупная цифра/процент |

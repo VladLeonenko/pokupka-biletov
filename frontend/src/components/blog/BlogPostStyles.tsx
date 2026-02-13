@@ -472,6 +472,18 @@ export function BlogPostStyles() {
         '.article-checklist .checklist-item:hover::before': {
           transform: 'scale(1.2)',
         },
+        '.article-checklist .checklist-item--excluded': {
+          opacity: 0.75,
+          color: 'rgba(199, 203, 255, 0.65)',
+          borderColor: 'rgba(153, 140, 255, 0.08)',
+        },
+        '.article-checklist .checklist-item--excluded::before': {
+          content: '"✗"',
+          color: 'rgba(220, 100, 100, 0.9)',
+        },
+        '.article-checklist .checklist-item--excluded:hover::before': {
+          transform: 'none',
+        },
         // Опросники
         '.article-poll': {
           margin: '48px 0',

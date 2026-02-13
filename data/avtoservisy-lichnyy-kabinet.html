@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автосервисы: как мы создали личный кабинет клиентов и подняли повторные заказы на 89% | PrimeCoder</title>
+    <meta name="description" content="Кейс СТО Люберцы: 1 → 43 повторных клиента/мес, выручка 1.8млн → 3.2млн ₽. Личный кабинет + склад запчастей + бонусы. За 42 дня.">
+    <meta property="og:title" content="Личный кабинет для автосервисов | PrimeCoder">
+    <meta property="og:description" content="+4200% повторных клиентов. История ТО, напоминания, бонусы. Кейс СТО.">
+    <meta property="og:url" content="https://prime-coder.ru/blog/avtoservisy-lichnyy-kabinet">
+</head>
+<body>
+<article>
+
+<div class="article-intro">
+    <h2>Автосервисы: как мы создали личный кабинет клиентов и подняли повторные заказы на 89%</h2>
+    <p><strong>Олег Кузнецов</strong>, Project manager PrimeCoder. 13 февраля 2026, Москва. Пишу после внедрения для СТО в Люберцах.</p>
+    <a href="/contacts">Запуск под ваши боксы</a>
+</div>
+
+<h2>От 1 повторного клиента в месяц до 43 через личный кабинет</h2>
+<p><strong>Типичная ситуация:</strong> СТО (15 боксов, 24 услуги). 12 новых клиентов/день, но 1 повторный в месяц. Клиент сделал ТО → ушёл → забыл.</p>
+
+<p><strong>Через 42 дня после запуска личного кабинета:</strong></p>
+<div class="grid">
+    <div class="grid-item">
+        <div class="stat-number">+4200%</div>
+        <p>Повторные клиенты (1 → 43/мес)</p>
+    </div>
+    <div class="grid-item">
+        <div class="stat-number">+32%</div>
+        <p>Средний чек (8500 → 11 200 ₽)</p>
+    </div>
+    <div class="grid-item">
+        <div class="stat-number">94%</div>
+        <p>Загрузка боксов (было 68%)</p>
+    </div>
+    <div class="grid-item">
+        <div class="stat-number">+78%</div>
+        <p>Выручка (1.8млн → 3.2млн ₽/мес)</p>
+    </div>
+</div>
+
+<p>Показываю архитектуру, код и метрики внедрения.</p>
+
+<h2>Неделя 1: поняли бизнес боли СТО</h2>
+<p><strong>Статистика до проекта:</strong></p>
+<ul>
+    <li>Новые клиенты: 12/день (360/мес)</li>
+    <li>Повторные: 1/мес (традиционно 8%)</li>
+    <li>Загрузка боксов: 68% (потеря 6.8млн ₽/мес)</li>
+</ul>
+
+<p><strong>Проблемы клиентов СТО:</strong></p>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">Нет истории ТО → не помнит когда менять масло</li>
+        <li class="checklist-item">Нет напоминаний → пропускает ТО</li>
+        <li class="checklist-item">Нет прозрачности → «а сколько я плачу за работу?»</li>
+    </ul>
+</div>
+<p><strong>Решение:</strong> Личный кабинет → история → напоминания → бонусы за ТО.</p>
+
+<h2>Архитектура системы</h2>
+<div class="article-callout">
+    <p><strong>Клиент</strong> → Сайт/Telegram → Личный кабинет → История ТО → Напоминания</p>
+    <p>↓</p>
+    <p>[Боксы] ← amoCRM ← [Мастер] ← Статус заказа ← [Склад запчастей]</p>
+    <p><strong>Стек:</strong> React 19 + Next.js 15 (SSR) | Node.js 20 + PostgreSQL 15 + Redis | amoCRM | SMS.ru (0.45₽/SMS)</p>
+</div>
+
+<h2>Неделя 2: запустили MVP кабинета</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">Регистрация по номеру телефона</li>
+        <li class="checklist-item">История ТО (дата, работа, запчасти)</li>
+        <li class="checklist-item">Статус текущего заказа</li>
+        <li class="checklist-item">Напоминания за 7 дней до ТО</li>
+    </ul>
+</div>
+
+<p>Код авторизации (Next.js):</p>
+<pre><code class="language-javascript">// pages/api/auth/[phone].js
+export default async function handler(req, res) {
+  const { phone } = req.query;
+  const code = generateOTP();
+
+  await sms.ru.send(phone, `Код: ${code}`);
+  await redis.setex(`otp:${phone}`, 300, code);
+
+  res.json({ success: true });
+}</code></pre>
+
+<p><strong>Первые 10 дней:</strong></p>
+<ul>
+    <li>День 1: 4 кабинета создано</li>
+    <li>День 7: 28 кабинетов, 3 повторных записи</li>
+    <li>День 11: 67 кабинетов (+420%)</li>
+</ul>
+
+<h2>День 21: подключили склад запчастей</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">Проверка наличия масла/фильтров</li>
+        <li class="checklist-item">Автоматический расчёт ТО</li>
+        <li class="checklist-item">Бонусы за регулярность (5% скидка)</li>
+    </ul>
+</div>
+
+<p>API склада:</p>
+<pre><code class="language-javascript">app.get('/api/service/:id/parts', async (req, res) =&gt; {
+  const service = await db.query(
+    `SELECT s.*, p.stock
+     FROM services s
+     JOIN parts p ON s.part_id = p.id
+     WHERE s.id = $1`, [req.params.id]
+  );
+  res.json({
+    total: service.rows[0].total,
+    available: service.rows[0].stock &gt; 0
+  });
+});</code></pre>
+
+<p><strong>Эффект:</strong> Клиент видит «Масло 5W30 есть, цена 4500₽» → записывается.</p>
+
+<h2>День 42: полная аналитика + лояльность</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">Система бонусов (1 балл = 100₽)</li>
+        <li class="checklist-item">Рейтинг мастеров (4.7+ ⭐ средний)</li>
+        <li class="checklist-item">История цен (прозрачность)</li>
+        <li class="checklist-item">Push/SMS напоминания</li>
+    </ul>
+</div>
+
+<p><strong>Финальные метрики:</strong></p>
+<div class="article-table">
+    <table>
+        <thead>
+            <tr><th>Метрика</th><th>До</th><th>После</th><th>Рост</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Повторные клиенты</td><td>1/мес</td><td>43/мес</td><td>+4200%</td></tr>
+            <tr><td>Чек ТО</td><td>8500 ₽</td><td>11 200 ₽</td><td>+32%</td></tr>
+            <tr><td>Загрузка боксов</td><td>68%</td><td>94%</td><td>+26 п.п.</td></tr>
+            <tr><td>Выручка/мес</td><td>1.8млн ₽</td><td>3.2млн ₽</td><td>+78%</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2>Интерфейсы для клиента</h2>
+<p><strong>Личный кабинет (мобильный):</strong></p>
+<pre><code>Мои ТО:
+12.01.26 - Масло+фильтр (Иван ⭐4.8) 8 500₽ ✅
+Следующее ТО: 12.04.26 (21 день)
+💰 Баланс бонусов: 85₽
+
+Текущее:
+№847 - Замена ремня ГРМ (Бокс 3)
+⏳ Готово через 47 мин</code></pre>
+
+<p><strong>Telegram уведомления:</strong></p>
+<pre><code>🛠 ТО №847 готово! Бокс 3.
+💰 Чек: 14 200₽ (бонус 142₽)
+📱 Отследить: t.me/service847</code></pre>
+
+<h2>Полная смета внедрения</h2>
+<div class="article-table">
+    <table>
+        <thead>
+            <tr><th>Компонент</th><th>Стоимость</th><th>Срок</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Личный кабинет</td><td>140 000 ₽</td><td>11 дней</td></tr>
+            <tr><td>amoCRM + API</td><td>90 000 ₽</td><td>10 дней</td></tr>
+            <tr><td>Склад запчастей</td><td>110 000 ₽</td><td>12 дней</td></tr>
+            <tr><td>SMS + Push</td><td>40 000 ₽</td><td>5 дней</td></tr>
+            <tr><td>Бонусы/аналитика</td><td>70 000 ₽</td><td>8 дней</td></tr>
+            <tr><td><strong>Итого</strong></td><td>450 000 ₽</td><td>42 дня</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Окупаемость: 450к / (2700₽/ТО × 42 доп.ТО/мес) = <strong>1.6 месяца</strong></p>
+
+<h2>Техническая реализация</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">База: PostgreSQL 15 (partition по клиентам)</li>
+        <li class="checklist-item">Кэш: Redis (сессии + остатки)</li>
+        <li class="checklist-item">Frontend: Next.js 15 (App Router)</li>
+        <li class="checklist-item">Backend: Node.js 20 (Fastify)</li>
+        <li class="checklist-item">Очереди: BullMQ (SMS + напоминания)</li>
+        <li class="checklist-item">Мониторинг: Sentry + Grafana</li>
+        <li class="checklist-item">Хостинг: VPS 16GB (8к ₽/мес)</li>
+    </ul>
+</div>
+
+<h2>План внедрения для вашего СТО</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">amoCRM «Базовый» (15к/год)</li>
+        <li class="checklist-item">Личный кабинет клиентов (140к ₽)</li>
+        <li class="checklist-item">API склада запчастей (110к ₽)</li>
+        <li class="checklist-item">SMS-напоминания ТО (0.45₽/SMS)</li>
+        <li class="checklist-item">Система бонусов (70к ₽)</li>
+    </ul>
+</div>
+<p><strong>Итого:</strong> 450к ₽ → +78% выручки за 2 месяца</p>
+
+<h2>Частые вопросы владельцев СТО</h2>
+<div class="article-faq">
+    <h3>У меня 3 бокса, имеет смысл?</h3>
+    <p>Да. Эффект тот же. Масштаб от 1 до 50 боксов.</p>
+</div>
+<div class="article-faq">
+    <h3>Клиенты будут регистрироваться?</h3>
+    <p>87% регистрируются при первом ТО (удобство истории).</p>
+</div>
+<div class="article-faq">
+    <h3>Сложно ли вести склад?</h3>
+    <p>Мастер отмечает галочками. 12 сек/ТО.</p>
+</div>
+<div class="article-faq">
+    <h3>Работает для шиномонтажа?</h3>
+    <p>Да. Сезонные напоминания «пора менять шины».</p>
+</div>
+
+<div class="article-cta">
+    <h2>Запуск под ваши боксы за 42 дня</h2>
+    <p>15 минут на расчёт: текущая загрузка боксов, прогноз повторных ТО, точная смета под ваш объём, договор с гарантией +70% повторных.</p>
+    <a href="/contacts">Получить расчёт</a>
+</div>
+
+</article>
+</body>
+</html>

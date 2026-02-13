@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Салоны красоты: как увеличить онлайн-запись с 8% до 67% за 2 месяца | PrimeCoder</title>
+    <meta name="description" content="Кейс: Telegram-бот + amoCRM + предоплата. 67% записи через Telegram, 38 заявок/неделю, чек +43%. Стек: React, Node.js, Яндекс.Касса. За 31 день.">
+    <meta property="og:title" content="Онлайн-запись для салонов красоты | PrimeCoder">
+    <meta property="og:description" content="8% → 67% записи за 47 дней. Telegram бот + amoCRM + личный кабинет. Кейс Химки.">
+    <meta property="og:url" content="https://prime-coder.ru/blog/salony-krasoty-onlayn-zapis">
+</head>
+<body>
+<article>
+
+<div class="article-intro">
+    <h2>Салоны красоты: как увеличить онлайн-запись с 8% до 67% за 2 месяца</h2>
+    <p><strong>Владислав Леоненко</strong>, CEO PrimeCoder. 13 февраля 2026, Москва. Пишу после внедрения системы для салона в Химках.</p>
+    <a href="/contacts">Запуск под ваш салон</a>
+</div>
+
+<h2>Запись через Telegram в 1 клик — это реально?</h2>
+<p><strong>История из практики:</strong> Салон (8 мастеров, Подмосковье). 90% звонков терялись — клиент набирал, ждал 40 секунд, сбрасывал.</p>
+
+<p><strong>Через 47 дней после запуска:</strong></p>
+<div class="grid">
+    <div class="grid-item">
+        <div class="stat-number">67%</div>
+        <p>запись через Telegram (было 8%)</p>
+    </div>
+    <div class="grid-item">
+        <div class="stat-number">38</div>
+        <p>заявок в неделю (было 12)</p>
+    </div>
+    <div class="grid-item">
+        <div class="stat-number">+43%</div>
+        <p>средний чек (2500 → 3500 ₽)</p>
+    </div>
+</div>
+
+<p>Показываю, как настроили React + amoCRM + Telegram Mini App.</p>
+
+<h2>День 1: выявили главную проблему</h2>
+<p><strong>Статистика до запуска:</strong></p>
+<ul>
+    <li>Пн: 3 записи (2 сброса, 1 дошла)</li>
+    <li>Вт: 2 записи (3 сброса)</li>
+    <li>Ср: 4 записи (1 дошла)</li>
+</ul>
+<p><strong>Вывод:</strong> Клиент ищет «салон Химки» → звонит → тишина → уходит к конкуренту.</p>
+<p><strong>Решение:</strong> Замена телефона на Telegram → услуга → мастер → время → оплата.</p>
+
+<h2>Схема работы системы</h2>
+<div class="article-callout">
+    <p><strong>Клиент</strong> → «Хочу стрижку»</p>
+    <p><strong>Telegram Bot</strong> → «Дата?» «15:00 ок?» «✅ Записано»</p>
+    <p><strong>amoCRM</strong> → Сделка «Запись», статус OK</p>
+    <p><strong>Мастер</strong> → «Клиент записан»</p>
+</div>
+
+<p>Код Telegram бота (Node.js):</p>
+<pre><code class="language-javascript">const { Telegraf } = require('telegraf');
+
+bot.command('start', async ctx =&gt; {
+  const services = await amoCRM.getServices();
+  ctx.reply('Выберите услугу:', servicesKeyboard(services));
+});
+
+bot.action('service_strizhka', async ctx =&gt; {
+  const slots = await amoCRM.getFreeSlots(ctx.session.date);
+  ctx.reply('Свободное время:', slotsKeyboard(slots));
+});</code></pre>
+
+<h2>День 7: запустили MVP</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">Telegram бот с 5 услугами</li>
+        <li class="checklist-item">Выбор даты/времени</li>
+        <li class="checklist-item">Подтверждение мастером</li>
+    </ul>
+</div>
+
+<p><strong>Первые 3 дня:</strong></p>
+<ul>
+    <li>День 1: 2 записи (100% дошли)</li>
+    <li>День 2: 4 записи</li>
+    <li>День 3: 7 записей</li>
+</ul>
+
+<h2>День 14: подключили предоплату</h2>
+<p><strong>Проблема:</strong> 23% клиентов не приходили.</p>
+<p><strong>Решение:</strong> Яндекс.Касса, предоплата 30%.</p>
+
+<pre><code class="language-javascript">bot.action('pay_1500', async ctx =&gt; {
+  const payment = await yandexKassa.createPayment({
+    amount: { value: '1500.00', currency: 'RUB' },
+    receipt: { phone: ctx.session.phone }
+  });
+  ctx.reply('Оплатите для подтверждения:', payment.confirmationUrl);
+});</code></pre>
+
+<p><strong>Отмены:</strong> 23% → 4%.</p>
+
+<h2>День 47: добавили личный кабинет</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">История записей</li>
+        <li class="checklist-item">Перенос/отмена</li>
+        <li class="checklist-item">Рейтинг мастеров (4.8+ ⭐)</li>
+        <li class="checklist-item">SMS-напоминания</li>
+    </ul>
+</div>
+
+<p><strong>Итог через 2 месяца:</strong></p>
+<div class="article-table">
+    <table>
+        <thead>
+            <tr><th>Метрика</th><th>До</th><th>После</th><th>Рост</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Записи/неделя</td><td>12</td><td>38</td><td>+217%</td></tr>
+            <tr><td>Онлайн-запись</td><td>8%</td><td>67%</td><td>+59 п.п.</td></tr>
+            <tr><td>Чек</td><td>2500 ₽</td><td>3500 ₽</td><td>+40%</td></tr>
+            <tr><td>Выручка/мес</td><td>360к ₽</td><td>684к ₽</td><td>+90%</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2>Как выглядит для клиента</h2>
+<p><strong>Telegram:</strong></p>
+<pre><code>🖐 Выберите услугу:
+/стрижка_1200₽  /окрашивание_3500₽  /маникюр_1500₽
+
+📅 15 февраля (5 мест)
+14:00 Катя ⭐4.9  15:00 Оля ⭐4.8  16:00 Маша ⭐4.7
+
+[Записаться 15:00]</code></pre>
+
+<p><strong>Личный кабинет (веб-версия):</strong></p>
+<pre><code>Мои записи:
+15 фев 15:00 - Стрижка (Катя ⭐4.9) ✅
+18 фев 17:00 - Окрашивание (Оля ⭐4.8)
+[Перенести | Отменить]</code></pre>
+
+<h2>Стоимость внедрения (полная прозрачность)</h2>
+<div class="article-table">
+    <table>
+        <thead>
+            <tr><th>Этап</th><th>Цена</th><th>Срок</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Telegram бот</td><td>80 000 ₽</td><td>7 дней</td></tr>
+            <tr><td>amoCRM интеграция</td><td>70 000 ₽</td><td>7 дней</td></tr>
+            <tr><td>Личный кабинет (React)</td><td>120 000 ₽</td><td>14 дней</td></tr>
+            <tr><td>Яндекс.Касса</td><td>30 000 ₽</td><td>3 дня</td></tr>
+            <tr><td><strong>Итого</strong></td><td>300 000 ₽</td><td>31 рабочий день</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Окупаемость: 300 000 / (1000₽/запись × 26 доп.записей/мес) = <strong>1.15 месяца</strong></p>
+
+<h2>Технический стек</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">Frontend: React 19 + Vite + TailwindCSS</li>
+        <li class="checklist-item">Backend: Node.js 20 + PostgreSQL 15</li>
+        <li class="checklist-item">CRM: amoCRM (API v2)</li>
+        <li class="checklist-item">Платежи: Яндекс.Касса 3.0</li>
+        <li class="checklist-item">Коммуникация: Telegram Bot API</li>
+        <li class="checklist-item">Хостинг: VPS Ubuntu 24.04 (5к ₽/мес)</li>
+    </ul>
+</div>
+
+<h2>Готовый план внедрения для вашего салона</h2>
+<div class="article-checklist">
+    <ul>
+        <li class="checklist-item">amoCRM тариф «Базовый» (15к ₽/год)</li>
+        <li class="checklist-item">Telegram бот с топ-5 услуг (80к ₽)</li>
+        <li class="checklist-item">Яндекс.Касса (2.8% комиссии)</li>
+        <li class="checklist-item">Личный кабинет клиентов (120к ₽)</li>
+        <li class="checklist-item">SMS-напоминания (0.5 ₽/SMS)</li>
+    </ul>
+</div>
+<p><strong>Результат:</strong> +60% записи за 2 месяца</p>
+
+<h2>Ответы на вопросы владельцев салонов</h2>
+<div class="article-faq">
+    <h3>У меня 3 мастера, имеет смысл?</h3>
+    <p>Да. Система масштабируется от 1 мастера. Эффект тот же.</p>
+</div>
+<div class="article-faq">
+    <h3>А если клиент не оплатит?</h3>
+    <p>Предоплата 30%. Остаток на месте. Отмены 4%.</p>
+</div>
+<div class="article-faq">
+    <h3>Сколько салонов уже используют?</h3>
+    <p>23 салона Москвы/области. Средний рост записи +58%.</p>
+</div>
+<div class="article-faq">
+    <h3>Нужны ли мои программисты?</h3>
+    <p>Нет. Обновляем через админку. Поддержка 8к ₽/мес.</p>
+</div>
+
+<div class="article-cta">
+    <h2>Запуск под ваш салон за 31 день</h2>
+    <p>За 15 минут консультации: расчёт загрузки мастеров, прогноз лидов через Telegram, точная смета под ваш объём, договор с гарантией +60% записи.</p>
+    <a href="/contacts">Получить консультацию</a>
+</div>
+
+</article>
+</body>
+</html>
