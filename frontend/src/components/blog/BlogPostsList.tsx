@@ -34,17 +34,8 @@ interface BlogPostsListProps {
   categories?: Category[];
 }
 
-type CardSize = 'featured' | 'wide' | 'tall' | 'normal';
-
-function getCardSize(index: number): CardSize {
-  if (index === 0) return 'featured';
-  if ((index - 1) % 6 === 4) return 'wide'; // 5th, 11th, 17th... после featured
-  if ((index - 1) % 3 === 1) return 'tall'; // 2nd, 5th, 8th... — выше обычных
-  return 'normal';
-}
-
 /**
- * Bento-сетка: featured, wide и normal карточки для динамичного ритма
+ * Сетка статей блога — одинаковые карточки
  */
 export function BlogPostsList({ posts, selectedCategory, categories = [] }: BlogPostsListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -109,15 +100,11 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
 
   const getExcerpt = (post: BlogPost): string => {
     const body = post.body || post.contentHtml || post.content_html || '';
-    const text = body.replace(/<[^>]*>/g, '').trim();
-    return text.length > 140 ? text.substring(0, 140) + '…' : text;
+    const text = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > 120 ? text.substring(0, 120) + '…' : text;
   };
 
-  const renderCard = (
-    post: BlogPost,
-    size: CardSize,
-    index: number
-  ) => {
+  const renderCard = (post: BlogPost, index: number) => {
     const categorySlug = post.categorySlug || post.category_slug || '';
     const previewImage = getPreviewImage(post);
     const excerpt = getExcerpt(post);
@@ -133,28 +120,14 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
       post.ogImageUrl
     );
 
-    const heights: Record<CardSize, Record<string, string>> = {
-      featured: { xs: '320px', sm: '380px', md: '420px' },
-      wide: { xs: '280px', sm: '320px', md: '360px' },
-      tall: { xs: '300px', sm: '350px', md: '390px' },
-      normal: { xs: '260px', sm: '300px', md: '340px' },
-    };
-    const h = heights[size];
-
-    const wrapperSx =
-      size === 'featured' || size === 'wide'
-        ? { gridColumn: { xs: 'auto', md: 'span 2', xl: 'span 2' } }
-        : {};
-
     return (
       <Box
         key={post.id || post.slug}
         className="blog-item"
         sx={{
-          minWidth: 0,
+          minWidth: 350,
           opacity: 0,
           transform: 'translateY(24px) scale(0.98)',
-          ...wrapperSx,
         }}
       >
         <Link
@@ -168,18 +141,17 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
         >
         <Box
           sx={{
-            height: h,
-            minHeight: { xs: '260px', sm: '300px' },
-            borderRadius: size === 'featured' || size === 'tall' ? 4 : 3,
+            height: { xs: '280px', sm: '320px' },
+            borderRadius: 3,
             overflow: 'hidden',
             position: 'relative',
             cursor: 'pointer',
-            border: '1px solid rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.08)',
             transition: 'border-color 0.4s, transform 0.4s, box-shadow 0.4s',
             '&:hover': {
-              borderColor: 'rgba(255,187,0,0.35)',
-              transform: 'translateY(-8px)',
-              boxShadow: '0 24px 56px -20px rgba(0,0,0,0.5)',
+              borderColor: 'rgba(255,187,0,0.4)',
+              transform: 'translateY(-4px)',
+              boxShadow: '0 16px 40px -16px rgba(0,0,0,0.5)',
             },
             '&:hover .blog-overlay': { opacity: 1 },
           }}
@@ -208,7 +180,7 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
             >
               <Typography
                 sx={{
-                  fontSize: size === 'featured' ? '4rem' : size === 'tall' ? '3.5rem' : '3rem',
+                  fontSize: '3rem',
                   fontWeight: 900,
                   color: 'rgba(255,255,255,0.06)',
                 }}
@@ -251,11 +223,11 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
               zIndex: 1,
             }}
           >
-            <Typography
-              sx={{
-                color: '#ffbb00',
-                fontWeight: 700,
-                fontSize: size === 'featured' ? '1rem' : '0.9rem',
+                <Typography
+                  sx={{
+                    color: '#ffbb00',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
                 letterSpacing: '0.15em',
                 textTransform: 'uppercase',
                 textShadow: '0 1px 2px rgba(0,0,0,0.5)',
@@ -306,39 +278,34 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
                     fontWeight: 700,
                     color: '#fff',
                     textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.5)',
-                    fontSize:
-                  size === 'featured'
-                    ? { xs: '1.15rem', md: '1.35rem' }
-                    : size === 'wide' || size === 'tall'
-                      ? { xs: '1.05rem', md: '1.15rem' }
-                      : { xs: '1rem', md: '1.1rem' },
-                lineHeight: 1.25,
-                mb: 0.5,
-                display: '-webkit-box',
-                WebkitLineClamp: size === 'featured' || size === 'tall' ? 3 : 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {post.title}
-            </Typography>
-            {excerpt && (
-              <Typography
-                variant="body2"
-                sx={{
-                  color: 'rgba(255,255,255,0.7)',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-                  display: '-webkit-box',
-                  WebkitLineClamp: size === 'featured' || size === 'tall' ? 3 : 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  lineHeight: 1.5,
-                  fontSize: size === 'featured' || size === 'tall' ? '0.95rem' : '0.85rem',
-                }}
-              >
-                {excerpt}
-              </Typography>
-            )}
+                    fontSize: { xs: '1rem', sm: '1.1rem', md: '1.15rem' },
+                    lineHeight: 1.3,
+                    mb: 0.5,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {post.title}
+                </Typography>
+                {excerpt && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255,255,255,0.75)',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      lineHeight: 1.5,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {excerpt}
+                  </Typography>
+                )}
           </Box>
         </Box>
       </Link>
@@ -360,20 +327,17 @@ export function BlogPostsList({ posts, selectedCategory, categories = [] }: Blog
     <Box
       ref={containerRef}
       sx={{
+        width: '100%',
         display: 'grid',
         gridTemplateColumns: {
           xs: '1fr',
-          md: 'repeat(2, minmax(0, 1fr))',
-          xl: 'repeat(3, minmax(0, 1fr))',
+          sm: 'repeat(auto-fill, minmax(350px, 1fr))',
         },
         gap: { xs: 1.5, sm: 2, lg: 2, xl: 2.5 },
         mt: { xs: 4, sm: 5 },
       }}
     >
-      {filteredPosts.map((post, index) => {
-        const size = getCardSize(index);
-        return renderCard(post, size, index);
-      })}
+      {filteredPosts.map((post, index) => renderCard(post, index))}
     </Box>
   );
 }
