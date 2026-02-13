@@ -181,7 +181,7 @@ export function DashboardPage() {
                   <TableCell>{p.title}</TableCell>
                   <TableCell align="right">{p.views}</TableCell>
                 </TableRow>
-              )))}
+              ))}
             </TableBody>
           </Table>
         </Paper>
