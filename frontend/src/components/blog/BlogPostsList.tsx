@@ -1,12 +1,11 @@
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useRef, SyntheticEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { resolveImageUrl } from '@/utils/resolveImageUrl';
+import { Box, Typography, Chip } from '@mui/material';
+import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 
-// Объявление типа для GSAP
-declare global {
-  interface Window {
-    gsap?: any;
-  }
+interface Category {
+  slug: string;
+  name: string;
 }
 
 interface BlogPost {
@@ -35,232 +34,277 @@ interface BlogPost {
 interface BlogPostsListProps {
   posts: BlogPost[];
   selectedCategory: string;
+  categories?: Category[];
 }
 
 /**
- * Список статей блога с фильтрацией через React
+ * Карточки статей в стиле карточек кейсов (PortfolioPage)
  */
-export function BlogPostsList({ posts, selectedCategory }: BlogPostsListProps) {
+export function BlogPostsList({ posts, selectedCategory, categories = [] }: BlogPostsListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousCategoryRef = useRef<string>(selectedCategory);
-  const isAnimatingRef = useRef<boolean>(false);
 
-  // Фильтруем статьи по категории
   const filteredPosts = useMemo(() => {
     if (!Array.isArray(posts) || posts.length === 0) return [];
-
-    if (selectedCategory === 'all') {
-      return posts;
-    }
-
+    if (selectedCategory === 'all') return posts;
     return posts.filter((post) => {
       const catSlug = post.categorySlug || post.category_slug || '';
       return catSlug === selectedCategory;
     });
   }, [posts, selectedCategory]);
 
-  // Красивая анимация появления статей при фильтрации
+  const getCategoryName = (slug: string) =>
+    categories.find((c) => c.slug === slug)?.name || slug;
+
   useEffect(() => {
     if (!containerRef.current) return;
-
     const items = containerRef.current.querySelectorAll('.blog-item');
-    const categoryChanged = previousCategoryRef.current !== selectedCategory;
-    
-    // Сразу скрываем все элементы перед анимацией
     items.forEach((item) => {
       const htmlItem = item as HTMLElement;
       htmlItem.style.opacity = '0';
-      htmlItem.style.transform = 'translateY(50px) scale(0.96)';
-      htmlItem.style.willChange = 'opacity, transform';
-      // Убираем transition для мгновенного скрытия
+      htmlItem.style.transform = 'translateY(24px)';
       htmlItem.style.transition = 'none';
     });
-
     previousCategoryRef.current = selectedCategory;
-    isAnimatingRef.current = true;
-    
-    // Загружаем GSAP, если его нет
-    const loadGSAP = (): Promise<void> => {
-      return new Promise((resolve) => {
-        if (typeof window.gsap !== 'undefined') {
-          resolve();
-          return;
-        }
-        
-        // Проверяем, не загружается ли уже
-        if (document.querySelector('script[src*="gsap"]')) {
-          const checkInterval = setInterval(() => {
-            if (typeof window.gsap !== 'undefined') {
-              clearInterval(checkInterval);
-              resolve();
-            }
-          }, 50);
-          return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js';
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => resolve(); // Fallback на CSS анимацию
-        document.head.appendChild(script);
+    const animate = () => {
+      items.forEach((item, index) => {
+        const htmlItem = item as HTMLElement;
+        htmlItem.style.transition = 'opacity 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        setTimeout(() => {
+          htmlItem.style.opacity = '1';
+          htmlItem.style.transform = 'translateY(0)';
+        }, index * 40);
       });
     };
-
-    const animateItems = async () => {
-      await loadGSAP();
-
-      // Небольшая задержка, чтобы React успел отрендерить элементы
-      await new Promise(resolve => setTimeout(resolve, 20));
-
-      if (typeof window.gsap !== 'undefined') {
-        // Используем GSAP для плавной анимации
-        items.forEach((item, index) => {
-          const htmlItem = item as HTMLElement;
-          
-          // Убеждаемся, что начальное состояние установлено
-          window.gsap.set(htmlItem, {
-            opacity: 0,
-            y: 50,
-            scale: 0.96,
-          });
-          
-          // Анимируем появление с плавным каскадным эффектом
-          window.gsap.to(htmlItem, {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: 0.9, // Увеличена длительность для плавности
-            delay: index * 0.06, // Уменьшена задержка для более быстрого каскада
-            ease: 'power2.out', // Более плавный easing
-            onComplete: () => {
-              if (index === items.length - 1) {
-                isAnimatingRef.current = false;
-                // Убираем willChange после анимации для оптимизации
-                htmlItem.style.willChange = 'auto';
-              }
-            },
-          });
-        });
-      } else {
-        // Fallback: CSS анимация, если GSAP не загрузился
-        items.forEach((item, index) => {
-          const htmlItem = item as HTMLElement;
-          // Более плавная CSS анимация
-          htmlItem.style.transition = 'opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-          
-          setTimeout(() => {
-            htmlItem.style.opacity = '1';
-            htmlItem.style.transform = 'translateY(0) scale(1)';
-            if (index === items.length - 1) {
-              isAnimatingRef.current = false;
-              htmlItem.style.willChange = 'auto';
-            }
-          }, index * 60);
-        });
-      }
-    };
-
-    // Запускаем анимацию
-    animateItems();
-    
-    return () => {
-      isAnimatingRef.current = false;
-    };
+    requestAnimationFrame(() => setTimeout(animate, 20));
   }, [filteredPosts, selectedCategory]);
 
-  // Форматируем дату
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
+      return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
     } catch {
       return '';
     }
   };
 
-  // Получаем превью изображения
   const getPreviewImage = (post: BlogPost): string => {
     const coverImage = resolveImageUrl(post.cover_image_url || post.coverImageUrl || '', '');
     const ogImage = resolveImageUrl(
       post.seo?.ogImageUrl || post.seo?.og_image_url || post.og_image_url || post.ogImageUrl || '',
       ''
     );
-    return coverImage || ogImage;
+    return coverImage || ogImage || fallbackImageUrl();
   };
 
-  // Получаем анонс статьи
   const getExcerpt = (post: BlogPost): string => {
     const postBody = post.body || post.contentHtml || post.content_html || '';
     if (!postBody) return '';
-    // Удаляем HTML теги и берем первые 150 символов
     const text = postBody.replace(/<[^>]*>/g, '').trim();
-    return text.length > 150 ? text.substring(0, 150) + '...' : text;
-  };
-
-  // Получаем класс категории для фильтрации
-  const getCategoryClass = (post: BlogPost): string => {
-    const categorySlug = post.categorySlug || post.category_slug || '';
-    return categorySlug ? `category-${categorySlug}` : '';
+    return text.length > 140 ? text.substring(0, 140) + '…' : text;
   };
 
   if (filteredPosts.length === 0) {
     return (
-      <div id="Blog-items" ref={containerRef} className="d-flex gap-30 row" style={{ marginTop: '50px' }}>
-        <div className="mb-30">
-          <p>Статей пока нет</p>
-        </div>
-      </div>
+      <Box ref={containerRef} sx={{ mt: 6 }}>
+        <Typography sx={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', py: 8 }}>
+          Статей в этой категории пока нет
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <div id="Blog-items" ref={containerRef} className="d-flex gap-30 row" style={{ marginTop: '50px' }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          sm: 'repeat(2, minmax(0, 1fr))',
+          md: 'repeat(2, minmax(0, 1fr))',
+          lg: 'repeat(3, minmax(0, 1fr))',
+        },
+        gap: { xs: 2, sm: 2.5, lg: 3 },
+        mt: { xs: 4, sm: 5 },
+      }}
+    >
       {filteredPosts.map((post) => {
-        const categoryClass = getCategoryClass(post);
+        const categorySlug = post.categorySlug || post.category_slug || '';
         const previewImage = getPreviewImage(post);
         const excerpt = getExcerpt(post);
         const publishedDate = formatDate(
           post.publishedAt || post.published_at || post.createdAt || post.created_at
+        );
+        const hasImage = !!(
+          post.cover_image_url ||
+          post.coverImageUrl ||
+          post.seo?.ogImageUrl ||
+          post.seo?.og_image_url ||
+          post.og_image_url ||
+          post.ogImageUrl
         );
 
         return (
           <Link
             key={post.id || post.slug}
             to={`/blog/${post.slug}`}
-            className={`mb-30 mix ${categoryClass} blog-item`}
+            className="blog-item"
             style={{
-              display: 'block',
               textDecoration: 'none',
               color: 'inherit',
-              opacity: 0, // Начальное состояние - скрыто
-              transform: 'translateY(50px) scale(0.96)', // Начальное состояние
-              willChange: 'opacity, transform',
-              transition: 'none', // Отключаем transition для начального состояния
+              display: 'block',
+              minWidth: 0,
+              opacity: 0,
+              transform: 'translateY(24px)',
             }}
           >
-            <div className="portfolio-wrapper portfolio-title">
-              {previewImage && (
-                <div className="portfolio-img">
-                  <img src={previewImage} alt={post.title} />
-                </div>
+            <Box
+              sx={{
+                height: { xs: 320, sm: 360, md: 400 },
+                borderRadius: 4,
+                overflow: 'hidden',
+                position: 'relative',
+                cursor: 'pointer',
+                border: '1px solid rgba(255,255,255,0.06)',
+                transition: 'border-color 0.4s, transform 0.4s',
+                '&:hover': { borderColor: 'rgba(255,187,0,0.3)', transform: 'translateY(-6px)' },
+                '&:hover .blog-overlay': { opacity: 1 },
+              }}
+            >
+              {hasImage ? (
+                <Box
+                  component="img"
+                  src={previewImage}
+                  alt={post.title}
+                  loading="lazy"
+                  onError={(e: SyntheticEvent<HTMLImageElement>) => {
+                    (e.target as HTMLImageElement).src = fallbackImageUrl();
+                  }}
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    bgcolor: 'rgba(30,30,30,0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '3rem', fontWeight: 900, color: 'rgba(255,255,255,0.06)' }}>
+                    {(post.title || 'СТ').substring(0, 2).toUpperCase()}
+                  </Typography>
+                </Box>
               )}
-              <div className="portfolio-heading pt-20">
-                <h4 className="mb-10">{post.title}</h4>
-                {excerpt && <p>{excerpt}</p>}
-                <div className="d-flex flex-row jcsb mt-20">
-                  <h5>{publishedDate}</h5>
-                </div>
-              </div>
-            </div>
+
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background:
+                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)',
+                }}
+              />
+
+              <Box
+                className="blog-overlay"
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  bgcolor: 'rgba(0,0,0,0.55)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  opacity: 0,
+                  transition: 'opacity 0.4s',
+                  p: 3,
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: '#ffbb00',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Читать статью
+                </Typography>
+              </Box>
+
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  p: { xs: 2, md: 2.5 },
+                  zIndex: 2,
+                }}
+              >
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1 }}>
+                  {categorySlug && (
+                    <Chip
+                      label={getCategoryName(categorySlug)}
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(255,187,0,0.15)',
+                        color: '#ffbb00',
+                        fontWeight: 600,
+                      }}
+                    />
+                  )}
+                  {publishedDate && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.75rem' }}
+                    >
+                      {publishedDate}
+                    </Typography>
+                  )}
+                </Box>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    color: '#fff',
+                    fontSize: { xs: '1rem', md: '1.15rem' },
+                    lineHeight: 1.25,
+                    mb: 0.5,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {post.title}
+                </Typography>
+                {excerpt && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255,255,255,0.55)',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      lineHeight: 1.5,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {excerpt}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
           </Link>
         );
       })}
-    </div>
+    </Box>
   );
 }
-

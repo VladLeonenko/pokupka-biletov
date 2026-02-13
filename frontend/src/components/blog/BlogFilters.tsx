@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { Box, Chip } from '@mui/material';
 
 interface Category {
   slug: string;
@@ -12,81 +12,52 @@ interface BlogFiltersProps {
 }
 
 /**
- * Фильтры категорий блога (десктоп и мобильная карусель)
+ * Фильтры категорий блога в стилистике сайта
  */
 export function BlogFilters({ categories, selectedCategory, onCategoryChange }: BlogFiltersProps) {
-  const carouselRef = useRef<HTMLDivElement>(null);
-
-  // Инициализация мобильной карусели через data-carousel
-  useEffect(() => {
-    if (carouselRef.current && !carouselRef.current.hasAttribute('data-carousel')) {
-      carouselRef.current.setAttribute('data-carousel', 'blog-nonloop');
-    }
-  }, []);
-
-  const handleFilterClick = (category: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onCategoryChange(category);
-  };
-
   return (
-    <>
-      {/* Десктопные фильтры */}
-      <div className="blog-nav blog-nav-desktop">
-        <div
-          className={`filter ${selectedCategory === 'all' ? 'active' : ''}`}
-          onClick={(e) => handleFilterClick('all', e)}
-          style={{ cursor: 'pointer' }}
-        >
-          <h5>Все темы</h5>
-        </div>
-        {categories.map((cat) => {
-          const isActive = selectedCategory === cat.slug;
-          return (
-            <div
-              key={cat.slug}
-              className={`filter ${isActive ? 'active' : ''}`}
-              onClick={(e) => handleFilterClick(cat.slug, e)}
-              style={{ cursor: 'pointer' }}
-            >
-              <h5>{cat.name}</h5>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Мобильная карусель */}
-      <div
-        ref={carouselRef}
-        className="owl-carousel-filter owl-carousel owl-theme"
-        data-carousel="blog-nonloop"
-      >
-        <div className="item">
-          <div
-            className={`filter ${selectedCategory === 'all' ? 'active' : ''}`}
-            onClick={(e) => handleFilterClick('all', e)}
-            style={{ cursor: 'pointer' }}
-          >
-            <h5>Все темы</h5>
-          </div>
-        </div>
-        {categories.map((cat) => {
-          const isActive = selectedCategory === cat.slug;
-          return (
-            <div key={cat.slug} className="item">
-              <div
-                className={`filter ${isActive ? 'active' : ''}`}
-                onClick={(e) => handleFilterClick(cat.slug, e)}
-                style={{ cursor: 'pointer' }}
-              >
-                <h5>{cat.name}</h5>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 1.5,
+        mt: 4,
+      }}
+    >
+      <Chip
+        label="Все темы"
+        onClick={() => onCategoryChange('all')}
+        sx={{
+          bgcolor: selectedCategory === 'all' ? 'rgba(255,187,0,0.15)' : 'rgba(255,255,255,0.04)',
+          color: selectedCategory === 'all' ? '#ffbb00' : 'rgba(255,255,255,0.6)',
+          border: '1px solid',
+          borderColor: selectedCategory === 'all' ? 'rgba(255,187,0,0.4)' : 'transparent',
+          fontWeight: 600,
+          fontSize: '0.9rem',
+          py: 1.5,
+          '&:hover': { bgcolor: 'rgba(255,187,0,0.1)' },
+        }}
+      />
+      {categories.map((cat) => {
+        const isActive = selectedCategory === cat.slug;
+        return (
+          <Chip
+            key={cat.slug}
+            label={cat.name}
+            onClick={() => onCategoryChange(cat.slug)}
+            sx={{
+              bgcolor: isActive ? 'rgba(255,187,0,0.15)' : 'rgba(255,255,255,0.04)',
+              color: isActive ? '#ffbb00' : 'rgba(255,255,255,0.6)',
+              border: '1px solid',
+              borderColor: isActive ? 'rgba(255,187,0,0.4)' : 'transparent',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              py: 1.5,
+              '&:hover': { bgcolor: 'rgba(255,187,0,0.1)' },
+            }}
+          />
+        );
+      })}
+    </Box>
   );
 }
-

@@ -38,7 +38,7 @@ export function PublicBlogPage() {
             <BlogFilters categories={categories} selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
           </Box>
           <Box data-anim="fade-up">
-            <BlogPostsList posts={posts} selectedCategory={selectedCategory} />
+            <BlogPostsList posts={posts} selectedCategory={selectedCategory} categories={categories} />
           </Box>
         </Container>
       </Box>
