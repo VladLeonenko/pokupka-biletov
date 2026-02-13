@@ -403,6 +403,18 @@ export type MetricsOverview = {
   avgSessionSec: Array<{ date: string; seconds: number }>;
   topPages: Array<{ path: string; title: string; views: number }>;
   analyticsSource?: 'yandex' | 'ga' | 'internal' | 'error';
+  /** Сводка за 30 дней (Яндекс.Метрика) */
+  summary?: {
+    users: number;
+    visits: number;
+    pageviews: number;
+    bounceRate: number;
+    avgVisitDurationSeconds: number;
+    avgPageViews: number;
+  };
+  trafficSources?: Array<{ name: string; users: number }>;
+  devices?: Array<{ name: string; users: number }>;
+  bounceRate?: Array<{ date: string; rate: number }>;
   stats?: {
     ordersTotal: number;
     revenueTotalCents: number;

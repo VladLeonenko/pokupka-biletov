@@ -60,27 +60,84 @@ async function fetchYandex(daysCount) {
     const date2 = 'today';
     const base = 'https://api-metrika.yandex.net/stat/v1/data';
     const headers = { Authorization: `OAuth ${token}` };
-    // Time series users by day
-    const usersUrl = `${base}?ids=${counter}&metrics=ym:s:users&dimensions=ym:s:date&date1=${date1}&date2=${date2}&group=Day`; 
+
+    // 1. Time series: посетители по дням
+    const usersUrl = `${base}?ids=${counter}&metrics=ym:s:users&dimensions=ym:s:date&date1=${date1}&date2=${date2}&group=Day`;
     const usersRes = await fetch(usersUrl, { headers });
     if (!usersRes.ok) return null;
     const usersData = await usersRes.json();
     const visitors = Array.isArray(usersData?.data) ? usersData.data.map((row) => ({ date: row.dimensions?.[0]?.name, users: row.metrics?.[0] })) : null;
     if (!visitors) return null;
-    // Avg session duration
+
+    // 2. Среднее время на сайте по дням
     const avgUrl = `${base}?ids=${counter}&metrics=ym:s:avgVisitDurationSeconds&dimensions=ym:s:date&date1=${date1}&date2=${date2}&group=Day`;
     const avgRes = await fetch(avgUrl, { headers });
     if (!avgRes.ok) return null;
     const avgData = await avgRes.json();
     const avgSessionSec = Array.isArray(avgData?.data) ? avgData.data.map((row) => ({ date: row.dimensions?.[0]?.name, seconds: row.metrics?.[0] })) : null;
     if (!avgSessionSec) return null;
-    // Top pages last 7 days
-    const topUrl = `${base}?ids=${counter}&metrics=ym:pv:pageviews&dimensions=ym:pv:URL,ym:pv:title&date1=7daysAgo&date2=${date2}&sort=-ym:pv:pageviews&limit=5`;
+
+    // 3. Топ страниц за 7 дней
+    const topUrl = `${base}?ids=${counter}&metrics=ym:pv:pageviews&dimensions=ym:pv:URL,ym:pv:title&date1=7daysAgo&date2=${date2}&sort=-ym:pv:pageviews&limit=10`;
     const topRes = await fetch(topUrl, { headers });
     if (!topRes.ok) return null;
     const topData = await topRes.json();
     const topPages = Array.isArray(topData?.data) ? topData.data.map((row) => ({ path: row.dimensions?.[0]?.name, title: row.dimensions?.[1]?.name || '', views: row.metrics?.[0] })) : [];
-    return { visitors, avgSessionSec, topPages };
+
+    // 4. Сводка за 30 дней (агрегат)
+    const summaryUrl = `${base}?ids=${counter}&metrics=ym:s:users,ym:s:visits,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds,ym:s:avgPageViews&date1=${date1}&date2=${date2}`;
+    const summaryRes = await fetch(summaryUrl, { headers });
+    let summary = null;
+    if (summaryRes.ok) {
+      const sumJson = await summaryRes.json();
+      const m = sumJson?.totals?.[0] || [];
+      if (m.length >= 6) {
+        summary = {
+          users: m[0],
+          visits: m[1],
+          pageviews: m[2],
+          bounceRate: m[3],
+          avgVisitDurationSeconds: m[4],
+          avgPageViews: m[5],
+        };
+      }
+    }
+
+    // 5. Источники трафика
+    const srcUrl = `${base}?ids=${counter}&metrics=ym:s:users&dimensions=ym:s:trafficSource&date1=${date1}&date2=${date2}&sort=-ym:s:users&limit=8`;
+    const srcRes = await fetch(srcUrl, { headers });
+    let trafficSources = [];
+    if (srcRes.ok) {
+      const srcJson = await srcRes.json();
+      trafficSources = Array.isArray(srcJson?.data) ? srcJson.data.map((row) => ({
+        name: row.dimensions?.[0]?.name || '—',
+        users: row.metrics?.[0] || 0,
+      })) : [];
+    }
+
+    // 6. Устройства (desktop/mobile)
+    const devUrl = `${base}?ids=${counter}&metrics=ym:s:users&dimensions=ym:s:deviceCategory&date1=${date1}&date2=${date2}&sort=-ym:s:users&limit=5`;
+    const devRes = await fetch(devUrl, { headers });
+    let devices = [];
+    if (devRes.ok) {
+      const devJson = await devRes.json();
+      const deviceLabels = { desktop: 'Компьютер', tablet: 'Планшет', touch: 'Смартфон' };
+      devices = Array.isArray(devJson?.data) ? devJson.data.map((row) => ({
+        name: deviceLabels[row.dimensions?.[0]?.name?.toLowerCase()] || row.dimensions?.[0]?.name || '—',
+        users: row.metrics?.[0] || 0,
+      })) : [];
+    }
+
+    // 7. Показатель отказов по дням
+    const bounceUrl = `${base}?ids=${counter}&metrics=ym:s:bounceRate&dimensions=ym:s:date&date1=${date1}&date2=${date2}&group=Day`;
+    const bounceRes = await fetch(bounceUrl, { headers });
+    let bounceRate = null;
+    if (bounceRes.ok) {
+      const bounceJson = await bounceRes.json();
+      bounceRate = Array.isArray(bounceJson?.data) ? bounceJson.data.map((row) => ({ date: row.dimensions?.[0]?.name, rate: row.metrics?.[0] })) : null;
+    }
+
+    return { visitors, avgSessionSec, topPages, summary, trafficSources, devices, bounceRate };
   } catch { return null; }
 }
 
@@ -176,6 +233,10 @@ router.get('/overview', async (_req, res) => {
     const [ya, ga, business] = await Promise.all([fetchYandex(30), fetchGoogle(), fetchBusinessStats()]);
     const days = rangeDays(30);
     let visitors, avgSessionSec, topPages, analyticsSource = 'internal';
+    let summary = null;
+    let trafficSources = [];
+    let devices = [];
+    let bounceRate = null;
 
     if (ga) {
       visitors = ga.visitors;
@@ -186,6 +247,10 @@ router.get('/overview', async (_req, res) => {
       visitors = ya.visitors;
       avgSessionSec = ya.avgSessionSec;
       topPages = ya.topPages || [];
+      summary = ya.summary;
+      trafficSources = ya.trafficSources || [];
+      devices = ya.devices || [];
+      bounceRate = ya.bounceRate;
       analyticsSource = 'yandex';
     } else {
       // Топ страниц из product_analytics (просмотры товаров)
@@ -227,6 +292,10 @@ router.get('/overview', async (_req, res) => {
       topPages,
       analyticsSource,
       stats: business || undefined,
+      summary: summary || undefined,
+      trafficSources,
+      devices,
+      bounceRate: bounceRate || undefined,
     });
   } catch (e) {
     console.error('[metrics] overview error:', e);
@@ -234,6 +303,8 @@ router.get('/overview', async (_req, res) => {
       visitors: rangeDays(30).map((d) => ({ date: d, users: 0 })),
       avgSessionSec: rangeDays(30).map((d) => ({ date: d, seconds: 0 })),
       topPages: [],
+      trafficSources: [],
+      devices: [],
       analyticsSource: 'error',
     });
   }
