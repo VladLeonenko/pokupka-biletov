@@ -69,10 +69,17 @@ export async function getPublicPartials(): Promise<{ head?: string; header?: str
   return await res.json();
 }
 
-export async function listPublicBlogPosts(): Promise<any[]> {
-  const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog?published=true`);
+export async function listPublicBlogPosts(opts?: { limit?: number; offset?: number; category?: string }): Promise<{ posts: any[]; total: number }> {
+  const limit = opts?.limit ?? 12;
+  const offset = opts?.offset ?? 0;
+  const category = opts?.category && opts.category !== 'all' ? opts.category : '';
+  const params = new URLSearchParams({ published: 'true', limit: String(limit), offset: String(offset) });
+  if (category) params.set('category_slug', category);
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog?${params}`);
   if (!res.ok) throw new Error('Failed to fetch blog posts');
-  return await res.json();
+  const data = await res.json();
+  if (Array.isArray(data)) return { posts: data, total: data.length };
+  return { posts: data.posts || [], total: data.total ?? 0 };
 }
 
 export async function listPublicBlogHighlights(): Promise<any[]> {

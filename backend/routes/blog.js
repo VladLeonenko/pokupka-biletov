@@ -48,7 +48,36 @@ router.get('/', async (req, res) => {
     const isPublic = req.originalUrl.includes('/api/public');
     const publishedOnly = isPublic || req.query.published === 'true';
     const featuredOnly = req.query.featured === 'true';
-    
+    const isPublicReq = isPublic;
+    const usePagination = isPublicReq && !featuredOnly;
+    const limit = req.query.limit != null
+      ? Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 12))
+      : (usePagination ? 12 : null);
+    const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset, 10)) : 0;
+
+    const categorySlug = req.query.category_slug || req.query.category;
+    const baseConditions = [];
+    baseConditions.push("bp.title IS NOT NULL AND bp.title != ''");
+    baseConditions.push("bp.slug IS NOT NULL AND bp.slug != ''");
+    if (publishedOnly) baseConditions.push('bp.is_published = TRUE');
+    if (featuredOnly) baseConditions.push('bp.is_featured = TRUE');
+    if (categorySlug && categorySlug !== 'all') {
+      baseConditions.push("bc.slug = $1");
+    }
+    const whereClause = baseConditions.length > 0 ? ' WHERE ' + baseConditions.join(' AND ') : '';
+    const queryParams = categorySlug && categorySlug !== 'all' ? [categorySlug] : [];
+
+    let total = null;
+    if (usePagination && limit != null) {
+      const countQuery = categorySlug && categorySlug !== 'all'
+        ? `SELECT COUNT(*)::int AS cnt FROM blog_posts bp LEFT JOIN blog_categories bc ON bc.id = bp.category_id ${whereClause}`
+        : `SELECT COUNT(*)::int AS cnt FROM blog_posts bp ${whereClause}`;
+      const countRes = await pool.query(countQuery, queryParams);
+      total = countRes.rows[0]?.cnt ?? 0;
+    }
+
+    const limitClause = limit != null ? ` LIMIT ${limit}` : '';
+    const offsetClause = offset > 0 ? ` OFFSET ${offset}` : '';
     let query = `
       SELECT bp.*, bc.slug AS category_slug,
              COALESCE(array_remove(array_agg(bt.slug), NULL), '{}') AS tags
@@ -56,31 +85,19 @@ router.get('/', async (req, res) => {
       LEFT JOIN blog_categories bc ON bc.id = bp.category_id
       LEFT JOIN blog_post_tags bpt ON bpt.post_id = bp.id
       LEFT JOIN blog_tags bt ON bt.id = bpt.tag_id
-    `;
-    
-    const conditions = [];
-    // Фильтруем статьи с валидными данными (не пустые title и slug)
-    conditions.push('bp.title IS NOT NULL AND bp.title != \'\'');
-    conditions.push('bp.slug IS NOT NULL AND bp.slug != \'\'');
-    
-    if (publishedOnly) {
-      conditions.push('bp.is_published = TRUE');
-    }
-    if (featuredOnly) {
-      conditions.push('bp.is_featured = TRUE');
-    }
-    
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-    
-    query += `
+      ${whereClause}
       GROUP BY bp.id, bc.slug
       ORDER BY bp.created_at DESC
+      ${limitClause}${offsetClause}
     `;
-    
-    const { rows } = await pool.query(query);
-    res.json(rows);
+
+    const { rows } = await pool.query(query, queryParams);
+
+    if (total !== null) {
+      res.json({ posts: rows, total });
+    } else {
+      res.json(rows);
+    }
   } catch (e) {
     console.error('[blog] Error fetching posts:', e.message, e.stack);
     res.status(500).json({ error: e.message });
