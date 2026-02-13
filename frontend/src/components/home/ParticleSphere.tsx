@@ -52,6 +52,8 @@ export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {})
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const mobile = window.matchMedia('(max-width: 768px)').matches;
+
     // --- Three.js setup ---
     const container = containerRef.current;
     const width = window.innerWidth;
@@ -61,15 +63,19 @@ export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {})
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
     camera.position.z = 4;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: !mobile,
+      powerPreference: mobile ? 'low-power' : 'default',
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(mobile ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     // --- Particle sphere geometry ---
-    const PARTICLE_COUNT = 3000;
+    const PARTICLE_COUNT = mobile ? 600 : 3000;
     const RADIUS = 1.4;
     const positions = new Float32Array(PARTICLE_COUNT * 3);
     const originalPositions = new Float32Array(PARTICLE_COUNT * 3);
@@ -133,11 +139,13 @@ export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {})
 
     // --- Animation loop ---
     let raf: number;
+    const timeStep = mobile ? 0.004 : 0.008;
+    const rotStep = mobile ? 0.0005 : 0.001;
     function animate() {
-      time += 0.008;
+      time += timeStep;
       deform();
-      points.rotation.y += 0.001;
-      points.rotation.x += 0.0003;
+      points.rotation.y += rotStep;
+      points.rotation.x += rotStep * 0.3;
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
     }
@@ -162,7 +170,7 @@ export function ParticleSphere({ labelsFromSelector }: ParticleSphereProps = {})
       trigger: wrapper,
       start: 'top top',
       end: 'bottom bottom',
-      scrub: 1.5,
+      scrub: mobile ? 0.5 : 1.5,
       onUpdate: (self) => {
         const p = self.progress; // 0 → 1
 

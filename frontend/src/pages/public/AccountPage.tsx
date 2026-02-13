@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getMyOrders } from '@/services/ecommerceApi';
+import { CharityPreferencesBlock } from '@/components/account/CharityPreferencesBlock';
 import { Box, Typography, Button, Avatar, Chip, Container, Stack } from '@mui/material';
 import { useAuth } from '@/auth/AuthProvider';
 import { useNavigate } from 'react-router-dom';
@@ -71,6 +72,7 @@ export function AccountPage() {
                   Выйти
                 </Button>
               </Box>
+              <CharityPreferencesBlock />
             </Box>
 
             {/* Main content */}

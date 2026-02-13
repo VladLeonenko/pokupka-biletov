@@ -9,7 +9,7 @@ const cases = [
     year: '2021',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/houses-case.png',
-    link: '/houses-case',
+    link: '/cases/houses-case',
   },
   {
     id: 'polygon',
@@ -17,7 +17,7 @@ const cases = [
     year: '2018',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/polygon-case.png',
-    link: '/polygon',
+    link: '/cases/polygon-case',
   },
   {
     id: 'madeo',
@@ -25,7 +25,7 @@ const cases = [
     year: '2020',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/madeo-case.png',
-    link: '/madeo-case',
+    link: '/cases/madeo-case',
   },
   {
     id: 'straumann',
@@ -33,7 +33,7 @@ const cases = [
     year: '2019',
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/straumann-case.png',
-    link: '/straumann-case',
+    link: '/cases/straumann-case',
   },
   {
     id: 'alaska',

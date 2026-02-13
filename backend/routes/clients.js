@@ -215,7 +215,8 @@ router.put('/:id', async (req, res) => {
       source,
       source_details,
       status,
-      notes
+      notes,
+      charity_preferences
     } = req.body;
 
     const updates = [];
@@ -260,6 +261,11 @@ router.put('/:id', async (req, res) => {
     if (notes !== undefined) {
       updates.push(`notes = $${paramIndex}`);
       params.push(notes || null);
+      paramIndex++;
+    }
+    if (charity_preferences !== undefined) {
+      updates.push(`charity_preferences = $${paramIndex}`);
+      params.push(Array.isArray(charity_preferences) ? JSON.stringify(charity_preferences) : '[]');
       paramIndex++;
     }
 

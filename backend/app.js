@@ -73,6 +73,7 @@ import aiTeamRouter from './routes/aiTeam.js';
 import projectsRouter from './routes/projects.js';
 import commercialProposalsRouter from './routes/commercialProposals.js';
 import donorsRouter from './routes/donors.js';
+import charityPreferencesRouter from './routes/charityPreferences.js';
 import socialProofsRouter from './routes/socialProofs.js';
 import quizRouter from './routes/quiz.js';
 import calculatorRouter from './routes/calculator.js';
@@ -231,6 +232,7 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);
 app.use('/api/auth/oauth', authLimiter);
 app.use('/api/auth', authRouter);
+app.use('/api/charity-preferences', charityPreferencesRouter);
 // Forms: submit/abandon are public, management is protected
 app.use('/api/forms/submit', formsLimiter);
 app.use('/api/forms', formsRouter);

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listPublicBlogHighlights } from '@/services/publicApi';
 import { Box } from '@mui/material';
-import { ParticleSphere } from '@/components/home/ParticleSphere';
+import { DeferredParticleSphere } from '@/components/home/DeferredParticleSphere';
 import { HeroSection } from '@/components/home/HeroSection';
 import { ServicesSection } from '@/components/home/ServicesSection';
 import { CasesSection } from '@/components/home/CasesSection';
@@ -45,7 +45,7 @@ export function HomePage() {
         url={typeof window !== 'undefined' ? window.location.origin + '/' : '/'}
       />
 
-      <ParticleSphere />
+      <DeferredParticleSphere />
 
       <Box ref={mainRef}>
         {/* Hero — входная анимация через gsap внутри компонента */}

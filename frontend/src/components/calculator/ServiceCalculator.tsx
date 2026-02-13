@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -60,8 +60,16 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
     conversion: conversionRate,
   });
 
+  const [revenueInput, setRevenueInput] = useState(businessRevenue ? String(businessRevenue) : '');
+  useEffect(() => {
+    setRevenueInput(businessRevenue ? String(businessRevenue) : '');
+  }, [businessRevenue]);
+
   const roiResult = useMemo(() => calculateROI(state), [state]);
-  const smartUpsells = useMemo(() => getSmartUpsells(service, roiResult.totalCost), [service, roiResult.totalCost]);
+  const smartUpsells = useMemo(
+    () => getSmartUpsells(service, roiResult.totalCost, serviceConfig?.upsells),
+    [service, roiResult.totalCost, serviceConfig?.upsells]
+  );
 
   const handleTariffChange = (tariff: TariffType) => {
     setState(prev => ({ ...prev, tariff }));
@@ -76,8 +84,10 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
     }));
   };
 
-  const handleRevenueChange = (revenue: number) => {
-    setState(prev => ({ ...prev, monthlyRevenue: Math.max(100000, revenue) }));
+  const handleRevenueChange = (raw: string) => {
+    const cleaned = raw.replace(/\D/g, '');
+    setRevenueInput(cleaned);
+    setState(prev => ({ ...prev, monthlyRevenue: cleaned === '' ? 0 : parseInt(cleaned, 10) }));
   };
 
   if (!serviceConfig) {
@@ -97,8 +107,20 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
       recommended: key === 'standard',
     }));
 
+  const handleTariffClick = (tariff: TariffType, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleTariffChange(tariff);
+  };
+
+  const handleUpsellClick = (upsellId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleUpsellToggle(upsellId);
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
+    <Container maxWidth="lg" sx={{ py: 6, overflow: 'hidden', maxWidth: '100%' }}>
       <Box sx={{ textAlign: 'center', mb: 6 }}>
         <Typography
           variant="h3"
@@ -126,7 +148,7 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             elevation={3}
-            sx={{ p: 4, borderRadius: 3 }}
+            sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, overflow: 'hidden', maxWidth: '100%' }}
           >
             <Box sx={{ mb: 4 }}>
               <FormLabel sx={{ mb: 2, display: 'block', fontWeight: 600, fontSize: '1.1rem' }}>
@@ -142,43 +164,61 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                       key={tariff.id}
                       elevation={state.tariff === tariff.id ? 8 : 1}
                       sx={{
-                        p: 2.5,
+                        p: { xs: 2, md: 2.5 },
+                        pt: tariff.recommended ? { xs: 3, md: 3.5 } : undefined,
                         cursor: 'pointer',
                         border: '2px solid',
                         borderColor: state.tariff === tariff.id ? '#ffbb00' : 'transparent',
                         transition: 'all 0.3s',
                         position: 'relative',
+                        overflow: 'visible',
                         '&:hover': { borderColor: '#ffbb00', transform: 'translateY(-2px)' },
                       }}
-                      onClick={() => handleTariffChange(tariff.id)}
+                      onClick={(e) => handleTariffClick(tariff.id, e)}
                     >
                       {tariff.recommended && (
                         <Chip
                           label="Рекомендуем"
                           size="small"
-                          icon={<Star />}
+                          icon={<Star sx={{ color: '#141414 !important', fontSize: 18 }} />}
                           sx={{
                             position: 'absolute',
-                            top: -12,
+                            top: -10,
                             right: 16,
-                            bgcolor: '#ffbb00',
-                            color: 'white',
-                            fontWeight: 600,
+                            height: 28,
+                            px: 1.5,
+                            background: 'linear-gradient(135deg, #ffbb00 0%, #e5a800 100%)',
+                            color: '#141414',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            letterSpacing: '0.03em',
+                            boxShadow: '0 4px 12px rgba(229, 168, 0, 0.4)',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            '& .MuiChip-label': { px: 0.5 },
                           }}
                         />
                       )}
                       <FormControlLabel
                         value={tariff.id}
-                        control={<Radio sx={{ color: '#ffbb00' }} />}
+                        control={<Radio sx={{ color: '#ffbb00' }} inputProps={{ tabIndex: -1 }} />}
                         label={
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', ml: 1 }}>
-                            <Box>
-                              <Typography variant="h6" fontWeight={600}>{tariff.name}</Typography>
-                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <Box sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            width: '100%',
+                            minWidth: 0,
+                            ml: 1,
+                            gap: 1,
+                            flexWrap: { xs: 'wrap', md: 'nowrap' },
+                          }}>
+                            <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
+                              <Typography variant="h6" fontWeight={600} sx={{ wordBreak: 'break-word' }}>{tariff.name}</Typography>
+                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', overflowWrap: 'break-word' }}>
                                 {serviceConfig.hours[tariff.id]}ч работы
                               </Typography>
                             </Box>
-                            <Typography variant="h5" fontWeight={700} sx={{ color: '#ffbb00' }}>
+                            <Typography variant="h5" fontWeight={700} sx={{ color: '#ffbb00', flexShrink: 0 }}>
                               {formatPrice(tariff.price)}
                             </Typography>
                           </Box>
@@ -203,33 +243,47 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
                     key={upsell.id}
                     elevation={state.selectedUpsells.includes(upsell.id) ? 6 : 1}
                     sx={{
-                      p: 2,
+                      p: { xs: 1.5, md: 2 },
                       cursor: 'pointer',
                       border: '2px solid',
                       borderColor: state.selectedUpsells.includes(upsell.id) ? '#e5a800' : 'transparent',
                       transition: 'all 0.3s',
+                      overflow: 'hidden',
                       '&:hover': { borderColor: '#e5a800' },
                     }}
-                    onClick={() => handleUpsellToggle(upsell.id)}
+                    onClick={(e) => handleUpsellClick(upsell.id, e)}
                   >
                     <FormControlLabel
                       control={
                         <Checkbox
                           checked={state.selectedUpsells.includes(upsell.id)}
                           sx={{ color: '#e5a800' }}
+                          inputProps={{ tabIndex: -1 }}
                         />
                       }
                       label={
-                        <Box sx={{ width: '100%' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                            <Typography fontWeight={600}>{upsell.name}</Typography>
+                        <Box sx={{ width: '100%', minWidth: 0, overflow: 'hidden' }}>
+                          <Box sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mb: 0.5,
+                            gap: 1,
+                            flexWrap: 'wrap',
+                          }}>
+                            <Typography fontWeight={600} sx={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>{upsell.name}</Typography>
                             <Chip
                               label={upsell.recurring ? `${formatPrice(upsell.price)}/мес` : formatPrice(upsell.price)}
                               size="small"
-                              sx={{ bgcolor: 'rgba(255,187,0,0.15)', color: '#ffbb00' }}
+                              sx={{ bgcolor: 'rgba(255,187,0,0.15)', color: '#ffbb00', flexShrink: 0 }}
                             />
                           </Box>
-                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mb: 0.5 }}>
+                          <Typography variant="body2" sx={{
+                            color: 'rgba(255,255,255,0.5)',
+                            mb: 0.5,
+                            overflowWrap: 'break-word',
+                            wordBreak: 'break-word',
+                          }}>
                             {upsell.description}
                           </Typography>
                           {upsell.conversionBoost && (
@@ -258,9 +312,12 @@ export const ServiceCalculator: React.FC<ServiceCalculatorProps> = ({
               <TextField
                 fullWidth
                 label="Текущая выручка в месяц, ₽"
-                type="number"
-                value={state.monthlyRevenue}
-                onChange={(e) => handleRevenueChange(parseInt(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                value={revenueInput}
+                onChange={(e) => handleRevenueChange(e.target.value)}
+                placeholder="Например: 500000"
+                autoComplete="off"
                 sx={{ mb: 2 }}
               />
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>

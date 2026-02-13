@@ -33,6 +33,7 @@ import { Star } from '@mui/icons-material';
 import Rating from '@mui/material/Rating';
 import Avatar from '@mui/material/Avatar';
 import { getApiBase } from '@/utils/apiBase';
+import { dedupeRepeatedPhrase } from '@/utils/text';
 import { SocialProofs } from '@/components/products/SocialProofs';
 
 const MotionBox = motion.create(Box);
@@ -966,7 +967,7 @@ export function ProductPage() {
                     </Typography>
                     {tariff.subtitle && (
                       <Typography variant="subtitle1" color="rgba(255,255,255,0.7)" sx={{ mb: 2 }}>
-                        {tariff.subtitle}
+                        {dedupeRepeatedPhrase(tariff.subtitle)}
                       </Typography>
                     )}
                     {tariff.price && (

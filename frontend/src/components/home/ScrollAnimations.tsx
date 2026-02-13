@@ -16,6 +16,12 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
     const sections = containerRef.current.querySelectorAll<HTMLElement>('[data-scroll-section]');
     if (!sections.length) return;
 
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    const sectionDuration = isMobile ? 0.5 : 0.9;
+    const sectionY = isMobile ? 30 : 60;
+    const cardsDuration = isMobile ? 0.35 : 0.6;
+    const cardsStagger = isMobile ? 0.04 : 0.08;
+
     const ctx = gsap.context(() => {
       sections.forEach((section) => {
         const visibleOnLoad = section.getAttribute('data-scroll-visible-on-load') === '1';
@@ -30,14 +36,13 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
           return;
         }
 
-        // Main section reveal
         gsap.fromTo(
           section,
-          { y: 60, opacity: 0 },
+          { y: sectionY, opacity: 0 },
           {
             y: 0,
             opacity: 1,
-            duration: 0.9,
+            duration: sectionDuration,
             ease: 'power3.out',
             scrollTrigger: {
               trigger: section,
@@ -48,17 +53,16 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
           },
         );
 
-        // Staggered children: карточки, grid items
         const cards = section.querySelectorAll<HTMLElement>('[data-scroll-child]');
         if (cards.length) {
           gsap.fromTo(
             cards,
-            { y: 30, opacity: 0 },
+            { y: isMobile ? 15 : 30, opacity: 0 },
             {
               y: 0,
               opacity: 1,
-              duration: 0.6,
-              stagger: 0.08,
+              duration: cardsDuration,
+              stagger: cardsStagger,
               ease: 'power2.out',
               scrollTrigger: {
                 trigger: section,

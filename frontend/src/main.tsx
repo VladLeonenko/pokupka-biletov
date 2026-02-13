@@ -68,10 +68,6 @@ const queryClient = new QueryClient();
 // Экспортируем navigate для использования в legacy коде
 let globalNavigate: ((path: string) => void) | null = null;
 
-// Логирование для отладки
-console.log('[main.tsx] Starting React render...');
-console.log('[main.tsx] Root element:', document.getElementById('root'));
-
 try {
   const rootElement = document.getElementById('root');
   if (!rootElement) {
@@ -79,7 +75,6 @@ try {
   }
 
   const root = ReactDOM.createRoot(rootElement);
-  console.log('[main.tsx] React root created');
 
   root.render(
     <ErrorBoundary>
@@ -96,8 +91,6 @@ try {
       </QueryClientProvider>
     </ErrorBoundary>
   );
-  
-  console.log('[main.tsx] React render called successfully');
 } catch (error) {
   console.error('[main.tsx] ❌ CRITICAL ERROR during React initialization:', error);
   // Показываем ошибку в DOM если React не загрузился

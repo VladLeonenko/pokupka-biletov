@@ -188,6 +188,12 @@ router.post('/:formId/submit', async (req, res) => {
           }
         }
 
+        // Пожелания по благотворительности (new-client-form)
+        let charityPrefs = [];
+        if (formId === 'new-client-form' && formData.charity_fund) {
+          charityPrefs = [{ fund_id: formData.charity_fund, fund_name: formData.charity_fund_name || formData.charity_fund, percent: 10 }];
+        }
+
         if (existingClient) {
           // Обновляем существующего клиента - обновляем все данные, которые пришли
           const updates = [];
@@ -218,6 +224,11 @@ router.post('/:formId/submit', async (req, res) => {
             params.push(company);
             paramIndex++;
           }
+          if (charityPrefs.length > 0) {
+            updates.push(`charity_preferences = $${paramIndex}`);
+            params.push(JSON.stringify(charityPrefs));
+            paramIndex++;
+          }
 
           // Всегда обновляем updated_at
           updates.push(`updated_at = NOW()`);
@@ -234,8 +245,8 @@ router.post('/:formId/submit', async (req, res) => {
           // Создаем нового клиента
           console.log('[forms] Creating new client...');
           const newClientResult = await pool.query(
-            `INSERT INTO clients (name, email, phone, company, source, source_details, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO clients (name, email, phone, company, source, source_details, status, charity_preferences)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING id`,
             [
               name || 'Неизвестно',
@@ -244,7 +255,8 @@ router.post('/:formId/submit', async (req, res) => {
               company || null,
               'form',
               formId,
-              'lead'
+              'lead',
+              charityPrefs.length > 0 ? JSON.stringify(charityPrefs) : '[]'
             ]
           );
           

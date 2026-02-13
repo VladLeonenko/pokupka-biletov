@@ -23,16 +23,10 @@ export function CasesMetrics() {
     enabled: !!slug,
   });
 
-  if (!slug) return null;
-  if (!caseData) {
-    return null;
-  }
-
-  const category = caseData.category || 'website';
-  const metrics = caseData.metrics || {};
+  const category = caseData?.category || 'website';
+  const metrics = caseData?.metrics || {};
   const days = metrics.days || 37;
-  
-  // Второй показатель зависит от категории
+
   const secondMetric = useMemo(() => {
     switch (category) {
       case 'website':
@@ -102,6 +96,8 @@ export function CasesMetrics() {
     
     requestAnimationFrame(animate);
   };
+
+  if (!slug || !caseData) return null;
 
   // Изображения для галереи (ноутбук и мобильные устройства)
   const gallery = caseData.gallery || [];

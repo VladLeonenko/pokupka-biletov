@@ -110,6 +110,7 @@ export function HeroSection() {
               <Button
                 component={Link}
                 to="/new-client"
+                variant="contained"
                 sx={{
                   bgcolor: '#ffbb00',
                   color: '#141414',

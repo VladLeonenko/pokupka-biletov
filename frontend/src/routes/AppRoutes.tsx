@@ -68,10 +68,6 @@ import { PublicAIChatPage } from '@/pages/public/PublicAIChatPage';
 import { AboutPage } from '@/pages/public/AboutPage';
 import { ContactsPage } from '@/pages/public/ContactsPage';
 import { NewClientPage } from '@/pages/public/NewClientPage';
-import { HousesCasePage } from '@/pages/public/HousesCasePage';
-import { MadeoCasePage } from '@/pages/public/MadeoCasePage';
-import { PolygonCasePage } from '@/pages/public/PolygonCasePage';
-import { StraumannCasePage } from '@/pages/public/StraumannCasePage';
 import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 // Lazy load остальных админских страниц
@@ -180,10 +176,10 @@ export function AppRoutes() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contacts" element={<ContactsPage />} />
       <Route path="/new-client" element={<NewClientPage />} />
-      <Route path="/houses-case" element={<HousesCasePage />} />
-      <Route path="/madeo-case" element={<MadeoCasePage />} />
-      <Route path="/polygon" element={<PolygonCasePage />} />
-      <Route path="/straumann-case" element={<StraumannCasePage />} />
+      <Route path="/houses-case" element={<Navigate to="/cases/houses-case" replace />} />
+      <Route path="/madeo-case" element={<Navigate to="/cases/madeo-case" replace />} />
+      <Route path="/polygon" element={<Navigate to="/cases/polygon-case" replace />} />
+      <Route path="/straumann-case" element={<Navigate to="/cases/straumann-case" replace />} />
       
       {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
       <Route path="/admin/login" element={<LoginPage />} />

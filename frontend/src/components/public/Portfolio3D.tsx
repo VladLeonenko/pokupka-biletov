@@ -26,10 +26,10 @@ export function Portfolio3D({ cases }: Portfolio3DProps) {
 
   // Данные кейсов по умолчанию
   const defaultCases: PortfolioCase[] = [
-    { id: '1', title: 'ДОМА РОССИИ', year: '2021', url: '/houses-case', position: [10, 0, 10] },
-    { id: '2', title: 'ПОЛИГОН', year: '2018', url: '/polygon', position: [-15, 0, 5] },
-    { id: '3', title: 'MADEO', year: '2020', url: '/madeo-case', position: [20, 0, -10] },
-    { id: '4', title: 'STRAUMANN GROUP', year: '2019', url: '/straumann-case', position: [-10, 0, -15] },
+    { id: '1', title: 'ДОМА РОССИИ', year: '2021', url: '/cases/houses-case', position: [10, 0, 10] },
+    { id: '2', title: 'ПОЛИГОН', year: '2018', url: '/cases/polygon-case', position: [-15, 0, 5] },
+    { id: '3', title: 'MADEO', year: '2020', url: '/cases/madeo-case', position: [20, 0, -10] },
+    { id: '4', title: 'STRAUMANN GROUP', year: '2019', url: '/cases/straumann-case', position: [-10, 0, -15] },
     { id: '5', title: 'ALASKA FIREWOOD', year: '2022', url: '/cases/alaska-case', position: [5, 0, 20] },
     { id: '6', title: 'МЕДИЦИНСКИЙ ЦЕНТР', year: '2022', url: '/cases/litclinic-case', position: [-20, 0, 10] },
     { id: '7', title: 'УРСУС', year: '2019', url: '/cases/ursus-case', position: [15, 0, -20] },

@@ -11,21 +11,13 @@ import { SafeImage } from '@/components/common/SafeImage';
  */
 export function CasesTasksNew() {
   const { slug } = useParams<{ slug?: string }>();
-  
-  // Ранний возврат если нет slug - компонент не должен рендериться
-  if (!slug) {
-    return null;
-  }
-  
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
     enabled: !!slug,
   });
 
-  if (!caseData) {
-    return null;
-  }
+  if (!slug || !caseData) return null;
 
   // Извлекаем задачи и решение из contentJson или contentHtml
   const extractFromHtml = (html: string, section: string): string => {

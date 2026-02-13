@@ -11,21 +11,13 @@ import { SafeImage } from '@/components/common/SafeImage';
  */
 export function TypographyBlockNew() {
   const { slug } = useParams<{ slug?: string }>();
-  
-  // Ранний возврат если нет slug - компонент не должен рендериться
-  if (!slug) {
-    return null;
-  }
-  
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
     enabled: !!slug,
   });
 
-  if (!caseData) {
-    return null;
-  }
+  if (!slug || !caseData) return null;
 
   // Получаем типографику из contentJson
   const typography = caseData.contentJson?.typography || {

@@ -225,7 +225,8 @@ export async function getOrder(orderNumber: string): Promise<{ order: Order }> {
   return res.json();
 }
 
-export type AdminOrder = Order & { clientId?: number };
+export interface CharityAllocation { fund_id: string; fund_name: string; percent: number }
+export type AdminOrder = Order & { clientId?: number; charityPreference?: CharityAllocation[] };
 
 export async function listAdminOrders(): Promise<{ orders: AdminOrder[] }> {
   const res = await doFetch(`${getApiBaseUrl()}/api/orders/admin`);

@@ -112,6 +112,19 @@ router.post('/', async (req, res) => {
     for (const item of cartItems) {
       totalCents += (item.price_cents || 0) * item.quantity;
     }
+
+    // Пожелания по благотворительности — из профиля пользователя
+    let charityPreference = null;
+    if (userId) {
+      const charityRes = await pool.query(
+        'SELECT allocations FROM user_charity_preferences WHERE user_id = $1',
+        [userId]
+      );
+      const allocs = charityRes.rows[0]?.allocations;
+      if (Array.isArray(allocs) && allocs.length > 0) {
+        charityPreference = allocs;
+      }
+    }
     
     // Создаем заказ
     const orderNumber = generateOrderNumber();
@@ -119,8 +132,8 @@ router.post('/', async (req, res) => {
       INSERT INTO orders(
         user_id, session_id, order_number, status, total_cents, currency,
         customer_name, customer_email, customer_phone, shipping_address,
-        payment_method, payment_status, notes
-      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        payment_method, payment_status, notes, charity_preference
+      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *
     `, [
       userId,
@@ -136,6 +149,7 @@ router.post('/', async (req, res) => {
       paymentMethod,
       'pending',
       notes,
+      charityPreference ? JSON.stringify(charityPreference) : null,
     ]);
     
     const order = orderResult.rows[0];
@@ -280,6 +294,7 @@ router.get('/admin', requireAuth, async (req, res) => {
       notes: row.notes,
       items: row.items || [],
       clientId: row.client_id,
+      charityPreference: row.charity_preference || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));

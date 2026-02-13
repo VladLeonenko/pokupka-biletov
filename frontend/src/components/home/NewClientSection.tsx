@@ -104,6 +104,7 @@ export function NewClientSection() {
         <Button
           component={Link}
           to="/new-client"
+          variant="contained"
           className="new-client-cta"
           sx={{
             bgcolor: '#ffbb00',

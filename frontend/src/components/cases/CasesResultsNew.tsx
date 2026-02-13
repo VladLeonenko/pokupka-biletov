@@ -10,27 +10,16 @@ import { useMemo } from 'react';
  */
 export function CasesResultsNew() {
   const { slug } = useParams<{ slug?: string }>();
-  
-  // Ранний возврат если нет slug - компонент не должен рендериться
-  if (!slug) {
-    return null;
-  }
-  
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
     enabled: !!slug,
   });
 
-  if (!caseData) {
-    return null;
-  }
-
-  const category = caseData.category || 'website';
-  const metrics = caseData.metrics || {};
+  const category = caseData?.category || 'website';
+  const metrics = caseData?.metrics || {};
   const days = metrics.days || 37;
-  
-  // Индивидуальные результаты на основе категории
+
   const results = useMemo(() => {
     switch (category) {
       case 'website':
@@ -99,7 +88,8 @@ export function CasesResultsNew() {
     }
   }, [category, metrics, days]);
 
-  // Получаем значения для отображения (используем уже объявленную metrics выше)
+  if (!slug || !caseData) return null;
+
   const resultDays = metrics.days || results.metrics.find(m => m.label.includes('дней') || m.label.includes('Дней'))?.value || '45';
   const resultPages = metrics.pages || results.metrics.find(m => m.label.includes('страниц') || m.label.includes('Страниц'))?.value || '30';
 

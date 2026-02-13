@@ -9,20 +9,13 @@ import { getPublicCase } from '@/services/publicApi';
  */
 export function CasesAboutNew() {
   const { slug } = useParams<{ slug?: string }>();
-  
-  if (!slug) {
-    return null;
-  }
-  
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
     enabled: !!slug,
   });
 
-  if (!caseData) {
-    return null;
-  }
+  if (!slug || !caseData) return null;
 
   // Получаем текст "О проекте" из contentJson или используем summary
   const aboutText = caseData.contentJson?.about?.text || 

@@ -17,6 +17,7 @@ export interface Client {
   updated_at: string;
   created_by?: number;
   created_by_name?: string;
+  charity_preferences?: Array<{ fund_id: string; fund_name: string; percent: number }>;
   orders?: Array<{
     id: number;
     order_number: string;

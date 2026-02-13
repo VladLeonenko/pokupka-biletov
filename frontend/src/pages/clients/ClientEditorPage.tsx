@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getClient, createClient, updateClient, Client } from '@/services/clientsApi';
+import { CHARITY_FUNDS } from '@/config/charityFunds';
 import { createClientProjectForClient, getAllProjectsAdmin, deleteProject, ClientProject } from '@/services/projectsApi';
 import {
   Box,
@@ -70,6 +71,7 @@ export function ClientEditorPage() {
   const [sourceDetails, setSourceDetails] = useState('');
   const [status, setStatus] = useState<'lead' | 'client' | 'inactive' | 'lost'>('lead');
   const [notes, setNotes] = useState('');
+  const [charityPreferences, setCharityPreferences] = useState<Array<{ fund_id: string; fund_name: string; percent: number }>>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ClientProject | null>(null);
 
@@ -109,6 +111,7 @@ export function ClientEditorPage() {
       setSourceDetails(client.source_details || '');
       setStatus(client.status || 'lead');
       setNotes(client.notes || '');
+      setCharityPreferences(client.charity_preferences || []);
     }
   }, [client]);
 
@@ -118,6 +121,7 @@ export function ClientEditorPage() {
         name,
         email: email || undefined,
         phone: phone || undefined,
+        charity_preferences: charityPreferences,
         company: company || undefined,
         source,
         source_details: sourceDetails || undefined,
@@ -274,6 +278,51 @@ export function ClientEditorPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Пожелания по благотворительности</Typography>
+            {charityPreferences.length > 0 ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {charityPreferences.map((a, i) => (
+                  <Chip key={i} label={`${a.fund_name} ${a.percent}%`} size="small" color="success" />
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">Нет пожеланий</Typography>
+            )}
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Добавить фонд</InputLabel>
+              <Select
+                value=""
+                label="Добавить фонд"
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id && charityPreferences.length < 2) {
+                    const fund = CHARITY_FUNDS.find((f) => f.id === id);
+                    if (charityPreferences.length === 0) {
+                      setCharityPreferences([{ fund_id: id, fund_name: fund?.name || id, percent: 10 }]);
+                    } else {
+                      setCharityPreferences([
+                        { ...charityPreferences[0], percent: 5 },
+                        { fund_id: id, fund_name: fund?.name || id, percent: 5 },
+                      ]);
+                    }
+                  }
+                }}
+              >
+                <MenuItem value="">
+                  <em>—</em>
+                </MenuItem>
+                {CHARITY_FUNDS.filter((f) => !charityPreferences.some((a) => a.fund_id === f.id)).map((f) => (
+                  <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {charityPreferences.length > 0 && (
+              <Button size="small" sx={{ mt: 1 }} onClick={() => setCharityPreferences([])}>
+                Очистить
+              </Button>
+            )}
           </Grid>
           {!isNew && client && (
             <>

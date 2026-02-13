@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Container, Typography, Button, Stack } from '@mui/material';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -28,7 +28,10 @@ const stats = [
 ];
 
 export function CharityPage() {
-  const [selected, setSelected] = useState('podari-zhizn');
+  const [selected, setSelected] = useState(() => typeof window !== 'undefined' ? (localStorage.getItem('selectedCharityFund') || 'podari-zhizn') : 'podari-zhizn');
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('selectedCharityFund', selected);
+  }, [selected]);
 
   return (
     <>
@@ -66,7 +69,7 @@ export function CharityPage() {
                 <Box
                   key={f.id}
                   data-anim-child
-                  onClick={() => { setSelected(f.id); localStorage.setItem('selectedCharityFund', f.id); }}
+                  onClick={() => setSelected(f.id)}
                   sx={{
                     p: 3, borderRadius: 3, cursor: 'pointer',
                     border: '1px solid', borderColor: active ? '#ffbb00' : 'rgba(255,255,255,0.06)',
@@ -90,7 +93,7 @@ export function CharityPage() {
             <Typography sx={{ color: 'rgba(255,255,255,0.55)', mb: 2 }}>
               Компания PrimeCoder с 2017 года направляет часть выручки в благотворительные фонды. Спасибо, что помогаете вместе с нами.
             </Typography>
-            <Button href="/new-client" sx={{ bgcolor: '#ffbb00', color: '#141414', fontWeight: 700, px: 4, py: 1.5, borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}>
+            <Button component="a" href="/new-client" variant="contained" sx={{ bgcolor: '#ffbb00', color: '#141414', fontWeight: 700, px: 4, py: 1.5, borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}>
               Стать клиентом
             </Button>
           </Box>

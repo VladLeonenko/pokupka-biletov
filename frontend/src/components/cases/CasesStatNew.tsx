@@ -11,12 +11,6 @@ import { useMemo, useState, useEffect } from 'react';
  */
 export function CasesStatNew() {
   const { slug } = useParams<{ slug?: string }>();
-  
-  // Ранний возврат если нет slug - компонент не должен рендериться
-  if (!slug) {
-    return null;
-  }
-  
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
@@ -121,15 +115,9 @@ export function CasesStatNew() {
     };
   }, [performance]);
 
-  if (!caseData) {
-    return null;
-  }
-  
-  const category = caseData.category || 'website';
-  
-  // Релевантные показатели в зависимости от категории
+  const category = caseData?.category || 'website';
   const relevantMetrics = useMemo(() => {
-    const metrics = caseData.metrics || {};
+    const metrics = caseData?.metrics || {};
     
     switch (category) {
       case 'website':
@@ -189,6 +177,8 @@ export function CasesStatNew() {
         ];
     }
   }, [caseData, category]);
+
+  if (!slug || !caseData) return null;
 
   return (
     <Box

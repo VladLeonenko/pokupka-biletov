@@ -129,6 +129,17 @@ export default function OrdersAdminPage() {
                     <Typography variant="caption" color="text.secondary">
                       {order.customerPhone || '—'}
                     </Typography>
+                    {order.charityPreference && order.charityPreference.length > 0 ? (
+                      <Chip
+                        label={order.charityPreference.map((a) => `${a.fund_name} ${a.percent}%`).join(' + ')}
+                        size="small"
+                        sx={{ mt: 0.5, bgcolor: 'rgba(76,175,80,0.15)', color: 'success.main', fontSize: '0.7rem' }}
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
+                        Нет пожеланий по фонду
+                      </Typography>
+                    )}
                     {order.clientId && (
                       <Link
                         component="button"

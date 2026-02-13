@@ -84,7 +84,7 @@ export const formatPrice = (price: number): string => {
 };
 
 export const formatMonths = (months: number): string => {
-  if (!months || isNaN(months)) return 'не определено';
+  if (!months || isNaN(months) || !isFinite(months)) return 'не определено';
   if (months < 1) return 'менее месяца';
   if (months === 1) return '1 месяц';
   if (months < 5) return `${Math.round(months)} месяца`;

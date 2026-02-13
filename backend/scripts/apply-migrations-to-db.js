@@ -88,7 +88,8 @@ const MIGRATION_FILES = [
   '047_semantic_topics.sql',
   '048_fix_cases_gallery_type.sql',
   '053_product_category_links.sql',
-  'add_team_page.sql'
+  'add_team_page.sql',
+  '054_charity_preferences.sql',
 ];
 
 async function applyMigration(filename) {

@@ -6,6 +6,8 @@ export interface Review {
   id: number;
   brand_name: string;
   author: string;
+  author_position?: string;
+  author_company?: string;
   email?: string;
   rating: number;
   text: string;

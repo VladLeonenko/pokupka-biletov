@@ -1,6 +1,8 @@
 import { useState, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useToast } from '@/components/common/ToastProvider';
 import { submitForm } from '@/services/cmsApi';
+import { CHARITY_FUND_NAMES } from '@/config/charityFunds';
 import { Box, TextField, Button, Typography } from '@mui/material';
 
 const inputSx = {
@@ -42,6 +44,8 @@ export function NewClientForm() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const selectedCharityFund = typeof window !== 'undefined' ? localStorage.getItem('selectedCharityFund') : null;
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) {
@@ -52,7 +56,12 @@ export function NewClientForm() {
     setIsSubmitting(true);
     setSubmitSuccess(false);
     try {
-      await submitForm('new-client-form', formData);
+      const dataToSubmit = {
+        ...formData,
+        charity_fund: selectedCharityFund || null,
+        charity_fund_name: selectedCharityFund ? (CHARITY_FUND_NAMES[selectedCharityFund] || selectedCharityFund) : null,
+      };
+      await submitForm('new-client-form', dataToSubmit);
       setSubmitSuccess(true);
       setFormData({ company: '', difficulties: '', task: '', expectations: '', money: '', name: '', tel: '', email: '', commit: '', privacy_consent: false });
       setErrors({});
@@ -127,12 +136,32 @@ export function NewClientForm() {
         <TextField name="tel" label="Телефон" placeholder="+7 …" value={formData.tel} onChange={handleChange} required error={!!errors.tel} helperText={errors.tel} sx={inputSx} />
       </Box>
       <TextField fullWidth name="email" label="Email" type="email" placeholder="email@example.com" value={formData.email} onChange={handleChange} required error={!!errors.email} helperText={errors.email} sx={{ ...inputSx, mb: 2 }} />
-      <TextField fullWidth name="commit" label="Дополнительно" placeholder="Любая полезная информация" value={formData.commit} onChange={handleChange} sx={{ ...inputSx, mb: 3 }} />
+      <TextField fullWidth name="commit" label="Дополнительно" placeholder="Любая полезная информация" value={formData.commit} onChange={handleChange} sx={{ ...inputSx, mb: 2 }} />
+
+      {/* Благотворительность: что выбрано и куда пойдут средства */}
+      <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,187,0,0.06)', border: '1px solid rgba(255,187,0,0.2)', mb: 3 }}>
+        <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.95rem', mb: 0.5 }}>
+          Благотворительность
+        </Typography>
+        {selectedCharityFund && CHARITY_FUND_NAMES[selectedCharityFund] ? (
+          <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
+            10% от проекта направим в <strong>{CHARITY_FUND_NAMES[selectedCharityFund]}</strong> от вашего имени.
+          </Typography>
+        ) : (
+          <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+            Не выбрано. Можно выбрать фонд на <Link to="/charity" style={{ color: '#ffbb00', textDecoration: 'underline' }}>странице благотворительности</Link> — мы перечислим 10% от проекта.
+          </Typography>
+        )}
+        <Typography component={Link} to="/charity" sx={{ color: '#ffbb00', fontSize: '0.85rem', mt: 1, display: 'inline-block', textDecoration: 'underline' }}>
+          {selectedCharityFund ? 'Изменить фонд' : 'Выбрать фонд'}
+        </Typography>
+      </Box>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 2 }}>
         <Button
           type="submit"
           disabled={isSubmitting}
+          variant="contained"
           sx={{
             bgcolor: '#ffbb00',
             color: '#141414',

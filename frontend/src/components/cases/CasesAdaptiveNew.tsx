@@ -17,10 +17,7 @@ export function CasesAdaptiveNew() {
     enabled: !!slug,
   });
 
-  if (!slug) return null;
-  if (!caseData) {
-    return null;
-  }
+  if (!slug || !caseData) return null;
 
   // Изображения адаптивов из галереи - только релевантные (исключаем hero и дефолтные)
   const gallery = caseData.gallery || [];

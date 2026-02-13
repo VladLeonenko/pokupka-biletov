@@ -1,4 +1,5 @@
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip } from '@mui/material';
+import { dedupeRepeatedPhrase } from '@/utils/text';
 import { CheckCircle, Cancel } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
@@ -62,7 +63,7 @@ export function TariffComparison({ tariffs, title = 'Сравнение тари
                     <Typography variant="h6">{tariff.name}</Typography>
                     {tariff.subtitle && (
                       <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        {tariff.subtitle}
+                        {dedupeRepeatedPhrase(tariff.subtitle)}
                       </Typography>
                     )}
                     <Chip

@@ -133,17 +133,23 @@ export const upsellsConfig: UpsellConfig[] = [
   }
 ];
 
-export const getSmartUpsells = (serviceSlug: string, totalPrice: number): UpsellConfig[] => {
-  const relevantUpsells = upsellsConfig.filter(upsell => 
-    upsell.targets.includes(serviceSlug)
-  );
+export const upsellsById = Object.fromEntries(upsellsConfig.map(u => [u.id, u]));
 
-  return relevantUpsells
-    .sort((a, b) => {
-      if (totalPrice < 100000) {
-        return a.price - b.price;
-      }
-      return a.priority - b.priority;
-    })
-    .slice(0, 3);
+/** Получить доп.услуги для конкретного продукта: приоритет serviceConfig.upsells, затем targets. */
+export const getSmartUpsells = (
+  serviceSlug: string,
+  totalPrice: number,
+  preferredIds?: string[]
+): UpsellConfig[] => {
+  const byTargets = upsellsConfig.filter(u => u.targets.includes(serviceSlug));
+  const preferred = (preferredIds || [])
+    .map(id => upsellsById[id])
+    .filter((u): u is UpsellConfig => !!u);
+  const rest = byTargets.filter(u => !preferred.includes(u));
+  const merged = [...preferred, ...rest];
+  const sorted = merged.sort((a, b) => {
+    if (totalPrice < 100000) return a.price - b.price;
+    return (a.priority - b.priority) || (merged.indexOf(a) - merged.indexOf(b));
+  });
+  return sorted.slice(0, 3);
 };
