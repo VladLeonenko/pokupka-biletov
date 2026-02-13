@@ -140,6 +140,32 @@ async function fetchGoogle() {
   } catch { return null; }
 }
 
+/** GET /api/metrics/yandex-test — проверка подключения к Яндекс.Метрике */
+router.get('/yandex-test', async (_req, res) => {
+  try {
+    const token = process.env.YANDEX_TOKEN;
+    const counter = process.env.YANDEX_COUNTER_ID;
+    if (!token || !counter) {
+      return res.json({
+        connected: false,
+        error: !token ? 'YANDEX_TOKEN не задан' : 'YANDEX_COUNTER_ID не задан',
+        counterId: counter || null,
+      });
+    }
+    const ya = await fetchYandex(1);
+    if (!ya) {
+      return res.json({ connected: false, error: 'Запрос к API вернул пустой ответ (проверьте токен и ID счётчика)' });
+    }
+    res.json({
+      connected: true,
+      counterId: counter,
+      visitorsCount: ya.visitors?.length ?? 0,
+    });
+  } catch (e) {
+    res.json({ connected: false, error: e.message });
+  }
+});
+
 router.get('/overview', async (_req, res) => {
   try {
     const [ya, ga, business] = await Promise.all([fetchYandex(30), fetchGoogle(), fetchBusinessStats()]);
