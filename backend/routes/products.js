@@ -159,7 +159,7 @@ router.put('/:slug', async (req, res) => {
         title=COALESCE($2,title), description_html=COALESCE($3,description_html), summary=$4,
         full_description_html=$5, price_cents=COALESCE($6,price_cents), currency=COALESCE($7,currency),
         price_period=COALESCE($8,price_period), features=COALESCE($9,features), is_active=COALESCE($10,is_active),
-        sort_order=COALESCE($11,sort_order), content_json=$12, category_id=$13, image_url=$14,
+        sort_order=COALESCE($11,sort_order), content_json=$12, category_id=$13::integer, image_url=$14,
         gallery=$15, stock_quantity=$16, sku=COALESCE($17,sku), tags=COALESCE($18,tags),
         meta_title=$19, meta_description=$20, meta_keywords=$21, case_slugs=COALESCE($22,case_slugs),
         updated_at=NOW() WHERE slug=$1 RETURNING *`,

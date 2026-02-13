@@ -81,19 +81,27 @@ router.post('/', upload.single('image'), async (req, res) => {
       return res.status(500).json({ error: 'Файл не был сохранен' });
     }
 
-    // Сохраняем информацию в БД
+    // Сохраняем информацию в БД (если есть колонки filename/size/mime_type — из миграции 034)
     let dbRecord = null;
     try {
       const result = await pool.query(
         `INSERT INTO images (url, filename, size, mime_type, uploaded_at)
          VALUES ($1, $2, $3, $4, NOW())
-         RETURNING id, url, filename, size, uploaded_at`,
+         RETURNING id, url, size, uploaded_at`,
         [rel, file.filename, file.size, file.mimetype]
       );
       dbRecord = result.rows[0];
     } catch (dbError) {
-      console.error('[Images] Database error (non-critical):', dbError);
-      // Не падаем если БД недоступна, просто возвращаем URL
+      // Фоллбек: таблица без колонок filename/size (миграция 034 не применена)
+      try {
+        const result = await pool.query(
+          `INSERT INTO images (url) VALUES ($1) RETURNING id, url`,
+          [rel]
+        );
+        dbRecord = result.rows[0];
+      } catch (fallbackErr) {
+        console.error('[Images] Database error (non-critical):', fallbackErr);
+      }
     }
 
     // АВТОМАТИЧЕСКАЯ синхронизация в frontend/dist/uploads/images/

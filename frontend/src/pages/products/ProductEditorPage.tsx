@@ -173,8 +173,8 @@ const { data: categories = [] } = useQuery({
 
       await upsertProduct(payload);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] }); // не ждём — сразу навигация
       showToast('Продукт сохранен', 'success');
       navigate('/admin/products');
     },

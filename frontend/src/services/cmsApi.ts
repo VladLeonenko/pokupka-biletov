@@ -884,6 +884,7 @@ export async function upsertProduct(item: ProductItem): Promise<void> {
   
   // Добавляем новые поля для интернет-магазина
   if (item.categoryId !== undefined) payload.categoryId = item.categoryId;
+  if (item.categoryIds !== undefined) payload.categoryIds = item.categoryIds;
   if (item.imageUrl !== undefined) payload.imageUrl = item.imageUrl;
   if (item.gallery !== undefined) payload.gallery = item.gallery;
   if (item.tags !== undefined) payload.tags = item.tags;
@@ -901,8 +902,23 @@ export async function upsertProduct(item: ProductItem): Promise<void> {
   
   const url = `${getApiBaseUrl()}/api/products${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
   const method = item.slug ? 'PUT' : 'POST';
-  
-  const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 сек
+  let res: Response;
+  try {
+    res = await doFetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err?.name === 'AbortError') throw new Error('Таймаут: сервер не ответил за 60 сек');
+    throw err;
+  }
+  clearTimeout(timeoutId);
   if (!res.ok) {
     const errorText = await res.text();
     console.error('[upsertProduct] Error:', res.status, errorText);

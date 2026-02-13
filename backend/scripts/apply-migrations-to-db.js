@@ -49,6 +49,7 @@ const MIGRATION_FILES = [
   '029_email_campaigns.sql',
   '031_create_sites.sql',
   '033_exercise_images.sql',
+  '034_extend_images_table.sql',
   '006_donors.sql',
   '006_move_logs.sql',
   '007_blog_post_tags_fix.sql',
