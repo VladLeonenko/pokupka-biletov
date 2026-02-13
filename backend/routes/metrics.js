@@ -140,27 +140,32 @@ async function fetchGoogle() {
   } catch { return null; }
 }
 
-/** GET /api/metrics/yandex-test — проверка подключения к Яндекс.Метрике */
+/** Проверка подключения к Яндекс.Метрике — экспортируется для публичного роута */
+export async function checkYandexConnection() {
+  const token = process.env.YANDEX_TOKEN;
+  const counter = process.env.YANDEX_COUNTER_ID;
+  if (!token || !counter) {
+    return {
+      connected: false,
+      error: !token ? 'YANDEX_TOKEN не задан' : 'YANDEX_COUNTER_ID не задан',
+      counterId: counter || null,
+    };
+  }
+  const ya = await fetchYandex(1);
+  if (!ya) {
+    return { connected: false, error: 'Запрос к API вернул пустой ответ (проверьте токен и ID счётчика)' };
+  }
+  return {
+    connected: true,
+    counterId: counter,
+    visitorsCount: ya.visitors?.length ?? 0,
+  };
+}
+
 router.get('/yandex-test', async (_req, res) => {
   try {
-    const token = process.env.YANDEX_TOKEN;
-    const counter = process.env.YANDEX_COUNTER_ID;
-    if (!token || !counter) {
-      return res.json({
-        connected: false,
-        error: !token ? 'YANDEX_TOKEN не задан' : 'YANDEX_COUNTER_ID не задан',
-        counterId: counter || null,
-      });
-    }
-    const ya = await fetchYandex(1);
-    if (!ya) {
-      return res.json({ connected: false, error: 'Запрос к API вернул пустой ответ (проверьте токен и ID счётчика)' });
-    }
-    res.json({
-      connected: true,
-      counterId: counter,
-      visitorsCount: ya.visitors?.length ?? 0,
-    });
+    const result = await checkYandexConnection();
+    res.json(result);
   } catch (e) {
     res.json({ connected: false, error: e.message });
   }

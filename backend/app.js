@@ -22,7 +22,7 @@ import blogCategoriesRouter from './routes/blogCategories.js';
 import carouselsRouter from './routes/carousels.js';
 import publicCarouselsRouter from './routes/publicCarousels.js';
 import errorsRouter from './routes/errors.js';
-import metricsRouter from './routes/metrics.js';
+import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
 import authRouter from './routes/auth.js';
@@ -268,6 +268,14 @@ app.use('/api/public/orders', ordersRouter);
 app.use('/api/public/analytics', productAnalyticsRouter);
 app.use('/api/public/cache', cachePublicRouter);
 app.use('/api/public/seo', seoToolsRouter);
+app.get('/api/public/metrics/yandex-test', async (req, res) => {
+  try {
+    const result = await checkYandexConnection();
+    res.json(result);
+  } catch (e) {
+    res.json({ connected: false, error: e.message });
+  }
+});
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/public/awards', awardsRouter);
 app.use('/api/awards', requireAuth, awardsRouter);
