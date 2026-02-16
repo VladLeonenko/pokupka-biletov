@@ -4,6 +4,22 @@ import { Box, Button } from '@mui/material';
 
 const cases = [
   {
+    id: 'umagazine',
+    title: 'UMAGAZINE',
+    year: '2024',
+    type: 'кейс по разработке САЙТа',
+    image: '/uploads/images/hero-umagazine-1771257595209.png',
+    link: '/cases/umagazine-case',
+  },
+  {
+    id: 'kchtz',
+    title: 'KCHTZ',
+    year: '2024',
+    type: 'кейс по разработке САЙТа',
+    image: '/uploads/images/catalog-2-1771254502039.png',
+    link: '/cases/kchtz-case',
+  },
+  {
     id: 'houses',
     title: 'ДОМА РОССИИ',
     year: '2021',
@@ -44,14 +60,6 @@ const cases = [
     link: '/cases/alaska-case',
   },
   {
-    id: 'litclinic',
-    title: 'МЕДИЦИНСКИЙ ЦЕНТР',
-    year: '2022',
-    type: 'кейс по разработке САЙТа',
-    image: '/legacy/img/litclinic-case.png',
-    link: '/cases/litclinic-case',
-  },
-  {
     id: 'ursus',
     title: 'УРСУС',
     year: '2019',
@@ -82,14 +90,6 @@ const cases = [
     type: 'кейс по разработке САЙТа',
     image: '/legacy/img/winwin-case.png',
     link: '/cases/winwin-case',
-  },
-  {
-    id: 'greendent',
-    title: 'GREENDENT',
-    year: '2021',
-    type: 'кейс по разработке САЙТа',
-    image: '/legacy/img/greendent-case.png',
-    link: '/cases/greendent-case',
   },
 ];
 

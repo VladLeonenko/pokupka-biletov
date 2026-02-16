@@ -1,7 +1,12 @@
+import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { getPublicCase } from '@/services/publicApi';
 import styles from './PerformanceSection.module.css';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const textStyles = {
   sectionTitle: {
@@ -75,6 +80,8 @@ function getStatusColor(status: string, accentColor: string): string {
 
 export function PerformanceSection() {
   const { slug } = useParams<{ slug?: string }>();
+  const circleRef = useRef<HTMLDivElement>(null);
+  const scoreRef = useRef<HTMLSpanElement>(null);
 
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
@@ -89,6 +96,36 @@ export function PerformanceSection() {
   const clampedScore = Math.min(99, Math.max(85, score));
   const metrics = (perfData.metrics || []).filter((m: any) => m?.label || m?.value);
 
+  useEffect(() => {
+    const el = circleRef.current;
+    const scoreEl = scoreRef.current;
+    if (!el || !scoreEl) return;
+
+    gsap.set(el, { '--score': 0 } as gsap.TweenTarget);
+    scoreEl.textContent = '0%';
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none none',
+      },
+    });
+    tl.to(el, {
+      '--score': clampedScore,
+      duration: 1.2,
+      ease: 'power2.out',
+      onUpdate: function () {
+        const v = Math.round(this.progress() * clampedScore);
+        if (scoreEl) scoreEl.textContent = `${v}%`;
+      },
+    });
+
+    return () => {
+      tl.scrollTrigger?.kill();
+    };
+  }, [clampedScore]);
+
   if (metrics.length === 0) {
     return null;
   }
@@ -102,16 +139,17 @@ export function PerformanceSection() {
           <div className={styles.performanceScore}>
             <div className={styles.circularScore}>
               <div
+                ref={circleRef}
                 className={styles.circularBg}
                 style={
                   {
-                    '--score': clampedScore,
+                    '--score': 0,
                     '--accent': accentColor,
                   } as React.CSSProperties
                 }
               >
                 <div className={styles.circularInner}>
-                  <span style={textStyles.scoreValue}>{clampedScore}%</span>
+                  <span ref={scoreRef} style={textStyles.scoreValue}>0%</span>
                 </div>
               </div>
             </div>
