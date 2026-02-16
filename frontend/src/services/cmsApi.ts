@@ -829,6 +829,15 @@ export async function deleteCase(slug: string): Promise<void> {
   const res = await doFetch(`${getApiBaseUrl()}/api/cases/${encodeURIComponent(slug)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete case');
 }
+
+export async function setHomeCasesOrder(slugs: string[]): Promise<void> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/cases/home-order`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slugs }),
+  });
+  if (!res.ok) throw new Error('Failed to update home cases order');
+}
 // Products API
 export async function listProducts(activeOnly = false): Promise<ProductItem[]> {
   const url = activeOnly ? `${getApiBaseUrl()}/api/products?active=true` : `${getApiBaseUrl()}/api/products`;

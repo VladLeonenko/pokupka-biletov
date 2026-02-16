@@ -91,6 +91,7 @@ const MIGRATION_FILES = [
   '053_product_category_links.sql',
   'add_team_page.sql',
   '054_charity_preferences.sql',
+  '055_home_cases_order.sql',
 ];
 
 async function applyMigration(filename) {

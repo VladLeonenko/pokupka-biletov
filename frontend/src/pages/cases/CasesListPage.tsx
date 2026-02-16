@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listCases, deleteCase, setCasePublished } from '@/services/cmsApi';
+import { listCases, deleteCase, setCasePublished, setHomeCasesOrder } from '@/services/cmsApi';
+import { listHomeCases } from '@/services/publicApi';
 import { Box, Button, Card, CardActionArea, CardContent, Grid, Typography, Chip, Select, MenuItem, FormControl, InputLabel, ToggleButton, ToggleButtonGroup, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText, Paper, TextField } from '@mui/material';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import { useNavigate } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ArticleIcon from '@mui/icons-material/Article';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -63,6 +68,50 @@ export function CasesListPage() {
       showToast(err?.message || 'Ошибка удаления', 'error');
     },
   });
+
+  const { data: homeCases = [] } = useQuery({ queryKey: ['homeCases'], queryFn: listHomeCases });
+  const [homeOrderSlugs, setHomeOrderSlugs] = useState<string[]>([]);
+  const [homeOrderDirty, setHomeOrderDirty] = useState(false);
+
+  useEffect(() => {
+    if (homeCases.length > 0 && !homeOrderDirty) {
+      const slugs = homeCases.map((c: any) => c.slug || (c.link || '').replace('/cases/', ''));
+      setHomeOrderSlugs(slugs.filter(Boolean));
+    }
+  }, [homeCases, homeOrderDirty]);
+
+  const homeOrderSaveMut = useMutation({
+    mutationFn: (slugs: string[]) => setHomeCasesOrder(slugs),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['homeCases'] });
+      setHomeOrderDirty(false);
+      showToast('Порядок сохранён', 'success');
+    },
+    onError: (err: any) => showToast(err?.message || 'Ошибка сохранения', 'error'),
+  });
+
+  const moveHome = (index: number, delta: number) => {
+    const next = [...homeOrderSlugs];
+    const j = index + delta;
+    if (j < 0 || j >= next.length) return;
+    [next[index], next[j]] = [next[j], next[index]];
+    setHomeOrderSlugs(next);
+    setHomeOrderDirty(true);
+  };
+
+  const addToHome = (slug: string) => {
+    if (homeOrderSlugs.includes(slug)) return;
+    setHomeOrderSlugs([...homeOrderSlugs, slug]);
+    setHomeOrderDirty(true);
+  };
+
+  const removeFromHome = (slug: string) => {
+    setHomeOrderSlugs(homeOrderSlugs.filter((s) => s !== slug));
+    setHomeOrderDirty(true);
+  };
+
+  const publishedSlugs = new Set(regularCases.filter((c) => c.isPublished).map((c) => c.slug));
+  const availableToAdd = [...publishedSlugs].filter((s) => !homeOrderSlugs.includes(s));
   
   return (
     <Box>
@@ -98,6 +147,58 @@ export function CasesListPage() {
           <Button variant="contained" onClick={() => navigate('/admin/cases/new')}>Добавить кейс</Button>
         </Box>
       </Box>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Порядок на главной</Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
+          {availableToAdd.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel>Добавить кейс</InputLabel>
+              <Select
+                label="Добавить кейс"
+                value=""
+                onChange={(e) => { const v = e.target.value; if (v) addToHome(v); }}
+              >
+                <MenuItem value="">— выбрать —</MenuItem>
+                {availableToAdd.map((slug) => {
+                  const c = cases.find((x) => x.slug === slug);
+                  return <MenuItem key={slug} value={slug}>{c?.title || slug}</MenuItem>;
+                })}
+              </Select>
+            </FormControl>
+          )}
+          {homeOrderDirty && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => homeOrderSaveMut.mutate(homeOrderSlugs)}
+              disabled={homeOrderSaveMut.isPending}
+            >
+              {homeOrderSaveMut.isPending ? 'Сохранение…' : 'Сохранить порядок'}
+            </Button>
+          )}
+        </Box>
+        {homeOrderSlugs.length === 0 ? (
+          <Typography color="text.secondary">Пока нет кейсов на главной. Добавьте из выпадающего списка выше.</Typography>
+        ) : (
+          <List dense disablePadding>
+            {homeOrderSlugs.map((slug, idx) => {
+              const c = cases.find((x) => x.slug === slug);
+              return (
+                <ListItem key={slug} disablePadding sx={{ py: 0.5 }} secondaryAction={
+                  <Box sx={{ display: 'flex', gap: 0 }}>
+                    <IconButton size="small" onClick={() => moveHome(idx, -1)} disabled={idx === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => moveHome(idx, 1)} disabled={idx === homeOrderSlugs.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => removeFromHome(slug)}><RemoveIcon fontSize="small" /></IconButton>
+                  </Box>
+                }>
+                  <ListItemText primary={`${idx + 1}. ${c?.title || slug}`} secondary={slug} />
+                </ListItem>
+              );
+            })}
+          </List>
+        )}
+      </Paper>
+
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           value={search}

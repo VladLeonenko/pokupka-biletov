@@ -114,6 +114,12 @@ export async function listPublicCases(): Promise<any[]> {
   return await res.json();
 }
 
+export async function listHomeCases(): Promise<Array<{ id: string; slug: string; title: string; year: string; type: string; image: string; link: string }>> {
+  const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases/home`);
+  if (!res.ok) return [];
+  return await res.json();
+}
+
 export async function getPublicCase(slug: string): Promise<any> {
   const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases/${encodeURIComponent(slug)}`);
   if (res.status === 404) return undefined;

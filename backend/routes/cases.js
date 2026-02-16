@@ -55,6 +55,40 @@ router.get('/', async (req, res) => {
   res.json(r.rows.map(rowToCase));
 });
 
+router.get('/home', async (req, res) => {
+  const r = await pool.query(
+    `SELECT slug, title, hero_image_url, home_card, created_at FROM cases 
+     WHERE is_published = TRUE AND home_order IS NOT NULL 
+     ORDER BY home_order ASC`
+  );
+  const items = r.rows.map((row) => {
+    const card = row.home_card || {};
+    const createdYear = row.created_at ? new Date(row.created_at).getFullYear().toString() : '2024';
+    return {
+      id: row.slug.replace(/-case$/, '') || row.slug,
+      slug: row.slug,
+      title: (row.title || '').toUpperCase(),
+      year: card.year || createdYear,
+      type: card.type || 'кейс по разработке САЙТа',
+      image: card.image || row.hero_image_url || `/legacy/img/${row.slug}.png`,
+      link: `/cases/${row.slug}`,
+    };
+  });
+  res.json(items);
+});
+
+router.put('/home-order', async (req, res) => {
+  const { slugs } = req.body || {};
+  if (!Array.isArray(slugs)) {
+    return res.status(400).json({ error: 'slugs must be an array' });
+  }
+  await pool.query('UPDATE cases SET home_order = NULL');
+  for (let i = 0; i < slugs.length; i++) {
+    await pool.query('UPDATE cases SET home_order = $1 WHERE slug = $2', [i, slugs[i]]);
+  }
+  res.json({ success: true });
+});
+
 router.get('/:slug', async (req, res) => {
   console.log('GET case by slug:', req.params.slug);
   const r = await pool.query('SELECT * FROM cases WHERE slug=$1', [req.params.slug]);
