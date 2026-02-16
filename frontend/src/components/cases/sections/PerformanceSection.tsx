@@ -60,22 +60,22 @@ const textStyles = {
   },
 };
 
-const defaultMetrics = [
-  { label: 'Первая отрисовка контента', value: '0,8 сек', status: 'excellent' },
-  { label: 'Индекс скорости', value: '0,8 сек', status: 'good' },
-  { label: 'Отрисовка крупного контента', value: '0,8 сек', status: 'poor' },
-  { label: 'Смещение макета', value: '0,879', status: 'excellent' },
-];
+// Детерминированный score 85-99 из slug (одинаковый при каждом открытии кейса)
+function getScoreFromSlug(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h << 5) - h + slug.charCodeAt(i) | 0;
+  return 85 + (Math.abs(h) % 15);
+}
 
-const getStatusColor = (status: string) => {
-  if (status === 'excellent') return '#FD9C12';
-  if (status === 'good') return 'rgba(253, 156, 18, 0.5)';
+function getStatusColor(status: string, accentColor: string): string {
+  if (status === 'excellent') return accentColor;
+  if (status === 'good') return accentColor + '80';
   return '#434343';
-};
+}
 
 export function PerformanceSection() {
   const { slug } = useParams<{ slug?: string }>();
-  
+
   const { data: caseData } = useQuery({
     queryKey: ['publicCase', slug],
     queryFn: () => getPublicCase(slug!),
@@ -83,8 +83,15 @@ export function PerformanceSection() {
   });
 
   const perfData = caseData?.contentJson?.performance || {};
-  const score = perfData.score || 93;
-  const metrics = perfData.metrics || defaultMetrics;
+  const palette = (caseData?.contentJson?.colors?.palette || []).filter((x: any) => x?.color);
+  const accentColor = palette[0]?.color || '#FD9C12';
+  const score = perfData.score != null ? Number(perfData.score) : (slug ? getScoreFromSlug(slug) : 92);
+  const clampedScore = Math.min(99, Math.max(85, score));
+  const metrics = (perfData.metrics || []).filter((m: any) => m?.label || m?.value);
+
+  if (metrics.length === 0) {
+    return null;
+  }
 
   return (
     <section className={styles.performance}>
@@ -94,9 +101,17 @@ export function PerformanceSection() {
         <div className={styles.performanceContent}>
           <div className={styles.performanceScore}>
             <div className={styles.circularScore}>
-              <div className={styles.circularBg} style={{ '--score': score } as React.CSSProperties}>
+              <div
+                className={styles.circularBg}
+                style={
+                  {
+                    '--score': clampedScore,
+                    '--accent': accentColor,
+                  } as React.CSSProperties
+                }
+              >
                 <div className={styles.circularInner}>
-                  <span style={textStyles.scoreValue}>{score}%</span>
+                  <span style={textStyles.scoreValue}>{clampedScore}%</span>
                 </div>
               </div>
             </div>
@@ -114,11 +129,11 @@ export function PerformanceSection() {
                 <span style={textStyles.legendLabel}>Плохо</span>
               </div>
               <div className={styles.legendItem}>
-                <div className={styles.legendDot} style={{ backgroundColor: 'rgba(253, 156, 18, 0.5)' }} />
+                <div className={styles.legendDot} style={{ backgroundColor: accentColor + '80' }} />
                 <span style={textStyles.legendLabel}>Нормально</span>
               </div>
               <div className={styles.legendItem}>
-                <div className={styles.legendDot} style={{ backgroundColor: '#FD9C12' }} />
+                <div className={styles.legendDot} style={{ backgroundColor: accentColor }} />
                 <span style={textStyles.legendLabel}>Идеально</span>
               </div>
             </div>
@@ -128,13 +143,15 @@ export function PerformanceSection() {
             {metrics.map((metric: any, index: number) => (
               <div key={index} className={styles.metricItem}>
                 <div className={styles.metricContent}>
-                  <div 
-                    className={styles.metricIndicator} 
-                    style={{ backgroundColor: getStatusColor(metric.status) }} 
+                  <div
+                    className={styles.metricIndicator}
+                    style={{
+                      backgroundColor: getStatusColor(metric.status || 'excellent', accentColor),
+                    }}
                   />
                   <div className={styles.metricText}>
-                    <p style={textStyles.metricLabel}>{metric.label}</p>
-                    <p style={textStyles.metricValue}>{metric.value}</p>
+                    <p style={textStyles.metricLabel}>{metric.label || ''}</p>
+                    <p style={textStyles.metricValue}>{metric.value || ''}</p>
                   </div>
                 </div>
               </div>

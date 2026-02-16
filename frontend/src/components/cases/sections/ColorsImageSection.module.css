@@ -18,14 +18,30 @@
   margin: 0 0 2rem;
 }
 
-.colors-image {
+.colorPalette {
+  display: flex;
   width: 100%;
-  height: auto;
-  display: block;
 }
 
-.colors-placeholder {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 1rem;
-  margin: 0;
+.colorColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.colorSwatch {
+  width: 100%;
+  height: 25px;
+  transform: rotate(180deg);
+}
+
+@media (max-width: 1024px) {
+  .colors-container { padding: 3rem 60px; }
+  .colors-title { font-size: 36px; }
+}
+
+@media (max-width: 767px) {
+  .colors-container { padding: 2rem 20px; }
+  .colors-title { font-size: 28px; }
+  .colorSwatch { height: 20px; }
 }

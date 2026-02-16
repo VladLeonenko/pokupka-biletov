@@ -72,10 +72,12 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
   }
 
   const category = caseData.category || 'website';
-  const currentUrl = typeof window !== 'undefined' 
-    ? window.location.href 
+  const currentUrl = typeof window !== 'undefined'
+    ? window.location.href
     : `https://primecoder.ru/cases/${slug}`;
-  
+
+  const sections = caseData.contentJson?.sections ?? {};
+  const show = (key: string) => sections[key] !== false;
   const showColorsAndTypography = ['website', 'mobile', 'design'].includes(category);
 
   return (
@@ -88,21 +90,18 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
         image={caseData.heroImageUrl}
       />
       <HeaderFooterInjector />
-      
-      {/* Новые секции по дизайну Figma */}
-      <HeroSection />
-      <AboutSection />
-      {showColorsAndTypography && <TypographySection />}
-      {showColorsAndTypography && <ColorsImageSection />}
-      <ToolsSection />
-      <PerformanceSection />
-      <MockupSection />
-      <ResultsSection />
-      
-      {/* Существующие компоненты */}
-      <CasesTeam />
-      <CasesAsk />
-      <CasesFormSection />
+
+      {show('hero') && <HeroSection />}
+      {show('about') && <AboutSection />}
+      {show('typography') && showColorsAndTypography && <TypographySection />}
+      {show('colors') && showColorsAndTypography && <ColorsImageSection />}
+      {show('tools') && <ToolsSection />}
+      {show('performance') && <PerformanceSection />}
+      {show('mockup') && <MockupSection />}
+      {show('results') && <ResultsSection />}
+      {show('team') && <CasesTeam />}
+      {show('ask') && <CasesAsk />}
+      {show('form') && <CasesFormSection />}
     </>
   );
 }

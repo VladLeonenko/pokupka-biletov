@@ -37,7 +37,8 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: conic-gradient(#FD9C12 0deg, #FD9C12 calc(var(--score) * 3.6deg), #333 calc(var(--score) * 3.6deg), #333 360deg);
+  --accent: #FD9C12;
+  background: conic-gradient(var(--accent) 0deg, var(--accent) calc(var(--score) * 3.6deg), #333 calc(var(--score) * 3.6deg), #333 360deg);
   display: flex;
   align-items: center;
   justify-content: center;

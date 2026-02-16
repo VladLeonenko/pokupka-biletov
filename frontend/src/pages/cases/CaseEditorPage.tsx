@@ -298,6 +298,35 @@ export function CaseEditorPage() {
             <Box>
               <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="h6">Видимость блоков</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Отключённые блоки не отображаются на странице кейса</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    {[
+                      { key: 'hero', label: 'Hero' },
+                      { key: 'about', label: 'О проекте' },
+                      { key: 'typography', label: 'Типография' },
+                      { key: 'colors', label: 'Цветовая схема' },
+                      { key: 'tools', label: 'Инструменты' },
+                      { key: 'performance', label: 'Показатели' },
+                      { key: 'mockup', label: 'Мокап' },
+                      { key: 'results', label: 'Результат' },
+                      { key: 'team', label: 'Команда' },
+                      { key: 'ask', label: 'Вопрос' },
+                      { key: 'form', label: 'Форма заявки' },
+                    ].map(({ key, label }) => (
+                      <FormControlLabel
+                        key={key}
+                        control={<Switch checked={getCJ(`sections.${key}`, true)} onChange={(e) => setCJ(`sections.${key}`, e.target.checked)} />}
+                        label={label}
+                      />
+                    ))}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+              <Accordion defaultExpanded>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="h6">Hero Section</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
@@ -410,31 +439,43 @@ export function CaseEditorPage() {
 
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="h6">Performance Section</Typography>
+                  <Typography variant="h6">Performance Section (Основные показатели)</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <TextField fullWidth label="Заголовок" sx={{ mb: 2 }} value={getCJ('performance.title', 'Показатели')} onChange={(e) => setCJ('performance.title', e.target.value)} />
+                  <TextField fullWidth type="number" label="Score круга (85–99, пусто = авто по slug)" placeholder="92" sx={{ mb: 2 }} value={getCJ('performance.score', '')} onChange={(e) => setCJ('performance.score', e.target.value)} helperText="Если пусто — случайное 85–99, одинаковое для кейса" />
                   <Typography variant="subtitle2" sx={{ mb: 2 }}>Метрики:</Typography>
                   {(getCJ('performance.metrics', []) as any[]).map((metric: any, index: number) => (
-                    <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+                    <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                       <TextField size="small" label="Название" value={metric?.label || ''} onChange={(e) => {
                         const items = [...getCJ('performance.metrics', [])];
                         items[index] = { ...items[index], label: e.target.value };
                         setCJ('performance.metrics', items);
-                      }} sx={{ flex: 1 }} />
+                      }} sx={{ flex: 1, minWidth: 120 }} />
                       <TextField size="small" label="Значение" value={metric?.value || ''} onChange={(e) => {
                         const items = [...getCJ('performance.metrics', [])];
                         items[index] = { ...items[index], value: e.target.value };
                         setCJ('performance.metrics', items);
-                      }} sx={{ flex: 1 }} />
+                      }} sx={{ flex: 1, minWidth: 80 }} />
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <InputLabel>Уровень</InputLabel>
+                        <Select label="Уровень" value={metric?.status || 'excellent'} onChange={(e) => {
+                          const items = [...getCJ('performance.metrics', [])];
+                          items[index] = { ...items[index], status: e.target.value };
+                          setCJ('performance.metrics', items);
+                        }}>
+                          <MenuItem value="excellent">Идеально</MenuItem>
+                          <MenuItem value="good">Нормально</MenuItem>
+                          <MenuItem value="poor">Плохо</MenuItem>
+                        </Select>
+                      </FormControl>
                       <IconButton color="error" onClick={() => {
                         const items = getCJ('performance.metrics', []).filter((_: any, i: number) => i !== index);
                         setCJ('performance.metrics', items);
                       }}><DeleteIcon /></IconButton>
                     </Box>
                   ))}
-                  <Button startIcon={<AddIcon />} onClick={() => setCJ('performance.metrics', [...getCJ('performance.metrics', []), { label: '', value: '' }])}>Добавить метрику</Button>
-                  <ImageUploader label="Скриншот" path="performance.screenshot" />
+                  <Button startIcon={<AddIcon />} onClick={() => setCJ('performance.metrics', [...getCJ('performance.metrics', []), { label: '', value: '', status: 'excellent' }])}>Добавить метрику</Button>
                 </AccordionDetails>
               </Accordion>
 
@@ -483,8 +524,7 @@ export function CaseEditorPage() {
                   <Typography variant="h6">Colors Section (индивидуально для каждого кейса)</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <ImageUploader label="Изображение цветовой схемы" path="colors.image" />
-                  <TextField fullWidth label="Палитра цветов (hex через запятую)" placeholder="#000000, #ffffff, #fd9c12" sx={{ mt: 2 }} value={((getCJ('colors.palette', []) as { color?: string }[]) || []).map((x: any) => (typeof x === 'string' ? x : x?.color || '')).join(', ')} onChange={(e) => setCJ('colors.palette', e.target.value.split(',').map(s => s.trim()).map(color => ({ color: color ? (color.startsWith('#') ? color : '#' + color) : '' })))} helperText="Без палитры блок цветов на странице кейса не показывается" />
+                  <TextField fullWidth label="Палитра цветов (hex через запятую)" placeholder="#000000, #ffffff, #fd9c12" value={((getCJ('colors.palette', []) as { color?: string }[]) || []).map((x: any) => (typeof x === 'string' ? x : x?.color || '')).join(', ')} onChange={(e) => setCJ('colors.palette', e.target.value.split(',').map(s => s.trim()).map(color => ({ color: color ? (color.startsWith('#') ? color : '#' + color) : '' })))} helperText="Блок «Цветовая схема» — одинаковый для всех кейсов, только цвета меняются" />
                 </AccordionDetails>
               </Accordion>
             </Box>
