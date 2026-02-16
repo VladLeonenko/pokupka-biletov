@@ -344,6 +344,8 @@ export function CaseEditorPage() {
                 </AccordionSummary>
                 <AccordionDetails>
                   <TextField fullWidth label="Заголовок секции" sx={{ mb: 2 }} value={getCJ('tools.title', 'Инструменты')} onChange={(e) => setCJ('tools.title', e.target.value)} />
+                  <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Результаты для CTA-блока (через запятую или по одному)</Typography>
+                  <TextField fullWidth label="Результаты: Трафик +150%, Конверсия +40%..." placeholder="Трафик +150%, Конверсия +40%, Продажи x3 за 6 месяцев" sx={{ mb: 2 }} value={((getCJ('tools.ctaResults', []) as string[]) || []).join(', ')} onChange={(e) => setCJ('tools.ctaResults', e.target.value.split(',').map(s => s.trim()))} helperText="Эти пункты отображаются в блоке «Понравился кейс [Название]?»" />
                   
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>Выбранные инструменты:</Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3, minHeight: 40, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
