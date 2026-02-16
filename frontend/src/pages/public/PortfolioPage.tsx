@@ -36,11 +36,14 @@ function getCat(c: any): Category {
   return 'website';
 }
 
+const SWIPE_THRESHOLD = 50;
+
 export function PortfolioPage() {
   const navigate = useNavigate();
   const [cat, setCat] = useState<Category>('all');
   const [current, setCurrent] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef(0);
 
   const { data: cases = [], isLoading } = useQuery({ queryKey: ['publicCases'], queryFn: listPublicCases });
   const filtered = useMemo(() => {
@@ -56,6 +59,18 @@ export function PortfolioPage() {
   const prev = () => setCurrent((p) => Math.max(0, p - 1));
   const next = () => setCurrent((p) => Math.min(filtered.length - 1, p + 1));
   const handleClick = (slug: string) => navigate(`/cases/${slug}`);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const endX = e.changedTouches[0].clientX;
+    const deltaX = touchStartX.current - endX;
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD) return;
+    if (deltaX > 0) setCurrent((p) => Math.min(filtered.length - 1, p + 1));
+    else setCurrent((p) => Math.max(0, p - 1));
+  }, [filtered.length]);
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 20 }}><CircularProgress sx={{ color: '#ffbb00' }} /></Box>;
@@ -109,7 +124,11 @@ export function PortfolioPage() {
           {/* Carousel */}
           {filtered.length > 0 ? (
             <>
-              <Box sx={{ position: 'relative', overflow: 'hidden', mb: 4 }}>
+              <Box
+                sx={{ position: 'relative', overflow: 'hidden', mb: 4, touchAction: 'pan-y' }}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
                 <Box
                   ref={trackRef}
                   sx={{

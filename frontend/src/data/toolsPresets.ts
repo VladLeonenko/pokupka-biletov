@@ -71,13 +71,13 @@ export const TOOLS_PRESETS: ToolPreset[] = [
   { name: 'Drupal', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/drupal/drupal-original.svg', category: 'cms' },
   { name: 'Magento', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/magento/magento-original.svg', category: 'cms' },
   { name: 'WooCommerce', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/woocommerce/woocommerce-original.svg', category: 'cms' },
-  { name: '1C-Bitrix', icon: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/1C_Bitrix_logo.svg', category: 'cms' },
+  { name: '1C-Bitrix', icon: '/images/tools/1c-bitrix.png', category: 'cms' },
   { name: 'Tilda', icon: 'https://static.tildacdn.com/tild3062-3763-4536-a536-653262353833/tilda-logo.svg', category: 'cms' },
   { name: 'Shopify', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/shopify/shopify-original.svg', category: 'cms' },
 
   // CRM
   { name: 'Salesforce', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/salesforce/salesforce-original.svg', category: 'crm' },
-  { name: 'Bitrix24', icon: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/1C_Bitrix_logo.svg', category: 'crm' },
+  { name: 'Bitrix24', icon: '/images/tools/bitrix24.png', category: 'crm' },
   { name: 'AmoCRM', icon: 'https://www.amocrm.ru/static/images/pages/amo-logo.svg', category: 'crm' },
   { name: 'HubSpot', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/hubspot/hubspot-original.svg', category: 'crm' },
   { name: 'Notion', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/notion/notion-original.svg', category: 'crm' },
