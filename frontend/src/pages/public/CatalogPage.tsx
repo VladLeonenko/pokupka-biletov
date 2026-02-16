@@ -183,7 +183,7 @@ export function CatalogPage() {
                           alt={p.title}
                           loading="lazy"
                           onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
-                          sx={{ width: '100%', height: 320, objectFit: 'cover', display: 'block', bgcolor: 'rgba(0,0,0,0.15)' }}
+                          sx={{ width: '100%', height: { xs: 400, sm: 320 }, objectFit: 'cover', display: 'block', bgcolor: 'rgba(0,0,0,0.15)' }}
                         />
                         <Box sx={{ p: 2.5 }}>
                           <Typography sx={{ fontWeight: 600, color: '#fff', fontSize: '1rem', mb: 0.75, lineHeight: 1.3 }}>{p.title}</Typography>

@@ -798,7 +798,8 @@ export async function setCasePublished(slug: string, isPublished: boolean): Prom
   if (!res.ok) throw new Error('Failed to publish case');
 }
 
-export async function upsertCase(item: CaseItem): Promise<void> {
+export async function upsertCase(item: CaseItem, options?: { create?: boolean }): Promise<void> {
+  const isCreate = options?.create ?? !item.slug;
   const payload: any = {
     slug: item.slug,
     title: item.title,
@@ -819,8 +820,8 @@ export async function upsertCase(item: CaseItem): Promise<void> {
   if ('category' in item) {
     payload.category = item.category || null;
   }
-  const url = `${getApiBaseUrl()}/api/cases${item.slug ? `/${encodeURIComponent(item.slug)}` : ''}`;
-  const method = item.slug ? 'PUT' : 'POST';
+  const url = `${getApiBaseUrl()}/api/cases${isCreate ? '' : `/${encodeURIComponent(item.slug!)}`}`;
+  const method = isCreate ? 'POST' : 'PUT';
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!res.ok) throw new Error('Failed to save case');
 }

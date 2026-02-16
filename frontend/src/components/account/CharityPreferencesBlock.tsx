@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem, Slider, Link } from '@mui/material';
+import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem, Slider, Link, Skeleton } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCharityPreferences, putCharityPreferences, type CharityAllocation } from '@/services/charityApi';
 import { CHARITY_FUNDS } from '@/config/charityFunds';
@@ -17,9 +17,11 @@ const cardSx = {
 export function CharityPreferencesBlock() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['charityPreferences'],
     queryFn: getCharityPreferences,
+    retry: 2,
+    staleTime: 60000,
   });
 
   const [mode, setMode] = useState<'none' | 'one' | 'two'>('none');
@@ -88,7 +90,29 @@ export function CharityPreferencesBlock() {
       (mode === 'one' && !!fund1) ||
       (mode === 'two' && !!fund1 && !!fund2 && fund1 !== fund2));
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <Box sx={{ ...cardSx, mb: 4 }}>
+        <Skeleton variant="text" width="60%" height={28} sx={{ bgcolor: 'rgba(255,255,255,0.08)' }} />
+        <Skeleton variant="text" width="100%" sx={{ bgcolor: 'rgba(255,255,255,0.06)', mt: 1 }} />
+        <Skeleton variant="rounded" height={40} sx={{ mt: 2, bgcolor: 'rgba(255,255,255,0.06)' }} />
+      </Box>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Box sx={{ ...cardSx, mb: 4 }}>
+        <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.1rem', mb: 2 }}>Благотворительность</Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mb: 2 }}>
+          Не удалось загрузить настройки. Возможно, страница ещё загружается.
+        </Typography>
+        <Button onClick={() => refetch()} variant="outlined" sx={{ borderColor: 'rgba(255,187,0,0.5)', color: '#ffbb00', '&:hover': { borderColor: '#ffbb00' } }}>
+          Повторить
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ ...cardSx, mb: 4 }}>

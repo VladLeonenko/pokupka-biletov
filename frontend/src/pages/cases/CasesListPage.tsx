@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listCases, deleteCase, setCasePublished } from '@/services/cmsApi';
-import { Box, Button, Card, CardActionArea, CardContent, CardMedia, Grid, Typography, Chip, Select, MenuItem, FormControl, InputLabel, ToggleButton, ToggleButtonGroup, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText, Paper, TextField } from '@mui/material';
+import { Box, Button, Card, CardActionArea, CardContent, Grid, Typography, Chip, Select, MenuItem, FormControl, InputLabel, ToggleButton, ToggleButtonGroup, IconButton, Tooltip, List, ListItem, ListItemButton, ListItemText, Paper, TextField } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import ArticleIcon from '@mui/icons-material/Article';
@@ -10,7 +10,7 @@ import UnpublishedIcon from '@mui/icons-material/Unpublished';
 import PublishedWithChangesIcon from '@mui/icons-material/PublishedWithChanges';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useToast } from '@/components/common/ToastProvider';
-import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
+import { fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { SafeImage } from '@/components/common/SafeImage';
 
 export function CasesListPage() {
@@ -125,46 +125,24 @@ export function CasesListPage() {
               <Grid item xs={12} sm={6} md={4} key={c.slug}>
                 <Card variant="outlined">
                   <CardActionArea onClick={() => navigate(`/admin/cases/${encodeURIComponent(c.slug)}`)}>
-                    <CardMedia 
-                      component={SafeImage}
-                      height="140" 
-                      image={(() => {
-                        // Приоритет: heroImageUrl -> donorImageUrl -> cover.png -> fallback
-                        const heroUrl = c.heroImageUrl?.trim();
-                        const donorUrl = c.donorImageUrl?.trim();
-                        const slug = c.slug?.trim();
-
-                        // 1. Используем heroImageUrl если есть
-                        if (heroUrl && heroUrl.length > 0) {
-                          return heroUrl;
-                        }
-                        
-                        // 2. Используем donorImageUrl если есть
-                        if (donorUrl && donorUrl.length > 0) {
-                          return donorUrl;
-                        }
-                        
-                        // 3. Пробуем cover.png для этого кейса
-                        // Если файл не существует, SafeImage обработает ошибку и использует fallback
-                        if (slug && slug.length > 0) {
-                          return `/legacy/img/cases/${slug}/cover.png`;
-                        }
-                        
-                        // 4. Fallback только в последнюю очередь
-                        return fallbackImageUrl();
-                      })()}
-                      fallback={fallbackImageUrl()}
-                      alt={c.title || 'Кейс'}
-                      sx={{ 
-                        objectFit: 'cover',
-                        position: 'relative',
-                        '& img': {
-                          display: "none",
-                        }
-                      }}
-                      hideOnError={false}
-                      lazy={true}
-                    />
+                    <Box sx={{ width: '100%', height: 140, overflow: 'hidden', bgcolor: 'grey.200' }}>
+                      <SafeImage
+                        src={(() => {
+                          const heroUrl = c.heroImageUrl?.trim();
+                          const donorUrl = c.donorImageUrl?.trim();
+                          const slug = c.slug?.trim();
+                          if (heroUrl) return heroUrl;
+                          if (donorUrl) return donorUrl;
+                          if (slug) return `/legacy/img/cases/${slug}/cover.png`;
+                          return fallbackImageUrl();
+                        })()}
+                        fallback={fallbackImageUrl()}
+                        alt={c.title || 'Кейс'}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        hideOnError={false}
+                        lazy={true}
+                      />
+                    </Box>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <ArticleIcon fontSize="small" color="primary" />
@@ -253,46 +231,24 @@ export function CasesListPage() {
               <Grid item xs={12} sm={6} md={4} key={c.slug}>
                 <Card variant="outlined">
                   <CardActionArea onClick={() => navigate(`/admin/cases/${encodeURIComponent(c.slug)}`)}>
-                    <CardMedia 
-                      component={SafeImage}
-                      height="140" 
-                      image={(() => {
-                        // Приоритет: heroImageUrl -> donorImageUrl -> cover.png -> fallback
-                        const heroUrl = c.heroImageUrl?.trim();
-                        const donorUrl = c.donorImageUrl?.trim();
-                        const slug = c.slug?.trim();
-                        
-                        // 1. Используем heroImageUrl если есть
-                        if (heroUrl && heroUrl.length > 0) {
-                          return heroUrl;
-                        }
-                        
-                        // 2. Используем donorImageUrl если есть
-                        if (donorUrl && donorUrl.length > 0) {
-                          return donorUrl;
-                        }
-                        
-                        // 3. Пробуем cover.png для этого кейса
-                        // Если файл не существует, SafeImage обработает ошибку и использует fallback
-                        if (slug && slug.length > 0) {
-                          return `/legacy/img/cases/${slug}/cover.png`;
-                        }
-                        
-                        // 4. Fallback только в последнюю очередь
-                        return fallbackImageUrl();
-                      })()}
-                      fallback={fallbackImageUrl()}
-                      alt={c.title || 'Кейс'}
-                      sx={{ 
-                        objectFit: 'cover',
-                        position: 'relative',
-                        '& img': {
-                          display: "none",
-                        }
-                      }}
-                      hideOnError={false}
-                      lazy={true}
-                    />
+                    <Box sx={{ width: '100%', height: 140, overflow: 'hidden', bgcolor: 'grey.200' }}>
+                      <SafeImage
+                        src={(() => {
+                          const heroUrl = c.heroImageUrl?.trim();
+                          const donorUrl = c.donorImageUrl?.trim();
+                          const slug = c.slug?.trim();
+                          if (heroUrl) return heroUrl;
+                          if (donorUrl) return donorUrl;
+                          if (slug) return `/legacy/img/cases/${slug}/cover.png`;
+                          return fallbackImageUrl();
+                        })()}
+                        fallback={fallbackImageUrl()}
+                        alt={c.title || 'Кейс'}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        hideOnError={false}
+                        lazy={true}
+                      />
+                    </Box>
                     <CardContent>
                       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{c.title}</Typography>
                       {c.summary && <Typography color="text.secondary" variant="body2">{c.summary}</Typography>}

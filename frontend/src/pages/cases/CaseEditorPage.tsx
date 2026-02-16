@@ -135,7 +135,7 @@ export function CaseEditorPage() {
         heroImageUrl, 
         contentHtml, 
         metrics, 
-        tools, 
+        tools: (tools || []).filter(Boolean), 
         gallery, 
         contentJson, 
         isPublished, 
@@ -146,7 +146,7 @@ export function CaseEditorPage() {
         ogImageUrl
       } as any;
 
-      await upsertCase(payload);
+      await upsertCase(payload, { create: isNew });
     },
 
 
@@ -333,7 +333,7 @@ export function CaseEditorPage() {
                 <AccordionDetails>
                   <TextField fullWidth label="Заголовок" sx={{ mb: 2 }} value={getCJ('typography.title', 'Типографика')} onChange={(e) => setCJ('typography.title', e.target.value)} />
                   <TextField fullWidth label="Шрифт" sx={{ mb: 2 }} value={getCJ('typography.fontFamily', '')} onChange={(e) => setCJ('typography.fontFamily', e.target.value)} placeholder="Montserrat" />
-                  <TextField fullWidth label="Размеры шрифтов (через запятую)" sx={{ mb: 2 }} value={(getCJ('typography.fontSizes', []) as string[]).join(', ')} onChange={(e) => setCJ('typography.fontSizes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
+                  <TextField fullWidth label="Размеры шрифтов (через запятую)" sx={{ mb: 2 }} value={((getCJ('typography.fontSizes', []) as string[]) || []).join(', ')} onChange={(e) => setCJ('typography.fontSizes', e.target.value.split(',').map(s => s.trim()))} />
                   <ImageUploader label="Изображение типографики" path="typography.image" />
                 </AccordionDetails>
               </Accordion>
@@ -476,12 +476,13 @@ export function CaseEditorPage() {
                 </AccordionDetails>
               </Accordion>
 
-              <Accordion>
+              <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="h6">Colors Section</Typography>
+                  <Typography variant="h6">Colors Section (индивидуально для каждого кейса)</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <ImageUploader label="Изображение цветовой схемы" path="colors.image" />
+                  <TextField fullWidth label="Палитра цветов (hex через запятую)" placeholder="#000000, #ffffff, #fd9c12" sx={{ mt: 2 }} value={((getCJ('colors.palette', []) as { color?: string }[]) || []).map((x: any) => (typeof x === 'string' ? x : x?.color || '')).join(', ')} onChange={(e) => setCJ('colors.palette', e.target.value.split(',').map(s => s.trim()).map(color => ({ color: color ? (color.startsWith('#') ? color : '#' + color) : '' })))} helperText="Без палитры блок цветов на странице кейса не показывается" />
                 </AccordionDetails>
               </Accordion>
             </Box>
@@ -529,7 +530,7 @@ export function CaseEditorPage() {
           {activeTab === 3 && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Инструменты (теги)</Typography>
-              <TextField fullWidth placeholder="React, TypeScript (через запятую)" value={(tools || []).join(', ')} onChange={(e) => setTools(e.target.value.split(',').map(s => s.trim()).filter(Boolean))} sx={{ mb: 3 }} />
+              <TextField fullWidth placeholder="React, TypeScript (через запятую)" value={(tools || []).join(', ')} onChange={(e) => setTools(e.target.value.split(',').map(s => s.trim()))} sx={{ mb: 3 }} />
               <Typography variant="h6" sx={{ mb: 2 }}>KPI</Typography>
               {metricsPairs.map(([k, v]) => (
                 <Box key={k} sx={{ display: 'flex', gap: 1, mb: 1 }}>

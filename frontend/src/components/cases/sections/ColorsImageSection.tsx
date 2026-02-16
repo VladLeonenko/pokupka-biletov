@@ -15,19 +15,19 @@ export function ColorsImageSection() {
 
   const colorsImage = caseData?.contentJson?.colors?.image;
 
-  if (!colorsImage) {
-    return null;
-  }
-
   return (
     <section className={styles.colors}>
       <div className={styles['colors-container']}>
         <h2 className={styles['colors-title']}>Цветовая схема</h2>
-        <img
-          src={resolveImageUrl(colorsImage)}
-          alt="Цветовая схема проекта"
-          className={styles['colors-image']}
-        />
+        {colorsImage ? (
+          <img
+            src={resolveImageUrl(colorsImage)}
+            alt="Цветовая схема проекта"
+            className={styles['colors-image']}
+          />
+        ) : (
+          <p className={styles['colors-placeholder']}>Загрузите изображение цветовой схемы в редакторе кейса (вкладка Madeo Template → Colors Section)</p>
+        )}
       </div>
     </section>
   );

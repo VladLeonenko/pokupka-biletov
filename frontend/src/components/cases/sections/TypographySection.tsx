@@ -18,11 +18,7 @@ export function TypographySection() {
   const description = typography.description || 
     'Прямой штрих с открытыми формами и нейтральной, но дружественной внешностью.';
 
-  const colorsData = caseData?.contentJson?.colors?.palette || [
-    { color: '#000000' },
-    { color: '#FFFFFF' },
-    { color: '#FD9C12' },
-  ];
+  const colorsData = (caseData?.contentJson?.colors?.palette || []).filter((x: any) => x?.color);
 
   const opacityLevels = [0.05, 0.1, 0.2, 0.4, 0.6, 1];
 
@@ -82,6 +78,7 @@ export function TypographySection() {
           </div>
         </div>
 
+        {colorsData.length > 0 && (
         <div className={styles.colorPalette}>
           {colorsData.map((colorItem: any, colIndex: number) => (
             <div key={colIndex} className={styles.colorColumn}>
@@ -95,6 +92,7 @@ export function TypographySection() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </section>
   );

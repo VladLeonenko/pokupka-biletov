@@ -28,22 +28,26 @@ function validateAllocations(allocations) {
 // GET /api/charity-preferences — пожелания текущего пользователя
 router.get('/', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const r = await pool.query(
       'SELECT allocations FROM user_charity_preferences WHERE user_id = $1',
       [userId]
     );
-    const allocations = r.rows[0]?.allocations || [];
+    const raw = r.rows[0]?.allocations;
+    const allocations = Array.isArray(raw) ? raw : [];
     res.json({ allocations });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[charity-preferences] GET error:', e.message);
+    res.status(500).json({ error: 'Не удалось загрузить настройки. Попробуйте позже.' });
   }
 });
 
 // PUT /api/charity-preferences
 router.put('/', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const { allocations } = req.body || {};
     const validated = validateAllocations(allocations);
     if (validated === null) {
@@ -56,7 +60,8 @@ router.put('/', async (req, res) => {
     `, [userId, JSON.stringify(validated)]);
     res.json({ allocations: validated });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[charity-preferences] PUT error:', e.message);
+    res.status(500).json({ error: 'Не удалось сохранить. Проверьте, что миграция 054_charity_preferences применена.' });
   }
 });
 

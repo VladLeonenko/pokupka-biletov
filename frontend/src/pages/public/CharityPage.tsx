@@ -24,7 +24,7 @@ const funds = [
 const stats = [
   { val: '10%', label: 'от каждого проекта' },
   { val: '9', label: 'фондов' },
-  { val: '2017', label: 'начали помогать' },
+  { val: '2026', label: 'начали помогать' },
 ];
 
 export function CharityPage() {
@@ -91,7 +91,7 @@ export function CharityPage() {
 
           <Box data-anim="fade-up" sx={{ textAlign: 'center' }}>
             <Typography sx={{ color: 'rgba(255,255,255,0.55)', mb: 2 }}>
-              Компания PrimeCoder с 2017 года направляет часть выручки в благотворительные фонды. Спасибо, что помогаете вместе с нами.
+              Компания PrimeCoder занимается благотворительностью с 2026 года — направляем часть выручки в благотворительные фонды. Спасибо, что помогаете вместе с нами.
             </Typography>
             <Button component="a" href="/new-client" variant="contained" sx={{ bgcolor: '#ffbb00', color: '#141414', fontWeight: 700, px: 4, py: 1.5, borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#e5a800', color: '#141414' } }}>
               Стать клиентом

@@ -21,6 +21,9 @@ export function usePageAnimations(pathname: string) {
     const stagger = isMobile ? 0.03 : 0.07;
     const yFrom = isMobile ? 20 : 40;
 
+    const startFade = isMobile ? 'top 95%' : 'top 88%';
+    const startStagger = isMobile ? 'top 92%' : 'top 82%';
+
     const timer = setTimeout(() => {
       gsap.utils.toArray<HTMLElement>('[data-anim="fade-up"]').forEach((el) => {
         if (el.dataset.animated === '1') return;
@@ -33,7 +36,7 @@ export function usePageAnimations(pathname: string) {
             opacity: 1,
             duration,
             ease: 'power3.out',
-            scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' },
+            scrollTrigger: { trigger: el, start: startFade, toggleActions: 'play none none none' },
           },
         );
       });
@@ -52,7 +55,7 @@ export function usePageAnimations(pathname: string) {
             duration: isMobile ? 0.35 : 0.5,
             stagger,
             ease: 'power2.out',
-            scrollTrigger: { trigger: parent, start: 'top 82%', toggleActions: 'play none none none' },
+            scrollTrigger: { trigger: parent, start: startStagger, toggleActions: 'play none none none' },
           },
         );
       });
