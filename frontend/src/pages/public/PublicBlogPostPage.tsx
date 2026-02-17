@@ -106,10 +106,10 @@ export function PublicBlogPostPage() {
                 sx={{
                   width: '100%',
                   maxWidth: '100%',
-                  maxHeight: '100%',
+                  maxHeight: '70vh',
                   display: 'block',
-                  height: 'auto',
-                  borderRadius: 2,
+                  objectFit: 'contain',
+                  borderRadius: 3,
                   mb: 4,
                 }}
                 data-scroll-child
