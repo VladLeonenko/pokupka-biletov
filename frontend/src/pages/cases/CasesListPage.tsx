@@ -147,16 +147,17 @@ export function CasesListPage() {
           <Button variant="contained" onClick={() => navigate('/admin/cases/new')}>Добавить кейс</Button>
         </Box>
       </Box>
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'visible' }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Порядок на главной</Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
-          {availableToAdd.length > 0 && (
+          {availableToAdd.length > 0 ? (
             <FormControl size="small" sx={{ minWidth: 220 }}>
               <InputLabel>Добавить кейс</InputLabel>
               <Select
                 label="Добавить кейс"
                 value=""
                 onChange={(e) => { const v = e.target.value; if (v) addToHome(v); }}
+                MenuProps={{ disablePortal: false }}
               >
                 <MenuItem value="">— выбрать —</MenuItem>
                 {availableToAdd.map((slug) => {
@@ -165,6 +166,8 @@ export function CasesListPage() {
                 })}
               </Select>
             </FormControl>
+          ) : (
+            <Typography variant="body2" color="text.secondary">Опубликуйте кейсы (кнопка «Опубликовать»), чтобы добавить их на главную.</Typography>
           )}
           {homeOrderDirty && (
             <Button
@@ -184,14 +187,21 @@ export function CasesListPage() {
             {homeOrderSlugs.map((slug, idx) => {
               const c = cases.find((x) => x.slug === slug);
               return (
-                <ListItem key={slug} disablePadding sx={{ py: 0.5 }} secondaryAction={
-                  <Box sx={{ display: 'flex', gap: 0 }}>
-                    <IconButton size="small" onClick={() => moveHome(idx, -1)} disabled={idx === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" onClick={() => moveHome(idx, 1)} disabled={idx === homeOrderSlugs.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" onClick={() => removeFromHome(slug)}><RemoveIcon fontSize="small" /></IconButton>
-                  </Box>
-                }>
-                  <ListItemText primary={`${idx + 1}. ${c?.title || slug}`} secondary={slug} />
+                <ListItem
+                  key={slug}
+                  disablePadding
+                  sx={{ py: 0.5 }}
+                  secondaryAction={
+                    <Box sx={{ display: 'flex', gap: 0 }} onClick={(e) => e.stopPropagation()}>
+                      <IconButton size="small" onClick={() => moveHome(idx, -1)} disabled={idx === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" onClick={() => moveHome(idx, 1)} disabled={idx === homeOrderSlugs.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" onClick={() => removeFromHome(slug)}><RemoveIcon fontSize="small" /></IconButton>
+                    </Box>
+                  }
+                >
+                  <ListItemButton onClick={() => navigate(`/admin/cases/${encodeURIComponent(slug)}`)}>
+                    <ListItemText primary={`${idx + 1}. ${c?.title || slug}`} secondary={slug} />
+                  </ListItemButton>
                 </ListItem>
               );
             })}

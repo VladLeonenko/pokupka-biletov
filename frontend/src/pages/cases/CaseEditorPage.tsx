@@ -50,7 +50,7 @@ export function CaseEditorPage() {
   const [heroImageUrl, setHeroImageUrl] = useState('');
   const [contentHtml, setContentHtml] = useState('');
   const [htmlMode, setHtmlMode] = useState(false);
-  const [metrics, setMetrics] = useState<Record<string, number>>({});
+  const [metrics, setMetrics] = useState<Record<string, string | number>>({});
   const [tools, setTools] = useState<string[]>([]);
   const [gallery, setGallery] = useState<(string | { url: string; alt?: string })[]>([]);
   const [isPublished, setIsPublished] = useState(false);
@@ -157,6 +157,8 @@ export function CaseEditorPage() {
         navigate('/admin/cases');
       } else {
         await queryClient.invalidateQueries({ queryKey: ['case', id] });
+        // Инвалидируем публичный кейс — иначе фронт показывает старые данные (performance.metrics, results и т.д.)
+        await queryClient.invalidateQueries({ queryKey: ['publicCase', id] });
         setTimeout(() => { isSavingRef.current = false; }, 500);
       }
       if (isNew) isSavingRef.current = false;
@@ -573,14 +575,14 @@ export function CaseEditorPage() {
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Инструменты (теги)</Typography>
               <TextField fullWidth placeholder="React, TypeScript (через запятую)" value={(tools || []).join(', ')} onChange={(e) => setTools(e.target.value.split(',').map(s => s.trim()))} sx={{ mb: 3 }} />
-              <Typography variant="h6" sx={{ mb: 2 }}>KPI</Typography>
-              {metricsPairs.map(([k, v]) => (
-                <Box key={k} sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                  <TextField size="small" label="Ключ" value={k} onChange={(e) => { const next = { ...metrics } as any; delete next[k]; next[e.target.value] = v; setMetrics(next); }} />
-                  <TextField size="small" label="Значение" type="number" value={v} onChange={(e) => { const next = { ...metrics } as any; next[k] = Number(e.target.value); setMetrics(next); }} />
+              <Typography variant="h6" sx={{ mb: 2 }}>KPI (ключ → значение, любое)</Typography>
+              {metricsPairs.map(([k, v], idx) => (
+                <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <TextField size="small" label="Ключ" value={k} onChange={(e) => { const next = { ...metrics } as any; delete next[k]; const newKey = e.target.value; if (newKey !== '') next[newKey] = v; setMetrics(next); }} placeholder="days" />
+                  <TextField size="small" label="Значение" value={String(v)} onChange={(e) => { const next = { ...metrics } as any; next[k] = e.target.value; setMetrics(next); }} placeholder="37 или 75+" />
                 </Box>
               ))}
-              <Button size="small" onClick={() => setMetrics({ ...metrics, [`kpi_${metricsPairs.length+1}`]: 0 })}>+ KPI</Button>
+              <Button size="small" onClick={() => setMetrics({ ...metrics, [`kpi_${metricsPairs.length+1}`]: '' })}>+ KPI</Button>
             </Paper>
           )}
           {activeTab === 4 && (
