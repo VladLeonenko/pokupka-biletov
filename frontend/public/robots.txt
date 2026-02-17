@@ -1,10 +1,15 @@
 # robots.txt — prime-coder.ru
-# Обновлён: 2026-02-10
+# Обновлён: 2026-02-16
 
 User-agent: *
 Allow: /
 
-# ИИ-краулеры: разрешаем индексацию для Perplexity, ChatGPT, Claude и др.
+# ИИ-поиск: разрешаем Perplexity, ChatGPT, Claude, Gemini (Google-Extended) и др.
+User-agent: Google-Extended
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
 User-agent: PerplexityBot
 Allow: /
 Allow: /llms.txt
@@ -72,18 +77,16 @@ Allow: /.well-known/llms.txt
 # Карта сайта (динамическая)
 Sitemap: https://prime-coder.ru/sitemap.xml
 
-# Контекст для ИИ (Perplexity, ChatGPT, Claude)
-# https://llmstxt.org
+# Контекст для ИИ: llmstxt.org, /llms.txt, /llms-full.txt
 
 # Google (Crawl-delay не поддерживается, пропускается)
 User-agent: Googlebot
 Allow: /
 
-# Yandex (Host и Crawl-delay — только для Яндекса, Bing их не понимает)
+# Yandex — Host только для Яндекса (Google/Bing не используют эту директиву)
 User-agent: Yandex
 Allow: /
-Crawl-delay: 1
-Host: prime-coder.ru
+Host: https://prime-coder.ru
 
 # Индексация изображений
 User-agent: Googlebot-Image

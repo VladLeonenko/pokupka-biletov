@@ -193,7 +193,8 @@ ${urls.map(url => `  <url>
   </url>`).join('\n')}
 </urlset>`;
 
-    res.set('Content-Type', 'application/xml');
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600');
     res.send(xml);
   } catch (error) {
     console.error('[sitemap] Error generating sitemap:', error);
