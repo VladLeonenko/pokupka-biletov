@@ -99,7 +99,21 @@ export function PublicBlogPostPage() {
         <ScrollSection visibleOnLoad>
           <Container maxWidth="lg">
             {postData.coverImageUrl && (
-              <Box component="img" src={postData.coverImageUrl} alt={postData.title} sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 3, mb: 4 }} data-scroll-child />
+              <Box
+                component="img"
+                src={postData.coverImageUrl}
+                alt={postData.title}
+                sx={{
+                  width: '100%',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  display: 'block',
+                  height: 'auto',
+                  borderRadius: 2,
+                  mb: 4,
+                }}
+                data-scroll-child
+              />
             )}
             <Box data-scroll-child>
               {postData.date && <Typography variant="overline" sx={{ letterSpacing: '0.2em', color: '#ffbb00' }}>{postData.date}</Typography>}
