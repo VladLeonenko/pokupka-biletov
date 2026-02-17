@@ -108,10 +108,21 @@ export async function getPublicProduct(slug: string): Promise<any> {
   return await res.json();
 }
 
+const FETCH_TIMEOUT_MS = 15000;
+
 export async function listPublicCases(): Promise<any[]> {
-  const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases?published=true`);
-  if (!res.ok) throw new Error('Failed to fetch cases');
-  return await res.json();
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases?published=true`, { signal: ctrl.signal });
+    clearTimeout(to);
+    if (!res.ok) throw new Error('Failed to fetch cases');
+    return await res.json();
+  } catch (e: any) {
+    clearTimeout(to);
+    if (e?.name === 'AbortError') throw new Error('Таймаут загрузки кейсов (15 сек)');
+    throw e;
+  }
 }
 
 export async function listHomeCases(): Promise<Array<{ id: string; slug: string; title: string; year: string; type: string; image: string; link: string }>> {

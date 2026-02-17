@@ -19,7 +19,12 @@ import { fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { SafeImage } from '@/components/common/SafeImage';
 
 export function CasesListPage() {
-  const { data: cases = [] } = useQuery({ queryKey: ['cases'], queryFn: listCases });
+  const { data: cases = [], isLoading, isError, error } = useQuery({
+    queryKey: ['cases'],
+    queryFn: listCases,
+    retry: 1,
+    staleTime: 30000,
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -69,7 +74,12 @@ export function CasesListPage() {
     },
   });
 
-  const { data: homeCases = [] } = useQuery({ queryKey: ['homeCases'], queryFn: listHomeCases });
+  const { data: homeCases = [] } = useQuery({
+    queryKey: ['homeCases'],
+    queryFn: listHomeCases,
+    retry: 1,
+    staleTime: 30000,
+  });
   const [homeOrderSlugs, setHomeOrderSlugs] = useState<string[]>([]);
   const [homeOrderDirty, setHomeOrderDirty] = useState(false);
 
@@ -112,6 +122,26 @@ export function CasesListPage() {
 
   const publishedSlugs = new Set(regularCases.filter((c) => c.isPublished).map((c) => c.slug));
   const availableToAdd = [...publishedSlugs].filter((s) => !homeOrderSlugs.includes(s));
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <Typography color="text.secondary">Загрузка кейсов…</Typography>
+      </Box>
+    );
+  }
+  if (isError) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography color="error" gutterBottom>
+          Не удалось загрузить кейсы: {(error as Error)?.message || 'Ошибка сети'}
+        </Typography>
+        <Button variant="contained" onClick={() => queryClient.invalidateQueries({ queryKey: ['cases'] })}>
+          Повторить
+        </Button>
+      </Box>
+    );
+  }
   
   return (
     <Box>

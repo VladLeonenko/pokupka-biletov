@@ -45,7 +45,12 @@ export function PortfolioPage() {
   const trackRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
 
-  const { data: cases = [], isLoading } = useQuery({ queryKey: ['publicCases'], queryFn: listPublicCases });
+  const { data: cases = [], isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['publicCases'],
+    queryFn: listPublicCases,
+    retry: 1,
+    staleTime: 60000,
+  });
   const filtered = useMemo(() => {
     const f = cat === 'all' ? cases : cases.filter((c: any) => getCat(c) === cat);
     return f;
@@ -74,6 +79,26 @@ export function PortfolioPage() {
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 20 }}><CircularProgress sx={{ color: '#ffbb00' }} /></Box>;
+  }
+  if (isError) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 20 }}>
+        <Typography sx={{ color: 'rgba(255,255,255,0.6)', mb: 2 }}>
+          Не удалось загрузить кейсы: {(error as Error)?.message || 'Ошибка'}
+        </Typography>
+        <Box
+          component="button"
+          onClick={() => refetch()}
+          sx={{
+            bgcolor: '#ffbb00', color: '#141414', fontWeight: 600,
+            px: 3, py: 1.5, borderRadius: 2, border: 'none', cursor: 'pointer',
+            '&:hover': { bgcolor: '#e5a800' },
+          }}
+        >
+          Повторить
+        </Box>
+      </Box>
+    );
   }
 
   const VISIBLE = 3; // cards visible at once on desktop

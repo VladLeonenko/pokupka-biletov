@@ -86,7 +86,8 @@ async function generateSeoTags(url) {
         const title = caseData.seoTitle || caseData.title || 'Кейс';
         const description = caseData.seoDescription || caseData.summary || '';
         const ogImage = caseData.ogImageUrl || caseData.heroImageUrl || '';
-        const canonical = `https://prime-coder.ru/cases/${slug}`;
+        const base = process.env.SITE_URL || 'https://prime-coder.ru';
+        const canonical = `${base}/cases/${slug}`;
 
         metaTags = `
     <title>${escapeHtml(title)}</title>
@@ -96,12 +97,12 @@ async function generateSeoTags(url) {
     <meta property="og:url" content="${canonical}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta property="og:image" content="https://prime-coder.ru${ogImage}" />` : ''}
+        ${ogImage ? `<meta property="og:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}
     <meta property="og:site_name" content="Primecoder" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta name="twitter:image" content="https://prime-coder.ru${ogImage}" />` : ''}`;
+    ${ogImage ? `<meta name="twitter:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}`;
       }
     }
     
@@ -111,10 +112,11 @@ async function generateSeoTags(url) {
       const postData = await getBlogPostData(slug);
       
       if (postData) {
-        const title = postData.seoTitle || postData.title || 'Статья';
-        const description = postData.seoDescription || postData.excerpt || '';
-        const ogImage = postData.ogImageUrl || postData.imageUrl || '';
-        const canonical = `https://prime-coder.ru/blog/${slug}`;
+        const title = postData.seo_title || postData.seoTitle || postData.title || 'Статья';
+        const description = postData.seo_description || postData.seoDescription || postData.excerpt || '';
+        const ogImage = postData.og_image_url || postData.ogImageUrl || postData.cover_image_url || postData.coverImageUrl || postData.imageUrl || '';
+        const base = process.env.SITE_URL || 'https://prime-coder.ru';
+        const canonical = `${base}/blog/${slug}`;
 
         metaTags = `
     <title>${escapeHtml(title)}</title>
@@ -124,12 +126,12 @@ async function generateSeoTags(url) {
     <meta property="og:url" content="${canonical}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta property="og:image" content="https://prime-coder.ru${ogImage}" />` : ''}
+    ${ogImage ? `<meta property="og:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}
     <meta property="og:site_name" content="Primecoder" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta name="twitter:image" content="https://prime-coder.ru${ogImage}" />` : ''}`;
+    ${ogImage ? `<meta name="twitter:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}`;
       }
     }
   } catch (err) {
@@ -139,9 +141,11 @@ async function generateSeoTags(url) {
   return metaTags;
 }
 
+const API_BASE = process.env.API_INTERNAL_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
+
 async function getCaseData(slug) {
   try {
-    const response = await fetch(`http://localhost:4000/api/public/cases/${slug}`);
+    const response = await fetch(`${API_BASE}/api/public/cases/${slug}`);
     if (!response.ok) return null;
     return await response.json();
   } catch (err) {
@@ -152,7 +156,7 @@ async function getCaseData(slug) {
 
 async function getBlogPostData(slug) {
   try {
-    const response = await fetch(`http://localhost:4000/api/public/blog/${slug}`);
+    const response = await fetch(`${API_BASE}/api/public/blog/${slug}`);
     if (!response.ok) return null;
     return await response.json();
   } catch (err) {

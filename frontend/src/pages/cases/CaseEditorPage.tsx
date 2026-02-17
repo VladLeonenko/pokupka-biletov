@@ -94,6 +94,10 @@ export function CaseEditorPage() {
         setIsPublished(false);
         setContentJson(caseData.contentJson || {});
         setCategory((caseData as any).category || '');
+        setSeoTitle((caseData as any).seoTitle || '');
+        setSeoDescription((caseData as any).seoDescription || '');
+        setSeoKeywords((caseData as any).seoKeywords || '');
+        setOgImageUrl((caseData as any).ogImageUrl || '');
       } else if (data) {
         setSlug(data.slug);
         setTitle(data.title);

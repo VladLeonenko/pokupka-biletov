@@ -47,14 +47,23 @@ router.get('/', async (req, res) => {
   
   let query = 'SELECT * FROM cases';
   if (publishedOnly) {
-    query += ' WHERE is_published = TRUE';
-    // Сначала кейсы с home_order (как на главной), затем остальные
-    query += ' ORDER BY home_order ASC NULLS LAST, created_at DESC';
+    query += ' WHERE is_published = TRUE ORDER BY home_order ASC NULLS LAST, created_at DESC';
   } else {
     query += ' ORDER BY created_at DESC';
   }
   
-  const r = await pool.query(query);
+  let r;
+  try {
+    r = await pool.query(query);
+  } catch (err) {
+    if (err.message && err.message.includes('home_order')) {
+      r = await pool.query(publishedOnly
+        ? 'SELECT * FROM cases WHERE is_published = TRUE ORDER BY created_at DESC'
+        : 'SELECT * FROM cases ORDER BY created_at DESC');
+    } else {
+      throw err;
+    }
+  }
   res.json(r.rows.map(rowToCase));
 });
 

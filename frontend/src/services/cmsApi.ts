@@ -749,25 +749,36 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   return res.json();
 }
 
+const FETCH_TIMEOUT_MS = 15000;
+
 // Cases API
 export async function listCases(): Promise<CaseItem[]> {
-  const res = await doFetch(`${getApiBaseUrl()}/api/cases`);
-  if (!res.ok) throw new Error('Failed to fetch cases');
-  const data = await res.json();
-  return data.map((r: any) => ({
-    slug: r.slug,
-    title: r.title,
-    summary: r.summary || '',
-    contentHtml: r.contentHtml || r.content_html || '',
-    heroImageUrl: r.heroImageUrl || r.hero_image_url || '',
-    gallery: Array.isArray(r.gallery) ? r.gallery : [],
-    metrics: r.metrics || {},
-    tools: Array.isArray(r.tools) ? r.tools : [],
-    templateType: r.templateType || r.template_type,
-    isTemplate: r.isTemplate || r.is_template || false,
-    contentJson: r.contentJson || r.content_json || {},
-    isPublished: r.isPublished ?? !!r.is_published,
-  }));
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await doFetch(`${getApiBaseUrl()}/api/cases`, { signal: ctrl.signal });
+    clearTimeout(to);
+    if (!res.ok) throw new Error('Failed to fetch cases');
+    const data = await res.json();
+    return data.map((r: any) => ({
+      slug: r.slug,
+      title: r.title,
+      summary: r.summary || '',
+      contentHtml: r.contentHtml || r.content_html || '',
+      heroImageUrl: r.heroImageUrl || r.hero_image_url || '',
+      gallery: Array.isArray(r.gallery) ? r.gallery : [],
+      metrics: r.metrics || {},
+      tools: Array.isArray(r.tools) ? r.tools : [],
+      templateType: r.templateType || r.template_type,
+      isTemplate: r.isTemplate || r.is_template || false,
+      contentJson: r.contentJson || r.content_json || {},
+      isPublished: r.isPublished ?? !!r.is_published,
+    }));
+  } catch (e: any) {
+    clearTimeout(to);
+    if (e?.name === 'AbortError') throw new Error('Таймаут загрузки кейсов (15 сек)');
+    throw e;
+  }
 }
 export async function getCase(slug: string): Promise<CaseItem | undefined> {
   const res = await doFetch(`${getApiBaseUrl()}/api/cases/${encodeURIComponent(slug)}`);
@@ -787,6 +798,11 @@ export async function getCase(slug: string): Promise<CaseItem | undefined> {
     tools: Array.isArray(r.tools) ? r.tools : [],
     contentJson: r.contentJson || r.content_json || {},
     isPublished: r.isPublished ?? !!r.is_published,
+    category: r.category ?? null,
+    seoTitle: r.seoTitle ?? r.seo_title ?? '',
+    seoDescription: r.seoDescription ?? r.seo_description ?? '',
+    seoKeywords: r.seoKeywords ?? r.seo_keywords ?? '',
+    ogImageUrl: r.ogImageUrl ?? r.og_image_url ?? '',
   };
 }
 export async function setCasePublished(slug: string, isPublished: boolean): Promise<void> {

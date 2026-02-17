@@ -6,6 +6,7 @@ import { getPublicCase } from '@/services/publicApi';
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
 import { useCursor } from '@/hooks/useCursor';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import { resolveImageUrl } from '@/utils/resolveImageUrl';
 
 // Новые секции по дизайну Figma
 import {
@@ -80,14 +81,20 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
   const show = (key: string) => sections[key] !== false;
   const showColorsAndTypography = ['website', 'mobile', 'design'].includes(category);
 
+  const seoTitle = (caseData as any).seoTitle || (caseData.title ? `${caseData.title} — кейс | PrimeCoder` : 'Кейсы разработки сайтов | PrimeCoder');
+  const seoDescription = (caseData as any).seoDescription || caseData.summary || 'Реальный кейс разработки сайта. Дизайн, вёрстка, интеграции. Смотрите процесс и результат работы PrimeCoder.';
+  const seoKeywords = (caseData as any).seoKeywords || (caseData.title ? `кейс ${caseData.title}, разработка сайта` : 'кейсы веб-разработки, портфолио PrimeCoder');
+  const ogImage = (caseData as any).ogImageUrl || caseData.heroImageUrl;
+  const ogImageUrl = ogImage ? resolveImageUrl(ogImage) : undefined;
+
   return (
     <>
       <SeoMetaTags
-        title={caseData.title ? `${caseData.title} — кейс | PrimeCoder` : 'Кейсы разработки сайтов | PrimeCoder'}
-        description={caseData.summary || 'Реальный кейс разработки сайта. Дизайн, вёрстка, интеграции. Смотрите процесс и результат работы PrimeCoder.'}
-        keywords={caseData.title ? `кейс ${caseData.title}, разработка сайта` : 'кейсы веб-разработки, портфолио PrimeCoder'}
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
         url={currentUrl}
-        image={caseData.heroImageUrl}
+        image={ogImageUrl}
       />
       <HeaderFooterInjector />
 
