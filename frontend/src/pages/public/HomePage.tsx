@@ -1,19 +1,23 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listPublicBlogHighlights } from '@/services/publicApi';
 import { Box } from '@mui/material';
 import { DeferredParticleSphere } from '@/components/home/DeferredParticleSphere';
 import { HeroSection } from '@/components/home/HeroSection';
 import { ServicesSection } from '@/components/home/ServicesSection';
-import { CasesSection } from '@/components/home/CasesSection';
-import { NewClientSection } from '@/components/home/NewClientSection';
-import { AboutUsSection } from '@/components/home/AboutUsSection';
-import { ReviewsSection } from '@/components/home/ReviewsSection';
-import { BlogCarousel } from '@/components/public/BlogCarousel';
 import { QuizForm } from '@/components/home/QuizForm';
-import { AdvantagesModern } from '@/components/public/AdvantagesModern';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { ScrollSection, useScrollReveal } from '@/components/home/ScrollAnimations';
+
+// Ниже-the-fold секции — lazy load, не блокируют LCP
+const CasesSection = lazy(() => import('@/components/home/CasesSection').then(m => ({ default: m.CasesSection })));
+const NewClientSection = lazy(() => import('@/components/home/NewClientSection').then(m => ({ default: m.NewClientSection })));
+const AboutUsSection = lazy(() => import('@/components/home/AboutUsSection').then(m => ({ default: m.AboutUsSection })));
+const ReviewsSection = lazy(() => import('@/components/home/ReviewsSection').then(m => ({ default: m.ReviewsSection })));
+const BlogCarousel = lazy(() => import('@/components/public/BlogCarousel').then(m => ({ default: m.BlogCarousel })));
+const AdvantagesModern = lazy(() => import('@/components/public/AdvantagesModern').then(m => ({ default: m.AdvantagesModern })));
+
+const SectionFallback = () => <Box sx={{ minHeight: 320 }} />;
 
 export function HomePage() {
   const mainRef = useRef<HTMLDivElement>(null);
@@ -61,29 +65,41 @@ export function HomePage() {
 
         {/* Cases — оставляем как есть */}
         <ScrollSection>
-          <CasesSection />
+          <Suspense fallback={<SectionFallback />}>
+            <CasesSection />
+          </Suspense>
         </ScrollSection>
 
         <ScrollSection>
-          <AdvantagesModern />
+          <Suspense fallback={<SectionFallback />}>
+            <AdvantagesModern />
+          </Suspense>
         </ScrollSection>
 
         <ScrollSection>
-          <NewClientSection />
+          <Suspense fallback={<SectionFallback />}>
+            <NewClientSection />
+          </Suspense>
         </ScrollSection>
 
         <ScrollSection>
-          <AboutUsSection />
+          <Suspense fallback={<SectionFallback />}>
+            <AboutUsSection />
+          </Suspense>
         </ScrollSection>
 
         <ScrollSection>
-          <ReviewsSection />
+          <Suspense fallback={<SectionFallback />}>
+            <ReviewsSection />
+          </Suspense>
         </ScrollSection>
 
         {normalizedPosts.length > 0 && (
           <ScrollSection>
             <Box component="section" sx={{ pb: 4 }}>
-              <BlogCarousel posts={normalizedPosts} />
+              <Suspense fallback={<SectionFallback />}>
+                <BlogCarousel posts={normalizedPosts} />
+              </Suspense>
             </Box>
           </ScrollSection>
         )}

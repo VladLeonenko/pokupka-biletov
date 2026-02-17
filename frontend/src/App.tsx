@@ -1,9 +1,10 @@
+import { lazy, Suspense } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AppRoutes } from '@/routes/AppRoutes';
 import { ToastProvider } from '@/components/common/ToastProvider';
 import { ThemeModeProvider } from '@/theme/ThemeModeProvider';
-import { ChatWidget } from '@/components/chat/ChatWidget';
-import { AIChatWidget } from '@/components/ai/AIChatWidget';
+const ChatWidget = lazy(() => import('@/components/chat/ChatWidget').then(m => ({ default: m.ChatWidget })));
+const AIChatWidget = lazy(() => import('@/components/ai/AIChatWidget').then(m => ({ default: m.AIChatWidget })));
 import { CookieConsentProvider } from '@/components/privacy/CookieConsentProvider';
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
 import { Header } from '@/components/public/Header';
@@ -106,10 +107,11 @@ export default function App() {
             <Footer />
             {/* HeaderFooterInjector для legacy HTML страниц (PublicPageView) */}
             <HeaderFooterInjector />
-            {/* ChatWidget на всех публичных страницах */}
-            <ChatWidget />
-            {/* AI Chat Widget на всех публичных страницах */}
-            <AIChatWidget />
+            {/* Виджеты чата — lazy load, не блокируют первый рендер */}
+            <Suspense fallback={null}>
+              <ChatWidget />
+              <AIChatWidget />
+            </Suspense>
             {/* Cookie Consent Modal */}
             <CookieConsentProvider />
           </>

@@ -11,6 +11,7 @@ import { BlogBlockEditor } from '@/components/blog-editor/BlogBlockEditor';
 import { BlogBlock } from '@/types/blogBlocks';
 import { useToast } from '@/components/common/ToastProvider';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
+import { BlogPostStyles } from '@/components/blog/BlogPostStyles';
 
 export function BlogBlockEditorPage() {
   const { id = '' } = useParams();
@@ -140,6 +141,7 @@ export function BlogBlockEditorPage() {
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
+      <BlogPostStyles />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Typography variant="h5">{isNew ? 'Новая статья' : 'Редактирование статьи'}</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>

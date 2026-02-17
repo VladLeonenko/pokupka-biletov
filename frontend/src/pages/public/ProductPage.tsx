@@ -412,7 +412,8 @@ export function ProductPage() {
                 component="img"
                 src={resolveImageUrl(product.imageUrl)}
                 alt={product.title}
-                loading="lazy"
+                loading="eager"
+                fetchPriority="high"
                 sx={{
                   width: '100%',
                   height: '100%',

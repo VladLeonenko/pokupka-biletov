@@ -1,11 +1,19 @@
-import { useState, useEffect } from 'react';
-import { ParticleSphere } from './ParticleSphere';
+import { useState, useEffect, lazy, Suspense } from 'react';
+
+// Dynamic import — Three.js (~180KB) загружается только когда сфера нужна, не блокирует первый рендер
+const ParticleSphere = lazy(() =>
+  import('./ParticleSphere').then((m) => ({ default: m.ParticleSphere }))
+);
+
+interface ParticleSphereProps {
+  labelsFromSelector?: string;
+}
 
 /**
  * Рендерит ParticleSphere после первого paint — улучшает LCP на мобильных.
- * Three.js + GSAP не блокируют отрисовку Hero и контента.
+ * Three.js загружается динамически, не входит в main bundle.
  */
-export function DeferredParticleSphere(props: React.ComponentProps<typeof ParticleSphere>) {
+export function DeferredParticleSphere(props: ParticleSphereProps) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -27,5 +35,9 @@ export function DeferredParticleSphere(props: React.ComponentProps<typeof Partic
   }, []);
 
   if (!ready) return null;
-  return <ParticleSphere {...props} />;
+  return (
+    <Suspense fallback={null}>
+      <ParticleSphere {...props} />
+    </Suspense>
+  );
 }

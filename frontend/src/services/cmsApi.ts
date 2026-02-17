@@ -749,7 +749,7 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   return res.json();
 }
 
-const FETCH_TIMEOUT_MS = 15000;
+const FETCH_TIMEOUT_MS = 45000;
 
 // Cases API
 export async function listCases(): Promise<CaseItem[]> {
@@ -776,7 +776,7 @@ export async function listCases(): Promise<CaseItem[]> {
     }));
   } catch (e: any) {
     clearTimeout(to);
-    if (e?.name === 'AbortError') throw new Error('Таймаут загрузки кейсов (15 сек)');
+    if (e?.name === 'AbortError') throw new Error('Таймаут загрузки кейсов (45 сек)');
     throw e;
   }
 }

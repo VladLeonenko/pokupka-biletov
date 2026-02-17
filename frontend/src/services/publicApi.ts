@@ -108,19 +108,21 @@ export async function getPublicProduct(slug: string): Promise<any> {
   return await res.json();
 }
 
-const FETCH_TIMEOUT_MS = 15000;
+const FETCH_TIMEOUT_MS = 45000;
 
 export async function listPublicCases(): Promise<any[]> {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await publicFetch(`${getApiBaseUrl()}/api/public/cases?published=true`, { signal: ctrl.signal });
+    const url = `${getApiBaseUrl()}/api/public/cases?published=true`;
+    const res = await publicFetch(url, { signal: ctrl.signal });
     clearTimeout(to);
-    if (!res.ok) throw new Error('Failed to fetch cases');
+    if (!res.ok) throw new Error(`Ошибка ${res.status}: ${res.statusText}`);
     return await res.json();
   } catch (e: any) {
     clearTimeout(to);
-    if (e?.name === 'AbortError') throw new Error('Таймаут загрузки кейсов (15 сек)');
+    if (e?.name === 'AbortError') throw new Error('Таймаут загрузки кейсов (45 сек)');
+    if (e?.message?.includes('fetch')) throw new Error('Сеть недоступна. Проверьте соединение.');
     throw e;
   }
 }

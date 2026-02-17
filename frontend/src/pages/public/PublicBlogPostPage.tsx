@@ -106,9 +106,8 @@ export function PublicBlogPostPage() {
                 sx={{
                   width: '100%',
                   maxWidth: '100%',
-                  maxHeight: '70vh',
                   display: 'block',
-                  objectFit: 'contain',
+                  objectFit: 'cover',
                   borderRadius: 3,
                   mb: 4,
                 }}
@@ -121,7 +120,7 @@ export function PublicBlogPostPage() {
                 {postData.title}
               </Typography>
             </Box>
-            <Box data-scroll-child sx={{ '& img': { borderRadius: 2, maxWidth: '100%', height: 'auto' }, '& p': { color: 'rgba(255,255,255,0.7)', lineHeight: 1.75, mb: 2 }, '& h2,& h3,& h4': { color: '#fff', mt: 4, mb: 1.5 } }}>
+            <Box data-scroll-child className="blog-post-content-wrapper">
               {postData.blocks && postData.blocks.length > 0 ? (
                 <BlogBlocksContent blocks={postData.blocks} />
               ) : (

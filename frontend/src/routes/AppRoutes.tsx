@@ -34,41 +34,43 @@ const FunnelViewPage = lazy(() => import('@/pages/funnels/FunnelViewPage').then(
 const TasksListPage = lazy(() => import('@/pages/funnels/TasksListPage').then(m => ({ default: m.TasksListPage })));
 const TaskExecutor = lazy(() => import('@/components/tasks/TaskExecutor').then(m => ({ default: m.TaskExecutor })));
 import { HomePage } from '@/pages/public/HomePage';
-import PublicHomePageAI from '@/pages/public/PublicHomePageAI';
-import { PublicPageView } from '@/pages/public/PublicPageView';
-import { PublicPromotionsPage } from '@/pages/public/PublicPromotionsPage';
-import { PublicBlogPage } from '@/pages/public/PublicBlogPage';
-import { PublicBlogPostPage } from '@/pages/public/PublicBlogPostPage';
-import { CatalogPage } from '@/pages/public/CatalogPage';
-import { ProductPage } from '@/pages/public/ProductPage';
-import { CartPage } from '@/pages/public/CartPage';
-import { WishlistPage } from '@/pages/public/WishlistPage';
-import { SearchPage } from '@/pages/public/SearchPage';
-import { AccountPage } from '@/pages/public/AccountPage';
-import { AccountAiTeamPage } from '@/pages/public/AccountAiTeamPage';
-import { AccountProjectsPage } from '@/pages/public/AccountProjectsPage';
-import { UserFinancePlannerPage } from '@/pages/public/UserFinancePlannerPage';
-import { UserPersonalDevelopmentPage } from '@/pages/public/UserPersonalDevelopmentPage';
-import { PrivacyPolicyPage } from '@/pages/public/PrivacyPolicyPage';
-import { PrivacySettingsPage } from '@/pages/public/PrivacySettingsPage';
-import { PortfolioPage } from '@/pages/public/PortfolioPage';
-import { CasePage } from '@/pages/public/CasePage';
-import { SeoPositionCheckerPage } from '@/pages/public/SeoPositionCheckerPage';
-import { TechnicalAuditPage } from '@/pages/public/TechnicalAuditPage';
-import { ReputationMonitorPage } from '@/pages/public/ReputationMonitorPage';
-import { RoiCalculatorPage } from '@/pages/public/RoiCalculatorPage';
-// Публичные страницы остаются статическими импортами (не критичны для main bundle)
-import { ParsingPage } from '@/pages/parsing/ParsingPage';
-import { OrderDetailPage } from '@/pages/public/OrderDetailPage';
-import { RegisterPage } from '@/pages/public/RegisterPage';
-import { CharityPage } from '@/pages/public/CharityPage';
-import { ReviewsPage } from '@/pages/public/ReviewsPage';
-import { WinnersPage } from '@/pages/public/WinnersPage';
-import { PublicAIChatPage } from '@/pages/public/PublicAIChatPage';
-import { AboutPage } from '@/pages/public/AboutPage';
-import { ContactsPage } from '@/pages/public/ContactsPage';
-import { NewClientPage } from '@/pages/public/NewClientPage';
+import { LoginPage } from '@/pages/auth/LoginPage';
 import { NotFoundPage } from '@/pages/public/NotFoundPage';
+
+// Lazy load публичных страниц — не загружаются при первом визите на главную
+const PublicHomePageAI = lazy(() => import('@/pages/public/PublicHomePageAI').then(m => ({ default: m.default })));
+const CatalogPage = lazy(() => import('@/pages/public/CatalogPage').then(m => ({ default: m.CatalogPage })));
+const ProductPage = lazy(() => import('@/pages/public/ProductPage').then(m => ({ default: m.ProductPage })));
+const CartPage = lazy(() => import('@/pages/public/CartPage').then(m => ({ default: m.CartPage })));
+const WishlistPage = lazy(() => import('@/pages/public/WishlistPage').then(m => ({ default: m.WishlistPage })));
+const SearchPage = lazy(() => import('@/pages/public/SearchPage').then(m => ({ default: m.SearchPage })));
+const AccountPage = lazy(() => import('@/pages/public/AccountPage').then(m => ({ default: m.AccountPage })));
+const AccountAiTeamPage = lazy(() => import('@/pages/public/AccountAiTeamPage').then(m => ({ default: m.AccountAiTeamPage })));
+const AccountProjectsPage = lazy(() => import('@/pages/public/AccountProjectsPage').then(m => ({ default: m.AccountProjectsPage })));
+const UserFinancePlannerPage = lazy(() => import('@/pages/public/UserFinancePlannerPage').then(m => ({ default: m.UserFinancePlannerPage })));
+const UserPersonalDevelopmentPage = lazy(() => import('@/pages/public/UserPersonalDevelopmentPage').then(m => ({ default: m.UserPersonalDevelopmentPage })));
+const PrivacyPolicyPage = lazy(() => import('@/pages/public/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
+const PrivacySettingsPage = lazy(() => import('@/pages/public/PrivacySettingsPage').then(m => ({ default: m.PrivacySettingsPage })));
+const PortfolioPage = lazy(() => import('@/pages/public/PortfolioPage').then(m => ({ default: m.PortfolioPage })));
+const CasePage = lazy(() => import('@/pages/public/CasePage').then(m => ({ default: m.CasePage })));
+const PublicBlogPage = lazy(() => import('@/pages/public/PublicBlogPage').then(m => ({ default: m.PublicBlogPage })));
+const PublicBlogPostPage = lazy(() => import('@/pages/public/PublicBlogPostPage').then(m => ({ default: m.PublicBlogPostPage })));
+const PublicPromotionsPage = lazy(() => import('@/pages/public/PublicPromotionsPage').then(m => ({ default: m.PublicPromotionsPage })));
+const ReviewsPage = lazy(() => import('@/pages/public/ReviewsPage').then(m => ({ default: m.ReviewsPage })));
+const WinnersPage = lazy(() => import('@/pages/public/WinnersPage').then(m => ({ default: m.WinnersPage })));
+const PublicAIChatPage = lazy(() => import('@/pages/public/PublicAIChatPage').then(m => ({ default: m.PublicAIChatPage })));
+const AboutPage = lazy(() => import('@/pages/public/AboutPage').then(m => ({ default: m.AboutPage })));
+const ContactsPage = lazy(() => import('@/pages/public/ContactsPage').then(m => ({ default: m.ContactsPage })));
+const NewClientPage = lazy(() => import('@/pages/public/NewClientPage').then(m => ({ default: m.NewClientPage })));
+const OrderDetailPage = lazy(() => import('@/pages/public/OrderDetailPage').then(m => ({ default: m.OrderDetailPage })));
+const RegisterPage = lazy(() => import('@/pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const CharityPage = lazy(() => import('@/pages/public/CharityPage').then(m => ({ default: m.CharityPage })));
+const SeoPositionCheckerPage = lazy(() => import('@/pages/public/SeoPositionCheckerPage').then(m => ({ default: m.SeoPositionCheckerPage })));
+const TechnicalAuditPage = lazy(() => import('@/pages/public/TechnicalAuditPage').then(m => ({ default: m.TechnicalAuditPage })));
+const ReputationMonitorPage = lazy(() => import('@/pages/public/ReputationMonitorPage').then(m => ({ default: m.ReputationMonitorPage })));
+const RoiCalculatorPage = lazy(() => import('@/pages/public/RoiCalculatorPage').then(m => ({ default: m.RoiCalculatorPage })));
+const PublicPageView = lazy(() => import('@/pages/public/PublicPageView').then(m => ({ default: m.PublicPageView })));
+const ProposalViewPage = lazy(() => import('@/pages/commercial-proposals/ProposalViewPage').then(m => ({ default: m.ProposalViewPage })));
 
 // Lazy load остальных админских страниц
 const ParsingPage = lazy(() => import('@/pages/parsing/ParsingPage').then(m => ({ default: m.ParsingPage })));
@@ -96,7 +98,6 @@ const AIChatPage = lazy(() => import('@/pages/admin/AIChatPage').then(m => ({ de
 const AiTeamDashboardPage = lazy(() => import('@/pages/admin/AiTeamDashboardPage'));
 const ProjectsDashboardPage = lazy(() => import('@/pages/admin/ProjectsDashboardPage'));
 const ProposalsListPage = lazy(() => import('@/pages/commercial-proposals/ProposalsListPage').then(m => ({ default: m.ProposalsListPage })));
-const ProposalViewPage = lazy(() => import('@/pages/commercial-proposals/ProposalViewPage').then(m => ({ default: m.ProposalViewPage })));
 const ProposalEditorPage = lazy(() => import('@/pages/commercial-proposals/ProposalEditorPage').then(m => ({ default: m.ProposalEditorPage })));
 const DonorsManagePage = lazy(() => import('@/pages/donors/DonorsManagePage').then(m => ({ default: m.DonorsManagePage })));
 const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
@@ -138,9 +139,16 @@ function Protected({ children }: { children: JSX.Element }) {
   return children;
 }
 
+const PageFallback = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+    <CircularProgress size={32} />
+  </Box>
+);
+
 export function AppRoutes() {
   const { token, user } = useAuth();
   return (
+    <Suspense fallback={<PageFallback />}>
     <Routes>
       {/* Public routes - must come before admin routes */}
       <Route path="/" element={<HomePage />} />
@@ -258,6 +266,7 @@ export function AppRoutes() {
       <Route path="/:slug" element={<PublicPageView />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </Suspense>
   );
 }
 

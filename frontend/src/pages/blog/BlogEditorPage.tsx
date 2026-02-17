@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import BuildIcon from '@mui/icons-material/Build';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { BlogPostStyles } from '@/components/blog/BlogPostStyles';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -334,6 +335,7 @@ export function BlogEditorPage() {
 
   return (
     <Box>
+      <BlogPostStyles />
       <Typography variant="h5" gutterBottom>{isNew ? 'Новая статья' : `Редактирование: ${model.title || 'Без названия'}`}</Typography>
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>
