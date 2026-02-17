@@ -15,6 +15,7 @@ const CASE_CATEGORIES = {
 };
 
 function rowToCase(r) {
+  const isPublished = !!r.is_published;
   return {
     slug: r.slug,
     title: r.title,
@@ -28,7 +29,8 @@ function rowToCase(r) {
     contentJson: r.content_json || {},
     templateType: r.template_type,
     isTemplate: r.is_template,
-    isPublished: r.is_published,
+    isPublished,
+    is_published: isPublished,
     category: r.category || null,
     categoryLabel: r.category ? CASE_CATEGORIES[r.category] || r.category : null,
     donorUrl: r.donor_url || undefined,
@@ -41,27 +43,29 @@ function rowToCase(r) {
   };
 }
 
+// Колонки без content_html/content_json (тяжёлые) — для списка. home_order опционален.
 const CASE_LIST_COLUMNS = 'slug, title, summary, hero_image_url, donor_image_url, gallery, metrics, tools, template_type, is_template, is_published, category, donor_url, seo_title, seo_description, seo_keywords, og_image_url, created_at, updated_at, home_order';
 
 router.get('/', async (req, res) => {
   const isPublic = req.originalUrl.includes('/api/public');
   const publishedOnly = isPublic || req.query.published === 'true';
-  
-  let query = `SELECT ${CASE_LIST_COLUMNS} FROM cases`;
-  if (publishedOnly) {
-    query += ' WHERE is_published = TRUE ORDER BY home_order ASC NULLS LAST, created_at DESC';
-  } else {
-    query += ' ORDER BY created_at DESC';
-  }
-  
+
   let r;
   try {
+    let query = `SELECT ${CASE_LIST_COLUMNS} FROM cases`;
+    if (publishedOnly) {
+      query += ' WHERE is_published = TRUE ORDER BY home_order ASC NULLS LAST, created_at DESC';
+    } else {
+      query += ' ORDER BY created_at DESC';
+    }
     r = await pool.query(query);
   } catch (err) {
-    if (err.message && err.message.includes('home_order')) {
-      r = await pool.query(publishedOnly
-        ? `SELECT ${CASE_LIST_COLUMNS} FROM cases WHERE is_published = TRUE ORDER BY created_at DESC`
-        : `SELECT ${CASE_LIST_COLUMNS} FROM cases ORDER BY created_at DESC`);
+    if (err.message && (err.message.includes('home_order') || err.message.includes('does not exist'))) {
+      // Fallback: SELECT * — только колонки, которые точно есть. Без home_order в ORDER BY.
+      const baseQuery = publishedOnly
+        ? 'SELECT * FROM cases WHERE is_published = TRUE ORDER BY created_at DESC'
+        : 'SELECT * FROM cases ORDER BY created_at DESC';
+      r = await pool.query(baseQuery);
     } else {
       throw err;
     }
@@ -70,11 +74,24 @@ router.get('/', async (req, res) => {
 });
 
 router.get('/home', async (req, res) => {
-  const r = await pool.query(
-    `SELECT slug, title, hero_image_url, home_card, created_at FROM cases 
-     WHERE is_published = TRUE AND home_order IS NOT NULL 
-     ORDER BY home_order ASC`
-  );
+  let r;
+  try {
+    r = await pool.query(
+      `SELECT slug, title, hero_image_url, home_card, created_at FROM cases 
+       WHERE is_published = TRUE AND home_order IS NOT NULL 
+       ORDER BY home_order ASC`
+    );
+  } catch (err) {
+    if (err.message && (err.message.includes('home_order') || err.message.includes('home_card'))) {
+      r = await pool.query(
+        `SELECT slug, title, hero_image_url, created_at FROM cases 
+         WHERE is_published = TRUE ORDER BY created_at DESC LIMIT 12`
+      );
+      r.rows = r.rows.map((row) => ({ ...row, home_card: {} }));
+    } else {
+      throw err;
+    }
+  }
   const items = r.rows.map((row) => {
     const card = row.home_card || {};
     const createdYear = row.created_at ? new Date(row.created_at).getFullYear().toString() : '2024';
