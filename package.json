@@ -9,7 +9,9 @@
     "seed:portfolio-cases": "cd backend && node scripts/addPortfolioCases.js",
     "seed:portfolio-content": "cd backend && node scripts/seed-portfolio-cases-content.js",
     "seed:cases": "cd backend && node scripts/addPortfolioCases.js && node scripts/seed-portfolio-cases-content.js",
-    "seed:cases-seo": "cd backend && node scripts/seed-cases-seo.js"
+    "seed:cases-seo": "cd backend && node scripts/seed-cases-seo.js",
+    "restore:blog-body": "cd backend && node scripts/restore-blog-article-body.js",
+    "restore:blog-body:prod": "cd backend && node scripts/restore-blog-article-body.js --prod"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"
