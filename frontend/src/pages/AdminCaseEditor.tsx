@@ -18,10 +18,8 @@
       value={formData.seoTitle || ''}
       onChange={(e) => setFormData({...formData, seoTitle: e.target.value})}
       className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-      placeholder="SEO заголовок (до 60 символов)"
-      maxLength={60}
+      placeholder="SEO заголовок"
     />
-    <p className="text-xs text-gray-500 mt-1">{(formData.seoTitle || '').length}/60</p>
   </div>
   
   <div>
@@ -30,11 +28,9 @@
       value={formData.seoDescription || ''}
       onChange={(e) => setFormData({...formData, seoDescription: e.target.value})}
       className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-      placeholder="SEO описание (до 160 символов)"
-      maxLength={160}
+      placeholder="SEO описание"
       rows={3}
     />
-    <p className="text-xs text-gray-500 mt-1">{(formData.seoDescription || '').length}/160</p>
   </div>
   
   <div>
@@ -64,8 +60,8 @@ const generateSeoFromContent = () => {
   const summary = formData.summary || '';
   const tools = formData.tools || [];
   
-  const seoTitle = title ? `${title} | Кейс Prime Coder`.slice(0, 60) : '';
-  const seoDescription = summary.slice(0, 160);
+  const seoTitle = title ? `${title} | Кейс Prime Coder` : '';
+  const seoDescription = summary || '';
   const keywords = [...tools, 'кейс', 'разработка сайта', 'веб-разработка'].join(', ');
   const ogImageUrl = formData.heroImageUrl || formData.contentJson?.hero?.backgroundImage || '';
   

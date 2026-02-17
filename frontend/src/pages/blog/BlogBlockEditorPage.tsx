@@ -9,6 +9,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BlogBlockEditor } from '@/components/blog-editor/BlogBlockEditor';
 import { BlogBlock } from '@/types/blogBlocks';
+import { htmlToBlocks } from '@/utils/htmlToBlocks';
 import { useToast } from '@/components/common/ToastProvider';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { BlogPostStyles } from '@/components/blog/BlogPostStyles';
@@ -57,7 +58,8 @@ export function BlogBlockEditorPage() {
       if (rawBlocks.length > 0) {
         setBlocks(rawBlocks);
       } else if (body && typeof body === 'string') {
-        setBlocks([{ id: `text-${Date.now()}`, type: 'text', content: { html: body } }]);
+        const parsed = htmlToBlocks(body);
+        setBlocks(parsed.length > 0 ? parsed : [{ id: `text-${Date.now()}`, type: 'text', content: { html: body } }]);
       } else {
         setBlocks([]);
       }

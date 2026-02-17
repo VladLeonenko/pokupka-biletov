@@ -68,8 +68,8 @@ export function CaseEditorPage() {
   const isSavingRef = useRef(false);
   // Функция автозаполнения SEO
   const generateSeoFromContent = () => {
-    const newSeoTitle = title ? `${title} | Кейс Prime Coder`.slice(0, 60) : '';
-    const newSeoDescription = summary ? summary.slice(0, 160) : '';
+    const newSeoTitle = title ? `${title} | Кейс Prime Coder` : '';
+    const newSeoDescription = summary || '';
     const toolsKeywords = tools || [];
     const keywords = [...toolsKeywords, 'кейс', 'портфолио', 'разработка сайта'].join(', ');
     const newOgImageUrl = heroImageUrl || getCJ('hero.backgroundImage', '');
@@ -595,8 +595,8 @@ export function CaseEditorPage() {
                 <Typography variant="h6">SEO настройки</Typography>
                 <Button variant="contained" startIcon={<AutoFixHighIcon />} onClick={generateSeoFromContent}>Заполнить автоматически</Button>
               </Box>
-              <TextField fullWidth label="Meta Title" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} sx={{ mb: 2 }} inputProps={{ maxLength: 60 }} helperText={`${seoTitle.length}/60`} />
-              <TextField fullWidth label="Meta Description" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} sx={{ mb: 2 }} multiline rows={3} inputProps={{ maxLength: 160 }} helperText={`${seoDescription.length}/160`} />
+              <TextField fullWidth label="Meta Title" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} sx={{ mb: 2 }} />
+              <TextField fullWidth label="Meta Description" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} sx={{ mb: 2 }} multiline rows={3} />
               <TextField fullWidth label="Meta Keywords" value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} sx={{ mb: 2 }} />
               <TextField fullWidth label="OG Image URL" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} sx={{ mb: 2 }} />
               {ogImageUrl && <Box sx={{ mt: 2, maxWidth: 400 }}><SafeImage src={ogImageUrl} alt="OG preview" sx={{ width: '100%' }} /></Box>}

@@ -50,7 +50,7 @@ async function main() {
         og_image_url = COALESCE(NULLIF(TRIM(og_image_url), ''), $5),
         updated_at = NOW()
        WHERE slug = $1`,
-      [row.slug, seoTitle.slice(0, 70), seoDesc.slice(0, 160), seoKeywords, ogImage]
+      [row.slug, seoTitle, seoDesc, seoKeywords, ogImage]
     );
     updated++;
     console.log(`✅ ${row.slug}`);
