@@ -148,7 +148,10 @@ export function CasesListPage() {
         </Box>
       </Box>
       <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'visible' }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Порядок на главной</Typography>
+        <Typography variant="h6" sx={{ mb: 1 }}>Порядок на главной и на /portfolio</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Кейсы из списка ниже показываются на главной. Этот же порядок используется на странице /portfolio — сначала эти кейсы, затем остальные.
+        </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
           {availableToAdd.length > 0 ? (
             <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -166,8 +169,10 @@ export function CasesListPage() {
                 })}
               </Select>
             </FormControl>
+          ) : publishedSlugs.size === 0 ? (
+            <Typography variant="body2" color="text.secondary">Опубликуйте кейсы (иконка ✓ в списке ниже), чтобы добавить их на главную.</Typography>
           ) : (
-            <Typography variant="body2" color="text.secondary">Опубликуйте кейсы (кнопка «Опубликовать»), чтобы добавить их на главную.</Typography>
+            <Typography variant="body2" color="text.secondary">Все опубликованные кейсы уже в списке. Уберите лишние стрелками ↑↓ или добавьте в редакторе кейса.</Typography>
           )}
           {homeOrderDirty && (
             <Button
@@ -181,7 +186,9 @@ export function CasesListPage() {
           )}
         </Box>
         {homeOrderSlugs.length === 0 ? (
-          <Typography color="text.secondary">Пока нет кейсов на главной. Добавьте из выпадающего списка выше.</Typography>
+          <Typography color="text.secondary">
+            Пока нет кейсов на главной. Выберите кейс из выпадающего списка выше → нажмите «Сохранить порядок».
+          </Typography>
         ) : (
           <List dense disablePadding>
             {homeOrderSlugs.map((slug, idx) => {

@@ -766,7 +766,7 @@ export async function listCases(): Promise<CaseItem[]> {
     templateType: r.templateType || r.template_type,
     isTemplate: r.isTemplate || r.is_template || false,
     contentJson: r.contentJson || r.content_json || {},
-    isPublished: !!r.is_published,
+    isPublished: r.isPublished ?? !!r.is_published,
   }));
 }
 export async function getCase(slug: string): Promise<CaseItem | undefined> {
@@ -786,7 +786,7 @@ export async function getCase(slug: string): Promise<CaseItem | undefined> {
     metrics: r.metrics || {},
     tools: Array.isArray(r.tools) ? r.tools : [],
     contentJson: r.contentJson || r.content_json || {},
-    isPublished: !!r.is_published,
+    isPublished: r.isPublished ?? !!r.is_published,
   };
 }
 export async function setCasePublished(slug: string, isPublished: boolean): Promise<void> {
@@ -820,6 +820,11 @@ export async function upsertCase(item: CaseItem, options?: { create?: boolean })
   if ('category' in item) {
     payload.category = item.category || null;
   }
+  // SEO мета-теги
+  if ('seoTitle' in item) payload.seoTitle = item.seoTitle ?? '';
+  if ('seoDescription' in item) payload.seoDescription = item.seoDescription ?? '';
+  if ('seoKeywords' in item) payload.seoKeywords = item.seoKeywords ?? '';
+  if ('ogImageUrl' in item) payload.ogImageUrl = item.ogImageUrl ?? '';
   const url = `${getApiBaseUrl()}/api/cases${isCreate ? '' : `/${encodeURIComponent(item.slug!)}`}`;
   const method = isCreate ? 'POST' : 'PUT';
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

@@ -48,8 +48,11 @@ router.get('/', async (req, res) => {
   let query = 'SELECT * FROM cases';
   if (publishedOnly) {
     query += ' WHERE is_published = TRUE';
+    // Сначала кейсы с home_order (как на главной), затем остальные
+    query += ' ORDER BY home_order ASC NULLS LAST, created_at DESC';
+  } else {
+    query += ' ORDER BY created_at DESC';
   }
-  query += ' ORDER BY created_at DESC';
   
   const r = await pool.query(query);
   res.json(r.rows.map(rowToCase));
