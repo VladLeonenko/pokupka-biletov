@@ -41,11 +41,13 @@ function rowToCase(r) {
   };
 }
 
+const CASE_LIST_COLUMNS = 'slug, title, summary, hero_image_url, donor_image_url, gallery, metrics, tools, template_type, is_template, is_published, category, donor_url, seo_title, seo_description, seo_keywords, og_image_url, created_at, updated_at, home_order';
+
 router.get('/', async (req, res) => {
   const isPublic = req.originalUrl.includes('/api/public');
   const publishedOnly = isPublic || req.query.published === 'true';
   
-  let query = 'SELECT * FROM cases';
+  let query = `SELECT ${CASE_LIST_COLUMNS} FROM cases`;
   if (publishedOnly) {
     query += ' WHERE is_published = TRUE ORDER BY home_order ASC NULLS LAST, created_at DESC';
   } else {
@@ -58,8 +60,8 @@ router.get('/', async (req, res) => {
   } catch (err) {
     if (err.message && err.message.includes('home_order')) {
       r = await pool.query(publishedOnly
-        ? 'SELECT * FROM cases WHERE is_published = TRUE ORDER BY created_at DESC'
-        : 'SELECT * FROM cases ORDER BY created_at DESC');
+        ? `SELECT ${CASE_LIST_COLUMNS} FROM cases WHERE is_published = TRUE ORDER BY created_at DESC`
+        : `SELECT ${CASE_LIST_COLUMNS} FROM cases ORDER BY created_at DESC`);
     } else {
       throw err;
     }
