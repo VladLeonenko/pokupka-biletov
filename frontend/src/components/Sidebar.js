@@ -34,6 +34,7 @@ function Sidebar() {
           <li className="sidebar-section">Настройки</li>
           <li><NavLink to="/admin/seo">SEO</NavLink></li>
           <li><NavLink to="/admin/team">Команда</NavLink></li>
+          <li><NavLink to="/admin/admins">Админы</NavLink></li>
         </ul>
       </nav>
     </aside>

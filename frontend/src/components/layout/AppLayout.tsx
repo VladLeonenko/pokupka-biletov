@@ -21,6 +21,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ChatIcon from '@mui/icons-material/Chat';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import EmailIcon from '@mui/icons-material/Email';
 import LanguageIcon from '@mui/icons-material/Language';
 import ImageIcon from '@mui/icons-material/Image';
@@ -57,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Настройки чат-бота', icon: <SmartToyIcon />, path: '/admin/chatbot' },
   { label: 'Отзывы', icon: <RateReviewIcon />, path: '/admin/reviews' },
   { label: 'Команда', icon: <PeopleIcon />, path: '/admin/team' },
+  { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins' },
   { label: 'Email-рассылки', icon: <EmailIcon />, path: '/admin/email/subscribers' },
   { label: 'Мульти-сайты', icon: <LanguageIcon />, path: '/admin/sites' },
   { label: 'Изображения', icon: <ImageIcon />, path: '/admin/exercise-images' },

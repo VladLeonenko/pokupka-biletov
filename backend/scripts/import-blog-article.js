@@ -106,6 +106,7 @@ async function upsertPost(data) {
       `UPDATE blog_posts SET
         title = $1, body = $2, seo_title = $3, seo_description = $4,
         cover_image_url = COALESCE($5::text, cover_image_url),
+        content_json = '{}',
         is_published = TRUE, updated_at = NOW()
        WHERE slug = $6`,
       [title, body, seo_title, seo_description || null, cover_image_url, slug]
@@ -138,7 +139,7 @@ async function main() {
   const data = extractFromHtml(html);
   if (forceSlug) data.slug = forceSlug;
 
-  if (!data.slug.match(/^[a-z0-9-]+$/i)) {
+  if (!forceSlug && !data.slug.match(/^[a-z0-9-]+$/i)) {
     data.slug = transliterateSlug(data.slug) || data.slug.replace(/[^a-z0-9-]/gi, '-');
   }
 

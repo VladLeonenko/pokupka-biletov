@@ -26,7 +26,7 @@ import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
 import authRouter from './routes/auth.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
 import { seoRenderer } from './middleware/seoRenderer.js';
 import aiRouter from './routes/ai.js';
 import blogRouter from './routes/blog.js';
@@ -78,6 +78,7 @@ import socialProofsRouter from './routes/socialProofs.js';
 import quizRouter from './routes/quiz.js';
 import calculatorRouter from './routes/calculator.js';
 import productCategoriesRouter from './routes/productCategories.js';
+import adminsRouter from './routes/admins.js';
 
 const app = express();
 
@@ -280,6 +281,7 @@ app.use('/api/reviews', reviewsRouter);
 app.use('/api/public/awards', awardsRouter);
 app.use('/api/awards', requireAuth, awardsRouter);
 app.use('/api/team', teamRouter);
+app.use('/api/admins', requireAuth, requireAdmin, adminsRouter);
 app.use('/api/email', emailCampaignsRouter);
 app.use('/api/sites', sitesRouter);
 app.use('/api/planner', plannerRouter);
