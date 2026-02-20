@@ -144,7 +144,7 @@ export function SalesAnalyticsPage() {
         </Table>
       </Paper>
 
-      <Dialog open={!!planModal} onClose={() => setPlanModal(null)} maxWidth="sm" fullWidth>
+      <Dialog open={!!planModal} onClose={() => setPlanModal(null)} maxWidth="sm" fullWidth disableScrollLock>
         <DialogTitle>План на месяц: {planModal?.name}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField fullWidth label="Звонков" type="number" value={planCalls} onChange={(e) => setPlanCalls(parseInt(e.target.value) || 0)} sx={{ mb: 2 }} />

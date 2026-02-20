@@ -157,7 +157,7 @@ export function AdminsManagePage() {
         </TableContainer>
       )}
 
-      <Dialog open={addOpen} onClose={() => !addMutation.isPending && setAddOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={addOpen} onClose={() => !addMutation.isPending && setAddOpen(false)} maxWidth="xs" fullWidth disableScrollLock>
         <DialogTitle>Добавить администратора или менеджера</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <FormControl fullWidth sx={{ mb: 2 }}>
@@ -206,7 +206,7 @@ export function AdminsManagePage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!resetOpen} onClose={() => !resetMutation.isPending && setResetOpen(null)} maxWidth="xs" fullWidth>
+      <Dialog open={!!resetOpen} onClose={() => !resetMutation.isPending && setResetOpen(null)} maxWidth="xs" fullWidth disableScrollLock>
         <DialogTitle>Сбросить пароль</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           {resetOpen && (
