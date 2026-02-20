@@ -1,10 +1,21 @@
 import { Box, Card, CardContent, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSalesOverview, savePlan } from '@/services/salesAnalyticsApi';
+import { getSalesOverview, savePlan, getManagerDynamics } from '@/services/salesAnalyticsApi';
 import { listAdmins } from '@/services/adminsApi';
 import AddIcon from '@mui/icons-material/Add';
 import { useToast } from '@/components/common/ToastProvider';
+
+const MONTHS_BACK = 12;
+function getMonthOptions(): string[] {
+  const opts: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < MONTHS_BACK; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    opts.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return opts;
+}
 
 export function SalesAnalyticsPage() {
   const queryClient = useQueryClient();
@@ -15,14 +26,18 @@ export function SalesAnalyticsPage() {
   const [planDeals, setPlanDeals] = useState(0);
   const [planClients, setPlanClients] = useState(0);
   const [addPlanManagerId, setAddPlanManagerId] = useState<number | ''>('');
+  const monthOptions = getMonthOptions();
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]);
 
-  const { data: overview } = useQuery({ queryKey: ['sales-overview'], queryFn: getSalesOverview });
+  const { data: overview } = useQuery({ queryKey: ['sales-overview', selectedMonth], queryFn: () => getSalesOverview(selectedMonth) });
+  const { data: dynamics } = useQuery({ queryKey: ['manager-dynamics', MONTHS_BACK], queryFn: () => getManagerDynamics(MONTHS_BACK) });
   const { data: managers } = useQuery({ queryKey: ['admins'], queryFn: listAdmins });
   const savePlanMutation = useMutation({
     mutationFn: savePlan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-overview'] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['manager-dynamics'] });
       setPlanModal(null);
       showToast('План сохранён', 'success');
     },
@@ -30,7 +45,6 @@ export function SalesAnalyticsPage() {
   });
 
   const salesManagers = managers?.filter((m) => m.role === 'sales_manager') ?? [];
-  const thisMonth = new Date().toISOString().slice(0, 7);
 
   const handleSavePlan = () => {
     if (!planModal) return;
@@ -73,8 +87,18 @@ export function SalesAnalyticsPage() {
       )}
 
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Менеджеры — {overview?.month || thisMonth}</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6">Менеджеры</Typography>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Месяц</InputLabel>
+              <Select value={selectedMonth} label="Месяц" onChange={(e) => setSelectedMonth(e.target.value)}>
+                {monthOptions.map((m) => (
+                  <MenuItem key={m} value={m}>{m}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
           <Button
             variant="outlined"
             size="small"
@@ -82,7 +106,7 @@ export function SalesAnalyticsPage() {
             onClick={() => {
               const m = salesManagers.find((x) => x.id === addPlanManagerId) || salesManagers[0];
               if (m) {
-                setPlanModal({ userId: m.id, name: m.name || m.email, month: thisMonth });
+                setPlanModal({ userId: m.id, name: m.name || m.email, month: selectedMonth });
                 setPlanCalls(0);
                 setPlanSales(0);
                 setPlanDeals(0);
@@ -124,12 +148,18 @@ export function SalesAnalyticsPage() {
                 <TableCell align="right">{m.newClients}</TableCell>
                 <TableCell align="right">{m.salesRub.toLocaleString('ru-RU')} ₽</TableCell>
                 <TableCell>
-                  {m.plan?.plan_new_clients ? `Клиенты: ${m.plan.plan_new_clients}` : '—'}
-                  {m.plan?.plan_sales_rub ? ` · Продажи: ${m.plan.plan_sales_rub} ₽` : ''}
+                  {m.plan ? (
+                    [
+                      m.plan.plan_new_clients != null && `Клиенты: ${m.plan.plan_new_clients}`,
+                      m.plan.plan_sales_rub != null && `Продажи: ${m.plan.plan_sales_rub.toLocaleString('ru-RU')} ₽`,
+                      m.plan.plan_deals != null && `Сделки: ${m.plan.plan_deals}`,
+                      m.plan.plan_calls != null && `Звонки: ${m.plan.plan_calls}`,
+                    ].filter(Boolean).join(' · ') || '—'
+                  ) : '—'}
                 </TableCell>
                 <TableCell>
                   <Button size="small" onClick={() => {
-                    setPlanModal({ userId: m.userId, name: m.name, month: overview.month });
+                    setPlanModal({ userId: m.userId, name: m.name, month: selectedMonth });
                     setPlanCalls(m.plan?.plan_calls ?? 0);
                     setPlanSales(m.plan?.plan_sales_rub ?? 0);
                     setPlanDeals(m.plan?.plan_deals ?? 0);
@@ -144,8 +174,44 @@ export function SalesAnalyticsPage() {
         </Table>
       </Paper>
 
+      {dynamics?.dynamics && dynamics.dynamics.length > 0 && (
+        <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Динамика по менеджерам</Typography>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Менеджер</TableCell>
+                  {dynamics.dynamics[0]?.months.map((mo) => (
+                    <TableCell key={mo.month} align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      {mo.month}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {dynamics.dynamics.map((d) => (
+                  <TableRow key={d.userId}>
+                    <TableCell>{d.name}</TableCell>
+                    {d.months.map((mo) => (
+                      <TableCell key={mo.month} align="right" sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                        {mo.newClients} кл{mo.planNewClients != null ? ` / ${mo.planNewClients}` : ''}
+                        <br />
+                        <Box component="span" sx={{ color: 'text.secondary' }}>
+                          {(mo.salesRub / 1000).toFixed(0)}k ₽{mo.planSalesRub != null ? ` / ${(mo.planSalesRub / 1000).toFixed(0)}k` : ''}
+                        </Box>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      )}
+
       <Dialog open={!!planModal} onClose={() => setPlanModal(null)} maxWidth="sm" fullWidth disableScrollLock>
-        <DialogTitle>План на месяц: {planModal?.name}</DialogTitle>
+        <DialogTitle>План на {planModal?.month}: {planModal?.name}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField fullWidth label="Звонков" type="number" value={planCalls} onChange={(e) => setPlanCalls(parseInt(e.target.value) || 0)} sx={{ mb: 2 }} />
           <TextField fullWidth label="Продажи (₽)" type="number" value={planSales} onChange={(e) => setPlanSales(parseInt(e.target.value) || 0)} sx={{ mb: 2 }} />

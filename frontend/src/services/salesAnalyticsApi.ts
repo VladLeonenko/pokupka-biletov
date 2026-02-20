@@ -44,9 +44,31 @@ export interface SalesOverview {
   month: string;
 }
 
-export async function getSalesOverview(): Promise<SalesOverview> {
-  const res = await fetch(`${API_BASE}/api/sales-analytics/admin/overview`, { headers: authHeaders() });
+export async function getSalesOverview(month?: string): Promise<SalesOverview> {
+  const url = month ? `${API_BASE}/api/sales-analytics/admin/overview?month=${encodeURIComponent(month)}` : `${API_BASE}/api/sales-analytics/admin/overview`;
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) throw new Error('Ошибка загрузки');
+  return res.json();
+}
+
+export interface ManagerMonthStats {
+  month: string;
+  newClients: number;
+  salesRub: number;
+  planNewClients: number | null;
+  planSalesRub: number | null;
+}
+
+export interface ManagerDynamics {
+  userId: number;
+  name: string;
+  months: ManagerMonthStats[];
+}
+
+export async function getManagerDynamics(months?: number): Promise<{ dynamics: ManagerDynamics[] }> {
+  const url = months ? `${API_BASE}/api/sales-analytics/admin/manager-dynamics?months=${months}` : `${API_BASE}/api/sales-analytics/admin/manager-dynamics`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Ошибка загрузки динамики');
   return res.json();
 }
 

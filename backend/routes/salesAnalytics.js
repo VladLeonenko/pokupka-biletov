@@ -99,20 +99,22 @@ router.put('/manager/adaptation', requireAuth, requireAdminOrSalesManager, async
 
 router.get('/admin/overview', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const thisMonth = new Date().toISOString().slice(0, 7);
+    const monthParam = req.query.month;
+    const thisMonth = monthParam || new Date().toISOString().slice(0, 7);
     const managersRes = await pool.query(
       `SELECT u.id, u.name, u.email FROM users u WHERE u.role = 'sales_manager' ORDER BY u.name`
     );
     const managers = managersRes.rows;
 
     const rows = await pool.query(
-      `SELECT u.id, u.name,
-        (SELECT COUNT(*) FROM clients c WHERE c.assigned_to = u.id AND c.created_at >= date_trunc('month', CURRENT_DATE)) as new_clients,
-        (SELECT COALESCE(SUM(o.total_cents), 0) FROM orders o
+      `SELECT u.id, u.name, u.email,
+        (SELECT COUNT(*)::int FROM clients c WHERE c.assigned_to = u.id AND c.created_at >= (($1::text || '-01')::date) AND c.created_at < ((($1::text || '-01')::date) + interval '1 month')) as new_clients,
+        (SELECT COALESCE(SUM(o.total_cents), 0)::bigint FROM orders o
          JOIN client_orders co ON co.order_id = o.id
          JOIN clients c ON c.id = co.client_id AND c.assigned_to = u.id
-         WHERE o.status != 'cancelled' AND o.created_at >= date_trunc('month', CURRENT_DATE)) as sales_cents
-       FROM users u WHERE u.role = 'sales_manager'`
+         WHERE o.status != 'cancelled' AND o.created_at >= (($1::text || '-01')::date) AND o.created_at < ((($1::text || '-01')::date) + interval '1 month')) as sales_cents
+       FROM users u WHERE u.role = 'sales_manager'`,
+      [thisMonth]
     );
 
     const plansRes = await pool.query(
@@ -123,10 +125,10 @@ router.get('/admin/overview', requireAuth, requireAdmin, async (req, res) => {
 
     const overview = rows.rows.map((r) => ({
       userId: r.id,
-      name: r.name,
+      name: r.name || r.email || '—',
       newClients: parseInt(r.new_clients) || 0,
       salesRub: Math.round((parseInt(r.sales_cents) || 0) / 100),
-      plan: plansByUser[r.id] || {}
+      plan: plansByUser[r.id] || null
     }));
 
     const totals = overview.reduce(
@@ -138,6 +140,53 @@ router.get('/admin/overview', requireAuth, requireAdmin, async (req, res) => {
     );
 
     res.json({ managers: overview, totals, month: thisMonth });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Динамика по менеджерам: клиенты и продажи по месяцам
+router.get('/admin/manager-dynamics', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const monthsCount = Math.min(parseInt(req.query.months) || 6, 24);
+    const managersRes = await pool.query(
+      `SELECT u.id, u.name, u.email FROM users u WHERE u.role = 'sales_manager' ORDER BY u.name`
+    );
+    const managers = managersRes.rows;
+
+    const dynamics = await Promise.all(managers.map(async (m) => {
+      const months = [];
+      const now = new Date();
+      for (let i = 0; i < monthsCount; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const [clientsRes, salesRes] = await Promise.all([
+          pool.query(
+            `SELECT COUNT(*)::int as n FROM clients WHERE assigned_to = $1 AND created_at >= (($2::text || '-01')::date) AND created_at < ((($2::text || '-01')::date) + interval '1 month')`,
+            [m.id, monthStr]
+          ),
+          pool.query(
+            `SELECT COALESCE(SUM(o.total_cents), 0)::bigint as s FROM orders o
+             JOIN client_orders co ON co.order_id = o.id
+             JOIN clients c ON c.id = co.client_id AND c.assigned_to = $1
+             WHERE o.status != 'cancelled' AND o.created_at >= (($2::text || '-01')::date) AND o.created_at < ((($2::text || '-01')::date) + interval '1 month')`,
+            [m.id, monthStr]
+          )
+        ]);
+        const planRes = await pool.query('SELECT plan_new_clients, plan_sales_rub FROM manager_plans WHERE user_id = $1 AND month = $2', [m.id, monthStr]);
+        const plan = planRes.rows[0];
+        months.push({
+          month: monthStr,
+          newClients: clientsRes.rows[0]?.n ?? 0,
+          salesRub: Math.round((parseInt(salesRes.rows[0]?.s) || 0) / 100),
+          planNewClients: plan?.plan_new_clients ?? null,
+          planSalesRub: plan?.plan_sales_rub ?? null
+        });
+      }
+      return { userId: m.id, name: m.name || m.email || '—', months };
+    }));
+
+    res.json({ dynamics });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

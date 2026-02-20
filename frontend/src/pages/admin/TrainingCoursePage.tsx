@@ -231,21 +231,26 @@ function QuizDialog({
     newAnswers[step] = val;
     setAnswers(newAnswers);
     if (isLast) {
-      // Считаем только закрытые вопросы
       const closedQs = questions.filter((qu) => qu.options?.length > 0 && qu.correct_index >= 0);
-      const closedIdx = questions.map((_, i) => i).filter((i) => !isOpenQuestion(questions[i]));
       let correct = 0;
-      closedIdx.forEach((idx) => {
-        if (newAnswers[idx] === questions[idx].correct_index) correct++;
+      questions.forEach((qu, idx) => {
+        if (qu.options?.length > 0 && qu.correct_index >= 0 && newAnswers[idx] === qu.correct_index) correct++;
       });
       const pct = closedQs.length > 0 ? Math.round((correct / closedQs.length) * 100) : 100;
       setScore(pct);
       setFinished(true);
+      const answersPayload = questions.map((qu, i) => ({
+        question_id: qu.id,
+        question_index: i,
+        answer_index: typeof newAnswers[i] === 'number' ? newAnswers[i] : undefined,
+        answer_text: typeof newAnswers[i] === 'string' ? newAnswers[i] : undefined,
+      }));
       submitQuiz({
         question_type: `course_${courseSlug}`,
         score_percent: pct,
         total_questions: questions.length,
         correct_count: correct,
+        answers: answersPayload,
       }).then(() => markCourseTestPassed(courseSlug, pct)).then(onComplete).catch(() => {});
     } else {
       setStep(step + 1);

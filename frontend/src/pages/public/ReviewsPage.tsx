@@ -367,11 +367,6 @@ export function ReviewsPage() {
                   />
                   )}
                 </Box>
-                {(review.author_position || review.author_company) && (
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mt: -0.3, mb: 0.5 }}>
-                    {review.author_position}{review.author_company ? `, ${review.author_company}` : ''}
-                  </Typography>
-                )}
 
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Tooltip title="Плитка">

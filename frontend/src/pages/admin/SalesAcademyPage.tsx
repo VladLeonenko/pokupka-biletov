@@ -30,8 +30,9 @@ import {
   Alert,
   CircularProgress,
   InputAdornment,
+  Collapse,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link as RouterLink } from 'react-router-dom';
 import {
@@ -41,10 +42,17 @@ import {
   getProductMatrix,
   getCases,
   getQuestions,
+  getQuizResults,
+  getMaterials,
+  createMaterial,
+  updateMaterial,
+  deleteMaterial,
   createQuestion,
   updateQuestion,
   deleteQuestion,
   type TrainingQuestion,
+  type QuizResult,
+  type TrainingMaterial,
 } from '@/services/salesAcademyApi';
 import { useAuth } from '@/auth/AuthProvider';
 import { useToast } from '@/components/common/ToastProvider';
@@ -60,6 +68,13 @@ import QuizOutlinedIcon from '@mui/icons-material/QuizOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+
+const MATERIAL_TYPES = [
+  { value: 'objection', label: 'Возражение' },
+  { value: 'call_script', label: 'Скрипт звонка' },
+  { value: 'admin_guide', label: 'Гайд админки' },
+  { value: 'sales_tip', label: 'Совет по продажам' },
+] as const;
 
 const QUIZ_TYPES = [
   { value: 'objection', label: 'Возражения (старый)' },
@@ -245,7 +260,7 @@ function ManagerProgressHeader({ courseProgress }: { courseProgress: { slug: str
 }
 
 // Вкладка Материалы: плитка курсов (пошаговое изучение + тест в конце)
-function MaterialsTab({ courseProgress }: { courseProgress: Record<string, { completed: number; total: number; testPassed: boolean }> }) {
+function MaterialsTab({ courseProgress, isAdmin }: { courseProgress: Record<string, { completed: number; total: number; testPassed: boolean }>; isAdmin?: boolean }) {
   const { data: courses, isLoading } = useQuery({ queryKey: ['courses'], queryFn: getCourses });
   if (isLoading) return <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
   if (!courses?.length) return <Alert severity="info">Пока нет учебных материалов.</Alert>;
@@ -262,16 +277,14 @@ function MaterialsTab({ courseProgress }: { courseProgress: Record<string, { com
           return (
             <Card
               key={c.slug}
-              component={RouterLink}
-              to={`/admin/sales-academy/courses/${c.slug}`}
               sx={{
-                textDecoration: 'none',
-                color: 'inherit',
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 },
+                position: 'relative',
               }}
             >
               <CardContent>
+                <Box component={RouterLink} to={`/admin/sales-academy/courses/${c.slug}`} sx={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
                   <MenuBookIcon color="action" sx={{ mt: 0.25 }} />
                   <Box sx={{ flex: 1 }}>
@@ -286,6 +299,13 @@ function MaterialsTab({ courseProgress }: { courseProgress: Record<string, { com
                 <Typography variant="caption" color="text.secondary">
                   {prog?.completed ?? 0}/{prog?.total ?? c.total_pages ?? 0}
                 </Typography>
+                </Box>
+                {isAdmin && (
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                    <Button size="small" component={RouterLink} to={`/admin/sales-academy/courses/${c.slug}`}>Изучить</Button>
+                    <Button size="small" component={RouterLink} to={`/admin/sales-academy/courses/${c.slug}/edit`} variant="outlined">Редактировать</Button>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           );
@@ -422,6 +442,209 @@ function ProductMatrixTab() {
   );
 }
 
+function MaterialEditDialog({
+  open,
+  onClose,
+  material,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  material?: TrainingMaterial | null;
+  onSuccess: () => void;
+}) {
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ type: 'objection' as const, title: '', content: '', objection_text: '', solution_text: '', sort_order: 0 });
+  useEffect(() => {
+    if (open) {
+      if (material) {
+        setForm({
+          type: material.type as any,
+          title: material.title || '',
+          content: material.content || '',
+          objection_text: material.objection_text || '',
+          solution_text: material.solution_text || '',
+          sort_order: material.sort_order ?? 0,
+        });
+      } else {
+        setForm({ type: 'objection', title: '', content: '', objection_text: '', solution_text: '', sort_order: 0 });
+      }
+    }
+  }, [open, material?.id]);
+  const createMut = useMutation({
+    mutationFn: createMaterial,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['training-materials'] }); showToast('Создано', 'success'); onClose(); onSuccess(); },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => updateMaterial(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['training-materials'] }); showToast('Сохранено', 'success'); onClose(); onSuccess(); },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+  const handleSubmit = () => {
+    if (!form.title.trim()) { showToast('Введите заголовок', 'warning'); return; }
+    if (material) {
+      updateMut.mutate({ id: material.id, data: form });
+    } else {
+      createMut.mutate(form);
+    }
+  };
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>{material ? 'Редактировать материал' : 'Новый материал'}</DialogTitle>
+      <DialogContent>
+        <FormControl fullWidth sx={{ mb: 2, mt: 1 }}>
+          <InputLabel>Тип</InputLabel>
+          <Select value={form.type} label="Тип" onChange={(e) => setForm({ ...form, type: e.target.value as any })}>
+            {MATERIAL_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <TextField fullWidth label="Заголовок" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} sx={{ mb: 2 }} />
+        {(form.type === 'objection' || form.type === 'admin_guide') && (
+          <>
+            <TextField fullWidth label="Возражение / Тема" value={form.objection_text} onChange={(e) => setForm({ ...form, objection_text: e.target.value })} multiline rows={2} sx={{ mb: 2 }} />
+            <TextField fullWidth label="Решение / Контент" value={form.solution_text} onChange={(e) => setForm({ ...form, solution_text: e.target.value })} multiline rows={4} sx={{ mb: 2 }} />
+          </>
+        )}
+        {form.type !== 'objection' && (
+          <TextField fullWidth label="Контент" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} multiline rows={6} sx={{ mb: 2 }} />
+        )}
+        <TextField type="number" label="Порядок" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} sx={{ mb: 2 }} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Отмена</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={createMut.isPending || updateMut.isPending}>Сохранить</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function MaterialsAdminTab() {
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [editMaterial, setEditMaterial] = useState<TrainingMaterial | null | true>(null);
+  const { data: materials, isLoading } = useQuery({
+    queryKey: ['training-materials', typeFilter],
+    queryFn: () => getMaterials(typeFilter || undefined),
+  });
+  const queryClient = useQueryClient();
+  const deleteMut = useMutation({
+    mutationFn: deleteMaterial,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['training-materials'] }),
+  });
+  if (isLoading) return <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+  return (
+    <Box sx={{ pt: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Тип</InputLabel>
+          <Select value={typeFilter} label="Тип" onChange={(e) => setTypeFilter(e.target.value)}>
+            <MenuItem value="">Все</MenuItem>
+            {MATERIAL_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditMaterial(true)}>Добавить материал</Button>
+      </Box>
+      <Table size="small">
+        <TableHead><TableRow sx={{ bgcolor: 'action.hover' }}><TableCell>Тип</TableCell><TableCell>Заголовок</TableCell><TableCell>Контент</TableCell><TableCell></TableCell></TableRow></TableHead>
+        <TableBody>
+          {(materials || []).map((m) => (
+            <TableRow key={m.id} hover>
+              <TableCell>{MATERIAL_TYPES.find((t) => t.value === m.type)?.label || m.type}</TableCell>
+              <TableCell>{m.title}</TableCell>
+              <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{(m.content || m.objection_text || '').slice(0, 80)}...</TableCell>
+              <TableCell>
+                <IconButton size="small" onClick={() => setEditMaterial(m)}><EditIcon /></IconButton>
+                <IconButton size="small" onClick={() => deleteMut.mutate(m.id)} color="error"><DeleteIcon /></IconButton>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {(!materials || materials.length === 0) && <Alert severity="info">Нет материалов</Alert>}
+      {editMaterial && (
+        <MaterialEditDialog open={!!editMaterial} onClose={() => setEditMaterial(null)} material={editMaterial === true ? undefined : editMaterial} onSuccess={() => setEditMaterial(null)} />
+      )}
+    </Box>
+  );
+}
+
+function QuizResultsTab() {
+  const [courseFilter, setCourseFilter] = useState<string>('');
+  const { data: results, isLoading } = useQuery({
+    queryKey: ['quiz-results', courseFilter],
+    queryFn: () => getQuizResults(courseFilter || undefined),
+  });
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  if (isLoading) return <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+
+  return (
+    <Box sx={{ pt: 2 }}>
+      <FormControl size="small" sx={{ minWidth: 200, mb: 2 }}>
+        <InputLabel>Курс</InputLabel>
+        <Select value={courseFilter} label="Курс" onChange={(e) => setCourseFilter(e.target.value)}>
+          <MenuItem value="">Все</MenuItem>
+          <MenuItem value="objections">Возражения</MenuItem>
+          <MenuItem value="lpr">Как выйти на ЛПР</MenuItem>
+        </Select>
+      </FormControl>
+      <Table size="small">
+        <TableHead>
+          <TableRow sx={{ bgcolor: 'action.hover' }}>
+            <TableCell>Менеджер</TableCell>
+            <TableCell>Курс</TableCell>
+            <TableCell align="center">Балл</TableCell>
+            <TableCell>Дата</TableCell>
+            <TableCell padding="none" />
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {(results || []).map((r) => (
+            <React.Fragment key={r.id}>
+              <TableRow hover onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} sx={{ cursor: 'pointer' }}>
+                <TableCell>{r.user_name || r.user_email}</TableCell>
+                <TableCell>{r.question_type?.replace('course_', '') || r.question_type}</TableCell>
+                <TableCell align="center">
+                  <Chip label={`${r.score_percent}%`} size="small" color={r.score_percent >= 80 ? 'success' : r.score_percent >= 60 ? 'default' : 'error'} />
+                </TableCell>
+                <TableCell>{r.completed_at ? new Date(r.completed_at).toLocaleString('ru-RU') : '—'}</TableCell>
+                <TableCell>{expandedId === r.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell colSpan={5} sx={{ py: 0, borderBottom: 'none' }}>
+                  <Collapse in={expandedId === r.id}>
+                    <Box sx={{ py: 2, pl: 2, bgcolor: 'action.hover' }}>
+                      {r.answers?.length ? (
+                        r.answers.map((a, i) => (
+                          <Box key={i} sx={{ mb: 1.5 }}>
+                            <Typography variant="caption" color="text.secondary">{a.question_text}</Typography>
+                            {a.answer_text != null ? (
+                              <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>{a.answer_text || '—'}</Typography>
+                            ) : a.answer_index != null && a.options ? (
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {a.options[a.answer_index] || `[${a.answer_index}]`}
+                                {a.correct_index !== undefined && a.answer_index === a.correct_index ? ' ✓' : a.correct_index !== undefined ? ' ✗' : ''}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">Ответы не сохранены</Typography>
+                      )}
+                    </Box>
+                  </Collapse>
+                </TableCell>
+              </TableRow>
+            </React.Fragment>
+          ))}
+        </TableBody>
+      </Table>
+      {(!results || results.length === 0) && <Alert severity="info">Нет результатов</Alert>}
+    </Box>
+  );
+}
+
 function QuestionsAdminTab({ onEditQuestion }: { onEditQuestion: (q: TrainingQuestion | null) => void }) {
   const { data: objectionQ } = useQuery({ queryKey: ['training-questions', 'objection'], queryFn: () => getQuestions('objection') });
   const { data: scriptQ } = useQuery({ queryKey: ['training-questions', 'call_script'], queryFn: () => getQuestions('call_script') });
@@ -504,7 +727,7 @@ export function SalesAcademyPage() {
     { label: 'Шпаргалка по возражениям', icon: <PsychologyIcon /> },
     { label: 'Продуктовая матрица', icon: <InventoryIcon /> },
     { label: 'Кейсы', icon: <WorkIcon /> },
-    ...(isAdmin ? [{ label: 'Вопросы тестов', icon: <QuizOutlinedIcon /> }] : []),
+    ...(isAdmin ? [{ label: 'Редактор материалов', icon: <EditIcon /> }, { label: 'Вопросы тестов', icon: <QuizOutlinedIcon /> }, { label: 'Результаты тестов', icon: <EmojiEventsIcon /> }] : []),
   ];
 
   return (
@@ -520,11 +743,13 @@ export function SalesAcademyPage() {
         ))}
       </Tabs>
 
-      {tab === 0 && <MaterialsTab courseProgress={courseProgress} />}
+      {tab === 0 && <MaterialsTab courseProgress={courseProgress} isAdmin={isAdmin} />}
       {tab === 1 && <ObjectionsCheatsheetTab />}
       {tab === 2 && <ProductMatrixTab />}
       {tab === 3 && <CasesTab />}
-      {isAdmin && tab === 4 && <QuestionsAdminTab onEditQuestion={(q) => setEditQuestion(q ?? true)} />}
+      {isAdmin && tab === 4 && <MaterialsAdminTab />}
+      {isAdmin && tab === 5 && <QuestionsAdminTab onEditQuestion={(q) => setEditQuestion(q ?? true)} />}
+      {isAdmin && tab === 6 && <QuizResultsTab />}
 
       {editQuestion && (
         <QuestionEditDialog

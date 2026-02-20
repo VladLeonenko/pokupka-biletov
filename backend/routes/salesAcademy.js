@@ -57,6 +57,70 @@ router.get('/courses/:slug', requireAuth, requireAdminOrSalesManager, async (req
   }
 });
 
+// Обновить курс (админ)
+router.put('/courses/:slug', requireAuth, async (req, res) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { slug } = req.params;
+    const { title, cover_description, estimated_test_minutes, sort_order } = req.body || {};
+    const updates = [];
+    const params = [slug];
+    if (title !== undefined) { params.push(title); updates.push(`title = $${params.length}`); }
+    if (cover_description !== undefined) { params.push(cover_description); updates.push(`cover_description = $${params.length}`); }
+    if (estimated_test_minutes !== undefined) { params.push(estimated_test_minutes); updates.push(`estimated_test_minutes = $${params.length}`); }
+    if (sort_order !== undefined) { params.push(sort_order); updates.push(`sort_order = $${params.length}`); }
+    if (updates.length === 0) return res.status(400).json({ error: 'nothing to update' });
+    const r = await pool.query(
+      `UPDATE training_courses SET ${updates.join(', ')} WHERE slug = $1 RETURNING *`,
+      params
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Course not found' });
+    res.json(r.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Обновить страницы курса (админ) — замена всего списка
+router.put('/courses/:slug/pages', requireAuth, async (req, res) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { slug } = req.params;
+    const { pages } = req.body || {};
+    if (!Array.isArray(pages)) return res.status(400).json({ error: 'pages array required' });
+    const courseRes = await pool.query('SELECT id FROM training_courses WHERE slug = $1', [slug]);
+    if (!courseRes.rows[0]) return res.status(404).json({ error: 'Course not found' });
+    const courseId = courseRes.rows[0].id;
+    await pool.query('DELETE FROM training_course_pages WHERE course_id = $1', [courseId]);
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      await pool.query(
+        `INSERT INTO training_course_pages (course_id, page_index, page_type, title, content, content_blocks, objection_text, solution_text, material_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          courseId,
+          i,
+          p.page_type || 'content',
+          p.title || null,
+          p.content || null,
+          p.content_blocks ? JSON.stringify(p.content_blocks) : null,
+          p.objection_text || null,
+          p.solution_text || null,
+          p.material_id ?? null
+        ]
+      );
+    }
+    const pagesRes = await pool.query(
+      `SELECT p.id, p.page_index, p.page_type, p.title, p.content, p.content_blocks, p.objection_text, p.solution_text, p.material_id
+       FROM training_course_pages p WHERE p.course_id = $1 ORDER BY p.page_index`,
+      [courseId]
+    );
+    res.json(pagesRes.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Прогресс по курсу
 router.get('/courses/:slug/progress', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
@@ -298,22 +362,79 @@ router.post('/materials/:id/complete', requireAuth, requireAdminOrSalesManager, 
   }
 });
 
-// Отправить результат теста
+// Отправить результат теста (с ответами для админа)
 router.post('/quiz/submit', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
-    const { question_type, score_percent, total_questions, correct_count } = req.body || {};
+    const { question_type, score_percent, total_questions, correct_count, answers } = req.body || {};
     if (!question_type || score_percent == null || !total_questions || correct_count == null) {
       return res.status(400).json({ error: 'question_type, score_percent, total_questions, correct_count required' });
     }
     const userId = req.user.id;
-    await pool.query(
+    const r = await pool.query(
       `INSERT INTO manager_quiz_attempts (user_id, question_type, score_percent, total_questions, correct_count)
-       VALUES ($1, $2, $3, $4, $5)`,
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [userId, question_type, Math.min(100, Math.max(0, score_percent)), total_questions, correct_count]
     );
+    const attemptId = r.rows[0]?.id;
+    if (attemptId && Array.isArray(answers) && answers.length > 0) {
+      for (const a of answers) {
+        await pool.query(
+          `INSERT INTO manager_quiz_answers (attempt_id, question_id, question_index, answer_index, answer_text)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [attemptId, a.question_id ?? null, a.question_index ?? 0, a.answer_index ?? null, a.answer_text ?? null]
+        );
+      }
+    }
     res.json({ success: true });
   } catch (e) {
     if (e.message?.includes('manager_quiz_attempts')) return res.json({ success: true });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Результаты тестов — админ (все попытки + ответы на открытые вопросы)
+router.get('/quiz/results', requireAuth, async (req, res) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { course_slug, limit } = req.query;
+    let query = `
+      SELECT a.id, a.user_id, a.question_type, a.score_percent, a.total_questions, a.correct_count, a.completed_at,
+        u.name as user_name, u.email as user_email
+      FROM manager_quiz_attempts a
+      JOIN users u ON u.id = a.user_id
+      WHERE 1=1`;
+    const params = [];
+    if (course_slug) {
+      params.push(`course_${course_slug}`);
+      query += ` AND a.question_type = $${params.length}`;
+    }
+    params.push(Math.min(parseInt(limit) || 100, 500));
+    query += ` ORDER BY a.completed_at DESC LIMIT $${params.length}`;
+    const attemptsRes = await pool.query(query, params);
+    const attempts = attemptsRes.rows;
+
+    if (attempts.length === 0) return res.json([]);
+
+    const answersRes = await pool.query(
+      `SELECT aa.*, q.question_text, q.correct_index, q.options
+       FROM manager_quiz_answers aa
+       LEFT JOIN sales_training_questions q ON q.id = aa.question_id
+       WHERE aa.attempt_id = ANY($1)`,
+      [attempts.map((a) => a.id)]
+    );
+    const answersByAttempt = answersRes.rows.reduce((acc, r) => {
+      if (!acc[r.attempt_id]) acc[r.attempt_id] = [];
+      acc[r.attempt_id].push(r);
+      return acc;
+    }, {});
+
+    const result = attempts.map((a) => ({
+      ...a,
+      completed_at: a.completed_at?.toISOString?.(),
+      answers: (answersByAttempt[a.id] || []).sort((x, y) => x.question_index - y.question_index),
+    }));
+    res.json(result);
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });

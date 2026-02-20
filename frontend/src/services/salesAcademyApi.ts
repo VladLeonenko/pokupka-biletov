@@ -74,6 +74,26 @@ export async function getCourse(slug: string): Promise<CourseWithPages> {
   return res.json();
 }
 
+export async function updateCourse(slug: string, data: Partial<Pick<TrainingCourse, 'title' | 'cover_description' | 'estimated_test_minutes' | 'sort_order'>>): Promise<TrainingCourse> {
+  const res = await fetch(`${API_BASE}/api/sales-academy/courses/${slug}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка обновления курса');
+  return res.json();
+}
+
+export async function updateCoursePages(slug: string, pages: Array<Partial<CoursePage> & { page_type: string }>): Promise<CoursePage[]> {
+  const res = await fetch(`${API_BASE}/api/sales-academy/courses/${slug}/pages`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pages }),
+  });
+  if (!res.ok) throw new Error('Ошибка обновления страниц');
+  return res.json();
+}
+
 export async function getCourseProgress(slug: string): Promise<CourseProgress> {
   const res = await fetch(`${API_BASE}/api/sales-academy/courses/${slug}/progress`, { headers: authHeaders() });
   if (!res.ok) return { lastPageIndex: 0, completedPageCount: 0, testPassed: false, testScore: null, updatedAt: null };
@@ -196,6 +216,7 @@ export async function submitQuiz(data: {
   score_percent: number;
   total_questions: number;
   correct_count: number;
+  answers?: { question_id?: number; question_index: number; answer_index?: number; answer_text?: string }[];
 }): Promise<void> {
   const res = await fetch(`${API_BASE}/api/sales-academy/quiz/submit`, {
     method: 'POST',
@@ -203,6 +224,39 @@ export async function submitQuiz(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Ошибка отправки');
+}
+
+export interface QuizResultAnswer {
+  question_id?: number;
+  question_index: number;
+  question_text?: string;
+  answer_index?: number;
+  answer_text?: string;
+  correct_index?: number;
+  options?: string[];
+}
+
+export interface QuizResult {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  question_type: string;
+  score_percent: number;
+  total_questions: number;
+  correct_count: number;
+  completed_at: string;
+  answers: QuizResultAnswer[];
+}
+
+export async function getQuizResults(courseSlug?: string, limit?: number): Promise<QuizResult[]> {
+  const params = new URLSearchParams();
+  if (courseSlug) params.set('course_slug', courseSlug);
+  if (limit) params.set('limit', String(limit));
+  const url = `${API_BASE}/api/sales-academy/quiz/results${params.toString() ? `?${params}` : ''}`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function createQuestion(data: {
