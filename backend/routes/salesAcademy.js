@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/courses', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT c.id, c.slug, c.title, c.cover_description, c.estimated_test_minutes, c.sort_order,
+      `SELECT c.id, c.slug, c.title, c.cover_description, c.cover_image_url, c.estimated_test_minutes, c.sort_order,
         (SELECT COUNT(*) FROM training_course_pages p WHERE p.course_id = c.id) as total_pages
        FROM training_courses c ORDER BY c.sort_order, c.id`
     );
@@ -26,7 +26,7 @@ router.get('/courses/:slug', requireAuth, requireAdminOrSalesManager, async (req
   try {
     const { slug } = req.params;
     const courseRes = await pool.query(
-      'SELECT id, slug, title, cover_description, estimated_test_minutes FROM training_courses WHERE slug = $1',
+      'SELECT id, slug, title, cover_description, cover_image_url, estimated_test_minutes FROM training_courses WHERE slug = $1',
       [slug]
     );
     if (!courseRes.rows[0]) return res.status(404).json({ error: 'Course not found' });
@@ -62,11 +62,12 @@ router.put('/courses/:slug', requireAuth, async (req, res) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
   try {
     const { slug } = req.params;
-    const { title, cover_description, estimated_test_minutes, sort_order } = req.body || {};
+    const { title, cover_description, cover_image_url, estimated_test_minutes, sort_order } = req.body || {};
     const updates = [];
     const params = [slug];
     if (title !== undefined) { params.push(title); updates.push(`title = $${params.length}`); }
     if (cover_description !== undefined) { params.push(cover_description); updates.push(`cover_description = $${params.length}`); }
+    if (cover_image_url !== undefined) { params.push(cover_image_url && typeof cover_image_url === 'string' && cover_image_url.trim() ? cover_image_url.trim() : null); updates.push(`cover_image_url = $${params.length}`); }
     if (estimated_test_minutes !== undefined) { params.push(estimated_test_minutes); updates.push(`estimated_test_minutes = $${params.length}`); }
     if (sort_order !== undefined) { params.push(sort_order); updates.push(`sort_order = $${params.length}`); }
     if (updates.length === 0) return res.status(400).json({ error: 'nothing to update' });

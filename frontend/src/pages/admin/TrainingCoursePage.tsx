@@ -154,10 +154,18 @@ function ChecklistItem({ label }: { label: string }) {
 
 function PageContent({ page, course }: { page: CoursePage; course: CourseWithPages }) {
   if (page.page_type === 'cover') {
+    const blocks = page.content_blocks && Array.isArray(page.content_blocks) ? page.content_blocks : null;
     return (
       <Box>
+        {course.cover_image_url && (
+          <Box component="img" src={course.cover_image_url} alt="" sx={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 2, mb: 2 }} />
+        )}
         <Typography variant="h6" sx={{ mb: 2 }}>{page.title || 'Введение'}</Typography>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{course.cover_description || ''}</Typography>
+        {blocks && blocks.length > 0 ? (
+          blocks.map((b, i) => <BlockRenderer key={i} block={b} />)
+        ) : (
+          <Typography sx={{ whiteSpace: 'pre-wrap' }}>{course.cover_description || ''}</Typography>
+        )}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           Примерное время на тест: {course.estimated_test_minutes} мин
         </Typography>

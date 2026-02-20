@@ -24,6 +24,7 @@ export interface TrainingCourse {
   slug: string;
   title: string;
   cover_description: string | null;
+  cover_image_url?: string | null;
   estimated_test_minutes: number;
   sort_order?: number;
   total_pages?: number;
@@ -74,7 +75,7 @@ export async function getCourse(slug: string): Promise<CourseWithPages> {
   return res.json();
 }
 
-export async function updateCourse(slug: string, data: Partial<Pick<TrainingCourse, 'title' | 'cover_description' | 'estimated_test_minutes' | 'sort_order'>>): Promise<TrainingCourse> {
+export async function updateCourse(slug: string, data: Partial<Pick<TrainingCourse, 'title' | 'cover_description' | 'cover_image_url' | 'estimated_test_minutes' | 'sort_order'>>): Promise<TrainingCourse> {
   const res = await fetch(`${API_BASE}/api/sales-academy/courses/${slug}`, {
     method: 'PUT',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
