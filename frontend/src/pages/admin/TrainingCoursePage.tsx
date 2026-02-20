@@ -24,6 +24,11 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
@@ -126,6 +131,23 @@ function BlockRenderer({ block }: { block: ContentBlock }) {
         </Box>
       );
     }
+    case 'table': {
+      const headers = block.headers || [];
+      const rows = block.rows || [];
+      if (headers.length === 0 && rows.length === 0) return null;
+      return (
+        <Box sx={{ overflowX: 'auto', mb: 1.5 }}>
+          <Table size="small" sx={{ minWidth: 200 }}>
+            <TableHead><TableRow>{headers.map((h, i) => <TableCell key={i} sx={{ fontWeight: 600 }}>{h || ''}</TableCell>)}</TableRow></TableHead>
+            <TableBody>
+              {rows.map((row, ri) => (
+                <TableRow key={ri}>{row.map((cell, ci) => <TableCell key={ci}>{cell || ''}</TableCell>)}</TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+      );
+    }
     default:
       return null;
   }
@@ -173,6 +195,7 @@ function PageContent({ page, course }: { page: CoursePage; course: CourseWithPag
     );
   }
   if (page.page_type === 'objection') {
+    const objBlocks = page.content_blocks && Array.isArray(page.content_blocks) ? page.content_blocks : null;
     return (
       <Box>
         <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>
@@ -183,6 +206,9 @@ function PageContent({ page, course }: { page: CoursePage; course: CourseWithPag
           Решение
         </Typography>
         <Typography sx={{ whiteSpace: 'pre-wrap' }}>{page.solution_text || ''}</Typography>
+        {objBlocks && objBlocks.length > 0 && (
+          <Box sx={{ mt: 2 }}>{objBlocks.map((b, i) => <BlockRenderer key={i} block={b} />)}</Box>
+        )}
       </Box>
     );
   }

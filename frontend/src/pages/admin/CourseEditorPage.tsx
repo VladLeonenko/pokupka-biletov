@@ -38,6 +38,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ImageIcon from '@mui/icons-material/Image';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import SubjectIcon from '@mui/icons-material/Subject';
@@ -212,23 +213,68 @@ export function CourseEditorPage() {
   );
 }
 
+function parsePasteToBlocks(text: string): ContentBlock[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const lines = trimmed.split('\n').map((l) => l.trim()).filter(Boolean);
+
+  // Markdown table: | col1 | col2 |
+  const tableLines = lines.filter((l) => l.startsWith('|') && l.endsWith('|'));
+  if (tableLines.length >= 2) {
+    const toCells = (s: string) => s.split('|').slice(1, -1).map((c) => c.trim());
+    const headers = toCells(tableLines[0]);
+    const isSeparator = (cells: string[]) => cells.every((c) => /^[\s\-:]+$/.test(c));
+    let dataStart = 1;
+    if (tableLines[1]) {
+      const secondCells = toCells(tableLines[1]);
+      if (isSeparator(secondCells)) dataStart = 2;
+    }
+    const rows = tableLines.slice(dataStart).map((l) => toCells(l));
+    if (headers.some(Boolean) || rows.some((r) => r.some(Boolean))) {
+      return [{ type: 'table', headers, rows }];
+    }
+  }
+
+  // Checkboxes: ✅ [ ] текст или - [ ] текст или * [ ] текст
+  const checkboxPattern = /^[✅✔✓\-*]?\s*\[[\sxX✓✔]\]\s*(.+)$|^[✅✔✓]\s+(.+)$/;
+  const cbLines = lines.filter((l) => checkboxPattern.test(l) || /\[[\sxX✓✔]\]/.test(l));
+  if (cbLines.length > 0) {
+    const items = cbLines
+      .map((l) => l.replace(/^[✅✔✓\-*]?\s*\[[\sxX✓✔]\]\s*/, '').replace(/^[✅✔✓]\s+/, '').trim())
+      .filter(Boolean);
+    if (items.length > 0) return [{ type: 'checkbox', title: '', items }];
+  }
+
+  return [{ type: 'text', text: trimmed }];
+}
+
 const BLOCK_TYPES: { value: ContentBlock['type']; label: string; icon: React.ReactNode }[] = [
   { value: 'text', label: 'Текст', icon: <SubjectIcon /> },
   { value: 'list', label: 'Список', icon: <FormatListBulletedIcon /> },
   { value: 'dropdown', label: 'Выпадающий список', icon: <ExpandMoreIcon /> },
   { value: 'checkbox', label: 'Чекбоксы', icon: <CheckBoxIcon /> },
+  { value: 'table', label: 'Таблица', icon: <TableChartIcon /> },
   { value: 'image', label: 'Изображение', icon: <ImageIcon /> },
   { value: 'video', label: 'Видео', icon: <VideoFileIcon /> },
 ];
 
 function ContentBlocksEditor({ blocks, onChange }: { blocks: ContentBlock[]; onChange: (blocks: ContentBlock[]) => void }) {
   const [uploadingFor, setUploadingFor] = useState<number | null>(null);
+  const [pasteText, setPasteText] = useState('');
+  const handlePasteRecognize = () => {
+    const parsed = parsePasteToBlocks(pasteText);
+    if (parsed.length > 0) {
+      onChange([...blocks, ...parsed]);
+      setPasteText('');
+    }
+  };
   const addBlock = (type: ContentBlock['type']) => {
     const defaults: Record<ContentBlock['type'], ContentBlock> = {
       text: { type: 'text', text: '' },
       list: { type: 'list', items: [''], ordered: false },
       dropdown: { type: 'dropdown', title: '', content: '' },
       checkbox: { type: 'checkbox', title: '', items: [''] },
+      table: { type: 'table', headers: ['Колонка 1', 'Колонка 2'], rows: [['', '']] },
       image: { type: 'image', url: '', alt: '' },
       video: { type: 'video', url: '' },
     };
@@ -250,6 +296,15 @@ function ContentBlocksEditor({ blocks, onChange }: { blocks: ContentBlock[]; onC
   return (
     <Box sx={{ mb: 2 }}>
       <Typography variant="subtitle2" sx={{ mb: 1 }}>Блоки контента</Typography>
+      <Accordion sx={{ mb: 2, '&:before': { display: 'none' } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="body2" color="text.secondary">Вставить из буфера (распознаёт чекбоксы и таблицы)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <TextField fullWidth multiline rows={6} size="small" value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={'Чекбоксы: ✅ [ ] Текст пункта\n\nТаблица: | Колонка 1 | Колонка 2 |\n| --- | --- |\n| ячейка | ячейка |'} sx={{ mb: 1, fontFamily: 'monospace', fontSize: '0.8rem' }} />
+          <Button size="small" variant="outlined" onClick={handlePasteRecognize} disabled={!pasteText.trim()}>Распознать и добавить</Button>
+        </AccordionDetails>
+      </Accordion>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
         {BLOCK_TYPES.map((t) => (
           <Button key={t.value} size="small" variant="outlined" startIcon={t.icon} onClick={() => addBlock(t.value)}>
@@ -309,6 +364,17 @@ function ContentBlocksEditor({ blocks, onChange }: { blocks: ContentBlock[]; onC
                   }} sx={{ mt: 1 }} placeholder={`Пункт ${j + 1}`} />
                 ))}
                 <Button size="small" startIcon={<AddIcon />} onClick={() => updateBlock(i, { ...b, items: [...((b as any).items || []), ''] })} sx={{ mt: 1 }}>Добавить пункт</Button>
+              </Box>
+            )}
+            {b.type === 'table' && (
+              <Box>
+                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Заголовки (через запятую)</Typography>
+                <TextField fullWidth size="small" value={((b as any).headers || []).join(', ')} onChange={(e) => updateBlock(i, { ...b, headers: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} placeholder="Колонка 1, Колонка 2" sx={{ mb: 2 }} />
+                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Строки (каждая строка — ячейки через |)</Typography>
+                <TextField fullWidth multiline rows={4} size="small" value={((b as any).rows || []).map((r: string[]) => r.join(' | ')).join('\n')} onChange={(e) => {
+                  const rows = e.target.value.split('\n').map((line) => line.split('|').map((c) => c.trim()));
+                  updateBlock(i, { ...b, rows });
+                }} placeholder="ячейка1 | ячейка2\nячейка1 | ячейка2" />
               </Box>
             )}
             {b.type === 'image' && (
@@ -400,11 +466,9 @@ function PageEditDialog({
             <TextField fullWidth label="Решение" value={form.solution_text} onChange={(e) => setForm({ ...form, solution_text: e.target.value })} multiline rows={4} sx={{ mb: 2 }} />
           </>
         )}
+        <ContentBlocksEditor blocks={form.content_blocks} onChange={(blocks) => setForm({ ...form, content_blocks: blocks })} />
         {(form.page_type === 'content' || form.page_type === 'cover') && (
-          <>
-            <ContentBlocksEditor blocks={form.content_blocks} onChange={(blocks) => setForm({ ...form, content_blocks: blocks })} />
-            <TextField fullWidth label="Простой текст (если нет блоков)" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} multiline rows={4} sx={{ mb: 2 }} placeholder="Запасной контент, если блоки пустые" />
-          </>
+          <TextField fullWidth label="Простой текст (если нет блоков)" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} multiline rows={2} sx={{ mb: 2 }} placeholder="Запасной контент, если блоки пустые" />
         )}
       </DialogContent>
       <DialogActions>

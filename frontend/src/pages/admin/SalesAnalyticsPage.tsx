@@ -1,7 +1,7 @@
 import { Box, Card, CardContent, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSalesOverview, savePlan, getManagerDynamics } from '@/services/salesAnalyticsApi';
+import { getSalesOverview, savePlan, getManagerDynamics, getPlans } from '@/services/salesAnalyticsApi';
 import { listAdmins } from '@/services/adminsApi';
 import AddIcon from '@mui/icons-material/Add';
 import { useToast } from '@/components/common/ToastProvider';
@@ -30,14 +30,18 @@ export function SalesAnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]);
 
   const { data: overview } = useQuery({ queryKey: ['sales-overview', selectedMonth], queryFn: () => getSalesOverview(selectedMonth) });
+  const { data: plans } = useQuery({ queryKey: ['plans', selectedMonth], queryFn: () => getPlans(selectedMonth) });
   const { data: dynamics } = useQuery({ queryKey: ['manager-dynamics', MONTHS_BACK], queryFn: () => getManagerDynamics(MONTHS_BACK) });
   const { data: managers } = useQuery({ queryKey: ['admins'], queryFn: listAdmins });
+  const plansByUserId = (plans || []).reduce<Record<number, any>>((acc, p) => ({ ...acc, [p.user_id]: p }), {});
   const savePlanMutation = useMutation({
     mutationFn: savePlan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-overview'] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
       queryClient.invalidateQueries({ queryKey: ['manager-dynamics'] });
+      queryClient.refetchQueries({ queryKey: ['plans', selectedMonth] });
+      queryClient.refetchQueries({ queryKey: ['sales-overview', selectedMonth] });
       setPlanModal(null);
       showToast('План сохранён', 'success');
     },
@@ -142,34 +146,38 @@ export function SalesAnalyticsPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {overview?.managers?.map((m) => (
+            {overview?.managers?.map((m) => {
+              const plan = m.plan || plansByUserId[m.userId];
+              return (
               <TableRow key={m.userId}>
                 <TableCell>{m.name}</TableCell>
                 <TableCell align="right">{m.newClients}</TableCell>
                 <TableCell align="right">{m.salesRub.toLocaleString('ru-RU')} ₽</TableCell>
                 <TableCell>
-                  {m.plan ? (
+                  {plan ? (
                     [
-                      m.plan.plan_new_clients != null && `Клиенты: ${m.plan.plan_new_clients}`,
-                      m.plan.plan_sales_rub != null && `Продажи: ${m.plan.plan_sales_rub.toLocaleString('ru-RU')} ₽`,
-                      m.plan.plan_deals != null && `Сделки: ${m.plan.plan_deals}`,
-                      m.plan.plan_calls != null && `Звонки: ${m.plan.plan_calls}`,
+                      plan.plan_new_clients != null && `Клиенты: ${plan.plan_new_clients}`,
+                      plan.plan_sales_rub != null && `Продажи: ${plan.plan_sales_rub.toLocaleString('ru-RU')} ₽`,
+                      plan.plan_deals != null && `Сделки: ${plan.plan_deals}`,
+                      plan.plan_calls != null && `Звонки: ${plan.plan_calls}`,
                     ].filter(Boolean).join(' · ') || '—'
                   ) : '—'}
                 </TableCell>
                 <TableCell>
                   <Button size="small" onClick={() => {
+                    const p = m.plan || plansByUserId[m.userId];
                     setPlanModal({ userId: m.userId, name: m.name, month: selectedMonth });
-                    setPlanCalls(m.plan?.plan_calls ?? 0);
-                    setPlanSales(m.plan?.plan_sales_rub ?? 0);
-                    setPlanDeals(m.plan?.plan_deals ?? 0);
-                    setPlanClients(m.plan?.plan_new_clients ?? 0);
+                    setPlanCalls(p?.plan_calls ?? 0);
+                    setPlanSales(p?.plan_sales_rub ?? 0);
+                    setPlanDeals(p?.plan_deals ?? 0);
+                    setPlanClients(p?.plan_new_clients ?? 0);
                   }}>
                     План
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </Paper>

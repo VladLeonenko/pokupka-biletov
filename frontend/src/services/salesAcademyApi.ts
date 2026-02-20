@@ -36,7 +36,8 @@ export type ContentBlock =
   | { type: 'dropdown'; title: string; content: string }
   | { type: 'checkbox'; title?: string; items: string[] }
   | { type: 'image'; url: string; alt?: string }
-  | { type: 'video'; url: string };
+  | { type: 'video'; url: string }
+  | { type: 'table'; headers: string[]; rows: string[][] };
 
 export interface CoursePage {
   id: number;
