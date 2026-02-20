@@ -26,6 +26,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Collapse,
   FormControlLabel,
   Switch,
 } from '@mui/material';
@@ -258,6 +259,104 @@ const BLOCK_TYPES: { value: ContentBlock['type']; label: string; icon: React.Rea
   { value: 'video', label: 'Видео', icon: <VideoFileIcon /> },
 ];
 
+function BlockItem({ block: b, index: i, total, onMoveUp, onMoveDown, onRemove, onUpdate, uploadingFor, setUploadingFor }: {
+  block: ContentBlock; index: number; total: number;
+  onMoveUp: () => void; onMoveDown: () => void; onRemove: () => void; onUpdate: (b: ContentBlock) => void;
+  uploadingFor: number | null; setUploadingFor: (n: number | null) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <Paper variant="outlined" sx={{ mb: 1, overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'action.hover' }}>
+        <IconButton size="small" onClick={onMoveUp} disabled={i === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
+        <IconButton size="small" onClick={onMoveDown} disabled={i === total - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
+        <IconButton size="small" onClick={onRemove} color="error"><DeleteIcon fontSize="small" /></IconButton>
+        <Chip size="small" label={BLOCK_TYPES.find((t) => t.value === b.type)?.label || b.type} />
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {b.type === 'text' && (b as any).text?.slice(0, 40)}
+          {b.type === 'list' && `Список (${(b as any).items?.length || 0} пунктов)`}
+          {b.type === 'dropdown' && (b as any).title?.slice(0, 40)}
+          {b.type === 'checkbox' && ((b as any).title || `Чекбоксы (${(b as any).items?.length || 0})`)}
+          {b.type === 'table' && `Таблица ${(b as any).headers?.length || 0}×${(b as any).rows?.length || 0}`}
+          {b.type === 'image' && (b as any).url ? 'Изображение' : '—'}
+          {b.type === 'video' && ((b as any).url ? 'Видео' : '—')}
+        </Typography>
+        <IconButton size="small" onClick={() => setExpanded((e) => !e)}>
+          <ExpandMoreIcon sx={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </IconButton>
+      </Box>
+      <Collapse in={expanded}>
+        <Box sx={{ p: 2, pt: 0 }}>
+          {b.type === 'text' && (
+            <TextField fullWidth multiline rows={3} label="Текст" value={(b as any).text || ''} onChange={(e) => onUpdate({ ...b, text: e.target.value })} />
+          )}
+          {b.type === 'list' && (
+            <Box>
+              <FormControlLabel control={<Switch size="small" checked={(b as any).ordered || false} onChange={(e) => onUpdate({ ...b, ordered: e.target.checked })} />} label="Нумерованный список" />
+              {(b as any).items?.map((item: string, j: number) => (
+                <TextField key={j} fullWidth size="small" value={item} onChange={(e) => {
+                  const items = [...((b as any).items || [])];
+                  items[j] = e.target.value;
+                  onUpdate({ ...b, items });
+                }} sx={{ mt: 1 }} placeholder={`Пункт ${j + 1}`} />
+              ))}
+              <Button size="small" startIcon={<AddIcon />} onClick={() => onUpdate({ ...b, items: [...((b as any).items || []), ''] })} sx={{ mt: 1 }}>Добавить пункт</Button>
+            </Box>
+          )}
+          {b.type === 'dropdown' && (
+            <Box>
+              <TextField fullWidth size="small" label="Заголовок" value={(b as any).title || ''} onChange={(e) => onUpdate({ ...b, title: e.target.value })} sx={{ mb: 1 }} />
+              <TextField fullWidth multiline rows={4} label="Содержимое" value={(b as any).content || ''} onChange={(e) => onUpdate({ ...b, content: e.target.value })} />
+            </Box>
+          )}
+          {b.type === 'checkbox' && (
+            <Box>
+              <TextField fullWidth size="small" label="Заголовок" value={(b as any).title || ''} onChange={(e) => onUpdate({ ...b, title: e.target.value })} sx={{ mb: 1 }} />
+              {(b as any).items?.map((item: string, j: number) => (
+                <TextField key={j} fullWidth size="small" value={item} onChange={(e) => {
+                  const items = [...((b as any).items || [])];
+                  items[j] = e.target.value;
+                  onUpdate({ ...b, items });
+                }} sx={{ mt: 1 }} placeholder={`Пункт ${j + 1}`} />
+              ))}
+              <Button size="small" startIcon={<AddIcon />} onClick={() => onUpdate({ ...b, items: [...((b as any).items || []), ''] })} sx={{ mt: 1 }}>Добавить пункт</Button>
+            </Box>
+          )}
+          {b.type === 'table' && (
+            <Box>
+              <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Заголовки (через запятую)</Typography>
+              <TextField fullWidth size="small" value={((b as any).headers || []).join(', ')} onChange={(e) => onUpdate({ ...b, headers: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} placeholder="Колонка 1, Колонка 2" sx={{ mb: 2 }} />
+              <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Строки (каждая строка — ячейки через |)</Typography>
+              <TextField fullWidth multiline rows={4} size="small" value={((b as any).rows || []).map((r: string[]) => r.join(' | ')).join('\n')} onChange={(e) => {
+                const rows = e.target.value.split('\n').map((line) => line.split('|').map((c) => c.trim()));
+                onUpdate({ ...b, rows });
+              }} placeholder="ячейка1 | ячейка2\nячейка1 | ячейка2" />
+            </Box>
+          )}
+          {b.type === 'image' && (
+            <Box>
+              <input id={`img-upload-${i}`} accept="image/*" type="file" style={{ display: 'none' }} onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (f) { setUploadingFor(i); try { const r = await uploadImage(f); onUpdate({ ...b, url: r.url }); } catch { /* ignore */ } finally { setUploadingFor(null); } }
+                e.target.value = '';
+              }} />
+              <label htmlFor={`img-upload-${i}`}>
+                <Button size="small" variant="outlined" component="span" disabled={uploadingFor === i} sx={{ mb: 1 }}>{uploadingFor === i ? 'Загрузка...' : 'Загрузить'}</Button>
+              </label>
+              <TextField fullWidth size="small" label="URL изображения" value={(b as any).url || ''} onChange={(e) => onUpdate({ ...b, url: e.target.value })} sx={{ mt: 1 }} />
+              <TextField fullWidth size="small" label="Alt (описание)" value={(b as any).alt || ''} onChange={(e) => onUpdate({ ...b, alt: e.target.value })} sx={{ mt: 1 }} />
+              {(b as any).url && <Box component="img" src={(b as any).url} alt="" sx={{ mt: 1, maxHeight: 100, borderRadius: 1 }} />}
+            </Box>
+          )}
+          {b.type === 'video' && (
+            <TextField fullWidth size="small" label="URL видео (YouTube, Vimeo)" value={(b as any).url || ''} onChange={(e) => onUpdate({ ...b, url: e.target.value })} placeholder="https://youtube.com/..." />
+          )}
+        </Box>
+      </Collapse>
+    </Paper>
+  );
+}
+
 function ContentBlocksEditor({ blocks, onChange }: { blocks: ContentBlock[]; onChange: (blocks: ContentBlock[]) => void }) {
   const [uploadingFor, setUploadingFor] = useState<number | null>(null);
   const [pasteText, setPasteText] = useState('');
@@ -313,92 +412,18 @@ function ContentBlocksEditor({ blocks, onChange }: { blocks: ContentBlock[]; onC
         ))}
       </Box>
       {blocks.map((b, i) => (
-        <Accordion key={i} defaultExpanded sx={{ '&:before': { display: 'none' }, border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-              <Chip size="small" label={BLOCK_TYPES.find((t) => t.value === b.type)?.label || b.type} />
-              <Typography variant="body2" color="text.secondary" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {b.type === 'text' && (b as any).text?.slice(0, 40)}
-                {b.type === 'list' && `Список (${(b as any).items?.length || 0} пунктов)`}
-                {b.type === 'dropdown' && (b as any).title?.slice(0, 40)}
-                {b.type === 'checkbox' && ((b as any).title || `Чекбоксы (${(b as any).items?.length || 0})`)}
-                {b.type === 'image' && ((b as any).url ? 'Изображение' : '—')}
-                {b.type === 'video' && ((b as any).url ? 'Видео' : '—')}
-              </Typography>
-              <Box component="span" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} sx={{ display: 'flex', alignItems: 'center' }}>
-                <IconButton size="small" onClick={() => moveBlock(i, -1)} disabled={i === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
-                <IconButton size="small" onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
-                <IconButton size="small" onClick={() => removeBlock(i)} color="error"><DeleteIcon fontSize="small" /></IconButton>
-              </Box>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-            {b.type === 'text' && (
-              <TextField fullWidth multiline rows={3} label="Текст" value={(b as any).text || ''} onChange={(e) => updateBlock(i, { ...b, text: e.target.value })} />
-            )}
-            {b.type === 'list' && (
-              <Box>
-                <FormControlLabel control={<Switch size="small" checked={(b as any).ordered || false} onChange={(e) => updateBlock(i, { ...b, ordered: e.target.checked })} />} label="Нумерованный список" />
-                {(b as any).items?.map((item: string, j: number) => (
-                  <TextField key={j} fullWidth size="small" value={item} onChange={(e) => {
-                    const items = [...((b as any).items || [])];
-                    items[j] = e.target.value;
-                    updateBlock(i, { ...b, items });
-                  }} sx={{ mt: 1 }} placeholder={`Пункт ${j + 1}`} />
-                ))}
-                <Button size="small" startIcon={<AddIcon />} onClick={() => updateBlock(i, { ...b, items: [...((b as any).items || []), ''] })} sx={{ mt: 1 }}>Добавить пункт</Button>
-              </Box>
-            )}
-            {b.type === 'dropdown' && (
-              <Box>
-                <TextField fullWidth size="small" label="Заголовок" value={(b as any).title || ''} onChange={(e) => updateBlock(i, { ...b, title: e.target.value })} sx={{ mb: 1 }} />
-                <TextField fullWidth multiline rows={4} label="Содержимое" value={(b as any).content || ''} onChange={(e) => updateBlock(i, { ...b, content: e.target.value })} />
-              </Box>
-            )}
-            {b.type === 'checkbox' && (
-              <Box>
-                <TextField fullWidth size="small" label="Заголовок" value={(b as any).title || ''} onChange={(e) => updateBlock(i, { ...b, title: e.target.value })} sx={{ mb: 1 }} />
-                {(b as any).items?.map((item: string, j: number) => (
-                  <TextField key={j} fullWidth size="small" value={item} onChange={(e) => {
-                    const items = [...((b as any).items || [])];
-                    items[j] = e.target.value;
-                    updateBlock(i, { ...b, items });
-                  }} sx={{ mt: 1 }} placeholder={`Пункт ${j + 1}`} />
-                ))}
-                <Button size="small" startIcon={<AddIcon />} onClick={() => updateBlock(i, { ...b, items: [...((b as any).items || []), ''] })} sx={{ mt: 1 }}>Добавить пункт</Button>
-              </Box>
-            )}
-            {b.type === 'table' && (
-              <Box>
-                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Заголовки (через запятую)</Typography>
-                <TextField fullWidth size="small" value={((b as any).headers || []).join(', ')} onChange={(e) => updateBlock(i, { ...b, headers: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} placeholder="Колонка 1, Колонка 2" sx={{ mb: 2 }} />
-                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Строки (каждая строка — ячейки через |)</Typography>
-                <TextField fullWidth multiline rows={4} size="small" value={((b as any).rows || []).map((r: string[]) => r.join(' | ')).join('\n')} onChange={(e) => {
-                  const rows = e.target.value.split('\n').map((line) => line.split('|').map((c) => c.trim()));
-                  updateBlock(i, { ...b, rows });
-                }} placeholder="ячейка1 | ячейка2\nячейка1 | ячейка2" />
-              </Box>
-            )}
-            {b.type === 'image' && (
-              <Box>
-                <input id={`img-upload-${i}`} accept="image/*" type="file" style={{ display: 'none' }} onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (f) { setUploadingFor(i); try { const r = await uploadImage(f); updateBlock(i, { ...b, url: r.url }); } catch { /* ignore */ } finally { setUploadingFor(null); } }
-                  e.target.value = '';
-                }} />
-                <label htmlFor={`img-upload-${i}`}>
-                  <Button size="small" variant="outlined" component="span" disabled={uploadingFor === i} sx={{ mb: 1 }}>{uploadingFor === i ? 'Загрузка...' : 'Загрузить'}</Button>
-                </label>
-                <TextField fullWidth size="small" label="URL изображения" value={(b as any).url || ''} onChange={(e) => updateBlock(i, { ...b, url: e.target.value })} sx={{ mt: 1 }} />
-                <TextField fullWidth size="small" label="Alt (описание)" value={(b as any).alt || ''} onChange={(e) => updateBlock(i, { ...b, alt: e.target.value })} sx={{ mt: 1 }} />
-                {(b as any).url && <Box component="img" src={(b as any).url} alt="" sx={{ mt: 1, maxHeight: 100, borderRadius: 1 }} />}
-              </Box>
-            )}
-            {b.type === 'video' && (
-              <TextField fullWidth size="small" label="URL видео (YouTube, Vimeo)" value={(b as any).url || ''} onChange={(e) => updateBlock(i, { ...b, url: e.target.value })} placeholder="https://youtube.com/..." />
-            )}
-          </AccordionDetails>
-        </Accordion>
+        <BlockItem
+          key={i}
+          block={b}
+          index={i}
+          total={blocks.length}
+          onMoveUp={() => moveBlock(i, -1)}
+          onMoveDown={() => moveBlock(i, 1)}
+          onRemove={() => removeBlock(i)}
+          onUpdate={(updated) => updateBlock(i, updated)}
+          uploadingFor={uploadingFor}
+          setUploadingFor={setUploadingFor}
+        />
       ))}
     </Box>
   );
