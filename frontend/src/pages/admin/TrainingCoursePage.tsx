@@ -231,12 +231,14 @@ function QuizDialog({
   onClose,
   questions,
   courseSlug,
+  coverImageUrl,
   onComplete,
 }: {
   open: boolean;
   onClose: () => void;
   questions: TrainingQuestion[];
   courseSlug: string;
+  coverImageUrl?: string | null;
   onComplete: () => void;
 }) {
   const [step, setStep] = useState(0);
@@ -326,6 +328,9 @@ function QuizDialog({
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth disableScrollLock>
       <DialogTitle>Тест по курсу</DialogTitle>
       <DialogContent>
+        {step === 0 && coverImageUrl && (
+          <Box component="img" src={coverImageUrl} alt="" sx={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 1, mb: 2 }} />
+        )}
         <LinearProgress
           variant="determinate"
           value={((step + 1) / questions.length) * 100}
@@ -487,6 +492,7 @@ export function TrainingCoursePage() {
         onClose={() => setQuizOpen(false)}
         questions={questions || []}
         courseSlug={slug}
+        coverImageUrl={course?.cover_image_url}
         onComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['course-progress', slug] });
           setQuizOpen(false);

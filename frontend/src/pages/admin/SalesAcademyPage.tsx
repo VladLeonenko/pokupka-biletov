@@ -281,8 +281,28 @@ function MaterialsTab({ courseProgress, isAdmin }: { courseProgress: Record<stri
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 },
                 position: 'relative',
+                overflow: 'hidden',
               }}
             >
+              {c.cover_image_url && (
+                <Box
+                  component={RouterLink}
+                  to={`/admin/sales-academy/courses/${c.slug}`}
+                  sx={{
+                    display: 'block',
+                    height: 120,
+                    overflow: 'hidden',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={c.cover_image_url}
+                    alt=""
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </Box>
+              )}
               <CardContent>
                 <Box component={RouterLink} to={`/admin/sales-academy/courses/${c.slug}`} sx={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
