@@ -325,9 +325,11 @@ function ContentBlocksEditor({ blocks, onChange }: { blocks: ContentBlock[]; onC
                 {b.type === 'image' && ((b as any).url ? 'Изображение' : '—')}
                 {b.type === 'video' && ((b as any).url ? 'Видео' : '—')}
               </Typography>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); moveBlock(i, -1); }} disabled={i === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); moveBlock(i, 1); }} disabled={i === blocks.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); removeBlock(i); }} color="error"><DeleteIcon fontSize="small" /></IconButton>
+              <Box component="span" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} sx={{ display: 'flex', alignItems: 'center' }}>
+                <IconButton size="small" onClick={() => moveBlock(i, -1)} disabled={i === 0}><ArrowUpwardIcon fontSize="small" /></IconButton>
+                <IconButton size="small" onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton>
+                <IconButton size="small" onClick={() => removeBlock(i)} color="error"><DeleteIcon fontSize="small" /></IconButton>
+              </Box>
             </Box>
           </AccordionSummary>
           <AccordionDetails>
