@@ -222,10 +222,10 @@ export function AppRoutes() {
       <Route path="/admin/cases/:id/preview" element={<ProtectedAdmin><CasePreviewPage /></ProtectedAdmin>} />
       <Route path="/admin/cases/:id" element={<ProtectedAdmin><CaseEditorPage /></ProtectedAdmin>} />
       <Route path="/admin/cases/:id/builder" element={<ProtectedAdmin><CasePageBuilderPage /></ProtectedAdmin>} />
-      <Route path="/admin/product-categories" element={<Protected><ProductCategoriesPage /></Protected>} />
-      <Route path="/admin/products" element={<Protected><ProductsListPage /></Protected>} />
-      <Route path="/admin/products/:id" element={<Protected><ProductEditorPage /></Protected>} />
-      <Route path="/admin/products/:id/builder" element={<Protected><ProductPageBuilderPage /></Protected>} />
+      <Route path="/admin/product-categories" element={<ProtectedAdmin><ProductCategoriesPage /></ProtectedAdmin>} />
+      <Route path="/admin/products" element={<ProtectedAdmin><ProductsListPage /></ProtectedAdmin>} />
+      <Route path="/admin/products/:id" element={<ProtectedAdmin><ProductEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/products/:id/builder" element={<ProtectedAdmin><ProductPageBuilderPage /></ProtectedAdmin>} />
       <Route path="/admin/orders" element={<Protected><Suspense fallback={<LoadingFallback />}><OrdersAdminPage /></Suspense></Protected>} />
       <Route path="/admin/parsing" element={<ProtectedAdmin><ParsingPage /></ProtectedAdmin>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
@@ -235,8 +235,8 @@ export function AppRoutes() {
       <Route path="/admin/funnels" element={<Protected><FunnelsListPage /></Protected>} />
       <Route path="/admin/funnels/:id" element={<Protected><FunnelViewPage /></Protected>} />
       <Route path="/admin/tasks" element={<Protected><TasksListPage /></Protected>} />
-      <Route path="/admin/planner" element={<Protected><PlannerDashboard /></Protected>} />
-      <Route path="/admin/planner/personal" element={<Protected><PersonalDevelopment /></Protected>} />
+      <Route path="/admin/planner" element={<ProtectedAdmin><PlannerDashboard /></ProtectedAdmin>} />
+      <Route path="/admin/planner/personal" element={<ProtectedAdmin><PersonalDevelopment /></ProtectedAdmin>} />
       <Route path="/admin/test-auth" element={<Protected><TestAuth /></Protected>} />
       <Route path="/admin/task-executor" element={<Protected><TaskExecutor /></Protected>} />
       <Route path="/admin/clients" element={<Protected><ClientsListPage /></Protected>} />

@@ -121,3 +121,38 @@ export async function submitQuiz(data: {
   });
   if (!res.ok) throw new Error('Ошибка отправки');
 }
+
+export async function createQuestion(data: {
+  type: string;
+  question_text: string;
+  options: string[];
+  correct_index: number;
+  material_id?: number | null;
+  sort_order?: number;
+}): Promise<TrainingQuestion> {
+  const res = await fetch(`${API_BASE}/api/sales-academy/questions`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка создания');
+  return res.json();
+}
+
+export async function updateQuestion(id: number, data: Partial<{ type: string; question_text: string; options: string[]; correct_index: number; sort_order: number }>): Promise<TrainingQuestion> {
+  const res = await fetch(`${API_BASE}/api/sales-academy/questions/${id}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка обновления');
+  return res.json();
+}
+
+export async function deleteQuestion(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/sales-academy/questions/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Ошибка удаления');
+}

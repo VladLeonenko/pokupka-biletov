@@ -28,7 +28,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShareIcon from '@mui/icons-material/Share';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { listCommercialProposals, deleteCommercialProposal, generateProposalShareLink } from '@/services/cmsApi';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { listCommercialProposals, deleteCommercialProposal, generateProposalShareLink, createCommercialProposal } from '@/services/cmsApi';
+import { getProductMatrix } from '@/services/salesAcademyApi';
+import { useAuth } from '@/auth/AuthProvider';
+import { buildProposalTemplate } from '@/utils/proposalTemplate';
 import { CommercialProposal } from '@/types/cms';
 import { useToast } from '@/components/common/ToastProvider';
 
@@ -42,16 +46,60 @@ const statusColors: Record<string, 'default' | 'primary' | 'secondary' | 'error'
 
 export function ProposalsListPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedProposal, setSelectedProposal] = useState<CommercialProposal | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [templateForm, setTemplateForm] = useState({ clientName: '', company: '', projectDescription: '', goals: '' });
 
   const { data: proposals = [], isLoading } = useQuery({
     queryKey: ['commercial-proposals'],
     queryFn: () => listCommercialProposals(),
+  });
+
+  const { data: productMatrix } = useQuery({
+    queryKey: ['product-matrix-template'],
+    queryFn: getProductMatrix,
+  });
+
+  const createFromTemplateMut = useMutation({
+    mutationFn: async () => {
+      const products = (productMatrix?.products || []).map((p: any) => ({
+        title: p.title,
+        price: p.price,
+        period: p.period || '',
+        summary: p.summary || '',
+        features: p.categories || [],
+      }));
+      const slides = buildProposalTemplate({
+        clientName: templateForm.clientName.trim() || 'Клиент',
+        company: templateForm.company.trim() || undefined,
+        projectDescription: templateForm.projectDescription.trim() || undefined,
+        goals: templateForm.goals.split('\n').map((s) => s.trim()).filter(Boolean),
+        fromName: user?.name || user?.email || 'PrimeCoder',
+        products,
+      });
+      const proposal = await createCommercialProposal({
+        title: `КП для ${templateForm.clientName.trim() || 'Клиент'}`,
+        clientName: templateForm.clientName.trim() || undefined,
+        description: templateForm.projectDescription.trim() || undefined,
+        status: 'draft',
+        slides: slides.map((s, i) => ({ ...s, sortOrder: i })),
+      });
+      return proposal;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['commercial-proposals'] });
+      showToast('КП создано по шаблону. Можно отредактировать.', 'success');
+      setTemplateDialogOpen(false);
+      setTemplateForm({ clientName: '', company: '', projectDescription: '', goals: '' });
+      navigate(`/admin/commercial-proposals/${data.id}/edit`);
+    },
+    onError: (err: any) => showToast(err?.message || 'Ошибка создания', 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -130,16 +178,79 @@ export function ProposalsListPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h4">Коммерческие предложения</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/admin/commercial-proposals/new')}
-        >
-          Создать предложение
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<ContentCopyIcon />}
+            onClick={() => setTemplateDialogOpen(true)}
+          >
+            По шаблону (быстро)
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/admin/commercial-proposals/new')}
+          >
+            Пустое предложение
+          </Button>
+        </Box>
       </Box>
+
+      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Создать КП по шаблону</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Заполните основные поля — блоки О нас, пакеты из каталога, контакты и дополнения подставятся автоматически. Редактирование доступно после создания.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Кому (имя контактного лица)"
+            value={templateForm.clientName}
+            onChange={(e) => setTemplateForm({ ...templateForm, clientName: e.target.value })}
+            sx={{ mb: 2 }}
+            placeholder="Виктория"
+          />
+          <TextField
+            fullWidth
+            label="Компания"
+            value={templateForm.company}
+            onChange={(e) => setTemplateForm({ ...templateForm, company: e.target.value })}
+            sx={{ mb: 2 }}
+            placeholder="event агентство"
+          />
+          <TextField
+            fullWidth
+            label="Описание проекта"
+            value={templateForm.projectDescription}
+            onChange={(e) => setTemplateForm({ ...templateForm, projectDescription: e.target.value })}
+            multiline
+            rows={2}
+            sx={{ mb: 2 }}
+            placeholder="Разработка корпоративного сайта"
+          />
+          <TextField
+            fullWidth
+            label="Цели и задачи (каждый с новой строки)"
+            value={templateForm.goals}
+            onChange={(e) => setTemplateForm({ ...templateForm, goals: e.target.value })}
+            multiline
+            rows={3}
+            placeholder={'Вёрстка по макету\nНастройка SEO\nПодключение аналитики'}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemplateDialogOpen(false)}>Отмена</Button>
+          <Button
+            variant="contained"
+            onClick={() => createFromTemplateMut.mutate()}
+            disabled={createFromTemplateMut.isPending}
+          >
+            {createFromTemplateMut.isPending ? 'Создание...' : 'Создать и редактировать'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <TableContainer component={Paper}>
         <Table>

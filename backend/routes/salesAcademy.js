@@ -210,6 +210,46 @@ router.post('/questions', requireAuth, async (req, res) => {
   }
 });
 
+router.put('/questions/:id', requireAuth, async (req, res) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const id = parseInt(req.params.id, 10);
+    const body = req.body || {};
+    if (!id || isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const updates = [];
+    const params = [id];
+    const fields = ['material_id', 'type', 'question_text', 'options', 'correct_index', 'sort_order'];
+    fields.forEach((f) => {
+      if (body[f] !== undefined) {
+        params.push(f === 'options' && Array.isArray(body[f]) ? JSON.stringify(body[f]) : body[f]);
+        updates.push(`${f} = $${params.length}`);
+      }
+    });
+    if (updates.length === 0) return res.status(400).json({ error: 'nothing to update' });
+    const r = await pool.query(
+      `UPDATE sales_training_questions SET ${updates.join(', ')} WHERE id = $1 RETURNING *`,
+      params
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Question not found' });
+    res.json(r.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete('/questions/:id', requireAuth, async (req, res) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id || isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const r = await pool.query('DELETE FROM sales_training_questions WHERE id = $1 RETURNING id', [id]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'Question not found' });
+    res.status(204).send();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Кейсы (из таблицы cases) — для менеджера
 router.get('/cases', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {

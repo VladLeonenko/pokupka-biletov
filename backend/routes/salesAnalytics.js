@@ -5,6 +5,16 @@ import { requireAuth, requireAdmin, requireAdminOrSalesManager } from '../middle
 const router = express.Router();
 
 // Дашборд менеджера: адаптация, план, метрики
+const emptyDashboard = {
+  adaptationPercent: 0,
+  completedSteps: [],
+  newClients: 0,
+  salesRub: 0,
+  proposals: 0,
+  plan: {},
+  planProgress: { newClients: { current: 0, plan: 0 }, salesRub: { current: 0, plan: 0 }, deals: { current: 0, plan: 0 } }
+};
+
 router.get('/manager/dashboard', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -13,8 +23,8 @@ router.get('/manager/dashboard', requireAuth, requireAdminOrSalesManager, async 
     }
     const isManager = req.user?.role === 'sales_manager';
     const targetUserId = isManager ? userId : (req.query.userId ? parseInt(req.query.userId) : userId);
-
     const thisMonth = new Date().toISOString().slice(0, 7);
+
     const [adaptationRes, planRes, clientsCount, ordersSum, proposalsCount] = await Promise.all([
       pool.query('SELECT progress_percent, completed_steps FROM manager_adaptation WHERE user_id = $1', [targetUserId]),
       pool.query('SELECT * FROM manager_plans WHERE user_id = $1 AND month = $2', [targetUserId, thisMonth]),
@@ -41,23 +51,26 @@ router.get('/manager/dashboard', requireAuth, requireAdminOrSalesManager, async 
     const salesRub = Math.round((ordersSum.rows[0]?.s ?? 0) / 100);
     const proposals = proposalsCount.rows[0]?.n ?? 0;
 
-    const planProgress = {
-      newClients: { current: newClients, plan: plan.plan_new_clients || 0 },
-      salesRub: { current: salesRub, plan: plan.plan_sales_rub || 0 },
-      deals: { current: proposals, plan: plan.plan_deals || 0 }
-    };
+    const completedSteps = Array.isArray(adaptation.completed_steps)
+      ? adaptation.completed_steps
+      : (adaptation.completed_steps ? (typeof adaptation.completed_steps === 'object' ? Object.values(adaptation.completed_steps) : []) : []);
 
     res.json({
       adaptationPercent: adaptation.progress_percent ?? 0,
-      completedSteps: adaptation.completed_steps || [],
+      completedSteps,
       newClients,
       salesRub,
       proposals,
       plan,
-      planProgress
+      planProgress: {
+        newClients: { current: newClients, plan: plan.plan_new_clients || 0 },
+        salesRub: { current: salesRub, plan: plan.plan_sales_rub || 0 },
+        deals: { current: proposals, plan: plan.plan_deals || 0 }
+      }
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[manager-dashboard]', e);
+    res.status(200).json(emptyDashboard);
   }
 });
 

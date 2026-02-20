@@ -36,6 +36,7 @@ import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import { useState, useRef, useEffect } from 'react';
 import { listTasks, upsertTask, deleteTask, listFunnels, listDeals } from '@/services/cmsApi';
+import { useAuth } from '@/auth/AuthProvider';
 import { parseVoiceTask } from '@/services/tasksApi';
 import { Task, Deal } from '@/types/cms';
 import { useToast } from '@/components/common/ToastProvider';
@@ -176,6 +177,7 @@ function VoiceTaskButton({
 }
 
 export function TasksListPage() {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [tabValue, setTabValue] = useState(0);
@@ -202,12 +204,15 @@ export function TasksListPage() {
     },
   });
 
+  const isManager = user?.role === 'sales_manager';
+
   const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks', statusFilter, dealFilter],
+    queryKey: ['tasks', statusFilter, dealFilter, isManager ? user?.id : null],
     queryFn: () => listTasks({ 
       archived: false, 
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
       ...(dealFilter ? { dealId: dealFilter as number } : {}),
+      ...(isManager && user?.id ? { assignedTo: user.id } : {}),
     }),
   });
 
@@ -305,11 +310,11 @@ export function TasksListPage() {
       <Paper sx={{ mb: 2 }}>
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
           <Tab label="Задачи" />
-          <Tab label="Планировщик" />
+          {!isManager && <Tab label="Планировщик" />}
         </Tabs>
       </Paper>
 
-      {tabValue === 1 ? (
+      {tabValue === 1 && !isManager ? (
         <TaskPlannerEnhanced />
       ) : (
         <>
@@ -471,7 +476,10 @@ export function TasksListPage() {
                 showToast('Заполните название задачи', 'warning');
                 return;
               }
-              mutation.mutate(editingTask);
+              const toSave = isManager && user?.id && !editingTask.id
+                ? { ...editingTask, assignedTo: user.id }
+                : editingTask;
+              mutation.mutate(toSave);
             }}
             disabled={!editingTask?.title?.trim() || mutation.isPending}
           >
