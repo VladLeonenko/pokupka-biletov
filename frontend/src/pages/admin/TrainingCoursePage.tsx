@@ -16,7 +16,18 @@ import {
   TextField,
   FormControl,
   CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Checkbox,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,11 +41,116 @@ import {
   type CoursePage,
   type CourseWithPages,
   type TrainingQuestion,
+  type ContentBlock,
 } from '@/services/salesAcademyApi';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import QuizIcon from '@mui/icons-material/Quiz';
+
+function getVideoEmbedUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtube.com') || u.hostname.includes('youtu.be')) {
+      const vid = u.hostname.includes('youtu.be') ? u.pathname.slice(1) : u.searchParams.get('v');
+      return vid ? `https://www.youtube.com/embed/${vid}` : null;
+    }
+    if (u.hostname.includes('vimeo.com')) {
+      const vid = u.pathname.split('/').filter(Boolean).pop();
+      return vid ? `https://player.vimeo.com/video/${vid}` : null;
+    }
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+function BlockRenderer({ block }: { block: ContentBlock }) {
+  switch (block.type) {
+    case 'text':
+      return <Typography sx={{ whiteSpace: 'pre-wrap', mb: 1.5 }}>{block.text}</Typography>;
+    case 'list':
+      return (
+        <Box component={block.ordered ? 'ol' : 'ul'} sx={{ pl: 2.5, mb: 1.5, '& li': { mb: 0.5 } }}>
+          {(block.items || []).map((item, i) => (
+            <Typography key={i} component="li" variant="body2">{item}</Typography>
+          ))}
+        </Box>
+      );
+    case 'dropdown':
+      return (
+        <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mb: 1.5, '&:before': { display: 'none' } }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">{block.title}</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{block.content}</Typography>
+          </AccordionDetails>
+        </Accordion>
+      );
+    case 'checkbox':
+      return (
+        <Box sx={{ mb: 1.5 }}>
+          {block.title && <Typography variant="subtitle2" sx={{ mb: 1 }}>{block.title}</Typography>}
+          <List dense disablePadding>
+            {(block.items || []).map((item, i) => (
+              <ChecklistItem key={i} label={item} />
+            ))}
+          </List>
+        </Box>
+      );
+    case 'image':
+      return (
+        <Box sx={{ mb: 1.5 }}>
+          <Box
+            component="img"
+            src={block.url}
+            alt={block.alt || ''}
+            sx={{ maxWidth: '100%', height: 'auto', borderRadius: 1, border: 1, borderColor: 'divider' }}
+            loading="lazy"
+          />
+        </Box>
+      );
+    case 'video': {
+      const embedUrl = getVideoEmbedUrl(block.url);
+      if (!embedUrl) return <Typography variant="body2" color="error">Неверная ссылка на видео</Typography>;
+      return (
+        <Box sx={{ mb: 1.5, position: 'relative', pb: '56.25%', height: 0, overflow: 'hidden' }}>
+          <Box
+            component="iframe"
+            src={embedUrl}
+            allowFullScreen
+            sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 1 }}
+          />
+        </Box>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+function ChecklistItem({ label }: { label: string }) {
+  const [checked, setChecked] = useState(false);
+  return (
+    <ListItem disablePadding sx={{ alignItems: 'flex-start' }}>
+      <ListItemIcon sx={{ minWidth: 36, mt: -0.5 }}>
+        <Checkbox
+          size="small"
+          icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+          checkedIcon={<CheckBoxIcon fontSize="small" color="primary" />}
+          checked={checked}
+          onChange={() => setChecked(!checked)}
+        />
+      </ListItemIcon>
+      <ListItemText
+        primary={label}
+        primaryTypographyProps={{ variant: 'body2', sx: { textDecoration: checked ? 'line-through' : 'none', color: checked ? 'text.secondary' : 'text.primary' } }}
+      />
+    </ListItem>
+  );
+}
 
 function PageContent({ page, course }: { page: CoursePage; course: CourseWithPages }) {
   if (page.page_type === 'cover') {
@@ -62,11 +178,16 @@ function PageContent({ page, course }: { page: CoursePage; course: CourseWithPag
       </Box>
     );
   }
-  // content
+  // content — rich blocks или fallback на plain content
+  const blocks = page.content_blocks && Array.isArray(page.content_blocks) ? page.content_blocks : null;
   return (
     <Box>
       <Typography variant="h6" sx={{ mb: 2 }}>{page.title}</Typography>
-      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{page.content || ''}</Typography>
+      {blocks && blocks.length > 0 ? (
+        blocks.map((b, i) => <BlockRenderer key={i} block={b} />)
+      ) : (
+        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{page.content || ''}</Typography>
+      )}
     </Box>
   );
 }

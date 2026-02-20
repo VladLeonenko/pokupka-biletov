@@ -29,12 +29,21 @@ export interface TrainingCourse {
   total_pages?: number;
 }
 
+export type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'list'; items: string[]; ordered?: boolean }
+  | { type: 'dropdown'; title: string; content: string }
+  | { type: 'checkbox'; title?: string; items: string[] }
+  | { type: 'image'; url: string; alt?: string }
+  | { type: 'video'; url: string };
+
 export interface CoursePage {
   id: number;
   page_index: number;
   page_type: 'cover' | 'objection' | 'content';
   title: string | null;
   content: string | null;
+  content_blocks?: ContentBlock[] | null;
   objection_text: string | null;
   solution_text: string | null;
   material_id?: number | null;

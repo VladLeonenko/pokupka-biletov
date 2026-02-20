@@ -33,7 +33,7 @@ router.get('/courses/:slug', requireAuth, requireAdminOrSalesManager, async (req
     const course = courseRes.rows[0];
 
     const pagesRes = await pool.query(
-      `SELECT p.id, p.page_index, p.page_type, p.title, p.content, p.objection_text, p.solution_text, p.material_id,
+      `SELECT p.id, p.page_index, p.page_type, p.title, p.content, p.content_blocks, p.objection_text, p.solution_text, p.material_id,
         m.title as material_title, m.objection_text as mat_objection, m.solution_text as mat_solution
        FROM training_course_pages p
        LEFT JOIN sales_training_materials m ON m.id = p.material_id
@@ -46,6 +46,7 @@ router.get('/courses/:slug', requireAuth, requireAdminOrSalesManager, async (req
       page_type: r.page_type,
       title: r.title || r.material_title,
       content: r.content,
+      content_blocks: r.content_blocks,
       objection_text: r.objection_text ?? r.mat_objection,
       solution_text: r.solution_text ?? r.mat_solution,
       material_id: r.material_id,
