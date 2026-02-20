@@ -93,6 +93,7 @@ const MIGRATION_FILES = [
   '054_charity_preferences.sql',
   '055_home_cases_order.sql',
   '056_sales_manager_data_isolation.sql',
+  '057_sales_academy_and_analytics.sql',
 ];
 
 async function applyMigration(filename) {

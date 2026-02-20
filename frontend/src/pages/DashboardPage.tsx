@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAuth } from '@/auth/AuthProvider';
 import { Card, CardContent, Grid, Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Button } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import {
 } from 'chart.js';
 import { useToast } from '@/components/common/ToastProvider';
 import { getStoredCacheVersion } from '@/utils/cacheVersion';
+import { ManagerDashboardPage } from '@/pages/admin/ManagerDashboardPage';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -27,7 +29,12 @@ function formatDuration(seconds: number): string {
 }
 
 export function DashboardPage() {
+  const { user } = useAuth();
   const { showToast } = useToast();
+
+  if (user?.role === 'sales_manager') {
+    return <ManagerDashboardPage />;
+  }
   const [cacheVersion, setCacheVersion] = useState(() => getStoredCacheVersion() || '');
   const { data } = useQuery<MetricsOverview>({ queryKey: ['metrics-overview'], queryFn: getMetricsOverview });
   const cacheVersionLabel = useMemo(() => {

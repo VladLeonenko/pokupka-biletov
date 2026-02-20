@@ -103,6 +103,8 @@ const DonorsManagePage = lazy(() => import('@/pages/donors/DonorsManagePage').th
 const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
 const OrdersAdminPage = lazy(() => import('@/pages/admin/OrdersAdminPage').then(m => ({ default: m.default })));
 const AdminsManagePage = lazy(() => import('@/pages/admin/AdminsManagePage').then(m => ({ default: m.AdminsManagePage })));
+const SalesAcademyPage = lazy(() => import('@/pages/admin/SalesAcademyPage').then(m => ({ default: m.SalesAcademyPage })));
+const SalesAnalyticsPage = lazy(() => import('@/pages/admin/SalesAnalyticsPage').then(m => ({ default: m.SalesAnalyticsPage })));
 
 // Loading fallback для lazy компонентов
 const LoadingFallback = () => (
@@ -202,6 +204,8 @@ export function AppRoutes() {
       {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
+      <Route path="/admin/sales-academy" element={<Protected><SalesAcademyPage /></Protected>} />
+      <Route path="/admin/sales-analytics" element={<ProtectedAdmin><SalesAnalyticsPage /></ProtectedAdmin>} />
       <Route path="/admin/pages" element={<ProtectedAdmin><PagesListPage /></ProtectedAdmin>} />
       <Route path="/admin/pages/:id" element={<ProtectedAdmin><PageEditorPage /></ProtectedAdmin>} />
       <Route path="/admin/pages/:id/builder" element={<ProtectedAdmin><PagePageBuilderPage /></ProtectedAdmin>} />

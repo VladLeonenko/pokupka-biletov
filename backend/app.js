@@ -79,6 +79,8 @@ import quizRouter from './routes/quiz.js';
 import calculatorRouter from './routes/calculator.js';
 import productCategoriesRouter from './routes/productCategories.js';
 import adminsRouter from './routes/admins.js';
+import salesAcademyRouter from './routes/salesAcademy.js';
+import salesAnalyticsRouter from './routes/salesAnalytics.js';
 
 const app = express();
 
@@ -282,6 +284,8 @@ app.use('/api/public/awards', awardsRouter);
 app.use('/api/awards', requireAuth, awardsRouter);
 app.use('/api/team', teamRouter); // public /team/public; admin routes protected in router
 app.use('/api/admins', requireAuth, requireAdmin, adminsRouter);
+app.use('/api/sales-academy', salesAcademyRouter);
+app.use('/api/sales-analytics', salesAnalyticsRouter);
 app.use('/api/email', requireAuth, requireAdminOrSalesManager, emailCampaignsRouter);
 app.use('/api/sites', sitesRouter); // public /sites/.../lead; admin routes protected in router
 app.use('/api/planner', requireAuth, requireAdminOrSalesManager, plannerRouter);

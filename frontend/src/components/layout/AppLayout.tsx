@@ -28,6 +28,8 @@ import ImageIcon from '@mui/icons-material/Image';
 import LinkIcon from '@mui/icons-material/Link';
 import CategoryIcon from '@mui/icons-material/Category';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import SchoolIcon from '@mui/icons-material/School';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import { NotificationsBell } from '@/components/common/NotificationsBell';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -37,6 +39,8 @@ type NavItem = { label: string; icon: React.ReactNode; path: string; roles?: ('a
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Обзор', icon: <DashboardIcon />, path: '/admin', roles: ['admin', 'sales_manager'] },
+  { label: 'Обучение', icon: <SchoolIcon />, path: '/admin/sales-academy', roles: ['admin', 'sales_manager'] },
+  { label: 'Аналитика продаж', icon: <AssessmentIcon />, path: '/admin/sales-analytics', roles: ['admin'] },
   { label: 'Страницы', icon: <DescriptionIcon />, path: '/admin/pages', roles: ['admin'] },
   { label: 'Блог', icon: <ArticleIcon />, path: '/admin/blog', roles: ['admin'] },
   { label: 'SEO', icon: <SeoIcon />, path: '/admin/seo', roles: ['admin'] },
