@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pool from '../db.js';
-import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 import { createAiTeamIncident } from './aiTeam.js';
 import { callOpenAIText } from './ai.js';
 
@@ -579,7 +579,7 @@ router.post('/public/get-or-create', async (req, res) => {
 
 // Загрузить файл для чата (админ) - ДОЛЖЕН БЫТЬ ПЕРЕД ВСЕМИ МАРШРУТАМИ С :chatId
 // Используем более специфичный путь, чтобы избежать конфликтов
-router.post('/:chatId/upload', requireAuth, upload.single('file'), async (req, res) => {
+router.post('/:chatId/upload', requireAuth, requireAdminOrSalesManager, upload.single('file'), async (req, res) => {
   try {
     const { chatId } = req.params;
     const file = req.file;
@@ -608,8 +608,8 @@ router.post('/:chatId/upload', requireAuth, upload.single('file'), async (req, r
   }
 });
 
-// Получить список чатов (для админа)
-router.get('/', requireAuth, async (req, res) => {
+// Получить список чатов (для админа/менеджера)
+router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const {
       page = 1,
@@ -623,6 +623,12 @@ router.get('/', requireAuth, async (req, res) => {
     const conditions = [];
     const params = [];
     let paramIndex = 1;
+
+    if (req.user?.role === 'sales_manager') {
+      conditions.push(`c.assigned_to = $${paramIndex}`);
+      params.push(req.user.id);
+      paramIndex++;
+    }
 
     if (status) {
       conditions.push(`c.status = $${paramIndex}`);
@@ -689,11 +695,12 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// Получить чат с сообщениями (для админа)
-router.get('/:chatId', requireAuth, async (req, res) => {
+// Получить чат с сообщениями (для админа/менеджера)
+router.get('/:chatId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { chatId } = req.params;
-    
+    const chatWhere = req.user?.role === 'sales_manager' ? 'c.id = $1 AND c.assigned_to = $2' : 'c.id = $1';
+    const chatParams = req.user?.role === 'sales_manager' ? [chatId, req.user.id] : [chatId];
     const chatResult = await pool.query(
       `SELECT 
         c.*,
@@ -703,8 +710,8 @@ router.get('/:chatId', requireAuth, async (req, res) => {
       FROM chats c
       LEFT JOIN users u ON c.assigned_to = u.id
       LEFT JOIN clients cl ON c.client_id = cl.id
-      WHERE c.id = $1`,
-      [chatId]
+      WHERE ${chatWhere}`,
+      chatParams
     );
 
     if (chatResult.rows.length === 0) {
@@ -738,8 +745,8 @@ router.get('/:chatId', requireAuth, async (req, res) => {
   }
 });
 
-// Отправить сообщение от админа
-router.post('/:chatId/messages', requireAuth, async (req, res) => {
+// Отправить сообщение от админа/менеджера
+router.post('/:chatId/messages', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { chatId } = req.params;
     const { message, messageType = 'text', fileUrl, fileName, fileSize } = req.body;
@@ -770,8 +777,8 @@ router.post('/:chatId/messages', requireAuth, async (req, res) => {
   }
 });
 
-// Назначить чат админу
-router.put('/:chatId/assign', requireAuth, async (req, res) => {
+// Назначить чат админу/менеджеру
+router.put('/:chatId/assign', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { chatId } = req.params;
     const { userId } = req.body;
@@ -797,7 +804,7 @@ router.put('/:chatId/assign', requireAuth, async (req, res) => {
 });
 
 // Изменить статус чата
-router.put('/:chatId/status', requireAuth, async (req, res) => {
+router.put('/:chatId/status', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { chatId } = req.params;
     const { status } = req.body;

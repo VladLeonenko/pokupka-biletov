@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -197,7 +197,7 @@ router.post('/public/:id/helpful', async (req, res) => {
 });
 
 // ADMIN: Получить все отзывы (включая неопубликованные)
-router.get('/admin', requireAuth, async (req, res) => {
+router.get('/admin', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { is_moderated, is_published, limit = 100, offset = 0 } = req.query;
     
@@ -234,7 +234,7 @@ router.get('/admin', requireAuth, async (req, res) => {
 });
 
 // ADMIN: Модерировать отзыв (одобрить/отклонить)
-router.put('/admin/:id/moderate', requireAuth, async (req, res) => {
+router.put('/admin/:id/moderate', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { id } = req.params;
     const { is_published, is_verified } = req.body;
@@ -259,7 +259,7 @@ router.put('/admin/:id/moderate', requireAuth, async (req, res) => {
 });
 
 // ADMIN: Добавить ответ на отзыв
-router.put('/admin/:id/response', requireAuth, async (req, res) => {
+router.put('/admin/:id/response', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { id } = req.params;
     const { response_text, response_author } = req.body;
@@ -284,7 +284,7 @@ router.put('/admin/:id/response', requireAuth, async (req, res) => {
 });
 
 // ADMIN: Удалить отзыв
-router.delete('/admin/:id', requireAuth, async (req, res) => {
+router.delete('/admin/:id', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { id } = req.params;
     

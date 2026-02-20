@@ -1,11 +1,11 @@
 import express from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // GET /api/sites - Список всех сайтов
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -41,7 +41,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/sites/:id - Получить сайт по ID
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query('SELECT * FROM sites WHERE id = $1', [id]);
@@ -71,7 +71,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // POST /api/sites - Создать новый сайт
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { domain, name, type, status, template, settings, seoSettings, isPrimary } = req.body;
     
@@ -111,7 +111,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // PUT /api/sites/:id - Обновить сайт
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { domain, name, type, status, template, settings, seoSettings, isPrimary } = req.body;
@@ -164,7 +164,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/sites/:id - Удалить сайт
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -187,7 +187,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 // GET /api/sites/:id/pages - Получить страницы сайта
-router.get('/:id/pages', requireAuth, async (req, res) => {
+router.get('/:id/pages', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
@@ -217,7 +217,7 @@ router.get('/:id/pages', requireAuth, async (req, res) => {
 });
 
 // GET /api/sites/:id/pages/:pageId - Получить страницу по ID
-router.get('/:id/pages/:pageId', requireAuth, async (req, res) => {
+router.get('/:id/pages/:pageId', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id, pageId } = req.params;
     const result = await pool.query(
@@ -252,7 +252,7 @@ router.get('/:id/pages/:pageId', requireAuth, async (req, res) => {
 });
 
 // POST /api/sites/:id/pages - Создать страницу для сайта
-router.post('/:id/pages', requireAuth, async (req, res) => {
+router.post('/:id/pages', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { slug, title, content, metaTitle, metaDescription, ogImage, template, isPublished, seo_title, seo_description, og_image, is_published } = req.body;
@@ -296,7 +296,7 @@ router.post('/:id/pages', requireAuth, async (req, res) => {
 });
 
 // PUT /api/sites/:id/pages/:pageId - Обновить страницу
-router.put('/:id/pages/:pageId', requireAuth, async (req, res) => {
+router.put('/:id/pages/:pageId', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id, pageId } = req.params;
     const { slug, title, content, metaTitle, metaDescription, ogImage, template, isPublished, seo_title, seo_description, og_image, is_published } = req.body;
@@ -390,7 +390,7 @@ router.put('/:id/pages/:pageId', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/sites/:id/pages/:pageId - Удалить страницу
-router.delete('/:id/pages/:pageId', requireAuth, async (req, res) => {
+router.delete('/:id/pages/:pageId', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id, pageId } = req.params;
     const result = await pool.query(
@@ -410,7 +410,7 @@ router.delete('/:id/pages/:pageId', requireAuth, async (req, res) => {
 });
 
 // GET /api/sites/:id/leads - Получить лиды сайта
-router.get('/:id/leads', requireAuth, async (req, res) => {
+router.get('/:id/leads', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, limit = 50, offset = 0 } = req.query;

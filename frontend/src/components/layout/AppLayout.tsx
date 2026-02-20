@@ -33,35 +33,35 @@ import { useAuth } from '@/auth/AuthProvider';
 
 const drawerWidth = 260;
 
-type NavItem = { label: string; icon: React.ReactNode; path: string };
+type NavItem = { label: string; icon: React.ReactNode; path: string; roles?: ('admin' | 'sales_manager')[] };
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Обзор', icon: <DashboardIcon />, path: '/admin' },
-  { label: 'Страницы', icon: <DescriptionIcon />, path: '/admin/pages' },
-  { label: 'Блог', icon: <ArticleIcon />, path: '/admin/blog' },
-  { label: 'SEO', icon: <SeoIcon />, path: '/admin/seo' },
-  { label: 'Карусели', icon: <SlideshowIcon />, path: '/admin/carousels' },
-  { label: 'Кейсы', icon: <WorkIcon />, path: '/admin/cases' },
-  { label: 'Доноры кейсов', icon: <LinkIcon />, path: '/admin/donors' },
-  { label: 'Продукты и стоимость', icon: <PriceIcon />, path: '/admin/products' },
-  { label: 'Заказы', icon: <ReceiptLongIcon />, path: '/admin/orders' },
-  { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories' },
-  { label: 'Парсинг', icon: <CloudDownloadIcon />, path: '/admin/parsing' },
-  { label: 'Акции', icon: <LocalOfferIcon />, path: '/admin/promotions' },
-  { label: 'Формы', icon: <AssignmentIcon />, path: '/admin/forms' },
-  { label: 'Воронки', icon: <AccountTreeIcon />, path: '/admin/funnels' },
-  { label: 'Планировщик', icon: <AssignmentIcon />, path: '/admin/planner' },
-  { label: 'Задачник', icon: <AssignmentIcon />, path: '/admin/tasks' },
-  { label: 'Клиенты', icon: <PeopleIcon />, path: '/admin/clients' },
-  { label: 'Коммерческие предложения', icon: <DescriptionIcon />, path: '/admin/commercial-proposals' },
-  { label: 'Чаты', icon: <ChatIcon />, path: '/admin/chat' },
-  { label: 'Настройки чат-бота', icon: <SmartToyIcon />, path: '/admin/chatbot' },
-  { label: 'Отзывы', icon: <RateReviewIcon />, path: '/admin/reviews' },
-  { label: 'Команда', icon: <PeopleIcon />, path: '/admin/team' },
-  { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins' },
-  { label: 'Email-рассылки', icon: <EmailIcon />, path: '/admin/email/subscribers' },
-  { label: 'Мульти-сайты', icon: <LanguageIcon />, path: '/admin/sites' },
-  { label: 'Изображения', icon: <ImageIcon />, path: '/admin/exercise-images' },
+  { label: 'Обзор', icon: <DashboardIcon />, path: '/admin', roles: ['admin', 'sales_manager'] },
+  { label: 'Страницы', icon: <DescriptionIcon />, path: '/admin/pages', roles: ['admin'] },
+  { label: 'Блог', icon: <ArticleIcon />, path: '/admin/blog', roles: ['admin'] },
+  { label: 'SEO', icon: <SeoIcon />, path: '/admin/seo', roles: ['admin'] },
+  { label: 'Карусели', icon: <SlideshowIcon />, path: '/admin/carousels', roles: ['admin'] },
+  { label: 'Кейсы', icon: <WorkIcon />, path: '/admin/cases', roles: ['admin'] },
+  { label: 'Доноры кейсов', icon: <LinkIcon />, path: '/admin/donors', roles: ['admin'] },
+  { label: 'Продукты и стоимость', icon: <PriceIcon />, path: '/admin/products', roles: ['admin', 'sales_manager'] },
+  { label: 'Заказы', icon: <ReceiptLongIcon />, path: '/admin/orders', roles: ['admin', 'sales_manager'] },
+  { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories', roles: ['admin', 'sales_manager'] },
+  { label: 'Парсинг', icon: <CloudDownloadIcon />, path: '/admin/parsing', roles: ['admin'] },
+  { label: 'Акции', icon: <LocalOfferIcon />, path: '/admin/promotions', roles: ['admin', 'sales_manager'] },
+  { label: 'Формы', icon: <AssignmentIcon />, path: '/admin/forms', roles: ['admin', 'sales_manager'] },
+  { label: 'Воронки', icon: <AccountTreeIcon />, path: '/admin/funnels', roles: ['admin', 'sales_manager'] },
+  { label: 'Планировщик', icon: <AssignmentIcon />, path: '/admin/planner', roles: ['admin', 'sales_manager'] },
+  { label: 'Задачник', icon: <AssignmentIcon />, path: '/admin/tasks', roles: ['admin', 'sales_manager'] },
+  { label: 'Клиенты', icon: <PeopleIcon />, path: '/admin/clients', roles: ['admin', 'sales_manager'] },
+  { label: 'Коммерческие предложения', icon: <DescriptionIcon />, path: '/admin/commercial-proposals', roles: ['admin', 'sales_manager'] },
+  { label: 'Чаты', icon: <ChatIcon />, path: '/admin/chat', roles: ['admin', 'sales_manager'] },
+  { label: 'Настройки чат-бота', icon: <SmartToyIcon />, path: '/admin/chatbot', roles: ['admin'] },
+  { label: 'Отзывы', icon: <RateReviewIcon />, path: '/admin/reviews', roles: ['admin', 'sales_manager'] },
+  { label: 'Команда', icon: <PeopleIcon />, path: '/admin/team', roles: ['admin'] },
+  { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins', roles: ['admin'] },
+  { label: 'Email-рассылки', icon: <EmailIcon />, path: '/admin/email/subscribers', roles: ['admin', 'sales_manager'] },
+  { label: 'Мульти-сайты', icon: <LanguageIcon />, path: '/admin/sites', roles: ['admin'] },
+  { label: 'Изображения', icon: <ImageIcon />, path: '/admin/exercise-images', roles: ['admin'] },
 ];
 
 export function AppLayout({ children }: PropsWithChildren) {
@@ -70,7 +70,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const location = useLocation();
   const theme = useTheme();
   const { mode, toggle } = useThemeMode();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   
   // Redirect to login if no token (extra safety check)
   // Убираем этот useEffect - редирект уже обрабатывается в App.tsx
@@ -88,7 +88,10 @@ export function AppLayout({ children }: PropsWithChildren) {
       </Toolbar>
       <Divider />
       <List>
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => {
+          const roles = item.roles ?? ['admin'];
+          return roles.includes((user?.role as 'admin' | 'sales_manager') ?? 'admin');
+        }).map((item) => (
           <ListItemButton
             key={item.path}
             selected={location.pathname === item.path || location.pathname.startsWith(item.path + '/')}

@@ -15,7 +15,7 @@ function validatePassword(password) {
 router.get('/', async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT id, email, name, created_at FROM users WHERE role = 'admin' ORDER BY created_at ASC`
+      `SELECT id, email, name, role, created_at FROM users WHERE role IN ('admin', 'sales_manager') ORDER BY role, created_at ASC`
     );
     res.json(r.rows);
   } catch (e) {
@@ -25,9 +25,11 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { email, password, name } = req.body || {};
+    const { email, password, name, role } = req.body || {};
     const normEmail = (email || '').trim().toLowerCase();
     if (!normEmail) return res.status(400).json({ error: 'Email обязателен' });
+
+    const userRole = role === 'sales_manager' ? 'sales_manager' : 'admin';
 
     const pErr = validatePassword(password);
     if (pErr) return res.status(400).json({ error: pErr });
@@ -39,8 +41,8 @@ router.post('/', async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
     const r = await pool.query(
-      `INSERT INTO users(email, password_hash, role, name) VALUES($1,$2,'admin',$3) RETURNING id, email, name, created_at`,
-      [normEmail, hash, (name || '').trim() || null]
+      `INSERT INTO users(email, password_hash, role, name) VALUES($1,$2,$3,$4) RETURNING id, email, name, role, created_at`,
+      [normEmail, hash, userRole, (name || '').trim() || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e) {
@@ -53,17 +55,25 @@ router.delete('/:id', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
 
-    const count = await pool.query('SELECT COUNT(*)::int AS n FROM users WHERE role = $1', ['admin']);
-    if (count.rows[0].n <= 1) {
-      return res.status(400).json({ error: 'Нельзя удалить последнего админа' });
+    const target = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
+    if (target.rows.length === 0) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (!['admin', 'sales_manager'].includes(target.rows[0].role)) {
+      return res.status(400).json({ error: 'Можно удалять только админов и менеджеров' });
+    }
+
+    if (target.rows[0].role === 'admin') {
+      const count = await pool.query('SELECT COUNT(*)::int AS n FROM users WHERE role = $1', ['admin']);
+      if (count.rows[0].n <= 1) {
+        return res.status(400).json({ error: 'Нельзя удалить последнего админа' });
+      }
     }
 
     const r = await pool.query(
-      `UPDATE users SET role = 'user' WHERE id = $1 AND role = 'admin' RETURNING id`,
+      `UPDATE users SET role = 'user' WHERE id = $1 AND role IN ('admin', 'sales_manager') RETURNING id`,
       [id]
     );
     if (r.rowCount === 0) {
-      return res.status(404).json({ error: 'Админ не найден' });
+      return res.status(404).json({ error: 'Пользователь не найден' });
     }
     res.json({ success: true });
   } catch (e) {
@@ -82,10 +92,10 @@ router.put('/:id/reset-password', async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
     const r = await pool.query(
-      `UPDATE users SET password_hash = $2 WHERE id = $1 AND role = 'admin' RETURNING id`,
+      `UPDATE users SET password_hash = $2 WHERE id = $1 AND role IN ('admin', 'sales_manager') RETURNING id`,
       [id, hash]
     );
-    if (r.rowCount === 0) return res.status(404).json({ error: 'Админ не найден' });
+    if (r.rowCount === 0) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

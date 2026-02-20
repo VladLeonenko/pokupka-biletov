@@ -114,29 +114,38 @@ const LoadingFallback = () => (
 function Protected({ children }: { children: JSX.Element }) {
   const { token, user } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
-  
+
   useEffect(() => {
-    // Даем время на загрузку user из localStorage или API
-    const timer = setTimeout(() => {
-      setIsChecking(false);
-    }, 500);
+    const timer = setTimeout(() => setIsChecking(false), 500);
     return () => clearTimeout(timer);
   }, []);
-  
-  // Strict check: if no token, redirect immediately
-  if (!token) {
-    return <Navigate to="/admin/login" replace />;
-  }
-  
-  // Если user еще не загружен, но есть token - показываем загрузку
-  if (isChecking || (token && !user)) {
-    return null; // Или можно показать <CircularProgress />
-  }
-  
-  if (user?.role !== 'admin') {
+
+  if (!token) return <Navigate to="/admin/login" replace />;
+  if (isChecking || (token && !user)) return null;
+
+  if (!['admin', 'sales_manager'].includes(user?.role ?? '')) {
     return <Navigate to="/account" replace />;
   }
-  
+
+  return children;
+}
+
+function ProtectedAdmin({ children }: { children: JSX.Element }) {
+  const { token, user } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsChecking(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!token) return <Navigate to="/admin/login" replace />;
+  if (isChecking || (token && !user)) return null;
+
+  if (user?.role !== 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
   return children;
 }
 
@@ -193,30 +202,30 @@ export function AppRoutes() {
       {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
-      <Route path="/admin/pages" element={<Protected><PagesListPage /></Protected>} />
-      <Route path="/admin/pages/:id" element={<Protected><PageEditorPage /></Protected>} />
-      <Route path="/admin/pages/:id/builder" element={<Protected><PagePageBuilderPage /></Protected>} />
-      <Route path="/admin/pages/:id/preview" element={<Protected><PagePreviewPage /></Protected>} />
-      <Route path="/admin/blog" element={<Protected><BlogListPage /></Protected>} />
-      <Route path="/admin/blog/:id" element={<Protected><BlogBlockEditorPage /></Protected>} />
-      <Route path="/admin/blog/:id/html" element={<Protected><BlogEditorPage /></Protected>} />
-      <Route path="/admin/blog/:id/builder" element={<Protected><BlogPageBuilderPage /></Protected>} />
-      <Route path="/admin/blog/categories" element={<Protected><BlogCategoriesPage /></Protected>} />
-      <Route path="/admin/seo" element={<Protected><SeoPage /></Protected>} />
-      <Route path="/admin/carousels" element={<Protected><CarouselListPage /></Protected>} />
-      <Route path="/admin/carousels/:id" element={<Protected><CarouselEditorPage /></Protected>} />
-      <Route path="/admin/cases" element={<Protected><CasesListPage /></Protected>} />
-      <Route path="/admin/cases/:id/preview" element={<Protected><CasePreviewPage /></Protected>} />
-      <Route path="/admin/cases/:id" element={<Protected><CaseEditorPage /></Protected>} />
-      <Route path="/admin/cases/:id/builder" element={<Protected><CasePageBuilderPage /></Protected>} />
+      <Route path="/admin/pages" element={<ProtectedAdmin><PagesListPage /></ProtectedAdmin>} />
+      <Route path="/admin/pages/:id" element={<ProtectedAdmin><PageEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/pages/:id/builder" element={<ProtectedAdmin><PagePageBuilderPage /></ProtectedAdmin>} />
+      <Route path="/admin/pages/:id/preview" element={<ProtectedAdmin><PagePreviewPage /></ProtectedAdmin>} />
+      <Route path="/admin/blog" element={<ProtectedAdmin><BlogListPage /></ProtectedAdmin>} />
+      <Route path="/admin/blog/:id" element={<ProtectedAdmin><BlogBlockEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/blog/:id/html" element={<ProtectedAdmin><BlogEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/blog/:id/builder" element={<ProtectedAdmin><BlogPageBuilderPage /></ProtectedAdmin>} />
+      <Route path="/admin/blog/categories" element={<ProtectedAdmin><BlogCategoriesPage /></ProtectedAdmin>} />
+      <Route path="/admin/seo" element={<ProtectedAdmin><SeoPage /></ProtectedAdmin>} />
+      <Route path="/admin/carousels" element={<ProtectedAdmin><CarouselListPage /></ProtectedAdmin>} />
+      <Route path="/admin/carousels/:id" element={<ProtectedAdmin><CarouselEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/cases" element={<ProtectedAdmin><CasesListPage /></ProtectedAdmin>} />
+      <Route path="/admin/cases/:id/preview" element={<ProtectedAdmin><CasePreviewPage /></ProtectedAdmin>} />
+      <Route path="/admin/cases/:id" element={<ProtectedAdmin><CaseEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/cases/:id/builder" element={<ProtectedAdmin><CasePageBuilderPage /></ProtectedAdmin>} />
       <Route path="/admin/product-categories" element={<Protected><ProductCategoriesPage /></Protected>} />
       <Route path="/admin/products" element={<Protected><ProductsListPage /></Protected>} />
       <Route path="/admin/products/:id" element={<Protected><ProductEditorPage /></Protected>} />
       <Route path="/admin/products/:id/builder" element={<Protected><ProductPageBuilderPage /></Protected>} />
       <Route path="/admin/orders" element={<Protected><Suspense fallback={<LoadingFallback />}><OrdersAdminPage /></Suspense></Protected>} />
-      <Route path="/admin/parsing" element={<Protected><ParsingPage /></Protected>} />
+      <Route path="/admin/parsing" element={<ProtectedAdmin><ParsingPage /></ProtectedAdmin>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
-      <Route path="/admin/quiz" element={<Protected><QuizManagementPage /></Protected>} />
+      <Route path="/admin/quiz" element={<ProtectedAdmin><QuizManagementPage /></ProtectedAdmin>} />
       <Route path="/admin/promotions/:id" element={<Protected><PromotionEditorPage /></Protected>} />
       <Route path="/admin/forms" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/funnels" element={<Protected><FunnelsListPage /></Protected>} />
@@ -230,20 +239,20 @@ export function AppRoutes() {
       <Route path="/admin/clients/:id" element={<Protected><ClientEditorPage /></Protected>} />
       <Route path="/admin/chat" element={<Protected><ChatsListPage /></Protected>} />
       <Route path="/admin/chat/:chatId" element={<Protected><ChatViewPage /></Protected>} />
-      <Route path="/admin/chatbot" element={<Protected><ChatbotSettingsPage /></Protected>} />
+      <Route path="/admin/chatbot" element={<ProtectedAdmin><ChatbotSettingsPage /></ProtectedAdmin>} />
       <Route path="/admin/reviews" element={<Protected><ReviewsManagePage /></Protected>} />
-      <Route path="/admin/awards" element={<Protected><AwardsManagePage /></Protected>} />
-      <Route path="/admin/team" element={<Protected><TeamListPage /></Protected>} />
-      <Route path="/admin/admins" element={<Protected><AdminsManagePage /></Protected>} />
-      <Route path="/admin/team/:id" element={<Protected><TeamEditorPage /></Protected>} />
+      <Route path="/admin/awards" element={<ProtectedAdmin><AwardsManagePage /></ProtectedAdmin>} />
+      <Route path="/admin/team" element={<ProtectedAdmin><TeamListPage /></ProtectedAdmin>} />
+      <Route path="/admin/admins" element={<ProtectedAdmin><AdminsManagePage /></ProtectedAdmin>} />
+      <Route path="/admin/team/:id" element={<ProtectedAdmin><TeamEditorPage /></ProtectedAdmin>} />
       <Route path="/admin/email/subscribers" element={<Protected><SubscribersPage /></Protected>} />
       <Route path="/admin/email/campaigns" element={<Protected><CampaignsPage /></Protected>} />
-      <Route path="/admin/sites" element={<Protected><SitesListPage /></Protected>} />
-      <Route path="/admin/sites/:siteId" element={<Protected><SiteDetailPage /></Protected>} />
-      <Route path="/admin/sites/:siteId/pages/:pageId" element={<Protected><SitePageEditorPage /></Protected>} />
-      <Route path="/admin/sites/:siteId/pages/:pageId/builder" element={<Protected><SitePageBuilderPage /></Protected>} />
-      <Route path="/admin/sites/:siteId/pages/:pageId/preview" element={<Protected><SitePreviewPage /></Protected>} />
-      <Route path="/admin/exercise-images" element={<Protected><ExerciseImagesPage /></Protected>} />
+      <Route path="/admin/sites" element={<ProtectedAdmin><SitesListPage /></ProtectedAdmin>} />
+      <Route path="/admin/sites/:siteId" element={<ProtectedAdmin><SiteDetailPage /></ProtectedAdmin>} />
+      <Route path="/admin/sites/:siteId/pages/:pageId" element={<ProtectedAdmin><SitePageEditorPage /></ProtectedAdmin>} />
+      <Route path="/admin/sites/:siteId/pages/:pageId/builder" element={<ProtectedAdmin><SitePageBuilderPage /></ProtectedAdmin>} />
+      <Route path="/admin/sites/:siteId/pages/:pageId/preview" element={<ProtectedAdmin><SitePreviewPage /></ProtectedAdmin>} />
+      <Route path="/admin/exercise-images" element={<ProtectedAdmin><ExerciseImagesPage /></ProtectedAdmin>} />
       <Route path="/admin/ai-chat" element={<Protected><AIChatPage /></Protected>} />
       <Route path="/admin/ai-team" element={<Protected><AiTeamDashboardPage /></Protected>} />
       <Route path="/admin/projects-dashboard" element={<Protected><ProjectsDashboardPage /></Protected>} />
@@ -252,7 +261,7 @@ export function AppRoutes() {
       <Route path="/admin/commercial-proposals/:id/edit" element={<Protected><ProposalEditorPage /></Protected>} />
       <Route path="/admin/commercial-proposals/:id" element={<Protected><ProposalViewPage /></Protected>} />
       <Route path="/commercial-proposals/:id" element={<ProposalViewPage />} />
-      <Route path="/admin/donors" element={<Protected><DonorsManagePage /></Protected>} />
+      <Route path="/admin/donors" element={<ProtectedAdmin><DonorsManagePage /></ProtectedAdmin>} />
       {/* Redirect old admin routes to new /admin routes */}
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
       <Route path="/pages" element={<Navigate to="/admin/pages" replace />} />

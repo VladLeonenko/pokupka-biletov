@@ -19,7 +19,7 @@ export function LoginPage() {
     
     // Редиректим только если уже авторизован и это не попытка входа
     if (token && user && !email && !password) {
-      const targetPath = user.role === 'admin' ? '/admin' : '/account';
+      const targetPath = ['admin', 'sales_manager'].includes(user.role ?? '') ? '/admin' : '/account';
       setIsRedirecting(true);
       navigate(targetPath, { replace: true });
     }
@@ -38,7 +38,7 @@ export function LoginPage() {
       // Ждем обновления состояния и делаем редирект один раз
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const targetPath = loggedUser.role === 'admin' ? '/admin' : '/account';
+      const targetPath = ['admin', 'sales_manager'].includes(loggedUser.role ?? '') ? '/admin' : '/account';
       setIsRedirecting(true);
       navigate(targetPath, { replace: true });
     } catch (e: any) {

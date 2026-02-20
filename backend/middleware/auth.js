@@ -32,6 +32,13 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
+export function requireAdminOrSalesManager(req, res, next) {
+  if (!req.user || !['admin', 'sales_manager'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Admin or Sales Manager access required' });
+  }
+  next();
+}
+
 export function signUser(user) {
   const payload = { id: user.id, email: user.email, role: user.role };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });

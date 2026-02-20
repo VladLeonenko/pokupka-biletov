@@ -19,6 +19,10 @@ import {
   TextField,
   Alert,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, LockReset as LockResetIcon } from '@mui/icons-material';
 import { listAdmins, addAdmin, removeAdmin, resetAdminPassword, type Admin } from '@/services/adminsApi';
@@ -34,6 +38,7 @@ export function AdminsManagePage() {
   const [formEmail, setFormEmail] = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formName, setFormName] = useState('');
+  const [formRole, setFormRole] = useState<'admin' | 'sales_manager'>('admin');
   const [resetPassword, setResetPassword] = useState('');
 
   const { data: admins = [], isLoading } = useQuery({
@@ -42,13 +47,14 @@ export function AdminsManagePage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => addAdmin({ email: formEmail, password: formPassword, name: formName || undefined }),
+    mutationFn: () => addAdmin({ email: formEmail, password: formPassword, name: formName || undefined, role: formRole }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admins'] });
       setAddOpen(false);
       setFormEmail('');
       setFormPassword('');
       setFormName('');
+      setFormRole('admin');
       showToast('Админ добавлен', 'success');
     },
     onError: (e: Error) => showToast(e.message, 'error'),
@@ -99,12 +105,12 @@ export function AdminsManagePage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5">Администраторы</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-          Добавить админа
+          Добавить
         </Button>
       </Box>
 
       <Alert severity="info" sx={{ mb: 2 }}>
-        Админы имеют полный доступ к панели управления. Новый админ входит по email и паролю, который вы зададите.
+        Админы имеют полный доступ. Менеджеры по продажам видят ограниченный набор разделов (продукты, заказы, клиенты, чаты и др.).
       </Alert>
 
       {isLoading ? (
@@ -118,6 +124,7 @@ export function AdminsManagePage() {
               <TableRow>
                 <TableCell>Email</TableCell>
                 <TableCell>Имя</TableCell>
+                <TableCell>Роль</TableCell>
                 <TableCell>Добавлен</TableCell>
                 <TableCell align="right">Действия</TableCell>
               </TableRow>
@@ -127,6 +134,7 @@ export function AdminsManagePage() {
                 <TableRow key={a.id}>
                   <TableCell>{a.email}</TableCell>
                   <TableCell>{a.name || '—'}</TableCell>
+                  <TableCell>{a.role === 'sales_manager' ? 'Менеджер по продажам' : 'Админ'}</TableCell>
                   <TableCell>{a.created_at ? format(new Date(a.created_at), 'd MMM yyyy', { locale: ru }) : '—'}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" title="Сбросить пароль" onClick={() => setResetOpen(a)}>
@@ -137,7 +145,7 @@ export function AdminsManagePage() {
                       color="error"
                       title="Убрать доступ"
                       onClick={() => removeMutation.mutate(a.id)}
-                      disabled={admins.length <= 1}
+                      disabled={a.role === 'admin' && admins.filter((x) => x.role === 'admin').length <= 1}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -150,8 +158,19 @@ export function AdminsManagePage() {
       )}
 
       <Dialog open={addOpen} onClose={() => !addMutation.isPending && setAddOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Добавить админа</DialogTitle>
+        <DialogTitle>Добавить администратора или менеджера</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Роль</InputLabel>
+            <Select
+              value={formRole}
+              label="Роль"
+              onChange={(e) => setFormRole(e.target.value as 'admin' | 'sales_manager')}
+            >
+              <MenuItem value="admin">Админ</MenuItem>
+              <MenuItem value="sales_manager">Менеджер по продажам</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             fullWidth
             label="Email"

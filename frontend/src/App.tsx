@@ -27,7 +27,7 @@ export default function App() {
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
   const isAdminRoute = normalizedPath.startsWith('/admin');
   const isLoginPage = /^\/admin\/login$/i.test(normalizedPath);
-  const shouldUseAdminLayout = isAdminRoute && !isLoginPage && !!token && user?.role === 'admin';
+  const shouldUseAdminLayout = isAdminRoute && !isLoginPage && !!token && ['admin', 'sales_manager'].includes(user?.role ?? '');
   useCacheVersionWatcher();
   useCursor(normalizedPath);
   // GSAP scroll animations for [data-anim] elements on all public pages

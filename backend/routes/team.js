@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ router.get('/health', (req, res) => {
 });
 
 // Get all team members (admin only)
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, requireAdmin, async (req, res) => {
   const { active } = req.query;
   let query = 'SELECT * FROM team_members';
   const params = [];
@@ -53,14 +53,14 @@ router.get('/public', async (req, res) => {
 });
 
 // Get single team member
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
   const r = await pool.query('SELECT * FROM team_members WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
   res.json(rowToTeamMember(r.rows[0]));
 });
 
 // Create team member
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requireAdmin, async (req, res) => {
   const {
     name, role, imageUrl, bio, skills, portfolioUrls, isActive, sortOrder
   } = req.body || {};
@@ -84,7 +84,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // Update team member
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   const {
     name, role, imageUrl, bio, skills, portfolioUrls, isActive, sortOrder
   } = req.body || {};
@@ -113,14 +113,14 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // Delete team member
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   const r = await pool.query('DELETE FROM team_members WHERE id=$1 RETURNING *', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
   res.json({ deleted: rowToTeamMember(r.rows[0]) });
 });
 
 // Update sort order (for drag & drop)
-router.post('/reorder', requireAuth, async (req, res) => {
+router.post('/reorder', requireAuth, requireAdmin, async (req, res) => {
   const { items } = req.body || {};
   if (!Array.isArray(items)) {
     return res.status(400).json({ error: 'Items array is required' });

@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -45,13 +45,18 @@ function rowToSlide(r) {
   };
 }
 
-// GET /api/commercial-proposals - List all proposals (admin only)
-router.get('/', requireAuth, async (req, res) => {
+// GET /api/commercial-proposals - List all proposals (admin + sales_manager)
+router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { clientId, dealId, status } = req.query;
     let query = 'SELECT * FROM commercial_proposals WHERE 1=1';
     const params = [];
     let paramIndex = 1;
+
+    if (req.user?.role === 'sales_manager') {
+      query += ` AND user_id = $${paramIndex++}`;
+      params.push(req.user.id);
+    }
 
     if (clientId) {
       query += ` AND client_id = $${paramIndex++}`;
@@ -83,14 +88,15 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // POST /api/commercial-proposals/:id/generate-share-link - Generate new share token (must be before /:id)
-router.post('/:id/generate-share-link', requireAuth, async (req, res) => {
+router.post('/:id/generate-share-link', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { id } = req.params;
     const shareToken = generateShareToken();
-
+    const updateCondition = req.user?.role === 'sales_manager' ? 'id = $2 AND user_id = $3' : 'id = $2';
+    const updateParams = req.user?.role === 'sales_manager' ? [shareToken, id, req.user.id] : [shareToken, id];
     const result = await pool.query(
-      'UPDATE commercial_proposals SET share_token = $1 WHERE id = $2 RETURNING share_token',
-      [shareToken, id]
+      `UPDATE commercial_proposals SET share_token = $1 WHERE ${updateCondition} RETURNING share_token`,
+      updateParams
     );
 
     if (result.rows.length === 0) {
@@ -104,8 +110,15 @@ router.post('/:id/generate-share-link', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/commercial-proposals/:id - Get proposal with slides
-router.get('/:id', async (req, res) => {
+// GET /api/commercial-proposals/:id - Get proposal with slides (public if shareToken, else admin+manager)
+const getProposalOrAuth = (req, res, next) => {
+  if (req.query.shareToken) return next();
+  requireAuth(req, res, (err) => {
+    if (err) return next(err);
+    requireAdminOrSalesManager(req, res, next);
+  });
+};
+router.get('/:id', getProposalOrAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { shareToken } = req.query;
@@ -149,6 +162,9 @@ router.get('/:id', async (req, res) => {
     if (proposalResult.rows.length === 0) {
       return res.status(404).json({ error: 'Proposal not found' });
     }
+    if (req.user?.role === 'sales_manager' && proposalResult.rows[0].user_id !== req.user.id) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
 
     const proposal = rowToProposal(proposalResult.rows[0]);
     
@@ -169,7 +185,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/commercial-proposals - Create new proposal
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const {
       clientId,
@@ -237,9 +253,13 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // PUT /api/commercial-proposals/:id - Update proposal
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { id } = req.params;
+    if (req.user?.role === 'sales_manager') {
+      const check = await pool.query('SELECT id FROM commercial_proposals WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+      if (check.rows.length === 0) return res.status(404).json({ error: 'Proposal not found' });
+    }
     const {
       title,
       clientName,
@@ -334,15 +354,14 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/commercial-proposals/:id - Delete proposal
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete slides (cascade should handle this, but being explicit)
+    const delCondition = req.user?.role === 'sales_manager' ? 'id = $1 AND user_id = $2' : 'id = $1';
+    const delParams = req.user?.role === 'sales_manager' ? [id, req.user.id] : [id];
+
     await pool.query('DELETE FROM proposal_slides WHERE proposal_id = $1', [id]);
-    
-    // Delete proposal
-    const result = await pool.query('DELETE FROM commercial_proposals WHERE id = $1 RETURNING id', [id]);
+    const result = await pool.query(`DELETE FROM commercial_proposals WHERE ${delCondition} RETURNING id`, delParams);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Proposal not found' });

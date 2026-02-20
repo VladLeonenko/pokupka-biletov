@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -59,7 +59,7 @@ router.get('/:category', async (req, res) => {
 });
 
 // Создать нового донора
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { category, url, sortOrder } = req.body;
     
@@ -100,7 +100,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // Обновить донора
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { category, url, sortOrder, isActive } = req.body;
@@ -166,7 +166,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // Удалить донора
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query('DELETE FROM donors WHERE id = $1 RETURNING *', [id]);
@@ -183,7 +183,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 // Массовое обновление доноров (для сохранения порядка)
-router.post('/bulk-update', requireAuth, async (req, res) => {
+router.post('/bulk-update', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { donors } = req.body; // Массив { id, sortOrder, isActive }
     

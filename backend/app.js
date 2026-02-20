@@ -26,7 +26,7 @@ import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
 import authRouter from './routes/auth.js';
-import { requireAuth, requireAdmin } from './middleware/auth.js';
+import { requireAuth, requireAdmin, requireAdminOrSalesManager } from './middleware/auth.js';
 import { seoRenderer } from './middleware/seoRenderer.js';
 import aiRouter from './routes/ai.js';
 import blogRouter from './routes/blog.js';
@@ -280,11 +280,11 @@ app.get('/api/public/metrics/yandex-test', async (req, res) => {
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/public/awards', awardsRouter);
 app.use('/api/awards', requireAuth, awardsRouter);
-app.use('/api/team', teamRouter);
+app.use('/api/team', teamRouter); // public /team/public; admin routes protected in router
 app.use('/api/admins', requireAuth, requireAdmin, adminsRouter);
-app.use('/api/email', emailCampaignsRouter);
-app.use('/api/sites', sitesRouter);
-app.use('/api/planner', plannerRouter);
+app.use('/api/email', requireAuth, requireAdminOrSalesManager, emailCampaignsRouter);
+app.use('/api/sites', sitesRouter); // public /sites/.../lead; admin routes protected in router
+app.use('/api/planner', requireAuth, requireAdminOrSalesManager, plannerRouter);
 app.use('/api/ai-assistant', aiAssistantRouter);
 app.use('/api/ai-chat', aiChatRouter);
 app.use('/api/reading-books', requireAuth, readingBooksRouter);
@@ -292,28 +292,28 @@ app.use('/api/consents', consentsRouter);
 app.use('/api/ai-team', requireAuth, aiTeamRouter);
 app.use('/api/projects', requireAuth, projectsRouter);
 
-// protected admin APIs
-app.use('/api/pages', requireAuth, pagesRouter);
-app.use('/api/images', requireAuth, imagesRouter);
-app.use('/api/exercise-images', requireAuth, exerciseImagesRouter);
-app.use('/api/partials', requireAuth, partialsRouter);
-// register categories BEFORE blog to avoid ":slug" catch
-app.use('/api/blog/categories', requireAuth, blogCategoriesRouter);
-app.use('/api/blog', requireAuth, blogRouter);
-app.use('/api/cases', requireAuth, casesRouter);
-app.use('/api/product-categories', requireAuth, productCategoriesRouter);
+// protected admin APIs (admin only)
+app.use('/api/pages', requireAuth, requireAdmin, pagesRouter);
+app.use('/api/images', requireAuth, requireAdmin, imagesRouter);
+app.use('/api/exercise-images', requireAuth, requireAdmin, exerciseImagesRouter);
+app.use('/api/partials', requireAuth, requireAdmin, partialsRouter);
+app.use('/api/blog/categories', requireAuth, requireAdmin, blogCategoriesRouter);
+app.use('/api/blog', requireAuth, requireAdmin, blogRouter);
+app.use('/api/cases', requireAuth, requireAdmin, casesRouter);
+// admin + sales_manager
+app.use('/api/product-categories', requireAuth, requireAdminOrSalesManager, productCategoriesRouter);
 app.use('/api/public/product-categories', productCategoriesRouter);
-app.use('/api/products', requireAuth, productsRouter);
-app.use('/api/promotions', requireAuth, promotionsRouter);
+app.use('/api/products', requireAuth, requireAdminOrSalesManager, productsRouter);
+app.use('/api/promotions', requireAuth, requireAdminOrSalesManager, promotionsRouter);
 app.use('/api/social-proofs', socialProofsRouter); // Публичные и админские эндпоинты
-app.use('/api/quiz', requireAuth, quizRouter); // Админские эндпоинты (публичные уже на /api/public/quiz)
+app.use('/api/quiz', requireAuth, requireAdmin, quizRouter);
 
-app.use('/api/carousels', requireAuth, carouselsRouter);
-app.use('/api/funnels', requireAuth, funnelsRouter);
-app.use('/api/tasks', requireAuth, tasksRouter);
-app.use('/api/metrics', requireAuth, metricsRouter);
-app.use('/api/seo', requireAuth, seoSuggestRouter);
-app.use('/api/seo', requireAuth, seoOgImageRouter);
+app.use('/api/carousels', requireAuth, requireAdmin, carouselsRouter);
+app.use('/api/funnels', requireAuth, requireAdminOrSalesManager, funnelsRouter);
+app.use('/api/tasks', requireAuth, requireAdminOrSalesManager, tasksRouter);
+app.use('/api/metrics', requireAuth, requireAdmin, metricsRouter);
+app.use('/api/seo', requireAuth, requireAdmin, seoSuggestRouter);
+app.use('/api/seo', requireAuth, requireAdmin, seoOgImageRouter);
 app.use('/api/seo-optimize', seoOptimizeRouter);
 app.use('/api/competitor-analysis', competitorAnalysisRouter);
 app.use('/api/seo-monitoring', seoPositionMonitoringRouter);
@@ -321,7 +321,7 @@ app.use('/api/structured-data', structuredDataRouter);
 app.use('/api/internal-linking', internalLinkingRouter);
 app.use('/api/payments', requireAuth, paymentsRouter);
 app.use('/api/documents', requireAuth, documentsRouter);
-app.use('/api/commercial-proposals', commercialProposalsRouter); // Public routes are handled inside
+app.use('/api/commercial-proposals', commercialProposalsRouter); // Share link public; admin routes protected in router
 
 // Calculator routes
 app.use('/api/public/calculator', calculatorRouter);
@@ -334,12 +334,12 @@ app.use('/api/payment-reminders', paymentRemindersRouter); // No auth required f
 app.use('/api/task-executor', requireAuth, taskExecutorRouter);
 app.use('/api/cart', cartRouter); // Публичный, но с поддержкой авторизации
 app.use('/api/wishlist', wishlistRouter); // Требует авторизации
-app.use('/api/orders', ordersRouter); // Публичный, но с поддержкой авторизации
+app.use('/api/orders', ordersRouter); // Public POST; admin GET /admin protected in router
 app.use('/api/analytics', productAnalyticsRouter); // Публичный для трекинга, админ для просмотра
-app.use('/api/clients', clientsRouter); // Требует авторизации
+app.use('/api/clients', requireAuth, requireAdminOrSalesManager, clientsRouter);
 app.use('/api/cache', requireAuth, cacheAdminRouter);
 app.use('/api/chat', chatRouter); // Публичные и админские эндпоинты
-app.use('/api/chatbot', chatbotRouter); // Требует авторизации
+app.use('/api/chatbot', requireAuth, requireAdmin, chatbotRouter);
 app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский парсинг
 
 // Sitemap (публичный, должен быть до статических файлов)

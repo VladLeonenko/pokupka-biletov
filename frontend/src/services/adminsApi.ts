@@ -14,6 +14,7 @@ export interface Admin {
   id: number;
   email: string;
   name: string | null;
+  role: 'admin' | 'sales_manager';
   created_at: string;
 }
 
@@ -23,7 +24,7 @@ export async function listAdmins(): Promise<Admin[]> {
   return res.json();
 }
 
-export async function addAdmin(data: { email: string; password: string; name?: string }): Promise<Admin> {
+export async function addAdmin(data: { email: string; password: string; name?: string; role?: 'admin' | 'sales_manager' }): Promise<Admin> {
   const res = await fetch(`${API_BASE}/api/admins`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },

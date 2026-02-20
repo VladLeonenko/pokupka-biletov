@@ -36,70 +36,77 @@ router.get('/', async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
+    // Изоляция: менеджер видит только своих (assigned_to = self)
+    if (req.user?.role === 'sales_manager') {
+      conditions.push(`c.assigned_to = $${paramIndex}`);
+      params.push(req.user.id);
+      paramIndex++;
+    }
+
     if (search) {
       conditions.push(`(
-        name ILIKE $${paramIndex} OR 
-        email ILIKE $${paramIndex} OR 
-        phone ILIKE $${paramIndex} OR 
-        company ILIKE $${paramIndex}
+        c.name ILIKE $${paramIndex} OR 
+        c.email ILIKE $${paramIndex} OR 
+        c.phone ILIKE $${paramIndex} OR 
+        c.company ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
       paramIndex++;
     }
 
     if (source) {
-      conditions.push(`source = $${paramIndex}`);
+      conditions.push(`c.source = $${paramIndex}`);
       params.push(source);
       paramIndex++;
     }
 
     if (status) {
-      conditions.push(`status = $${paramIndex}`);
+      conditions.push(`c.status = $${paramIndex}`);
       params.push(status);
       paramIndex++;
     }
 
     if (minLTV) {
-      conditions.push(`total_revenue_cents >= $${paramIndex}`);
+      conditions.push(`c.total_revenue_cents >= $${paramIndex}`);
       params.push(parseInt(minLTV) * 100); // Конвертируем рубли в копейки
       paramIndex++;
     }
 
     if (maxLTV) {
-      conditions.push(`total_revenue_cents <= $${paramIndex}`);
+      conditions.push(`c.total_revenue_cents <= $${paramIndex}`);
       params.push(parseInt(maxLTV) * 100);
       paramIndex++;
     }
 
     if (minAvgOrder) {
-      conditions.push(`average_order_value_cents >= $${paramIndex}`);
+      conditions.push(`c.average_order_value_cents >= $${paramIndex}`);
       params.push(parseInt(minAvgOrder) * 100);
       paramIndex++;
     }
 
     if (maxAvgOrder) {
-      conditions.push(`average_order_value_cents <= $${paramIndex}`);
+      conditions.push(`c.average_order_value_cents <= $${paramIndex}`);
       params.push(parseInt(maxAvgOrder) * 100);
       paramIndex++;
     }
 
     if (minOrders) {
-      conditions.push(`total_orders >= $${paramIndex}`);
+      conditions.push(`c.total_orders >= $${paramIndex}`);
       params.push(parseInt(minOrders));
       paramIndex++;
     }
 
     if (maxOrders) {
-      conditions.push(`total_orders <= $${paramIndex}`);
+      conditions.push(`c.total_orders <= $${paramIndex}`);
       params.push(parseInt(maxOrders));
       paramIndex++;
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Получаем общее количество
+    // Получаем общее количество (используем c. для JOIN)
     const countResult = await pool.query(
-      `SELECT COUNT(*) as total FROM clients ${whereClause}`,
+      `SELECT COUNT(*) as total FROM clients c ${whereClause}`,
       params
     );
     const total = parseInt(countResult.rows[0].total);
@@ -132,12 +139,12 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Получить клиента по ID
+// Получить клиента по ID (с проверкой доступа для менеджера)
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      `SELECT 
+    const baseQuery = `
+      SELECT 
         c.*,
         COALESCE(u.name, u.email) as created_by_name,
         json_agg(
@@ -154,11 +161,16 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN client_orders co ON c.id = co.client_id
       LEFT JOIN orders o ON co.order_id = o.id
       WHERE c.id = $1
-      GROUP BY c.id, u.name, u.email`,
-      [id]
-    );
+    `;
+    let query = baseQuery + ' GROUP BY c.id, u.name, u.email';
+    const result = await pool.query(query, [id]);
 
     if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // Менеджер: доступ только к своим клиентам
+    if (req.user?.role === 'sales_manager' && result.rows[0].assigned_to !== req.user.id) {
       return res.status(404).json({ error: 'Client not found' });
     }
 
@@ -180,7 +192,8 @@ router.post('/', async (req, res) => {
       source = 'manual',
       source_details,
       status = 'lead',
-      notes
+      notes,
+      assigned_to
     } = req.body;
 
     if (!name) {
@@ -188,12 +201,17 @@ router.post('/', async (req, res) => {
     }
 
     const userId = req.user.id;
+    // Менеджер всегда назначает клиента себе. Админ может указать assigned_to или оставить null
+    const resolvedAssignedTo = req.user?.role === 'sales_manager'
+      ? userId
+      : (req.user?.role === 'admin' ? (assigned_to ?? null) : null);
+
     const result = await pool.query(
       `INSERT INTO clients (
-        name, email, phone, company, source, source_details, status, notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        name, email, phone, company, source, source_details, status, notes, created_by, assigned_to
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
-      [name, email || null, phone || null, company || null, source, source_details || null, status, notes || null, userId]
+      [name, email || null, phone || null, company || null, source, source_details || null, status, notes || null, userId, resolvedAssignedTo]
     );
 
     res.status(201).json(result.rows[0]);
@@ -216,8 +234,15 @@ router.put('/:id', async (req, res) => {
       source_details,
       status,
       notes,
-      charity_preferences
+      charity_preferences,
+      assigned_to
     } = req.body;
+
+    // Менеджер: только свои клиенты
+    if (req.user?.role === 'sales_manager') {
+      const check = await pool.query('SELECT id FROM clients WHERE id = $1 AND assigned_to = $2', [id, req.user.id]);
+      if (check.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
+    }
 
     const updates = [];
     const params = [];
@@ -268,6 +293,12 @@ router.put('/:id', async (req, res) => {
       params.push(Array.isArray(charity_preferences) ? JSON.stringify(charity_preferences) : '[]');
       paramIndex++;
     }
+    // assigned_to: только админ может менять
+    if (assigned_to !== undefined && req.user?.role === 'admin') {
+      updates.push(`assigned_to = $${paramIndex}`);
+      params.push(assigned_to || null);
+      paramIndex++;
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -296,7 +327,11 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM clients WHERE id = $1 RETURNING *', [id]);
+    const deleteCondition = req.user?.role === 'sales_manager'
+      ? 'id = $1 AND assigned_to = $2'
+      : 'id = $1';
+    const deleteParams = req.user?.role === 'sales_manager' ? [id, req.user.id] : [id];
+    const result = await pool.query(`DELETE FROM clients WHERE ${deleteCondition} RETURNING *`, deleteParams);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Client not found' });
@@ -313,9 +348,11 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/orders/:orderId', async (req, res) => {
   try {
     const { id, orderId } = req.params;
-    
-    // Проверяем существование клиента и заказа
-    const clientCheck = await pool.query('SELECT id FROM clients WHERE id = $1', [id]);
+    const clientWhere = req.user?.role === 'sales_manager'
+      ? 'id = $1 AND assigned_to = $2'
+      : 'id = $1';
+    const clientParams = req.user?.role === 'sales_manager' ? [id, req.user.id] : [id];
+    const clientCheck = await pool.query(`SELECT id FROM clients WHERE ${clientWhere}`, clientParams);
     if (clientCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Client not found' });
     }
@@ -361,61 +398,67 @@ router.get('/export/csv', async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
+    if (req.user?.role === 'sales_manager') {
+      conditions.push(`c.assigned_to = $${paramIndex}`);
+      params.push(req.user.id);
+      paramIndex++;
+    }
+
     if (search) {
       conditions.push(`(
-        name ILIKE $${paramIndex} OR 
-        email ILIKE $${paramIndex} OR 
-        phone ILIKE $${paramIndex} OR 
-        company ILIKE $${paramIndex}
+        c.name ILIKE $${paramIndex} OR 
+        c.email ILIKE $${paramIndex} OR 
+        c.phone ILIKE $${paramIndex} OR 
+        c.company ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
       paramIndex++;
     }
 
     if (source) {
-      conditions.push(`source = $${paramIndex}`);
+      conditions.push(`c.source = $${paramIndex}`);
       params.push(source);
       paramIndex++;
     }
 
     if (status) {
-      conditions.push(`status = $${paramIndex}`);
+      conditions.push(`c.status = $${paramIndex}`);
       params.push(status);
       paramIndex++;
     }
 
     if (minLTV) {
-      conditions.push(`total_revenue_cents >= $${paramIndex}`);
+      conditions.push(`c.total_revenue_cents >= $${paramIndex}`);
       params.push(parseInt(minLTV) * 100);
       paramIndex++;
     }
 
     if (maxLTV) {
-      conditions.push(`total_revenue_cents <= $${paramIndex}`);
+      conditions.push(`c.total_revenue_cents <= $${paramIndex}`);
       params.push(parseInt(maxLTV) * 100);
       paramIndex++;
     }
 
     if (minAvgOrder) {
-      conditions.push(`average_order_value_cents >= $${paramIndex}`);
+      conditions.push(`c.average_order_value_cents >= $${paramIndex}`);
       params.push(parseInt(minAvgOrder) * 100);
       paramIndex++;
     }
 
     if (maxAvgOrder) {
-      conditions.push(`average_order_value_cents <= $${paramIndex}`);
+      conditions.push(`c.average_order_value_cents <= $${paramIndex}`);
       params.push(parseInt(maxAvgOrder) * 100);
       paramIndex++;
     }
 
     if (minOrders) {
-      conditions.push(`total_orders >= $${paramIndex}`);
+      conditions.push(`c.total_orders >= $${paramIndex}`);
       params.push(parseInt(minOrders));
       paramIndex++;
     }
 
     if (maxOrders) {
-      conditions.push(`total_orders <= $${paramIndex}`);
+      conditions.push(`c.total_orders <= $${paramIndex}`);
       params.push(parseInt(maxOrders));
       paramIndex++;
     }

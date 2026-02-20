@@ -51,6 +51,12 @@ router.get('/subscribers', requireAuth, async (req, res) => {
     const params = [];
     let paramCount = 0;
 
+    if (req.user?.role === 'sales_manager') {
+      paramCount++;
+      query += ` AND managed_by = $${paramCount}`;
+      params.push(req.user.id);
+    }
+
     if (status) {
       paramCount++;
       query += ` AND status = $${paramCount}`;
@@ -66,10 +72,12 @@ router.get('/subscribers', requireAuth, async (req, res) => {
     query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, offset);
 
-    const result = await pool.query(query, params);
-    const countResult = await pool.query(
-      'SELECT COUNT(*) FROM email_subscribers' + (status || search ? ' WHERE ' + (status ? `status = '${status}'` : '') + (search ? ` AND (email ILIKE '%${search}%' OR name ILIKE '%${search}%')` : '') : '')
-    );
+    const countWhere = [];
+    if (req.user?.role === 'sales_manager') countWhere.push(`managed_by = ${req.user.id}`);
+    if (status) countWhere.push(`status = '${status.replace(/'/g, "''")}'`);
+    if (search) countWhere.push(`(email ILIKE '%${String(search).replace(/'/g, "''")}%' OR name ILIKE '%${String(search).replace(/'/g, "''")}%')`);
+    const countWhereClause = countWhere.length ? ' WHERE ' + countWhere.join(' AND ') : '';
+    const countResult = await pool.query('SELECT COUNT(*) FROM email_subscribers' + countWhereClause);
 
     res.json({
       subscribers: result.rows,
@@ -92,18 +100,20 @@ router.post('/subscribers', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Email обязателен' });
     }
 
+    const managedBy = req.user?.role === 'sales_manager' ? req.user.id : null;
     const result = await pool.query(
-      `INSERT INTO email_subscribers (email, name, phone, tags, custom_fields)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO email_subscribers (email, name, phone, tags, custom_fields, managed_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (email) DO UPDATE SET
          name = COALESCE(EXCLUDED.name, email_subscribers.name),
          phone = COALESCE(EXCLUDED.phone, email_subscribers.phone),
          tags = COALESCE(EXCLUDED.tags, email_subscribers.tags),
          custom_fields = COALESCE(EXCLUDED.custom_fields, email_subscribers.custom_fields),
+         managed_by = COALESCE(EXCLUDED.managed_by, email_subscribers.managed_by),
          status = 'active',
          updated_at = NOW()
        RETURNING *`,
-      [email, name || null, phone || null, tags || [], custom_fields || {}]
+      [email, name || null, phone || null, tags || [], custom_fields || {}, managedBy]
     );
 
     res.json(result.rows[0]);
@@ -139,17 +149,19 @@ router.post('/subscribers/import', requireAuth, upload.single('file'), async (re
             const phone = row.phone || row.Phone || row.PHONE || null;
             const tags = row.tags ? row.tags.split(',').map(t => t.trim()) : [];
 
+            const managedBy = req.user?.role === 'sales_manager' ? req.user.id : null;
             const result = await pool.query(
-              `INSERT INTO email_subscribers (email, name, phone, tags)
-               VALUES ($1, $2, $3, $4)
+              `INSERT INTO email_subscribers (email, name, phone, tags, managed_by)
+               VALUES ($1, $2, $3, $4, $5)
                ON CONFLICT (email) DO UPDATE SET
                  name = COALESCE(EXCLUDED.name, email_subscribers.name),
                  phone = COALESCE(EXCLUDED.phone, email_subscribers.phone),
                  tags = COALESCE(EXCLUDED.tags, email_subscribers.tags),
+                 managed_by = COALESCE(EXCLUDED.managed_by, email_subscribers.managed_by),
                  status = 'active',
                  updated_at = NOW()
                RETURNING *`,
-              [email, name, phone, tags]
+              [email, name, phone, tags, managedBy]
             );
 
             results.push(result.rows[0]);
@@ -177,6 +189,11 @@ router.put('/subscribers/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { email, name, phone, tags, custom_fields, status } = req.body;
+
+    if (req.user?.role === 'sales_manager') {
+      const check = await pool.query('SELECT id FROM email_subscribers WHERE id = $1 AND managed_by = $2', [id, req.user.id]);
+      if (check.rows.length === 0) return res.status(404).json({ error: 'Подписчик не найден' });
+    }
 
     const result = await pool.query(
       `UPDATE email_subscribers
@@ -208,7 +225,10 @@ router.put('/subscribers/:id', requireAuth, async (req, res) => {
 router.delete('/subscribers/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM email_subscribers WHERE id = $1', [id]);
+    const delCondition = req.user?.role === 'sales_manager' ? 'id = $1 AND managed_by = $2' : 'id = $1';
+    const delParams = req.user?.role === 'sales_manager' ? [id, req.user.id] : [id];
+    const delResult = await pool.query(`DELETE FROM email_subscribers WHERE ${delCondition} RETURNING id`, delParams);
+    if (delResult.rowCount === 0) return res.status(404).json({ error: 'Подписчик не найден' });
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting subscriber:', error);
@@ -296,6 +316,8 @@ router.delete('/templates/:id', requireAuth, async (req, res) => {
 // Получить все рассылки
 router.get('/campaigns', requireAuth, async (req, res) => {
   try {
+    const whereClause = req.user?.role === 'sales_manager' ? ' WHERE c.created_by = $1' : '';
+    const params = req.user?.role === 'sales_manager' ? [req.user.id] : [];
     const result = await pool.query(
       `SELECT c.*, 
               COUNT(DISTINCT m.id) as total_sent,
@@ -306,8 +328,10 @@ router.get('/campaigns', requireAuth, async (req, res) => {
        LEFT JOIN email_messages m ON m.campaign_id = c.id
        LEFT JOIN email_opens e ON e.message_id = m.id
        LEFT JOIN email_clicks cl ON cl.message_id = m.id
+       ${whereClause}
        GROUP BY c.id
-       ORDER BY c.created_at DESC`
+       ORDER BY c.created_at DESC`,
+      params
     );
     res.json(result.rows);
   } catch (error) {
@@ -320,8 +344,9 @@ router.get('/campaigns', requireAuth, async (req, res) => {
 router.get('/campaigns/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-
-    const campaignResult = await pool.query('SELECT * FROM email_campaigns WHERE id = $1', [id]);
+    const campaignWhere = req.user?.role === 'sales_manager' ? 'id = $1 AND created_by = $2' : 'id = $1';
+    const campaignParams = req.user?.role === 'sales_manager' ? [id, req.user.id] : [id];
+    const campaignResult = await pool.query(`SELECT * FROM email_campaigns WHERE ${campaignWhere}`, campaignParams);
     if (campaignResult.rows.length === 0) {
       return res.status(404).json({ error: 'Рассылка не найдена' });
     }
@@ -403,6 +428,10 @@ router.post('/campaigns', requireAuth, async (req, res) => {
 router.put('/campaigns/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    if (req.user?.role === 'sales_manager') {
+      const check = await pool.query('SELECT id FROM email_campaigns WHERE id = $1 AND created_by = $2', [id, req.user.id]);
+      if (check.rows.length === 0) return res.status(404).json({ error: 'Рассылка не найдена' });
+    }
     const {
       name,
       subject,
@@ -474,9 +503,16 @@ router.post('/campaigns/:id/send', requireAuth, async (req, res) => {
 
     const campaign = campaignResult.rows[0];
 
-    // Получаем подписчиков с учетом фильтров
-    let subscribersQuery = 'SELECT * FROM email_subscribers WHERE status = $1';
-    const subscribersParams = ['active'];
+    // Менеджер может отправлять только свои рассылки
+    if (req.user?.role === 'sales_manager' && campaign.created_by !== req.user.id) {
+      return res.status(404).json({ error: 'Рассылка не найдена' });
+    }
+
+    // Получаем подписчиков: менеджер — только своих (managed_by = self)
+    let subscribersQuery = req.user?.role === 'sales_manager'
+      ? 'SELECT * FROM email_subscribers WHERE status = $1 AND managed_by = $2'
+      : 'SELECT * FROM email_subscribers WHERE status = $1';
+    const subscribersParams = req.user?.role === 'sales_manager' ? ['active', req.user.id] : ['active'];
 
     if (campaign.segment_filter && Object.keys(campaign.segment_filter).length > 0) {
       const filter = campaign.segment_filter;

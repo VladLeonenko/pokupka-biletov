@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ async function ensureFormExists(pool, formId, formName, pagePath) {
 }
 
 // GET /api/forms - List all forms (sync from submissions, abandonments, promotions, known list)
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     // 1. Добавляем известные формы
     for (const f of KNOWN_FORMS) {
@@ -54,7 +54,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/forms/:formId - Get form details
-router.get('/:formId', requireAuth, async (req, res) => {
+router.get('/:formId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId } = req.params;
     const result = await pool.query('SELECT * FROM forms WHERE form_id = $1', [formId]);
@@ -69,7 +69,7 @@ router.get('/:formId', requireAuth, async (req, res) => {
 });
 
 // POST /api/forms - Create new form definition
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { form_id, form_name, page_path, fields } = req.body;
     const result = await pool.query(
@@ -88,7 +88,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // PUT /api/forms/:formId - Update form
-router.put('/:formId', requireAuth, async (req, res) => {
+router.put('/:formId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId } = req.params;
     const { form_name, page_path, fields } = req.body;
@@ -107,7 +107,7 @@ router.put('/:formId', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/forms/:formId - Delete form
-router.delete('/:formId', requireAuth, async (req, res) => {
+router.delete('/:formId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId } = req.params;
     await pool.query('DELETE FROM forms WHERE form_id = $1', [formId]);
@@ -382,7 +382,7 @@ router.post('/:formId/abandon', async (req, res) => {
 });
 
 // GET /api/forms/:formId/submissions - Get form submissions (auth required)
-router.get('/:formId/submissions', requireAuth, async (req, res) => {
+router.get('/:formId/submissions', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId } = req.params;
     const { status, limit = 50, offset = 0 } = req.query;
@@ -408,7 +408,7 @@ router.get('/:formId/submissions', requireAuth, async (req, res) => {
 });
 
 // GET /api/forms/:formId/submissions/:submissionId - Get single submission
-router.get('/:formId/submissions/:submissionId', requireAuth, async (req, res) => {
+router.get('/:formId/submissions/:submissionId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId, submissionId } = req.params;
     const result = await pool.query(
@@ -426,7 +426,7 @@ router.get('/:formId/submissions/:submissionId', requireAuth, async (req, res) =
 });
 
 // PUT /api/forms/:formId/submissions/:submissionId/status - Update submission status
-router.put('/:formId/submissions/:submissionId/status', requireAuth, async (req, res) => {
+router.put('/:formId/submissions/:submissionId/status', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId, submissionId } = req.params;
     const { status } = req.body;
@@ -456,7 +456,7 @@ router.put('/:formId/submissions/:submissionId/status', requireAuth, async (req,
 });
 
 // DELETE /api/forms/:formId/submissions/:submissionId - Delete submission
-router.delete('/:formId/submissions/:submissionId', requireAuth, async (req, res) => {
+router.delete('/:formId/submissions/:submissionId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId, submissionId } = req.params;
     await pool.query('DELETE FROM form_submissions WHERE form_id = $1 AND id = $2', [formId, submissionId]);
@@ -468,7 +468,7 @@ router.delete('/:formId/submissions/:submissionId', requireAuth, async (req, res
 });
 
 // GET /api/forms/:formId/abandonments - Get form abandonments (auth required)
-router.get('/:formId/abandonments', requireAuth, async (req, res) => {
+router.get('/:formId/abandonments', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { formId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
@@ -484,7 +484,7 @@ router.get('/:formId/abandonments', requireAuth, async (req, res) => {
 });
 
 // GET /api/forms/stats/overview - Get overall statistics
-router.get('/stats/overview', requireAuth, async (req, res) => {
+router.get('/stats/overview', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const stats = await pool.query(`
       SELECT 

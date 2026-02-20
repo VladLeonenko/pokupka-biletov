@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
-import { optionalAuth, requireAuth } from '../middleware/auth.js';
+import { optionalAuth, requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 import { createAiTeamSubscriptionForUser } from './aiTeam.js';
 import { createClientProjectFromOrder } from './projects.js';
 import { createDealForClient } from '../utils/funnelHelper.js';
@@ -262,7 +262,7 @@ router.post('/', async (req, res) => {
 });
 
 // Список всех заказов для админа
-router.get('/admin', requireAuth, async (req, res) => {
+router.get('/admin', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin only' });
@@ -436,7 +436,7 @@ router.get('/:orderNumber', async (req, res) => {
 });
 
 // Обновить статус заказа (только для админов)
-router.put('/:orderNumber/status', requireAuth, async (req, res) => {
+router.put('/:orderNumber/status', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin only' });
