@@ -32,7 +32,10 @@ import {
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
+  getCourses,
+  getCourseProgress,
   getMaterials,
   getProductMatrix,
   getCases,
@@ -72,9 +75,11 @@ const MATERIAL_TYPES: { value: TrainingMaterial['type']; label: string }[] = [
 ];
 
 const QUIZ_TYPES = [
-  { value: 'objection', label: 'Возражения' },
+  { value: 'objection', label: 'Возражения (старый)' },
   { value: 'call_script', label: 'Скрипты звонков' },
   { value: 'admin_guide', label: 'Гайд админки' },
+  { value: 'course_objections', label: 'Курс: Возражения', courseSlug: 'objections' },
+  { value: 'course_lpr', label: 'Курс: Как выйти на ЛПР', courseSlug: 'lpr' },
 ];
 
 function MaterialEditDialog({
@@ -202,9 +207,11 @@ function QuestionEditDialog({
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     type: 'objection',
+    course_slug: '' as string | null,
     question_text: '',
     options: ['', '', '', ''],
     correct_index: 0,
+    isOpenEnded: false,
     sort_order: 0,
   });
 
@@ -212,15 +219,18 @@ function QuestionEditDialog({
     if (open) {
       if (question) {
         const opts = Array.isArray(question.options) ? question.options : [];
+        const isOpen = !opts.length || question.correct_index < 0;
         setForm({
-          type: question.type,
+          type: (question as any).course_slug ? 'general' : question.type,
+          course_slug: (question as any).course_slug || null,
           question_text: question.question_text,
-          options: [opts[0] || '', opts[1] || '', opts[2] || '', opts[3] || ''].slice(0, 4),
-          correct_index: question.correct_index,
+          options: opts.length ? [opts[0] || '', opts[1] || '', opts[2] || '', opts[3] || ''].slice(0, 4) : ['', '', '', ''],
+          correct_index: question.correct_index >= 0 ? question.correct_index : 0,
+          isOpenEnded: isOpen,
           sort_order: question.sort_order,
         });
       } else {
-        setForm({ type: 'objection', question_text: '', options: ['', '', '', ''], correct_index: 0, sort_order: 0 });
+        setForm({ type: 'objection', course_slug: null, question_text: '', options: ['', '', '', ''], correct_index: 0, isOpenEnded: false, sort_order: 0 });
       }
     }
   }, [open, question?.id]);
@@ -247,25 +257,41 @@ function QuestionEditDialog({
   });
 
   const handleSubmit = () => {
-    const opts = form.options.filter((o) => o.trim());
     if (!form.question_text.trim()) {
       showToast('Введите вопрос', 'warning');
       return;
     }
-    if (opts.length < 2) {
+    const opts = form.isOpenEnded ? [] : form.options.filter((o) => o.trim());
+    if (!form.isOpenEnded && opts.length < 2) {
       showToast('Минимум 2 варианта ответа', 'warning');
       return;
     }
-    if (form.correct_index >= opts.length) {
+    if (!form.isOpenEnded && form.correct_index >= opts.length) {
       showToast('Правильный ответ не выбран', 'warning');
       return;
     }
-    const payload = { type: form.type, question_text: form.question_text, options: opts, correct_index: form.correct_index, sort_order: form.sort_order };
+    const payload: any = {
+      type: form.course_slug ? 'general' : form.type,
+      course_slug: form.course_slug || undefined,
+      question_text: form.question_text,
+      options: opts,
+      correct_index: form.isOpenEnded ? -1 : form.correct_index,
+      sort_order: form.sort_order,
+    };
     if (question) {
       updateMut.mutate({ id: question.id, data: payload });
     } else {
       createMut.mutate(payload);
     }
+  };
+
+  const handleSectionChange = (v: string) => {
+    const t = QUIZ_TYPES.find((x) => x.value === v) as { value: string; label: string; courseSlug?: string };
+    setForm({
+      ...form,
+      type: t?.courseSlug ? 'general' : v,
+      course_slug: t?.courseSlug || null,
+    });
   };
 
   if (!open) return null;
@@ -276,14 +302,22 @@ function QuestionEditDialog({
       <DialogContent sx={{ pt: 1 }}>
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Раздел теста</InputLabel>
-          <Select value={form.type} label="Раздел теста" onChange={(e) => setForm({ ...form, type: e.target.value })}>
+          <Select value={form.type} label="Раздел теста" onChange={(e) => handleSectionChange(e.target.value)}>
             {QUIZ_TYPES.map((t) => (
               <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
             ))}
           </Select>
         </FormControl>
         <TextField fullWidth label="Вопрос" value={form.question_text} onChange={(e) => setForm({ ...form, question_text: e.target.value })} multiline rows={2} sx={{ mb: 2 }} required />
-        {[0, 1, 2, 3].map((i) => (
+        <FormControlLabel
+          control={<Radio checked={!form.isOpenEnded} onChange={() => setForm({ ...form, isOpenEnded: false })} />}
+          label="Варианты ответа"
+        />
+        <FormControlLabel
+          control={<Radio checked={form.isOpenEnded} onChange={() => setForm({ ...form, isOpenEnded: true })} />}
+          label="Открытый вопрос"
+        />
+        {!form.isOpenEnded && [0, 1, 2, 3].map((i) => (
           <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Radio
               checked={form.correct_index === i}
@@ -392,33 +426,39 @@ function QuizDialog({ open, onClose, questionType, questions, onComplete }: {
   );
 }
 
-// Динамическая шкала: материалы + пройденные тесты (≥70%)
+// Шкала прогресса: курсы + материалы + тесты
 function ManagerProgressHeader({
+  courseProgress,
   completedIds,
   totalMaterials,
   quizAttempts,
   quizTypesWithQuestions,
 }: {
+  courseProgress: { slug: string; completed: number; total: number; testPassed: boolean }[];
   completedIds: number[];
   totalMaterials: number;
   quizAttempts: { question_type: string; score_percent: number }[];
   quizTypesWithQuestions: string[];
 }) {
-  const materialsPct = totalMaterials > 0 ? (completedIds.length / totalMaterials) * 50 : 0;
+  const coursesDone = courseProgress.filter((c) => c.testPassed).length;
+  const coursesTotal = courseProgress.length;
+  const coursesPct = coursesTotal > 0 ? (coursesDone / coursesTotal) * 40 : 0;
+  const materialsPct = totalMaterials > 0 ? (completedIds.length / totalMaterials) * 30 : 0;
   const passedQuizzes = quizTypesWithQuestions.filter((type) => {
     const best = Math.max(...quizAttempts.filter((a) => a.question_type === type).map((a) => a.score_percent), 0);
     return best >= 70;
   }).length;
-  const quizPct = quizTypesWithQuestions.length > 0 ? (passedQuizzes / quizTypesWithQuestions.length) * 50 : 0;
-  const totalPct = Math.round(materialsPct + quizPct);
+  const quizPct = quizTypesWithQuestions.length > 0 ? (passedQuizzes / quizTypesWithQuestions.length) * 30 : 0;
+  const totalPct = Math.round(Math.min(100, coursesPct + materialsPct + quizPct));
 
   return (
     <Card sx={{ mb: 2, background: 'linear-gradient(135deg, #1a237e 0%, #3949ab 100%)', color: 'white' }}>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 1 }}>Мой прогресс</Typography>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Chip icon={<EmojiEventsIcon />} label={`Курсы: ${coursesDone}/${coursesTotal}`} sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
           <Chip icon={<CheckCircleIcon />} label={`Материалы: ${completedIds.length}/${totalMaterials}`} sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
-          <Chip icon={<EmojiEventsIcon />} label={`Тесты: ${passedQuizzes}/${quizTypesWithQuestions.length} пройдено (≥70%)`} sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
+          <Chip icon={<QuizIcon />} label={`Тесты: ${passedQuizzes}/${quizTypesWithQuestions.length} (≥70%)`} sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
           <Chip label={`Итого: ${totalPct}%`} sx={{ bgcolor: 'rgba(255,255,255,0.3)' }} />
         </Box>
         <LinearProgress variant="determinate" value={totalPct} sx={{ mt: 1, height: 8, borderRadius: 4 }} color="inherit" />
@@ -537,6 +577,51 @@ function SectionTab({
   );
 }
 
+// Карточки курсов (Возражения, ЛПР)
+function CoursesSection({ courseProgress }: { courseProgress: Record<string, { completed: number; total: number; testPassed: boolean }> }) {
+  const { data: courses, isLoading } = useQuery({ queryKey: ['courses'], queryFn: getCourses });
+  if (isLoading || !courses?.length) return null;
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="subtitle1" sx={{ mb: 2 }}>Учебные материалы</Typography>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {courses.map((c) => {
+          const prog = courseProgress[c.slug];
+          const pct = prog?.total ? Math.round((prog.completed / prog.total) * 100) : 0;
+          return (
+            <Card
+              key={c.slug}
+              component={Link}
+              to={`/admin/sales-academy/courses/${c.slug}`}
+              sx={{
+                minWidth: 240,
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 },
+              }}
+            >
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Typography variant="h6">{c.title}</Typography>
+                  {prog?.testPassed && <EmojiEventsIcon color="success" fontSize="small" />}
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {c.total_pages || 0} страниц • тест ~{c.estimated_test_minutes} мин
+                </Typography>
+                <LinearProgress variant="determinate" value={pct} sx={{ height: 6, borderRadius: 3 }} />
+                <Typography variant="caption" color="text.secondary">
+                  {prog?.completed ?? 0}/{prog?.total ?? c.total_pages ?? 0}
+                </Typography>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
 function CasesTab() {
   const { data, isLoading } = useQuery({ queryKey: ['sales-cases'], queryFn: getCases });
   if (isLoading) return <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
@@ -586,6 +671,8 @@ function QuestionsAdminTab({ onEditQuestion }: { onEditQuestion: (q: TrainingQue
   const { data: objectionQ } = useQuery({ queryKey: ['training-questions', 'objection'], queryFn: () => getQuestions('objection') });
   const { data: scriptQ } = useQuery({ queryKey: ['training-questions', 'call_script'], queryFn: () => getQuestions('call_script') });
   const { data: guideQ } = useQuery({ queryKey: ['training-questions', 'admin_guide'], queryFn: () => getQuestions('admin_guide') });
+  const { data: objectionsCourseQ } = useQuery({ queryKey: ['training-questions', 'course_objections'], queryFn: () => getQuestions(undefined, 'objections') });
+  const { data: lprCourseQ } = useQuery({ queryKey: ['training-questions', 'course_lpr'], queryFn: () => getQuestions(undefined, 'lpr') });
   const queryClient = useQueryClient();
   const deleteMut = useMutation({
     mutationFn: deleteQuestion,
@@ -593,9 +680,11 @@ function QuestionsAdminTab({ onEditQuestion }: { onEditQuestion: (q: TrainingQue
   });
 
   const sections = [
-    { type: 'objection', label: 'Возражения', items: objectionQ || [] },
+    { type: 'objection', label: 'Возражения (старый)', items: objectionQ || [] },
     { type: 'call_script', label: 'Скрипты', items: scriptQ || [] },
     { type: 'admin_guide', label: 'Гайд админки', items: guideQ || [] },
+    { courseSlug: 'objections', label: 'Курс: Возражения', items: objectionsCourseQ || [] },
+    { courseSlug: 'lpr', label: 'Курс: Как выйти на ЛПР', items: lprCourseQ || [] },
   ];
 
   return (
@@ -603,18 +692,18 @@ function QuestionsAdminTab({ onEditQuestion }: { onEditQuestion: (q: TrainingQue
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Создавайте и редактируйте вопросы для тестов. Менеджеры видят тест после изучения материалов раздела.</Typography>
       <Button startIcon={<AddIcon />} onClick={() => onEditQuestion(null)} sx={{ mb: 2 }}>Добавить вопрос</Button>
       {sections.map((s) => (
-        <Box key={s.type} sx={{ mb: 3 }}>
+        <Box key={s.type || s.courseSlug} sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>{s.label} ({s.items.length})</Typography>
           <Table size="small">
             <TableHead><TableRow><TableCell>Вопрос</TableCell><TableCell>Правильный</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {s.items.map((q) => {
                 const opts = Array.isArray(q.options) ? q.options : [];
-                const correct = opts[q.correct_index];
+                const correct = q.correct_index >= 0 && opts[q.correct_index] ? opts[q.correct_index] : 'Открытый';
                 return (
                   <TableRow key={q.id}>
                     <TableCell sx={{ maxWidth: 400 }}><Typography noWrap>{q.question_text}</Typography></TableCell>
-                    <TableCell>{correct || '—'}</TableCell>
+                    <TableCell>{correct}</TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => onEditQuestion(q)}><EditIcon /></IconButton>
                       <IconButton size="small" color="error" onClick={() => window.confirm('Удалить?') && deleteMut.mutate(q.id)}><DeleteIcon /></IconButton>
@@ -645,6 +734,9 @@ export function SalesAcademyPage() {
   const isAdmin = user?.role === 'admin';
 
   const { data: progress } = useQuery({ queryKey: ['training-progress'], queryFn: getProgress });
+  const { data: courses } = useQuery({ queryKey: ['courses'], queryFn: getCourses });
+  const { data: progObjections } = useQuery({ queryKey: ['course-progress', 'objections'], queryFn: () => getCourseProgress('objections') });
+  const { data: progLpr } = useQuery({ queryKey: ['course-progress', 'lpr'], queryFn: () => getCourseProgress('lpr') });
   const { data: objectionQuestions } = useQuery({ queryKey: ['training-questions', 'objection'], queryFn: () => getQuestions('objection') });
   const { data: scriptQuestions } = useQuery({ queryKey: ['training-questions', 'call_script'], queryFn: () => getQuestions('call_script') });
   const { data: allMaterials } = useQuery({ queryKey: ['training', 'all'], queryFn: () => getMaterials() });
@@ -654,6 +746,17 @@ export function SalesAcademyPage() {
   const quizTypesWithQuestions = ['objection', 'call_script'].filter(
     (t) => ((t === 'objection' ? objectionQuestions : scriptQuestions)?.length || 0) > 0
   );
+  const courseProgress: Record<string, { completed: number; total: number; testPassed: boolean }> = {};
+  (courses || []).forEach((c) => {
+    const prog = c.slug === 'objections' ? progObjections : c.slug === 'lpr' ? progLpr : null;
+    if (prog) {
+      courseProgress[c.slug] = {
+        completed: prog.completedPageCount,
+        total: c.total_pages ?? 1,
+        testPassed: prog.testPassed,
+      };
+    }
+  });
 
   const completeMut = useMutation({
     mutationFn: completeMaterial,
@@ -688,7 +791,6 @@ export function SalesAcademyPage() {
 
   const tabs = [
     { label: 'Скрипты звонков', icon: <PhoneIcon />, section: 'scripts' },
-    { label: 'Возражения', icon: <PsychologyIcon />, section: 'objections' },
     { label: 'Кейсы', icon: <WorkIcon />, section: 'cases' },
     { label: 'Продуктовая матрица', icon: <InventoryIcon />, section: 'products' },
     ...(isAdmin ? [{ label: 'Вопросы тестов', icon: <QuizOutlinedIcon />, section: 'questions' }] : []),
@@ -699,12 +801,14 @@ export function SalesAcademyPage() {
       <Typography variant="h5" sx={{ mb: 2 }}>Академия продаж</Typography>
       {!isAdmin && (
         <ManagerProgressHeader
+          courseProgress={Object.entries(courseProgress).map(([slug, p]) => ({ slug, ...p }))}
           completedIds={completedIds}
           totalMaterials={totalMaterials}
           quizAttempts={progress?.quizAttempts || []}
           quizTypesWithQuestions={quizTypesWithQuestions}
         />
       )}
+      {!isAdmin && <CoursesSection courseProgress={courseProgress} />}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {isAdmin ? 'Редактируйте материалы и вопросы тестов.' : 'Изучайте материалы, отмечайте прочитанное, проходите тесты.'}
       </Typography>
@@ -728,28 +832,12 @@ export function SalesAcademyPage() {
           onAdd={() => handleAdd('call_script')}
           onStartQuiz={() => { setQuizType('call_script'); setQuizOpen(true); }}
           questionsCount={scriptQuestions?.length || 0}
-          onEditQuestion={isAdmin ? () => setTab(4) : undefined}
+          onEditQuestion={isAdmin ? () => setTab(3) : undefined}
         />
       )}
-      {tab === 1 && (
-        <SectionTab
-          title="Возражения"
-          materialTypes={['objection']}
-          questionType="objection"
-          isAdmin={!!isAdmin}
-          completedIds={completedIds}
-          onComplete={(id) => completeMut.mutate(id)}
-          onEdit={(m) => setEditMaterial(m)}
-          onDelete={handleDelete}
-          onAdd={() => handleAdd('objection')}
-          onStartQuiz={() => { setQuizType('objection'); setQuizOpen(true); }}
-          questionsCount={objectionQuestions?.length || 0}
-          onEditQuestion={isAdmin ? () => setTab(4) : undefined}
-        />
-      )}
-      {tab === 2 && <CasesTab />}
-      {tab === 3 && <ProductMatrixTab />}
-      {isAdmin && tab === 4 && <QuestionsAdminTab onEditQuestion={(q) => setEditQuestion(q ?? true)} />}
+      {tab === 1 && <CasesTab />}
+      {tab === 2 && <ProductMatrixTab />}
+      {isAdmin && tab === 3 && <QuestionsAdminTab onEditQuestion={(q) => setEditQuestion(q ?? true)} />}
 
       <MaterialEditDialog
         open={addOpen || !!editMaterial}

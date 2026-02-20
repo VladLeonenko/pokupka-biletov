@@ -53,12 +53,13 @@ export interface ClientsFilters {
   sortOrder?: 'ASC' | 'DESC';
 }
 
+import Cookies from 'js-cookie';
 import { getApiBase } from '@/utils/apiBase';
 
 const API_BASE: string = getApiBase();
 
 function getToken(): string | null {
-  try { return localStorage.getItem('auth.token'); } catch { return null; }
+  return Cookies.get('auth_token') || null;
 }
 
 function authHeaders(init?: HeadersInit): HeadersInit {

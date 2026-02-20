@@ -104,6 +104,7 @@ const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage')
 const OrdersAdminPage = lazy(() => import('@/pages/admin/OrdersAdminPage').then(m => ({ default: m.default })));
 const AdminsManagePage = lazy(() => import('@/pages/admin/AdminsManagePage').then(m => ({ default: m.AdminsManagePage })));
 const SalesAcademyPage = lazy(() => import('@/pages/admin/SalesAcademyPage').then(m => ({ default: m.SalesAcademyPage })));
+const TrainingCoursePage = lazy(() => import('@/pages/admin/TrainingCoursePage').then(m => ({ default: m.TrainingCoursePage })));
 const SalesAnalyticsPage = lazy(() => import('@/pages/admin/SalesAnalyticsPage').then(m => ({ default: m.SalesAnalyticsPage })));
 
 // Loading fallback для lazy компонентов
@@ -205,6 +206,7 @@ export function AppRoutes() {
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
       <Route path="/admin/sales-academy" element={<Protected><SalesAcademyPage /></Protected>} />
+      <Route path="/admin/sales-academy/courses/:slug" element={<Protected><TrainingCoursePage /></Protected>} />
       <Route path="/admin/sales-analytics" element={<ProtectedAdmin><SalesAnalyticsPage /></ProtectedAdmin>} />
       <Route path="/admin/pages" element={<ProtectedAdmin><PagesListPage /></ProtectedAdmin>} />
       <Route path="/admin/pages/:id" element={<ProtectedAdmin><PageEditorPage /></ProtectedAdmin>} />

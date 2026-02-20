@@ -95,6 +95,7 @@ const MIGRATION_FILES = [
   '056_sales_manager_data_isolation.sql',
   '057_sales_academy_and_analytics.sql',
   '058_training_tests.sql',
+  '059_training_courses.sql',
 ];
 
 async function applyMigration(filename) {

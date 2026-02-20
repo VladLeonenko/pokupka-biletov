@@ -4,6 +4,129 @@ import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// --- Курсы обучения (заглавная → страницы → тест) ---
+
+// Список курсов
+router.get('/courses', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT c.id, c.slug, c.title, c.cover_description, c.estimated_test_minutes, c.sort_order,
+        (SELECT COUNT(*) FROM training_course_pages p WHERE p.course_id = c.id) as total_pages
+       FROM training_courses c ORDER BY c.sort_order, c.id`
+    );
+    res.json(r.rows);
+  } catch (e) {
+    if (e.message?.includes('training_courses')) return res.json([]);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Курс по slug с страницами (для пошагового изучения)
+router.get('/courses/:slug', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const courseRes = await pool.query(
+      'SELECT id, slug, title, cover_description, estimated_test_minutes FROM training_courses WHERE slug = $1',
+      [slug]
+    );
+    if (!courseRes.rows[0]) return res.status(404).json({ error: 'Course not found' });
+    const course = courseRes.rows[0];
+
+    const pagesRes = await pool.query(
+      `SELECT p.id, p.page_index, p.page_type, p.title, p.content, p.objection_text, p.solution_text, p.material_id,
+        m.title as material_title, m.objection_text as mat_objection, m.solution_text as mat_solution
+       FROM training_course_pages p
+       LEFT JOIN sales_training_materials m ON m.id = p.material_id
+       WHERE p.course_id = $1 ORDER BY p.page_index`,
+      [course.id]
+    );
+    const pages = (pagesRes.rows || []).map((r) => ({
+      id: r.id,
+      page_index: r.page_index,
+      page_type: r.page_type,
+      title: r.title || r.material_title,
+      content: r.content,
+      objection_text: r.objection_text ?? r.mat_objection,
+      solution_text: r.solution_text ?? r.mat_solution,
+      material_id: r.material_id,
+    }));
+    res.json({ ...course, pages, total_pages: pages.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Прогресс по курсу
+router.get('/courses/:slug/progress', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const targetUserId = req.user?.role === 'admin' && req.query.userId ? parseInt(req.query.userId) : userId;
+    const { slug } = req.params;
+
+    const r = await pool.query(
+      'SELECT last_page_index, completed_page_count, test_passed, test_score, updated_at FROM manager_course_progress WHERE user_id = $1 AND course_slug = $2',
+      [targetUserId, slug]
+    );
+    const row = r.rows[0];
+    const progress = {
+      lastPageIndex: row?.last_page_index ?? 0,
+      completedPageCount: row?.completed_page_count ?? 0,
+      testPassed: row?.test_passed ?? false,
+      testScore: row?.test_score ?? null,
+      updatedAt: row?.updated_at?.toISOString?.() ?? null,
+    };
+    res.json(progress);
+  } catch (e) {
+    if (e.message?.includes('manager_course_progress')) return res.json({ lastPageIndex: 0, completedPageCount: 0, testPassed: false, testScore: null, updatedAt: null });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Обновить прогресс (текущая страница, счётчик пройденных)
+router.post('/courses/:slug/progress', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { slug } = req.params;
+    const { lastPageIndex, completedPageCount } = req.body || {};
+
+    await pool.query(
+      `INSERT INTO manager_course_progress (user_id, course_slug, last_page_index, completed_page_count, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (user_id, course_slug)
+       DO UPDATE SET
+         last_page_index = GREATEST(COALESCE(manager_course_progress.last_page_index, 0), COALESCE($3, manager_course_progress.last_page_index)),
+         completed_page_count = GREATEST(COALESCE(manager_course_progress.completed_page_count, 0), COALESCE($4, manager_course_progress.completed_page_count)),
+         updated_at = NOW()`,
+      [userId, slug, lastPageIndex ?? 0, completedPageCount ?? 0]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    if (e.message?.includes('manager_course_progress')) return res.json({ success: true });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Отметить тест как пройденный (после submit quiz)
+router.post('/courses/:slug/test-passed', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { slug } = req.params;
+    const { score } = req.body || {};
+
+    await pool.query(
+      `INSERT INTO manager_course_progress (user_id, course_slug, test_passed, test_score, updated_at)
+       VALUES ($1, $2, true, $3, NOW())
+       ON CONFLICT (user_id, course_slug)
+       DO UPDATE SET test_passed = true, test_score = COALESCE($3, manager_course_progress.test_score), updated_at = NOW()`,
+      [userId, slug, score ?? null]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    if (e.message?.includes('manager_course_progress')) return res.json({ success: true });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Материалы обучения — менеджер + админ
 router.get('/materials', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
@@ -109,13 +232,16 @@ router.get('/product-matrix', requireAuth, requireAdminOrSalesManager, async (re
   }
 });
 
-// Вопросы тестов
+// Вопросы тестов (по type или по course_slug для курсов)
 router.get('/questions', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
-    const { type } = req.query;
+    const { type, course_slug } = req.query;
     let query = 'SELECT * FROM sales_training_questions WHERE 1=1';
     const params = [];
-    if (type) {
+    if (course_slug) {
+      params.push(course_slug);
+      query += ` AND course_slug = $${params.length}`;
+    } else if (type) {
       params.push(type);
       query += ` AND type = $${params.length}`;
     }
@@ -195,14 +321,15 @@ router.post('/quiz/submit', requireAuth, requireAdminOrSalesManager, async (req,
 router.post('/questions', requireAuth, async (req, res) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
   try {
-    const { material_id, type, question_text, options, correct_index, sort_order } = req.body || {};
-    if (!type || !question_text || !Array.isArray(options) || correct_index == null) {
-      return res.status(400).json({ error: 'type, question_text, options, correct_index required' });
-    }
+    const { material_id, type, course_slug, question_text, options, correct_index, sort_order } = req.body || {};
+    if (!question_text) return res.status(400).json({ error: 'question_text required' });
+    const qType = type || (course_slug ? 'general' : null);
+    if (!qType && !course_slug) return res.status(400).json({ error: 'type or course_slug required' });
+    const opts = Array.isArray(options) ? options : [];
     const r = await pool.query(
-      `INSERT INTO sales_training_questions (material_id, type, question_text, options, correct_index, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [material_id || null, type, question_text, JSON.stringify(options), correct_index, sort_order ?? 0]
+      `INSERT INTO sales_training_questions (material_id, type, course_slug, question_text, options, correct_index, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [material_id || null, qType || 'general', course_slug || null, question_text, JSON.stringify(opts), correct_index ?? (opts.length === 0 ? -1 : 0), sort_order ?? 0]
     );
     res.status(201).json(r.rows[0]);
   } catch (e) {
@@ -218,7 +345,7 @@ router.put('/questions/:id', requireAuth, async (req, res) => {
     if (!id || isNaN(id)) return res.status(400).json({ error: 'invalid id' });
     const updates = [];
     const params = [id];
-    const fields = ['material_id', 'type', 'question_text', 'options', 'correct_index', 'sort_order'];
+    const fields = ['material_id', 'type', 'course_slug', 'question_text', 'options', 'correct_index', 'sort_order'];
     fields.forEach((f) => {
       if (body[f] !== undefined) {
         params.push(f === 'options' && Array.isArray(body[f]) ? JSON.stringify(body[f]) : body[f]);
