@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Box, Container, Typography, Button, Stack, Card, CardContent } from '@mui/material';
+import { Box, Container, Typography, Button, Stack, Card, CardContent, CircularProgress } from '@mui/material';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
+import { getPublicTeamMembers } from '@/services/cmsApi';
+import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import {
   Code,
   Store,
@@ -23,15 +26,6 @@ const sectionMotion = (delay = 0) => ({
   transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] },
 });
 
-const TEAM = [
-  { name: 'Владислав Леоненко', role: 'Руководитель', image: '/legacy/img/leonenko-vladislav.jpg' },
-  { name: 'Павел Гришко', role: 'Front-end разработчик', image: '/legacy/img/pavel.jpeg' },
-  { name: 'Светлана Пчелинцева', role: 'Маркетолог', image: '/legacy/img/svetlana.jpg' },
-  { name: 'Сергей Королёв', role: 'Главный дизайнер', image: '/legacy/img/sergey.jpeg' },
-  { name: 'Анна Сёмушкина', role: 'Дизайнер', image: '/legacy/img/anna.jpeg' },
-  { name: 'Миннуллин Ильшат', role: 'Backend-разработчик', image: '/legacy/img/ilshat.jpeg' },
-];
-
 const SERVICES = [
   { icon: Code, title: 'Разработка', text: 'Сайты, интернет-магазины, веб-приложения. Современный стек, быстрая отдача.' },
   { icon: DesignServices, title: 'Дизайн', text: 'UI/UX, брендинг, интерфейсы. Визуал, который конвертирует.' },
@@ -41,6 +35,12 @@ const SERVICES = [
 
 export function AboutPage() {
   const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://prime-coder.ru/about';
+
+  const { data: teamMembers = [], isLoading: teamLoading } = useQuery({
+    queryKey: ['public-team-members'],
+    queryFn: () => getPublicTeamMembers(),
+    staleTime: 60000,
+  });
 
   return (
     <>
@@ -292,42 +292,51 @@ export function AboutPage() {
             >
               Кто делает результат
             </MotionTypography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' },
-                gap: 3,
-              }}
-            >
-              {TEAM.map((member, i) => (
-                <MotionBox
-                  key={member.name}
-                  {...sectionMotion(0.05 + i * 0.03)}
-                  sx={{ textAlign: 'center' }}
-                >
-                  <Box
-                    component="img"
-                    src={member.image}
-                    alt={member.name}
-                    loading="lazy"
-                    sx={{
-                      width: '100%',
-                      aspectRatio: '1',
-                      objectFit: 'cover',
-                      borderRadius: 2,
-                      mb: 1.5,
-                      border: '1px solid rgba(255,255,255,0.06)',
-                    }}
-                  />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    {member.name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                    {member.role}
-                  </Typography>
-                </MotionBox>
-              ))}
-            </Box>
+            {teamLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress sx={{ color: 'rgba(255,187,0,0.8)' }} />
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+                  gap: 4,
+                }}
+              >
+                {teamMembers.map((member, i) => (
+                  <MotionBox
+                    key={member.id}
+                    {...sectionMotion(0.05 + i * 0.03)}
+                    sx={{ textAlign: 'center' }}
+                  >
+                    <Box
+                      component="img"
+                      src={resolveImageUrl(member.imageUrl, '/legacy/img/logo.png')}
+                      alt={member.name}
+                      loading="lazy"
+                      sx={{
+                        width: '100%',
+                        aspectRatio: '1',
+                        objectFit: 'cover',
+                        borderRadius: 2,
+                        mb: 1.5,
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        maxWidth: 280,
+                        mx: 'auto',
+                        display: 'block',
+                      }}
+                    />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {member.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                      {member.role}
+                    </Typography>
+                  </MotionBox>
+                ))}
+              </Box>
+            )}
           </Container>
         </Box>
 

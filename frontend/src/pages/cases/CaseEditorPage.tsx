@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteCase, getCase, setCasePublished, upsertCase, uploadImage } from '@/services/cmsApi';
+import { deleteCase, getCase, setCasePublished, upsertCase, uploadImage, listTeamMembers } from '@/services/cmsApi';
 import { Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLabel, MenuItem, Select, FormControl, InputLabel, Tabs, Tab, IconButton, Accordion, AccordionSummary, AccordionDetails, Chip, Autocomplete, Avatar } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -35,6 +35,10 @@ export function CaseEditorPage() {
     queryKey: ['case', templateSlug],
     queryFn: () => templateSlug ? getCase(templateSlug) : Promise.resolve(undefined),
     enabled: !!templateSlug && isNew,
+  });
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['teamMembers'],
+    queryFn: () => listTeamMembers(true),
   });
   
   const { data } = useQuery({
@@ -363,11 +367,40 @@ export function CaseEditorPage() {
 
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="h6">Команда</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Выберите сотрудников для этого кейса (из вкладки Команда):</Typography>
+                  <Autocomplete
+                    multiple
+                    options={teamMembers}
+                    getOptionLabel={(option) => `${option.name} — ${option.role}`}
+                    value={teamMembers.filter((tm) => (getCJ('team.members', []) as any[]).some((m: any) => m.teamMemberId === tm.id))}
+                    onChange={(_, newValue) => {
+                      const newMembers = newValue.map((tm) => ({ teamMemberId: tm.id, name: tm.name, role: tm.role, imageUrl: tm.imageUrl }));
+                      setCJ('team', { ...(getCJ('team', {}) as object), members: newMembers });
+                    }}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        {option.imageUrl && <Box component="img" src={resolveImageUrl(option.imageUrl)} alt="" sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />}
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>{option.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{option.role}</Typography>
+                        </Box>
+                      </Box>
+                    )}
+                    renderInput={(params) => <TextField {...params} label="Сотрудники" placeholder="Добавить сотрудника" />}
+                  />
+                </AccordionDetails>
+              </Accordion>
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="h6">Typography Section</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <TextField fullWidth label="Заголовок" sx={{ mb: 2 }} value={getCJ('typography.title', 'Типографика')} onChange={(e) => setCJ('typography.title', e.target.value)} />
                   <TextField fullWidth label="Шрифт" sx={{ mb: 2 }} value={getCJ('typography.fontFamily', '')} onChange={(e) => setCJ('typography.fontFamily', e.target.value)} placeholder="Montserrat" />
+                  <TextField fullWidth label="Описание шрифта" sx={{ mb: 2 }} value={getCJ('typography.description', '')} onChange={(e) => setCJ('typography.description', e.target.value)} placeholder="Прямой штрих с открытыми формами и нейтральной, но дружественной внешностью." multiline rows={2} helperText="Текст под названием шрифта в секции типографики" />
                   <TextField fullWidth label="Размеры шрифтов (через запятую)" sx={{ mb: 2 }} value={((getCJ('typography.fontSizes', []) as string[]) || []).join(', ')} onChange={(e) => setCJ('typography.fontSizes', e.target.value.split(',').map(s => s.trim()))} />
                   <ImageUploader label="Изображение типографики" path="typography.image" />
                 </AccordionDetails>

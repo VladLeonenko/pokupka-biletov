@@ -1,30 +1,39 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { Box, Container, Typography, CircularProgress } from '@mui/material';
+import { getPublicCase } from '@/services/publicApi';
 import { getPublicTeamMembers } from '@/services/cmsApi';
 import { TeamCarousel } from './TeamCarousel';
 import { TeamMember } from '@/types/cms';
 
 /**
  * Секция с командой проекта
- * Получает участников команды из БД через API
- * Полностью на React + MUI компонентах
+ * Если в кейсе указаны сотрудники (contentJson.team.members) — показываем только их.
+ * Иначе — всех активных из вкладки Команда.
  */
 export function CasesTeam() {
   const { slug } = useParams<{ slug?: string }>();
-  const pageSlug = slug || window.location.pathname.replace(/^\//, '').replace(/\/$/, '') || 'houses-case';
 
-  // Получаем всех активных участников команды
+  const { data: caseData } = useQuery({
+    queryKey: ['publicCase', slug],
+    queryFn: () => getPublicCase(slug!),
+    enabled: !!slug,
+  });
+
   const { data: allTeamMembers = [], isLoading } = useQuery({
     queryKey: ['public-team-members'],
     queryFn: () => getPublicTeamMembers(),
     staleTime: 30000,
   });
 
-  // TODO: В будущем можно получать участников команды для конкретного кейса
-  // через поле content_json.team.memberIds или отдельную таблицу case_team_members
-  // Пока используем всех активных участников команды
-  const teamMembers: TeamMember[] = allTeamMembers;
+  const caseTeam = caseData?.contentJson?.team;
+  const caseMemberIds = (caseTeam?.members as { teamMemberId?: number }[])?.map((m) => m.teamMemberId).filter(Boolean) || [];
+
+  const teamMembers: TeamMember[] = caseMemberIds.length > 0
+    ? caseMemberIds
+        .map((id) => allTeamMembers.find((tm) => tm.id === id))
+        .filter(Boolean) as TeamMember[]
+    : allTeamMembers;
 
   if (isLoading) {
     return (

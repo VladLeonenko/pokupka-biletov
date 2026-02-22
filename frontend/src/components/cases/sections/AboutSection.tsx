@@ -42,7 +42,7 @@ export function AboutSection() {
         )}
 
         {(taskText || solutionText || image1 || image2) && (
-          <div className={styles['content-wrapper']}>
+          <div className={`${styles['content-wrapper']} ${!image1 && !image2 ? styles['content-wrapper-full'] : ''}`}>
             <div className={styles['text-content']}>
               {taskText && (
                 <div className={styles.subsection}>

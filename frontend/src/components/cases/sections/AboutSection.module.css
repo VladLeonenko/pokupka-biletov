@@ -65,6 +65,18 @@
   align-items: flex-start;
 }
 
+/* Когда нет изображений 1 и 2 — решение, задачи и о проекте на всю ширину контейнера */
+.content-wrapper-full {
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+}
+
+.content-wrapper-full .text-content {
+  width: 100%;
+  max-width: 100%;
+}
+
 .text-content {
   flex: 1;
   display: flex;
