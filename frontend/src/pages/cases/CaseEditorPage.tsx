@@ -17,10 +17,11 @@ const CASE_CATEGORIES = [
   { value: '', label: 'Не выбрана' },
   { value: 'website', label: 'Сайт' },
   { value: 'mobile', label: 'Приложение' },
+  { value: 'design', label: 'Дизайн' },
   { value: 'ai', label: 'AI Boost Team' },
   { value: 'seo', label: 'SEO' },
   { value: 'marketing', label: 'Маркетинг' },
-  { value: 'advertising', label: 'Реклама' }
+  { value: 'advertising', label: 'Реклама' },
 ];
 
 export function CaseEditorPage() {
