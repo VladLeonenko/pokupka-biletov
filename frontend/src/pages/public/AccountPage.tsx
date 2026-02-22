@@ -22,8 +22,6 @@ const tools = [
   { label: 'Технический аудит', desc: 'SEO-аудит: скорость, ошибки, мобильная адаптация', path: '/tools/technical-audit' },
   { label: 'Мониторинг репутации', desc: 'Управление отзывами и упоминаниями', path: '/tools/reputation-monitor' },
   { label: 'Калькулятор ROI', desc: 'Прогноз бюджета и окупаемости', path: '/tools/roi-calculator' },
-  { label: 'Финансовый планировщик', desc: 'Бюджет, цели, инвестиции', path: '/account/finance-planner' },
-  { label: 'Личное развитие', desc: 'Тренировки, чтение, образование', path: '/account/personal-development' },
   { label: 'Конфиденциальность', desc: 'Управление персональными данными и cookies', path: '/account/privacy-settings' },
 ];
 

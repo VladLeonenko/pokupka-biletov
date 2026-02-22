@@ -4,6 +4,7 @@ import { Box, Button, TextField, Typography, Paper, Grid, Card, CardContent, Ale
 import { Delete as DeleteIcon, PlayArrow as PlayIcon } from '@mui/icons-material';
 import { useToast } from '@/components/common/ToastProvider';
 import { getApiBase } from '@/utils/apiBase';
+import { getAuthToken } from '@/utils/authStorage';
 
 interface ParsingResult {
   url: string;
@@ -31,7 +32,7 @@ export function ParsingPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth.token')}`
+          'Authorization': `Bearer ${getAuthToken() || ''}`
         },
         body: JSON.stringify({ url: parseUrl })
       });
@@ -70,7 +71,7 @@ export function ParsingPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth.token')}`
+          'Authorization': `Bearer ${getAuthToken() || ''}`
         },
         body: JSON.stringify({ services })
       });

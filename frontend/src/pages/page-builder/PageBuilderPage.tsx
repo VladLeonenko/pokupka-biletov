@@ -4,15 +4,12 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Box, Typography } from '@mui/material';
 import { PageTemplate } from '@/types/pageBuilder';
+import { getAuthToken } from '@/utils/authStorage';
 
 const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '');
 
 function getToken(): string | null {
-  try {
-    return localStorage.getItem('token');
-  } catch {
-    return null;
-  }
+  return getAuthToken();
 }
 
 async function apiFetch(endpoint: string, options?: RequestInit) {

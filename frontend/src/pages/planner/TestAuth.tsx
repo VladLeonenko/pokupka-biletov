@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function TestAuth() {
   const { token, user } = useAuth();
   const navigate = useNavigate();
-  const storageToken = localStorage.getItem('token');
+  const storageToken = (() => { try { return require('@/utils/authStorage').getAuthToken(); } catch { return null; } })();
 
   return (
     <Box sx={{ p: 4, bgcolor: '#141414', minHeight: '100vh' }}>

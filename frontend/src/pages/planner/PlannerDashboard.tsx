@@ -43,7 +43,7 @@ export default function PlannerDashboard() {
   console.log('[PlannerDashboard] Auth state:', { 
     hasToken: !!token, 
     hasUser: !!user,
-    tokenFromStorage: localStorage.getItem('token'),
+    tokenFromStorage: (() => { try { const { getAuthToken } = require('@/utils/authStorage'); return getAuthToken(); } catch { return null; } })(),
     userEmail: user?.email 
   });
 

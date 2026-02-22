@@ -39,6 +39,7 @@ import {
 import { listCarousels, deleteCarousel, updateCarousel, Carousel, CarouselItem } from '@/services/carouselsApi';
 import { useToast } from '@/components/common/ToastProvider';
 import { uploadImage } from '@/services/cmsApi';
+import { getAuthToken } from '@/utils/authStorage';
 
 export function CarouselListPage() {
   const navigate = useNavigate();
@@ -120,8 +121,7 @@ export function CarouselListPage() {
       return;
     }
     
-    // Проверяем токен перед отправкой
-    const token = localStorage.getItem('auth.token') || localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       showToast('Требуется авторизация. Пожалуйста, войдите снова.', 'error');
       // Можно перенаправить на страницу логина

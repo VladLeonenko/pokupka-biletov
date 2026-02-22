@@ -15,11 +15,12 @@ import type {
   FinanceProfile,
 } from '@/types/planner';
 
+import { getAuthToken } from '@/utils/authStorage';
+
 const API_BASE = '';
 
 function getToken(): string | null {
-  // Используем тот же ключ, что и в AuthProvider
-  return localStorage.getItem('auth.token');
+  return getAuthToken();
 }
 
 function authHeaders(): HeadersInit {

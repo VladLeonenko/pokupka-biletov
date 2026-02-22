@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem, Slider, Link, Skeleton } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem, Slider, Skeleton } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCharityPreferences, putCharityPreferences, type CharityAllocation } from '@/services/charityApi';
 import { CHARITY_FUNDS } from '@/config/charityFunds';
@@ -242,7 +243,7 @@ export function CharityPreferencesBlock() {
         </Button>
       )}
 
-      <Typography component={Link} to="/charity" sx={{ color: '#ffbb00', fontSize: '0.85rem', mt: 1, display: 'inline-block', textDecoration: 'underline' }}>
+      <Typography component={RouterLink} to="/charity" sx={{ color: '#ffbb00', fontSize: '0.85rem', mt: 1, display: 'inline-block', textDecoration: 'underline' }}>
         Подробнее о благотворительности →
       </Typography>
     </Box>

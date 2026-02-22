@@ -1,4 +1,5 @@
 import { getApiBase } from '@/utils/apiBase';
+import { getAuthToken } from '@/utils/authStorage';
 
 const API_BASE = getApiBase();
 
@@ -21,7 +22,7 @@ export async function getPublicAwards(): Promise<Award[]> {
 }
 
 export async function getAwards(): Promise<Award[]> {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/awards`, {
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -32,7 +33,7 @@ export async function getAwards(): Promise<Award[]> {
 }
 
 export async function getAward(id: number): Promise<Award> {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/awards/${id}`, {
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -43,7 +44,7 @@ export async function getAward(id: number): Promise<Award> {
 }
 
 export async function createAward(award: Partial<Award>): Promise<Award> {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/awards`, {
     method: 'POST',
     headers: {
@@ -57,7 +58,7 @@ export async function createAward(award: Partial<Award>): Promise<Award> {
 }
 
 export async function updateAward(id: number, award: Partial<Award>): Promise<Award> {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/awards/${id}`, {
     method: 'PUT',
     headers: {
@@ -71,7 +72,7 @@ export async function updateAward(id: number, award: Partial<Award>): Promise<Aw
 }
 
 export async function deleteAward(id: number): Promise<void> {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/awards/${id}`, {
     method: 'DELETE',
     headers: {

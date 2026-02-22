@@ -1,4 +1,5 @@
 import { getApiBase } from '@/utils/apiBase';
+import { getAuthToken } from '@/utils/authStorage';
 
 const API_BASE = getApiBase();
 
@@ -58,7 +59,7 @@ export interface Carousel {
  */
 export async function listCarousels(): Promise<Carousel[]> {
   // Используем тот же способ получения токена, что и в cmsApi
-  const token = localStorage.getItem('auth.token') || localStorage.getItem('token');
+  const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -104,7 +105,7 @@ export async function getPublicCarousel(slug: string): Promise<Carousel | null> 
  * Get carousel by ID (admin only)
  */
 export async function getCarousel(id: number): Promise<Carousel> {
-  const token = localStorage.getItem('auth.token') || localStorage.getItem('token');
+  const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -126,7 +127,7 @@ export async function getCarousel(id: number): Promise<Carousel> {
  * Create carousel (admin only)
  */
 export async function createCarousel(data: Partial<Carousel>): Promise<Carousel> {
-  const token = localStorage.getItem('auth.token') || localStorage.getItem('token');
+  const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -151,7 +152,7 @@ export async function createCarousel(data: Partial<Carousel>): Promise<Carousel>
  * Update carousel (admin only)
  */
 export async function updateCarousel(id: number, data: Partial<Carousel>): Promise<Carousel> {
-  const token = localStorage.getItem('auth.token') || localStorage.getItem('token');
+  const token = getAuthToken();
   if (!token) {
     console.error('[updateCarousel] No token found');
     throw new Error('Authentication required');
@@ -187,7 +188,7 @@ export async function updateCarousel(id: number, data: Partial<Carousel>): Promi
  * Delete carousel (admin only)
  */
 export async function deleteCarousel(id: number): Promise<void> {
-  const token = localStorage.getItem('auth.token') || localStorage.getItem('token');
+  const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }

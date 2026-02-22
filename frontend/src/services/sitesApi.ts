@@ -1,8 +1,9 @@
+import { getAuthToken } from '@/utils/authStorage';
+
 const API_BASE = '';
 
-// Получаем токен из localStorage
 function getToken(): string | null {
-  return localStorage.getItem('token');
+  return getAuthToken();
 }
 
 // Заголовки с авторизацией

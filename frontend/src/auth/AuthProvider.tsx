@@ -1,6 +1,7 @@
 import Cookies from 'js-cookie';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getApiBase } from '@/utils/apiBase';
+import { setAuthToken, removeAuthToken } from '@/utils/authStorage';
 
 type User = { id: number; email: string; role: string; name?: string; phone?: string } | null;
 
@@ -62,6 +63,7 @@ const stored = localStorage.getItem('auth_user');
     if (!res.ok) throw new Error('Неверный логин или пароль');
     const data = await res.json();
 Cookies.set('auth_token', data.token, { expires: 7 });
+    setAuthToken(data.token);
 localStorage.setItem('auth_user', JSON.stringify(data.user));
 
     setToken(data.token);
@@ -88,6 +90,7 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
     const { register: registerApi } = await import('@/services/ecommerceApi');
     const data = await registerApi(email, password, name, phone, agreeToTerms, agreeToPrivacy);
 Cookies.set('auth_token', data.token, { expires: 7 });
+    setAuthToken(data.token);
 localStorage.setItem('auth_user', JSON.stringify(data.user));
 
     setToken(data.token);
@@ -104,6 +107,7 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
     const { verifyCode: verifyCodeApi } = await import('@/services/ecommerceApi');
     const data = await verifyCodeApi(emailOrPhone, code, isEmail);
 Cookies.set('auth_token', data.token, { expires: 7 });
+    setAuthToken(data.token);
 localStorage.setItem('auth_user', JSON.stringify(data.user));
 
     setToken(data.token);
@@ -122,6 +126,7 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
     const { oauthGoogle: oauthGoogleApi } = await import('@/services/ecommerceApi');
     const data = await oauthGoogleApi(token);
 Cookies.set('auth_token', data.token, { expires: 7 });
+    setAuthToken(data.token);
 localStorage.setItem('auth_user', JSON.stringify(data.user));
 
     setToken(data.token);
@@ -140,6 +145,7 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
     const { oauthYandex: oauthYandexApi } = await import('@/services/ecommerceApi');
     const data = await oauthYandexApi(token);
 Cookies.set('auth_token', data.token, { expires: 7 });
+    setAuthToken(data.token);
 localStorage.setItem('auth_user', JSON.stringify(data.user));
 
     setToken(data.token);
@@ -167,8 +173,9 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
   };
 
   const logout = () => {
-Cookies.remove('auth_token');
-localStorage.removeItem('auth_user');
+    Cookies.remove('auth_token');
+    removeAuthToken();
+    localStorage.removeItem('auth_user');
 
     setToken(null);
     setUser(null);
@@ -192,7 +199,7 @@ localStorage.removeItem('auth_user');
         
         if (data?.user) {
           // Токен валиден, обновляем данные пользователя
-          localStorage.setItem('auth.user', JSON.stringify(data.user));
+          localStorage.setItem('auth_user', JSON.stringify(data.user));
           setUser(data.user);
         }
       } catch (error: any) {

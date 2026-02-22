@@ -2,8 +2,9 @@ import type { Consent } from '@/types/consent';
 
 const API_BASE = '';
 
+import { getAuthToken } from '@/utils/authStorage';
 function getToken(): string | null {
-  return localStorage.getItem('auth.token');
+  return getAuthToken();
 }
 
 // Генерация или получение session_id

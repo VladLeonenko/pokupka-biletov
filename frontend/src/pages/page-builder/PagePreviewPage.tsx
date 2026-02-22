@@ -7,9 +7,11 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 
 const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '');
 
+import { getAuthToken } from '@/utils/authStorage';
+
 function getToken(): string | null {
   try {
-    return localStorage.getItem('auth.token');
+    return getAuthToken();
   } catch {
     return null;
   }

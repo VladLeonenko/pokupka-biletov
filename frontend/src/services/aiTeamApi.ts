@@ -62,8 +62,9 @@ import { getApiBase } from '@/utils/apiBase';
 
 const API_BASE: string = getApiBase();
 
+import { getAuthToken } from '@/utils/authStorage';
 function getToken(): string | null {
-  try { return localStorage.getItem('auth.token'); } catch { return null; }
+  return getAuthToken();
 }
 
 function authHeaders(init?: HeadersInit): HeadersInit {

@@ -1,3 +1,5 @@
+import Cookies from 'js-cookie';
+
 /**
  * authStorage - универсальное хранилище для токена с fallback для Safari ITP
  * 
@@ -47,12 +49,10 @@ export function getAuthToken(): string | null {
       return token;
     }
 
-    // 3. Fallback на cookies (для Safari ITP)
+    // 3. Fallback на cookies (AuthProvider хранит в auth_token, Safari ITP)
     try {
-      const cookieMatch = document.cookie.match(new RegExp(`(^| )${COOKIE_TOKEN_KEY}=([^;]+)`));
-      if (cookieMatch && cookieMatch[2]) {
-        token = cookieMatch[2];
-        // Синхронизируем в sessionStorage
+      token = Cookies.get(COOKIE_TOKEN_KEY) || null;
+      if (token) {
         try {
           sessionStorage.setItem(TOKEN_KEY, token);
         } catch (e) {

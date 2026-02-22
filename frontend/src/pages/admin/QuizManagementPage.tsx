@@ -8,6 +8,7 @@ import {
 import { Add, Edit, Delete, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useToast } from '@/components/common/ToastProvider';
 import { getApiBase } from '@/utils/apiBase';
+import { getAuthToken } from '@/utils/authStorage';
 
 interface QuizOption {
   id?: number;
@@ -31,7 +32,7 @@ interface QuizQuestion {
 
 async function fetchQuizQuestions(): Promise<QuizQuestion[]> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/questions`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
@@ -41,7 +42,7 @@ async function fetchQuizQuestions(): Promise<QuizQuestion[]> {
 
 async function createQuestion(data: Partial<QuizQuestion>): Promise<QuizQuestion> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/questions`, {
     method: 'POST',
     headers: {
@@ -56,7 +57,7 @@ async function createQuestion(data: Partial<QuizQuestion>): Promise<QuizQuestion
 
 async function updateQuestion(id: number, data: Partial<QuizQuestion>): Promise<QuizQuestion> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/questions/${id}`, {
     method: 'PUT',
     headers: {
@@ -71,7 +72,7 @@ async function updateQuestion(id: number, data: Partial<QuizQuestion>): Promise<
 
 async function deleteQuestion(id: number): Promise<void> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/questions/${id}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
@@ -81,7 +82,7 @@ async function deleteQuestion(id: number): Promise<void> {
 
 async function createOption(questionId: number, data: Partial<QuizOption>): Promise<QuizOption> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/questions/${questionId}/options`, {
     method: 'POST',
     headers: {
@@ -96,7 +97,7 @@ async function createOption(questionId: number, data: Partial<QuizOption>): Prom
 
 async function updateOption(id: number, data: Partial<QuizOption>): Promise<QuizOption> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/options/${id}`, {
     method: 'PUT',
     headers: {
@@ -111,7 +112,7 @@ async function updateOption(id: number, data: Partial<QuizOption>): Promise<Quiz
 
 async function deleteOption(id: number): Promise<void> {
   const base = getApiBase();
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const response = await fetch(`${base}/api/quiz/options/${id}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }

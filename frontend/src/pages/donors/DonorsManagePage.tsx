@@ -38,8 +38,9 @@ import { getApiBase } from '@/utils/apiBase';
 
 const API_BASE = getApiBase();
 
+import { getAuthToken } from '@/utils/authStorage';
 function getToken(): string | null {
-  try { return localStorage.getItem('auth.token'); } catch { return null; }
+  return getAuthToken();
 }
 
 const CATEGORIES = [
