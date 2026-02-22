@@ -16,6 +16,10 @@ const CASE_CATEGORIES = {
 
 function rowToCase(r) {
   const isPublished = !!r.is_published;
+  const contentJson = r.content_json || {};
+  const categories = Array.isArray(contentJson.categories) && contentJson.categories.length
+    ? contentJson.categories
+    : (r.category ? [r.category] : []);
   return {
     slug: r.slug,
     title: r.title,
@@ -26,12 +30,13 @@ function rowToCase(r) {
     gallery: r.gallery || [],
     metrics: r.metrics || {},
     tools: r.tools || [],
-    contentJson: r.content_json || {},
+    contentJson,
     templateType: r.template_type,
     isTemplate: r.is_template,
     isPublished,
     is_published: isPublished,
     category: r.category || null,
+    categories,
     categoryLabel: r.category ? CASE_CATEGORIES[r.category] || r.category : null,
     donorUrl: r.donor_url || undefined,
     seoTitle: r.seo_title || "",

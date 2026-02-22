@@ -23,7 +23,8 @@ export function CasesMetrics() {
     enabled: !!slug,
   });
 
-  const category = caseData?.category || 'website';
+  const categories = caseData?.categories?.length ? caseData.categories : [caseData?.category || 'website'];
+  const category = categories[0];
   const metrics = caseData?.metrics || {};
   const days = metrics.days || 37;
 

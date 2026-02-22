@@ -36,6 +36,15 @@ function getCat(c: any): Category {
   return 'website';
 }
 
+function getCategories(c: any): Category[] {
+  const valid: Category[] = ['website', 'mobile', 'ai', 'seo', 'advertising', 'design', 'marketing'];
+  if (Array.isArray(c.categories) && c.categories.length) {
+    return c.categories.filter((x: string) => valid.includes(x as Category));
+  }
+  if (c.category && valid.includes(c.category as Category)) return [c.category as Category];
+  return [getCat(c)];
+}
+
 const SWIPE_THRESHOLD = 50;
 
 export function PortfolioPage() {
@@ -52,7 +61,7 @@ export function PortfolioPage() {
     staleTime: 60000,
   });
   const filtered = useMemo(() => {
-    const f = cat === 'all' ? cases : cases.filter((c: any) => getCat(c) === cat);
+    const f = cat === 'all' ? cases : cases.filter((c: any) => getCategories(c).includes(cat));
     return f;
   }, [cases, cat]);
 

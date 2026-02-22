@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteCase, getCase, setCasePublished, upsertCase, uploadImage, listTeamMembers } from '@/services/cmsApi';
-import { Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLabel, MenuItem, Select, FormControl, InputLabel, Tabs, Tab, IconButton, Accordion, AccordionSummary, AccordionDetails, Chip, Autocomplete, Avatar } from '@mui/material';
+import { Box, Button, Grid, Paper, Switch, TextField, Typography, FormControlLabel, MenuItem, Select, FormControl, InputLabel, Tabs, Tab, IconButton, Accordion, AccordionSummary, AccordionDetails, Chip, Autocomplete, Avatar, FormGroup, Checkbox } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -14,7 +14,6 @@ import { useToast } from '@/components/common/ToastProvider';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { TOOLS_PRESETS, TOOLS_BY_CATEGORY, CATEGORY_LABELS, ToolPreset } from '@/data/toolsPresets';
 const CASE_CATEGORIES = [
-  { value: '', label: 'Не выбрана' },
   { value: 'website', label: 'Сайт' },
   { value: 'mobile', label: 'Приложение' },
   { value: 'design', label: 'Дизайн' },
@@ -60,7 +59,7 @@ export function CaseEditorPage() {
   const [gallery, setGallery] = useState<(string | { url: string; alt?: string })[]>([]);
   const [isPublished, setIsPublished] = useState(false);
   const [contentJson, setContentJson] = useState<any>({});
-  const [category, setCategory] = useState<string>('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   // SEO поля
   const [seoTitle, setSeoTitle] = useState('');
@@ -98,7 +97,9 @@ export function CaseEditorPage() {
         setGallery(Array.isArray(caseData.gallery) ? caseData.gallery : []);
         setIsPublished(false);
         setContentJson(caseData.contentJson || {});
-        setCategory((caseData as any).category || '');
+        const cj = caseData.contentJson || {};
+        const cats = Array.isArray(cj.categories) ? cj.categories : ((caseData as any).category ? [(caseData as any).category] : []);
+        setCategories(cats);
         setSeoTitle((caseData as any).seoTitle || '');
         setSeoDescription((caseData as any).seoDescription || '');
         setSeoKeywords((caseData as any).seoKeywords || '');
@@ -114,7 +115,9 @@ export function CaseEditorPage() {
         setGallery(Array.isArray(data.gallery) ? data.gallery : []);
         setIsPublished(!!data.isPublished);
         setContentJson(data.contentJson || {});
-        setCategory((data as any).category || '');
+        const cj = data.contentJson || {};
+        const cats = Array.isArray(cj.categories) ? cj.categories : ((data as any).category ? [(data as any).category] : []);
+        setCategories(cats);
         setSeoTitle((data as any).seoTitle || '');
         setSeoDescription((data as any).seoDescription || '');
         setSeoKeywords((data as any).seoKeywords || '');
@@ -146,9 +149,9 @@ export function CaseEditorPage() {
         metrics, 
         tools: (tools || []).filter(Boolean), 
         gallery, 
-        contentJson, 
+        contentJson: { ...contentJson, categories: categories.filter(Boolean) }, 
         isPublished, 
-        category: category || null,
+        category: categories[0] || null,
         seoTitle, 
         seoDescription, 
         seoKeywords, 
@@ -283,14 +286,25 @@ export function CaseEditorPage() {
               )}
               <TextField fullWidth label="Заголовок" sx={{ mb: 2 }} value={title} onChange={(e) => setTitle(e.target.value)} required />
               <TextField fullWidth label="Краткое описание" multiline rows={3} sx={{ mb: 2 }} value={summary} onChange={(e) => setSummary(e.target.value)} />
-<FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Категория</InputLabel>
-                <Select value={category} label="Категория" onChange={(e) => setCategory(e.target.value)}>
+<Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Категории (можно несколько)</Typography>
+                <FormGroup row sx={{ flexWrap: 'wrap', gap: 0.5 }}>
                   {CASE_CATEGORIES.map(cat => (
-                    <MenuItem key={cat.value} value={cat.value}>{cat.label}</MenuItem>
+                    <FormControlLabel
+                      key={cat.value}
+                      control={
+                        <Checkbox
+                          checked={categories.includes(cat.value)}
+                          onChange={(_, checked) =>
+                            setCategories(prev => checked ? [...prev, cat.value] : prev.filter(c => c !== cat.value))
+                          }
+                        />
+                      }
+                      label={cat.label}
+                    />
                   ))}
-                </Select>
-              </FormControl>              
+                </FormGroup>
+              </Box>              
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="subtitle1">Дополнительный контент</Typography>
                 <FormControlLabel control={<Switch checked={htmlMode} onChange={(e) => setHtmlMode(e.target.checked)} />} label="HTML" />

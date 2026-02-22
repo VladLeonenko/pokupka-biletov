@@ -72,14 +72,16 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
     );
   }
 
-  const category = caseData.category || 'website';
+  const categories = caseData.categories && caseData.categories.length
+    ? caseData.categories
+    : [caseData.category || 'website'];
   const currentUrl = typeof window !== 'undefined'
     ? window.location.href
     : `https://primecoder.ru/cases/${slug}`;
 
   const sections = caseData.contentJson?.sections ?? {};
   const show = (key: string) => sections[key] !== false;
-  const showColorsAndTypography = ['website', 'mobile', 'design'].includes(category);
+  const showColorsAndTypography = categories.some((c: string) => ['website', 'mobile', 'design'].includes(c));
 
   const seoTitle = (caseData as any).seoTitle || (caseData.title ? `${caseData.title} — кейс | PrimeCoder` : 'Кейсы разработки сайтов | PrimeCoder');
   const seoDescription = (caseData as any).seoDescription || caseData.summary || 'Реальный кейс разработки сайта. Дизайн, вёрстка, интеграции. Смотрите процесс и результат работы PrimeCoder.';

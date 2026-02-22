@@ -19,7 +19,8 @@ export function CasesToolsNew() {
 
   if (!slug || !caseData) return null;
 
-  const category = caseData.category || 'website';
+  const categories = caseData.categories?.length ? caseData.categories : [caseData.category || 'website'];
+  const category = categories[0];
   const tools = caseData.tools || [];
   const toolsText = tools.length > 0 
     ? tools.join(', ')
