@@ -32,28 +32,19 @@ export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
         '@type': 'Organization',
         name: 'PrimeCoder',
         url: SITE_URL,
-        logo: `${SITE_URL}/legacy/img/logo.png`,
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: 'Москва',
-          addressCountry: 'RU',
-        },
+        logo: { '@type': 'ImageObject', url: `${SITE_URL}/legacy/img/logo.png` },
+        address: { '@type': 'PostalAddress', addressLocality: 'Москва', addressCountry: 'RU' },
       },
-      areaServed: {
-        '@type': 'Country',
-        name: 'Russia',
-      },
+      areaServed: { '@type': 'Country', name: 'Россия' },
       serviceType: 'Digital Services',
     };
 
-    // Изображение
+    // Изображение — всегда URL
     if (product.imageUrl) {
-      jsonLd.image = product.imageUrl.startsWith('http')
-        ? product.imageUrl
-        : `${SITE_URL}${product.imageUrl}`;
+      jsonLd.image = product.imageUrl.startsWith('http') ? product.imageUrl : `${SITE_URL}${product.imageUrl}`;
     }
 
-    // Цена
+    // Цена — Offer с корректными типами
     if (priceRubles > 0 && product.currency) {
       jsonLd.offers = {
         '@type': 'Offer',
@@ -61,21 +52,9 @@ export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
         priceCurrency: product.currency,
         availability: 'https://schema.org/InStock',
         priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        seller: {
-          '@type': 'Organization',
-          name: 'PrimeCoder',
-        },
+        seller: { '@type': 'Organization', name: 'PrimeCoder', url: SITE_URL },
       };
     }
-
-    // Рейтинг
-    jsonLd.aggregateRating = {
-      '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      bestRating: '5',
-      worstRating: '1',
-      reviewCount: '150',
-    };
 
     const script = document.createElement('script');
     script.id = scriptId;

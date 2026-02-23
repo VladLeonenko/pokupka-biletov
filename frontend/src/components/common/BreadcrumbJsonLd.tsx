@@ -28,7 +28,7 @@ export function BreadcrumbJsonLd({ items }: BreadcrumbJsonLdProps) {
         '@type': 'ListItem',
         position: index + 1,
         name: item.name,
-        item: item.url,
+        item: { '@id': item.url.startsWith('http') ? item.url : `https://prime-coder.ru${item.url.startsWith('/') ? item.url : '/' + item.url}` },
       })),
     };
 
