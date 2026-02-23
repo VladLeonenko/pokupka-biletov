@@ -82,8 +82,7 @@ playwright/.cache/
 frontend/dist/
 backend/dist/
 
-# Package manager
-package-lock.json
+# Package manager (lock files нужны для npm ci на проде)
 yarn.lock
 pnpm-lock.yaml
 
