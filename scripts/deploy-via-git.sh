@@ -44,7 +44,7 @@ fi
 echo ""
 echo "📦 Сборка frontend..."
 cd "$PROJECT_ROOT/frontend"
-npm ci --prefer-offline --no-audit
+npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit
 npm run build
 chown -R www-data:www-data dist 2>/dev/null || true
 echo "✅ Frontend собран"
@@ -53,7 +53,7 @@ echo "✅ Frontend собран"
 echo ""
 echo "📦 Backend зависимости..."
 cd "$PROJECT_ROOT/backend"
-npm ci --prefer-offline --no-audit
+npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit
 
 if [ -f "scripts/apply-migrations-to-db.js" ]; then
   echo "🔄 Миграции..."
