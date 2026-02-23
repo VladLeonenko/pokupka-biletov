@@ -54,27 +54,22 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
-// Проверяем пароль перед созданием пула
 const dbPassword = process.env.PGPASSWORD;
-if (!dbPassword || dbPassword.length !== 20) {
-  console.error(`[db.js] ⚠️  ПРОБЛЕМА: Пароль имеет длину ${dbPassword?.length || 0}, ожидается 20`);
-  console.error(`[db.js] Пароль (hex): ${dbPassword ? Buffer.from(dbPassword).toString('hex') : 'НЕТ'}`);
-}
-
-const pool = new Pool({
+const poolConfig = {
   user: process.env.PGUSER,
   host: process.env.PGHOST || 'localhost',
   database: process.env.PGDATABASE,
-  password: dbPassword, // Используем переменную напрямую
+  password: dbPassword,
   port: Number(process.env.PGPORT || 5432),
-  // Настройки пула соединений для production
-  max: 20, // Максимум 20 одновременных соединений
+  max: 20,
   idleTimeoutMillis: 30000, // Закрывать неактивные соединения через 30 секунд
-  connectionTimeoutMillis: 2000, // Таймаут на установку соединения - 2 секунды
+  connectionTimeoutMillis: 5000,
   // Дополнительные настройки для стабильности
   allowExitOnIdle: false, // Не закрывать процесс при отсутствии активности
-  statement_timeout: 30000, // Таймаут на выполнение запроса - 30 секунд
-});
+  statement_timeout: 30000,
+};
+if (process.env.PGSSLMODE === 'require') poolConfig.ssl = { rejectUnauthorized: false };
+const pool = new Pool(poolConfig);
 
 // Обработка ошибок пула (например, при потере соединения с БД)
 pool.on('error', (err, client) => {
@@ -104,8 +99,8 @@ pool.query('SELECT NOW()')
     }
   })
   .catch(err => {
-    console.error('❌ Failed to connect to database:', err.message);
-    console.error('Please check your database configuration and ensure PostgreSQL is running.');
+    console.error('❌ Failed to connect to database:', err.message || err);
+    console.error('Check PGHOST, PGUSER, PGDATABASE, PGPASSWORD in .env. On shared hosting PGHOST may not be localhost.');
     process.exit(1);
   });
 
