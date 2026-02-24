@@ -203,15 +203,19 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
           setUser(data.user);
         }
       } catch (error: any) {
-        // Если получили 401, токен истек
+        // 401 — токен истек
         if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
           console.warn('[AuthProvider] Token expired or invalid, logging out');
           if (!cancelled) {
             logout();
-            // Редиректим на логин только если не на странице логина
             if (typeof window !== 'undefined' && !window.location.pathname.includes('/admin/login')) {
               window.location.href = '/admin/login';
             }
+          }
+        } else if (error?.name === 'TypeError' && (error?.message?.includes('Load failed') || error?.message?.includes('Failed to fetch'))) {
+          // Сетевые ошибки (блокировка, таймаут) — не выходить из аккаунта, не спамить
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[AuthProvider] Network error checking token (may be blocked), keeping session');
           }
         } else {
           console.error('[AuthProvider] Failed to check token validity:', error);

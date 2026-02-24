@@ -44,10 +44,12 @@ export function Footer() {
         const formData = new FormData(submitForm);
 
         try {
-          // TODO: Заменить на правильный API endpoint
-          const response = await fetch('/api/forms/submit', {
+          const formObj: Record<string, string> = {};
+          formData.forEach((v, k) => { formObj[k] = String(v); });
+          const response = await fetch('/api/forms/submit/submit', {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formObj),
           });
 
           if (response.ok) {

@@ -122,39 +122,15 @@ router.delete('/:formId', requireAuth, requireAdminOrSalesManager, async (req, r
 router.post('/:formId/submit', async (req, res) => {
   try {
     const { formId } = req.params;
-    const formData = req.body;
+    const formData = req.body || {};
     const ip = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for']?.split(',')[0]?.trim();
     const userAgent = req.headers['user-agent'];
     const referrer = req.headers['referer'] || req.headers['referrer'];
 
     console.log('[forms] Form submission received:', { formId, formData, ip });
 
-    // Check if form exists, if not create it automatically
-    let formCheck = await pool.query('SELECT form_id FROM forms WHERE form_id = $1', [formId]);
-    if (formCheck.rows.length === 0) {
-      // Auto-create form if it doesn't exist
-      try {
-        let formName = `Form ${formId}`;
-        let pagePath = null;
-        
-        // Устанавливаем правильное название для известных форм
-        if (formId === 'quiz-form' || formId === 'regForm' || formId === 'quizForm') {
-          formName = 'Форма калькулятора стоимости (Quiz)';
-          pagePath = '/';
-        }
-        
-        await pool.query(
-          'INSERT INTO forms (form_id, form_name, page_path, fields, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)',
-          [formId, formName, pagePath, JSON.stringify([])]
-        );
-        console.log('[forms] Auto-created form:', formId, formName);
-      } catch (createErr) {
-        // If creation fails, still try to submit (form might have been created by another request)
-        console.warn('Could not auto-create form, continuing anyway:', createErr);
-      }
-    } else {
-      console.log('[forms] Form exists:', formId);
-    }
+    const known = KNOWN_FORMS.find(f => f.form_id === formId);
+    await ensureFormExists(pool, formId, known?.form_name, known?.page_path);
 
     const result = await pool.query(
       `INSERT INTO form_submissions (form_id, form_data, ip_address, user_agent, referrer)
@@ -351,7 +327,7 @@ router.post('/:formId/submit', async (req, res) => {
     console.log('[forms] Form submission completed successfully');
     res.status(201).json({ success: true, submission: result.rows[0] });
   } catch (err) {
-    console.error('Error submitting form:', err);
+    console.error('[forms] Error submitting form:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to submit form' });
   }
 });
