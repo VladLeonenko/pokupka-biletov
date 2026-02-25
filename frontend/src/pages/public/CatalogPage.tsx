@@ -6,10 +6,13 @@ import { ProductItem, SearchFilters } from '@/types/cms';
 import {
   Box, Typography, Button, TextField, Select, MenuItem,
   FormControl, InputLabel, Chip, CircularProgress, Container,
+  Accordion, AccordionSummary, AccordionDetails,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthProvider';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import { FaqJsonLd } from '@/components/common/FaqJsonLd';
 import { PageHeader } from '@/components/common/PageHeader';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { pushProductList, pushProductClick } from '@/utils/dataLayer';
@@ -74,6 +77,19 @@ export function CatalogPage() {
   const products = data?.products || [];
   const tags = tagsData || [];
 
+  const catalogFaq = [
+    { question: 'Почему веб-студии Москвы берут в 2 раза дороже, а результат хуже?', answer: 'Большинство студий работают по шаблону: Tilda за 300к, Yii1 за 500к, сдача за 2 недели с багами. Prime Coder: анализ конкурентов + UX-аудит бесплатно, React/Yii2/PostgreSQL (масштаб до 100k+ товаров), 85% клиентов остаются больше года. 70% наших клиентов пришли от других студий с неработающими сайтами.' },
+    { question: 'Сколько реально заявок даст сайт за первый месяц?', answer: 'Лендинг (150к ₽): 15-35 заявок. Корпоративный (350к ₽): 25-60 заявок. E-commerce (800к ₽): 45-120 заказов. Гарантируем в договоре: ТОП-10 по 3 брендовым запросам, конверсия ≥1.5% (e-com ≥2.5%), PageSpeed Mobile ≥90. Если не выполним — бесплатно дорабатываем.' },
+    { question: 'Зачем мне новый сайт, если текущий более-менее работает?', answer: 'Три красных флага: 1) Трафик есть, заявок нет — 60% уходят из-за UX. 2) Конверсия <1.5% (норма 2.5-4%). 3) PageSpeed Mobile <80 — минус 30% позиций. Кейс KChTZ: старый 1.2% конверсия, новый 1.7%, трафик 5k→12.5k, продажи x3. Бесплатный аудит за 15 минут.' },
+    { question: 'Можно ли сделать сайт дешевле на Tilda или WordPress?', answer: 'Tilda (50-150к): быстро, но не масштабируется, нет админки, интеграции платно. WordPress (100-300к): много шаблонов, но уязвимости, медленная загрузка. Prime Coder (React/Yii2): масштаб 100k+ товаров, PageSpeed 95, своя админка бесплатно, 1С/CRM в цене.' },
+    { question: 'Как понять, что вы не фрилансер, а студия?', answer: 'Команда 7 человек, офис в Москве, 50+ кейсов с цифрами, договор ИП/ООО, GitHub с открытым кодом, еженедельные стендапы (Trello доступ), 85% клиентов со мной больше 6 месяцев. Фрилансер ответит устно — мы даём договор и доступ к процессу.' },
+    { question: 'Что делать, если проект затянется или результат не понравится?', answer: 'Защита в договоре: штраф 2% за каждый день просрочки, поэтапная предоплата 40-30-30%, 3 правки бесплатно на каждом этапе, возврат 100% при срыве сроков, тестирование на ваших данных перед оплатой. 95% проектов сдаём раньше срока, 85% заказывают 2+ проект.' },
+    { question: 'На каком хостинге лучше разместить мой сайт?', answer: 'Рекомендуем Timeweb Cloud (70% наших проектов), Selectel для высоких нагрузок, Cloudflare+Timeweb для PageSpeed 95+. Не рекомендуем Beget, Reg.ru — тормоза на WooCommerce/Yii2. Включаем: SSL, домен .ru, бэкапы, мониторинг. 1 год хостинга бесплатно в стоимости.' },
+    { question: 'Можете ли показать демо проекта до заказа?', answer: 'Да, 5 готовых демо: E-commerce (prime-coder.ru/demo/ecommerce), B2B-портал, админка, лендинг (конверсия 12%), корпоративный с 1С+CRM. Полный доступ и исходники на 30 дней бесплатно.' },
+    { question: 'Зачем мне SEO, если я хочу быстрые заявки из рекламы?', answer: 'SEO = бесплатная реклама 24/7. 70% клиентов пришли из органики. Контекст: 800-1500 ₽ за лид, 50-100 заявок/мес. SEO: 0 ₽, 80-200 заявок/мес, ТОП-10 навсегда. Делаем: техническое SEO, Schema.org, ТОП-10 по 5 брендовым, контент-план. 60-70% трафика бесплатно через 3 месяца.' },
+    { question: 'Какой минимальный бюджет нужен для разработки сайта?', answer: 'Заявки (B2B): лендинг 150 000 ₽, корпоративный 350 000 ₽. Продажи (e-com): маркетплейс 800 000 ₽, сложный с 1С 1 200 000 ₽. Фрилансер 50-100к = баги через 3 месяца. Prime Coder = результат + поддержка 1 год. Бонус: аудит конкурентов + прототип бесплатно.' },
+  ];
+
   // dataLayer: просмотр списка товаров (цели ecommerce)
   useEffect(() => {
     if (products.length > 0) {
@@ -113,6 +129,7 @@ export function CatalogPage() {
         url="https://prime-coder.ru/catalog"
         type="website"
       />
+      <FaqJsonLd items={catalogFaq} />
 
       <Box component="main" ref={catalogRef} sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <Container maxWidth="lg">
@@ -208,6 +225,35 @@ export function CatalogPage() {
                 </>
               )}
             </Box>
+          </Box>
+
+          {/* FAQ */}
+          <Box sx={{ mt: 10, mb: 4 }} data-anim="fade-up">
+            <Typography component="h2" sx={{ fontSize: '1.75rem', fontWeight: 600, color: '#fff', mb: 3 }}>
+              Частые вопросы о каталоге услуг
+            </Typography>
+            {catalogFaq.map((item, idx) => (
+              <Accordion
+                key={idx}
+                sx={{
+                  bgcolor: 'rgba(20,20,20,0.8)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  '&:before': { display: 'none' },
+                  mb: 1,
+                  '& .MuiAccordionSummary-root': { color: '#fff', fontWeight: 500 },
+                  '& .MuiAccordionDetails-root': { color: 'rgba(255,255,255,0.85)', pt: 0, lineHeight: 1.7 },
+                }}
+              >
+                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#ffbb00' }} />}>
+                  {item.question}
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography component="div" sx={{ whiteSpace: 'pre-line' }}>
+                    {item.answer}
+                  </Typography>
+                </AccordionDetails>
+              </Accordion>
+            ))}
           </Box>
         </Container>
       </Box>

@@ -198,6 +198,22 @@ export async function createNotification(data) {
   );
 
   console.log('[notifications] ✅ Уведомление создано с ID:', result.rows[0]?.id);
+
+  // Дублируем в Telegram, если настроено
+  try {
+    const { notifyTelegram } = await import('../services/telegram.js');
+    await notifyTelegram({
+      title,
+      message,
+      linkUrl,
+      type,
+    });
+  } catch (tgErr) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[notifications] Telegram:', tgErr.message);
+    }
+  }
+
   return result.rows[0];
 }
 

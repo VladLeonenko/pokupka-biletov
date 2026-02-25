@@ -6,6 +6,7 @@ import { getPublicCase } from '@/services/publicApi';
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
 import { useCursor } from '@/hooks/useCursor';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import { CaseStudyJsonLd } from '@/components/common/CaseStudyJsonLd';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 
 // Новые секции по дизайну Figma
@@ -77,7 +78,7 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
     : [caseData.category || 'website'];
   const currentUrl = typeof window !== 'undefined'
     ? window.location.href
-    : `https://primecoder.ru/cases/${slug}`;
+    : `https://prime-coder.ru/cases/${slug}`;
 
   const sections = caseData.contentJson?.sections ?? {};
   const show = (key: string) => sections[key] !== false;
@@ -97,6 +98,13 @@ export function CasePage({ slug: propSlug }: CasePageProps = {}) {
         keywords={seoKeywords}
         url={currentUrl}
         image={ogImageUrl}
+      />
+      <CaseStudyJsonLd
+        name={caseData.title || `Кейс ${slug}`}
+        description={seoDescription}
+        url={currentUrl}
+        image={ogImageUrl}
+        datePublished={(caseData as any).createdAt}
       />
       <HeaderFooterInjector />
 
