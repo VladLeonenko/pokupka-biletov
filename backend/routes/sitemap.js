@@ -257,6 +257,7 @@ ${blogLinks}
 ## Optional
 
 - [Sitemap XML](${BASE_URL}/sitemap.xml): полная карта сайта для поисковых систем
+- [YML фид услуг](${BASE_URL}/feed/services.yml): для Яндекс.Вебмастер (Исполнители)
 - [Полная версия llms](${BASE_URL}/llms-full.txt): расширенный контекст для ИИ
 `;
 
@@ -351,6 +352,84 @@ ${blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})${p.seo_descri
   } catch (err) {
     console.error('[llms-full.txt]', err);
     res.status(500).send('Error');
+  }
+});
+
+// YML-фид услуг для Яндекс.Вебмастер (категория «Исполнители»)
+// Индексирование → Фиды и ошибки → добавить ссылку на фид
+router.get('/feed/services.yml', async (req, res) => {
+  try {
+    const productsResult = await pool.query(`
+      SELECT slug, title, summary, meta_description, price_cents, currency, image_url, content_json
+      FROM products
+      WHERE is_active = TRUE
+      ORDER BY sort_order ASC NULLS LAST, title ASC
+    `);
+
+    const dateStr = new Date().toISOString().replace('T', ' ').slice(0, 19) + '+03:00';
+
+    function extractPriceCents(p) {
+      if (p.price_cents && p.price_cents > 0) return p.price_cents;
+      try {
+        const content = typeof p.content_json === 'string' ? JSON.parse(p.content_json || '{}') : (p.content_json || {});
+        const tariffs = content?.priceSection?.tariffs || [];
+        const first = tariffs[0];
+        if (!first?.price) return null;
+        const numStr = String(first.price).replace(/\D/g, '');
+        return numStr ? parseInt(numStr, 10) * 100 : null;
+      } catch {
+        return null;
+      }
+    }
+
+    const offers = productsResult.rows
+      .map((p) => {
+        const priceCents = extractPriceCents(p);
+        if (!priceCents || priceCents <= 0) return null;
+        const url = `${BASE_URL}/products/${p.slug}`;
+        const desc = (p.meta_description || p.summary || p.title).slice(0, 500);
+        const picture = p.image_url && p.image_url.startsWith('http') ? p.image_url : (p.image_url ? `${BASE_URL}${p.image_url.startsWith('/') ? '' : '/'}${p.image_url}` : null);
+        return { id: p.slug, url, price: Math.round(priceCents / 100), currency: (p.currency || 'RUB').toUpperCase(), name: p.title, description: desc, picture };
+      })
+      .filter(Boolean);
+
+    const offersXml = offers
+      .map(
+        (o) => `    <offer id="${escapeXml(o.id)}" available="true">
+      <url>${escapeXml(o.url)}</url>
+      <price>${o.price}</price>
+      <currencyId>${o.currency}</currencyId>
+      <categoryId>1</categoryId>
+      <name>${escapeXml(o.name)}</name>
+      <description>${escapeXml(o.description)}</description>${o.picture ? `\n      <picture>${escapeXml(o.picture)}</picture>` : ''}
+    </offer>`
+      )
+      .join('\n');
+
+    const yml = `<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="${dateStr}">
+  <shop>
+    <name>PrimeCoder</name>
+    <company>ИП Леоненко Владислав</company>
+    <url>${BASE_URL}</url>
+    <currencies>
+      <currency id="RUB" rate="1"/>
+    </currencies>
+    <categories>
+      <category id="1">Услуги веб-студии</category>
+    </categories>
+    <offers>
+${offersXml}
+    </offers>
+  </shop>
+</yml_catalog>`;
+
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(yml);
+  } catch (err) {
+    console.error('[feed/services.yml] Error:', err);
+    res.status(500).send('Error generating feed');
   }
 });
 

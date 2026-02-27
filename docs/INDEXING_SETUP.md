@@ -8,6 +8,12 @@
 - Индексирование → Файлы Sitemap → добавить `https://prime-coder.ru/sitemap.xml`
 - Индексирование → Переобход страниц → отправить главную и ключевые URL
 
+**Фиды и ошибки** (доп. трафик из блока «Услуги и предложения»):
+- Индексирование → Фиды и ошибки → добавить фид
+- URL фида: `https://prime-coder.ru/feed/services.yml`
+- Категория: **Исполнители** (услуги веб-студии)
+- Формат: YML (XML)
+
 ### 2. Google Search Console
 - Добавьте свойство **https://prime-coder.ru** (Property type: Domain или URL prefix)
 - Sitemaps → добавить `https://prime-coder.ru/sitemap.xml`
@@ -25,6 +31,8 @@ sudo nginx -t && sudo systemctl reload nginx
 curl -sI https://prime-coder.ru/robots.txt    # 200 OK
 curl -sI https://prime-coder.ru/sitemap.xml  # 200 OK, Content-Type: application/xml
 curl -s https://prime-coder.ru/sitemap.xml | head -30
+curl -sI https://prime-coder.ru/feed/services.yml  # 200 OK, YML фид услуг
+curl -s https://prime-coder.ru/feed/services.yml | head -40
 ```
 
 ## Host в robots.txt
