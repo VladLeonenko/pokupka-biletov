@@ -60,6 +60,11 @@ if [ -f "scripts/apply-migrations-to-db.js" ]; then
   node scripts/apply-migrations-to-db.js 2>/dev/null || echo "⚠️ Миграции: проверьте вручную"
 fi
 
+if [ -f "scripts/add-travel-cases.js" ]; then
+  echo "📝 Кейсы (travel)..."
+  node scripts/add-travel-cases.js 2>/dev/null || true
+fi
+
 # PM2 restart
 echo ""
 echo "🔄 Перезапуск PM2..."
