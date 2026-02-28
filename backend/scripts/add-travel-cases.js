@@ -38,10 +38,16 @@ function buildContentJson(c) {
     icon: TOOL_ICONS[name] || DEFAULT_ICON,
   }));
 
-  const perfMetrics = Object.entries(metrics).map(([label, value]) => ({
+  const perfMetrics = (c.perfMetrics || Object.entries(metrics).map(([label, value]) => ({
     label: String(label),
     value: String(value),
-  }));
+    status: 'excellent',
+  }))).map((m) => ({ ...m, status: m.status || 'excellent' }));
+
+  const colorsPalette = c.colorsPalette || [];
+  const colorsData = colorsPalette.length
+    ? { palette: colorsPalette }
+    : { image: gallery[2] || gallery[1] || gallery[0] || heroUrl || '' };
 
   return {
     hero: {
@@ -63,6 +69,8 @@ function buildContentJson(c) {
       title: 'Типографика',
       fontFamily: c.fontFamily || 'Montserrat, sans-serif',
       fontSizes: c.fontSizes || ['14px', '18px', '24px', '32px', '48px'],
+      weights: c.weights || ['REGULAR', 'SEMIBOLD'],
+      description: c.typographyDescription || '',
       image: gallery[0] || '',
     },
     tools: {
@@ -74,8 +82,8 @@ function buildContentJson(c) {
     performance: {
       title: 'Показатели',
       metrics: perfMetrics.length ? perfMetrics : [
-        { label: 'Срок реализации', value: metrics['Дней разработки'] || '—' },
-        { label: 'Результат', value: Object.values(metrics)[0] ? String(Object.values(metrics)[0]) : '—' },
+        { label: 'Срок реализации', value: metrics['Дней разработки'] || '—', status: 'good' },
+        { label: 'Результат', value: Object.values(metrics)[0] ? String(Object.values(metrics)[0]) : '—', status: 'excellent' },
       ],
       screenshot: gallery[0] || '',
     },
@@ -87,7 +95,7 @@ function buildContentJson(c) {
       screens: metrics['Страниц'] || metrics['Туров'] || '',
       features: Object.entries(metrics).map(([k, v]) => `${k}: ${v}`),
     },
-    colors: { image: gallery[2] || gallery[1] || gallery[0] || heroUrl || '' },
+    colors: colorsData,
   };
 }
 
@@ -105,12 +113,20 @@ const CASES = [
       '/uploads/images/bolshayastrana-case-3.jpg',
     ],
     tools: ['Vue', 'PHP', 'MySQL', 'Redis', 'Figma'],
-    metrics: { 'Регионов': 98, 'Туров': 9519, 'Видов отдыха': 22, 'Дней разработки': 180 },
     contentHtml: '<p>Разработка федерального тур-агрегатора «Большая Страна» — маркетплейса туров по России от прямых организаторов. Реализованы каталог с многоуровневой фильтрацией, карта регионов, бронирование, интеграция с туроператорами, подарочные сертификаты, корпоративный раздел.</p>',
     taskText: 'Создать федеральный сервис поиска и бронирования туров по России. Агрегировать предложения от сотен туроператоров, обеспечить удобную навигацию по 98 регионам и 22 видам отдыха. Интегрировать бронирование, подарочные сертификаты и корпоративные туры.',
     solutionText: 'Разработан масштабируемый каталог с фильтрами по регионам, видам отдыха и датам. Реализована интеграция с API туроператоров, кэширование для высокой нагрузки. Адаптивный дизайн, SEO-оптимизация, блог и раздел «Мы в СМИ» для доверия.',
-    fontFamily: 'Montserrat, Open Sans, sans-serif',
-    fontSizes: ['14px', '16px', '20px', '28px', '40px'],
+    fontFamily: 'Manrope, sans-serif',
+    weights: ['REGULAR', 'MEDIUM', 'SEMIBOLD'],
+    typographyDescription: 'Современный геометрический гротеск. Используется на сайте Большая Страна для заголовков и навигации.',
+    colorsPalette: [{ color: '#00A650' }, { color: '#1A1A1A' }, { color: '#FFFFFF' }, { color: '#333333' }, { color: '#F5F5F5' }],
+    perfMetrics: [
+      { label: 'Страниц разработано', value: '450', status: 'excellent' },
+      { label: 'Интеграций с API туроператоров', value: '120', status: 'excellent' },
+      { label: 'Срок реализации', value: '6 мес', status: 'good' },
+      { label: 'Туров в каталоге', value: '9519', status: 'excellent' },
+    ],
+    metrics: { 'Страниц': 450, 'Интеграций API': 120, 'Туров в каталоге': 9519, 'Дней разработки': 180 },
     toolsDescription: 'Vue.js для интерактивных фильтров, PHP-бэкенд, MySQL, Redis для кэша каталога, Figma для дизайн-системы.',
     seoTitle: 'Кейс: Большая Страна — тур-агрегатор по России | PrimeCoder',
     seoDescription: 'Разработка федерального тур-агрегатора: 98 регионов, 9519 туров. Каталог, фильтры, бронирование, интеграция с туроператорами.',
@@ -129,12 +145,20 @@ const CASES = [
       '/uploads/images/russiadiscovery-case-3.jpg',
     ],
     tools: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Figma', 'SEO'],
-    metrics: { 'Лет на рынке': 20, 'Направлений': 30, 'Страниц': 200, 'Дней разработки': 120 },
     contentHtml: '<p>Разработка сайта премиум-туроператора RussiaDiscovery — экспедиции и круизы по России и миру. Премиум-позиционирование, каталог туров с детальными программами, журнал путешествий, подборки по регионам и видам отдыха, подарочные сертификаты.</p>',
     taskText: 'Создать премиум-сайт для туроператора экспедиций. Подчеркнуть 20-летний опыт, уникальность маршрутов (Курилы, Чукотка, Северный полюс, Антарктида). Каталог туров, контент-маркетинг через журнал, конверсия в заявки.',
     solutionText: 'Современный дизайн с акцентом на визуал и доверие. Структурированный каталог по регионам и коллекциям. Журнал путешествий для SEO и вовлечения. Интеграция с CRM, формы заявок, Telegram-бот для консультаций.',
-    fontFamily: 'Georgia, Merriweather, sans-serif',
-    fontSizes: ['15px', '18px', '24px', '32px', '48px'],
+    fontFamily: 'Cormorant Garamond, Georgia, serif',
+    weights: ['REGULAR', 'SEMIBOLD', 'BOLD'],
+    typographyDescription: 'Классический сериф с премиальным характером. Заголовки — Cormorant, основной текст — системный шрифт.',
+    colorsPalette: [{ color: '#1E3A5F' }, { color: '#C9A227' }, { color: '#FFFFFF' }, { color: '#2C2C2C' }, { color: '#F8F6F0' }],
+    perfMetrics: [
+      { label: 'Страниц разработано', value: '200', status: 'excellent' },
+      { label: 'Туров в каталоге', value: '350', status: 'excellent' },
+      { label: 'Срок реализации', value: '4 мес', status: 'good' },
+      { label: 'Экранов журнала', value: '45', status: 'excellent' },
+    ],
+    metrics: { 'Страниц': 200, 'Туров': 350, 'Экранов журнала': 45, 'Дней разработки': 120 },
     toolsDescription: 'React + TypeScript для SPA, Node.js API, PostgreSQL, Figma. SEO и контент-маркетинг для привлечения трафика.',
     seoTitle: 'Кейс: RussiaDiscovery — премиум-экспедиции | PrimeCoder',
     seoDescription: 'Разработка сайта премиум-туроператора: VIP-круизы, экспедиции на Байкал и Северный полюс. 20 лет опыта, журнал путешествий.',
@@ -153,12 +177,20 @@ const CASES = [
       '/uploads/images/youtravel-case-3.jpg',
     ],
     tools: ['React', 'TypeScript', 'Figma', 'Node.js', 'PostgreSQL'],
-    metrics: { 'Страниц': 80, 'Дней разработки': 90, 'Экранов': 25 },
     contentHtml: '<p>Разработка платформы YouTravel — сервис поиска и бронирования путешествий. Современный дизайн с акцентом на UX, интуитивная навигация, быстрые фильтры, адаптивная вёрстка. Личный кабинет, избранное, история бронирований.</p>',
     taskText: 'Создать платформу для поиска путешествий с фокусом на UX. Пользователь должен быстро находить подходящий тур, сравнивать варианты и бронировать. Визуальная привлекательность и мобильная адаптация обязательны.',
     solutionText: 'Проработанный UI/UX в Figma, компонентный подход в React. Карточки туров с ключевой информацией, умные фильтры, избранное. Адаптив для всех устройств. Интеграция с платёжными системами и уведомлениями.',
     fontFamily: 'Inter, system-ui, sans-serif',
-    fontSizes: ['14px', '16px', '22px', '30px', '44px'],
+    weights: ['REGULAR', 'MEDIUM', 'SEMIBOLD'],
+    typographyDescription: 'Нейтральный интерфейсный гротеск для современной платформы. Читаемость и лаконичность.',
+    colorsPalette: [{ color: '#0B6BCB' }, { color: '#0D1117' }, { color: '#FFFFFF' }, { color: '#58A6FF' }, { color: '#F0F6FC' }],
+    perfMetrics: [
+      { label: 'Экранов в UI', value: '25', status: 'excellent' },
+      { label: 'Страниц каталога', value: '80', status: 'excellent' },
+      { label: 'Срок реализации', value: '3 мес', status: 'good' },
+      { label: 'Компонентов в дизайн-системе', value: '48', status: 'excellent' },
+    ],
+    metrics: { 'Экранов UI': 25, 'Страниц': 80, 'Компонентов': 48, 'Дней разработки': 90 },
     toolsDescription: 'React + TypeScript, Figma для дизайн-системы, Node.js бэкенд, PostgreSQL. Приоритет — чистота UI и скорость отклика.',
     seoTitle: 'Кейс: YouTravel — платформа путешествий | PrimeCoder',
     seoDescription: 'Разработка платформы поиска путешествий YouTravel. Современный UI/UX, каталог туров, бронирование, адаптивный дизайн.',

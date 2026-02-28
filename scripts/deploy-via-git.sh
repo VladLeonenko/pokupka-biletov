@@ -65,6 +65,11 @@ if [ -f "scripts/add-travel-cases.js" ]; then
   node scripts/add-travel-cases.js 2>/dev/null || true
 fi
 
+if [ -f "scripts/update-travel-cases-content.js" ]; then
+  echo "🔄 Обновление travel-кейсов (цвета, шрифты, показатели)..."
+  node scripts/update-travel-cases-content.js 2>/dev/null || true
+fi
+
 # PM2 restart
 echo ""
 echo "🔄 Перезапуск PM2..."
