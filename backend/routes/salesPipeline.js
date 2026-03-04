@@ -24,12 +24,15 @@ import {
   getEmailTemplate,
   sendUniSenderTelegram,
   sendUniSenderEmail,
+  sendUniSenderEmailByTemplate,
   analyzeClientResponse,
   analyzeClientResponseWithProposal,
   isCorporateEmail,
   deriveWebsiteFromEmail,
   pickPrimaryEmail,
 } from '../services/salesPipelineService.js';
+
+const UNSUBSCRIBE_URL_DEFAULT = 'https://prime-coder.ru/#contacts';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -253,6 +256,7 @@ router.get('/process-daily', async (req, res) => {
       maxEmailsPerRun: maxEmails,
     };
 
+    const unsubscribeUrl = process.env.UNSUBSCRIBE_URL || UNSUBSCRIBE_URL_DEFAULT;
     for (const lead of leads) {
       try {
         let website = lead.website || '';
@@ -265,13 +269,14 @@ router.get('/process-daily', async (req, res) => {
         const companyName = lead.company || lead.name || 'Компания';
         if (!website || !website.startsWith('http')) {
           const basicTemplate = getEmailTemplate('basic', { company_name: companyName, website: '', email: lead.email }, {});
+          const basicVars = { company_name: companyName, unsubscribe_url: unsubscribeUrl };
           let sent = false;
-          const emailResult = await sendUniSenderEmail(
+          const emailResult = await sendUniSenderEmailByTemplate(
             lead.email,
-            basicTemplate.subject,
-            basicTemplate.body,
+            'basic',
             process.env.SENDER_NAME,
-            process.env.SENDER_EMAIL
+            process.env.SENDER_EMAIL,
+            basicVars
           );
           if (emailResult.ok) sent = true;
           else {
@@ -338,6 +343,14 @@ router.get('/process-daily', async (req, res) => {
         );
 
         const template = getEmailTemplate(audit.business_potential, { company_name: companyName, website, email: lead.email }, audit);
+        const templateVars = {
+          company_name: companyName,
+          website,
+          audit_score: audit.audit_score,
+          audit_summary: audit.recommended_approach || audit.personalized_intro || '',
+          personalized_intro: audit.personalized_intro || '',
+          unsubscribe_url: unsubscribeUrl,
+        };
         let sent = false;
         if (phoneFound && process.env.UNISENDER_API_KEY && process.env.UNISENDER_CHANNEL_ID) {
           const tg = await sendUniSenderTelegram(phoneNormalized, template.body);
@@ -345,12 +358,12 @@ router.get('/process-daily', async (req, res) => {
           if (!sent) results.sendErrors.push({ email: lead.email, channel: 'telegram', reason: tg.reason || 'unknown' });
         }
         if (!sent) {
-          const emailResult = await sendUniSenderEmail(
+          const emailResult = await sendUniSenderEmailByTemplate(
             lead.email,
-            template.subject,
-            template.body,
+            audit.business_potential,
             process.env.SENDER_NAME,
-            process.env.SENDER_EMAIL
+            process.env.SENDER_EMAIL,
+            templateVars
           );
           if (emailResult.ok) {
             sent = true;
@@ -425,22 +438,19 @@ router.get('/test-send', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    const html = loadAndFillHtmlTemplate('basic-no-audit', {
-      unsubscribe_url: 'https://prime-coder.ru/#contacts',
-    });
-    if (!html) {
-      return res.status(500).json({ error: 'Шаблон basic-no-audit не найден' });
-    }
-    const subject = 'Возможности для роста бизнеса (тест рассылки)';
     const senderName = process.env.SENDER_NAME || 'Prime Coder';
     const senderEmail = process.env.SENDER_EMAIL;
     if (!senderEmail) {
       return res.status(500).json({ error: 'Не задан SENDER_EMAIL в .env' });
     }
+    const vars = {
+      company_name: 'Тест',
+      unsubscribe_url: process.env.UNSUBSCRIBE_URL || UNSUBSCRIBE_URL_DEFAULT,
+    };
     const sent = [];
     const errors = [];
     for (const to of TEST_EMAILS) {
-      const result = await sendUniSenderEmail(to, subject, html, senderName, senderEmail);
+      const result = await sendUniSenderEmailByTemplate(to, 'basic', senderName, senderEmail, vars);
       if (result.ok) sent.push(to);
       else errors.push({ email: to, reason: result.reason });
     }

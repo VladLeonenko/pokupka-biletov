@@ -5,6 +5,14 @@
 
 import * as cheerio from 'cheerio';
 
+/** ID шаблонов писем в UniSender (high, medium, low, basic). */
+export const UNISENDER_TEMPLATE_IDS = {
+  high: 7403454,
+  medium: 7403446,
+  low: 7403046,
+  basic: 7403430,
+};
+
 /** Домены личной почты (не корпоративной). */
 const PERSONAL_EMAIL_DOMAINS = new Set([
   'gmail.com', 'googlemail.com', 'yandex.ru', 'ya.ru', 'yandex.com', 'mail.ru', 'bk.ru', 'inbox.ru',
@@ -204,24 +212,95 @@ export function getEmailTemplate(potential, lead, auditSummary) {
   return templates[potential] || templates.medium;
 }
 
-/** Отправка через UniSender Telegram (если есть api_key и channel_id и телефон). */
+/** Получить шаблон письма из UniSender по ID (subject + body). POST, чтобы api_key не попадал в URL (рекомендация UniSender). */
+export async function getUniSenderTemplate(templateId) {
+  const apiKey = process.env.UNISENDER_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const params = new URLSearchParams();
+    params.set('format', 'json');
+    params.set('api_key', apiKey);
+    params.set('template_id', String(templateId));
+    const res = await fetch('https://api.unisender.com/ru/api/getTemplate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return null;
+    }
+    if (data.error) {
+      console.error('[salesPipeline] getUniSenderTemplate error:', data.code || '', data.error?.slice(0, 200));
+      return null;
+    }
+    const result = data?.result;
+    if (!result?.body) return null;
+    return { subject: result.subject || '', body: result.body };
+  } catch (e) {
+    console.error('[salesPipeline] getUniSenderTemplate failed:', e.message);
+    return null;
+  }
+}
+
+/** Подставить переменные в текст шаблона ([%var%] и {{var}}). */
+function fillTemplatePlaceholders(text, vars = {}) {
+  if (!text) return text;
+  let out = text;
+  for (const [key, value] of Object.entries(vars)) {
+    const val = value != null ? String(value) : '';
+    out = out.replace(new RegExp(`\\[%${key}%\\]`, 'g'), val);
+    out = out.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
+  }
+  return out;
+}
+
+/**
+ * Отправить email через UniSender по ID шаблона: загружаем шаблон, подставляем переменные, отправляем.
+ * vars: company_name, website, audit_score, audit_summary, personalized_intro, unsubscribe_url и т.д.
+ */
+export async function sendUniSenderEmailByTemplate(toEmail, templateKey, senderName, senderEmail, vars = {}) {
+  const templateId = UNISENDER_TEMPLATE_IDS[templateKey];
+  if (!templateId) return { ok: false, reason: 'unknown_template_key' };
+  const tpl = await getUniSenderTemplate(templateId);
+  if (!tpl) return { ok: false, reason: 'template_fetch_failed' };
+  const subject = fillTemplatePlaceholders(tpl.subject, vars);
+  const body = fillTemplatePlaceholders(tpl.body, vars);
+  return sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail);
+}
+
+/** Отправка через UniSender Telegram (если есть api_key и channel_id и телефон). Параметры в теле POST, чтобы длинный text не резал URL. */
 export async function sendUniSenderTelegram(phone, text) {
   const apiKey = process.env.UNISENDER_API_KEY;
   const channelId = process.env.UNISENDER_CHANNEL_ID;
   if (!apiKey || !channelId) return { ok: false, reason: 'no_config' };
   try {
-    const params = new URLSearchParams({
-      format: 'json',
-      api_key: apiKey,
-      channel_id: channelId,
-      phone: String(phone).trim(),
-      text: String(text).slice(0, 4000),
+    const params = new URLSearchParams();
+    params.set('format', 'json');
+    params.set('api_key', apiKey);
+    params.set('channel_id', channelId);
+    params.set('phone', String(phone).trim());
+    params.set('text', String(text).slice(0, 4000));
+    const res = await fetch('https://api.unisender.com/ru/api/sendTelegramMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
     });
-    const res = await fetch(`https://api.unisender.com/ru/api/sendTelegramMessage?${params}`, { method: 'POST' });
-    const data = await res.json();
+    const responseText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error('[salesPipeline] UniSender Telegram response not JSON:', responseText?.slice(0, 200));
+      return { ok: false, reason: 'Ответ API не JSON (возможно ошибка или лимит)' };
+    }
     if (data.error) {
-      console.error('[salesPipeline] UniSender Telegram error:', data.error);
-      return { ok: false, reason: data.error };
+      const reason = data.code ? `${data.code}: ${data.error}` : data.error;
+      console.error('[salesPipeline] UniSender Telegram error:', reason);
+      return { ok: false, reason };
     }
     return { ok: true };
   } catch (e) {
@@ -246,7 +325,7 @@ export async function sendUniSenderEmail(toEmail, subject, body, senderName, sen
     params.set('sender_email', from);
     params.set('subject', subject);
     params.set('body', body);
-    if (process.env.UNISENDER_LIST_ID) params.set('list_id', process.env.UNISENDER_LIST_ID);
+    // list_id не передаём: для транзакционного sendEmail UniSender возвращает "Invalid setting 'list_id'"
     const res = await fetch('https://api.unisender.com/ru/api/sendEmail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -261,8 +340,9 @@ export async function sendUniSenderEmail(toEmail, subject, body, senderName, sen
       return { ok: false, reason: 'Ответ API не JSON (возможно ошибка сервера)' };
     }
     if (data.error) {
-      console.error('[salesPipeline] UniSender Email error:', data.error);
-      return { ok: false, reason: data.error };
+      const reason = data.code ? `${data.code}: ${data.error}` : data.error;
+      console.error('[salesPipeline] UniSender Email error:', reason);
+      return { ok: false, reason };
     }
     return { ok: true };
   } catch (e) {
