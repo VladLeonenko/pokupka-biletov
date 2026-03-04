@@ -79,12 +79,14 @@ export function htmlToBlocks(html: string): BlogBlock[] {
             const row = Array.from(tr.querySelectorAll('td')).map((td) => elText(td));
             if (row.length > 0) rows.push(row);
           });
+          let tableHeaders = headers;
+          let tableRows = rows;
           if (headers.length === 0 && rows.length > 0) {
-            headers = rows[0];
-            rows = rows.slice(1);
+            tableHeaders = rows[0];
+            tableRows = rows.slice(1);
           }
-          if (headers.length > 0 || rows.length > 0) {
-            blocks.push({ id: genId('table'), type: 'table', content: { headers, rows } });
+          if (tableHeaders.length > 0 || tableRows.length > 0) {
+            blocks.push({ id: genId('table'), type: 'table', content: { headers: tableHeaders, rows: tableRows } });
           }
         }
         continue;

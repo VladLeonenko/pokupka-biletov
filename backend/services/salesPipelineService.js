@@ -309,7 +309,7 @@ export async function sendUniSenderTelegram(phone, text) {
   }
 }
 
-/** Отправка email через UniSender sendEmail (если есть api_key). Параметры в теле POST, чтобы не резать длинный HTML по URL. */
+/** Отправка email через UniSender sendEmail (если есть api_key). Тело POST собираем вручную — только нужные поля, без list_id. */
 export async function sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail) {
   const apiKey = process.env.UNISENDER_API_KEY;
   if (!apiKey) return { ok: false, reason: 'no_config' };
@@ -317,19 +317,18 @@ export async function sendUniSenderEmail(toEmail, subject, body, senderName, sen
   const from = senderEmail || process.env.SENDER_EMAIL;
   if (!from) return { ok: false, reason: 'no_sender' };
   try {
-    const params = new URLSearchParams();
-    params.set('format', 'json');
-    params.set('api_key', apiKey);
-    params.set('email', toEmail);
-    params.set('sender_name', name);
-    params.set('sender_email', from);
-    params.set('subject', subject);
-    params.set('body', body);
-    // list_id не передаём: для транзакционного sendEmail UniSender возвращает "Invalid setting 'list_id'"
+    const bodyStr =
+      'format=json' +
+      '&api_key=' + encodeURIComponent(apiKey) +
+      '&email=' + encodeURIComponent(toEmail) +
+      '&sender_name=' + encodeURIComponent(name) +
+      '&sender_email=' + encodeURIComponent(from) +
+      '&subject=' + encodeURIComponent(subject) +
+      '&body=' + encodeURIComponent(body);
     const res = await fetch('https://api.unisender.com/ru/api/sendEmail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
+      body: bodyStr,
     });
     const text = await res.text();
     let data;
