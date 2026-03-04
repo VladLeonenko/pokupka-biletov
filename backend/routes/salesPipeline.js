@@ -1,0 +1,413 @@
+/**
+ * Cold Lead Sales Pipeline — аналог n8n workflow внутри платформы.
+ * Импорт лидов, ежедневная обработка (аудит сайта, отправка), разбор ответов клиентов.
+ */
+
+import express from 'express';
+import pool from '../db.js';
+import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
+import multer from 'multer';
+import csv from 'csv-parser';
+import { Readable } from 'stream';
+import nodemailer from 'nodemailer';
+import {
+  fetchWebsiteHtml,
+  extractWebsiteData,
+  runWebsiteAudit,
+  extractPhoneFromHtml,
+  normalizePhone,
+  getEmailTemplate,
+  sendUniSenderTelegram,
+  sendUniSenderEmail,
+  analyzeClientResponse,
+  isCorporateEmail,
+  deriveWebsiteFromEmail,
+  pickPrimaryEmail,
+} from '../services/salesPipelineService.js';
+
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+function getBatchSize() {
+  const n = parseInt(process.env.SALES_PIPELINE_BATCH_SIZE, 10);
+  return Number.isFinite(n) && n >= 1 && n <= 200 ? n : 10;
+}
+function getMaxEmailsPerRun() {
+  const n = parseInt(process.env.SALES_PIPELINE_MAX_EMAILS_PER_RUN, 10);
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+function getEmailTransporter() {
+  const host = process.env.EMAIL_HOST;
+  const port = Number(process.env.EMAIL_PORT) || 587;
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
+}
+
+// ————— Список лидов (из таблицы clients с pipeline_stage) —————
+router.get('/leads', requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, stage, search } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const conditions = ['pipeline_stage IS NOT NULL'];
+    const params = [];
+    let idx = 1;
+
+    if (req.user?.role === 'sales_manager') {
+      conditions.push(`(assigned_to = $${idx} OR assigned_to IS NULL)`);
+      params.push(req.user.id);
+      idx++;
+    }
+    if (stage) {
+      conditions.push(`pipeline_stage = $${idx}`);
+      params.push(stage);
+      idx++;
+    }
+    if (search) {
+      conditions.push(`(company ILIKE $${idx} OR name ILIKE $${idx} OR email ILIKE $${idx})`);
+      params.push(`%${search}%`);
+      idx++;
+    }
+
+    const where = `WHERE ${conditions.join(' AND ')}`;
+    const countRes = await pool.query(
+      `SELECT COUNT(*) FROM clients ${where}`,
+      params
+    );
+    const listRes = await pool.query(
+      `SELECT id, name, company, email, phone, source, status, website, pipeline_stage AS stage,
+              audit_score, business_potential, last_outreach_at, last_reply_at, created_at, updated_at
+       FROM clients ${where}
+       ORDER BY created_at DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...params, parseInt(limit), offset]
+    );
+
+    res.json({
+      total: parseInt(countRes.rows[0].count, 10),
+      page: parseInt(page),
+      limit: parseInt(limit),
+      items: listRes.rows,
+    });
+  } catch (e) {
+    console.error('[salesPipeline] GET /leads', e);
+    res.status(500).json({ error: 'Ошибка загрузки лидов' });
+  }
+});
+
+// ————— Импорт лидов (CSV: поддерживает формат Google Sheets "холодная база" и др.) —————
+// Колонки: ФИО/name, tel/phone, email, company_name/company, website (опц.), notes (игнор)
+router.post('/leads/import', requireAuth, requireAdminOrSalesManager, upload.single('file'), async (req, res) => {
+  try {
+    const rows = [];
+    if (req.file && req.file.buffer) {
+      let raw = req.file.buffer.toString('utf-8').replace(/^\uFEFF/, '');
+      await new Promise((resolve, reject) => {
+        const stream = Readable.from([raw]);
+        stream
+          .pipe(csv({ separator: [',', ';'].includes(req.body?.separator) ? req.body.separator : ',', skipLines: 0 }))
+          .on('data', (row) => rows.push(row))
+          .on('end', resolve)
+          .on('error', reject);
+      });
+    } else if (Array.isArray(req.body?.leads)) {
+      req.body.leads.forEach((l) => {
+        if (l.email) rows.push({
+          name: l.name || l.ФИО,
+          phone: l.phone || l.tel,
+          company_name: l.company_name || l.company,
+          website: l.website || '',
+          email: l.email,
+        });
+      });
+    } else {
+      return res.status(400).json({ error: 'Нужен file (CSV) или body.leads (массив с полями name, email, company_name, phone?, website?)' });
+    }
+
+    const cleanRow = (r) => {
+      const o = {};
+      for (const k of Object.keys(r)) o[k.replace(/^\uFEFF/, '').trim()] = r[k];
+      return o;
+    };
+    const getVal = (r, ...keys) => {
+      const v = keys.find((k) => r[k] != null && String(r[k]).trim() !== '');
+      return v != null ? String(r[v]).trim() : '';
+    };
+    const normalize = (r) => {
+      r = cleanRow(r);
+      const name = getVal(r, 'ФИО', 'name', 'company_name', 'company') || getVal(r, 'company', 'company_name');
+      const company = getVal(r, 'company_name', 'company', 'ФИО', 'name') || name;
+      const emailRaw = getVal(r, 'email') || '';
+      const email = pickPrimaryEmail(emailRaw) || (emailRaw.includes(',') ? emailRaw.split(',')[0].trim() : emailRaw);
+      const phone = getVal(r, 'tel', 'phone');
+      let website = getVal(r, 'website');
+      if (!website && email && isCorporateEmail(email)) website = deriveWebsiteFromEmail(email);
+      return { name: name || company, company: company || name, email, phone, website };
+    };
+
+    const toInsert = rows
+      .map(normalize)
+      .filter((r) => r.email && (r.name || r.company));
+
+    if (toInsert.length === 0) {
+      return res.json({ imported: 0, message: 'Нет строк с email и именем/компанией' });
+    }
+
+    let imported = 0;
+    for (const row of toInsert) {
+      const exists = await pool.query(
+        'SELECT id FROM clients WHERE LOWER(email) = LOWER($1)',
+        [row.email]
+      );
+      if (exists.rows.length > 0) {
+        const c = exists.rows[0];
+        await pool.query(
+          `UPDATE clients SET pipeline_stage = 'new', website = COALESCE(NULLIF(TRIM($1), ''), website), company = COALESCE(NULLIF(TRIM($2), ''), company), name = COALESCE(NULLIF(TRIM($3), ''), name), phone = COALESCE(NULLIF(TRIM($4), ''), phone), updated_at = NOW() WHERE id = $5`,
+          [row.website || null, row.company, row.name, row.phone || null, c.id]
+        );
+        imported++;
+        continue;
+      }
+      await pool.query(
+        `INSERT INTO clients (name, company, email, phone, website, source, status, pipeline_stage, assigned_to, created_by)
+         VALUES ($1, $2, $3, $4, $5, 'import', 'lead', 'new', $6, $7)`,
+        [row.name, row.company, row.email, row.phone || null, row.website || null, req.user?.id || null, req.user?.id || null]
+      );
+      imported++;
+    }
+
+    res.json({ imported, total: toInsert.length });
+  } catch (e) {
+    console.error('[salesPipeline] POST /leads/import', e);
+    res.status(500).json({ error: 'Ошибка импорта' });
+  }
+});
+
+// ————— Ежедневная обработка (cron): new → audit → send —————
+router.get('/process-daily', async (req, res) => {
+  // Опционально: проверка cron-секрета
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.query.secret !== cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const batchSize = getBatchSize();
+    const maxEmails = getMaxEmailsPerRun();
+    const leadsRes = await pool.query(
+      `SELECT id, name, company, website, email FROM clients WHERE pipeline_stage = 'new' ORDER BY created_at ASC LIMIT $1`,
+      [batchSize]
+    );
+    let leads = leadsRes.rows;
+    if (maxEmails != null && leads.length > maxEmails) leads = leads.slice(0, maxEmails);
+    const results = { processed: 0, errors: [], batchSize, maxEmailsPerRun: maxEmails };
+
+    for (const lead of leads) {
+      try {
+        let website = lead.website || '';
+        if (!website && lead.email && isCorporateEmail(lead.email)) {
+          website = deriveWebsiteFromEmail(lead.email);
+          if (website) {
+            await pool.query(`UPDATE clients SET website = $1, updated_at = NOW() WHERE id = $2`, [website, lead.id]);
+          }
+        }
+        const companyName = lead.company || lead.name || 'Компания';
+        if (!website || !website.startsWith('http')) {
+          const basicTemplate = getEmailTemplate('basic', { company_name: companyName, website: '', email: lead.email }, {});
+          let sent = false;
+          const emailResult = await sendUniSenderEmail(
+            lead.email,
+            basicTemplate.subject,
+            basicTemplate.body,
+            process.env.SENDER_NAME,
+            process.env.SENDER_EMAIL
+          );
+          if (emailResult.ok) sent = true;
+          else {
+            const trans = getEmailTransporter();
+            if (trans) {
+              await trans.sendMail({
+                from: process.env.EMAIL_USER,
+                to: lead.email,
+                subject: basicTemplate.subject,
+                text: basicTemplate.body,
+              });
+              sent = true;
+            }
+          }
+          if (sent) {
+            await pool.query(
+              `INSERT INTO client_outreach_log (client_id, email_template, channel, status) VALUES ($1, $2, 'email', 'sent')`,
+              [lead.id, basicTemplate.templateId]
+            );
+            await pool.query(
+              `UPDATE clients SET pipeline_stage = 'email_sent', last_outreach_at = NOW(), audit_summary = $1, updated_at = NOW() WHERE id = $2`,
+              [JSON.stringify({ note: 'без аудита (личная почта)' }), lead.id]
+            );
+          } else {
+            await pool.query(
+              `UPDATE clients SET pipeline_stage = 'audited', audit_summary = $1, updated_at = NOW() WHERE id = $2`,
+              [JSON.stringify({ error: 'no_website', send_failed: true }), lead.id]
+            );
+          }
+          results.processed++;
+          continue;
+        }
+
+        const html = await fetchWebsiteHtml(website);
+        const websiteData = extractWebsiteData(html || '');
+        const audit = await runWebsiteAudit(companyName, website, websiteData);
+        if (!audit) {
+          results.errors.push({ clientId: lead.id, step: 'audit' });
+          continue;
+        }
+
+        let phone = await extractPhoneFromHtml(html || '');
+        const phoneNormalized = normalizePhone(phone);
+        const phoneFound = phoneNormalized.length === 12; // +7...
+
+        await pool.query(
+          `UPDATE clients SET
+           audit_score = $1, business_potential = $2, audit_summary = $3, pipeline_stage = 'audited',
+           phone = COALESCE(phone, $4), updated_at = NOW()
+           WHERE id = $5`,
+          [
+            audit.audit_score,
+            audit.business_potential,
+            JSON.stringify(audit),
+            phoneFound ? phoneNormalized : null,
+            lead.id,
+          ]
+        );
+
+        const template = getEmailTemplate(audit.business_potential, { company_name: companyName, website, email: lead.email }, audit);
+        let sent = false;
+        if (phoneFound && process.env.UNISENDER_API_KEY && process.env.UNISENDER_CHANNEL_ID) {
+          const tg = await sendUniSenderTelegram(phoneNormalized, template.body);
+          sent = tg.ok;
+        }
+        if (!sent) {
+          const emailResult = await sendUniSenderEmail(
+            lead.email,
+            template.subject,
+            template.body,
+            process.env.SENDER_NAME,
+            process.env.SENDER_EMAIL
+          );
+          if (emailResult.ok) {
+            sent = true;
+          } else {
+            const trans = getEmailTransporter();
+            if (trans) {
+              await trans.sendMail({
+                from: process.env.EMAIL_USER,
+                to: lead.email,
+                subject: template.subject,
+                text: template.body,
+              });
+              sent = true;
+            }
+          }
+        }
+
+        if (sent) {
+          await pool.query(
+            `INSERT INTO client_outreach_log (client_id, email_template, channel, status) VALUES ($1, $2, $3, 'sent')`,
+            [lead.id, template.templateId, phoneFound && process.env.UNISENDER_CHANNEL_ID ? 'telegram' : 'email']
+          );
+          await pool.query(
+            `UPDATE clients SET pipeline_stage = 'email_sent', last_outreach_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [lead.id]
+          );
+        }
+        results.processed++;
+      } catch (err) {
+        console.error('[salesPipeline] process-daily client', lead.id, err);
+        results.errors.push({ clientId: lead.id, message: err.message });
+      }
+    }
+
+    res.json(results);
+  } catch (e) {
+    console.error('[salesPipeline] process-daily', e);
+    res.status(500).json({ error: 'Ошибка ежедневной обработки', details: e.message });
+  }
+});
+
+// ————— Обработка ответа клиента (ручной вызов или webhook) —————
+router.post('/process-reply', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { fromEmail, subject, text } = req.body;
+    const email = (fromEmail || req.body.email || '').trim();
+    const messageText = (text || req.body.text || req.body.message_body || '').trim();
+    if (!email || !messageText) {
+      return res.status(400).json({ error: 'Нужны fromEmail и text (или email и message_body)' });
+    }
+
+    const clientRes = await pool.query(
+      'SELECT id, company, name, email FROM clients WHERE LOWER(email) = LOWER($1) AND pipeline_stage IS NOT NULL LIMIT 1',
+      [email]
+    );
+    if (clientRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Клиент с таким email не найден в пайплайне' });
+    }
+    const client = clientRes.rows[0];
+
+    await pool.query(
+      `INSERT INTO client_correspondence (client_id, correspondence_type, client_email, subject, message_body) VALUES ($1, 'incoming', $2, $3, $4)`,
+      [client.id, email, subject || '', messageText]
+    );
+
+    const analysis = await analyzeClientResponse(messageText);
+    if (!analysis) {
+      return res.status(500).json({ error: 'Не удалось проанализировать ответ (OpenAI)' });
+    }
+
+    let newStage = 'replied';
+    if (analysis.next_action === 'ready_to_meet') newStage = 'qualified';
+    else if (analysis.next_action === 'no_interest') newStage = 'lost';
+
+    await pool.query(
+      `UPDATE clients SET pipeline_stage = $1, last_reply_at = NOW(), updated_at = NOW() WHERE id = $2`,
+      [newStage, client.id]
+    );
+
+    res.json({
+      clientId: client.id,
+      stage: newStage,
+      analysis: {
+        is_qualified: analysis.is_qualified,
+        interest_level: analysis.interest_level,
+        meeting_ready: analysis.meeting_ready,
+        suggested_response: analysis.suggested_response,
+        next_action: analysis.next_action,
+      },
+    });
+  } catch (e) {
+    console.error('[salesPipeline] process-reply', e);
+    res.status(500).json({ error: 'Ошибка обработки ответа', details: e.message });
+  }
+});
+
+// ————— Один лид (клиент) по id (для UI) —————
+router.get('/leads/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await pool.query(
+      'SELECT id, name, company, email, phone, source, status, website, pipeline_stage AS stage, audit_score, business_potential, audit_summary, last_outreach_at, last_reply_at, assigned_to, created_at, updated_at FROM clients WHERE id = $1 AND pipeline_stage IS NOT NULL',
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Лид не найден' });
+    if (req.user?.role === 'sales_manager' && r.rows[0].assigned_to !== req.user.id && r.rows[0].assigned_to != null) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error('[salesPipeline] GET /leads/:id', e);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+export default router;

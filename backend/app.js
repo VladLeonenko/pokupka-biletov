@@ -81,6 +81,7 @@ import productCategoriesRouter from './routes/productCategories.js';
 import adminsRouter from './routes/admins.js';
 import salesAcademyRouter from './routes/salesAcademy.js';
 import salesAnalyticsRouter from './routes/salesAnalytics.js';
+import salesPipelineRouter from './routes/salesPipeline.js';
 
 const app = express();
 
@@ -335,6 +336,7 @@ app.use('/api/donors', (req, res, next) => {
 }, donorsRouter);
 app.use('/api/notifications', requireAuth, notificationsRouter);
 app.use('/api/payment-reminders', paymentRemindersRouter); // No auth required for cron job
+app.use('/api/sales-pipeline', salesPipelineRouter); // process-daily — cron (query secret); остальное — auth
 app.use('/api/task-executor', requireAuth, taskExecutorRouter);
 app.use('/api/cart', cartRouter); // Публичный, но с поддержкой авторизации
 app.use('/api/wishlist', wishlistRouter); // Требует авторизации

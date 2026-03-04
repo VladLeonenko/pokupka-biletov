@@ -100,6 +100,8 @@ const MIGRATION_FILES = [
   '060_content_blocks.sql',
   '061_quiz_answers.sql',
   '062_training_course_cover.sql',
+  '063_cold_leads_pipeline.sql',
+  '064_sales_pipeline_from_clients.sql',
 ];
 
 async function applyMigration(filename) {
