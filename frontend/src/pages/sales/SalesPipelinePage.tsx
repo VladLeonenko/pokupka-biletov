@@ -248,6 +248,8 @@ export default function SalesPipelinePage() {
           )}
         </>
       )}
+        </>
+      )}
 
       <Dialog open={importOpen} onClose={() => !importMutation.isPending && setImportOpen(false)}>
         <DialogTitle>Импорт лидов (CSV)</DialogTitle>
