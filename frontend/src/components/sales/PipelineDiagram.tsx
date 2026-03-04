@@ -63,6 +63,7 @@ export default function PipelineDiagram() {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let cancelled = false;
 
     const run = async () => {
       type MermaidAPI = {
@@ -81,13 +82,13 @@ export default function PipelineDiagram() {
             document.head.appendChild(script);
           });
         } catch (e) {
-          setError('Не удалось загрузить схему');
+          if (!cancelled) setError('Не удалось загрузить схему');
           return;
         }
       }
 
       if (!win.mermaid) {
-        setError('Mermaid недоступен');
+        if (!cancelled) setError('Mermaid недоступен');
         return;
       }
 
@@ -95,16 +96,17 @@ export default function PipelineDiagram() {
         win.mermaid.init({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
         const id = 'pipeline-diagram-' + Date.now();
         const { svg } = await win.mermaid.render(id, MERMAID_SOURCE);
-        if (containerRef.current) {
+        if (!cancelled && containerRef.current) {
           containerRef.current.innerHTML = svg;
+          setLoaded(true);
         }
-        setLoaded(true);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Ошибка отрисовки');
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Ошибка отрисовки');
       }
     };
 
     run();
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -114,21 +116,27 @@ export default function PipelineDiagram() {
           Схема пайплайна
         </Typography>
         <Box
-          ref={containerRef}
           sx={{
             minHeight: 280,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            position: 'relative',
             '& svg': { maxWidth: '100%', height: 'auto' },
           }}
         >
-          {!loaded && !error && <CircularProgress size={32} />}
+          {!loaded && !error && (
+            <Box sx={{ position: 'absolute' }}>
+              <CircularProgress size={32} />
+            </Box>
+          )}
           {error && (
             <Typography color="text.secondary" variant="body2">
               {error}
             </Typography>
           )}
+          {/* Контейнер только для Mermaid: innerHTML мутирует DOM, React не должен иметь здесь детей */}
+          <Box ref={containerRef} sx={{ display: loaded && !error ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', width: '100%' }} />
         </Box>
       </CardContent>
     </Card>
