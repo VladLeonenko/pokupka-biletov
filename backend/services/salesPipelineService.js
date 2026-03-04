@@ -4,6 +4,44 @@
  */
 
 import * as cheerio from 'cheerio';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Локальные HTML-шаблоны (без getTemplate UniSender — обход ошибки list_id). */
+const LOCAL_TEMPLATE_FILES = {
+  high: 'high-potential.html',
+  medium: 'medium-potential.html',
+  low: 'low-potential.html',
+  basic: 'basic-no-audit.html',
+};
+
+const LOCAL_TEMPLATE_SUBJECTS = {
+  high: 'Эксклюзивное предложение для [%company_name%] — PrimeCoder',
+  medium: 'Аудит сайта [%company_name%] — PrimeCoder',
+  low: 'Краткий обзор для [%company_name%] — PrimeCoder',
+  basic: 'Возможности для роста бизнеса — PrimeCoder',
+};
+
+function loadLocalHtmlTemplate(templateKey, vars = {}) {
+  const file = LOCAL_TEMPLATE_FILES[templateKey];
+  if (!file) return null;
+  const templatesDir = path.join(__dirname, '../email-templates/sales');
+  const filePath = path.join(templatesDir, file);
+  if (!fs.existsSync(filePath)) return null;
+  let html = fs.readFileSync(filePath, 'utf-8');
+  let subject = LOCAL_TEMPLATE_SUBJECTS[templateKey] || '';
+  for (const [key, value] of Object.entries(vars)) {
+    const val = value != null ? String(value) : '';
+    const re = new RegExp(`\\[%${key}%\\]`, 'g');
+    const re2 = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    subject = subject.replace(re, val).replace(re2, val);
+    html = html.replace(new RegExp(`\\[%${key}%\\]`, 'g'), val).replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
+  }
+  return { subject, body: html };
+}
 
 /** ID шаблонов писем в UniSender (high, medium, low, basic). */
 export const UNISENDER_TEMPLATE_IDS = {
@@ -259,17 +297,14 @@ function fillTemplatePlaceholders(text, vars = {}) {
 }
 
 /**
- * Отправить email через UniSender по ID шаблона: загружаем шаблон, подставляем переменные, отправляем.
+ * Отправить email через UniSender: тело из локальных HTML (обход list_id при использовании getTemplate).
  * vars: company_name, website, audit_score, audit_summary, personalized_intro, unsubscribe_url и т.д.
  */
 export async function sendUniSenderEmailByTemplate(toEmail, templateKey, senderName, senderEmail, vars = {}) {
-  const templateId = UNISENDER_TEMPLATE_IDS[templateKey];
-  if (!templateId) return { ok: false, reason: 'unknown_template_key' };
-  const tpl = await getUniSenderTemplate(templateId);
-  if (!tpl) return { ok: false, reason: 'template_fetch_failed' };
-  const subject = fillTemplatePlaceholders(tpl.subject, vars);
-  const body = fillTemplatePlaceholders(tpl.body, vars);
-  return sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail);
+  if (!LOCAL_TEMPLATE_FILES[templateKey]) return { ok: false, reason: 'unknown_template_key' };
+  const tpl = loadLocalHtmlTemplate(templateKey, vars);
+  if (!tpl) return { ok: false, reason: 'local_template_not_found' };
+  return sendUniSenderEmail(toEmail, tpl.subject, tpl.body, senderName, senderEmail);
 }
 
 /** Отправка через UniSender Telegram (если есть api_key и channel_id и телефон). Параметры в теле POST, чтобы длинный text не резал URL. */
