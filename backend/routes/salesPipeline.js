@@ -4,12 +4,17 @@
  */
 
 import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 import multer from 'multer';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
 import nodemailer from 'nodemailer';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import {
   fetchWebsiteHtml,
   extractWebsiteData,
@@ -339,6 +344,52 @@ router.get('/process-daily', async (req, res) => {
   } catch (e) {
     console.error('[salesPipeline] process-daily', e);
     res.status(500).json({ error: 'Ошибка ежедневной обработки', details: e.message });
+  }
+});
+
+// ————— Тестовая отправка HTML-писем на два ящика (для проверки шаблонов) —————
+const TEST_EMAILS = ['info@prime-coder.ru', 'vladleo2020@gmail.com'];
+
+function loadAndFillHtmlTemplate(templateName, vars = {}) {
+  const templatesDir = path.join(__dirname, '../email-templates/sales');
+  const filePath = path.join(templatesDir, `${templateName}.html`);
+  if (!fs.existsSync(filePath)) return null;
+  let html = fs.readFileSync(filePath, 'utf-8');
+  for (const [key, value] of Object.entries(vars)) {
+    html = html.replace(new RegExp(`\\[%${key}%\\]`, 'g'), value ?? '');
+  }
+  return html;
+}
+
+router.get('/test-send', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.query.secret !== cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const html = loadAndFillHtmlTemplate('basic-no-audit', {
+      unsubscribe_url: 'https://prime-coder.ru/#contacts',
+    });
+    if (!html) {
+      return res.status(500).json({ error: 'Шаблон basic-no-audit не найден' });
+    }
+    const subject = 'Возможности для роста бизнеса (тест рассылки)';
+    const senderName = process.env.SENDER_NAME || 'Prime Coder';
+    const senderEmail = process.env.SENDER_EMAIL;
+    if (!senderEmail) {
+      return res.status(500).json({ error: 'Не задан SENDER_EMAIL в .env' });
+    }
+    const sent = [];
+    const errors = [];
+    for (const to of TEST_EMAILS) {
+      const result = await sendUniSenderEmail(to, subject, html, senderName, senderEmail);
+      if (result.ok) sent.push(to);
+      else errors.push({ email: to, reason: result.reason });
+    }
+    res.json({ sent, errors, message: `Отправлено: ${sent.length} из ${TEST_EMAILS.length}` });
+  } catch (e) {
+    console.error('[salesPipeline] test-send', e);
+    res.status(500).json({ error: e.message });
   }
 });
 

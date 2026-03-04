@@ -9,14 +9,14 @@ flowchart TB
 
   subgraph SOURCE["Источник"]
     CSV[CSV / Импорт]
-    DB[(clients\nstage = new)]
+    DB[("clients / stage = new")]
   end
 
   subgraph OUT["Исходящий поток"]
     T1 --> DB
     DB --> CHECK{Есть лиды?}
     CHECK --> LOOP[Для каждого]
-    LOOP --> WEBSITE{Сайт или\nкорп. email?}
+    LOOP --> WEBSITE{Сайт или корп. email?}
     WEBSITE -->|Личная почта| BASIC[Базовый шаблон]
     WEBSITE -->|Корп. email| DERIVE[Сайт = https/домен]
     DERIVE --> FETCH[Загрузка сайта]
