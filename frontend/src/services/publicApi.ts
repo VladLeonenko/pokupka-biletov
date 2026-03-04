@@ -85,7 +85,8 @@ export async function listPublicBlogPosts(opts?: { limit?: number; offset?: numb
 export async function listPublicBlogHighlights(): Promise<any[]> {
   const res = await publicFetch(`${getApiBaseUrl()}/api/public/blog?published=true&featured=true`);
   if (!res.ok) throw new Error('Failed to fetch blog highlights');
-  return await res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data?.posts ?? []);
 }
 
 export async function getPublicBlogPost(slug: string): Promise<any> {

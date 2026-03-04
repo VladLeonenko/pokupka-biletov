@@ -40,7 +40,7 @@ export function TypographySection() {
   };
 
   const fontNameStyle: React.CSSProperties = {
-    fontFamily: "'Open Sans', sans-serif",
+    fontFamily: fontFamily.includes(',') ? fontFamily : `${fontFamily}, sans-serif`,
     fontWeight: 300,
     fontSize: '96px',
     lineHeight: 1.5,
@@ -49,7 +49,7 @@ export function TypographySection() {
   };
 
   const descriptionStyle: React.CSSProperties = {
-    fontFamily: "'Open Sans', sans-serif",
+    fontFamily: fontFamily.includes(',') ? fontFamily : `${fontFamily}, sans-serif`,
     fontWeight: 300,
     fontSize: '24px',
     lineHeight: 1.5,

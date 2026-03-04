@@ -35,10 +35,12 @@ export function HomePage() {
     gcTime: 60000,
   });
 
-  const normalizedPosts = highlights.map((post: any) => ({
-    ...post,
-    coverImage: post.coverImage || post.cover_image_url || post.coverImageUrl,
-  }));
+  const normalizedPosts = Array.isArray(highlights)
+    ? highlights.map((post: any) => ({
+        ...post,
+        coverImage: post.coverImage || post.cover_image_url || post.coverImageUrl,
+      }))
+    : [];
 
   return (
     <>

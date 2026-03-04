@@ -11,7 +11,7 @@ const CASES_UPDATE = [
     slug: 'bolshayastrana-case',
     fontFamily: 'Manrope, sans-serif',
     weights: ['REGULAR', 'MEDIUM', 'SEMIBOLD'],
-    typographyDescription: 'Современный геометрический гротеск. Используется на сайте Большая Страна для заголовков и навигации.',
+    typographyDescription: 'Manrope — геометрический гротеск с мягкими формами и открытой типографикой. Хорошая читаемость на экране и в печати. Выбран для заголовков и навигации: передаёт современность и дружелюбность туристического бренда.',
     colorsPalette: [
       { color: '#00A650' },
       { color: '#1A1A1A' },
@@ -31,7 +31,7 @@ const CASES_UPDATE = [
     slug: 'russiadiscovery-case',
     fontFamily: 'Cormorant Garamond, Georgia, serif',
     weights: ['REGULAR', 'SEMIBOLD', 'BOLD'],
-    typographyDescription: 'Классический сериф с премиальным характером. Заголовки — Cormorant, основной текст — системный шрифт.',
+    typographyDescription: 'Cormorant Garamond — элегантный переходный сериф с высокой контрастностью штрихов. Создаёт ощущение премиальности и надёжности. Используется для заголовков туров и цитат. Для основного текста — системный шрифт для лучшей читаемости на мобильных.',
     colorsPalette: [
       { color: '#1E3A5F' },
       { color: '#C9A227' },
@@ -51,7 +51,7 @@ const CASES_UPDATE = [
     slug: 'youtravel-case',
     fontFamily: 'Inter, system-ui, sans-serif',
     weights: ['REGULAR', 'MEDIUM', 'SEMIBOLD'],
-    typographyDescription: 'Нейтральный интерфейсный гротеск для современной платформы. Читаемость и лаконичность.',
+    typographyDescription: 'Inter — системный интерфейсный шрифт с оптимизированными метриками для экранов. Высокая читаемость при маленьких размерах, чёткие формы. Идеален для форм, карточек туров и навигации. Нейтральный характер не отвлекает от контента.',
     colorsPalette: [
       { color: '#0B6BCB' },
       { color: '#0D1117' },

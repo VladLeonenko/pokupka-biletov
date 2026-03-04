@@ -46,8 +46,8 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
             ease: 'power3.out',
             scrollTrigger: {
               trigger: section,
-              start: 'top 85%',
-              end: 'top 40%',
+              start: 'top 98%',
+              end: 'top 50%',
               toggleActions: 'play none none none',
             },
           },
@@ -66,7 +66,7 @@ export function useScrollReveal(containerRef: React.RefObject<HTMLDivElement | n
               ease: 'power2.out',
               scrollTrigger: {
                 trigger: section,
-                start: 'top 75%',
+                start: 'top 90%',
                 toggleActions: 'play none none none',
               },
             },
