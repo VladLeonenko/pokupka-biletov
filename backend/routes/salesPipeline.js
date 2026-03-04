@@ -227,7 +227,26 @@ router.get('/process-daily', async (req, res) => {
     }
     let leads = leadsRes.rows;
     if (maxEmails != null && leads.length > maxEmails) leads = leads.slice(0, maxEmails);
-    const results = { processed: 0, errors: [], batchSize, maxEmailsPerRun: maxEmails };
+    if (onlyEmails?.length && leads.length === 0) {
+      return res.json({
+        processed: 0,
+        sent: 0,
+        only_emails_used: true,
+        leads_count: 0,
+        message: 'По указанным only_emails в базе нет лидов с pipeline_stage = \'new\'. Добавьте этих контактов в clients со stage = new.',
+        requested_emails: onlyEmails,
+      });
+    }
+    const results = {
+      processed: 0,
+      sent: 0,
+      errors: [],
+      sendErrors: [],
+      only_emails_used: !!onlyEmails?.length,
+      leads_count: leads.length,
+      batchSize,
+      maxEmailsPerRun: maxEmails,
+    };
 
     for (const lead of leads) {
       try {
@@ -251,18 +270,24 @@ router.get('/process-daily', async (req, res) => {
           );
           if (emailResult.ok) sent = true;
           else {
+            results.sendErrors.push({ email: lead.email, channel: 'email', reason: emailResult.reason || 'unknown' });
             const trans = getEmailTransporter();
             if (trans) {
-              await trans.sendMail({
-                from: process.env.EMAIL_USER,
-                to: lead.email,
-                subject: basicTemplate.subject,
-                text: basicTemplate.body,
-              });
-              sent = true;
+              try {
+                await trans.sendMail({
+                  from: process.env.EMAIL_USER,
+                  to: lead.email,
+                  subject: basicTemplate.subject,
+                  text: basicTemplate.body,
+                });
+                sent = true;
+              } catch (smtpErr) {
+                results.sendErrors.push({ email: lead.email, channel: 'smtp_fallback', reason: smtpErr.message });
+              }
             }
           }
           if (sent) {
+            results.sent++;
             await pool.query(
               `INSERT INTO client_outreach_log (client_id, email_template, channel, status) VALUES ($1, $2, 'email', 'sent')`,
               [lead.id, basicTemplate.templateId]
@@ -312,6 +337,7 @@ router.get('/process-daily', async (req, res) => {
         if (phoneFound && process.env.UNISENDER_API_KEY && process.env.UNISENDER_CHANNEL_ID) {
           const tg = await sendUniSenderTelegram(phoneNormalized, template.body);
           sent = tg.ok;
+          if (!sent) results.sendErrors.push({ email: lead.email, channel: 'telegram', reason: tg.reason || 'unknown' });
         }
         if (!sent) {
           const emailResult = await sendUniSenderEmail(
@@ -324,20 +350,26 @@ router.get('/process-daily', async (req, res) => {
           if (emailResult.ok) {
             sent = true;
           } else {
+            results.sendErrors.push({ email: lead.email, channel: 'email', reason: emailResult.reason || 'unknown' });
             const trans = getEmailTransporter();
             if (trans) {
-              await trans.sendMail({
-                from: process.env.EMAIL_USER,
-                to: lead.email,
-                subject: template.subject,
-                text: template.body,
-              });
-              sent = true;
+              try {
+                await trans.sendMail({
+                  from: process.env.EMAIL_USER,
+                  to: lead.email,
+                  subject: template.subject,
+                  text: template.body,
+                });
+                sent = true;
+              } catch (smtpErr) {
+                results.sendErrors.push({ email: lead.email, channel: 'smtp_fallback', reason: smtpErr.message });
+              }
             }
           }
         }
 
         if (sent) {
+          results.sent++;
           await pool.query(
             `INSERT INTO client_outreach_log (client_id, email_template, channel, status) VALUES ($1, $2, $3, 'sent')`,
             [lead.id, template.templateId, phoneFound && process.env.UNISENDER_CHANNEL_ID ? 'telegram' : 'email']
