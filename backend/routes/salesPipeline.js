@@ -197,20 +197,34 @@ router.post('/leads/import', requireAuth, requireAdminOrSalesManager, upload.sin
 });
 
 // ————— Ежедневная обработка (cron): new → audit → send —————
+// Для теста только на 2 ящика: ?secret=...&only_emails=info@prime-coder.ru,vladleo2020@gmail.com (остальные 993 не трогаем)
 router.get('/process-daily', async (req, res) => {
-  // Опционально: проверка cron-секрета
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && req.query.secret !== cronSecret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const onlyEmailsRaw = req.query.only_emails;
+  const onlyEmails = onlyEmailsRaw
+    ? onlyEmailsRaw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+    : null;
+
   try {
-    const batchSize = getBatchSize();
+    const batchSize = onlyEmails ? onlyEmails.length : getBatchSize();
     const maxEmails = getMaxEmailsPerRun();
-    const leadsRes = await pool.query(
-      `SELECT id, name, company, website, email FROM clients WHERE pipeline_stage = 'new' ORDER BY created_at ASC LIMIT $1`,
-      [batchSize]
-    );
+    let leadsRes;
+    if (onlyEmails && onlyEmails.length > 0) {
+      // Только указанные email (тест без затрагивания остальной базы)
+      leadsRes = await pool.query(
+        `SELECT id, name, company, website, email FROM clients WHERE LOWER(TRIM(email)) = ANY($1::text[]) AND pipeline_stage = 'new' ORDER BY created_at ASC`,
+        [onlyEmails]
+      );
+    } else {
+      leadsRes = await pool.query(
+        `SELECT id, name, company, website, email FROM clients WHERE pipeline_stage = 'new' ORDER BY created_at ASC LIMIT $1`,
+        [batchSize]
+      );
+    }
     let leads = leadsRes.rows;
     if (maxEmails != null && leads.length > maxEmails) leads = leads.slice(0, maxEmails);
     const results = { processed: 0, errors: [], batchSize, maxEmailsPerRun: maxEmails };
