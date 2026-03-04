@@ -235,6 +235,11 @@ router.get('/process-daily', async (req, res) => {
         leads_count: 0,
         message: 'По указанным only_emails в базе нет лидов с pipeline_stage = \'new\'. Добавьте этих контактов в clients со stage = new.',
         requested_emails: onlyEmails,
+        env_check: {
+          UNISENDER_API_KEY: !!process.env.UNISENDER_API_KEY,
+          SENDER_EMAIL: !!process.env.SENDER_EMAIL,
+          SENDER_NAME: !!process.env.SENDER_NAME,
+        },
       });
     }
     const results = {
@@ -386,6 +391,13 @@ router.get('/process-daily', async (req, res) => {
       }
     }
 
+    if (onlyEmails?.length) {
+      results.env_check = {
+        UNISENDER_API_KEY: !!process.env.UNISENDER_API_KEY,
+        SENDER_EMAIL: !!process.env.SENDER_EMAIL,
+        SENDER_NAME: !!process.env.SENDER_NAME,
+      };
+    }
     res.json(results);
   } catch (e) {
     console.error('[salesPipeline] process-daily', e);
