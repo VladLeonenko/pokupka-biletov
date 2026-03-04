@@ -296,15 +296,63 @@ function fillTemplatePlaceholders(text, vars = {}) {
   return out;
 }
 
+/** Добавить контакт в список UniSender (subscribe). double_optin=3 — без письма подтверждения, сразу в список. */
+export async function subscribeUniSenderContact(email, listId, fields = {}) {
+  const apiKey = process.env.UNISENDER_API_KEY;
+  if (!apiKey || !listId) return { ok: false, reason: 'no_config' };
+  const listIdStr = String(listId).trim();
+  if (!listIdStr) return { ok: false, reason: 'no_list_id' };
+  try {
+    const params = new URLSearchParams();
+    params.set('format', 'json');
+    params.set('api_key', apiKey);
+    params.set('list_ids', listIdStr);
+    params.set('fields[email]', String(email || '').trim());
+    params.set('double_optin', '3');
+    if (fields.Name) params.set('fields[Name]', String(fields.Name).slice(0, 255));
+    if (fields.Name === undefined && fields.name) params.set('fields[Name]', String(fields.name).slice(0, 255));
+    const res = await fetch('https://api.unisender.com/ru/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error('[salesPipeline] subscribe response not JSON:', text?.slice(0, 150));
+      return { ok: false, reason: 'subscribe_response_not_json' };
+    }
+    if (data.error) {
+      const reason = data.code ? `${data.code}: ${data.error}` : data.error;
+      console.error('[salesPipeline] UniSender subscribe error:', reason);
+      return { ok: false, reason };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('[salesPipeline] subscribe failed:', e.message);
+    return { ok: false, reason: e.message };
+  }
+}
+
 /**
- * Отправить email через UniSender: тело из локальных HTML (обход list_id при использовании getTemplate).
+ * Отправить email через UniSender по шаблону из кабинета (getTemplate): загружаем шаблон по ID, подставляем переменные, добавляем контакт в список (subscribe), отправляем (sendEmail).
  * vars: company_name, website, audit_score, audit_summary, personalized_intro, unsubscribe_url и т.д.
  */
 export async function sendUniSenderEmailByTemplate(toEmail, templateKey, senderName, senderEmail, vars = {}) {
-  if (!LOCAL_TEMPLATE_FILES[templateKey]) return { ok: false, reason: 'unknown_template_key' };
-  const tpl = loadLocalHtmlTemplate(templateKey, vars);
-  if (!tpl) return { ok: false, reason: 'local_template_not_found' };
-  return sendUniSenderEmail(toEmail, tpl.subject, tpl.body, senderName, senderEmail);
+  const templateId = UNISENDER_TEMPLATE_IDS[templateKey];
+  if (!templateId) return { ok: false, reason: 'unknown_template_key' };
+  const tpl = await getUniSenderTemplate(templateId);
+  if (!tpl) return { ok: false, reason: 'template_fetch_failed' };
+  const subject = fillTemplatePlaceholders(tpl.subject, vars);
+  const body = fillTemplatePlaceholders(tpl.body, vars);
+  const listId = (process.env.UNISENDER_LIST_ID || '').trim();
+  if (listId) {
+    const sub = await subscribeUniSenderContact(toEmail, listId, { Name: vars.company_name || vars.name || '' });
+    if (!sub.ok) console.warn('[salesPipeline] subscribe before send failed (continuing):', sub.reason);
+  }
+  return sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail);
 }
 
 /** Отправка через UniSender Telegram (если есть api_key и channel_id и телефон). Параметры в теле POST, чтобы длинный text не резал URL. */
@@ -344,15 +392,17 @@ export async function sendUniSenderTelegram(phone, text) {
   }
 }
 
-/** Отправка email через UniSender sendEmail (если есть api_key). Тело POST собираем вручную — только нужные поля, без list_id. */
+/** Отправка email через UniSender sendEmail. Если задан UNISENDER_LIST_ID — передаём list_id; при ошибке "Invalid setting 'list_id'" повторяем без list_id. */
 export async function sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail) {
   const apiKey = process.env.UNISENDER_API_KEY;
   if (!apiKey) return { ok: false, reason: 'no_config' };
   const name = senderName || process.env.SENDER_NAME || 'Команда';
   const from = senderEmail || process.env.SENDER_EMAIL;
   if (!from) return { ok: false, reason: 'no_sender' };
-  try {
-    const bodyStr =
+  const listId = (process.env.UNISENDER_LIST_ID || '').trim();
+
+  function buildBody(withListId) {
+    let s =
       'format=json' +
       '&api_key=' + encodeURIComponent(apiKey) +
       '&email=' + encodeURIComponent(toEmail) +
@@ -360,6 +410,11 @@ export async function sendUniSenderEmail(toEmail, subject, body, senderName, sen
       '&sender_email=' + encodeURIComponent(from) +
       '&subject=' + encodeURIComponent(subject) +
       '&body=' + encodeURIComponent(body);
+    if (withListId && listId) s += '&list_id=' + encodeURIComponent(listId);
+    return s;
+  }
+
+  async function doSend(bodyStr) {
     const res = await fetch('https://api.unisender.com/ru/api/sendEmail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -375,10 +430,19 @@ export async function sendUniSenderEmail(toEmail, subject, body, senderName, sen
     }
     if (data.error) {
       const reason = data.code ? `${data.code}: ${data.error}` : data.error;
-      console.error('[salesPipeline] UniSender Email error:', reason);
       return { ok: false, reason };
     }
     return { ok: true };
+  }
+
+  try {
+    let result = await doSend(buildBody(true));
+    if (!result.ok && result.reason && String(result.reason).includes('list_id') && listId) {
+      console.warn('[salesPipeline] sendEmail с list_id не прошёл, повтор без list_id:', result.reason);
+      result = await doSend(buildBody(false));
+    }
+    if (!result.ok) console.error('[salesPipeline] UniSender Email error:', result.reason);
+    return result;
   } catch (e) {
     console.error('[salesPipeline] UniSender Email request failed:', e.message);
     return { ok: false, reason: e.message };

@@ -48,7 +48,7 @@ node scripts/apply-migrations-to-db.js
 | `SENDER_EMAIL` | да | С какого ящика идут письма (например `sales@yourdomain.com`). |
 | `SENDER_NAME` | да | Имя отправителя (например «Команда PrimeCoder»). |
 | `UNISENDER_CHANNEL_ID` | по желанию | ID Telegram-канала в UniSender (например `398059676`). Если задан и с сайта найден телефон — сначала отправка в Telegram, при неудаче — email. |
-| `UNISENDER_LIST_ID` | нет | Опционально для sendEmail. |
+| `UNISENDER_LIST_ID` | **да** (для sendEmail) | ID списка в UniSender (обязательный параметр sendEmail). Узнать: кабинет UniSender → Списки, либо API [getLists](https://www.unisender.com/ru/support/api/contacts/getlists/). Подставь числовой id любого своего списка. |
 | `NOTIFICATION_EMAIL` | нет | Куда слать уведомление «клиент просит встречу» (если не задан — используется SENDER_EMAIL). |
 | **Запасной канал** | | |
 | `EMAIL_HOST`, `EMAIL_USER`, `EMAIL_PASS` | нет | Если UniSender недоступен или не настроен — fallback на SMTP (nodemailer). Нужны и для уведомлений о встрече. |
@@ -64,9 +64,12 @@ node scripts/apply-migrations-to-db.js
 UNISENDER_API_KEY=твой_ключ_unisender
 SENDER_EMAIL=sales@твой-домен.ru
 SENDER_NAME=Команда PrimeCoder
+UNISENDER_LIST_ID=123
 UNISENDER_CHANNEL_ID=398059676
 CRON_SECRET=длинный_секретный_токен
 ```
+
+ID списка (`UNISENDER_LIST_ID`): в кабинете UniSender → Списки → открой список → в URL или настройках будет id. Либо запрос к API getLists.
 
 ---
 
