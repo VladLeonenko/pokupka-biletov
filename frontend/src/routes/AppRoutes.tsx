@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { LoginPage } from '@/pages/auth/LoginPage';
 import { useAuth } from '@/auth/AuthProvider';
 import { CircularProgress, Box } from '@mui/material';
 
@@ -39,6 +38,7 @@ import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 // Lazy load публичных страниц — не загружаются при первом визите на главную
 const PublicHomePageAI = lazy(() => import('@/pages/public/PublicHomePageAI').then(m => ({ default: m.default })));
+const PublicHomePageAI_Noomo = lazy(() => import('@/pages/public/PublicHomePageAI_Noomo').then(m => ({ default: m.default })));
 const CatalogPage = lazy(() => import('@/pages/public/CatalogPage').then(m => ({ default: m.CatalogPage })));
 const ProductPage = lazy(() => import('@/pages/public/ProductPage').then(m => ({ default: m.ProductPage })));
 const CartPage = lazy(() => import('@/pages/public/CartPage').then(m => ({ default: m.CartPage })));
@@ -85,6 +85,7 @@ const TeamListPage = lazy(() => import('@/pages/team/TeamListPage'));
 const TeamEditorPage = lazy(() => import('@/pages/team/TeamEditorPage'));
 const SubscribersPage = lazy(() => import('@/pages/email/SubscribersPage'));
 const CampaignsPage = lazy(() => import('@/pages/email/CampaignsPage'));
+const SalesPipelinePage = lazy(() => import('@/pages/sales/SalesPipelinePage').then(m => ({ default: m.default })));
 const SitesListPage = lazy(() => import('@/pages/sites/SitesListPage'));
 const SiteDetailPage = lazy(() => import('@/pages/sites/SiteDetailPage'));
 const SitePageEditorPage = lazy(() => import('@/pages/sites/SitePageEditorPage'));
@@ -167,6 +168,7 @@ export function AppRoutes() {
       {/* Public routes - must come before admin routes */}
       <Route path="/" element={<HomePage />} />
       <Route path="/ai-team" element={<PublicHomePageAI />} />
+      <Route path="/ai-team-v2" element={<PublicHomePageAI_Noomo />} />
       <Route path="/catalog" element={<CatalogPage />} />
       <Route path="/products/:slug" element={<ProductPage />} />
       <Route path="/cart" element={<CartPage />} />
@@ -255,6 +257,7 @@ export function AppRoutes() {
       <Route path="/admin/team/:id" element={<ProtectedAdmin><TeamEditorPage /></ProtectedAdmin>} />
       <Route path="/admin/email/subscribers" element={<Protected><SubscribersPage /></Protected>} />
       <Route path="/admin/email/campaigns" element={<Protected><CampaignsPage /></Protected>} />
+      <Route path="/admin/sales-pipeline" element={<Protected><SalesPipelinePage /></Protected>} />
       <Route path="/admin/sites" element={<ProtectedAdmin><SitesListPage /></ProtectedAdmin>} />
       <Route path="/admin/sites/:siteId" element={<ProtectedAdmin><SiteDetailPage /></ProtectedAdmin>} />
       <Route path="/admin/sites/:siteId/pages/:pageId" element={<ProtectedAdmin><SitePageEditorPage /></ProtectedAdmin>} />

@@ -30,6 +30,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import SchoolIcon from '@mui/icons-material/School';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import CampaignIcon from '@mui/icons-material/Campaign';
 import { NotificationsBell } from '@/components/common/NotificationsBell';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -64,6 +65,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Команда', icon: <PeopleIcon />, path: '/admin/team', roles: ['admin'] },
   { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins', roles: ['admin'] },
   { label: 'Email-рассылки', icon: <EmailIcon />, path: '/admin/email/subscribers', roles: ['admin', 'sales_manager'] },
+  { label: 'Пайплайн лидов', icon: <CampaignIcon />, path: '/admin/sales-pipeline', roles: ['admin', 'sales_manager'] },
   { label: 'Мульти-сайты', icon: <LanguageIcon />, path: '/admin/sites', roles: ['admin'] },
   { label: 'Изображения', icon: <ImageIcon />, path: '/admin/exercise-images', roles: ['admin'] },
 ];

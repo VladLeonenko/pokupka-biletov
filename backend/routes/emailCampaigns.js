@@ -72,6 +72,8 @@ router.get('/subscribers', requireAuth, async (req, res) => {
     query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, offset);
 
+    const result = await pool.query(query, params);
+
     const countWhere = [];
     if (req.user?.role === 'sales_manager') countWhere.push(`managed_by = ${req.user.id}`);
     if (status) countWhere.push(`status = '${status.replace(/'/g, "''")}'`);
