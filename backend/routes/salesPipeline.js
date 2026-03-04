@@ -93,7 +93,9 @@ router.get('/leads', requireAuth, async (req, res) => {
     });
   } catch (e) {
     console.error('[salesPipeline] GET /leads', e);
-    res.status(500).json({ error: 'Ошибка загрузки лидов' });
+    const msg = e.message || 'Ошибка загрузки лидов';
+    const hint = msg.includes('pipeline_stage') || msg.includes('column') ? ' Выполните на сервере: node scripts/apply-migrations-to-db.js' : '';
+    res.status(500).json({ error: msg + hint });
   }
 });
 
@@ -170,10 +172,11 @@ router.post('/leads/import', requireAuth, requireAdminOrSalesManager, upload.sin
         imported++;
         continue;
       }
+      // Минимальный набор колонок: на проде могут отсутствовать assigned_to/created_by (миграции под другим владельцем)
       await pool.query(
-        `INSERT INTO clients (name, company, email, phone, website, source, status, pipeline_stage, assigned_to, created_by)
-         VALUES ($1, $2, $3, $4, $5, 'import', 'lead', 'new', $6, $7)`,
-        [row.name, row.company, row.email, row.phone || null, row.website || null, req.user?.id || null, req.user?.id || null]
+        `INSERT INTO clients (name, company, email, phone, website, source, status, pipeline_stage)
+         VALUES ($1, $2, $3, $4, $5, 'import', 'lead', 'new')`,
+        [row.name, row.company, row.email, row.phone || null, row.website || null]
       );
       imported++;
     }
@@ -181,7 +184,9 @@ router.post('/leads/import', requireAuth, requireAdminOrSalesManager, upload.sin
     res.json({ imported, total: toInsert.length });
   } catch (e) {
     console.error('[salesPipeline] POST /leads/import', e);
-    res.status(500).json({ error: 'Ошибка импорта' });
+    const msg = e.message || String(e) || 'Ошибка импорта';
+    const hint = msg.includes('pipeline_stage') || msg.includes('column') ? ' Выполните миграцию 064 под postgres: sudo -u postgres psql -d primecoder_prod -f backend/migrations/064_sales_pipeline_from_clients.sql' : '';
+    res.status(500).json({ error: msg + hint, code: e.code });
   }
 });
 
