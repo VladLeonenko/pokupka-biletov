@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Paper,
   Table,
@@ -25,8 +23,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
 } from '@mui/material';
-import { Upload, Campaign } from '@mui/icons-material';
+import { Upload, Campaign, AccountTree, Terminal } from '@mui/icons-material';
+import PipelineDiagram from '@/components/sales/PipelineDiagram';
 import { listPipelineLeads, importPipelineLeads, PipelineLead } from '@/services/salesPipelineApi';
 import { useToast } from '@/components/common/ToastProvider';
 
@@ -40,6 +43,9 @@ const STAGE_LABELS: Record<string, string> = {
   meeting_scheduled: 'Встреча назначена',
 };
 
+const TAB_LIST = 0;
+const TAB_SCHEMA = 1;
+
 export default function SalesPipelinePage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
@@ -47,6 +53,7 @@ export default function SalesPipelinePage() {
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -93,6 +100,62 @@ export default function SalesPipelinePage() {
         </Button>
       </Box>
 
+      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+        <Tab icon={<Campaign />} iconPosition="start" label="Лиды" value={TAB_LIST} />
+        <Tab icon={<AccountTree />} iconPosition="start" label="Схема и команды" value={TAB_SCHEMA} />
+      </Tabs>
+
+      {activeTab === TAB_SCHEMA && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+          <PipelineDiagram />
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Terminal /> Команды для настройки
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Cron (ежедневный запуск обработки). Подставь свой домен и CRON_SECRET из .env:
+              </Typography>
+              <Box
+                component="pre"
+                sx={{
+                  p: 1.5,
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                  overflow: 'auto',
+                  fontSize: '0.8rem',
+                  fontFamily: 'monospace',
+                }}
+              >
+                {`0 9 * * * curl -s "https://prime-coder.ru/api/sales-pipeline/process-daily?secret=ТВОЙ_CRON_SECRET"`}
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 0.5 }}>
+                Обработка ответа клиента (JWT — токен админа/менеджера):
+              </Typography>
+              <Box
+                component="pre"
+                sx={{
+                  p: 1.5,
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                  overflow: 'auto',
+                  fontSize: '0.8rem',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {`curl -X POST "https://prime-coder.ru/api/sales-pipeline/process-reply" \\
+  -H "Authorization: Bearer <JWT>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"fromEmail":"email@клиента","subject":"Re: ...","text":"Готов обсудить, запишите на встречу"}'`}
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
+
+      {activeTab === TAB_LIST && (
+        <>
       <Alert severity="info" sx={{ mb: 2 }}>
         Лиды из пайплайна — это клиенты с заполненным этапом (new → audited → email_sent → …). Импорт добавляет строки в базу клиентов и помечает их для ежедневной обработки (аудит сайта, отправка через UniSender). Запуск по расписанию — cron на сервере вызывает <code>GET /api/sales-pipeline/process-daily</code>.
       </Alert>

@@ -280,3 +280,68 @@ next_action ("ready_to_meet" | "no_interest" | "follow_up_later" | "questions").
     next_action: ['ready_to_meet', 'no_interest', 'follow_up_later', 'questions'].includes(out.next_action) ? out.next_action : 'follow_up_later',
   };
 }
+
+/**
+ * Контекст для менеджера переписки: клиент + услуги/цены (только из контекста — AI не выдумывает цифры).
+ * @typedef {Object} CorrespondenceContext
+ * @property {string} clientName
+ * @property {string} company
+ * @property {object} [auditSummary] — результат аудита сайта (если был)
+ * @property {Array<{title: string, priceFormatted: string}>} [services] — услуги с ценами в рублях (например из products)
+ */
+
+/**
+ * Полноценный менеджер переписки: анализ по смыслу, предложение услуги, апсейл, корректные цены и даты.
+ * Определяет намерение (встреча/предложение/интерес/отказ), формирует черновик ответа для info@ или Telegram.
+ */
+export async function analyzeClientResponseWithProposal(context, emailText) {
+  const { clientName = '', company = '', auditSummary = {}, services = [] } = context;
+  const servicesBlock =
+    services.length > 0
+      ? `\nУслуги и цены (указывать ТОЛЬКО эти, не выдумывать):\n${services.map((s) => `- ${s.title}: ${s.priceFormatted}`).join('\n')}`
+      : '\nКонкретных цен в базе нет — в предложении не указывай суммы, пиши «обсуждается индивидуально» или «назначим созвон и рассчитаем под вашу задачу».';
+
+  const system = `Ты менеджер по продажам PrimeCoder. Общение с клиентами ведётся с почты info@prime-coder.ru или через Telegram. Твоя задача: понять ответ по смыслу (не по одной фразе), предложить нужную услугу, при необходимости апсейл, не ошибиться в стоимости и датах.
+
+Правила:
+- Определяй намерение по смыслу: «давайте обсудим», «интересует», «напишите когда удобно», «готовы рассмотреть» и т.п. = готовность к встрече/обсуждению (meeting_ready: true).
+- Цены и даты указывай ТОЛЬКО из переданного контекста. Если контекста нет — не называй цифры.
+- Черновик ответа (proposal_draft) — готовое письмо/сообщение: приветствие, суть предложения, призыв к действию (созвон/встреча). Тон: экспертный, дружелюбный, без воды.
+- Если у клиента явный интерес — предложи подходящую услугу из списка и при необходимости доп. опции (апсейл).
+${servicesBlock}
+
+Верни строго JSON:
+intent ("wants_meeting" | "wants_offer" | "interested" | "no_interest" | "follow_up_later" | "questions"),
+meeting_ready (boolean — по смыслу готов к встрече/созвону),
+interest_level ("high" | "medium" | "low"),
+is_qualified (boolean),
+suggested_response (краткая рекомендация менеджеру: что сделать),
+proposal_draft (string — полный черновик ответа клиенту для отправки с info@ или в Telegram),
+suggested_services (array of strings — какие услуги из контекста предложить, или пустой массив),
+upsell_note (string — что предложить дополнительно, или пустая строка),
+next_action ("ready_to_meet" | "no_interest" | "follow_up_later" | "questions").`;
+
+  const userContent = `Клиент: ${clientName || '—'}, компания: ${company || '—'}.
+${auditSummary && Object.keys(auditSummary).length ? `Кратко из аудита: ${JSON.stringify(auditSummary).slice(0, 500)}` : ''}
+
+Ответ клиента:
+${emailText}`;
+
+  const out = await callOpenAIStructured(system, userContent, { model: 'gpt-4o', temperature: 0.25 });
+  if (!out) return null;
+
+  const nextAction = ['ready_to_meet', 'no_interest', 'follow_up_later', 'questions'].includes(out.next_action) ? out.next_action : 'follow_up_later';
+  const meetingReady = Boolean(out.meeting_ready) || nextAction === 'ready_to_meet';
+
+  return {
+    intent: ['wants_meeting', 'wants_offer', 'interested', 'no_interest', 'follow_up_later', 'questions'].includes(out.intent) ? out.intent : 'interested',
+    meeting_ready: meetingReady,
+    interest_level: ['high', 'medium', 'low'].includes(out.interest_level) ? out.interest_level : 'medium',
+    is_qualified: Boolean(out.is_qualified),
+    suggested_response: String(out.suggested_response || ''),
+    proposal_draft: String(out.proposal_draft || ''),
+    suggested_services: Array.isArray(out.suggested_services) ? out.suggested_services : [],
+    upsell_note: String(out.upsell_note || ''),
+    next_action: nextAction,
+  };
+}

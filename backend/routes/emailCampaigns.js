@@ -125,6 +125,16 @@ router.post('/subscribers', requireAuth, async (req, res) => {
   }
 });
 
+// Нормализация ключей строки CSV (BOM, пробелы) для импорта из Google Sheets и др.
+function normalizeCsvRow(row) {
+  const o = {};
+  for (const k of Object.keys(row)) {
+    const key = (k && k.replace && k.replace(/^\uFEFF/, '').trim()) || k;
+    o[key] = row[k];
+  }
+  return o;
+}
+
 // Импорт подписчиков из CSV
 router.post('/subscribers/import', requireAuth, upload.single('file'), async (req, res) => {
   try {
@@ -132,48 +142,51 @@ router.post('/subscribers/import', requireAuth, upload.single('file'), async (re
       return res.status(400).json({ error: 'Файл не загружен' });
     }
 
-    const results = [];
-    const errors = [];
-    const stream = Readable.from(req.file.buffer.toString());
-
+    const raw = req.file.buffer.toString('utf-8').replace(/^\uFEFF/, '');
+    const separator = raw.indexOf(';') !== -1 ? ';' : ',';
+    const rows = [];
     await new Promise((resolve, reject) => {
-      stream
-        .pipe(csv())
-        .on('data', async (row) => {
-          try {
-            const email = row.email || row.Email || row.EMAIL;
-            if (!email) {
-              errors.push({ row, error: 'Email не найден' });
-              return;
-            }
-
-            const name = row.name || row.Name || row.NAME || null;
-            const phone = row.phone || row.Phone || row.PHONE || null;
-            const tags = row.tags ? row.tags.split(',').map(t => t.trim()) : [];
-
-            const managedBy = req.user?.role === 'sales_manager' ? req.user.id : null;
-            const result = await pool.query(
-              `INSERT INTO email_subscribers (email, name, phone, tags, managed_by)
-               VALUES ($1, $2, $3, $4, $5)
-               ON CONFLICT (email) DO UPDATE SET
-                 name = COALESCE(EXCLUDED.name, email_subscribers.name),
-                 phone = COALESCE(EXCLUDED.phone, email_subscribers.phone),
-                 tags = COALESCE(EXCLUDED.tags, email_subscribers.tags),
-                 managed_by = COALESCE(EXCLUDED.managed_by, email_subscribers.managed_by),
-                 status = 'active',
-                 updated_at = NOW()
-               RETURNING *`,
-              [email, name, phone, tags, managedBy]
-            );
-
-            results.push(result.rows[0]);
-          } catch (error) {
-            errors.push({ row, error: error.message });
-          }
-        })
+      Readable.from([raw])
+        .pipe(csv({ separator }))
+        .on('data', (row) => rows.push(row))
         .on('end', resolve)
         .on('error', reject);
     });
+
+    const results = [];
+    const errors = [];
+    const managedBy = req.user?.role === 'sales_manager' ? req.user.id : null;
+
+    for (const row of rows) {
+      const r = normalizeCsvRow(row);
+      const email = (r.email || r.Email || r.EMAIL || '').trim();
+      if (!email) {
+        errors.push({ row: r, error: 'Email не найден' });
+        continue;
+      }
+      const name = (r.name || r.Name || r.NAME || r.ФИО || '').trim() || null;
+      const phone = (r.phone || r.Phone || r.PHONE || r.tel || '').trim() || null;
+      const tags = (r.tags && String(r.tags).split(',').map(t => t.trim()).filter(Boolean)) || [];
+
+      try {
+        const result = await pool.query(
+          `INSERT INTO email_subscribers (email, name, phone, tags, managed_by)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (email) DO UPDATE SET
+             name = COALESCE(EXCLUDED.name, email_subscribers.name),
+             phone = COALESCE(EXCLUDED.phone, email_subscribers.phone),
+             tags = COALESCE(EXCLUDED.tags, email_subscribers.tags),
+             managed_by = COALESCE(EXCLUDED.managed_by, email_subscribers.managed_by),
+             status = 'active',
+             updated_at = NOW()
+           RETURNING *`,
+          [email, name, phone, tags, managedBy]
+        );
+        results.push(result.rows[0]);
+      } catch (err) {
+        errors.push({ row: r, error: err.message });
+      }
+    }
 
     res.json({
       imported: results.length,

@@ -20,6 +20,7 @@ import {
   sendUniSenderTelegram,
   sendUniSenderEmail,
   analyzeClientResponse,
+  analyzeClientResponseWithProposal,
   isCorporateEmail,
   deriveWebsiteFromEmail,
   pickPrimaryEmail,
@@ -352,7 +353,7 @@ router.post('/process-reply', requireAuth, requireAdminOrSalesManager, async (re
     }
 
     const clientRes = await pool.query(
-      'SELECT id, company, name, email FROM clients WHERE LOWER(email) = LOWER($1) AND pipeline_stage IS NOT NULL LIMIT 1',
+      'SELECT id, company, name, email, audit_summary FROM clients WHERE LOWER(email) = LOWER($1) AND pipeline_stage IS NOT NULL LIMIT 1',
       [email]
     );
     if (clientRes.rows.length === 0) {
@@ -365,9 +366,34 @@ router.post('/process-reply', requireAuth, requireAdminOrSalesManager, async (re
       [client.id, email, subject || '', messageText]
     );
 
-    const analysis = await analyzeClientResponse(messageText);
+    // Контекст для менеджера переписки: услуги с ценами из products (чтобы не ошибаться в стоимости)
+    let servicesForContext = [];
+    try {
+      const productsRes = await pool.query(
+        `SELECT title, price_cents FROM products WHERE price_cents IS NOT NULL AND price_cents > 0 ORDER BY title ASC LIMIT 20`
+      );
+      servicesForContext = productsRes.rows.map((p) => ({
+        title: p.title || '',
+        priceFormatted: p.price_cents != null ? `${Math.round(Number(p.price_cents) / 100).toLocaleString('ru-RU')} ₽` : 'по запросу',
+      }));
+    } catch (_) {
+      // products может отсутствовать или другая схема
+    }
+
+    const context = {
+      clientName: client.name || '',
+      company: client.company || '',
+      auditSummary: client.audit_summary && typeof client.audit_summary === 'object' ? client.audit_summary : {},
+      services: servicesForContext,
+    };
+    let analysis = await analyzeClientResponseWithProposal(context, messageText);
     if (!analysis) {
-      return res.status(500).json({ error: 'Не удалось проанализировать ответ (OpenAI)' });
+      analysis = await analyzeClientResponse(messageText);
+      if (!analysis) return res.status(500).json({ error: 'Не удалось проанализировать ответ (OpenAI)' });
+      analysis.proposal_draft = analysis.suggested_response || '';
+      analysis.suggested_services = [];
+      analysis.upsell_note = '';
+      analysis.intent = analysis.next_action === 'ready_to_meet' ? 'wants_meeting' : analysis.next_action === 'no_interest' ? 'no_interest' : 'interested';
     }
 
     let newStage = 'replied';
@@ -379,15 +405,47 @@ router.post('/process-reply', requireAuth, requireAdminOrSalesManager, async (re
       [newStage, client.id]
     );
 
+    let meetingId = null;
+    if (analysis.next_action === 'ready_to_meet' || analysis.meeting_ready) {
+      const meetingRes = await pool.query(
+        `INSERT INTO client_meetings (client_id, meeting_status) VALUES ($1, 'scheduled') RETURNING id`,
+        [client.id]
+      );
+      meetingId = meetingRes.rows[0]?.id;
+      await pool.query(
+        `UPDATE clients SET pipeline_stage = 'meeting_scheduled' WHERE id = $1`,
+        [client.id]
+      );
+      const notifyTo = process.env.NOTIFICATION_EMAIL || process.env.SENDER_EMAIL;
+      if (notifyTo) {
+        const trans = getEmailTransporter();
+        if (trans) {
+          const clientName = client.name || client.company || client.email;
+          const proposalBlock = analysis.proposal_draft ? `\n\nЧерновик ответа (отправить с info@ или в Telegram):\n---\n${analysis.proposal_draft}\n---` : '';
+          await trans.sendMail({
+            from: process.env.EMAIL_USER || process.env.SENDER_EMAIL,
+            to: notifyTo,
+            subject: `[Пайплайн] Клиент просит встречу: ${clientName}`,
+            text: `Клиент в пайплайне попросил записать на встречу.\n\nКлиент: ${clientName}\nEmail: ${client.email}\nКомпания: ${client.company || '—'}\n\nОтвет клиента:\n${messageText}\n\nРекомендация: ${analysis.suggested_response || '—'}${proposalBlock}\n\nСоздана запись о встрече (client_meetings). Запланируйте встречу в календаре и при необходимости добавьте zoom_link в карточку клиента.`,
+          }).catch((err) => console.error('[salesPipeline] notification email failed', err));
+        }
+      }
+    }
+
     res.json({
       clientId: client.id,
       stage: newStage,
+      meetingId,
       analysis: {
         is_qualified: analysis.is_qualified,
         interest_level: analysis.interest_level,
         meeting_ready: analysis.meeting_ready,
         suggested_response: analysis.suggested_response,
         next_action: analysis.next_action,
+        intent: analysis.intent,
+        proposal_draft: analysis.proposal_draft,
+        suggested_services: analysis.suggested_services,
+        upsell_note: analysis.upsell_note,
       },
     });
   } catch (e) {
