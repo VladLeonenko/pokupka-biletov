@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box,
@@ -31,7 +31,7 @@ import {
   IconButton,
   TextField,
 } from '@mui/material';
-import { Upload, Campaign, AccountTree, Terminal, Edit, Delete, Send, PersonAdd } from '@mui/icons-material';
+import { Upload, Campaign, AccountTree, Terminal, Edit, Delete, Send, PersonAdd, Email } from '@mui/icons-material';
 import PipelineDiagram from '@/components/sales/PipelineDiagram';
 import {
   listPipelineLeads,
@@ -42,6 +42,9 @@ import {
   massDeletePipelineLeads,
   sendNowPipelineLead,
   getPipelineSettings,
+  updatePipelineSettings,
+  getPipelineTemplates,
+  getPipelineTemplatePreview,
   PipelineLead,
 } from '@/services/salesPipelineApi';
 import { useToast } from '@/components/common/ToastProvider';
@@ -58,6 +61,7 @@ const STAGE_LABELS: Record<string, string> = {
 
 const TAB_LIST = 0;
 const TAB_SCHEMA = 1;
+const TAB_TEMPLATES = 2;
 
 export default function SalesPipelinePage() {
   const [page, setPage] = useState(1);
@@ -72,6 +76,8 @@ export default function SalesPipelinePage() {
   const [editLead, setEditLead] = useState<PipelineLead | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', company: '', email: '', phone: '', website: '' });
+  const [templatePreviewKey, setTemplatePreviewKey] = useState<string>('high');
+  const [settingsForm, setSettingsForm] = useState({ batchSize: 10, maxEmailsPerRun: '' as string | number, preferredCronExpression: '0 9 * * *' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -162,6 +168,43 @@ export default function SalesPipelinePage() {
     enabled: activeTab === TAB_SCHEMA,
   });
 
+  // Синхронизировать форму настроек при загрузке
+  useEffect(() => {
+    if (settings) {
+      setSettingsForm({
+        batchSize: settings.batchSize,
+        maxEmailsPerRun: settings.maxEmailsPerRun ?? '',
+        preferredCronExpression: settings.preferredCronExpression ?? '0 9 * * *',
+      });
+    }
+  }, [settings]);
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: updatePipelineSettings,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['sales-pipeline-settings'] });
+      setSettingsForm({
+        batchSize: data.batchSize,
+        maxEmailsPerRun: data.maxEmailsPerRun ?? '',
+        preferredCronExpression: data.preferredCronExpression ?? '0 9 * * *',
+      });
+      showToast('Настройки сохранены', 'success');
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+
+  const { data: templates } = useQuery({
+    queryKey: ['sales-pipeline-templates'],
+    queryFn: getPipelineTemplates,
+    enabled: activeTab === TAB_TEMPLATES,
+  });
+
+  const { data: templatePreview, isLoading: templatePreviewLoading } = useQuery({
+    queryKey: ['sales-pipeline-template-preview', templatePreviewKey],
+    queryFn: () => getPipelineTemplatePreview(templatePreviewKey),
+    enabled: activeTab === TAB_TEMPLATES && !!templatePreviewKey,
+  });
+
   const handleImport = () => {
     if (!importFile) return;
     importMutation.mutate(importFile);
@@ -238,6 +281,7 @@ export default function SalesPipelinePage() {
       <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
         <Tab icon={<Campaign />} iconPosition="start" label="Лиды" value={TAB_LIST} />
         <Tab icon={<AccountTree />} iconPosition="start" label="Схема и команды" value={TAB_SCHEMA} />
+        <Tab icon={<Email />} iconPosition="start" label="Шаблоны писем" value={TAB_TEMPLATES} />
       </Tabs>
 
       {activeTab === TAB_SCHEMA && (
@@ -246,16 +290,56 @@ export default function SalesPipelinePage() {
           {settings && (
             <Card variant="outlined">
               <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                   Настройки рассылки
                 </Typography>
-                <Typography variant="body2">
-                  За один запуск: до {settings.batchSize} лидов
+                <Box component="form" sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-end', mt: 1 }}>
+                  <TextField
+                    label="Лидов за запуск"
+                    type="number"
+                    size="small"
+                    value={settingsForm.batchSize}
+                    onChange={(e) => setSettingsForm((f) => ({ ...f, batchSize: Math.min(500, Math.max(1, parseInt(e.target.value, 10) || 10)) }))}
+                    inputProps={{ min: 1, max: 500 }}
+                    sx={{ width: 140 }}
+                  />
+                  <TextField
+                    label="Макс. писем за запуск"
+                    type="number"
+                    size="small"
+                    placeholder="Не ограничено"
+                    value={settingsForm.maxEmailsPerRun === '' ? '' : settingsForm.maxEmailsPerRun}
+                    onChange={(e) => setSettingsForm((f) => ({ ...f, maxEmailsPerRun: e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 0) }))}
+                    inputProps={{ min: 1 }}
+                    sx={{ width: 180 }}
+                  />
+                  <TextField
+                    label="Cron (время запуска)"
+                    size="small"
+                    placeholder="0 9 * * *"
+                    value={settingsForm.preferredCronExpression}
+                    onChange={(e) => setSettingsForm((f) => ({ ...f, preferredCronExpression: e.target.value }))}
+                    helperText="Рекомендуемое время. Реальный запуск — в crontab на сервере."
+                    sx={{ minWidth: 160 }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={() =>
+                      updateSettingsMutation.mutate({
+                        batchSize: settingsForm.batchSize,
+                        maxEmailsPerRun: settingsForm.maxEmailsPerRun === '' ? null : Number(settingsForm.maxEmailsPerRun),
+                        preferredCronExpression: settingsForm.preferredCronExpression || undefined,
+                      })
+                    }
+                    disabled={updateSettingsMutation.isPending}
+                  >
+                    {updateSettingsMutation.isPending ? <CircularProgress size={20} /> : 'Сохранить'}
+                  </Button>
+                </Box>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                  Сейчас за запуск: до {settings.batchSize} лидов
                   {settings.maxEmailsPerRun != null && `, макс. писем: ${settings.maxEmailsPerRun}`}.
-                  Cron: {settings.cronSecretSet ? 'настроен' : 'CRON_SECRET не задан'}.
-                </Typography>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                  Изменить: SALES_PIPELINE_BATCH_SIZE, SALES_PIPELINE_MAX_EMAILS_PER_RUN в .env на сервере.
+                  Cron-секрет: {settings.cronSecretSet ? 'задан' : 'не задан'}.
                 </Typography>
               </CardContent>
             </Card>
@@ -279,7 +363,7 @@ export default function SalesPipelinePage() {
                   fontFamily: 'monospace',
                 }}
               >
-                {`0 9 * * * curl -s "https://prime-coder.ru/api/sales-pipeline/process-daily?secret=ТВОЙ_CRON_SECRET"`}
+                {`${settings.preferredCronExpression || '0 9 * * *'} curl -s "https://prime-coder.ru/api/sales-pipeline/process-daily?secret=ТВОЙ_CRON_SECRET"`}
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 0.5 }}>
                 Обработка ответа клиента (JWT — токен админа/менеджера):
@@ -303,6 +387,54 @@ export default function SalesPipelinePage() {
               </Box>
             </CardContent>
           </Card>
+        </Box>
+      )}
+
+      {activeTab === TAB_TEMPLATES && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Превью шаблонов с подставленными демо-данными (как увидит получатель). Источник — локальные HTML в backend/email-templates/sales/.
+          </Typography>
+          <FormControl size="small" sx={{ minWidth: 280 }}>
+            <InputLabel>Шаблон</InputLabel>
+            <Select
+              value={templatePreviewKey}
+              label="Шаблон"
+              onChange={(e) => setTemplatePreviewKey(e.target.value)}
+            >
+              {(templates ?? []).map((t) => (
+                <MenuItem key={t.key} value={t.key}>
+                  {t.name} (ID: {t.templateId})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {templatePreview && (
+            <>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Тема: {templatePreview.subject}
+              </Typography>
+              <Paper variant="outlined" sx={{ overflow: 'hidden', minHeight: 400 }}>
+                {templatePreviewLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <iframe
+                    title={`Превью ${templatePreviewKey}`}
+                    srcDoc={templatePreview.html}
+                    style={{
+                      width: '100%',
+                      minHeight: 500,
+                      border: 'none',
+                      display: 'block',
+                    }}
+                    sandbox="allow-same-origin"
+                  />
+                )}
+              </Paper>
+            </>
+          )}
         </Box>
       )}
 

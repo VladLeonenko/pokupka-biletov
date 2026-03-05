@@ -102,6 +102,7 @@ const MIGRATION_FILES = [
   '062_training_course_cover.sql',
   '063_cold_leads_pipeline.sql',
   '064_sales_pipeline_from_clients.sql',
+  '065_pipeline_settings.sql',
 ];
 
 async function applyMigration(filename) {

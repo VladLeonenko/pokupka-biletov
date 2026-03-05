@@ -51,6 +51,29 @@ export const UNISENDER_TEMPLATE_IDS = {
   basic: 7403430,
 };
 
+/** Список шаблонов для админки (превью). */
+export const TEMPLATE_LIST = [
+  { key: 'high', name: 'Высокий потенциал', templateId: UNISENDER_TEMPLATE_IDS.high },
+  { key: 'medium', name: 'Средний потенциал', templateId: UNISENDER_TEMPLATE_IDS.medium },
+  { key: 'low', name: 'Низкий потенциал', templateId: UNISENDER_TEMPLATE_IDS.low },
+  { key: 'basic', name: 'Без аудита (личная почта)', templateId: UNISENDER_TEMPLATE_IDS.basic },
+];
+
+const DEMO_VARS = {
+  company_name: 'Пример компании',
+  name: 'Иван Петров',
+  website: 'https://example.com',
+  audit_score: 65,
+  audit_summary: 'Краткое резюме аудита: сильный контент, слабое SEO — рекомендуем продвижение.',
+  personalized_intro: 'Мы проанализировали ваш сайт и видим потенциал для роста трафика и конверсии.',
+  unsubscribe_url: '#',
+};
+
+/** Превью шаблона с подставленными демо-значениями (для админки). */
+export function getTemplatePreview(templateKey) {
+  return loadLocalHtmlTemplate(templateKey, DEMO_VARS);
+}
+
 /** Домены личной почты (не корпоративной). */
 const PERSONAL_EMAIL_DOMAINS = new Set([
   'gmail.com', 'googlemail.com', 'yandex.ru', 'ya.ru', 'yandex.com', 'mail.ru', 'bk.ru', 'inbox.ru',

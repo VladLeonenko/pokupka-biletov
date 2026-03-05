@@ -30,6 +30,8 @@ import {
   isCorporateEmail,
   deriveWebsiteFromEmail,
   pickPrimaryEmail,
+  TEMPLATE_LIST,
+  getTemplatePreview,
 } from '../services/salesPipelineService.js';
 
 const UNSUBSCRIBE_URL_DEFAULT = 'https://prime-coder.ru/#contacts';
@@ -37,13 +39,39 @@ const UNSUBSCRIBE_URL_DEFAULT = 'https://prime-coder.ru/#contacts';
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-function getBatchSize() {
+function getBatchSizeEnv() {
   const n = parseInt(process.env.SALES_PIPELINE_BATCH_SIZE, 10);
-  return Number.isFinite(n) && n >= 1 && n <= 200 ? n : 10;
+  return Number.isFinite(n) && n >= 1 && n <= 500 ? n : 10;
 }
-function getMaxEmailsPerRun() {
+function getMaxEmailsPerRunEnv() {
   const n = parseInt(process.env.SALES_PIPELINE_MAX_EMAILS_PER_RUN, 10);
   return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+/** Настройки из БД (если есть запись), иначе из env. */
+async function getPipelineSettingsFromDb() {
+  try {
+    const r = await pool.query(
+      'SELECT batch_size, max_emails_per_run, preferred_cron_expression FROM pipeline_settings WHERE id = 1'
+    );
+    if (r.rows.length > 0) {
+      const row = r.rows[0];
+      const batchSize = Math.min(500, Math.max(1, parseInt(row.batch_size, 10) || 10));
+      const maxPerRun = row.max_emails_per_run != null ? Math.max(1, parseInt(row.max_emails_per_run, 10)) : null;
+      return {
+        batchSize,
+        maxEmailsPerRun: maxPerRun,
+        preferredCronExpression: String(row.preferred_cron_expression || '0 9 * * *').trim(),
+      };
+    }
+  } catch (e) {
+    // таблица может отсутствовать до миграции
+  }
+  return {
+    batchSize: getBatchSizeEnv(),
+    maxEmailsPerRun: getMaxEmailsPerRunEnv(),
+    preferredCronExpression: '0 9 * * *',
+  };
 }
 
 function getEmailTransporter() {
@@ -213,8 +241,9 @@ router.get('/process-daily', async (req, res) => {
     : null;
 
   try {
-    const batchSize = onlyEmails ? onlyEmails.length : getBatchSize();
-    const maxEmails = getMaxEmailsPerRun();
+    const settings = await getPipelineSettingsFromDb();
+    const batchSize = onlyEmails ? onlyEmails.length : settings.batchSize;
+    const maxEmails = settings.maxEmailsPerRun;
     let leadsRes;
     if (onlyEmails && onlyEmails.length > 0) {
       // Только указанные email (тест без затрагивания остальной базы)
@@ -573,6 +602,19 @@ router.post('/process-reply', requireAuth, requireAdminOrSalesManager, async (re
   }
 });
 
+// ————— Список шаблонов писем (для админки) —————
+router.get('/templates', requireAuth, async (req, res) => {
+  res.json(TEMPLATE_LIST);
+});
+
+// ————— Превью шаблона (HTML с демо-переменными) —————
+router.get('/templates/preview/:key', requireAuth, async (req, res) => {
+  const { key } = req.params;
+  const preview = getTemplatePreview(key);
+  if (!preview) return res.status(404).json({ error: 'Шаблон не найден' });
+  res.json({ subject: preview.subject, html: preview.body });
+});
+
 // ————— Один лид (клиент) по id (для UI) —————
 router.get('/leads/:id', requireAuth, async (req, res) => {
   try {
@@ -736,15 +778,60 @@ router.post('/leads/:id/send-now', requireAuth, requireAdminOrSalesManager, asyn
   }
 });
 
-// ————— Настройки рассылки (для отображения в админке) —————
+// ————— Настройки рассылки (чтение из БД или env) —————
 router.get('/settings', requireAuth, async (req, res) => {
-  const batchSize = getBatchSize();
-  const maxPerRun = getMaxEmailsPerRun();
-  res.json({
-    batchSize,
-    maxEmailsPerRun: maxPerRun,
-    cronSecretSet: !!process.env.CRON_SECRET,
-  });
+  try {
+    const s = await getPipelineSettingsFromDb();
+    res.json({
+      batchSize: s.batchSize,
+      maxEmailsPerRun: s.maxEmailsPerRun,
+      preferredCronExpression: s.preferredCronExpression,
+      cronSecretSet: !!process.env.CRON_SECRET,
+    });
+  } catch (e) {
+    console.error('[salesPipeline] GET /settings', e);
+    res.status(500).json({ error: 'Ошибка загрузки настроек' });
+  }
+});
+
+// ————— Обновить настройки рассылки (batch size, время cron) —————
+router.patch('/settings', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { batchSize, maxEmailsPerRun, preferredCronExpression } = req.body || {};
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (batchSize !== undefined) {
+      const n = Math.min(500, Math.max(1, parseInt(batchSize, 10) || 10));
+      updates.push(`batch_size = $${idx++}`);
+      values.push(n);
+    }
+    if (maxEmailsPerRun !== undefined) {
+      const n = maxEmailsPerRun === null || maxEmailsPerRun === '' ? null : Math.max(1, parseInt(maxEmailsPerRun, 10));
+      updates.push(`max_emails_per_run = $${idx++}`);
+      values.push(n);
+    }
+    if (preferredCronExpression !== undefined && String(preferredCronExpression).trim()) {
+      updates.push(`preferred_cron_expression = $${idx++}`);
+      values.push(String(preferredCronExpression).trim().slice(0, 64));
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
+    updates.push('updated_at = NOW()');
+    values.push(1);
+    await pool.query(
+      `UPDATE pipeline_settings SET ${updates.join(', ')} WHERE id = 1`,
+      values
+    );
+    const s = await getPipelineSettingsFromDb();
+    res.json({
+      batchSize: s.batchSize,
+      maxEmailsPerRun: s.maxEmailsPerRun,
+      preferredCronExpression: s.preferredCronExpression,
+    });
+  } catch (e) {
+    console.error('[salesPipeline] PATCH /settings', e);
+    res.status(500).json({ error: e.message || 'Ошибка' });
+  }
 });
 
 export default router;

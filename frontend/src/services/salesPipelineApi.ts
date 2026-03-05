@@ -143,6 +143,7 @@ export async function sendNowPipelineLead(id: number): Promise<{
 export interface PipelineSettings {
   batchSize: number;
   maxEmailsPerRun: number | null;
+  preferredCronExpression?: string;
   cronSecretSet: boolean;
 }
 
@@ -151,5 +152,47 @@ export async function getPipelineSettings(): Promise<PipelineSettings> {
     headers: authHeaders(),
   });
   if (!response.ok) throw new Error('Ошибка загрузки настроек');
+  return response.json();
+}
+
+export async function updatePipelineSettings(data: {
+  batchSize?: number;
+  maxEmailsPerRun?: number | null;
+  preferredCronExpression?: string;
+}): Promise<PipelineSettings> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/settings`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка сохранения');
+  }
+  return response.json();
+}
+
+export interface PipelineTemplate {
+  key: string;
+  name: string;
+  templateId: number;
+}
+
+export async function getPipelineTemplates(): Promise<PipelineTemplate[]> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/templates`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error('Ошибка загрузки шаблонов');
+  return response.json();
+}
+
+export async function getPipelineTemplatePreview(key: string): Promise<{ subject: string; html: string }> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/templates/preview/${encodeURIComponent(key)}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка загрузки превью');
+  }
   return response.json();
 }
