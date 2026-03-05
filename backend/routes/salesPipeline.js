@@ -592,4 +592,159 @@ router.get('/leads/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ————— Обновить лида (этап, сайт, имя, компания, телефон) —————
+router.patch('/leads/:id', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stage, website, name, company, phone } = req.body || {};
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    const allowedStages = ['new', 'audited', 'email_sent', 'replied', 'qualified', 'lost', 'meeting_scheduled'];
+    if (stage !== undefined && allowedStages.includes(stage)) {
+      updates.push(`pipeline_stage = $${idx++}`);
+      values.push(stage);
+    }
+    if (website !== undefined) {
+      updates.push(`website = $${idx++}`);
+      values.push(String(website).trim() || null);
+    }
+    if (name !== undefined) {
+      updates.push(`name = $${idx++}`);
+      values.push(String(name).trim() || '');
+    }
+    if (company !== undefined) {
+      updates.push(`company = $${idx++}`);
+      values.push(String(company).trim() || null);
+    }
+    if (phone !== undefined) {
+      updates.push(`phone = $${idx++}`);
+      values.push(String(phone).trim() || null);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
+    updates.push('updated_at = NOW()');
+    values.push(id);
+    const r = await pool.query(
+      `UPDATE clients SET ${updates.join(', ')} WHERE id = $${idx} AND pipeline_stage IS NOT NULL RETURNING id, name, company, email, phone, website, pipeline_stage AS stage`,
+      values
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Лид не найден' });
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error('[salesPipeline] PATCH /leads/:id', e);
+    res.status(500).json({ error: e.message || 'Ошибка' });
+  }
+});
+
+// ————— Добавить лида вручную —————
+router.post('/leads', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { name, company, email, phone, website } = req.body || {};
+    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Укажите email' });
+    const r = await pool.query(
+      'SELECT id FROM clients WHERE LOWER(email) = LOWER($1)',
+      [String(email).trim()]
+    );
+    if (r.rows.length > 0) {
+      await pool.query(
+        `UPDATE clients SET pipeline_stage = 'new', website = COALESCE(NULLIF(TRIM($1), ''), website), company = COALESCE(NULLIF(TRIM($2), ''), company), name = COALESCE(NULLIF(TRIM($3), ''), name), phone = COALESCE(NULLIF(TRIM($4), ''), phone), updated_at = NOW() WHERE id = $5`,
+        [String(website || '').trim() || null, String(company || '').trim() || null, String(name || '').trim() || '—', String(phone || '').trim() || null, r.rows[0].id]
+      );
+      const out = await pool.query(
+        'SELECT id, name, company, email, phone, website, pipeline_stage AS stage FROM clients WHERE id = $1',
+        [r.rows[0].id]
+      );
+      return res.status(200).json({ created: false, lead: out.rows[0] });
+    }
+    await pool.query(
+      `INSERT INTO clients (name, company, email, phone, website, source, status, pipeline_stage) VALUES ($1, $2, $3, $4, $5, 'manual', 'lead', 'new')`,
+      [String(name || '').trim() || '—', String(company || '').trim() || null, String(email).trim(), String(phone || '').trim() || null, String(website || '').trim() || null]
+    );
+    const out = await pool.query(
+      'SELECT id, name, company, email, phone, website, pipeline_stage AS stage FROM clients WHERE email = $1 ORDER BY id DESC LIMIT 1',
+      [String(email).trim()]
+    );
+    res.status(201).json({ created: true, lead: out.rows[0] });
+  } catch (e) {
+    console.error('[salesPipeline] POST /leads', e);
+    res.status(500).json({ error: e.message || 'Ошибка' });
+  }
+});
+
+// ————— Массовое удаление из пайплайна (маршрут до /leads/:id, иначе "mass-delete" попадёт в :id) —————
+router.post('/leads/mass-delete', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Укажите ids: number[]' });
+    const safeIds = ids.map((x) => parseInt(x, 10)).filter(Number.isInteger);
+    if (safeIds.length === 0) return res.status(400).json({ error: 'Нет валидных id' });
+    const r = await pool.query(
+      'UPDATE clients SET pipeline_stage = NULL, updated_at = NOW() WHERE id = ANY($1::int[]) AND pipeline_stage IS NOT NULL',
+      [safeIds]
+    );
+    res.json({ deleted: r.rowCount });
+  } catch (e) {
+    console.error('[salesPipeline] POST /leads/mass-delete', e);
+    res.status(500).json({ error: e.message || 'Ошибка' });
+  }
+});
+
+// ————— Убрать лида из пайплайна (pipeline_stage = null) —————
+router.delete('/leads/:id', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await pool.query(
+      'UPDATE clients SET pipeline_stage = NULL, updated_at = NOW() WHERE id = $1 AND pipeline_stage IS NOT NULL RETURNING id',
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Лид не найден' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[salesPipeline] DELETE /leads/:id', e);
+    res.status(500).json({ error: e.message || 'Ошибка' });
+  }
+});
+
+// ————— Отправить сейчас (один лид: ставим new и вызываем process-daily с only_emails) —————
+router.post('/leads/:id/send-now', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await pool.query(
+      'SELECT id, email FROM clients WHERE id = $1 AND pipeline_stage IS NOT NULL',
+      [id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Лид не найден' });
+    const email = r.rows[0].email;
+    await pool.query('UPDATE clients SET pipeline_stage = $1, updated_at = NOW() WHERE id = $2', ['new', id]);
+    const base = process.env.API_BASE_URL || req.protocol + '://' + req.get('host');
+    const secret = process.env.CRON_SECRET;
+    if (!secret) return res.status(500).json({ error: 'CRON_SECRET не задан' });
+    const url = `${base}/api/sales-pipeline/process-daily?secret=${encodeURIComponent(secret)}&only_emails=${encodeURIComponent(email)}`;
+    const resp = await fetch(url);
+    const text = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return res.status(502).json({ error: 'Ответ process-daily не JSON', raw: text.slice(0, 200) });
+    }
+    if (data.error) return res.status(400).json(data);
+    res.json(data);
+  } catch (e) {
+    console.error('[salesPipeline] POST /leads/:id/send-now', e);
+    res.status(500).json({ error: e.message || 'Ошибка' });
+  }
+});
+
+// ————— Настройки рассылки (для отображения в админке) —————
+router.get('/settings', requireAuth, async (req, res) => {
+  const batchSize = getBatchSize();
+  const maxPerRun = getMaxEmailsPerRun();
+  res.json({
+    batchSize,
+    maxEmailsPerRun: maxPerRun,
+    cronSecretSet: !!process.env.CRON_SECRET,
+  });
+});
+
 export default router;

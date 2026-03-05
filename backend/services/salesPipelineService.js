@@ -177,24 +177,52 @@ export function extractWebsiteData(html) {
   return { title, metaDescription: metaDesc, headings };
 }
 
-/** Аудит сайта через OpenAI — возврат структуры как в n8n (audit_score, key_issues, opportunities, business_potential, recommended_approach, personalized_intro). */
+/** Аудит сайта через OpenAI. Оценка 0–100 по четырём критериям; рекомендации (редизайн, SEO, ИИ-продвижение, e-commerce) привязаны к логике. */
 export async function runWebsiteAudit(companyName, website, websiteData) {
-  const system = `Ты эксперт по аудиту сайтов и бизнеса. Проанализируй данные сайта клиента и верни строго JSON с полями:
-audit_score (number 0-100),
-key_issues (array of strings),
-opportunities (array of strings),
-business_potential (string: "high" | "medium" | "low"),
-recommended_approach (string, краткое резюме для письма),
-personalized_intro (string, персонализированное вступление для письма).`;
+  const system = `Ты эксперт по аудиту сайтов и цифровому маркетингу. Проанализируй данные сайта и верни строго JSON.
+
+Правила оценки (каждый критерий 0–25 баллов, итог audit_score = сумма четырёх, 0–100):
+1) design_modernity_score (0–25): современность дизайна, актуальность верстки, мобильная адаптация. Если дизайн устаревший или плохо смотрится — ставь низкий балл (тогда мы предложим редизайн).
+2) seo_score (0–25): наличие и качество title, meta description, заголовков, семантика. Если SEO слабое или отсутствует — низкий балл (предложим SEO).
+3) ai_readiness_score (0–25): есть ли структурированные данные для ИИ-выдачи (разметка, понятные блоки, мета-теги, контент для поисковых ИИ). Если сайт не готов к ИИ-поиску — низкий балл (предложим ИИ-продвижение).
+4) conversion_tech_score (0–25): конверсия, скорость, техсостояние, удобство форм и навигации.
+
+Дополнительно:
+- is_ecommerce (boolean): является ли сайт интернет-магазином или каталогом с товарами/услугами для заказа.
+- recommendations (array of strings): включи только теги по правилам: если design_modernity_score < 13 — добавь "redesign"; если seo_score < 13 — "seo"; если ai_readiness_score < 13 — "ai_promotion"; если is_ecommerce === true и есть потенциал — "ecommerce_services". Не придумывай другие теги.
+- key_issues (array of strings): конкретные проблемы по сайту.
+- opportunities (array of strings): возможности роста.
+- business_potential ("high" | "medium" | "low"): high если audit_score >= 65 и есть возможности; low если audit_score < 40; иначе medium.
+- recommended_approach (string): краткое резюме для письма, обязательно упомяни предложения по тегам из recommendations (редизайн, SEO, ИИ-продвижение, доработки для e-commerce — только то, что есть в recommendations).
+- personalized_intro (string): персонализированное вступление для письма, с привязкой к рекомендациям (например: «У вас сильный контент, но устаревший дизайн и слабое SEO — мы можем предложить редизайн и продвижение.»).
+
+Верни JSON с полями: design_modernity_score, seo_score, ai_readiness_score, conversion_tech_score, audit_score (сумма четырёх), is_ecommerce, recommendations, key_issues, opportunities, business_potential, recommended_approach, personalized_intro.`;
 
   const user = `Компания: ${companyName}, Сайт: ${website}\nДанные сайта: ${JSON.stringify(websiteData)}`;
   const out = await callOpenAIStructured(system, user, { model: 'gpt-4o', temperature: 0.2 });
   if (!out) return null;
+
+  const d = (v) => (typeof v === 'number' && v >= 0 && v <= 25 ? Math.round(v) : 0);
+  const design = d(out.design_modernity_score);
+  const seo = d(out.seo_score);
+  const ai = d(out.ai_readiness_score);
+  const conv = d(out.conversion_tech_score);
+  const auditScore = Math.min(100, Math.max(0, design + seo + ai + conv));
+  const recommendations = Array.isArray(out.recommendations)
+    ? out.recommendations.filter((r) => ['redesign', 'seo', 'ai_promotion', 'ecommerce_services'].includes(String(r)))
+    : [];
+
   return {
-    audit_score: typeof out.audit_score === 'number' ? out.audit_score : 50,
+    design_modernity_score: design,
+    seo_score: seo,
+    ai_readiness_score: ai,
+    conversion_tech_score: conv,
+    audit_score: typeof out.audit_score === 'number' ? Math.max(0, Math.min(100, Math.round(out.audit_score))) : auditScore,
+    is_ecommerce: Boolean(out.is_ecommerce),
+    recommendations,
     key_issues: Array.isArray(out.key_issues) ? out.key_issues : [],
     opportunities: Array.isArray(out.opportunities) ? out.opportunities : [],
-    business_potential: ['high', 'medium', 'low'].includes(out.business_potential) ? out.business_potential : 'medium',
+    business_potential: ['high', 'medium', 'low'].includes(out.business_potential) ? out.business_potential : (auditScore >= 65 ? 'high' : auditScore < 40 ? 'low' : 'medium'),
     recommended_approach: String(out.recommended_approach || ''),
     personalized_intro: String(out.personalized_intro || ''),
   };

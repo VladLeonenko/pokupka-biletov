@@ -64,3 +64,92 @@ export async function importPipelineLeads(file: File): Promise<{ imported: numbe
   }
   return response.json();
 }
+
+export async function updatePipelineLead(
+  id: number,
+  data: { stage?: string; website?: string; name?: string; company?: string; phone?: string }
+): Promise<PipelineLead> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/leads/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка обновления');
+  }
+  return response.json();
+}
+
+export async function createPipelineLead(data: {
+  name?: string;
+  company?: string;
+  email: string;
+  phone?: string;
+  website?: string;
+}): Promise<{ created: boolean; lead: PipelineLead }> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/leads`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка создания');
+  }
+  return response.json();
+}
+
+export async function deletePipelineLead(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/leads/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка удаления');
+  }
+}
+
+export async function massDeletePipelineLeads(ids: number[]): Promise<{ deleted: number }> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/leads/mass-delete`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ ids }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка удаления');
+  }
+  return response.json();
+}
+
+export async function sendNowPipelineLead(id: number): Promise<{
+  processed?: number;
+  sent?: number;
+  sendErrors?: Array<{ email: string; reason: string }>;
+}> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/leads/${id}/send-now`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Ошибка отправки');
+  }
+  return response.json();
+}
+
+export interface PipelineSettings {
+  batchSize: number;
+  maxEmailsPerRun: number | null;
+  cronSecretSet: boolean;
+}
+
+export async function getPipelineSettings(): Promise<PipelineSettings> {
+  const response = await fetch(`${API_BASE}/api/sales-pipeline/settings`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error('Ошибка загрузки настроек');
+  return response.json();
+}

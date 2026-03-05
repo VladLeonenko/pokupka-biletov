@@ -3,55 +3,101 @@ import { Box, Card, CardContent, Typography, CircularProgress } from '@mui/mater
 
 const MERMAID_SOURCE = `
 flowchart TB
-  subgraph CRON["Cron ежедневно"]
-    T1[GET /process-daily]
+  subgraph SOURCES["Источники лидов"]
+    CSV[Импорт CSV]
+    MANUAL[Добавление вручную]
+    DB[("clients stage=new")]
   end
 
-  subgraph SOURCE["Источник"]
-    CSV[CSV / Импорт]
-    DB[("clients / stage = new")]
+  subgraph TRIGGER["Запуск"]
+    CRON[Cron ежедневно]
+    API[GET /process-daily?secret=CRON_SECRET]
+    CRON --> API
   end
 
-  subgraph OUT["Исходящий поток"]
-    T1 --> DB
-    DB --> CHECK{Есть лиды?}
-    CHECK --> LOOP[Для каждого]
-    LOOP --> WEBSITE{Сайт или корп. email?}
-    WEBSITE -->|Личная почта| BASIC[Базовый шаблон]
-    WEBSITE -->|Корп. email| DERIVE[Сайт = https/домен]
-    DERIVE --> FETCH[Загрузка сайта]
-    FETCH --> EXTRACT[Парсинг HTML]
-    EXTRACT --> AUDIT[AI-аудит OpenAI]
-    AUDIT --> PHONE[Телефон с сайта]
-    PHONE --> TEMPLATE{Шаблон по потенциалу}
-    TEMPLATE --> TH[High]
-    TEMPLATE --> TM[Medium]
-    TEMPLATE --> TL[Low]
-    TH --> SEND
-    TM --> SEND
-    TL --> SEND
-    BASIC --> SEND
-    SEND{Телефон + Telegram?}
-    SEND -->|Да| TG[UniSender Telegram]
-    SEND -->|Нет| EM[UniSender Email]
-    TG -->|Ошибка| EM
-    EM --> LOG[outreach_log]
-    LOG --> STAGE[stage = email_sent]
+  subgraph OUTBOUND["Исходящий поток"]
+    API --> LOAD[Загрузка лидов из БД]
+    LOAD --> CHECK{Есть лиды?}
+    CHECK -->|Нет| STOP[Конец]
+    CHECK -->|Да| LOOP[Для каждого лида]
+    LOOP --> EMAIL_TYPE{Тип email}
+    EMAIL_TYPE -->|Личная почта| BASIC[Шаблон basic без аудита]
+    EMAIL_TYPE -->|Корпоративный| SITE[Сайт = домен из email]
+    SITE --> FETCH[Загрузка HTML сайта]
+    FETCH --> PARSE[Парсинг: title, meta, h1/h2]
+    PARSE --> AUDIT[AI-аудит сайта]
   end
 
-  subgraph IN["Ответы клиентов"]
-    REPLY[POST /process-reply]
-    REPLY --> FIND[Клиент по email]
-    FIND --> SAVE[correspondence]
-    SAVE --> AI2[AI: ready_to_meet / no_interest]
-    AI2 --> ROUTE{Тип}
-    ROUTE -->|ready_to_meet| QUAL[qualified]
-    ROUTE -->|no_interest| LOST[lost]
-    ROUTE -->|follow_up| REP[replied]
-    QUAL --> MEET[client_meetings + уведомление]
+  subgraph AUDIT_CRITERIA["Критерии аудита 0-100"]
+    C1[Дизайн 0-25: низко = редизайн]
+    C2[SEO 0-25: низко = SEO]
+    C3[ИИ-готовность 0-25: низко = ИИ-продвижение]
+    C4[Конверсия и тех 0-25]
+    SCORE[audit_score + recommendations]
+  end
+
+  subgraph AFTER_AUDIT["После аудита"]
+    PHONE[Извлечение телефона из HTML]
+    TPL{Потенциал}
+    TH[Шаблон High]
+    TM[Шаблон Medium]
+    TL[Шаблон Low]
+  end
+
+  subgraph SEND_CHANNEL["Отправка"]
+    TRY_TG{Телефон + TG?}
+    TG[UniSender Telegram]
+    EMAIL[UniSender Email]
+    FALLBACK[При ошибке TG -> Email]
+    LOG[client_outreach_log]
+    STAGE[stage = email_sent]
+  end
+
+  subgraph INBOUND["Входящие ответы"]
+    REPLY[POST process-reply]
+    FIND[Поиск клиента по email]
+    CORR[correspondence]
+    AI_CLASS[AI: тип ответа]
+    ROUTE{Класс}
+    QUAL[qualified]
+    LOST[lost]
+    REP[replied]
+    MEET[meetings + уведомление]
   end
 
   CSV --> DB
+  MANUAL --> DB
+  AUDIT --> C1
+  AUDIT --> C2
+  AUDIT --> C3
+  AUDIT --> C4
+  C1 --> SCORE
+  C2 --> SCORE
+  C3 --> SCORE
+  C4 --> SCORE
+  SCORE --> PHONE
+  PHONE --> TPL
+  TPL --> TH
+  TPL --> TM
+  TPL --> TL
+  BASIC --> TRY_TG
+  TH --> TRY_TG
+  TM --> TRY_TG
+  TL --> TRY_TG
+  TRY_TG -->|Да| TG
+  TRY_TG -->|Нет| EMAIL
+  TG --> FALLBACK
+  FALLBACK --> EMAIL
+  EMAIL --> LOG
+  LOG --> STAGE
+  REPLY --> FIND
+  FIND --> CORR
+  CORR --> AI_CLASS
+  AI_CLASS --> ROUTE
+  ROUTE -->|ready_to_meet| QUAL
+  ROUTE -->|no_interest| LOST
+  ROUTE -->|follow_up| REP
+  QUAL --> MEET
 `;
 
 const CDN = 'https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.min.js';
@@ -95,13 +141,16 @@ export default function PipelineDiagram() {
       try {
         win.mermaid.init({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
         const id = 'pipeline-diagram-' + Date.now();
-        const { svg } = await win.mermaid.render(id, MERMAID_SOURCE);
-        if (!cancelled && containerRef.current) {
+        const result = await win.mermaid.render(id, MERMAID_SOURCE);
+        const svg = result?.svg ?? (typeof result === 'string' ? result : null);
+        if (!cancelled && containerRef.current && svg) {
           containerRef.current.innerHTML = svg;
           setLoaded(true);
+        } else if (!cancelled && !svg) {
+          setError('Схема не сформирована');
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Ошибка отрисовки');
+        if (!cancelled) setError(String((e instanceof Error && e.message) ? e.message : e ?? 'Ошибка отрисовки схемы'));
       }
     };
 
