@@ -363,7 +363,7 @@ export default function SalesPipelinePage() {
                   fontFamily: 'monospace',
                 }}
               >
-                {`${settings.preferredCronExpression || '0 9 * * *'} curl -s "https://prime-coder.ru/api/sales-pipeline/process-daily?secret=ТВОЙ_CRON_SECRET"`}
+                {`${(settings && settings.preferredCronExpression) || '0 9 * * *'} curl -s "https://prime-coder.ru/api/sales-pipeline/process-daily?secret=ТВОЙ_CRON_SECRET"`}
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 0.5 }}>
                 Обработка ответа клиента (JWT — токен админа/менеджера):
