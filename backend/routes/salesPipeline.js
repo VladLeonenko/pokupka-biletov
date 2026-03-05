@@ -817,7 +817,6 @@ router.patch('/settings', requireAuth, requireAdminOrSalesManager, async (req, r
     }
     if (updates.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
     updates.push('updated_at = NOW()');
-    values.push(1);
     await pool.query(
       `UPDATE pipeline_settings SET ${updates.join(', ')} WHERE id = 1`,
       values

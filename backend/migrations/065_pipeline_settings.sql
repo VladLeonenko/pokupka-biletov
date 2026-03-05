@@ -11,4 +11,7 @@ INSERT INTO pipeline_settings (id, batch_size, preferred_cron_expression)
 VALUES (1, 10, '0 9 * * *')
 ON CONFLICT (id) DO NOTHING;
 
+-- Права для пользователя, под которым крутится приложение (иначе GET/PATCH /settings не видят таблицу)
+GRANT SELECT, INSERT, UPDATE ON pipeline_settings TO PUBLIC;
+
 COMMENT ON TABLE pipeline_settings IS 'Настройки пайплайна холодных лидов: размер батча и рекомендуемое время cron.';
