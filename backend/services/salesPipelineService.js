@@ -157,8 +157,16 @@ export async function callOpenAIStructured(system, user, options = {}) {
 
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || '';
-    if (!text) return null;
-    return JSON.parse(text);
+    if (!text) {
+      console.error('[salesPipeline] OpenAI empty content:', JSON.stringify(data).slice(0, 400));
+      return null;
+    }
+    try {
+      return JSON.parse(text);
+    } catch (parseErr) {
+      console.error('[salesPipeline] OpenAI JSON parse failed:', parseErr.message, 'raw slice:', text.slice(0, 500));
+      return null;
+    }
   } catch (e) {
     console.error('[salesPipeline] OpenAI request failed:', e.message);
     return null;
@@ -223,7 +231,10 @@ export async function runWebsiteAudit(companyName, website, websiteData) {
 
   const user = `Компания: ${companyName}, Сайт: ${website}\nДанные сайта: ${JSON.stringify(websiteData)}`;
   const out = await callOpenAIStructured(system, user, { model: 'gpt-4o', temperature: 0.2 });
-  if (!out) return null;
+  if (!out) {
+    console.warn('[salesPipeline] runWebsiteAudit: OpenAI returned null', { companyName, website, websiteDataKeys: Object.keys(websiteData || {}) });
+    return null;
+  }
 
   const d = (v) => (typeof v === 'number' && v >= 0 && v <= 25 ? Math.round(v) : 0);
   const design = d(out.design_modernity_score);
@@ -388,7 +399,112 @@ export async function subscribeUniSenderContact(email, listId, fields = {}) {
 }
 
 /**
- * Отправить email через UniSender по шаблону из кабинета (getTemplate): загружаем шаблон по ID, подставляем переменные, добавляем контакт в список (subscribe), отправляем (sendEmail).
+ * Создать письмо в UniSender (createEmailMessage). Нужно для рассылки через createCampaign, чтобы письмо попало в историю и аналитику.
+ */
+async function createEmailMessageUniSender(senderName, senderEmail, subject, body, listId) {
+  const apiKey = process.env.UNISENDER_API_KEY;
+  if (!apiKey || !listId) return { ok: false, reason: 'no_config' };
+  try {
+    const params = new URLSearchParams();
+    params.set('format', 'json');
+    params.set('api_key', apiKey);
+    params.set('sender_name', String(senderName || '').slice(0, 255));
+    params.set('sender_email', String(senderEmail || '').trim());
+    params.set('subject', String(subject || '').slice(0, 500));
+    params.set('body', String(body || '').slice(0, 8 * 1024 * 1024)); // макс 8 МБ
+    params.set('list_id', String(listId).trim());
+    params.set('lang', 'ru');
+    params.set('generate_text', '1');
+    const res = await fetch('https://api.unisender.com/ru/api/createEmailMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error('[salesPipeline] createEmailMessage response not JSON:', text?.slice(0, 200));
+      return { ok: false, reason: 'createEmailMessage_response_not_json' };
+    }
+    if (data.error) {
+      const reason = data.code ? `${data.code}: ${data.error}` : data.error;
+      return { ok: false, reason };
+    }
+    const messageId = data?.result?.message_id;
+    if (!messageId) return { ok: false, reason: 'no_message_id' };
+    return { ok: true, message_id: messageId };
+  } catch (e) {
+    console.error('[salesPipeline] createEmailMessage failed:', e.message);
+    return { ok: false, reason: e.message };
+  }
+}
+
+/**
+ * Запустить рассылку по созданному письму (createCampaign). Письмо появится в «Рассылки → История» с аналитикой доставки, прочтений, переходов.
+ */
+async function createCampaignUniSender(messageId, contactsEmail, trackRead = 1, trackLinks = 1) {
+  const apiKey = process.env.UNISENDER_API_KEY;
+  if (!apiKey) return { ok: false, reason: 'no_config' };
+  try {
+    const params = new URLSearchParams();
+    params.set('format', 'json');
+    params.set('api_key', apiKey);
+    params.set('message_id', String(messageId));
+    params.set('contacts', String(contactsEmail || '').trim());
+    params.set('track_read', trackRead ? '1' : '0');
+    params.set('track_links', trackLinks ? '1' : '0');
+    const res = await fetch('https://api.unisender.com/ru/api/createCampaign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error('[salesPipeline] createCampaign response not JSON:', text?.slice(0, 200));
+      return { ok: false, reason: 'createCampaign_response_not_json' };
+    }
+    if (data.error) {
+      const reason = data.code ? `${data.code}: ${data.error}` : data.error;
+      return { ok: false, reason };
+    }
+    const campaignId = data?.result?.campaign_id;
+    const status = data?.result?.status;
+    return { ok: true, campaign_id: campaignId, status: status || 'scheduled' };
+  } catch (e) {
+    console.error('[salesPipeline] createCampaign failed:', e.message);
+    return { ok: false, reason: e.message };
+  }
+}
+
+/**
+ * Отправить письмо через createEmailMessage + createCampaign, чтобы оно отображалось в UniSender в «Рассылки → История» с аналитикой доставки/прочтений/переходов.
+ * При ошибке (лимит API, и т.д.) откатываемся на sendEmail.
+ */
+export async function sendUniSenderEmailViaCampaign(toEmail, subject, body, senderName, senderEmail) {
+  const listId = (process.env.UNISENDER_LIST_ID || '').trim();
+  if (!listId) return { ok: false, reason: 'no_list_id' };
+  const name = senderName || process.env.SENDER_NAME || 'Команда';
+  const from = senderEmail || process.env.SENDER_EMAIL;
+  if (!from) return { ok: false, reason: 'no_sender' };
+
+  const msg = await createEmailMessageUniSender(name, from, subject, body, listId);
+  if (!msg.ok) return msg;
+
+  const camp = await createCampaignUniSender(msg.message_id, toEmail, 1, 1);
+  if (!camp.ok) {
+    console.warn('[salesPipeline] createCampaign failed, fallback to sendEmail:', camp.reason);
+    return sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail);
+  }
+  return { ok: true, campaign_id: camp.campaign_id, status: camp.status };
+}
+
+/**
+ * Отправить email через UniSender по шаблону из кабинета (getTemplate): загружаем шаблон по ID, подставляем переменные, добавляем контакт в список (subscribe), отправляем через createCampaign (видно в истории UniSender и аналитике), при ошибке — sendEmail.
  * vars: company_name, website, audit_score, audit_summary, personalized_intro, unsubscribe_url и т.д.
  */
 export async function sendUniSenderEmailByTemplate(toEmail, templateKey, senderName, senderEmail, vars = {}) {
@@ -403,7 +519,8 @@ export async function sendUniSenderEmailByTemplate(toEmail, templateKey, senderN
     const sub = await subscribeUniSenderContact(toEmail, listId, { Name: vars.company_name || vars.name || '' });
     if (!sub.ok) console.warn('[salesPipeline] subscribe before send failed (continuing):', sub.reason);
   }
-  return sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail);
+  if (!listId) return sendUniSenderEmail(toEmail, subject, body, senderName, senderEmail);
+  return sendUniSenderEmailViaCampaign(toEmail, subject, body, senderName, senderEmail);
 }
 
 /** Отправка через UniSender Telegram (если есть api_key и channel_id и телефон). Параметры в теле POST, чтобы длинный text не резал URL. */
@@ -428,12 +545,14 @@ export async function sendUniSenderTelegram(phone, text) {
     try {
       data = JSON.parse(responseText);
     } catch {
-      console.error('[salesPipeline] UniSender Telegram response not JSON:', responseText?.slice(0, 200));
-      return { ok: false, reason: 'Ответ API не JSON (возможно ошибка или лимит)' };
+      const snippet = (responseText || '').slice(0, 300).replace(/\s+/g, ' ');
+      console.error('[salesPipeline] UniSender Telegram: status=', res.status, 'response not JSON, length=', responseText?.length, 'body:', snippet);
+      const shortReason = res.status !== 200 ? `HTTP ${res.status}` : 'ответ не JSON';
+      return { ok: false, reason: `Telegram API: ${shortReason}. В логах сервера (pm2 logs) — полный ответ.` };
     }
     if (data.error) {
       const reason = data.code ? `${data.code}: ${data.error}` : data.error;
-      console.error('[salesPipeline] UniSender Telegram error:', reason);
+      console.error('[salesPipeline] UniSender Telegram error:', reason, 'phone=', (phone || '').slice(-4));
       return { ok: false, reason };
     }
     return { ok: true };

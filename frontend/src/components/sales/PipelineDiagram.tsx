@@ -12,6 +12,12 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Box, Card, CardContent, Typography, Paper } from '@mui/material';
+
+// Стрелки по умолчанию видны на тёмном фоне (переопределяем цвет пути)
+const reactFlowEdgeStyles = `
+  .react-flow__edge path { stroke-width: 2px !important; }
+  .react-flow__edge-path { stroke-width: 2px !important; }
+`;
 import {
   Schedule,
   Storage,
@@ -172,7 +178,8 @@ export default function PipelineDiagram() {
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
           Фиолетовые стрелки — исходящие лиды, зелёные — ветка без аудита, оранжевые — ответы клиентов. Клик по узлу — описание.
         </Typography>
-        <Box sx={{ height: 520, width: '100%', bgcolor: '#1a1d24', borderRadius: 1 }}>
+        <Box sx={{ height: 520, width: '100%', bgcolor: '#1a1d24', borderRadius: 1, '& .react-flow__edge path': { strokeWidth: 2 }, '& .react-flow__edge-path': { strokeWidth: 2 } }}>
+          <style>{reactFlowEdgeStyles}</style>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -181,6 +188,7 @@ export default function PipelineDiagram() {
             onNodeClick={(_e, node) => setSelectedNodeId(node.id)}
             onPaneClick={() => setSelectedNodeId(null)}
             nodeTypes={nodeTypes}
+            defaultEdgeOptions={{ type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 2 }, animated: false }}
             fitView
             fitViewOptions={{ padding: 0.2 }}
             minZoom={0.2}

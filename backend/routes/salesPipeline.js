@@ -274,6 +274,14 @@ router.get('/process-daily', async (req, res) => {
         },
       });
     }
+    if (!onlyEmails?.length && leads.length === 0) {
+      return res.json({
+        processed: 0,
+        sent: 0,
+        leads_count: 0,
+        message: 'Нет лидов с pipeline_stage = \'new\'. Рассылка не выполнялась. Добавьте лидов в пайплайн (импорт CSV или вручную) и установите им stage = new.',
+      });
+    }
     const results = {
       processed: 0,
       sent: 0,
@@ -349,6 +357,7 @@ router.get('/process-daily', async (req, res) => {
         const websiteData = extractWebsiteData(html || '');
         const audit = await runWebsiteAudit(companyName, website, websiteData);
         if (!audit) {
+          console.warn('[salesPipeline] audit failed for lead', { clientId: lead.id, email: lead.email, website, htmlLength: (html || '').length, hasTitle: !!(websiteData?.title) });
           results.errors.push({ clientId: lead.id, step: 'audit' });
           continue;
         }
@@ -382,6 +391,7 @@ router.get('/process-daily', async (req, res) => {
         };
         let sent = false;
         if (phoneFound && process.env.UNISENDER_API_KEY && process.env.UNISENDER_CHANNEL_ID) {
+          console.log('[salesPipeline] Telegram send attempt:', { email: lead.email, phoneFormat: phoneNormalized?.length ? `${phoneNormalized.slice(0, 4)}***${phoneNormalized.slice(-2)}` : 'empty' });
           const tg = await sendUniSenderTelegram(phoneNormalized, template.body);
           sent = tg.ok;
           if (!sent) results.sendErrors.push({ email: lead.email, channel: 'telegram', reason: tg.reason || 'unknown' });
