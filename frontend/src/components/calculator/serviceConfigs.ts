@@ -70,17 +70,17 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
   },
   'korporativnyj-sajt': {
     name: 'Корпоративный сайт',
-    basePrices: { basic: 300000, standard: 550000, premium: 900000 },
-    marketAvg: 680000,
-    hours: { basic: 100, standard: 200, premium: 340 },
+    basePrices: { basic: 250000, standard: 550000, premium: 950000 },
+    marketAvg: 650000,
+    hours: { basic: 85, standard: 200, premium: 340 },
     roiMultiplier: 10,
     upsells: ['seo-prodvizhenie', 'tech-support', 'ai-boost']
   },
   'ui-ux-dizajn': {
     name: 'UI/UX дизайн',
-    basePrices: { basic: 120000, standard: 250000, premium: 450000 },
-    marketAvg: 320000,
-    hours: { basic: 50, standard: 100, premium: 180 },
+    basePrices: { basic: 200000, standard: 450000, premium: 850000 },
+    marketAvg: 550000,
+    hours: { basic: 50, standard: 113, premium: 213 },
     roiMultiplier: 7,
     upsells: ['sajt-na-wordpress', 'landing-page', 'tech-support']
   },
@@ -104,21 +104,20 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
   },
   'marketing-prodazhi': {
     name: 'Маркетинг + Продажи',
-    basePrices: { monthly: 120000 },
-    marketAvg: 200000,
-    hours: { basic: 60 },
+    basePrices: { basic: 280000, standard: 650000, premium: 1200000 },
+    marketAvg: 900000,
+    hours: { basic: 70, standard: 163, premium: 300 },
     roiMultiplier: 18,
-    recurring: true,
+    complexity: 'high',
     upsells: ['ai-prodvizhenie', 'seo-prodvizhenie', 'tech-support']
   },
   'reklama-u-blogerov': {
     name: 'Реклама у блогеров',
-    basePrices: { monthly: 150000 },
-    marketAvg: 250000,
-    hours: { basic: 30 },
+    basePrices: { basic: 150000, standard: 350000, premium: 750000 },
+    marketAvg: 550000,
+    hours: { basic: 38, standard: 88, premium: 188 },
     roiMultiplier: 10,
-    recurring: true,
-    upsells: ['marketing-prodazhi', 'ai-prodvizhenie', 'tech-support']
+    upsells: ['marketing-prodazhi', 'kontent-smm', 'analitika-setup']
   },
   'react-prilozhenie': {
     name: 'React приложение',
@@ -149,9 +148,9 @@ export const serviceConfigs: Record<string, ServiceConfig> = {
   },
   'ai-boost-team': {
     name: 'AI Boost Team',
-    basePrices: { monthly: 79000 },
-    marketAvg: 293000,
-    hours: { basic: 32 },
+    basePrices: { monthly: 70000 },
+    marketAvg: 280000,
+    hours: { basic: 28 },
     roiMultiplier: 10,
     recurring: true,
     upsells: ['seo-audit', 'tech-support', 'ai-boost']

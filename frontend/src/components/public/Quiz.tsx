@@ -30,9 +30,9 @@ interface QuizProps {
 }
 
 const tariffNames: Record<string, string> = {
-  start: 'START',
+  start: 'Старт',
   business: 'Малый бизнес',
-  premium: 'PPRIME',
+  premium: 'Prime',
 };
 
 async function fetchQuizQuestions(): Promise<QuizQuestion[]> {

@@ -28,7 +28,7 @@ import { motion } from 'framer-motion';
 import { TeamCarousel } from '@/components/public/TeamCarousel';
 import { useToast } from '@/components/common/ToastProvider';
 import { ServiceCalculator } from '@/components/calculator';
-import { TariffQuiz } from '@/components/products/TariffQuiz';
+import { TariffQuiz, tariffNames } from '@/components/products/TariffQuiz';
 import { Star } from '@mui/icons-material';
 import Rating from '@mui/material/Rating';
 import Avatar from '@mui/material/Avatar';

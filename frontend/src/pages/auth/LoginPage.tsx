@@ -51,7 +51,7 @@ export function LoginPage() {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
       <Paper sx={{ p: 3, width: 360 }} elevation={3}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Вход в админ‑панель</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>Вход в личный кабинет</Typography>
         <form onSubmit={onSubmit}>
           <TextField label="Email" fullWidth sx={{ mb: 2 }} value={email} onChange={(e) => setEmail(e.target.value)} />
           <TextField label="Пароль" type="password" fullWidth sx={{ mb: 2 }} value={password} onChange={(e) => setPassword(e.target.value)} />
