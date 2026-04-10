@@ -134,18 +134,15 @@ export default defineConfig({
                 // React должен быть в отдельном chunk и загружаться ПЕРВЫМ
                 // Это решает проблему с useState is not defined в Safari
                 manualChunks: function (id) {
-                    // MUI в отдельный chunk
+                    // MUI отдельно (тяжёлый UI).
+                    // React + остальные node_modules — в ОДНОМ chunk `vendor`, иначе Rollup даёт
+                    // «Circular chunk: vendor -> react-vendor -> vendor» и в проде TDZ:
+                    // Uncaught ReferenceError: Cannot access '…' before initialization
                     if (id.includes('@mui'))
                         return 'mui';
-                    // React в отдельный chunk (ПЕРВЫЙ для загрузки)
-                    if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-                        return 'react-vendor';
-                    }
-                    // Остальные node_modules в vendor chunk
                     if (id.includes('node_modules') && !id.includes('vite')) {
                         return 'vendor';
                     }
-                    // Все остальное в main bundle
                     return undefined;
                 },
                 // Оптимизация имен файлов для кэширования
