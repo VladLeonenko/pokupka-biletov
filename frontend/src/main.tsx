@@ -9,7 +9,6 @@ import '@/utils/silenceWarnings';
 import '@/styles/theme.css';
 import '@/styles/global.css';
 import { errorMonitoring } from './utils/errorMonitoring';
-import { registerServiceWorker } from './utils/serviceWorker';
 // Инициализируем мониторинг ошибок
 errorMonitoring.init();
 
@@ -36,10 +35,8 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// Регистрируем Service Worker в production
-if (import.meta.env.PROD) {
-  registerServiceWorker();
-}
+// SW отключён: старый cache-first по /assets ломал сайт после деплоя (хэши в именах файлов).
+// Файл public/sw.js оставлен как «только сеть» для клиентов со старой регистрацией — подхватят новый SW.
 
 // Инициализация темы при загрузке страницы
 const initializeTheme = () => {

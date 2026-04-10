@@ -40,11 +40,13 @@ if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
   rm -f "$ENV_BACKUP"
 fi
 
-# Frontend
+# Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""
 echo "📦 Сборка frontend..."
 cd "$PROJECT_ROOT/frontend"
 npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit
+: "${NODE_OPTIONS:=--max-old-space-size=4096}"
+export NODE_OPTIONS
 npm run build
 chown -R www-data:www-data dist 2>/dev/null || true
 echo "✅ Frontend собран"
