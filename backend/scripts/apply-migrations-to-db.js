@@ -103,6 +103,7 @@ const MIGRATION_FILES = [
   '063_cold_leads_pipeline.sql',
   '064_sales_pipeline_from_clients.sql',
   '065_pipeline_settings.sql',
+  '066_case_listing_preview_image.sql',
 ];
 
 async function applyMigration(filename) {

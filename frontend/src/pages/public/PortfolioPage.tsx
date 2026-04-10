@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback, SyntheticEvent } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect, SyntheticEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Box, Container, Typography, CircularProgress, Chip, IconButton } from '@mui/material';
@@ -8,6 +8,16 @@ import { listPublicCases } from '@/services/publicApi';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { PageHeader } from '@/components/common/PageHeader';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
+import {
+  clearMoveSamples,
+  pushMoveSample,
+  scrollVelocityPerFrameFromSamples,
+} from '@/utils/portfolioCarouselLane';
+import {
+  getHorizontalWheelDelta,
+  isClearlyVerticalPageScroll,
+  scaleWheelDelta,
+} from '@/utils/portfolioCarouselWheel';
 
 type Category = 'all' | 'website' | 'mobile' | 'ai' | 'seo' | 'advertising' | 'design' | 'marketing';
 
@@ -45,14 +55,22 @@ function getCategories(c: any): Category[] {
   return [getCat(c)];
 }
 
-const SWIPE_THRESHOLD = 50;
+/** Сколько карточек одновременно в «окне» на md+ (логика шагов и счётчика) */
+const VISIBLE = 3;
 
 export function PortfolioPage() {
   const navigate = useNavigate();
   const [cat, setCat] = useState<Category>('all');
   const [current, setCurrent] = useState(0);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef(0);
+  const [maxSlideIndex, setMaxSlideIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRaf = useRef<number | null>(null);
+  const dragRef = useRef<{ pointerId: number } | null>(null);
+  const moveSamplesRef = useRef<{ list: { dx: number; t: number }[] }>({ list: [] });
+  const momentumRafRef = useRef<number | null>(null);
+  const suppressCardClickRef = useRef(false);
+  const lastPointerXRef = useRef<number | null>(null);
+  const [laneDragging, setLaneDragging] = useState(false);
 
   const { data: cases = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['publicCases'],
@@ -70,21 +88,230 @@ export function PortfolioPage() {
     setCurrent(0);
   }, []);
 
-  const prev = () => setCurrent((p) => Math.max(0, p - 1));
-  const next = () => setCurrent((p) => Math.min(filtered.length - 1, p + 1));
-  const handleClick = (slug: string) => navigate(`/cases/${slug}`);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+  const getScrollStep = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || el.children.length === 0) return 0;
+    const first = el.children[0] as HTMLElement;
+    const gap = parseFloat(getComputedStyle(el).columnGap || getComputedStyle(el).gap || '0') || 0;
+    return first.offsetWidth + gap;
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const endX = e.changedTouches[0].clientX;
-    const deltaX = touchStartX.current - endX;
-    if (Math.abs(deltaX) < SWIPE_THRESHOLD) return;
-    if (deltaX > 0) setCurrent((p) => Math.min(filtered.length - 1, p + 1));
-    else setCurrent((p) => Math.max(0, p - 1));
-  }, [filtered.length]);
+  const syncCurrentFromScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || filtered.length === 0) return;
+    const step = getScrollStep();
+    if (step <= 0) return;
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    const maxIdx = maxScroll < 1 ? 0 : Math.round(maxScroll / step);
+    const idx = Math.min(maxIdx, Math.max(0, Math.round(el.scrollLeft / step)));
+    setCurrent(idx);
+    setMaxSlideIndex(maxIdx);
+  }, [filtered.length, getScrollStep]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
+    scrollRaf.current = requestAnimationFrame(() => {
+      scrollRaf.current = null;
+      syncCurrentFromScroll();
+    });
+  }, [syncCurrentFromScroll]);
+
+  const scrollBySlides = useCallback(
+    (direction: -1 | 1) => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const step = getScrollStep();
+      if (step <= 0) return;
+      el.scrollBy({ left: direction * step, behavior: 'smooth' });
+    },
+    [getScrollStep],
+  );
+
+  const cancelMomentum = useCallback(() => {
+    if (momentumRafRef.current != null) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = null;
+    }
+  }, []);
+
+  const snapLaneToNearest = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const step = getScrollStep();
+    if (step <= 0) return;
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    const snapped = Math.round(el.scrollLeft / step) * step;
+    el.scrollTo({ left: Math.min(maxScroll, Math.max(0, snapped)), behavior: 'smooth' });
+  }, [getScrollStep]);
+
+  const prev = () => scrollBySlides(-1);
+  const next = () => scrollBySlides(1);
+  const handleCardNavigate = useCallback(
+    (slug: string) => {
+      if (suppressCardClickRef.current) {
+        suppressCardClickRef.current = false;
+        return;
+      }
+      navigate(`/cases/${slug}`);
+    },
+    [navigate],
+  );
+
+  const onLanePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 1) return;
+    cancelMomentum();
+    clearMoveSamples(moveSamplesRef.current);
+    lastPointerXRef.current = e.clientX;
+    el.setPointerCapture(e.pointerId);
+    dragRef.current = { pointerId: e.pointerId };
+    setLaneDragging(true);
+  }, [cancelMomentum]);
+
+  const onLanePointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    let mx = e.movementX;
+    if (mx === 0 && lastPointerXRef.current != null) {
+      const fb = e.clientX - lastPointerXRef.current;
+      if (Math.abs(fb) > 0) mx = fb;
+    }
+    lastPointerXRef.current = e.clientX;
+    el.scrollLeft -= mx;
+    if (Math.abs(mx) > 2) suppressCardClickRef.current = true;
+    pushMoveSample(moveSamplesRef.current, mx);
+  }, []);
+
+  const onLanePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      dragRef.current = null;
+      lastPointerXRef.current = null;
+      setLaneDragging(false);
+      try {
+        scrollRef.current?.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+
+      let vel = scrollVelocityPerFrameFromSamples(moveSamplesRef.current);
+      clearMoveSamples(moveSamplesRef.current);
+      const cap = 72;
+      vel = Math.max(-cap, Math.min(cap, vel));
+      if (Math.abs(vel) < 8) {
+        snapLaneToNearest();
+        return;
+      }
+
+      const tick = () => {
+        const lane = scrollRef.current;
+        if (!lane) {
+          cancelMomentum();
+          return;
+        }
+        vel *= 0.935;
+        lane.scrollLeft += vel;
+        const maxScroll = lane.scrollWidth - lane.clientWidth;
+        if (lane.scrollLeft <= 0 || lane.scrollLeft >= maxScroll - 0.5) {
+          cancelMomentum();
+          snapLaneToNearest();
+          return;
+        }
+        if (Math.abs(vel) < 0.65) {
+          cancelMomentum();
+          snapLaneToNearest();
+          return;
+        }
+        momentumRafRef.current = requestAnimationFrame(tick);
+      };
+      momentumRafRef.current = requestAnimationFrame(tick);
+    },
+    [cancelMomentum, snapLaneToNearest],
+  );
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = 0;
+    setCurrent(0);
+    setMaxSlideIndex(0);
+  }, [cat, filtered.length]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || filtered.length === 0) return;
+    const ro = new ResizeObserver(() => syncCurrentFromScroll());
+    ro.observe(el);
+    syncCurrentFromScroll();
+    return () => ro.disconnect();
+  }, [filtered.length, syncCurrentFromScroll]);
+
+  useEffect(
+    () => () => {
+      if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
+      if (momentumRafRef.current != null) cancelAnimationFrame(momentumRafRef.current);
+    },
+    [],
+  );
+
+  /**
+   * Тачпад: как BlogCarousel/TeamCarousel — wheel на самом overflow-контейнере, passive: false.
+   * Причины прошлых сбоев: (1) hit-test через elementFromPoint давал false, если top element не child;
+   * (2) scroll-snap mandatory «съедал» мелкие scrollLeft — на время жеста отключаем snap.
+   */
+  useLayoutEffect(() => {
+    if (filtered.length === 0 || isLoading || isError) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let snapIdleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return;
+
+      const t = e.target;
+      if (!(t instanceof Node) || !el.contains(t)) return;
+
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll <= 1) return;
+
+      const dx = getHorizontalWheelDelta(e, el);
+      const dy = scaleWheelDelta(e.deltaY, e.deltaMode, el);
+
+      if (isClearlyVerticalPageScroll(e, dx, dy)) return;
+
+      if (Math.abs(dx) < 0.001 && !e.shiftKey) return;
+
+      const atStart = el.scrollLeft <= 0.5;
+      const atEnd = el.scrollLeft >= maxScroll - 0.5;
+      if ((atStart && dx < 0) || (atEnd && dx > 0)) return;
+
+      cancelMomentum();
+
+      el.style.setProperty('scroll-snap-type', 'none');
+      if (snapIdleTimer != null) clearTimeout(snapIdleTimer);
+      snapIdleTimer = setTimeout(() => {
+        el.style.removeProperty('scroll-snap-type');
+        snapIdleTimer = null;
+      }, 220);
+
+      e.preventDefault();
+      e.stopPropagation();
+      el.scrollLeft += dx;
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => {
+      el.removeEventListener('wheel', onWheel, { capture: true });
+      if (snapIdleTimer != null) clearTimeout(snapIdleTimer);
+      el.style.removeProperty('scroll-snap-type');
+    };
+  }, [filtered.length, isLoading, isError, cancelMomentum]);
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 20 }}><CircularProgress sx={{ color: '#ffbb00' }} /></Box>;
@@ -109,8 +336,6 @@ export function PortfolioPage() {
       </Box>
     );
   }
-
-  const VISIBLE = 3; // cards visible at once on desktop
 
   return (
     <>
@@ -159,35 +384,52 @@ export function PortfolioPage() {
           {filtered.length > 0 ? (
             <>
               <Box
-                sx={{ position: 'relative', overflow: 'hidden', mb: 4, touchAction: 'pan-y' }}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
+                ref={scrollRef}
+                onScroll={handleScroll}
+                onPointerDown={onLanePointerDown}
+                onPointerMove={onLanePointerMove}
+                onPointerUp={onLanePointerUp}
+                onPointerCancel={onLanePointerUp}
+                onLostPointerCapture={() => {
+                  dragRef.current = null;
+                  lastPointerXRef.current = null;
+                  setLaneDragging(false);
+                }}
+                sx={{
+                  position: 'relative',
+                  mb: 4,
+                  display: 'flex',
+                  gap: 3,
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  '@media (pointer: fine)': { touchAction: 'pan-x' },
+                  scrollSnapType: laneDragging ? 'none' : { xs: 'x proximity', md: 'x mandatory' },
+                  WebkitOverflowScrolling: 'touch',
+                  overscrollBehaviorX: 'contain',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  '&::-webkit-scrollbar': { display: 'none' },
+                  cursor: laneDragging ? 'grabbing' : 'grab',
+                  userSelect: laneDragging ? 'none' : 'auto',
+                }}
               >
-                <Box
-                  ref={trackRef}
-                  sx={{
-                    display: 'flex',
-                    gap: 3,
-                    transition: 'transform 0.5s cubic-bezier(0.25,0.8,0.25,1)',
-                    transform: `translateX(calc(-${current} * (calc(100% / ${VISIBLE}) + 24px * ${VISIBLE - 1} / ${VISIBLE})))`,
-                  }}
-                >
-                  {filtered.map((c: any, idx: number) => {
-                    const imgSrc = resolveImageUrl(c.heroImageUrl || c.donorImageUrl || '');
+                  {filtered.map((c: any) => {
+                    const imgSrc = resolveImageUrl(c.listingPreviewImageUrl || c.heroImageUrl || c.donorImageUrl || '');
                     const hasImg = !!imgSrc;
                     return (
                       <Box
                         key={c.slug}
-                        onClick={() => handleClick(c.slug)}
+                        onClick={() => handleCardNavigate(c.slug)}
                         data-anim-child
                         sx={{
                           flexShrink: 0,
+                          scrollSnapAlign: 'start',
                           width: { xs: '85%', sm: `calc(50% - 12px)`, md: `calc(${100 / VISIBLE}% - ${24 * (VISIBLE - 1) / VISIBLE}px)` },
                           height: { xs: 360, md: 440 },
                           borderRadius: 4,
                           overflow: 'hidden',
                           position: 'relative',
-                          cursor: 'pointer',
+                          cursor: laneDragging ? 'grabbing' : 'pointer',
                           border: '1px solid rgba(255,255,255,0.06)',
                           transition: 'border-color 0.4s, transform 0.4s',
                           '&:hover': { borderColor: 'rgba(255,187,0,0.3)', transform: 'translateY(-6px)' },
@@ -200,8 +442,10 @@ export function PortfolioPage() {
                             src={imgSrc}
                             alt={c.title}
                             loading="lazy"
+                            draggable={false}
+                            onDragStart={(e: SyntheticEvent<HTMLImageElement>) => e.preventDefault()}
                             onError={(e: SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).src = fallbackImageUrl(); }}
-                            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'auto' }}
                           />
                         ) : (
                           <Box sx={{ width: '100%', height: '100%', bgcolor: 'rgba(30,30,30,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -253,11 +497,10 @@ export function PortfolioPage() {
                       </Box>
                     );
                   })}
-                </Box>
               </Box>
 
               {/* Navigation */}
-              {filtered.length > VISIBLE && (
+              {maxSlideIndex > 0 && (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                   <IconButton
                     onClick={prev}
@@ -272,11 +515,11 @@ export function PortfolioPage() {
                     <ArrowBackIosNewIcon fontSize="small" />
                   </IconButton>
                   <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', minWidth: 60, textAlign: 'center' }}>
-                    {current + 1} / {Math.max(1, filtered.length - VISIBLE + 1)}
+                    {current + 1} / {Math.max(1, maxSlideIndex + 1)}
                   </Typography>
                   <IconButton
                     onClick={next}
-                    disabled={current >= filtered.length - VISIBLE}
+                    disabled={current >= maxSlideIndex}
                     sx={{
                       border: '1px solid rgba(255,255,255,0.12)',
                       color: '#fff',

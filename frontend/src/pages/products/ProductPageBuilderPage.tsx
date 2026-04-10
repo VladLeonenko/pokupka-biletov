@@ -14,7 +14,7 @@ export function ProductPageBuilderPage() {
   const isNew = id === 'new';
 
   const { data: product, isLoading } = useQuery({
-    queryKey: ['product', id],
+    queryKey: ['admin-product', id],
     queryFn: () => getProduct(id!),
     enabled: !isNew && !!id,
   });
@@ -25,10 +25,11 @@ export function ProductPageBuilderPage() {
         throw new Error('Product not found');
       }
 
+      // Важно: сначала базовый contentJson, иначе старые blocks/sections из кэша затирают правки из конструктора (пропадают картинки и блоки).
       const contentJson = {
+        ...(product?.contentJson || {}),
         blocks: data.blocks || [],
         sections: data.sections || [],
-        ...(product?.contentJson || {}), // Сохраняем другие данные из contentJson
       };
 
       const updatedProduct = {
@@ -43,7 +44,8 @@ export function ProductPageBuilderPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['product', id] });
+      queryClient.invalidateQueries({ queryKey: ['product'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-product'] });
       if (isNew && product?.slug) {
         navigate(`/admin/products/${product.slug}/builder`, { replace: true });
       }

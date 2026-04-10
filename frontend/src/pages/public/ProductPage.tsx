@@ -258,8 +258,35 @@ export function ProductPage() {
   }
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const headerSection = contentJson?.header;
-  const hasHeaderBlock = headerSection && (headerSection.title || headerSection.description || headerSection.primaryButtonText || headerSection.secondaryButtonText);
+  const rawHeader = contentJson?.header || {};
+  const stripHtmlShort = (html?: string, max = 420) => {
+    if (!html || typeof html !== 'string') return '';
+    const t = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    return t.length <= max ? t : `${t.slice(0, max)}…`;
+  };
+  const heroTitle =
+    (rawHeader.title && String(rawHeader.title).trim()) || product.title || '';
+  const heroDescription =
+    (rawHeader.description && String(rawHeader.description).trim()) ||
+    (product.summary && String(product.summary).trim()) ||
+    stripHtmlShort(product.descriptionHtml) ||
+    '';
+  const heroOrderCtaLabel =
+    (rawHeader.primaryButtonText && String(rawHeader.primaryButtonText).trim()) || 'Заказать услугу';
+  const headerSection = {
+    ...rawHeader,
+    title: heroTitle,
+    description: heroDescription,
+    primaryButtonText: heroOrderCtaLabel,
+  };
+  /** Нижний повторный блок — только если в шаблоне задана шапка, иначе дублирует герой */
+  const showBottomHeaderCta = Boolean(
+    (rawHeader.title && String(rawHeader.title).trim()) ||
+      (rawHeader.description && String(rawHeader.description).trim()) ||
+      (rawHeader.primaryButtonText && String(rawHeader.primaryButtonText).trim()) ||
+      (rawHeader.secondaryButtonText && String(rawHeader.secondaryButtonText).trim())
+  );
   const priceSection = contentJson?.priceSection;
   const tariffs = priceSection?.tariffs?.filter(
     (tariff) => tariff && (tariff.name || tariff.price || tariff.description || (tariff.featuresLeft && tariff.featuresLeft.length) || (tariff.featuresRight && tariff.featuresRight.length))
@@ -526,9 +553,9 @@ export function ProductPage() {
                   mt: 1.5,
                 }}
               >
-                {product.title}
+                {heroTitle}
               </MotionTypography>
-              {product.summary && (
+              {heroDescription && (
                 <MotionTypography
                   {...sectionAnimation(0.32)}
                   variant="h6"
@@ -542,7 +569,7 @@ export function ProductPage() {
                     'textWrap': 'balance',
                   }}
                 >
-                  {product.summary}
+                  {heroDescription}
                 </MotionTypography>
               )}
             </Box>
@@ -740,7 +767,7 @@ export function ProductPage() {
                   '&:hover': { bgcolor: '#e5a800', color: '#141414' },
                 }}
               >
-                Заказать услугу
+                {heroOrderCtaLabel}
               </Button>
             </Stack>
 
@@ -1567,7 +1594,7 @@ export function ProductPage() {
       )}
 
       {/* CTA блок после FAQ */}
-      {hasHeaderBlock && (
+      {showBottomHeaderCta && (
         <MotionPaper
           {...sectionAnimation(0.75)}
           elevation={0}
@@ -1591,7 +1618,7 @@ export function ProductPage() {
               {headerSection.description}
             </Typography>
           )}
-          {(headerSection?.primaryButtonText || headerSection?.secondaryButtonText) && (
+          {(headerSection?.primaryButtonText || rawHeader.secondaryButtonText) && (
             <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
               {headerSection?.primaryButtonText && (
                 <Button
@@ -1603,7 +1630,6 @@ export function ProductPage() {
                   {headerSection.primaryButtonText}
                 </Button>
               )}
-              {/* secondaryButton removed from CTA — only primary CTA here */}
             </Stack>
           )}
         </MotionPaper>

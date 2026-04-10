@@ -3,6 +3,43 @@ import { useQuery } from '@tanstack/react-query';
 import { getPublicCase } from '@/services/publicApi';
 import styles from './ResultsSection.module.css';
 
+/** Значения-плейсхолдеры — не показываем блоки «дней / экранов», чтобы не выглядело как ошибка верстки */
+const STAT_PLACEHOLDERS = new Set(
+  [
+    'n/a',
+    'n/a.',
+    'na',
+    'n.a.',
+    'n\\a',
+    'ongoing',
+    'tbd',
+    'todo',
+    'none',
+    'null',
+    'undefined',
+    '...',
+    '..',
+    '-',
+    '—',
+    '–',
+    'нет',
+    'не применимо',
+    'н/д',
+    'н\\д',
+  ].map((s) => s.toLowerCase())
+);
+
+function isShowableStatValue(raw: unknown): boolean {
+  if (raw == null) return false;
+  const s = String(raw).trim();
+  if (!s) return false;
+  const lower = s.toLowerCase().replace(/\s+/g, ' ');
+  if (STAT_PLACEHOLDERS.has(lower)) return false;
+  if (/^[\s\-–—.]+$/u.test(s)) return false;
+  if (/^\.{2,}$/u.test(s)) return false;
+  return true;
+}
+
 export function ResultsSection() {
   const { slug } = useParams<{ slug?: string }>();
   
@@ -17,11 +54,13 @@ export function ResultsSection() {
   const description = resultsData.description || '';
   const days = resultsData.days || '';
   const screens = resultsData.screens || '';
-  const features = resultsData.features || [];
+  const features = (resultsData.features || []).filter(
+    (f: unknown) => typeof f === 'string' && f.trim().length > 0
+  );
 
   const stats: { value: string; label: string }[] = [];
-  if (days) stats.push({ value: days, label: 'дней разработки' });
-  if (screens) stats.push({ value: screens, label: 'экранов/страниц' });
+  if (isShowableStatValue(days)) stats.push({ value: String(days).trim(), label: 'дней разработки' });
+  if (isShowableStatValue(screens)) stats.push({ value: String(screens).trim(), label: 'экранов/страниц' });
 
   if (!description && stats.length === 0 && features.length === 0) {
     return null;

@@ -22,9 +22,9 @@ export function BlogBlockEditorPage() {
   const { showToast } = useToast();
 
   const { data: post, isLoading } = useQuery({
-    queryKey: ['blog', id],
+    queryKey: ['admin-blog-post', id],
     queryFn: () => getBlogPost(id),
-    enabled: !isNew,
+    enabled: !isNew && Boolean(id && String(id).trim()),
   });
 
   const { data: categories = [] } = useQuery({ queryKey: ['blog-categories'], queryFn: listBlogCategories });
@@ -114,7 +114,8 @@ export function BlogBlockEditorPage() {
     },
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['blog'] });
-      queryClient.invalidateQueries({ queryKey: ['blog', saved.slug] });
+      queryClient.invalidateQueries({ queryKey: ['admin-blog-post'] });
+      queryClient.invalidateQueries({ queryKey: ['public-blog-post'] });
       if (isNew) {
         navigate(`/admin/blog/${saved.slug}`, { replace: true });
       }

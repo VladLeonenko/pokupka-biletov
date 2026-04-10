@@ -10,7 +10,11 @@ import gsap from 'gsap';
 export function HeroSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  const { data: categories } = useQuery({ queryKey: ['productCategories'], queryFn: () => listProductCategories(true), staleTime: 5 * 60 * 1000 });
+  const { data: categories } = useQuery({
+    queryKey: ['productCategories', true],
+    queryFn: () => listProductCategories(true),
+    staleTime: 5 * 60 * 1000,
+  });
   const { data: carousel, isLoading: carouselLoading } = useQuery({
     queryKey: ['public-carousel', 'vertical-carousel-home'],
     queryFn: () => getPublicCarousel('vertical-carousel-home'),

@@ -32,9 +32,9 @@ import { useToast } from '@/components/common/ToastProvider';
 import { ProductCategory } from '@/types/cms';
 
 export function ProductCategoriesPage() {
-  const { data: categories = [] } = useQuery({ 
-    queryKey: ['product-categories'], 
-    queryFn: () => listProductCategories(false) 
+  const { data: categories = [] } = useQuery({
+    queryKey: ['productCategories', false],
+    queryFn: () => listProductCategories(false),
   });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -75,7 +75,7 @@ export function ProductCategoriesPage() {
   const createMutation = useMutation({
     mutationFn: () => createProductCategory(formData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['productCategories'] });
       showToast('Категория создана', 'success');
       setOpen(false);
       resetForm();
@@ -86,7 +86,7 @@ export function ProductCategoriesPage() {
   const updateMutation = useMutation({
     mutationFn: () => updateProductCategory(editingId!, formData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['productCategories'] });
       showToast('Категория обновлена', 'success');
       setOpen(false);
       resetForm();
@@ -97,7 +97,7 @@ export function ProductCategoriesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteProductCategory(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['productCategories'] });
       showToast('Категория удалена', 'success');
     },
     onError: (e: any) => showToast(e?.message || 'Ошибка удаления', 'error')
@@ -134,7 +134,7 @@ export function ProductCategoriesPage() {
         await createProductCategory(preset);
       }
       
-      queryClient.invalidateQueries({ queryKey: ['product-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['productCategories'] });
       showToast('Стартовые категории добавлены', 'success');
     } catch (e: any) {
       showToast(e?.message || 'Ошибка добавления пресетов', 'error');

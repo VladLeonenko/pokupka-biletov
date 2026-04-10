@@ -5,7 +5,7 @@ import { listProductCategories } from '@/services/ecommerceApi';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { slugify } from '@/utils/slugify';
 import { getApiBase } from '@/utils/apiBase';
-import { Box, Button, Grid, MenuItem, Paper, TextField, Typography, FormControlLabel, Switch, Accordion, AccordionSummary, AccordionDetails, IconButton, Chip, Autocomplete, Alert } from '@mui/material';
+import { Box, Button, Grid, MenuItem, Paper, TextField, Typography, FormControlLabel, Switch, Accordion, AccordionSummary, AccordionDetails, IconButton, Chip, Autocomplete, Alert, FormControl, InputLabel, Select, OutlinedInput } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -21,15 +21,23 @@ export function ProductEditorPage() {
   const isNew = id === 'new';
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const { data } = useQuery({ 
-    queryKey: ['product', id], 
-    queryFn: () => (id && !isNew ? getProduct(id!) : Promise.resolve(undefined)),
+  const {
+    data,
+    isLoading: productLoading,
+    isError: productError,
+    error: productErrorObj,
+    refetch: refetchProduct,
+  } = useQuery({
+    // Не делить queryKey с ProductPage (там getPublicProduct) — иначе в админке подставляется чужой кэш и форма пустая
+    queryKey: ['admin-product', id],
+    queryFn: () => getProduct(id!),
+    enabled: !!id && !isNew,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: Infinity,
+    refetchOnMount: true,
+    staleTime: 60 * 1000,
   });
   const navigate = useNavigate();
-  const isInitialized = useRef(false);
+  const hydratedSlugRef = useRef<string | null>(null);
   
   const [slug, setSlug] = useState('');
   const [title, setTitle] = useState('');
@@ -55,10 +63,10 @@ export function ProductEditorPage() {
   const [generatingSeo, setGeneratingSeo] = useState(false);
   const [generatingCard, setGeneratingCard] = useState(false);
   
-const { data: categories = [] } = useQuery({
-  queryKey: ['productCategories'],
-  queryFn: () => listProductCategories(false), // false = все категории (не только активные)
-});
+  const { data: categories = [] } = useQuery({
+    queryKey: ['productCategories', false],
+    queryFn: () => listProductCategories(false),
+  });
   // Получаем список сотрудников команды
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['teamMembers'],
@@ -81,9 +89,8 @@ const { data: categories = [] } = useQuery({
     },
   });
 
-  // Сбрасываем флаг инициализации при смене продукта
   useEffect(() => {
-    isInitialized.current = false;
+    hydratedSlugRef.current = null;
   }, [id]);
 
   // Автоматическая генерация slug из названия для новых продуктов
@@ -97,32 +104,32 @@ const { data: categories = [] } = useQuery({
   }, [title, isNew, slug]);
 
   useEffect(() => {
-    if (data && !isInitialized.current) {
-      setSlug(data.slug);
-      setTitle(data.title);
-      setDescriptionHtml(data.descriptionHtml || '');
-      setSummary(data.summary || '');
-      setFullDescriptionHtml(data.fullDescriptionHtml || '');
-      const cents = data.priceCents || 0;
-      setPriceCents(cents);
-      setPriceRubles(Math.round(cents / 100)); // Конвертируем копейки в рубли для отображения
-      setCurrency(data.currency || 'RUB');
-      setPricePeriod((data.pricePeriod as any) || 'one_time');
-      setFeatures(data.features || []);
-      setSortOrder(data.sortOrder || 0);
-      setContentJson(data.contentJson || {});
-      setCategoryIds(data.categoryIds?.length ? data.categoryIds : (data.categoryId ? [data.categoryId] : []));
-      setImageUrl(data.imageUrl || '');
-      setGallery(data.gallery || []);
-      setTags(data.tags || []);
-      setMetaTitle(data.metaTitle || '');
-      setMetaDescription(data.metaDescription || '');
-      setMetaKeywords(data.metaKeywords || '');
-      setCaseSlugs(data.caseSlugs || []);
-      setIsActive(data.isActive !== false);
-      isInitialized.current = true;
-    }
-  }, [data]);
+    if (isNew || !id || !data || data.slug !== id) return;
+    if (hydratedSlugRef.current === id) return;
+    hydratedSlugRef.current = id;
+    setSlug(data.slug);
+    setTitle(data.title);
+    setDescriptionHtml(data.descriptionHtml || '');
+    setSummary(data.summary || '');
+    setFullDescriptionHtml(data.fullDescriptionHtml || '');
+    const cents = data.priceCents || 0;
+    setPriceCents(cents);
+    setPriceRubles(Math.round(cents / 100));
+    setCurrency(data.currency || 'RUB');
+    setPricePeriod((data.pricePeriod as any) || 'one_time');
+    setFeatures(data.features || []);
+    setSortOrder(data.sortOrder || 0);
+    setContentJson(data.contentJson || {});
+    setCategoryIds(data.categoryIds?.length ? data.categoryIds : data.categoryId ? [data.categoryId] : []);
+    setImageUrl(data.imageUrl || '');
+    setGallery(data.gallery || []);
+    setTags(data.tags || []);
+    setMetaTitle(data.metaTitle || '');
+    setMetaDescription(data.metaDescription || '');
+    setMetaKeywords(data.metaKeywords || '');
+    setCaseSlugs(data.caseSlugs || []);
+    setIsActive(data.isActive !== false);
+  }, [id, data, isNew]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -174,7 +181,9 @@ const { data: categories = [] } = useQuery({
       await upsertProduct(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // не ждём — сразу навигация
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-product'] });
       showToast('Продукт сохранен', 'success');
       navigate('/admin/products');
     },
@@ -187,6 +196,8 @@ const { data: categories = [] } = useQuery({
     mutationFn: async () => deleteProduct(id as string),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await queryClient.invalidateQueries({ queryKey: ['product'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-product'] });
       showToast('Продукт удален', 'success');
       navigate('/products');
     },
@@ -223,6 +234,32 @@ const { data: categories = [] } = useQuery({
       input.click();
     });
   };
+
+  if (!isNew && productLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isNew && productError) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error" action={<Button onClick={() => refetchProduct()}>Повторить</Button>}>
+          {(productErrorObj as Error)?.message || 'Не удалось загрузить товар'}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!isNew && !productLoading && !productError && data === undefined) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="warning">Товар не найден (проверьте адрес в админке).</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -1191,25 +1228,34 @@ const { data: categories = [] } = useQuery({
                 {imageUrl ? 'Изменить изображение' : 'Загрузить изображение'}
               </Button>
             </Box>
-            <Autocomplete
-              multiple
-              options={cases.map((c: any) => c.slug)}
-              getOptionLabel={(option) => {
-                const caseItem = cases.find((c: any) => c.slug === option);
-                return caseItem ? caseItem.title : option;
-              }}
-              value={caseSlugs}
-              onChange={(e, newValue) => setCaseSlugs(newValue)}
-              renderInput={(params) => <TextField {...params} label="Примеры работ (кейсы)" sx={{ mb: 2 }} />}
-              renderTags={(value, getTagProps) =>
-                value.map((option, index) => {
-                  const caseItem = cases.find((c: any) => c.slug === option);
-                  return (
-                    <Chip variant="outlined" label={caseItem?.title || option} {...getTagProps({ index })} key={index} />
-                  );
-                })
-              }
-            />
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="product-case-slugs-label">Примеры работ (кейсы)</InputLabel>
+              <Select
+                labelId="product-case-slugs-label"
+                multiple
+                value={caseSlugs}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCaseSlugs(typeof v === 'string' ? v.split(',') : v);
+                }}
+                input={<OutlinedInput label="Примеры работ (кейсы)" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(selected as string[]).map((slugVal) => {
+                      const caseItem = cases.find((c: any) => c.slug === slugVal);
+                      return <Chip key={slugVal} size="small" label={caseItem?.title || slugVal} />;
+                    })}
+                  </Box>
+                )}
+                MenuProps={{ PaperProps: { style: { maxHeight: 320 } } }}
+              >
+                {cases.map((c: any) => (
+                  <MenuItem key={c.slug} value={c.slug}>
+                    {c.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             {/* Секция фильтров и сортировки */}
             <Accordion defaultExpanded sx={{ mb: 2, border: '2px solid #1976d2', borderRadius: '8px' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>

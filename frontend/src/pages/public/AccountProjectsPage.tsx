@@ -250,14 +250,25 @@ export function AccountProjectsPage() {
     createCommentMut.mutate({ projectId, comment, stageId, taskId });
   };
 
+  const surfaceCardSx = {
+    bgcolor: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: 'rgba(255,255,255,0.92)',
+    '& .MuiTypography-root': { color: 'inherit' },
+    '& .MuiTypography-colorTextSecondary': { color: 'rgba(255,255,255,0.55) !important' },
+  } as const;
+
+  /** MUI Alert по умолчанию даёт #f5f5f5 — убираем заливку, оставляем рамку (outlined + transparent) */
+  const alertSx = {
+    bgcolor: 'transparent !important',
+    border: '1px solid rgba(255,255,255,0.22)',
+    color: 'rgba(255,255,255,0.92)',
+    '& .MuiAlert-message': { color: 'inherit' },
+    '& .MuiAlert-icon': { color: 'rgba(255,255,255,0.78)' },
+  } as const;
+
   return (
     <>
-      <style>{`
-        .css-hg96mf {
-          background: none !important;
-          background-color: transparent !important;
-        }
-      `}</style>
       <SeoMetaTags
         title="Мои проекты — PrimeCoder"
         description="Прогресс проектов и запросы на изменения"
@@ -278,29 +289,35 @@ export function AccountProjectsPage() {
 
         {error && (
           <Box sx={{ mb: 2 }}>
-            <Alert severity="error">Не удалось загрузить проекты</Alert>
+            <Alert severity="error" variant="outlined" sx={alertSx}>
+              Не удалось загрузить проекты
+            </Alert>
           </Box>
         )}
 
         {!isLoading && projects.length === 0 && (
-          <Alert severity="info">У вас пока нет активных проектов</Alert>
+          <Alert severity="info" variant="outlined" sx={alertSx}>
+            У вас пока нет активных проектов
+          </Alert>
         )}
 
         {projects.length > 0 && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {projects.map((p) => (
               <Grid item xs={12} md={12} key={p.id}>
-                <Card sx={{ bgcolor: '#ffffff' }}>
+                <Card sx={surfaceCardSx}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="h6">{p.title}</Typography>
+                      <Typography variant="h6" sx={{ color: '#fff' }}>
+                        {p.title}
+                      </Typography>
                       <Chip
                         label={p.status}
                         size="small"
                         color={p.status === 'completed' ? 'success' : 'default'}
                       />
                     </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.55)' }}>
                       Прогресс: {p.progressPercent}%
                     </Typography>
                     <LinearProgress
@@ -309,12 +326,12 @@ export function AccountProjectsPage() {
                       sx={{ mb: 2 }}
                     />
                     {p.deadline && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.5)' }}>
                         Дедлайн: {new Date(p.deadline).toLocaleDateString('ru-RU')}
                       </Typography>
                     )}
                     {p.budgetTotalCents != null && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'rgba(255,255,255,0.5)' }}>
                         Бюджет: {(p.budgetTotalCents / 100).toLocaleString('ru-RU')} ₽ /{' '}
                         {p.budgetUsedCents != null ? (p.budgetUsedCents / 100).toLocaleString('ru-RU') : '0'} ₽
                       </Typography>
@@ -322,7 +339,7 @@ export function AccountProjectsPage() {
 
                     {p.stages && p.stages.length > 0 && (
                       <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
                           Этапы проекта:
                         </Typography>
                         {p.stages.map((s, idx) => {
@@ -338,8 +355,12 @@ export function AccountProjectsPage() {
                                 p: 1.5,
                                 borderRadius: 1,
                                 border: '1px solid',
-                                borderColor: isCompleted ? 'success.main' : isInProgress ? 'primary.main' : 'grey.300',
-                                bgcolor: isCompleted ? 'success.light' : isInProgress ? 'primary.light' : 'grey.50',
+                                borderColor: isCompleted
+                                  ? 'rgba(76, 175, 80, 0.55)'
+                                  : isInProgress
+                                    ? 'rgba(33, 150, 243, 0.55)'
+                                    : 'rgba(255,255,255,0.14)',
+                                bgcolor: 'transparent',
                               }}
                             >
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -349,7 +370,7 @@ export function AccountProjectsPage() {
                                     sx={{
                                       fontWeight: 600,
                                       textDecoration: isCompleted ? 'line-through' : 'none',
-                                      color: isCompleted ? 'text.secondary' : 'text.primary',
+                                      color: isCompleted ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.92)',
                                     }}
                                   >
                                     {idx + 1}. {s.name}
@@ -366,7 +387,7 @@ export function AccountProjectsPage() {
                                     color={isCompleted ? 'success' : isInProgress ? 'primary' : 'default'}
                                   />
                                 </Box>
-                                <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: 'rgba(255,255,255,0.55)' }}>
                                   {s.progressPercent}%
                                 </Typography>
                               </Box>
@@ -377,27 +398,27 @@ export function AccountProjectsPage() {
                                   height: 8,
                                   borderRadius: 4,
                                   mb: 1,
-                                  bgcolor: isCompleted ? 'success.dark' : isInProgress ? 'primary.dark' : 'grey.300',
+                                  bgcolor: isCompleted ? 'success.dark' : isInProgress ? 'primary.dark' : 'rgba(255,255,255,0.15)',
                                 }}
                               />
                               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
                                 {s.plannedHours && (
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                                     Запланировано: {s.plannedHours} ч
                                   </Typography>
                                 )}
                                 {s.spentHours && (
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                                     Затрачено: {s.spentHours} ч
                                   </Typography>
                                 )}
                                 {s.budgetPlannedCents && (
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                                     Бюджет: {(s.budgetPlannedCents / 100).toLocaleString('ru-RU')} ₽
                                   </Typography>
                                 )}
                                 {s.budgetSpentCents && (
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                                     Потрачено: {(s.budgetSpentCents / 100).toLocaleString('ru-RU')} ₽
                                   </Typography>
                                 )}
@@ -415,20 +436,20 @@ export function AccountProjectsPage() {
                                         p: 1,
                                         mb: 1,
                                         borderRadius: 1,
-                                        bgcolor: 'warning.light',
+                                        bgcolor: 'transparent',
                                         border: '1px solid',
-                                        borderColor: 'warning.main',
+                                        borderColor: 'rgba(255, 193, 7, 0.45)',
                                       }}
                                     >
                                       <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
                                         {offer.title}
                                       </Typography>
                                       {offer.description && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                        <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'rgba(255,255,255,0.55)' }}>
                                           {offer.description}
                                         </Typography>
                                       )}
-                                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'warning.dark' }}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'rgba(255, 213, 79, 0.95)' }}>
                                         +{(offer.priceCents / 100).toLocaleString('ru-RU')} ₽
                                       </Typography>
                                     </Box>
@@ -443,7 +464,7 @@ export function AccountProjectsPage() {
 
                     {p.tasks && p.tasks.length > 0 && (
                       <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
                           Задачи проекта:
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -453,9 +474,12 @@ export function AccountProjectsPage() {
                               sx={{
                                 p: 1,
                                 borderRadius: 1,
-                                bgcolor: task.status === 'completed' ? 'success.light' : 'grey.100',
+                                bgcolor: 'transparent',
                                 border: '1px solid',
-                                borderColor: task.status === 'completed' ? 'success.main' : 'grey.300',
+                                borderColor:
+                                  task.status === 'completed'
+                                    ? 'rgba(76, 175, 80, 0.5)'
+                                    : 'rgba(255,255,255,0.14)',
                               }}
                             >
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -464,7 +488,7 @@ export function AccountProjectsPage() {
                                   sx={{
                                     fontWeight: 500,
                                     textDecoration: task.status === 'completed' ? 'line-through' : 'none',
-                                    color: task.status === 'completed' ? 'text.secondary' : 'text.primary',
+                                    color: task.status === 'completed' ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.9)',
                                   }}
                                 >
                                   {task.title}
@@ -491,17 +515,17 @@ export function AccountProjectsPage() {
                                 />
                               </Box>
                               {task.description && (
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255,255,255,0.5)' }}>
                                   {task.description}
                                 </Typography>
                               )}
                               {task.assignedToName && (
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255,255,255,0.5)' }}>
                                   Исполнитель: {task.assignedToName}
                                 </Typography>
                               )}
                               {task.dueDate && (
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255,255,255,0.5)' }}>
                                   Срок: {new Date(task.dueDate).toLocaleDateString('ru-RU')}
                                 </Typography>
                               )}
@@ -541,7 +565,7 @@ export function AccountProjectsPage() {
 
                     {expandedProjectId === p.id && (
                       <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
                           Комментарии к проекту:
                         </Typography>
                         
@@ -552,7 +576,7 @@ export function AccountProjectsPage() {
                         )}
 
                         {(projectComments[p.id] || []).length === 0 && !loadingComments[p.id] && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255,255,255,0.55)' }}>
                             Пока нет комментариев. Задайте вопрос или уточните детали!
                           </Typography>
                         )}
@@ -564,9 +588,11 @@ export function AccountProjectsPage() {
                               sx={{
                                 p: 1.5,
                                 borderRadius: 1,
-                                bgcolor: comment.createdByClient ? 'primary.light' : 'grey.100',
+                                bgcolor: 'transparent',
                                 border: '1px solid',
-                                borderColor: comment.createdByClient ? 'primary.main' : 'grey.300',
+                                borderColor: comment.createdByClient
+                                  ? 'rgba(33, 150, 243, 0.45)'
+                                  : 'rgba(255,255,255,0.14)',
                               }}
                             >
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -576,7 +602,7 @@ export function AccountProjectsPage() {
                                 <Typography variant="caption" sx={{ fontWeight: 600 }}>
                                   {comment.createdByName || comment.createdByEmail || 'Неизвестно'}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)' }}>
                                   {new Date(comment.createdAt).toLocaleString('ru-RU')}
                                 </Typography>
                               </Box>
@@ -623,8 +649,8 @@ export function AccountProjectsPage() {
         )}
 
         {selectedProjectId && (
-          <Card sx={{ bgcolor: '#ffffff' }}>
-            <CardContent>
+                <Card sx={surfaceCardSx}>
+                  <CardContent sx={{ '& .MuiTypography-root': { color: 'inherit' }, color: 'rgba(255,255,255,0.88)' }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Запрос на изменение (Change Request)
               </Typography>
@@ -696,7 +722,7 @@ export function AccountProjectsPage() {
 
               {estimateMut.data && (
                 <Box sx={{ mt: 3 }}>
-                  <Alert severity="info">
+                  <Alert severity="info" variant="outlined" sx={alertSx}>
                     {estimateMut.data.message}
                   </Alert>
                 </Box>
@@ -707,24 +733,24 @@ export function AccountProjectsPage() {
 
         {/* Модуль улучшения проекта / upsell поп-ап */}
         {upsellDialogOpen && upsellOffers.length > 0 && (
-          <Card sx={{ mt: 4, bgcolor: '#ffffff' }}>
-            <CardContent>
+          <Card sx={{ mt: 4, ...surfaceCardSx }}>
+            <CardContent sx={{ color: 'rgba(255,255,255,0.88)' }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Улучшения проекта
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255,255,255,0.55)' }}>
                 Мы подобрали несколько вариантов улучшения вашего проекта. Выберите то, что хотите добавить.
               </Typography>
               <Grid container spacing={2}>
                 {upsellOffers.map((offer) => (
                   <Grid item xs={12} md={6} key={offer.id}>
-                    <Card variant="outlined">
+                    <Card variant="outlined" sx={{ bgcolor: 'transparent', borderColor: 'rgba(255,255,255,0.15)' }}>
                       <CardContent>
                         <Typography variant="subtitle1" sx={{ mb: 1 }}>
                           {offer.title}
                         </Typography>
                         {offer.description && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.55)' }}>
                             {offer.description}
                           </Typography>
                         )}

@@ -276,9 +276,11 @@ export function CasesListPage() {
                     <Box sx={{ width: '100%', height: 140, overflow: 'hidden', bgcolor: 'grey.200' }}>
                       <SafeImage
                         src={(() => {
+                          const listUrl = c.listingPreviewImageUrl?.trim();
                           const heroUrl = c.heroImageUrl?.trim();
-                          const donorUrl = c.donorImageUrl?.trim();
+                          const donorUrl = (c as { donorImageUrl?: string }).donorImageUrl?.trim();
                           const slug = c.slug?.trim();
+                          if (listUrl) return listUrl;
                           if (heroUrl) return heroUrl;
                           if (donorUrl) return donorUrl;
                           if (slug) return `/legacy/img/cases/${slug}/cover.png`;
@@ -382,9 +384,11 @@ export function CasesListPage() {
                     <Box sx={{ width: '100%', height: 140, overflow: 'hidden', bgcolor: 'grey.200' }}>
                       <SafeImage
                         src={(() => {
+                          const listUrl = c.listingPreviewImageUrl?.trim();
                           const heroUrl = c.heroImageUrl?.trim();
-                          const donorUrl = c.donorImageUrl?.trim();
+                          const donorUrl = (c as { donorImageUrl?: string }).donorImageUrl?.trim();
                           const slug = c.slug?.trim();
+                          if (listUrl) return listUrl;
                           if (heroUrl) return heroUrl;
                           if (donorUrl) return donorUrl;
                           if (slug) return `/legacy/img/cases/${slug}/cover.png`;

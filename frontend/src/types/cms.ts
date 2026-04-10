@@ -65,12 +65,23 @@ export type CarouselSlide = {
   is_active?: boolean;
 };
 
+export type CaseHomeCard = {
+  year?: string;
+  type?: string;
+  /** Если пусто — на главной подставляется hero */
+  image?: string;
+};
+
 export type CaseItem = {
   slug: string;
   title: string;
   summary?: string;
   contentHtml?: string;
   heroImageUrl?: string;
+  /** Превью в списке /portfolio; если пусто — hero */
+  listingPreviewImageUrl?: string | null;
+  /** Карточка на главной: год, тип, отдельная картинка (image пусто → hero) */
+  homeCard?: CaseHomeCard | null;
   gallery?: Array<{ url: string; alt?: string }> | string[];
   metrics?: Record<string, any>;
   tools?: string[];
@@ -79,6 +90,10 @@ export type CaseItem = {
   isTemplate?: boolean;
   isPublished?: boolean;
   category?: 'website' | 'mobile' | 'ai' | 'seo' | 'advertising' | 'design'; // Категория для фильтрации в портфолио
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  ogImageUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 };

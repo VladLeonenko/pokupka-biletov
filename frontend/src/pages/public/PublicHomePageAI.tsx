@@ -1,33 +1,43 @@
-import { Box, Container, Typography, Button, Grid, Card, CardContent, Paper, TextField, Slider, Accordion, AccordionSummary, AccordionDetails, Rating, Avatar, Chip, Divider, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, Container, Typography, Button, Grid, Card, CardContent, Paper, TextField, Slider, Accordion, AccordionSummary, AccordionDetails, Avatar, Chip, Divider } from '@mui/material';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { PrivacyConsentCheckbox } from '@/components/privacy/PrivacyConsentCheckbox';
 import { MarketingConsentCheckbox } from '@/components/privacy/MarketingConsentCheckbox';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { listPublicBlogHighlights } from '@/services/publicApi';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/common/ToastProvider';
-import { 
-  TrendingUp, Calculate, CheckCircle, ArrowForward, 
-  Speed, Scale, Shield, Analytics, Group, 
-  Support, Settings, Verified,
-  ExpandMore, Star, VerifiedUser
-} from '@mui/icons-material';
+import { CheckCircle, ArrowForward, ExpandMore, Star, VerifiedUser } from '@mui/icons-material';
+import { AITeamEditorialThreeBackground } from '@/components/home/AITeamEditorialThreeBackground';
 
-// Типы для window
-declare global {
-  interface Window {
-    particleCube?: {
-      start: () => void;
-      stop: () => void;
-    };
-  }
-}
+const editorialEyebrowSx = {
+  fontSize: { xs: '0.65rem', sm: '0.7rem' },
+  letterSpacing: '0.42em',
+  textTransform: 'uppercase' as const,
+  color: 'rgba(0,229,255,0.75)',
+  fontWeight: 600,
+  mb: 1.5,
+};
+
+const glassPanelSx = {
+  bgcolor: 'rgba(12,12,16,0.55)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(255,255,255,0.09)',
+  borderRadius: 2,
+  color: '#f4f4f5',
+};
 
 const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
 const MotionTypography = motion.create(Typography);
+
+const HERO_CLIENT_CHIP_GROUPS: { labels: string[]; borderColor?: string }[] = [
+  { labels: ['AI-агенты', 'Сценарии', 'Воронки', '24/7'] },
+  { labels: ['CRM', 'Мессенджеры', 'Интеграции', 'Аналитика'], borderColor: 'rgba(0, 229, 255, 0.28)' },
+  { labels: ['SEO', 'SMM', 'Рассылки', 'Скрипты продаж'], borderColor: 'rgba(199, 125, 255, 0.3)' },
+];
 
 interface TeamOption {
   name: string;
@@ -276,38 +286,6 @@ export default function PublicHomePageAI() {
   // Расчет процента улучшения количества задач (фиксированно 20%)
   const tasksImprovement = 20;
 
-  // Подключаем скрипт с частицами
-  useEffect(() => {
-    console.log('[Particles] Loading particles script...');
-    
-    // Загружаем скрипт
-    const script = document.createElement('script');
-    script.src = '/legacy/js/cube-optimized.js';
-    script.async = true;
-    script.onload = () => {
-      console.log('[Particles] Script loaded successfully');
-      console.log('[Particles] window.particleCube:', window.particleCube);
-    };
-    script.onerror = (error) => {
-      console.error('[Particles] Failed to load script:', error);
-    };
-    document.body.appendChild(script);
-
-    // Очистка при размонтировании
-    return () => {
-      console.log('[Particles] Cleaning up...');
-      try {
-        document.body.removeChild(script);
-        // Останавливаем анимацию
-        if (window.particleCube) {
-          window.particleCube.stop();
-        }
-      } catch (e) {
-        console.warn('[Particles] Cleanup error:', e);
-      }
-    };
-  }, []);
-
   const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://prime-coder.ru/ai-team';
   return (
     <>
@@ -317,48 +295,73 @@ export default function PublicHomePageAI() {
         keywords="AI маркетинг, подписка на маркетолога, AI SMM, автоматизация маркетинга"
         url={currentUrl}
       />
-      <Box sx={{ bgcolor: '#141414', color: '#ffffff' }}>
+      <Box
+        aria-hidden
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          background: `
+            radial-gradient(ellipse 90% 60% at 10% 20%, rgba(0, 229, 255, 0.07) 0%, transparent 50%),
+            radial-gradient(ellipse 70% 50% at 90% 80%, rgba(199, 125, 255, 0.08) 0%, transparent 45%),
+            linear-gradient(180deg, rgba(5,5,8,0.92) 0%, rgba(8,8,12,0.88) 40%, rgba(5,5,8,0.94) 100%)
+          `,
+          mixBlendMode: 'normal',
+        }}
+      />
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          opacity: 0.04,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+        }}
+      />
+      <AITeamEditorialThreeBackground />
+
+      <Box sx={{ position: 'relative', zIndex: 1, bgcolor: 'transparent', color: '#f4f4f5' }}>
       {/* Hero Section */}
       <Container maxWidth="lg" sx={{ position: 'relative' }}>
-        {/* Canvas для частиц */}
-        <canvas
-          id="particle-canvas"
-          style={{
-            position: 'absolute',
-            top: '25%',
-            left: 0,
-            width: '100%',
-            height: '50%',
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
-        />
-        
         <Box
           sx={{
-            minHeight: '90vh',
+            minHeight: { xs: '85vh', md: '92vh' },
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'flex-start',
             textAlign: 'left',
-            py: 8,
+            py: { xs: 6, md: 10 },
             position: 'relative',
             zIndex: 1,
           }}
         >
+          <MotionTypography
+            component="p"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            sx={editorialEyebrowSx}
+          >
+            Спецвыпуск · AI-отдел под ключ · 2026
+          </MotionTypography>
+
           <MotionTypography
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             variant="h1"
             sx={{
-              fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4.5rem' },
+              fontSize: { xs: '2.65rem', md: '3.75rem', lg: 'clamp(3.5rem, 6vw, 5rem)' },
               fontWeight: 800,
-              mb: 2,
+              mb: 1,
+              lineHeight: 1.05,
               color: '#fff',
               fontFamily: '"Raleway", sans-serif',
               textAlign: 'left',
+              maxWidth: '14ch',
             }}
           >
             AI Boost Team
@@ -370,11 +373,12 @@ export default function PublicHomePageAI() {
             transition={{ duration: 0.6, delay: 0.2 }}
             variant="h4"
             sx={{
-              fontSize: { xs: '1.2rem', md: '1.8rem' },
+              fontSize: { xs: '1.15rem', md: '1.65rem' },
               mb: 1,
               fontWeight: 600,
               color: '#fff',
               fontFamily: '"Raleway", sans-serif',
+              maxWidth: 720,
             }}
           >
             Ваша AI-команда за 1/3 стоимости штата
@@ -385,36 +389,69 @@ export default function PublicHomePageAI() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.3 }}
             variant="body1"
-            sx={{ mb: 6, color: 'rgba(255,255,255,0.7)', maxWidth: 700, textAlign: 'left' }}
+            sx={{ mb: 4, color: 'rgba(255,255,255,0.72)', maxWidth: 640, textAlign: 'left', lineHeight: 1.65 }}
           >
             Экономьте до 67% на ФОТ. Масштабируйте команду за 1 неделю. Гарантия возврата за 14 дней.
           </MotionTypography>
 
+          <MotionBox
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, mb: 4, maxWidth: 720 }}
+          >
+            {HERO_CLIENT_CHIP_GROUPS.map((group, gi) => (
+              <Box key={gi} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+                {group.labels.map((label) => (
+                  <Chip
+                    key={label}
+                    label={label}
+                    size="small"
+                    sx={{
+                      ...glassPanelSx,
+                      fontWeight: 600,
+                      letterSpacing: '0.03em',
+                      fontSize: { xs: '0.62rem', sm: '0.68rem' },
+                      height: 26,
+                      ...(group.borderColor ? { borderColor: group.borderColor } : {}),
+                    }}
+                  />
+                ))}
+              </Box>
+            ))}
+          </MotionBox>
+
           <Button
             variant="contained"
             size="medium"
+            href="#calculator"
             sx={{
+              alignSelf: 'flex-start',
               fontSize: '1rem',
               py: 1.5,
               px: 3,
-              borderRadius: 2,
               bgcolor: '#ffbb00',
-              color: '#141414',
+              color: '#0a0a0c',
               fontWeight: 700,
-              transition: 'all 0.3s ease',
-              '&:hover': { bgcolor: '#e5a800', color: '#141414', transform: 'translateY(-2px)' },
-              alignSelf: 'flex-start',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              boxShadow: '0 4px 24px rgba(255,184,0,0.22)',
+              '&:hover': { bgcolor: '#e5a800', color: '#0a0a0c', transform: 'translateY(-2px)' },
             }}
-            href="#calculator"
           >
             Рассчитать экономию за 30 сек
           </Button>
         </Box>
       </Container>
 
+      <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.08)', mb: { xs: 0, md: 0 } }} />
+
       {/* Команды и их функционал */}
-      <Box sx={{ bgcolor: '#141414', py: 10 }}>
+      <Box sx={{ py: { xs: 8, md: 12 } }}>
         <Container maxWidth="lg">
+          <Typography component="p" sx={{ ...editorialEyebrowSx }}>
+            01 · Матрица подписки
+          </Typography>
           <Typography 
             variant="h3" 
             sx={{ 
@@ -423,61 +460,66 @@ export default function PublicHomePageAI() {
               color: '#fff',
               fontFamily: '"Raleway", sans-serif',
               textAlign: 'left',
+              letterSpacing: '-0.02em',
             }}
           >
             Выберите свой тариф
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 8, maxWidth: 700, textAlign: 'left' }}>
+          <Typography variant="body1" sx={{ mb: 8, maxWidth: 700, textAlign: 'left', color: 'rgba(244,244,245,0.65)' }}>
             Все тарифы включают гарантию возврата денег за 14 дней
           </Typography>
 
           <Grid container spacing={4}>
             {teamOptions.map((option, index) => (
-              <Grid item xs={12} md={4} key={index}>
+              <Grid item xs={12} md={4} key={index} sx={{ overflow: 'visible' }}>
                 <MotionCard
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.15 }}
                   viewport={{ once: true }}
-                  whileHover={{ y: -8, boxShadow: index === 1 ? '0 20px 40px rgba(76, 175, 80, 0.3)' : '0 20px 40px rgba(0,0,0,0.15)' }}
+                  whileHover={{
+                    y: -6,
+                    boxShadow:
+                      index === 1
+                        ? '0 24px 48px rgba(255, 184, 0, 0.22), 0 0 0 1px rgba(0,229,255,0.12)'
+                        : '0 20px 40px rgba(0,0,0,0.35)',
+                  }}
                   sx={{
                     height: '100%',
-                    borderRadius: 3,
-                    border: index === 1 ? '2px solid #ffbb00' : '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 1,
+                    border: index === 1 ? '2px solid rgba(255, 184, 0, 0.85)' : '1px solid rgba(255,255,255,0.12)',
                     position: 'relative',
-                    bgcolor: 'rgba(255,255,255,0.04)',
+                    bgcolor: 'rgba(12,12,16,0.72)',
+                    backdropFilter: 'blur(14px)',
                     transition: 'all 0.3s ease',
-                    overflow: 'visible',
+                    overflow: 'hidden',
                   }}
                 >
-                  {index === 1 && (
-                    <Chip
-                      label="Рекомендуем"
-                      className="chip-white-bg"
-                      sx={{
-                        position: 'absolute',
-                        top: -12,
-                        right: 20,
-                        bgcolor: '#fff',
-                        color: '#141414',
-                        fontWeight: 700,
-                        zIndex: 1,
-                      }}
-                    />
-                  )}
-
                   <CardContent sx={{ p: 4 }}>
+                    {index === 1 && (
+                      <Chip
+                        label="Рекомендуем"
+                        className="chip-white-bg"
+                        size="small"
+                        sx={{
+                          mb: 2,
+                          bgcolor: '#fff',
+                          color: '#141414',
+                          fontWeight: 700,
+                        }}
+                      />
+                    )}
                     <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: '#fff', fontFamily: '"Raleway", sans-serif' }}>
                       {option.name}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontStyle: 'italic' }}>
+                    <Typography variant="body2" sx={{ mb: 3, fontStyle: 'italic', color: 'rgba(244,244,245,0.58)' }}>
                       {option.idealFor}
                     </Typography>
 
                     <Typography variant="h3" sx={{ fontWeight: 800, color: '#ffffff', mb: 1 }}>
                       {option.price.toLocaleString('ru-RU')} ₽
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    <Typography variant="body2" sx={{ mb: 3, color: 'rgba(244,244,245,0.5)' }}>
                       в месяц
                     </Typography>
 
@@ -486,7 +528,7 @@ export default function PublicHomePageAI() {
                     <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
                       ✓ {option.hoursIncluded} часов работы включено
                     </Typography>
-                    <Typography variant="body2" sx={{ mb: 3, color: '#666' }}>
+                    <Typography variant="body2" sx={{ mb: 3, color: 'rgba(244,244,245,0.45)' }}>
                       + {option.extraHourPrice.toLocaleString('ru-RU')} ₽/час сверх лимита
                     </Typography>
 
@@ -532,8 +574,11 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* Калькулятор выгоды */}
-      <Box sx={{ bgcolor: '#141414', py: 10 }}>
+      <Box sx={{ py: { xs: 8, md: 12 } }}>
       <Container maxWidth="lg" id="calculator">
+        <Typography component="p" sx={{ ...editorialEyebrowSx }}>
+          02 · Экономика штата vs AI
+        </Typography>
         <Typography 
           variant="h3" 
           sx={{ 
@@ -542,19 +587,20 @@ export default function PublicHomePageAI() {
             color: '#fff',
             fontFamily: '"Raleway", sans-serif',
             textAlign: 'left',
+            letterSpacing: '-0.02em',
           }}
         >
           Калькулятор выгоды
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 6, maxWidth: 700, textAlign: 'left' }}>
+        <Typography variant="body1" sx={{ mb: 6, maxWidth: 700, textAlign: 'left', color: 'rgba(244,244,245,0.65)' }}>
           Рассчитайте, сколько вы сэкономите, используя AI Boost Team вместо найма сотрудников
         </Typography>
 
-        <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
+        <Paper elevation={0} sx={{ p: { xs: 2, md: 4 }, borderRadius: 0, ...glassPanelSx, border: '1px solid rgba(0,229,255,0.12)' }}>
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
               <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#f4f4f5' }}>
                   Средняя зарплата сотрудника (₽/мес)
                 </Typography>
                 <TextField
@@ -566,6 +612,7 @@ export default function PublicHomePageAI() {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       backgroundColor: 'rgba(76, 175, 80, 0.08)',
+                      color: '#f4f4f5',
                       '& fieldset': {
                         borderColor: 'rgba(76, 175, 80, 0.4)',
                         borderWidth: 2,
@@ -582,7 +629,7 @@ export default function PublicHomePageAI() {
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#f4f4f5' }}>
                   Количество сотрудников
                 </Typography>
                 <Slider
@@ -623,7 +670,7 @@ export default function PublicHomePageAI() {
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#f4f4f5' }}>
                   Премии (% от зарплаты)
                 </Typography>
                 <Slider
@@ -669,7 +716,7 @@ export default function PublicHomePageAI() {
               </Box>
 
               <Box>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#f4f4f5' }}>
                   Дней отпуска в году
                 </Typography>
                 <TextField
@@ -681,6 +728,7 @@ export default function PublicHomePageAI() {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       backgroundColor: 'rgba(156, 39, 176, 0.08)',
+                      color: '#f4f4f5',
                       '& fieldset': {
                         borderColor: 'rgba(156, 39, 176, 0.4)',
                         borderWidth: 2,
@@ -852,8 +900,11 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* Кейсы и отзывы */}
-      <Box sx={{ bgcolor: '#141414', py: 10 }}>
+      <Box sx={{ py: { xs: 8, md: 12 } }}>
         <Container maxWidth="lg">
+          <Typography component="p" sx={{ ...editorialEyebrowSx }}>
+            03 · Социальное доказательство
+          </Typography>
           <Typography 
             variant="h3" 
             sx={{ 
@@ -862,11 +913,12 @@ export default function PublicHomePageAI() {
               color: '#fff',
               fontFamily: '"Raleway", sans-serif',
               textAlign: 'left',
+              letterSpacing: '-0.02em',
             }}
           >
             Кейсы и отзывы клиентов
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 8, maxWidth: 700, textAlign: 'left' }}>
+          <Typography variant="body1" sx={{ mb: 8, maxWidth: 700, textAlign: 'left', color: 'rgba(244,244,245,0.65)' }}>
             Реальные результаты наших клиентов
           </Typography>
 
@@ -880,8 +932,10 @@ export default function PublicHomePageAI() {
                   viewport={{ once: true }}
                   sx={{
                     height: '100%',
-                    borderRadius: 3,
+                    borderRadius: 0,
                     p: 3,
+                    ...glassPanelSx,
+                    border: '1px solid rgba(255,255,255,0.07)',
                   }}
                 >
                   <Box sx={{ mb: 2 }}>
@@ -901,11 +955,11 @@ export default function PublicHomePageAI() {
                     {caseItem.company}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography variant="body2" sx={{ mb: 2, color: 'rgba(244,244,245,0.62)' }}>
                     <strong>Задача:</strong> {caseItem.challenge}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  <Typography variant="body2" sx={{ mb: 3, color: 'rgba(244,244,245,0.62)' }}>
                     <strong>Решение:</strong> {caseItem.solution}
                   </Typography>
 
@@ -941,7 +995,7 @@ export default function PublicHomePageAI() {
                       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                         {caseItem.author}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: 'rgba(244,244,245,0.5)' }}>
                         {caseItem.position}
                       </Typography>
                     </Box>
@@ -954,12 +1008,15 @@ export default function PublicHomePageAI() {
       </Box>
 
       {/* FAQ */}
-      <Box sx={{ bgcolor: '#141414', py: 10 }}>
+      <Box sx={{ py: { xs: 8, md: 12 } }}>
       <Container maxWidth="lg">
-        <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', fontFamily: '"Raleway", sans-serif', textAlign: 'left' }}>
+        <Typography component="p" sx={{ ...editorialEyebrowSx}}>
+          04 · Рубрика «Вопрос — ответ»
+        </Typography>
+        <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', fontFamily: '"Raleway", sans-serif', textAlign: 'left', letterSpacing: '-0.02em' }}>
           Частые вопросы
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 6, textAlign: 'left' }}>
+        <Typography variant="body1" sx={{ mb: 6, textAlign: 'left', color: 'rgba(244,244,245,0.65)' }}>
           Ответы на популярные вопросы об AI Boost Team
         </Typography>
 
@@ -998,18 +1055,20 @@ export default function PublicHomePageAI() {
             viewport={{ once: true }}
             sx={{
               mb: 2,
-              borderRadius: 2,
+              borderRadius: 0,
               '&:before': { display: 'none' },
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              ...glassPanelSx,
+              boxShadow: 'none',
+              '& .MuiAccordionSummary-expandIconWrapper': { color: 'rgba(0,229,255,0.8)' },
             }}
           >
             <AccordionSummary expandIcon={<ExpandMore />}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
                 {faq.q}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" sx={{ color: 'rgba(244,244,245,0.65)', lineHeight: 1.7 }}>
                 {faq.a}
               </Typography>
             </AccordionDetails>
@@ -1018,35 +1077,69 @@ export default function PublicHomePageAI() {
       </Container>
       </Box>
 
+      <Box component="section">
       {/* Контактная форма */}
-      <Container maxWidth="lg" sx={{ py: 10 }} id="contact-form">
+      <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }} id="contact-form">
+        <Typography component="p" sx={{ ...editorialEyebrowSx }}>
+          05 · Заявка в одно касание
+        </Typography>
         <MotionCard
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
           sx={{
-            p: 5,
-            borderRadius: 3,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+            p: { xs: 3, md: 5 },
+            borderRadius: 0,
+            ...glassPanelSx,
+            border: '1px solid rgba(199, 125, 255, 0.2)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
           }}
         >
-          <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', fontFamily: '"Raleway", sans-serif', textAlign: 'left' }}>
+          <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', fontFamily: '"Raleway", sans-serif', textAlign: 'left', letterSpacing: '-0.02em' }}>
             Начните экономить уже сегодня
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 5, textAlign: 'left' }}>
+          <Typography variant="body1" sx={{ mb: 5, textAlign: 'left', color: 'rgba(244,244,245,0.65)' }}>
             Оставьте заявку, и мы свяжемся с вами в течение 2 часов
           </Typography>
 
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Ваше имя" variant="outlined" />
+              <TextField
+                fullWidth
+                label="Ваше имя"
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': { bgcolor: 'rgba(255,255,255,0.04)', color: '#f4f4f5' },
+                  '& .MuiInputLabel-root': { color: 'rgba(244,244,245,0.6)' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                }}
+              />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Телефон" variant="outlined" />
+              <TextField
+                fullWidth
+                label="Телефон"
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': { bgcolor: 'rgba(255,255,255,0.04)', color: '#f4f4f5' },
+                  '& .MuiInputLabel-root': { color: 'rgba(244,244,245,0.6)' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                }}
+              />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Email" type="email" variant="outlined" />
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': { bgcolor: 'rgba(255,255,255,0.04)', color: '#f4f4f5' },
+                  '& .MuiInputLabel-root': { color: 'rgba(244,244,245,0.6)' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                }}
+              />
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -1055,6 +1148,11 @@ export default function PublicHomePageAI() {
                 multiline
                 rows={4}
                 variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': { bgcolor: 'rgba(255,255,255,0.04)', color: '#f4f4f5' },
+                  '& .MuiInputLabel-root': { color: 'rgba(244,244,245,0.6)' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1094,7 +1192,7 @@ export default function PublicHomePageAI() {
               >
                 Получить бесплатный аудит
               </Button>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 2 }}>
+              <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 2, color: 'rgba(244,244,245,0.45)' }}>
                 Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности
               </Typography>
             </Grid>
@@ -1104,12 +1202,15 @@ export default function PublicHomePageAI() {
 
       {/* Блог */}
       {blogPosts.length > 0 && (
-        <Box sx={{ bgcolor: 'rgba(255,255,255,0.05)', py: 10 }}>
+        <Box sx={{ py: { xs: 8, md: 12 } }}>
           <Container maxWidth="lg">
-            <Typography variant="h3" align="center" sx={{ fontWeight: 700, mb: 2 }}>
+            <Typography component="p" align="center" sx={{ ...editorialEyebrowSx, textAlign: 'center' }}>
+              06 · Лонгриды и заметки
+            </Typography>
+            <Typography variant="h3" align="center" sx={{ fontWeight: 700, mb: 2, color: '#fff', letterSpacing: '-0.02em' }}>
               Полезные статьи
             </Typography>
-            <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 6 }}>
+            <Typography variant="body1" align="center" sx={{ mb: 6, color: 'rgba(244,244,245,0.65)' }}>
               Узнайте больше об AI и автоматизации бизнеса
             </Typography>
 
@@ -1125,11 +1226,14 @@ export default function PublicHomePageAI() {
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
-                      borderRadius: 2,
+                      borderRadius: 0,
                       overflow: 'hidden',
                       cursor: 'pointer',
+                      ...glassPanelSx,
+                      border: '1px solid rgba(255,255,255,0.08)',
                       '&:hover': {
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                        boxShadow: '0 10px 40px rgba(0,229,255,0.08)',
+                        borderColor: 'rgba(0,229,255,0.25)',
                       },
                     }}
                     onClick={() => navigate(`/blog/${post.slug}`)}
@@ -1148,7 +1252,7 @@ export default function PublicHomePageAI() {
                       <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
                         {post.title}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      <Typography variant="body2" sx={{ mb: 2, color: 'rgba(244,244,245,0.6)' }}>
                         {post.excerpt}
                       </Typography>
                       <Button size="small" endIcon={<ArrowForward />} sx={{ color: '#ffffff' }}>
@@ -1162,6 +1266,7 @@ export default function PublicHomePageAI() {
           </Container>
         </Box>
       )}
+      </Box>
     </Box>
     </>
   );

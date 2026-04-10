@@ -1,6 +1,26 @@
 /**
  * Хелперы для сборки карточек каталога 2026 (content_json под ProductPage).
  */
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Полный FAQ из Google Sheets: slug → [ [вопрос, ответ], … ]. Файл генерируется build-catalog-2026-faq-json.py */
+let catalog2026FaqBySlug;
+function getCatalog2026FaqMap() {
+  if (!catalog2026FaqBySlug) {
+    try {
+      catalog2026FaqBySlug = JSON.parse(
+        readFileSync(join(__dirname, 'catalog-2026-faq.json'), 'utf8')
+      );
+    } catch {
+      catalog2026FaqBySlug = {};
+    }
+  }
+  return catalog2026FaqBySlug;
+}
 
 export function tariffsFromRows(rows) {
   const names = ['Старт', 'Малый бизнес', 'Prime'];
@@ -50,6 +70,9 @@ export function buildProduct(slug, cfg) {
     faqItems,
   } = cfg;
 
+  const faqMap = getCatalog2026FaqMap();
+  const resolvedFaq = slug in faqMap ? faqMap[slug] : faqItems;
+
   return {
     slug,
     title,
@@ -69,7 +92,7 @@ export function buildProduct(slug, cfg) {
       priceSection: { title: 'Тарифы и сроки', tariffs: tariffsFromRows(tariffRows) },
       workSteps: { title: 'Этапы работ', steps: stepsFromBlock(stepsBlock) },
       stats: { title: 'Результаты наших клиентов', items: statsItems },
-      faq: { title: 'Часто задаваемые вопросы', items: faqPairs(faqItems) },
+      faq: { title: 'Часто задаваемые вопросы', items: faqPairs(resolvedFaq) },
     },
   };
 }

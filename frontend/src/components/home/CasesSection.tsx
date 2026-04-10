@@ -1,8 +1,37 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Box, Button } from '@mui/material';
+import { SafeImage } from '@/components/common/SafeImage';
 import { listHomeCases } from '@/services/publicApi';
+
+/** Высота задаётся на самом `.caeses-content` (раскрыт); картинка — 100% ширины и высоты этого блока */
+const CAESES_CONTENT_OPEN_SX = {
+  position: 'relative',
+  width: '100%',
+  height: { xs: 320, sm: 400, md: 'min(48vh, 560px)' },
+  bgcolor: '#0a0a0c',
+  borderRadius: 2,
+  overflow: 'hidden',
+  border: '1px solid rgba(255,255,255,0.06)',
+  boxSizing: 'border-box',
+  display: 'block',
+} as const;
+
+const PREVIEW_IMG_SX = {
+  display: 'block',
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover' as const,
+};
+
+const previewLinkStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  height: '100%',
+  textDecoration: 'none',
+  color: 'inherit',
+};
 
 const FALLBACK_CASES = [
   { id: 'umagazine', title: 'UMAGAZINE', year: '2026', type: 'кейс по разработке САЙТа', image: '/uploads/images/hero-umagazine-1771257595209.png', link: '/cases/umagazine-case' },
@@ -50,15 +79,31 @@ export function CasesSection() {
                 <h2 className="center">{caseItem.year}</h2>
                 <h2 className="uppercase right">{caseItem.type}</h2>
               </div>
-              <div className={`caeses-content ${expandedCase === caseItem.id ? '' : 'hidden'}`}>
+              <Box
+                className={`caeses-content ${expandedCase === caseItem.id ? '' : 'hidden'}`}
+                sx={{
+                  width: '100%',
+                  ...(expandedCase === caseItem.id ? CAESES_CONTENT_OPEN_SX : {}),
+                }}
+              >
                 {caseItem.link ? (
-                  <a href={caseItem.link}>
-                    <img src={caseItem.image} alt={`Кейс ${caseItem.title} - ${caseItem.type}`} />
-                  </a>
+                  <Link to={caseItem.link} style={previewLinkStyle}>
+                    <SafeImage
+                      src={caseItem.image}
+                      alt={`Кейс ${caseItem.title} — ${caseItem.type}`}
+                      sx={PREVIEW_IMG_SX}
+                    />
+                  </Link>
                 ) : (
-                  <img src={caseItem.image} alt={`Кейс ${caseItem.title} - ${caseItem.type}`} />
+                  <Box sx={{ display: 'block', width: '100%', height: '100%' }}>
+                    <SafeImage
+                      src={caseItem.image}
+                      alt={`Кейс ${caseItem.title} — ${caseItem.type}`}
+                      sx={PREVIEW_IMG_SX}
+                    />
+                  </Box>
                 )}
-              </div>
+              </Box>
             </div>
           </div>
         ))}

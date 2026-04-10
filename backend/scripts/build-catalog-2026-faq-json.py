@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Читает backend/scripts/faq-sheet.tsv (4 колонки через TAB) → catalog-2026-faq.json."""
+"""faq-sheet.tsv (4 колонки TAB) → catalog-2026-faq.json. Запуск из backend/scripts: python3 build-catalog-2026-faq-json.py"""
 import json
-import re
 from pathlib import Path
 
 DIR = Path(__file__).resolve().parent
@@ -38,6 +37,7 @@ SERVICE_TO_SLUG = {
 
 def normalize_answer(text: str) -> str:
     text = text.replace('₪', '₽')
+    text = text.replace('автоレイアウト', 'Auto Layout')
     text = text.replace('автоレイアウт', 'Auto Layout')
     return text
 
@@ -60,7 +60,7 @@ def parse_tsv(path: Path) -> dict[str, list[list[str]]]:
 def main():
     tsv = DIR / 'faq-sheet.tsv'
     if not tsv.is_file():
-        raise SystemExit(f'Нет {tsv}. Сгенерируйте из транскрипта или положите TSV вручную.')
+        raise SystemExit(f'Нет {tsv}. Добавьте export из таблицы (как в репозитории).')
 
     by_svc = parse_tsv(tsv)
     out: dict[str, list[list[str]]] = {}
@@ -76,13 +76,13 @@ def main():
     if unknown:
         print('WARN неизвестная услуга в TSV:', unknown)
     if expected - out.keys():
-        print('WARN нет блока FAQ для slug:', sorted(expected - out.keys()))
+        print('WARN нет FAQ для slug:', sorted(expected - out.keys()))
     if out.keys() - expected:
-        print('WARN лишние slug в выходе:', sorted(out.keys() - expected))
+        print('WARN лишние slug:', sorted(out.keys() - expected))
 
     out_path = DIR / 'catalog-2026-faq.json'
     out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    print('OK', out_path, 'услуг (slug):', len(out))
+    print('OK', out_path, 'slug:', len(out))
 
 
 if __name__ == '__main__':

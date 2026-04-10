@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { getPublicCase } from '@/services/publicApi';
+import { accentWithAlpha, pickPerformanceAccent } from '@/utils/performanceAccent';
 import styles from './PerformanceSection.module.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -72,10 +73,10 @@ function getScoreFromSlug(slug: string): number {
   return 85 + (Math.abs(h) % 15);
 }
 
-function getStatusColor(status: string, accentColor: string): string {
-  if (status === 'excellent') return accentColor;
-  if (status === 'good') return accentColor + '80';
-  return '#434343';
+function getStatusColor(status: string, accent: string): string {
+  if (status === 'excellent') return accent;
+  if (status === 'good') return accentWithAlpha(accent, 0.58);
+  return '#6e6e6e';
 }
 
 export function PerformanceSection() {
@@ -91,7 +92,7 @@ export function PerformanceSection() {
 
   const perfData = caseData?.contentJson?.performance || {};
   const palette = (caseData?.contentJson?.colors?.palette || []).filter((x: any) => x?.color);
-  const accentColor = palette[0]?.color || '#FD9C12';
+  const accentColor = pickPerformanceAccent(palette);
   const score = perfData.score != null ? Number(perfData.score) : (slug ? getScoreFromSlug(slug) : 92);
   const clampedScore = Math.min(99, Math.max(85, score));
   const metrics = (perfData.metrics || []).filter((m: any) => m?.label || m?.value);
@@ -163,11 +164,11 @@ export function PerformanceSection() {
 
             <div className={styles.performanceLegend}>
               <div className={styles.legendItem}>
-                <div className={styles.legendDot} style={{ backgroundColor: '#434343' }} />
+                <div className={styles.legendDot} style={{ backgroundColor: '#6e6e6e' }} />
                 <span style={textStyles.legendLabel}>Плохо</span>
               </div>
               <div className={styles.legendItem}>
-                <div className={styles.legendDot} style={{ backgroundColor: accentColor + '80' }} />
+                <div className={styles.legendDot} style={{ backgroundColor: accentWithAlpha(accentColor, 0.55) }} />
                 <span style={textStyles.legendLabel}>Нормально</span>
               </div>
               <div className={styles.legendItem}>

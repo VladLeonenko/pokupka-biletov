@@ -52,6 +52,10 @@ export function CaseEditorPage() {
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [heroImageUrl, setHeroImageUrl] = useState('');
+  /** Превью /portfolio; пусто = как Hero */
+  const [listingPreviewImageUrl, setListingPreviewImageUrl] = useState('');
+  /** Карточка на главной (год, тип, картинка); image пусто = Hero */
+  const [homeCardUi, setHomeCardUi] = useState({ year: '', type: '', image: '' });
   const [contentHtml, setContentHtml] = useState('');
   const [htmlMode, setHtmlMode] = useState(false);
   const [metrics, setMetrics] = useState<Record<string, string | number>>({});
@@ -70,6 +74,9 @@ export function CaseEditorPage() {
   const quillRef = useRef<any>(null);
   const navigate = useNavigate();
   const isSavingRef = useRef(false);
+  /** Снимок с сервера после загрузки — чтобы не слать null и не стирать БД при пустой форме */
+  const initialListingPreviewRef = useRef<string>('');
+  const initialHomeCardRef = useRef<{ year: string; type: string; image: string }>({ year: '', type: '', image: '' });
   // Функция автозаполнения SEO
   const generateSeoFromContent = () => {
     const newSeoTitle = title ? `${title} | Кейс Prime Coder` : '';
@@ -91,6 +98,19 @@ export function CaseEditorPage() {
         setTitle(caseData.title + ' (копия)');
         setSummary(caseData.summary || '');
         setHeroImageUrl(caseData.heroImageUrl || '');
+        setListingPreviewImageUrl((caseData as any).listingPreviewImageUrl || '');
+        const thc = (caseData as any).homeCard;
+        initialListingPreviewRef.current = String((caseData as any).listingPreviewImageUrl || '');
+        initialHomeCardRef.current = {
+          year: thc?.year || '',
+          type: thc?.type || '',
+          image: thc?.image || '',
+        };
+        setHomeCardUi({
+          year: thc?.year || '',
+          type: thc?.type || '',
+          image: thc?.image || '',
+        });
         setContentHtml(caseData.contentHtml || '');
         setMetrics(caseData.metrics || {});
         setTools(caseData.tools || []);
@@ -109,6 +129,19 @@ export function CaseEditorPage() {
         setTitle(data.title);
         setSummary(data.summary || '');
         setHeroImageUrl(data.heroImageUrl || '');
+        setListingPreviewImageUrl(data.listingPreviewImageUrl || '');
+        const hc = data.homeCard;
+        initialListingPreviewRef.current = String(data.listingPreviewImageUrl || '');
+        initialHomeCardRef.current = {
+          year: hc?.year || '',
+          type: hc?.type || '',
+          image: hc?.image || '',
+        };
+        setHomeCardUi({
+          year: hc?.year || '',
+          type: hc?.type || '',
+          image: hc?.image || '',
+        });
         setContentHtml(data.contentHtml || '');
         setMetrics(data.metrics || {});
         setTools(data.tools || []);
@@ -140,25 +173,49 @@ export function CaseEditorPage() {
       }
       
       isSavingRef.current = true;
-      const payload = { 
-        slug: isNew ? slug.trim() : (id as string), 
-        title, 
-        summary, 
-        heroImageUrl, 
-        contentHtml, 
-        metrics, 
-        tools: (tools || []).filter(Boolean), 
-        gallery, 
-        contentJson: { ...contentJson, categories: categories.filter(Boolean) }, 
-        isPublished, 
-        category: categories[0] || null,
-        seoTitle, 
-        seoDescription, 
-        seoKeywords, 
-        ogImageUrl
-      } as any;
+      const homeCardPayload = (() => {
+        const o: { year?: string; type?: string; image?: string } = {};
+        if (homeCardUi.year.trim()) o.year = homeCardUi.year.trim();
+        if (homeCardUi.type.trim()) o.type = homeCardUi.type.trim();
+        if (homeCardUi.image.trim()) o.image = homeCardUi.image.trim();
+        return Object.keys(o).length ? o : null;
+      })();
 
-      await upsertCase(payload, { create: isNew });
+      const payload: Record<string, unknown> = {
+        slug: isNew ? slug.trim() : (id as string),
+        title,
+        summary,
+        heroImageUrl,
+        contentHtml,
+        metrics,
+        tools: (tools || []).filter(Boolean),
+        gallery,
+        contentJson: { ...contentJson, categories: categories.filter(Boolean) },
+        isPublished,
+        category: categories[0] || null,
+        seoTitle,
+        seoDescription,
+        seoKeywords,
+        ogImageUrl,
+      };
+
+      const lpTrim = listingPreviewImageUrl.trim();
+      if (lpTrim) {
+        payload.listingPreviewImageUrl = lpTrim;
+      } else if (initialListingPreviewRef.current.trim()) {
+        payload.listingPreviewImageUrl = null;
+      }
+
+      if (homeCardPayload !== null) {
+        payload.homeCard = homeCardPayload;
+      } else {
+        const ih = initialHomeCardRef.current;
+        if (ih.year.trim() || ih.type.trim() || ih.image.trim()) {
+          payload.homeCard = null;
+        }
+      }
+
+      await upsertCase(payload as any, { create: isNew });
     },
 
 
@@ -380,17 +437,28 @@ export function CaseEditorPage() {
                 </AccordionDetails>
               </Accordion>
 
-              <Accordion>
+              <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="h6">Команда</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Выберите сотрудников для этого кейса (из вкладки Команда):</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Если указать сотрудников — на сайте показываются только они (порядок как в списке). Если список пустой —
+                    блок «Команда» заполняется автоматически из общего каталога команды: до N человек, с приоритетом тех, у
+                    кого в профиле skills совпадают с инструментами кейса; остальные подбираются стабильно по slug (при
+                    расширении списка в админке состав на странице обновится).
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Сотрудники из раздела «Команда» в админке:</Typography>
                   <Autocomplete
                     multiple
                     options={teamMembers}
                     getOptionLabel={(option) => `${option.name} — ${option.role}`}
-                    value={teamMembers.filter((tm) => (getCJ('team.members', []) as any[]).some((m: any) => m.teamMemberId === tm.id))}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    value={(() => {
+                      const saved = (getCJ('team.members', []) as { teamMemberId?: number }[]) || [];
+                      const byId = new Map(teamMembers.map((tm) => [tm.id, tm]));
+                      return saved.map((m) => byId.get(Number(m.teamMemberId))).filter(Boolean) as typeof teamMembers;
+                    })()}
                     onChange={(_, newValue) => {
                       const newMembers = newValue.map((tm) => ({ teamMemberId: tm.id, name: tm.name, role: tm.role, imageUrl: tm.imageUrl }));
                       setCJ('team', { ...(getCJ('team', {}) as object), members: newMembers });
@@ -405,6 +473,28 @@ export function CaseEditorPage() {
                       </Box>
                     )}
                     renderInput={(params) => <TextField {...params} label="Сотрудники" placeholder="Добавить сотрудника" />}
+                  />
+                  <TextField
+                    type="number"
+                    label="Сколько человек при автоподборе"
+                    inputProps={{ min: 1, max: 12 }}
+                    sx={{ mt: 2, maxWidth: 320 }}
+                    value={(() => {
+                      const v = getCJ('team.maxRandom', undefined);
+                      if (v === undefined || v === null || v === '') return '';
+                      const n = Number(v);
+                      return Number.isFinite(n) ? String(n) : '';
+                    })()}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '') {
+                        setCJ('team.maxRandom', undefined);
+                        return;
+                      }
+                      const n = parseInt(v, 10);
+                      if (Number.isFinite(n) && n >= 1 && n <= 12) setCJ('team.maxRandom', n);
+                    }}
+                    helperText="Только если сотрудники выше не выбраны. По умолчанию 5."
                   />
                 </AccordionDetails>
               </Accordion>
@@ -587,6 +677,9 @@ export function CaseEditorPage() {
           {activeTab === 2 && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Hero изображение</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Основная обложка кейса на странице проекта и значение по умолчанию для превью ниже.
+              </Typography>
               <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
                 <TextField fullWidth label="Hero URL" value={heroImageUrl} onChange={(e) => setHeroImageUrl(e.target.value)} />
                 <Button component="label" variant="outlined">
@@ -598,6 +691,62 @@ export function CaseEditorPage() {
                 </Button>
               </Box>
               {heroImageUrl && <Box sx={{ mb: 3, maxWidth: 600 }}><SafeImage src={heroImageUrl} alt="Hero" sx={{ width: '100%' }} /></Box>}
+
+              <Typography variant="h6" sx={{ mb: 1, mt: 2 }}>Превью в списке «Кейсы» (/portfolio)</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Карточка в горизонтальной карусели портфолио. Пустое поле — используется Hero.
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                <TextField sx={{ flex: 1, minWidth: 200 }} fullWidth label="URL превью" value={listingPreviewImageUrl} onChange={(e) => setListingPreviewImageUrl(e.target.value)} />
+                <Button component="label" variant="outlined" size="small">
+                  Загрузить
+                  <input hidden type="file" accept="image/*" onChange={async (e) => {
+                    const f = e.target.files?.[0]; if (!f) return;
+                    const r = await uploadImage(f); setListingPreviewImageUrl(r.url);
+                  }} />
+                </Button>
+                <Button variant="text" size="small" onClick={() => setListingPreviewImageUrl(heroImageUrl)} disabled={!heroImageUrl}>
+                  Как Hero
+                </Button>
+                <Button variant="text" size="small" color="warning" onClick={() => setListingPreviewImageUrl('')} disabled={!listingPreviewImageUrl}>
+                  Сбросить (Hero)
+                </Button>
+              </Box>
+              {listingPreviewImageUrl && (
+                <Box sx={{ mb: 3, maxWidth: 400 }}><SafeImage src={listingPreviewImageUrl} alt="Превью портфолио" sx={{ width: '100%', borderRadius: 1 }} /></Box>
+              )}
+
+              <Typography variant="h6" sx={{ mb: 1, mt: 2 }}>Карточка на главной странице</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Блок кейсов на главной. Год и подпись под заголовком; картинка — отдельно от Hero (если не задана — берётся Hero).
+              </Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth label="Год" placeholder="2025" value={homeCardUi.year} onChange={(e) => setHomeCardUi((p) => ({ ...p, year: e.target.value }))} />
+                </Grid>
+                <Grid item xs={12} sm={8}>
+                  <TextField fullWidth label="Тип / подпись" placeholder="кейс по разработке САЙТа" value={homeCardUi.type} onChange={(e) => setHomeCardUi((p) => ({ ...p, type: e.target.value }))} />
+                </Grid>
+              </Grid>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                <TextField sx={{ flex: 1, minWidth: 200 }} fullWidth label="URL картинки карточки" value={homeCardUi.image} onChange={(e) => setHomeCardUi((p) => ({ ...p, image: e.target.value }))} />
+                <Button component="label" variant="outlined" size="small">
+                  Загрузить
+                  <input hidden type="file" accept="image/*" onChange={async (e) => {
+                    const f = e.target.files?.[0]; if (!f) return;
+                    const r = await uploadImage(f); setHomeCardUi((p) => ({ ...p, image: r.url }));
+                  }} />
+                </Button>
+                <Button variant="text" size="small" onClick={() => setHomeCardUi((p) => ({ ...p, image: heroImageUrl }))} disabled={!heroImageUrl}>
+                  Как Hero
+                </Button>
+                <Button variant="text" size="small" color="warning" onClick={() => setHomeCardUi((p) => ({ ...p, image: '' }))} disabled={!homeCardUi.image}>
+                  Сбросить (Hero)
+                </Button>
+              </Box>
+              {homeCardUi.image && (
+                <Box sx={{ mb: 3, maxWidth: 400 }}><SafeImage src={homeCardUi.image} alt="Главная" sx={{ width: '100%', borderRadius: 1 }} /></Box>
+              )}
               
               <Typography variant="h6" sx={{ mb: 2 }}>Галерея</Typography>
               <Button component="label" variant="outlined" sx={{ mb: 2 }}>

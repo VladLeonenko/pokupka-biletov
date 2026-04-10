@@ -4,7 +4,7 @@ import { createBlogCategory, getBlogPost, listBlogCategories, upsertBlogPost, de
 import { Box, Button, Grid, MenuItem, Paper, Switch, TextField, Typography, FormControlLabel, CircularProgress, IconButton, Divider } from '@mui/material';
 import { useToast } from '@/components/common/ToastProvider';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import BuildIcon from '@mui/icons-material/Build';
 import ReactQuill, { Quill } from 'react-quill';
@@ -27,41 +27,26 @@ export function BlogEditorPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const { data: post } = useQuery({
-    queryKey: ['blog', id],
+    queryKey: ['admin-blog-post', id],
     queryFn: () => getBlogPost(id),
-    enabled: !isNew,
+    enabled: !isNew && Boolean(id && String(id).trim()),
   });
   const { data: categories = [] } = useQuery({ queryKey: ['blog-categories'], queryFn: listBlogCategories });
 
-  const initial: BlogPost = useMemo(() => post || {
-    id: crypto.randomUUID(),
-    title: '',
-    slug: '',
-    contentHtml: '',
-    seo: {},
-    tags: [],
-    categorySlug: '',
-    isFeatured: false,
-  coverImageUrl: undefined,
-  carouselEnabled: false,
-  carouselTitle: '',
-  carouselItems: [],
-  }, [post]);
-
-  const [title, setTitle] = useState(initial.title);
-  const [slug, setSlug] = useState(initial.slug);
-  const [contentHtml, setContentHtml] = useState(initial.contentHtml);
-  const [htmlRaw, setHtmlRaw] = useState(initial.contentHtml); // Отдельное состояние для HTML режима
-  const [categorySlug, setCategorySlug] = useState(initial.categorySlug || '');
-  const [tags, setTags] = useState<string[]>(initial.tags || []);
-  const [isFeatured, setIsFeatured] = useState(Boolean(initial.isFeatured));
-  const [seoTitle, setSeoTitle] = useState(initial.seo.metaTitle || '');
-  const [seoDesc, setSeoDesc] = useState(initial.seo.metaDescription || '');
-  const [ogImageUrl, setOgImageUrl] = useState(initial.seo.ogImageUrl || '');
-  const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl || '');
-  const [carouselEnabled, setCarouselEnabled] = useState(Boolean(initial.carouselEnabled));
-  const [carouselTitle, setCarouselTitle] = useState(initial.carouselTitle || '');
-  const [carouselItems, setCarouselItems] = useState<BlogPostCarouselItem[]>(initial.carouselItems || []);
+  const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
+  const [contentHtml, setContentHtml] = useState('');
+  const [htmlRaw, setHtmlRaw] = useState('');
+  const [categorySlug, setCategorySlug] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDesc, setSeoDesc] = useState('');
+  const [ogImageUrl, setOgImageUrl] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [carouselEnabled, setCarouselEnabled] = useState(false);
+  const [carouselTitle, setCarouselTitle] = useState('');
+  const [carouselItems, setCarouselItems] = useState<BlogPostCarouselItem[]>([]);
   const [htmlMode, setHtmlMode] = useState(false);
   const [generatingSeo, setGeneratingSeo] = useState(false);
   const quillRef = useRef<ReactQuill | null>(null);
@@ -186,21 +171,40 @@ export function BlogEditorPage() {
   };
 
   useEffect(() => {
-    setTitle(initial.title);
-    setSlug(initial.slug);
-    setContentHtml(initial.contentHtml);
-    setHtmlRaw(initial.contentHtml); // Синхронизируем HTML режим
-    setCategorySlug(initial.categorySlug || '');
-    setTags(initial.tags || []);
-    setIsFeatured(Boolean(initial.isFeatured));
-    setSeoTitle(initial.seo.metaTitle || '');
-    setSeoDesc(initial.seo.metaDescription || '');
-    setOgImageUrl(initial.seo.ogImageUrl || '');
-    setCoverImageUrl(initial.coverImageUrl || '');
-    setCarouselEnabled(Boolean(initial.carouselEnabled));
-    setCarouselTitle(initial.carouselTitle || '');
-    setCarouselItems(initial.carouselItems || []);
-  }, [initial.id]);
+    if (isNew) {
+      setTitle('');
+      setSlug('');
+      setContentHtml('');
+      setHtmlRaw('');
+      setCategorySlug('');
+      setTags([]);
+      setIsFeatured(false);
+      setSeoTitle('');
+      setSeoDesc('');
+      setOgImageUrl('');
+      setCoverImageUrl('');
+      setCarouselEnabled(false);
+      setCarouselTitle('');
+      setCarouselItems([]);
+      return;
+    }
+    if (!post || post.slug !== id) return;
+    setTitle(post.title || '');
+    setSlug(post.slug || '');
+    const html = post.contentHtml || '';
+    setContentHtml(html);
+    setHtmlRaw(html);
+    setCategorySlug(post.categorySlug || '');
+    setTags(post.tags || []);
+    setIsFeatured(Boolean(post.isFeatured));
+    setSeoTitle(post.seo?.metaTitle || '');
+    setSeoDesc(post.seo?.metaDescription || '');
+    setOgImageUrl(post.seo?.ogImageUrl || '');
+    setCoverImageUrl(post.coverImageUrl || '');
+    setCarouselEnabled(Boolean(post.carouselEnabled));
+    setCarouselTitle(post.carouselTitle || '');
+    setCarouselItems(post.carouselItems || []);
+  }, [post, id, isNew]);
   
   // Синхронизация при переключении режимов
   const handleHtmlModeChange = (checked: boolean) => {
@@ -218,7 +222,8 @@ export function BlogEditorPage() {
     mutationFn: (payload: BlogPost) => upsertBlogPost(payload),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['blog'] });
-      queryClient.invalidateQueries({ queryKey: ['blog', saved.id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-blog-post'] });
+      queryClient.invalidateQueries({ queryKey: ['public-blog-post'] });
       if (isNew) navigate(`/blog/${saved.id}`, { replace: true });
       showToast('Статья сохранена', 'success');
     },
@@ -229,7 +234,8 @@ export function BlogEditorPage() {
     mutationFn: (delId: string) => deleteBlogPost(delId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blog'] });
-      navigate('/blog', { replace: true });
+      queryClient.invalidateQueries({ queryKey: ['admin-blog-post'] });
+      navigate('/admin/blog', { replace: true });
       showToast('Статья удалена', 'success');
     },
     onError: (err: any) => showToast(err?.message || 'Ошибка удаления', 'error'),
@@ -315,15 +321,16 @@ export function BlogEditorPage() {
   // Используем htmlRaw в HTML режиме, contentHtml в визуальном
   const finalContentHtml = htmlMode ? htmlRaw : contentHtml;
 
+  const serverBase = !isNew && post && post.slug === id ? post : null;
   const model: BlogPost = {
-    ...initial,
+    ...(serverBase || { id: slug || id, slug: slug || id, title: '', contentHtml: '', seo: {} }),
     title,
     slug,
     contentHtml: finalContentHtml,
     categorySlug,
     tags,
     isFeatured,
-    seo: { ...initial.seo, metaTitle: seoTitle, metaDescription: seoDesc, ogImageUrl },
+    seo: { ...(serverBase?.seo || {}), metaTitle: seoTitle, metaDescription: seoDesc, ogImageUrl },
     // coverImageUrl всегда явно указываем, чтобы гарантировать сохранение
     coverImageUrl: typeof coverImageUrl === 'string' && coverImageUrl.trim() 
       ? coverImageUrl.trim() 

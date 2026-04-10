@@ -26,9 +26,9 @@ export function CasePageBuilderPage() {
       }
 
       const contentJson = {
+        ...(caseData?.contentJson || {}),
         blocks: data.blocks || [],
         sections: data.sections || [],
-        ...(caseData?.contentJson || {}), // Сохраняем другие данные из contentJson
       };
 
       const updatedCase = {

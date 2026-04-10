@@ -26,6 +26,8 @@ function rowToCase(r) {
     summary: r.summary,
     contentHtml: r.content_html,
     heroImageUrl: r.hero_image_url,
+    listingPreviewImageUrl: r.listing_preview_image_url || null,
+    homeCard: r.home_card || null,
     donorImageUrl: r.donor_image_url || undefined,
     gallery: r.gallery || [],
     metrics: r.metrics || {},
@@ -49,7 +51,7 @@ function rowToCase(r) {
 }
 
 // Колонки без content_html/content_json (тяжёлые) — для списка. home_order опционален.
-const CASE_LIST_COLUMNS = 'slug, title, summary, hero_image_url, donor_image_url, gallery, metrics, tools, template_type, is_template, is_published, category, donor_url, seo_title, seo_description, seo_keywords, og_image_url, created_at, updated_at, home_order';
+const CASE_LIST_COLUMNS = 'slug, title, summary, hero_image_url, listing_preview_image_url, donor_image_url, gallery, metrics, tools, template_type, is_template, is_published, category, donor_url, seo_title, seo_description, seo_keywords, og_image_url, created_at, updated_at, home_order';
 
 router.get('/', async (req, res) => {
   const isPublic = req.originalUrl.includes('/api/public');
@@ -148,12 +150,16 @@ router.post('/', async (req, res) => {
     seoTitle, seo_title,
     seoDescription, seo_description,
     seoKeywords, seo_keywords,
-    ogImageUrl, og_image_url
+    ogImageUrl, og_image_url,
+    listingPreviewImageUrl, listing_preview_image_url,
+    homeCard, home_card,
   } = req.body || {};
   
   const content = contentHtml || content_html;
   const heroImage = heroImageUrl || hero_image_url;
   const donorImage = donorImageUrl || donor_image_url || null;
+  const listingPreview = listingPreviewImageUrl ?? listing_preview_image_url ?? null;
+  const homeCardData = homeCard ?? home_card ?? null;
   const contentJsonData = contentJson || content_json;
   const template = templateType || template_type;
   const isTemplateFlag = isTemplate !== undefined ? isTemplate : (is_template !== undefined ? is_template : false);
@@ -169,14 +175,16 @@ router.post('/', async (req, res) => {
   const ogImageValue = ogImageUrl || og_image_url || '';
   
   await pool.query(
-    'INSERT INTO cases(slug,title,summary,content_html,hero_image_url,donor_image_url,gallery,metrics,tools,content_json,template_type,is_template,is_published,category,donor_url,seo_title,seo_description,seo_keywords,og_image_url) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13,$14,$15,$16,$17,$18,$19)',
+    'INSERT INTO cases(slug,title,summary,content_html,hero_image_url,donor_image_url,gallery,metrics,tools,content_json,template_type,is_template,is_published,category,donor_url,seo_title,seo_description,seo_keywords,og_image_url,listing_preview_image_url,home_card) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)',
     [slug, title, summary, content, heroImage, donorImage, 
      gallery ? JSON.stringify(gallery) : null, 
      metrics ? JSON.stringify(metrics) : null, 
      tools ? JSON.stringify(tools) : null, 
      contentJsonData ? JSON.stringify(contentJsonData) : null, 
      template || null, isTemplateFlag, published, caseCategory, donor,
-     seoTitleValue, seoDescValue, seoKeywordsValue, ogImageValue]
+     seoTitleValue, seoDescValue, seoKeywordsValue, ogImageValue,
+     listingPreview,
+     homeCardData ? JSON.stringify(homeCardData) : null]
   );
   const r = await pool.query('SELECT * FROM cases WHERE slug=$1', [slug]);
   res.json({ created: rowToCase(r.rows[0]) });
@@ -198,7 +206,9 @@ router.put('/:slug', async (req, res) => {
     seoTitle, seo_title,
     seoDescription, seo_description,
     seoKeywords, seo_keywords,
-    ogImageUrl, og_image_url
+    ogImageUrl, og_image_url,
+    listingPreviewImageUrl, listing_preview_image_url,
+    homeCard, home_card,
   } = req.body || {};
   
   const content = contentHtml || content_html;
@@ -310,6 +320,20 @@ router.put('/:slug', async (req, res) => {
     paramIndex++;
     updateFields.push(`og_image_url=$${paramIndex}`);
     params.push(ogImageValue);
+  }
+
+  const listingPreviewIn = listingPreviewImageUrl !== undefined ? listingPreviewImageUrl : listing_preview_image_url;
+  if (listingPreviewIn !== undefined) {
+    paramIndex++;
+    updateFields.push(`listing_preview_image_url=$${paramIndex}`);
+    params.push(listingPreviewIn || null);
+  }
+
+  const homeCardIn = homeCard !== undefined ? homeCard : home_card;
+  if (homeCardIn !== undefined) {
+    paramIndex++;
+    updateFields.push(`home_card=$${paramIndex}::jsonb`);
+    params.push(homeCardIn == null ? null : JSON.stringify(homeCardIn));
   }
   
   updateFields.push('updated_at=NOW()');

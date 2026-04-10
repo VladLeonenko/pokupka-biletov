@@ -16,7 +16,7 @@ export function BlogPageBuilderPage() {
   const isNew = id === 'new';
 
   const { data: post, isLoading } = useQuery({
-    queryKey: ['blog', id],
+    queryKey: ['admin-blog-post', id],
     queryFn: () => getBlogPost(id!),
     enabled: !isNew && !!id,
   });
@@ -33,6 +33,7 @@ export function BlogPageBuilderPage() {
       }
 
       const contentJson = {
+        ...(post?.contentJson || {}),
         blocks: data.blocks || [],
         sections: data.sections || [],
       };
@@ -65,7 +66,8 @@ export function BlogPageBuilderPage() {
     },
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['blog'] });
-      queryClient.invalidateQueries({ queryKey: ['blog', saved.slug] });
+      queryClient.invalidateQueries({ queryKey: ['admin-blog-post'] });
+      queryClient.invalidateQueries({ queryKey: ['public-blog-post'] });
       if (isNew) {
         navigate(`/admin/blog/${saved.slug}/builder`, { replace: true });
       }

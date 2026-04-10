@@ -381,10 +381,18 @@ export async function getProductCategory(id: number): Promise<ProductCategory> {
 }
 
 export async function createProductCategory(data: Partial<ProductCategory>): Promise<ProductCategory> {
+  const payload = {
+    slug: data.slug?.trim(),
+    name: data.name?.trim(),
+    description: data.description?.trim() || null,
+    parentId: data.parentId ?? null,
+    sortOrder: data.sortOrder ?? 0,
+    isActive: data.isActive !== false,
+  };
   const res = await doFetch(`${getApiBaseUrl()}/api/product-categories`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: 'Failed to create category' }));

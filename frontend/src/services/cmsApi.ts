@@ -524,11 +524,23 @@ function mapBlogFromApi(row: any): BlogPost {
       // ignore parse errors
     }
   }
+  let contentJson: Record<string, unknown> = {};
+  const rawCj = row.content_json ?? row.contentJson;
+  if (rawCj != null && typeof rawCj === 'object' && !Array.isArray(rawCj)) {
+    contentJson = rawCj as Record<string, unknown>;
+  } else if (typeof rawCj === 'string' && rawCj.trim()) {
+    try {
+      const parsed = JSON.parse(rawCj);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) contentJson = parsed;
+    } catch {
+      contentJson = {};
+    }
+  }
   return {
     id: row.slug || '',
     slug: row.slug || '',
     title: row.title ?? '',
-    contentHtml: row.body ?? '',
+    contentHtml: row.body ?? row.content_html ?? '',
     seo,
     publishedAt: row.created_at,
     isPublished: Boolean(row.is_published),
@@ -539,7 +551,7 @@ function mapBlogFromApi(row: any): BlogPost {
     carouselEnabled: Boolean(row.carousel_enabled),
     carouselTitle: typeof row.carousel_title === 'string' && row.carousel_title.trim() ? row.carousel_title : undefined,
     carouselItems,
-    contentJson: row.content_json || {},
+    contentJson,
   } as BlogPost & { contentJson?: any };
 }
 
@@ -766,6 +778,8 @@ export async function listCases(): Promise<CaseItem[]> {
       summary: r.summary || '',
       contentHtml: r.contentHtml || r.content_html || '',
       heroImageUrl: r.heroImageUrl || r.hero_image_url || '',
+      listingPreviewImageUrl: r.listingPreviewImageUrl ?? r.listing_preview_image_url ?? null,
+      homeCard: r.homeCard ?? r.home_card ?? null,
       gallery: Array.isArray(r.gallery) ? r.gallery : [],
       metrics: r.metrics || {},
       tools: Array.isArray(r.tools) ? r.tools : [],
@@ -791,6 +805,8 @@ export async function getCase(slug: string): Promise<CaseItem | undefined> {
     summary: r.summary || '',
     contentHtml: r.contentHtml || r.content_html || '',
     heroImageUrl: r.heroImageUrl || r.hero_image_url || '',
+    listingPreviewImageUrl: r.listingPreviewImageUrl ?? r.listing_preview_image_url ?? null,
+    homeCard: r.homeCard ?? r.home_card ?? null,
     templateType: r.templateType || r.template_type,
     isTemplate: r.isTemplate || r.is_template || false,
     gallery: Array.isArray(r.gallery) ? r.gallery : [],
@@ -841,6 +857,8 @@ export async function upsertCase(item: CaseItem, options?: { create?: boolean })
   if ('seoDescription' in item) payload.seoDescription = item.seoDescription ?? '';
   if ('seoKeywords' in item) payload.seoKeywords = item.seoKeywords ?? '';
   if ('ogImageUrl' in item) payload.ogImageUrl = item.ogImageUrl ?? '';
+  if ('listingPreviewImageUrl' in item) payload.listingPreviewImageUrl = item.listingPreviewImageUrl ?? null;
+  if ('homeCard' in item) payload.homeCard = item.homeCard ?? null;
   const url = `${getApiBaseUrl()}/api/cases${isCreate ? '' : `/${encodeURIComponent(item.slug!)}`}`;
   const method = isCreate ? 'POST' : 'PUT';
   const res = await doFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -901,6 +919,9 @@ export async function getProduct(slug: string): Promise<ProductItem | undefined>
     sortOrder: r.sortOrder || 0,
     contentJson: r.contentJson || undefined,
     categoryId: r.categoryId ?? undefined,
+    categoryIds: Array.isArray(r.categoryIds)
+      ? r.categoryIds.map(Number).filter((n: number) => !Number.isNaN(n))
+      : undefined,
     imageUrl: r.imageUrl ?? '',
     gallery: Array.isArray(r.gallery) ? r.gallery : [],
     metaTitle: r.metaTitle ?? '',
@@ -965,7 +986,14 @@ export async function upsertProduct(item: ProductItem): Promise<void> {
   if (!res.ok) {
     const errorText = await res.text();
     console.error('[upsertProduct] Error:', res.status, errorText);
-    throw new Error('Failed to save product');
+    let msg = 'Не удалось сохранить товар';
+    try {
+      const j = JSON.parse(errorText);
+      if (j?.error && typeof j.error === 'string') msg = j.error;
+    } catch {
+      if (errorText && errorText.length < 500) msg = `${msg}: ${errorText}`;
+    }
+    throw new Error(msg);
   }
   
 }
