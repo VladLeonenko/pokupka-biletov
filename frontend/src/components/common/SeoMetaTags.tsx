@@ -101,39 +101,28 @@ export function SeoMetaTags({
       canonical.setAttribute('href', url);
     }
 
-    // JSON-LD: Article для блога или Organization по умолчанию
-    if (title && description) {
-      let script = document.querySelector('script[type="application/ld+json"][data-seo-schema]');
+    // JSON-LD: только Article для статей блога (Organization/WebSite — в index.html, без дубля)
+    let script = document.querySelector('script[type="application/ld+json"][data-seo-schema]') as HTMLScriptElement | null;
+    if (articleSchema && title && description) {
       if (!script) {
         script = document.createElement('script');
         script.setAttribute('type', 'application/ld+json');
         script.setAttribute('data-seo-schema', 'true');
         document.head.appendChild(script);
       }
-
-      const structuredData = articleSchema
-        ? {
-            '@context': 'https://schema.org',
-            '@type': 'Article',
-            headline: articleSchema.headline,
-            datePublished: articleSchema.datePublished,
-            dateModified: articleSchema.dateModified || articleSchema.datePublished,
-            author: { '@type': 'Organization', name: 'PrimeCoder', url: 'https://prime-coder.ru' },
-            publisher: { '@type': 'Organization', name: 'PrimeCoder', logo: { '@type': 'ImageObject', url: 'https://prime-coder.ru/legacy/img/logo.png' } },
-            mainEntityOfPage: url ? { '@type': 'WebPage', '@id': url } : undefined,
-          }
-        : {
-            '@context': 'https://schema.org',
-            '@type': 'Organization',
-            name: 'PrimeCoder',
-            description: description,
-            url: 'https://prime-coder.ru',
-            logo: 'https://prime-coder.ru/legacy/img/logo.png',
-            contactPoint: { '@type': 'ContactPoint', contactType: 'customer service', areaServed: 'RU', availableLanguage: 'Russian' },
-            address: { '@type': 'PostalAddress', addressLocality: 'Москва', addressCountry: 'RU' },
-          };
-
+      const structuredData = {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: articleSchema.headline,
+        datePublished: articleSchema.datePublished,
+        dateModified: articleSchema.dateModified || articleSchema.datePublished,
+        author: { '@type': 'Organization', name: 'PrimeCoder', url: 'https://prime-coder.ru' },
+        publisher: { '@type': 'Organization', name: 'PrimeCoder', logo: { '@type': 'ImageObject', url: 'https://prime-coder.ru/legacy/img/logo.png' } },
+        mainEntityOfPage: url ? { '@type': 'WebPage', '@id': url } : undefined,
+      };
       script.textContent = JSON.stringify(structuredData);
+    } else if (script) {
+      script.remove();
     }
   }, [title, description, keywords, image, url, type, ogTitle, ogDescription, noindex, articleSchema]);
 

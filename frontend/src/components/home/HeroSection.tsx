@@ -57,19 +57,19 @@ export function HeroSection() {
         <Box
           sx={{
             display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'center', sm: 'flex-start' },
             justifyContent: 'space-between',
-            gap: { xs: 5, md: 4 },
+            gap: { xs: 5, sm: 3, md: 4 },
           }}
         >
           {/* Left */}
-          <Box sx={{ flex: 1, maxWidth: { md: '55%' } }}>
+          <Box sx={{ flex: 1, minWidth: 0, maxWidth: { sm: '58%', md: '55%' } }}>
             <Typography
               variant="h1"
               className="hero-title"
               sx={{
-                fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' },
+                fontSize: { xs: '2.5rem', sm: '1.95rem', md: '3.5rem', lg: '4rem' },
                 fontWeight: 800,
                 color: '#fff',
                 letterSpacing: '-0.03em',
@@ -83,7 +83,7 @@ export function HeroSection() {
             <Typography
               className="hero-sub"
               sx={{
-                fontSize: { xs: '1rem', md: '1.2rem' },
+                fontSize: { xs: '1rem', sm: '0.92rem', md: '1.2rem' },
                 color: 'rgba(255,255,255,0.55)',
                 lineHeight: 1.6,
                 mb: 4,
@@ -100,7 +100,7 @@ export function HeroSection() {
                 { val: '10+', label: 'дней на заказ' },
               ].map((s) => (
                 <Box key={s.label}>
-                  <Typography sx={{ fontSize: { xs: '1.8rem', md: '2.2rem' }, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                  <Typography sx={{ fontSize: { xs: '1.8rem', sm: '1.45rem', md: '2.2rem' }, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
                     {s.val}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)', mt: 0.3 }}>
@@ -133,7 +133,17 @@ export function HeroSection() {
           </Box>
 
           {/* Right — Vertical carousel */}
-          <Box className="hero-carousel" sx={{ flex: 1, maxWidth: { md: '40%' }, width: '100%', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: { xs: 'flex-start', md: 'center' } }}>
+          <Box
+            className="hero-carousel"
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              maxWidth: { sm: '38%', md: '40%' },
+              width: '100%',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              justifyContent: { xs: 'flex-start', sm: 'center' },
+            }}
+          >
             <VerticalCarousel items={carouselItems} categories={categories || []} speed={3000} />
           </Box>
         </Box>

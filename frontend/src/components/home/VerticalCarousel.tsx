@@ -57,7 +57,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED, categories = []
     const baseSx = {
       width: '100%',
       marginBottom: '1em',
-      textAlign: { xs: 'left' as const, md: 'right' as const },
+      textAlign: { xs: 'left' as const, sm: 'right' as const },
       transition: 'opacity 0.8s ease, color 0.8s ease',
       // Всегда используем block для видимых элементов (перекрывает legacy CSS)
       display: 'block',
@@ -342,7 +342,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED, categories = []
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: { xs: 'flex-start', md: 'flex-end' },
+          alignItems: { xs: 'flex-start', sm: 'flex-end' },
           position: 'relative',
           transform: 'translateY(0)',
           // Оптимизация для предотвращения reflow и дергания
@@ -369,7 +369,7 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED, categories = []
             : {
                 width: '100%',
                 marginBottom: '1em',
-                textAlign: { xs: 'left' as const, md: 'right' as const },
+                textAlign: { xs: 'left' as const, sm: 'right' as const },
                 opacity: 0,
                 visibility: 'hidden' as const,
                 position: 'absolute' as const,
@@ -378,8 +378,8 @@ export function VerticalCarousel({ items, speed = DEFAULT_SPEED, categories = []
           
           const href = getItemHref(item, categories);
           const typographySx = {
-            fontSize: '2.5em',
-            textAlign: { xs: 'left' as const, md: 'right' as const },
+            fontSize: { xs: '2.2em', sm: '1.75em', md: '2.5em' },
+            textAlign: { xs: 'left' as const, sm: 'right' as const },
             textTransform: 'uppercase' as const,
             fontFamily: '"Raleway", sans-serif',
             fontWeight: 400,

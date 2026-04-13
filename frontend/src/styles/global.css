@@ -1,3 +1,9 @@
+/* Chrome/Android: не раздувать шрифт при «удобном» масштабе */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* Оптимизация загрузки шрифтов */
 @font-face {
   font-family: 'Raleway';

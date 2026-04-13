@@ -58,7 +58,7 @@ function getChangeFreq(slug, type = 'page', updatedAt) {
 }
 
 // Генерация XML sitemap
-router.get('/sitemap.xml', async (req, res) => {
+export async function handleSitemapXml(req, res) {
   try {
     const urls = [];
     
@@ -200,15 +200,19 @@ ${urls.map(url => `  <url>
     console.error('[sitemap] Error generating sitemap:', error);
     res.status(500).send('Error generating sitemap');
   }
-});
+}
+
+router.get('/sitemap.xml', handleSitemapXml);
 
 // .well-known/llms.txt — редирект (некоторые краулеры проверяют этот путь)
-router.get('/.well-known/llms.txt', (req, res) => {
+export function handleWellKnownLlms(req, res) {
   res.redirect(302, BASE_URL + '/llms.txt');
-});
+}
+
+router.get('/.well-known/llms.txt', handleWellKnownLlms);
 
 // llms.txt — «sitemap для ИИ» по спецификации llmstxt.org
-router.get('/llms.txt', async (req, res) => {
+export async function handleLlmsTxt(req, res) {
   try {
     const [productsRes, casesRes, blogRes] = await Promise.all([
       pool.query('SELECT slug, title, summary FROM products WHERE is_active = TRUE ORDER BY slug'),
@@ -268,10 +272,12 @@ ${blogLinks}
     console.error('[llms.txt]', err);
     res.status(500).send('Error');
   }
-});
+}
+
+router.get('/llms.txt', handleLlmsTxt);
 
 // llms-full.txt — расширенная версия: domain-specific, recency, примеры промптов, блог
-router.get('/llms-full.txt', async (req, res) => {
+export async function handleLlmsFullTxt(req, res) {
   try {
     const [productsRes, casesRes, blogRes] = await Promise.all([
       pool.query('SELECT slug, title, summary, meta_description, content_json FROM products WHERE is_active = TRUE ORDER BY slug'),
@@ -353,11 +359,13 @@ ${blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})${p.seo_descri
     console.error('[llms-full.txt]', err);
     res.status(500).send('Error');
   }
-});
+}
+
+router.get('/llms-full.txt', handleLlmsFullTxt);
 
 // YML-фид услуг для Яндекс.Вебмастер (категория «Исполнители»)
 // Индексирование → Фиды и ошибки → добавить ссылку на фид
-router.get('/feed/services.yml', async (req, res) => {
+export async function handleServicesYml(req, res) {
   try {
     const productsResult = await pool.query(`
       SELECT slug, title, summary, meta_description, price_cents, currency, image_url, content_json
@@ -431,7 +439,9 @@ ${offersXml}
     console.error('[feed/services.yml] Error:', err);
     res.status(500).send('Error generating feed');
   }
-});
+}
+
+router.get('/feed/services.yml', handleServicesYml);
 
 // Функция для экранирования XML
 function escapeXml(unsafe) {

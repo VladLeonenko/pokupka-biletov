@@ -1,8 +1,8 @@
-import { useState, SyntheticEvent, KeyboardEvent } from 'react';
+import { useState, useEffect, SyntheticEvent, KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { searchProducts } from '@/services/ecommerceApi';
 import { Box, Typography, TextField, Button, CircularProgress, Chip, Container } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -22,8 +22,18 @@ const inputSx = {
 
 export function SearchPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q && q.trim()) {
+      const t = q.trim();
+      setQuery(t);
+      setSearchTerm(t);
+    }
+  }, [searchParams]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['searchProducts', searchTerm],
@@ -31,7 +41,12 @@ export function SearchPage() {
     enabled: searchTerm.length > 0,
   });
 
-  const handleSearch = () => { if (query.trim()) setSearchTerm(query.trim()); };
+  const handleSearch = () => {
+    const t = query.trim();
+    if (!t) return;
+    setSearchTerm(t);
+    navigate(`/search?q=${encodeURIComponent(t)}`, { replace: true });
+  };
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') handleSearch(); };
 
   const products = data?.products || [];

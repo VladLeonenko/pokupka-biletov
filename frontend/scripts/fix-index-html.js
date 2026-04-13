@@ -53,7 +53,6 @@ ${preloadScript}
   var s = document.createElement('script');
   s.type = 'module';
   s.src = '${mainScriptSrc}';
-  s.crossOrigin = 'anonymous';
   s.onerror = function(e) {
     console.error('Failed to load:', '${mainScriptSrc}', e);
   };

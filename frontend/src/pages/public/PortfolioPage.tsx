@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect, SyntheticEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Box, Container, Typography, CircularProgress, Chip, IconButton } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -59,7 +59,6 @@ function getCategories(c: any): Category[] {
 const VISIBLE = 3;
 
 export function PortfolioPage() {
-  const navigate = useNavigate();
   const [cat, setCat] = useState<Category>('all');
   const [current, setCurrent] = useState(0);
   const [maxSlideIndex, setMaxSlideIndex] = useState(0);
@@ -146,17 +145,6 @@ export function PortfolioPage() {
 
   const prev = () => scrollBySlides(-1);
   const next = () => scrollBySlides(1);
-  const handleCardNavigate = useCallback(
-    (slug: string) => {
-      if (suppressCardClickRef.current) {
-        suppressCardClickRef.current = false;
-        return;
-      }
-      navigate(`/cases/${slug}`);
-    },
-    [navigate],
-  );
-
   const onLanePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
     const el = scrollRef.current;
@@ -402,7 +390,7 @@ export function PortfolioPage() {
                   gap: 3,
                   overflowX: 'auto',
                   overflowY: 'hidden',
-                  '@media (pointer: fine)': { touchAction: 'pan-x' },
+                  touchAction: 'pan-x',
                   scrollSnapType: laneDragging ? 'none' : { xs: 'x proximity', md: 'x mandatory' },
                   WebkitOverflowScrolling: 'touch',
                   overscrollBehaviorX: 'contain',
@@ -419,7 +407,14 @@ export function PortfolioPage() {
                     return (
                       <Box
                         key={c.slug}
-                        onClick={() => handleCardNavigate(c.slug)}
+                        component={Link}
+                        to={`/cases/${encodeURIComponent(c.slug)}`}
+                        onClick={(e) => {
+                          if (suppressCardClickRef.current) {
+                            e.preventDefault();
+                            suppressCardClickRef.current = false;
+                          }
+                        }}
                         data-anim-child
                         sx={{
                           flexShrink: 0,
@@ -431,6 +426,9 @@ export function PortfolioPage() {
                           position: 'relative',
                           cursor: laneDragging ? 'grabbing' : 'pointer',
                           border: '1px solid rgba(255,255,255,0.06)',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                          WebkitTapHighlightColor: 'transparent',
                           transition: 'border-color 0.4s, transform 0.4s',
                           '&:hover': { borderColor: 'rgba(255,187,0,0.3)', transform: 'translateY(-6px)' },
                           '&:hover .pf-overlay': { opacity: 1 },

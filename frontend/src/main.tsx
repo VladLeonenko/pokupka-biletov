@@ -60,6 +60,13 @@ const initializeTheme = () => {
 // Инициализируем тему перед рендером React
 initializeTheme();
 
+// Снимаем любые старые SW (PWA/offline), чтобы Safari и мобильные не залипали на кэше после деплоев
+if (import.meta.env.PROD && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((r) => r.unregister());
+  });
+}
+
 const queryClient = new QueryClient();
 
 // Экспортируем navigate для использования в legacy коде

@@ -1,7 +1,7 @@
 {
-  "short_name": "Primecoder",
-  "name": "Primecoder - Веб-услуги",
-  "description": "Профессиональные веб-услуги и разработка",
+  "short_name": "PrimeCoder",
+  "name": "PrimeCoder — разработка сайтов и SEO",
+  "description": "Создание сайтов, лендингов и интернет-магазинов. SEO, реклама, AI-автоматизация. Москва.",
   "icons": [
     {
       "src": "favicon.ico",
