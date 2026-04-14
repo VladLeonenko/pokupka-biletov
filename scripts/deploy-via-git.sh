@@ -2,9 +2,9 @@
 # Деплой на прод через git. Запускать на сервере.
 # Первый раз: git pull (чтобы скрипт появился), затем ./scripts/deploy-via-git.sh
 # Использование:
-#   ssh root@85.239.44.40 "cd /var/www/primecoder-gulp && ./scripts/deploy-via-git.sh main"
+#   ssh user@YOUR_SERVER "cd /var/www/pokupka-biletov && ./scripts/deploy-via-git.sh main"
 # или на сервере:
-#   cd /var/www/primecoder-gulp && ./scripts/deploy-via-git.sh [main|feature/...]
+#   cd /var/www/pokupka-biletov && ./scripts/deploy-via-git.sh [main|feature/...]
 
 set -euo pipefail
 

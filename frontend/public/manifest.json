@@ -1,7 +1,7 @@
 {
-  "short_name": "PrimeCoder",
-  "name": "PrimeCoder — разработка сайтов и SEO",
-  "description": "Создание сайтов, лендингов и интернет-магазинов. SEO, реклама, AI-автоматизация. Москва.",
+  "short_name": "Билеты",
+  "name": "Покупка Билетов",
+  "description": "Покупка билетов на мероприятия онлайн.",
   "icons": [
     {
       "src": "favicon.ico",

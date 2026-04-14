@@ -31,7 +31,7 @@ echo "=== Сборка фронтенда ==="
 if [ -n "$DO_DEPLOY" ]; then
   : "${DEPLOY_HOST:?Задайте DEPLOY_HOST (ip или домен сервера)}"
   : "${DEPLOY_USER:?Задайте DEPLOY_USER (ssh-пользователь)}"
-  REMOTE_FRONTEND_PATH="${REMOTE_FRONTEND_PATH:-/var/www/primecoder-gulp/frontend}"
+  REMOTE_FRONTEND_PATH="${REMOTE_FRONTEND_PATH:-/var/www/pokupka-biletov/frontend}"
 
   echo "=== Копирование на $DEPLOY_USER@$DEPLOY_HOST:$REMOTE_FRONTEND_PATH/dist ==="
   rsync -avz --delete frontend/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_FRONTEND_PATH/dist/"

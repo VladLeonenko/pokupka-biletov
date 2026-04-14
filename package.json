@@ -1,4 +1,7 @@
 {
+  "name": "pokupka-biletov",
+  "private": true,
+  "description": "Покупка Билетов — веб-приложение (fork)",
   "scripts": {
     "seo:audit": "node scripts/seo-audit.js",
     "products:seed": "cd backend && node scripts/create-all-products.js",

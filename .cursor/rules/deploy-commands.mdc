@@ -14,38 +14,32 @@ alwaysApply: true
 git add -A
 git status
 git commit -m "fix: краткое описание"
-git push origin feature/safari-auth-fix   # или main, если мержили
-```
-
-## 1.5. (Опционально) Заполнить SEO кейсов на проде
-
-```bash
-npm run seed:case-seo   # заполняет meta для houses-case, madeo-case, polygon, straumann-case
+git push origin main
 ```
 
 ## 2. На сервере — деплой одной командой
 
+Подставь свой SSH, пользователя и путь к проекту на VPS (ниже — шаблон):
+
 ```bash
-# Подключиться и запустить деплой
-ssh root@85.239.44.40 "cd /var/www/primecoder-gulp && ./scripts/deploy-via-git.sh main"
+ssh user@YOUR_SERVER "cd /var/www/pokupka-biletov && ./scripts/deploy-via-git.sh main"
 ```
 
 Или на сервере:
 
 ```bash
-ssh root@85.239.44.40
-cd /var/www/primecoder-gulp
-./scripts/deploy-via-git.sh main # деплой main
-./scripts/deploy-via-git.sh feature/имя-ветки # деплой feature-ветки
+ssh user@YOUR_SERVER
+cd /var/www/pokupka-biletov
+./scripts/deploy-via-git.sh main
+./scripts/deploy-via-git.sh feature/имя-ветки
 ```
 
-Скрипт делает: git pull, сборку frontend (npm ci + build), backend deps, миграции, pm2 restart. Сохраняет .env.
+Скрипт делает: git pull, сборку frontend (`npm ci` + build), backend deps, миграции, pm2 restart. Сохраняет `backend/.env`.
 
 ## Ручной деплой (если скрипт недоступен)
 
 ```bash
-ssh root@85.239.44.40
-cd /var/www/primecoder-gulp
+cd /var/www/pokupka-biletov
 git pull origin main
 cd frontend && npm ci && npm run build && chown -R www-data:www-data dist
 cd ../backend && npm ci && node scripts/apply-migrations-to-db.js 2>/dev/null; pm2 restart all --update-env
@@ -54,6 +48,6 @@ cd ../backend && npm ci && node scripts/apply-migrations-to-db.js 2>/dev/null; p
 ## Альтернатива: backend deploy-safe.sh (только backend, без сборки фронта)
 
 ```bash
-cd /var/www/primecoder-gulp
-./backend/deploy-safe.sh # git pull + restore .env + pm2 restart
+cd /var/www/pokupka-biletov
+./backend/deploy-safe.sh
 ```

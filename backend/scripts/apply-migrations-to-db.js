@@ -17,7 +17,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
-const targetDb = process.argv[2] || process.env.PGDATABASE || 'primecoder_db';
+const targetDb = process.argv[2] || process.env.PGDATABASE || 'pokupka_biletov_dev';
 
 const pool = new Pool({
   user: process.env.PGUSER,

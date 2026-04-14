@@ -1,198 +1,77 @@
-# PrimeCoder - Web Development Platform
+# Покупка Билетов
 
-Современная платформа для разработки и управления веб-проектами с админ-панелью и публичным сайтом.
+Отдельный продукт на базе форка прежнего стека: **React (Vite) + Express + PostgreSQL**. История коммитов сохранена; **remote `origin` отключён** — создай новый репозиторий и привяжи его сам.
 
-## 🏗️ Структура проекта
+## Откуда копия
+
+Проект скопирован с `primecoder-gulp` (локальная копия на Рабочем столе). В коде и сидах ещё много наследия старого сайта: его можно поэтапно удалять под задачи билетов.
+
+## Структура
 
 ```
-primecoder-gulp/
-├── frontend/          # React приложение (Vite + TypeScript)
-│   ├── src/          # Исходный код React
-│   ├── public/       # Статические файлы
-│   │   ├── legacy/   # Legacy статические файлы (CSS, JS, изображения)
-│   │   ├── robots.txt
-│   │   ├── sitemap.xml
-│   │   └── .htaccess
-│   └── dist/         # Собранная версия (production build)
-│
-└── backend/          # Express сервер (Node.js)
-    ├── routes/       # API маршруты
-    ├── migrations/   # Миграции базы данных
-    ├── uploads/      # Загруженные файлы
-    └── app.js        # Точка входа сервера
+pokupka-biletov/
+├── frontend/     # React + Vite + TypeScript
+├── backend/      # Express, миграции PostgreSQL
+└── scripts/      # деплой и утилиты
 ```
 
-## 🚀 Быстрый старт
+## Быстрый старт
 
-### Требования
+**Требования:** Node.js ≥ 18, PostgreSQL ≥ 14.
 
-- Node.js >= 18.x
-- PostgreSQL >= 14.x
-- npm или yarn
-
-### Установка
-
-1. **Установите зависимости для backend:**
+1. Создай БД (имя по желанию, по умолчанию в примере — `pokupka_biletov_dev`):
 
 ```bash
-cd backend
-npm install
+createdb pokupka_biletov_dev
+# или через psql: CREATE DATABASE pokupka_biletov_dev;
 ```
 
-2. **Установите зависимости для frontend:**
+2. Зависимости:
 
 ```bash
-cd frontend
-npm install
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
-3. **Настройте переменные окружения:**
-
-Создайте файл `backend/.env`:
-
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/primecoder
-CORS_ORIGIN=http://localhost:5173,http://localhost:3000
-JWT_SECRET=your-secret-key
-OPENAI_API_KEY=your-openai-api-key
-```
-
-4. **Запустите миграции базы данных:**
+3. Окружение backend:
 
 ```bash
-cd backend
-npm run migrate
+cp backend/.env.example backend/.env
+# отредактируй PGUSER, PGPASSWORD, PGDATABASE и секреты
 ```
 
-### Разработка
-
-**Backend (порт 3000):**
+4. Миграции:
 
 ```bash
-cd backend
-node app.js
+cd backend && npm run migrate
 ```
 
-**Frontend (порт 5173):**
+5. Запуск:
 
 ```bash
-cd frontend
-npm run dev
+# терминал 1
+cd backend && node app.js
+
+# терминал 2
+cd frontend && npm run dev
 ```
 
-Откройте http://localhost:5173 для доступа к сайту.
+Сайт: http://localhost:5173 · API: http://localhost:3000
 
-### Production сборка
+## База данных
 
-1. **Соберите frontend:**
+Используй **отдельную** БД только для этого проекта (не `primecoder_db` / прод PrimeCoder). Значения по умолчанию в скрипте миграций смотри в `backend/scripts/apply-migrations-to-db.js`.
 
-```bash
-cd frontend
-npm run build
-```
+## Деплой
 
-2. **Запустите backend:**
+На сервере задай свой путь к проекту и свой Git remote. Шаблон скрипта: `scripts/deploy-via-git.sh`. Подставь домен и путь в `.cursor/rules/deploy-commands.mdc` под свой хостинг.
 
-```bash
-cd backend
-node app.js
-```
+## Дальнейшие шаги
 
-Backend будет раздавать собранную версию frontend из `frontend/dist/`.
+- Заменить в `frontend/index.html` `https://example.com` на реальный домен.
+- Вырезать ненужные роуты и API под «билеты».
+- Обновить `backend/routes`, сиды и миграции под новую доменную модель (события, места, заказы).
 
-## 📦 Основные возможности
+## Лицензия
 
-### Frontend
-
-- ⚛️ React 18 с TypeScript
-- 🎨 Material-UI компоненты
-- 🌓 Светлая/темная тема
-- 📱 Полностью адаптивный дизайн
-- 🎭 3D анимации (Three.js, GSAP)
-- 🛒 E-commerce функциональность
-- 📝 Rich-text редактор для контента
-- 🖼️ Управление изображениями и медиа
-
-### Backend
-
-- 🚀 Express.js сервер
-- 🗄️ PostgreSQL база данных
-- 🔐 JWT аутентификация
-- 📊 RESTful API
-- 🤖 Интеграция с OpenAI
-- 💬 Система чата с файлами
-- 📧 Email уведомления
-- 🎯 SEO инструменты
-
-## 🎨 Новый блок преимуществ
-
-Реализован современный блок Advantages3D с:
-- 3D анимациями (rotate, float, glow)
-- Адаптивным дизайном
-- Поддержкой темной/светлой темы
-- Статистикой компании
-- 6 ключевых преимуществ
-
-## 📄 Технические файлы
-
-### robots.txt
-Находится в `frontend/public/robots.txt`. Настроен для:
-- Разрешения индексации основного контента
-- Блокировки административных разделов
-- Указания пути к sitemap
-
-### sitemap.xml
-Находится в `frontend/public/sitemap.xml`. Включает:
-- Все основные страницы сайта
-- SEO инструменты
-- Статьи блога
-- Кейсы и портфолио
-
-### .htaccess
-Находится в `frontend/public/.htaccess`. Настроен для:
-- Принудительного HTTPS
-- Удаления www
-- SPA роутинга
-- CORS для статических файлов
-- Кэширования
-- Безопасности
-
-## 🔧 API Endpoints
-
-### Публичные endpoints
-
-- `GET /api/public/pages/:slug` - Получить страницу
-- `GET /api/public/blog` - Список статей блога
-- `GET /api/public/portfolio` - Портфолио
-- `GET /api/public/products` - Каталог продуктов
-- `POST /api/forms/submit` - Отправка формы
-
-### Административные endpoints (требуют аутентификации)
-
-- `POST /api/auth/login` - Вход в админ-панель
-- `GET /api/admin/pages` - Управление страницами
-- `POST /api/admin/blog` - Управление блогом
-- `POST /api/admin/upload` - Загрузка файлов
-
-## 🎯 SEO инструменты
-
-Встроенные SEO инструменты доступны по адресам:
-- `/seo/position-checker` - Проверка позиций в поисковиках
-- `/seo/technical-audit` - Технический аудит сайта
-- `/seo/roi-calculator` - Калькулятор ROI
-- `/seo/reputation-monitor` - Мониторинг репутации
-
-## 📱 Контакты и поддержка
-
-- **Email:** info@primecoder.ru
-- **Телефон:** +7 (999) 984-91-07
-- **Сайт:** https://primecoder.ru
-
-## 📝 Лицензия
-
-Proprietary - все права защищены © 2025 PrimeCoder
-
----
-
-**Разработано с ❤️ командой PrimeCoder**
-
+Proprietary — права как у исходного проекта; переоформи под юрлицо нового продукта при необходимости.
