@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
+import { ScrollToTop } from '@/components/common/ScrollToTop';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { AuthProvider } from '@/auth/AuthProvider';
@@ -87,6 +88,7 @@ try {
           v7_startTransition: true,
           v7_relativeSplatPath: true,
         }}>
+          <ScrollToTop />
           <AuthProvider>
             <App />
             <NavigationExporter />

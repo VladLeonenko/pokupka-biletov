@@ -1,23 +1,85 @@
-# robots.txt — prime-coder.ru
-# Обновлён: 2026-02-17
+# https://prime-coder.ru/robots.txt
+# Обновлено: 2026-04-14
+#
+# Карта сайта XML генерируется на лету приложением (GET /sitemap.xml), не статический файл в dist.
+# Контекст для ИИ: /llms.txt, /llms-full.txt (тоже отдаёт backend).
+# Статический файл на диске после сборки: только этот robots.txt → frontend/dist/robots.txt
 
-# Sitemap в начале — быстрее находят краулеры
-User-agent: *
 Sitemap: https://prime-coder.ru/sitemap.xml
+
+# --- Все роботы: общие правила ---
+User-agent: *
 Allow: /
 
-# ИИ-поиск: разрешаем Perplexity, ChatGPT, Claude, Gemini (Google-Extended) и др.
+Disallow: /404
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /uploads/chat-files/
+Disallow: /register
+Disallow: /account
+Disallow: /account/
+Disallow: /commercial-proposals/
+Disallow: /tools/
+Disallow: /ai-chat
+
+# Параметры сортировки/фильтров/пагинации — дубли
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+Disallow: /*?*page=
+
+Allow: /assets/
+Allow: /uploads/images/
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /.well-known/llms.txt
+Allow: /feed/services.yml
+
+# --- Google ---
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /uploads/images/
+Allow: /assets/
+
+# --- Яндекс: главное зеркало + срез мусорных query-параметров ---
+User-agent: Yandex
+Allow: /
+Host: https://prime-coder.ru
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&_ym_uid&_ym_d&from
+
+User-agent: YandexImages
+Allow: /uploads/images/
+Allow: /assets/
+
+# --- Bing ---
+User-agent: Bingbot
+Allow: /
+
+# --- ИИ-поиск и LLM: контент для выдачи и обучения (разрешён публичный сайт + llms) ---
 User-agent: Google-Extended
 Allow: /
 Allow: /llms.txt
 Allow: /llms-full.txt
 
-User-agent: PerplexityBot
+User-agent: GPTBot
 Allow: /
 Allow: /llms.txt
 Allow: /llms-full.txt
 
-User-agent: GPTBot
+User-agent: ChatGPT-User
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: OAI-SearchBot
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+
+User-agent: PerplexityBot
 Allow: /
 Allow: /llms.txt
 Allow: /llms-full.txt
@@ -42,57 +104,12 @@ Allow: /
 Allow: /llms.txt
 Allow: /llms-full.txt
 
-# Страница 404 — не индексировать (если явно залинкована)
-Disallow: /404
-
-# Закрываем административные и служебные разделы
-Disallow: /admin
-Disallow: /admin/
-Disallow: /api/
-Disallow: /uploads/chat-files/
-Disallow: /register
-Disallow: /account
-Disallow: /account/
-Disallow: /commercial-proposals/
-
-# Закрываем внутренние инструменты
-Disallow: /tools/
-Disallow: /ai-chat
-
-# Закрываем дубликаты и технические страницы
-Disallow: /*?*sort=
-Disallow: /*?*filter=
-Disallow: /*?*page=
-
-# Разрешаем статические ресурсы
-Allow: /assets/
-Allow: /assets/js/
-Allow: /assets/css/
-Allow: /uploads/images/
-
-# Явно разрешаем sitemap и llms
-Allow: /sitemap.xml
+User-agent: Applebot-Extended
+Allow: /
 Allow: /llms.txt
 Allow: /llms-full.txt
-Allow: /.well-known/llms.txt
 
-# Контекст для ИИ: llmstxt.org, /llms.txt, /llms-full.txt
-
-# Google (Crawl-delay не поддерживается, пропускается)
-User-agent: Googlebot
+User-agent: Meta-ExternalAgent
 Allow: /
-
-# Yandex — Host (главное зеркало), Clean-param (UTM/метрика не создают дубли)
-User-agent: Yandex
-Allow: /
-Host: https://prime-coder.ru
-Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&_ym_uid&_ym_d&from
-
-# Индексация изображений
-User-agent: Googlebot-Image
-Allow: /uploads/images/
-Allow: /assets/
-
-User-agent: YandexImages
-Allow: /uploads/images/
-Allow: /assets/
+Allow: /llms.txt
+Allow: /llms-full.txt

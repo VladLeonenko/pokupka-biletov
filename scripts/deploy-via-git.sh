@@ -79,3 +79,7 @@ pm2 restart all --update-env || echo "⚠️ pm2 restart: проверьте в�
 
 echo ""
 echo "✅ Деплой завершён. Проверьте: pm2 status && pm2 logs"
+echo ""
+echo "SEO: robots.txt лежит в frontend/dist/robots.txt (не в корне репо). sitemap.xml отдаёт backend по URL /sitemap.xml (файла в dist нет)."
+echo "Проверка после деплоя: curl -sI https://ВАШ_ДОМЕН/robots.txt | head -1"
+echo "                        curl -sI https://ВАШ_ДОМЕН/sitemap.xml | head -1"
