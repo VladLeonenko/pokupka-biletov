@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Box, Paper, IconButton, TextField, Typography, Avatar, Chip, Link, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatIcon from '@mui/icons-material/Chat';
 import { sendClientMessage, getChatHistory, getOrCreateChat, ChatMessage, Chat } from '@/services/chatApi';
+import { useTicketsChrome } from '@/hooks/useTicketsChrome';
+import { getChatWidgetTheme } from '@/utils/ticketWidgetTheme';
 
 interface ChatWidgetProps {
   clientName?: string;
@@ -28,6 +30,9 @@ function getSessionId(): string {
 }
 
 export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetProps) {
+  const ticketsChrome = useTicketsChrome();
+  const th = useMemo(() => getChatWidgetTheme(ticketsChrome), [ticketsChrome]);
+
   const [isOpen, setIsOpen] = useState(false);
   const [chatId, setChatId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -88,7 +93,7 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
           if (lastMessage && lastMessage.message_text) {
             new Notification('Новое сообщение', {
               body: lastMessage.message_text.substring(0, 100),
-              icon: '/favicon.ico'
+              icon: '/favicon.svg'
             });
           }
         }
@@ -213,15 +218,15 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
           onClick={handleOpen}
           aria-label="Открыть чат"
           sx={{
-            bgcolor: '#ffbb00',
-            color: 'white',
+            bgcolor: th.fabBg,
+            color: th.fabIcon,
             width: 60,
             height: 60,
             cursor: 'pointer !important',
             '&:hover': {
-              bgcolor: '#e6a800',
+              bgcolor: th.accentHover,
             },
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            boxShadow: th.fabShadow,
           }}
         >
           <ChatIcon />
@@ -239,7 +244,7 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ bgcolor: '#ffbb00', color: 'white', fontWeight: 'bold' }}>
+        <DialogTitle sx={{ bgcolor: th.accent, color: th.headerFg, fontWeight: 'bold' }}>
           Представьтесь, пожалуйста
         </DialogTitle>
         <DialogContent sx={{ mt: 3 }}>
@@ -275,8 +280,8 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
             variant="contained"
             disabled={!tempName.trim()}
             sx={{
-              bgcolor: '#ffbb00',
-              '&:hover': { bgcolor: '#e6a800' },
+              bgcolor: th.accent,
+              '&:hover': { bgcolor: th.accentHover },
             }}
           >
             Продолжить
@@ -317,8 +322,8 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
         {/* Header */}
         <Box
           sx={{
-            bgcolor: '#ffbb00',
-            color: 'white',
+            bgcolor: th.headerBg,
+            color: th.headerFg,
             p: 2,
             display: 'flex',
             justifyContent: 'space-between',
@@ -331,7 +336,7 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
           <IconButton
             size="small"
             onClick={() => setIsOpen(false)}
-            sx={{ color: 'white' }}
+            sx={{ color: th.headerFg }}
           >
             <CloseIcon />
           </IconButton>
@@ -343,15 +348,15 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
             flex: 1,
             overflowY: 'auto',
             p: 2,
-            bgcolor: '#0f0f0f',
-            backgroundImage: 'linear-gradient(to bottom, #0f0f0f 0%, #1a1a1a 100%)',
+            bgcolor: th.threadBg,
+            backgroundImage: th.threadGradient,
             display: 'flex',
             flexDirection: 'column',
             gap: 1,
           }}
         >
           {messages.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
+            <Typography variant="body2" textAlign="center" sx={{ mt: 4, color: th.emptyHint }}>
               Начните общение, задав вопрос
             </Typography>
           ) : (
@@ -369,13 +374,13 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
                     maxWidth: '75%',
                     p: 1.5,
                     borderRadius: 2,
-                    bgcolor: msg.sender_type === 'client' ? '#ffbb00' : '#141414',
-                    color: '#ffffff !important',
-                    boxShadow: msg.sender_type === 'client' 
-                      ? '0 1px 2px rgba(0,0,0,0.2)' 
-                      : '0 1px 2px rgba(0,0,0,0.4)',
+                    bgcolor: msg.sender_type === 'client' ? th.bubbleClientBg : th.bubbleOtherBg,
+                    color: `${msg.sender_type === 'client' ? th.bubbleClientFg : th.bubbleOtherFg} !important`,
+                    border:
+                      msg.sender_type === 'client' ? 'none' : `1px solid ${ticketsChrome ? 'rgba(0,0,0,0.08)' : 'transparent'}`,
+                    boxShadow: msg.sender_type === 'client' ? '0 1px 2px rgba(0,0,0,0.12)' : th.bubbleOtherShadow,
                     '& *': {
-                      color: '#ffffff !important',
+                      color: `${msg.sender_type === 'client' ? th.bubbleClientFg : th.bubbleOtherFg} !important`,
                     },
                   }}
                 >
@@ -389,11 +394,11 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
                         target="_blank"
                         download={msg.file_name}
                         sx={{
-                          color: '#ffffff !important',
+                          color: `${th.linkFg} !important`,
                           textDecoration: 'underline',
                           display: 'block',
                           '&:hover': {
-                            color: '#e0e0e0 !important',
+                            color: `${th.linkHover} !important`,
                           },
                         }}
                       >
@@ -428,8 +433,8 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
         <Box
           sx={{
             p: 2,
-            borderTop: '1px solid #333333',
-            bgcolor: '#1a1a1a',
+            borderTop: `1px solid ${th.inputBarBorder}`,
+            bgcolor: th.inputBarBg,
             display: 'flex',
             gap: 1,
           }}
@@ -449,31 +454,31 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
             disabled={isLoading}
             sx={{
               '& .MuiInputBase-root': {
-                bgcolor: '#2a2a2a',
-                color: '#ffffff',
+                bgcolor: th.inputBg,
+                color: th.inputFg,
                 borderRadius: '20px',
                 '&:hover': {
-                  bgcolor: '#333333',
+                  bgcolor: th.inputBg,
                 },
                 '&.Mui-focused': {
-                  bgcolor: '#333333',
+                  bgcolor: th.inputBg,
                 },
               },
               '& .MuiInputBase-input': {
-                color: '#ffffff !important',
+                color: `${th.inputFg} !important`,
                 '&::placeholder': {
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: th.inputPlaceholder,
                   opacity: 1,
                 },
               },
               '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#444444',
+                borderColor: th.inputBorder,
               },
               '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#555555',
+                borderColor: th.inputBorderHover,
               },
               '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#ffbb00',
+                borderColor: th.inputBorderFocus,
               },
             }}
           />
@@ -481,13 +486,13 @@ export function ChatWidget({ clientName, clientEmail, clientPhone }: ChatWidgetP
             onClick={handleSend}
             disabled={isLoading || !inputMessage.trim()}
             sx={{
-              bgcolor: '#ffbb00',
-              color: 'white',
+              bgcolor: th.sendBg,
+              color: th.sendFg,
               '&:hover': {
-                bgcolor: '#e6a800',
+                bgcolor: th.accentHover,
               },
               '&:disabled': {
-                bgcolor: '#ccc',
+                bgcolor: th.sendDisabled,
               },
             }}
           >

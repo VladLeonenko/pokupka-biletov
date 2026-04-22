@@ -111,9 +111,7 @@ export function ManagerDashboardPage() {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             <Link component={RouterLink} to="/admin/clients" sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>Клиенты</Link>
             <span>·</span>
-            <Link component={RouterLink} to="/admin/commercial-proposals" sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>КП</Link>
-            <span>·</span>
-            <Link component={RouterLink} to="/admin/sales-academy" sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>Обучение</Link>
+            <Link component={RouterLink} to="/admin/orders" sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>Заказы</Link>
             <span>·</span>
             <Link component={RouterLink} to="/admin/funnels" sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>Воронки</Link>
           </Box>

@@ -1,0 +1,129 @@
+/* Витрина в духе neglinka29.ru: белый фон, жирный sans, акцентный оранжевый */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap');
+
+body[data-tickets='true'] {
+  --neg-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --neg-orange: #ff4e18;
+  --neg-blue: #a8c4ee;
+  background-color: #ffffff !important;
+  color: #111 !important;
+  font-family: var(--neg-font) !important;
+}
+
+/* Hero (NeglinkaHero): перебить color: #111 !important у body — текст на цветном фоне */
+body[data-tickets='true'] [data-tickets-hero] {
+  color: #fff !important;
+}
+
+/* Шапка витрины: дубль на случай глобальных правок legacy / ThemeToggle */
+body[data-tickets='true'] [data-tickets-nav] {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 24px rgba(0, 0, 0, 0.07) !important;
+}
+
+body[data-tickets='true'] h1,
+body[data-tickets='true'] h2,
+body[data-tickets='true'] h3,
+body[data-tickets='true'] .tickets-font-display {
+  font-family: var(--neg-font) !important;
+  letter-spacing: 0.02em;
+}
+
+body[data-tickets='true'] a {
+  color: inherit;
+}
+
+body[data-tickets='true'] .MuiPaper-root,
+body[data-tickets='true'] .MuiCard-root {
+  background-color: #fff !important;
+  color: #111 !important;
+}
+
+body[data-tickets='true'] .MuiTextField-root .MuiOutlinedInput-root {
+  background-color: #fff !important;
+  color: #111 !important;
+}
+
+body[data-tickets='true'] .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Перебить theme.css (.MuiInputBase-input { background #2a2a2a }) и global MUI */
+body[data-tickets='true'] .MuiInputBase-root {
+  background-color: #fff !important;
+  color: #111 !important;
+}
+
+body[data-tickets='true'] .MuiInputBase-input,
+body[data-tickets='true'] textarea.MuiInputBase-input {
+  background-color: #fff !important;
+  color: #111 !important;
+}
+
+body[data-tickets='true'] .MuiInputBase-input::placeholder,
+body[data-tickets='true'] .MuiOutlinedInput-input::placeholder {
+  color: rgba(0, 0, 0, 0.42) !important;
+  opacity: 1 !important;
+}
+
+body[data-tickets='true'] .MuiInputLabel-root {
+  color: rgba(0, 0, 0, 0.55) !important;
+}
+
+body[data-tickets='true'] .MuiInputLabel-root.Mui-focused {
+  color: var(--neg-orange, #ff4e18) !important;
+}
+
+body[data-tickets='true'] .MuiSelect-icon {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+
+body[data-tickets='true'] .MuiMenu-paper,
+body[data-tickets='true'] .MuiPopover-paper {
+  background-color: #fff !important;
+  color: #111 !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body[data-tickets='true'] .MuiMenuItem-root {
+  color: #111 !important;
+}
+
+body[data-tickets='true'] .MuiMenuItem-root:hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+body[data-tickets='true'] .MuiMenuItem-root.Mui-selected {
+  background-color: rgba(255, 78, 24, 0.12) !important;
+}
+
+/* Чипы на странице каталога (не тянуть глобальный тёмный Chip) */
+body[data-tickets='true'] .MuiChip-root {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  color: #111 !important;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body[data-tickets='true'] .MuiChip-root:hover {
+  background-color: rgba(0, 0, 0, 0.09) !important;
+}
+
+/* Форма на /contacts — стили в ContactFormSection.module.css */
+
+body[data-tickets='true'] a[href]:where(:not(.MuiButtonBase-root)) {
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+body[data-tickets='true'] button:not(:disabled),
+body[data-tickets='true'] [role='button'] {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}

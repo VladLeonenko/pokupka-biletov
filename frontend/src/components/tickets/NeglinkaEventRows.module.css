@@ -1,0 +1,400 @@
+.section {
+  --afisha-accent: #ff4e18;
+  --afisha-accent-dark: #e64514;
+  --afisha-text: #111111;
+  --afisha-muted: rgba(17, 17, 17, 0.55);
+  /* Плавность hover: фон и тени; цвет текста без transition */
+  --afisha-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --afisha-ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --afisha-t: 0.5s;
+  --afisha-t-bg: 0.62s;
+  --afisha-t-cta: 0.45s;
+  /* full-bleed на всю ширину вьюпорта */
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  overflow-x: clip;
+  box-sizing: border-box;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 28px clamp(16px, 4vw, 48px) 32px;
+  align-items: start;
+  font-family: var(--neg-font, 'Inter', system-ui, -apple-system, sans-serif);
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition:
+    background var(--afisha-t-bg) var(--afisha-ease-out),
+    box-shadow var(--afisha-t-bg) var(--afisha-ease-out),
+    transform 0.42s var(--afisha-ease),
+    border-bottom-color var(--afisha-t) var(--afisha-ease);
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .row {
+    /* Колонка под постер: круг до 204px — иначе сетка жмёт и геометрия «плывёт» */
+    grid-template-columns: minmax(0, 104px) minmax(148px, 204px) minmax(0, 1fr) auto;
+    gap: 20px min(40px, 4.5vw);
+    padding: 40px clamp(20px, 5vw, 56px) 44px;
+    align-items: center;
+    min-height: 260px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .row {
+    min-height: 280px;
+    padding: 44px clamp(24px, 5vw, 64px) 48px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row:hover {
+    background: var(--hover-bg, var(--afisha-accent));
+    color: #fff;
+    z-index: 1;
+    box-shadow: 0 22px 60px var(--hover-glow, rgba(255, 78, 24, 0.35));
+    transform: translateY(-1px);
+    border-bottom-color: transparent;
+  }
+
+  .row:hover .dateBig,
+  .row:hover .title,
+  .row:hover .timeBig,
+  .row:hover .creditName {
+    color: #fff;
+  }
+
+  .row:hover .dateWd,
+  .row:hover .metaTop,
+  .row:hover .creditLabel,
+  .row:hover .venueName {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .row:hover .subtitle {
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .row:hover .premiereTag {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .row:hover .img {
+    transform: scale(1.12);
+    will-change: transform;
+  }
+
+  .row:hover .circle {
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+    outline-color: rgba(255, 255, 255, 0.48);
+  }
+
+  .row:hover .btn {
+    border-color: #fff;
+    color: #fff !important;
+  }
+
+  .row:hover .btn:hover {
+    background: #fff;
+    color: var(--hover-bg, var(--afisha-accent)) !important;
+  }
+}
+
+.colDate {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dateBig {
+  font-size: clamp(1.1rem, 2.6vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--afisha-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dateWd {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--afisha-muted);
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  .colDate {
+    flex-wrap: wrap;
+  }
+}
+
+.colVisual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-self: center;
+  min-width: 0;
+}
+
+.circle {
+  position: relative;
+  box-sizing: border-box;
+  width: 148px;
+  aspect-ratio: 1;
+  height: auto;
+  max-width: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+  margin: 0 auto;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition:
+    box-shadow var(--afisha-t-bg) var(--afisha-ease-out),
+    outline-color var(--afisha-t-bg) var(--afisha-ease-out);
+}
+
+@media (min-width: 768px) {
+  .circle {
+    width: 188px;
+    margin: 0;
+  }
+}
+
+@media (min-width: 1100px) {
+  .circle {
+    width: 204px;
+  }
+}
+
+.img {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  transform: scale(1);
+  transform-origin: center center;
+  transition: transform 0.95s cubic-bezier(0.25, 0.75, 0.25, 1);
+}
+
+.colInfo {
+  min-width: 0;
+}
+
+.metaTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 10px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--afisha-muted);
+}
+
+.age {
+  opacity: 0.95;
+}
+
+.premiereTag {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  color: var(--afisha-accent);
+  transition:
+    border-color var(--afisha-t-bg) var(--afisha-ease-out),
+    background var(--afisha-t-bg) var(--afisha-ease-out);
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: clamp(1.2rem, 2.8vw, 2rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--afisha-text);
+}
+
+.subtitle {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-weight: 450;
+  color: var(--afisha-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.creditsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px 32px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 640px) {
+  .creditsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.creditCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.creditLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--afisha-muted);
+}
+
+.creditName {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: var(--afisha-text);
+}
+
+.timeVenueRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 20px;
+  margin-top: 4px;
+}
+
+.timeBig {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--afisha-text);
+}
+
+.venueName {
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--afisha-muted);
+}
+
+.colCta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .colCta {
+    align-items: flex-end;
+    align-self: center;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  padding: 14px 26px;
+  border: 2px solid var(--afisha-text);
+  text-decoration: none;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--afisha-text) !important;
+  transition:
+    background var(--afisha-t-cta) var(--afisha-ease),
+    border-color var(--afisha-t-cta) var(--afisha-ease),
+    transform 0.4s var(--afisha-ease),
+    box-shadow 0.4s var(--afisha-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* Тач: подсветка своим цветом строки */
+@media (hover: none), (pointer: coarse) {
+  .row:active {
+    background: var(--hover-bg, var(--afisha-accent-dark));
+    color: #fff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section {
+    --afisha-t: 0.001s;
+    --afisha-t-bg: 0.001s;
+    --afisha-t-cta: 0.001s;
+  }
+
+  .img {
+    transition-duration: 0.001s;
+  }
+}

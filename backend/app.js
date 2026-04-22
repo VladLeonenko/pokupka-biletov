@@ -82,6 +82,14 @@ import adminsRouter from './routes/admins.js';
 import salesAcademyRouter from './routes/salesAcademy.js';
 import salesAnalyticsRouter from './routes/salesAnalytics.js';
 import salesPipelineRouter from './routes/salesPipeline.js';
+import biletRouter from './routes/bilet.js';
+import ticketPaymentWebhooksRouter from './routes/ticketPaymentWebhooks.js';
+import { handleTbankEacqNotification } from './routes/biletTicketCheckout.js';
+import getbiletAdminRouter from './routes/getbiletAdmin.js';
+import {
+  ticketsVitrinePublicRouter,
+  ticketsVitrineAdminRouter,
+} from './routes/ticketsVitrine.js';
 
 const app = express();
 
@@ -93,7 +101,7 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3000'], 
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret']
 }));
 
 // Compression middleware - сжимаем все ответы (gzip/brotli)
@@ -236,7 +244,12 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);
 app.use('/api/auth/oauth', authLimiter);
+app.use('/api/auth/magic-link', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/auth', authRouter);
+app.use('/api/webhooks', ticketPaymentWebhooksRouter);
+app.post('/api/webhooks/tbank/eacq', handleTbankEacqNotification);
 app.use('/api/charity-preferences', charityPreferencesRouter);
 // Forms: submit/abandon are public, management is protected
 app.use('/api/forms/submit', formsLimiter);
@@ -273,6 +286,9 @@ app.use('/api/public/orders', ordersRouter);
 app.use('/api/public/analytics', productAnalyticsRouter);
 app.use('/api/public/cache', cachePublicRouter);
 app.use('/api/public/seo', seoToolsRouter);
+app.use('/api/public/tickets-vitrine', ticketsVitrinePublicRouter);
+// Прокси каталога GetBilet (BIL24 JSON или REST — см. GETBILET_PROTOCOL в .env)
+app.use('/api/bilet', biletRouter);
 app.get('/api/public/metrics/yandex-test', async (req, res) => {
   try {
     const result = await checkYandexConnection();
@@ -348,6 +364,8 @@ app.use('/api/cache', requireAuth, cacheAdminRouter);
 app.use('/api/chat', chatRouter); // Публичные и админские эндпоинты
 app.use('/api/chatbot', requireAuth, requireAdmin, chatbotRouter);
 app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский парсинг
+app.use('/api/admin/getbilet', requireAuth, requireAdminOrSalesManager, getbiletAdminRouter);
+app.use('/api/admin/tickets-vitrine', ticketsVitrineAdminRouter);
 
 // Sitemap (публичный, должен быть до статических файлов)
 app.use('/', sitemapRouter);

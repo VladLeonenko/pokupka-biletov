@@ -147,10 +147,10 @@ AddCharset utf-8 .css .js .txt .json .rss .xml .html .htm
     RewriteRule ^(.*)$ - [F,L]
 </IfModule>
 
-# Защита от hotlinking изображений
+# Защита от hotlinking изображений (разрешить свой домен)
 <IfModule mod_rewrite.c>
     RewriteCond %{HTTP_REFERER} !^$
-    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?primecoder\.ru [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?biletvsem\.com [NC]
     RewriteRule \.(jpg|jpeg|png|gif|webp)$ - [F,NC,L]
 </IfModule>
 

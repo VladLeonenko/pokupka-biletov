@@ -1,0 +1,56 @@
+.main {
+  min-height: 60vh;
+  padding: 32px 16px 80px;
+  color: #111;
+}
+
+.inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.h1 {
+  margin: 0 0 12px;
+  font-family: var(--neg-font, system-ui, sans-serif);
+  font-size: clamp(1.35rem, 3.5vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.meta {
+  margin: 0 0 28px;
+  font-size: 0.88rem;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.prose {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: rgba(0, 0, 0, 0.82);
+}
+
+.prose :global(h2),
+.prose :global(h3) {
+  font-family: var(--neg-font, system-ui, sans-serif);
+  margin: 1.5em 0 0.6em;
+  font-weight: 800;
+}
+
+.prose :global(p) {
+  margin: 0 0 1em;
+}
+
+.prose :global(ul) {
+  margin: 0 0 1em;
+  padding-left: 1.2em;
+}
+
+.fallback {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.fallback p {
+  margin: 0 0 1em;
+}

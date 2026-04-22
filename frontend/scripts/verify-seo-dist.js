@@ -25,14 +25,27 @@ for (const name of required) {
 
 if (fs.existsSync(path.join(dist, 'robots.txt'))) {
   const txt = fs.readFileSync(path.join(dist, 'robots.txt'), 'utf8');
-  if (!txt.includes('Sitemap:') || !txt.includes('prime-coder.ru')) {
-    console.error('[verify-seo-dist] ❌ robots.txt: ожидаются Sitemap и домен prime-coder.ru');
+  if (!txt.includes('Sitemap:') || !/biletvsem\.com/.test(txt)) {
+    console.error(
+      '[verify-seo-dist] ❌ robots.txt: ожидаются Sitemap: и каноничный домен biletvsem.com',
+    );
     ok = false;
   }
 }
 
 if (fs.existsSync(path.join(dist, 'sitemap.xml'))) {
   console.warn('[verify-seo-dist] ⚠️ в dist есть sitemap.xml — обычно карта задаётся только backend; проверьте, не дублирует ли nginx/статика динамический /sitemap.xml');
+}
+
+const indexHtml = path.join(dist, 'index.html');
+if (fs.existsSync(indexHtml)) {
+  const idx = fs.readFileSync(indexHtml, 'utf8');
+  if (idx.includes('__SITE_BASE__')) {
+    console.error(
+      '[verify-seo-dist] ❌ dist/index.html содержит __SITE_BASE__ — не подставлен URL (fix-index-html / Vite)',
+    );
+    ok = false;
+  }
 }
 
 if (!ok) process.exit(1);

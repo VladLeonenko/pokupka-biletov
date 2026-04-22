@@ -4,7 +4,7 @@ import pool from '../db.js';
 const router = express.Router();
 
 // Получить базовый URL из переменных окружения или использовать дефолтный
-const BASE_URL = process.env.SITE_URL || 'https://prime-coder.ru';
+const BASE_URL = (process.env.SITE_URL || 'https://biletvsem.com').replace(/\/$/, '');
 
 // Функция для форматирования даты в формат ISO
 function formatDate(date) {

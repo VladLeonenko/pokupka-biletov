@@ -9,28 +9,23 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { useThemeMode } from '@/theme/ThemeModeProvider';
-import SlideshowIcon from '@mui/icons-material/Slideshow';
-import WorkIcon from '@mui/icons-material/Work';
 import PriceIcon from '@mui/icons-material/PriceChange';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import LaunchIcon from '@mui/icons-material/Launch';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import PeopleIcon from '@mui/icons-material/People';
 import ChatIcon from '@mui/icons-material/Chat';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import EmailIcon from '@mui/icons-material/Email';
-import LanguageIcon from '@mui/icons-material/Language';
-import ImageIcon from '@mui/icons-material/Image';
-import LinkIcon from '@mui/icons-material/Link';
 import CategoryIcon from '@mui/icons-material/Category';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import SchoolIcon from '@mui/icons-material/School';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import CampaignIcon from '@mui/icons-material/Campaign';
+import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
+import MapIcon from '@mui/icons-material/Map';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import { NotificationsBell } from '@/components/common/NotificationsBell';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -40,34 +35,26 @@ type NavItem = { label: string; icon: React.ReactNode; path: string; roles?: ('a
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Обзор', icon: <DashboardIcon />, path: '/admin', roles: ['admin', 'sales_manager'] },
-  { label: 'Обучение', icon: <SchoolIcon />, path: '/admin/sales-academy', roles: ['admin', 'sales_manager'] },
   { label: 'Аналитика продаж', icon: <AssessmentIcon />, path: '/admin/sales-analytics', roles: ['admin'] },
   { label: 'Страницы', icon: <DescriptionIcon />, path: '/admin/pages', roles: ['admin'] },
   { label: 'Блог', icon: <ArticleIcon />, path: '/admin/blog', roles: ['admin'] },
   { label: 'SEO', icon: <SeoIcon />, path: '/admin/seo', roles: ['admin'] },
-  { label: 'Карусели', icon: <SlideshowIcon />, path: '/admin/carousels', roles: ['admin'] },
-  { label: 'Кейсы', icon: <WorkIcon />, path: '/admin/cases', roles: ['admin'] },
-  { label: 'Доноры кейсов', icon: <LinkIcon />, path: '/admin/donors', roles: ['admin'] },
-  { label: 'Продукты и стоимость', icon: <PriceIcon />, path: '/admin/products', roles: ['admin'] },
   { label: 'Заказы', icon: <ReceiptLongIcon />, path: '/admin/orders', roles: ['admin', 'sales_manager'] },
+  { label: 'GetBilet: мероприятия', icon: <ConfirmationNumberIcon />, path: '/admin/getbilet/events', roles: ['admin', 'sales_manager'] },
+  { label: 'GetBilet: схемы залов', icon: <MapIcon />, path: '/admin/getbilet/stage-maps', roles: ['admin', 'sales_manager'] },
+  { label: 'GetBilet: наценка', icon: <PriceIcon />, path: '/admin/getbilet/markup', roles: ['admin', 'sales_manager'] },
+  { label: 'GetBilet: промокоды', icon: <LocalOfferIcon />, path: '/admin/getbilet/promos', roles: ['admin', 'sales_manager'] },
+  { label: 'Витрина билетов (контент)', icon: <StorefrontIcon />, path: '/admin/tickets-vitrine', roles: ['admin', 'sales_manager'] },
   { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories', roles: ['admin'] },
-  { label: 'Парсинг', icon: <CloudDownloadIcon />, path: '/admin/parsing', roles: ['admin'] },
   { label: 'Акции', icon: <LocalOfferIcon />, path: '/admin/promotions', roles: ['admin', 'sales_manager'] },
   { label: 'Формы', icon: <AssignmentIcon />, path: '/admin/forms', roles: ['admin', 'sales_manager'] },
   { label: 'Воронки', icon: <AccountTreeIcon />, path: '/admin/funnels', roles: ['admin', 'sales_manager'] },
-  { label: 'Планировщик', icon: <AssignmentIcon />, path: '/admin/planner', roles: ['admin'] },
-  { label: 'Задачник', icon: <AssignmentIcon />, path: '/admin/tasks', roles: ['admin', 'sales_manager'] },
   { label: 'Клиенты', icon: <PeopleIcon />, path: '/admin/clients', roles: ['admin', 'sales_manager'] },
-  { label: 'Коммерческие предложения', icon: <DescriptionIcon />, path: '/admin/commercial-proposals', roles: ['admin', 'sales_manager'] },
   { label: 'Чаты', icon: <ChatIcon />, path: '/admin/chat', roles: ['admin', 'sales_manager'] },
   { label: 'Настройки чат-бота', icon: <SmartToyIcon />, path: '/admin/chatbot', roles: ['admin'] },
   { label: 'Отзывы', icon: <RateReviewIcon />, path: '/admin/reviews', roles: ['admin', 'sales_manager'] },
   { label: 'Команда', icon: <PeopleIcon />, path: '/admin/team', roles: ['admin'] },
   { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins', roles: ['admin'] },
-  { label: 'Email-рассылки', icon: <EmailIcon />, path: '/admin/email/subscribers', roles: ['admin', 'sales_manager'] },
-  { label: 'Пайплайн лидов', icon: <CampaignIcon />, path: '/admin/sales-pipeline', roles: ['admin', 'sales_manager'] },
-  { label: 'Мульти-сайты', icon: <LanguageIcon />, path: '/admin/sites', roles: ['admin'] },
-  { label: 'Изображения', icon: <ImageIcon />, path: '/admin/exercise-images', roles: ['admin'] },
 ];
 
 export function AppLayout({ children }: PropsWithChildren) {

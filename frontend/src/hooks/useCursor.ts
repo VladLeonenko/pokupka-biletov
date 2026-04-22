@@ -12,9 +12,10 @@ declare global {
  * Активируем его только на нужных публичных React-страницах, чтобы не конфликтовать
  * с legacy-скриптами (app.min.js) на старых страницах.
  */
-export function useCursor(currentPath?: string) {
+export function useCursor(currentPath?: string, disableCustomCursor?: boolean) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (disableCustomCursor) return;
 
     // Отключаем кастомный курсор на экранах меньше 1024px (планшеты и мобильные)
     if (window.innerWidth < 1024) {
@@ -295,7 +296,7 @@ export function useCursor(currentPath?: string) {
 
       // НЕ удаляем GSAP скрипт, так как он может использоваться другими компонентами
     };
-  }, [currentPath]);
+  }, [currentPath, disableCustomCursor]);
 }
 
 // Расширяем интерфейс Window для cursorPosition

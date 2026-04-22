@@ -1,0 +1,429 @@
+export type OfferLike = {
+  Id?: string;
+  Sector?: string;
+  Row?: string;
+  SeatList?: string[];
+};
+
+export type SvgNativeSeat = {
+  sector: string;
+  row: string;
+  seat: string;
+  xPct: number;
+  yPct: number;
+};
+
+function normToken(s: string): string {
+  return s
+    .replace(/\u00a0/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/Ё/g, 'е')
+    .replace(/,/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/** Ряд в API и в SVG часто отличаются («10» vs «10 ряд»). */
+function normRow(s: string): string {
+  return normToken(s.replace(/ряд/gi, ' '));
+}
+
+/** Ключ для сопоставления схемы и GetBilet (сектор / ряд / место). */
+export function seatMapKey(sector: string, row: string, seat: string): string {
+  return `${normToken(sector)}|${normToken(row)}|${normToken(seat)}`;
+}
+
+function parseMatrix(transform: string | null): [number, number, number, number, number, number] | null {
+  if (!transform || !transform.includes('matrix')) return null;
+  const m = transform.match(/matrix\(\s*([^)]+)\)/i);
+  if (!m) return null;
+  const parts = m[1].split(/[\s,]+/).map((x) => Number.parseFloat(x.trim()));
+  if (parts.length !== 6 || parts.some((n) => !Number.isFinite(n))) return null;
+  return [parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]];
+}
+
+function applyMatrix(
+  cx: number,
+  cy: number,
+  m: [number, number, number, number, number, number],
+): { x: number; y: number } {
+  const [a, b, c, d, e, f] = m;
+  return {
+    x: a * cx + c * cy + e,
+    y: b * cx + d * cy + f,
+  };
+}
+
+function readSvgSize(svg: SVGSVGElement): { w: number; h: number } {
+  const vb = svg.getAttribute('viewBox');
+  if (vb) {
+    const p = vb.trim().split(/[\s,]+/).map(Number.parseFloat);
+    if (p.length >= 4 && p.every((n) => Number.isFinite(n)) && p[2] > 0 && p[3] > 0) {
+      return { w: p[2], h: p[3] };
+    }
+  }
+  const w = Number.parseFloat(svg.getAttribute('width') || '') || 100;
+  const h = Number.parseFloat(svg.getAttribute('height') || '') || 100;
+  return { w, h };
+}
+
+/**
+ * Извлекает центры мест из SVG (circle с place-name / row / place), с учётом matrix на предке.
+ * @deprecated Используйте {@link processHallSvgForNative} — там же подрезка viewBox под контент.
+ */
+export function parseSvgNativeSeatLayout(html: string): { seats: SvgNativeSeat[]; vbW: number; vbH: number } | null {
+  const r = processHallSvgForNative(html);
+  if (!r) return null;
+  const doc = new DOMParser().parseFromString(r.svgHtml, 'image/svg+xml');
+  const svg = doc.querySelector('svg');
+  if (!svg) return null;
+  const { w: vbW, h: vbH } = readSvgSize(svg as SVGSVGElement);
+  return { seats: r.seats, vbW, vbH };
+}
+
+/**
+ * Подготовка нативной SVG-схемы: подрезка viewBox по кругам мест (схема по центру, без «пустого поля»),
+ * проценты для оверлея в тех же координатах, что и отрисованный SVG.
+ */
+export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[]; svgHtml: string } | null {
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') return null;
+  const trimmed = html?.trim();
+  if (!trimmed || !trimmed.includes('<svg')) return null;
+
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(trimmed, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) {
+      doc = new DOMParser().parseFromString(trimmed, 'text/html');
+    }
+  } catch {
+    return null;
+  }
+  const svg = doc.querySelector('svg');
+  if (!svg) return null;
+
+  const circles = Array.from(svg.querySelectorAll('circle[place-name]'));
+  if (circles.length < 2) return null;
+
+  let matrix: [number, number, number, number, number, number] | null = null;
+  const panG = svg.querySelector('g.svg-pan-zoom_viewport') || svg.querySelector('g[transform*="matrix"]');
+  if (panG) {
+    matrix = parseMatrix(panG.getAttribute('transform'));
+  }
+
+  type Raw = { sector: string; row: string; seat: string; x: number; y: number };
+  const raw: Raw[] = [];
+
+  for (const c of circles) {
+    const sector = c.getAttribute('place-name')?.trim() ?? '';
+    const row = (c.getAttribute('row') ?? c.getAttribute('data-row') ?? '').trim();
+    const seat = (c.getAttribute('place') ?? c.getAttribute('data-place') ?? '').trim();
+    if (!sector || !row || !seat) continue;
+
+    const cx = Number.parseFloat(c.getAttribute('cx') || '');
+    const cy = Number.parseFloat(c.getAttribute('cy') || '');
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+
+    const { x, y } = matrix ? applyMatrix(cx, cy, matrix) : { x: cx, y: cy };
+    raw.push({ sector, row, seat, x, y });
+  }
+
+  if (raw.length < 2) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of raw) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  /* Только границы по кругам мест. Union с полным viewBox SVG давал гигантский кадр
+   * (широкий лист/экспорт) — схема сжималась в «точку» в углу. Сцена/подпись — за счёт pad снизу. */
+  const spanW = maxX - minX;
+  const spanH = maxY - minY;
+  const padXY = Math.max(14, Math.max(spanW, spanH) * 0.055);
+  const padBottom = Math.max(padXY, spanH * 0.22);
+  const originX = minX - padXY;
+  const originY = minY - padXY;
+  const vbW = spanW + 2 * padXY;
+  const vbH = spanH + padXY + padBottom;
+  if (!(vbW > 0 && vbH > 0)) return null;
+
+  const seats: SvgNativeSeat[] = raw.map((p) => ({
+    sector: p.sector,
+    row: p.row,
+    seat: p.seat,
+    xPct: ((p.x - originX) / vbW) * 100,
+    yPct: ((p.y - originY) / vbH) * 100,
+  }));
+
+  svg.removeAttribute('style');
+  svg.setAttribute('viewBox', `${originX} ${originY} ${vbW} ${vbH}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+  /** Цвета «доступности» в исходном SVG не совпадают с GetBilet — все места-серые, цена только в оверлее. */
+  const seatCircles = Array.from(svg.querySelectorAll('circle[place-name]'));
+  const radii = seatCircles
+    .map((c) => Number.parseFloat(c.getAttribute('r') || ''))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const medianR =
+    radii.length > 0 ? [...radii].sort((a, b) => a - b)[Math.floor(radii.length / 2)] : 3.5;
+  const rUniform = Math.min(4.2, Math.max(2.6, medianR));
+
+  for (const c of seatCircles) {
+    c.setAttribute('r', String(rUniform));
+    c.setAttribute('fill', '#d0d0d0');
+    c.removeAttribute('stroke');
+    c.removeAttribute('stroke-width');
+    c.setAttribute('stroke', 'none');
+  }
+
+  const ser = new XMLSerializer().serializeToString(svg);
+  return { seats, svgHtml: ser };
+}
+
+export function buildOfferSeatIndex(offers: OfferLike[]): Map<string, { offer: OfferLike; seat: string }[]> {
+  const m = new Map<string, { offer: OfferLike; seat: string }[]>();
+  for (const o of offers) {
+    const sector = String(o.Sector ?? '');
+    const row = String(o.Row ?? '');
+    const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
+    for (const seat of list) {
+      const k = seatMapKey(sector, row, seat);
+      const arr = m.get(k) ?? [];
+      arr.push({ offer: o, seat });
+      m.set(k, arr);
+    }
+  }
+  return m;
+}
+
+/** Без скобок с уточнениями — для «Балкон … (ограниченный обзор)» vs «Балкон …». */
+function normSectorLoose(s: string): string {
+  return normToken(s.replace(/\([^)]*\)/g, ' '));
+}
+
+function sectorsFuzzyMatch(apiSector: string, svgSector: string): boolean {
+  const a = normToken(apiSector);
+  const b = normToken(svgSector);
+  if (a === b) return true;
+  const a2 = normSectorLoose(apiSector);
+  const b2 = normSectorLoose(svgSector);
+  if (a2 === b2) return true;
+  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) return true;
+  if (a2.length >= 4 && b2.length >= 4 && (a2.includes(b2) || b2.includes(a2))) return true;
+  return false;
+}
+
+function sameSeatInList(apiSeat: string, svgSeat: string): boolean {
+  if (apiSeat === svgSeat) return true;
+  return normToken(apiSeat) === normToken(svgSeat);
+}
+
+/**
+ * Сопоставляет круг на SVG с оффером GetBilet: сначала точный ключ, затем тот же ряд+место и «мягкое» имя сектора.
+ */
+export function matchSvgSeatToOffer(
+  svg: SvgNativeSeat,
+  offers: OfferLike[],
+): { offer: OfferLike; seat: string } | null {
+  const idx = buildOfferSeatIndex(offers);
+  const exact = idx.get(seatMapKey(svg.sector, svg.row, svg.seat));
+  if (exact?.length) return exact[0];
+
+  for (const o of offers) {
+    const row = String(o.Row ?? '');
+    if (normRow(row) !== normRow(svg.row)) continue;
+    const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
+    const seatHit = list.find((st) => sameSeatInList(st, svg.seat));
+    if (!seatHit) continue;
+    if (sectorsFuzzyMatch(String(o.Sector ?? ''), svg.sector)) {
+      return { offer: o, seat: seatHit };
+    }
+  }
+
+  const ambiguous: { offer: OfferLike; seat: string }[] = [];
+  for (const o of offers) {
+    const row = String(o.Row ?? '');
+    if (normRow(row) !== normRow(svg.row)) continue;
+    const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
+    const seatHit = list.find((st) => sameSeatInList(st, svg.seat));
+    if (seatHit) ambiguous.push({ offer: o, seat: seatHit });
+  }
+  if (ambiguous.length === 1) return ambiguous[0];
+
+  return null;
+}
+
+export type SvgNativePlacement = {
+  key: string;
+  offerId: string;
+  seat: string;
+  /** Ряд из оффера GetBilet (для подписи на схеме) */
+  rowLabel: string;
+  available: string[];
+  xPct: number;
+  yPct: number;
+  title: string;
+  priceKey: string;
+};
+
+function sortSeatTokens(a: string, b: string): number {
+  const na = Number.parseInt(String(a).replace(/\D/g, ''), 10);
+  const nb = Number.parseInt(String(b).replace(/\D/g, ''), 10);
+  if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+  return String(a).localeCompare(String(b), 'ru', { numeric: true });
+}
+
+function rowGroupKey(sector: string, row: string): string {
+  return `${normSectorLoose(sector)}|${normRow(row)}`;
+}
+
+/**
+ * Строит кликабельные точки: точное совпадение сектор/ряд/место, затем сопоставление по порядку
+ * слева направо в ряду, если в GetBilet другая нумерация мест (глобальные id vs номер в SVG).
+ */
+export function buildSvgNativePlacements(
+  svgSeats: SvgNativeSeat[],
+  offers: OfferLike[],
+  getPriceKey: (o: OfferLike) => string,
+): { placements: SvgNativePlacement[]; unmatchedSvgCount: number } {
+  const idx = buildOfferSeatIndex(offers);
+  const uniqueSvg = new Map<string, SvgNativeSeat>();
+  for (const s of svgSeats) {
+    const k = seatMapKey(s.sector, s.row, s.seat);
+    if (!uniqueSvg.has(k)) uniqueSvg.set(k, s);
+  }
+
+  const placedSvg = new Set<string>();
+  const out: SvgNativePlacement[] = [];
+
+  for (const s of uniqueSvg.values()) {
+    const k = seatMapKey(s.sector, s.row, s.seat);
+    const exact = idx.get(k);
+    if (!exact?.length) continue;
+    const { offer, seat } = exact[0];
+    const oid = String(offer.Id ?? '');
+    if (!oid) continue;
+    placedSvg.add(k);
+    const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    out.push({
+      key: `${oid}-${seat}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-ex`,
+      offerId: oid,
+      seat,
+      rowLabel: String(offer.Row ?? s.row ?? '').trim(),
+      available,
+      xPct: s.xPct,
+      yPct: s.yPct,
+      title: `${s.sector} · ряд ${offer.Row ?? s.row} · место ${seat} · ${getPriceKey(offer)} ₽`,
+      priceKey: getPriceKey(offer),
+    });
+  }
+
+  const byRow = new Map<string, SvgNativeSeat[]>();
+  for (const s of uniqueSvg.values()) {
+    const k = seatMapKey(s.sector, s.row, s.seat);
+    if (placedSvg.has(k)) continue;
+    const gk = rowGroupKey(s.sector, s.row);
+    const arr = byRow.get(gk) ?? [];
+    arr.push(s);
+    byRow.set(gk, arr);
+  }
+
+  for (const [, svgList] of byRow) {
+    if (svgList.length === 0) continue;
+    const first = svgList[0];
+    const offersRow = offers.filter(
+      (o) =>
+        sectorsFuzzyMatch(String(o.Sector ?? ''), first.sector) &&
+        normRow(String(o.Row ?? '')) === normRow(first.row),
+    );
+    if (offersRow.length !== 1) continue;
+    const offer = offersRow[0];
+    const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    if (list.length === 0) continue;
+    const sortedSvg = [...svgList].sort((a, b) => a.xPct - b.xPct || a.yPct - b.yPct);
+    const sortedApi = [...list].sort(sortSeatTokens);
+    if (sortedSvg.length !== sortedApi.length) continue;
+
+    const svgSeatNums = sortedSvg.map((s) =>
+      Number.parseInt(String(s.seat).replace(/\D/g, ''), 10),
+    );
+    const apiSeatNums = sortedApi.map((s) => Number.parseInt(String(s).replace(/\D/g, ''), 10));
+    const svgFinite = svgSeatNums.filter((n) => Number.isFinite(n));
+    const apiFinite = apiSeatNums.filter((n) => Number.isFinite(n));
+    if (
+      svgFinite.length === sortedSvg.length &&
+      apiFinite.length === sortedApi.length &&
+      svgFinite.length > 0
+    ) {
+      const minSvg = Math.min(...svgFinite);
+      const maxSvg = Math.max(...svgFinite);
+      const minApi = Math.min(...apiFinite);
+      const maxApi = Math.max(...apiFinite);
+      const svgSpan = maxSvg - minSvg + 1;
+      const apiSpan = maxApi - minApi + 1;
+      /* Не сопоставлять по позиции, если номера в SVG и в SeatList из разных шкал (ряд 1–20 vs id 130+). */
+      if (maxSvg <= 50 && minApi > maxSvg + 12) continue;
+      if (apiSpan > Math.max(svgSpan * 2.2, sortedSvg.length + 8)) continue;
+    }
+    const oid = String(offer.Id ?? '');
+    if (!oid) continue;
+    for (let i = 0; i < sortedSvg.length; i++) {
+      const s = sortedSvg[i];
+      const seatApi = sortedApi[i];
+      const sk = seatMapKey(s.sector, s.row, s.seat);
+      placedSvg.add(sk);
+      out.push({
+        key: `${oid}-${seatApi}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-zip`,
+        offerId: oid,
+        seat: seatApi,
+        rowLabel: String(offer.Row ?? first.row ?? '').trim(),
+        available: list,
+        xPct: s.xPct,
+        yPct: s.yPct,
+        title: `${first.sector} · ряд ${offer.Row ?? first.row} · место ${seatApi} · ${getPriceKey(offer)} ₽`,
+        priceKey: getPriceKey(offer),
+      });
+    }
+  }
+
+  for (const s of uniqueSvg.values()) {
+    const k = seatMapKey(s.sector, s.row, s.seat);
+    if (placedSvg.has(k)) continue;
+    const hit = matchSvgSeatToOffer(s, offers);
+    if (!hit) continue;
+    const { offer, seat } = hit;
+    const oid = String(offer.Id ?? '');
+    if (!oid) continue;
+    placedSvg.add(k);
+    const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    out.push({
+      key: `${oid}-${seat}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-fz`,
+      offerId: oid,
+      seat,
+      rowLabel: String(offer.Row ?? s.row ?? '').trim(),
+      available,
+      xPct: s.xPct,
+      yPct: s.yPct,
+      title: `${s.sector} · ряд ${offer.Row ?? ''} · место ${seat} · ${getPriceKey(offer)} ₽`,
+      priceKey: getPriceKey(offer),
+    });
+  }
+
+  return { placements: out, unmatchedSvgCount: uniqueSvg.size - placedSvg.size };
+}
+
+export type LayoutMode = 'auto' | 'grid' | 'svgNative';
+
+export function parseLayoutMode(layout: unknown): LayoutMode {
+  if (!layout || typeof layout !== 'object') return 'auto';
+  const mode = (layout as Record<string, unknown>).layoutMode;
+  if (mode === 'grid' || mode === 'svgNative' || mode === 'auto') return mode;
+  return 'auto';
+}

@@ -1,111 +1,141 @@
-import { useEffect, useRef, lazy, Suspense } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { listPublicBlogHighlights } from '@/services/publicApi';
-import { Box } from '@mui/material';
-import { DeferredParticleSphere } from '@/components/home/DeferredParticleSphere';
-import { HeroSection } from '@/components/home/HeroSection';
-import { ServicesSection } from '@/components/home/ServicesSection';
-import { QuizForm } from '@/components/home/QuizForm';
+import {
+  readBiletEventsSessionCache,
+  writeBiletEventsSessionCache,
+} from '@/utils/biletEventsSessionCache';
+import { format, parseISO, isValid } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
-import { ScrollSection, useScrollReveal } from '@/components/home/ScrollAnimations';
-
-// Ниже-the-fold секции — lazy load, не блокируют LCP
-const CasesSection = lazy(() => import('@/components/home/CasesSection').then(m => ({ default: m.CasesSection })));
-const NewClientSection = lazy(() => import('@/components/home/NewClientSection').then(m => ({ default: m.NewClientSection })));
-const AboutUsSection = lazy(() => import('@/components/home/AboutUsSection').then(m => ({ default: m.AboutUsSection })));
-const ReviewsSection = lazy(() => import('@/components/home/ReviewsSection').then(m => ({ default: m.ReviewsSection })));
-const BlogCarousel = lazy(() => import('@/components/public/BlogCarousel').then(m => ({ default: m.BlogCarousel })));
-const AdvantagesModern = lazy(() => import('@/components/public/AdvantagesModern').then(m => ({ default: m.AdvantagesModern })));
-
-const SectionFallback = () => <Box sx={{ minHeight: 320 }} />;
+import { TicketsHomeSections } from '@/components/tickets/TicketsHomeSections';
+import { NEGLINKA_DEMO_EVENTS } from '@/components/tickets/neglinkaDemoData';
+import {
+  attachInferredEventFields,
+  dedupeBiletEventsByShow,
+  fetchBiletEvents,
+  normalizeBiletEventsPayload,
+  type NormalizedBiletEvent,
+} from '@/services/biletPublicApi';
+import { fetchPublicTicketsVitrine } from '@/services/ticketsVitrineApi';
+import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
+import { directionsForHomeCarousels } from '@/utils/ticketsDirectionsFilter';
+import { buildHeroSlides } from '@/utils/buildHeroSlides';
+import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 
 export function HomePage() {
-  const mainRef = useRef<HTMLDivElement>(null);
-  useScrollReveal(mainRef);
+  const [searchParams] = useSearchParams();
+  const dateFilter = searchParams.get('date');
 
   useEffect(() => {
     document.body.setAttribute('data-page', '/');
   }, []);
 
-  const { data: highlights = [] } = useQuery({
-    queryKey: ['public-blog-highlights'],
-    queryFn: listPublicBlogHighlights,
-    enabled: true,
-    staleTime: 30000,
-    gcTime: 60000,
+  const cityId = useTicketsCityId();
+
+  const sessionEvents = useMemo(() => readBiletEventsSessionCache(cityId), [cityId]);
+
+  const { data: raw, isPending: eventsPending, isError } = useQuery({
+    queryKey: ['bilet-events-public', cityId],
+    queryFn: () => fetchBiletEvents(),
+    staleTime: 120_000,
+    gcTime: 30 * 60_000,
+    retry: 1,
+    initialData: sessionEvents?.data,
+    initialDataUpdatedAt: sessionEvents?.updatedAt,
   });
 
-  const normalizedPosts = Array.isArray(highlights)
-    ? highlights.map((post: any) => ({
-        ...post,
-        coverImage: post.coverImage || post.cover_image_url || post.coverImageUrl,
-      }))
-    : [];
+  useEffect(() => {
+    if (raw != null) writeBiletEventsSessionCache(raw, cityId);
+  }, [raw, cityId]);
+
+  const { data: vitrineRes, isPending: vitrinePending } = useQuery({
+    queryKey: ['tickets-vitrine'],
+    queryFn: fetchPublicTicketsVitrine,
+    staleTime: 120_000,
+  });
+
+  const vitrine = useMemo(() => mergeTicketsVitrine(vitrineRes?.content), [vitrineRes]);
+
+  const normalized = useMemo(() => normalizeBiletEventsPayload(raw), [raw]);
+
+  const filtered = useMemo(() => {
+    if (!dateFilter) return normalized;
+    return normalized.filter((e) => {
+      if (e.isoDate?.startsWith(dateFilter)) return true;
+      return false;
+    });
+  }, [normalized, dateFilter]);
+
+  const displayEvents = useMemo((): NormalizedBiletEvent[] => {
+    if (eventsPending) return [];
+    if (isError) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
+    if (normalized.length === 0) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
+    if (dateFilter) return filtered;
+    return normalized;
+  }, [eventsPending, isError, normalized, dateFilter, filtered]);
+
+  const demoMode = !eventsPending && (isError || normalized.length === 0);
+
+  const selectedDateLabel = useMemo(() => {
+    if (!dateFilter) return null;
+    try {
+      if (/^\d{4}-\d{2}$/.test(dateFilter)) {
+        const d = parseISO(`${dateFilter}-01`);
+        if (!isValid(d)) return dateFilter;
+        return format(d, 'LLLL yyyy', { locale: ru });
+      }
+      const d = parseISO(dateFilter);
+      if (!isValid(d)) return dateFilter;
+      return format(d, 'd MMMM yyyy', { locale: ru });
+    } catch {
+      return dateFilter;
+    }
+  }, [dateFilter]);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+  const emptyDateFilter =
+    !eventsPending &&
+    !isError &&
+    normalized.length > 0 &&
+    dateFilter &&
+    filtered.length === 0;
+
+  const eventsForUi = useMemo(() => {
+    if (emptyDateFilter) return [];
+    return dedupeBiletEventsByShow(displayEvents);
+  }, [emptyDateFilter, displayEvents]);
+
+  const heroSlides = useMemo(
+    () => buildHeroSlides(vitrine.heroSlides, eventsForUi),
+    [vitrine.heroSlides, eventsForUi]
+  );
+
+  /** Пока грузится витрина — не решаем, есть ли CMS hero; затем hero либо из CMS, либо ждём афишу. */
+  const heroLoading =
+    vitrinePending || ((vitrine.heroSlides?.length ?? 0) === 0 && eventsPending);
+  const listLoading = eventsPending;
 
   return (
     <>
       <SeoMetaTags
-        title="Разработка сайтов под ключ от 150 000 ₽ | PrimeCoder"
-        description="Создание сайтов, лендингов и интернет-магазинов в Москве. SEO-продвижение, реклама у блогеров. 150+ проектов, конверсия от 8%. Закажите ИЗ — получите КТ."
-        keywords="разработка сайтов, создание сайта под ключ, интернет-магазин, лендинг, SEO продвижение, веб-студия Москва, PrimeCoder"
-        url={typeof window !== 'undefined' ? window.location.origin + '/' : '/'}
+        title="Афиша — билеты на мероприятия"
+        description="Календарь событий, поиск по площадкам и жанрам. Покупка билетов онлайн."
+        keywords="билеты, афиша, театр, концерт, спорт, мероприятия"
+        url={`${origin}/`}
       />
 
-      <DeferredParticleSphere />
-
-      <Box ref={mainRef}>
-        {/* Hero — входная анимация через gsap внутри компонента */}
-        <HeroSection />
-
-        <ScrollSection>
-          <QuizForm />
-        </ScrollSection>
-
-        <ScrollSection>
-          <ServicesSection />
-        </ScrollSection>
-
-        {/* Cases — оставляем как есть */}
-        <ScrollSection>
-          <Suspense fallback={<SectionFallback />}>
-            <CasesSection />
-          </Suspense>
-        </ScrollSection>
-
-        <ScrollSection>
-          <Suspense fallback={<SectionFallback />}>
-            <AdvantagesModern />
-          </Suspense>
-        </ScrollSection>
-
-        <ScrollSection>
-          <Suspense fallback={<SectionFallback />}>
-            <NewClientSection />
-          </Suspense>
-        </ScrollSection>
-
-        <ScrollSection>
-          <Suspense fallback={<SectionFallback />}>
-            <AboutUsSection />
-          </Suspense>
-        </ScrollSection>
-
-        <ScrollSection>
-          <Suspense fallback={<SectionFallback />}>
-            <ReviewsSection />
-          </Suspense>
-        </ScrollSection>
-
-        {normalizedPosts.length > 0 && (
-          <ScrollSection>
-            <Box component="section" sx={{ pb: 4 }}>
-              <Suspense fallback={<SectionFallback />}>
-                <BlogCarousel posts={normalizedPosts} />
-              </Suspense>
-            </Box>
-          </ScrollSection>
-        )}
-      </Box>
+      <TicketsHomeSections
+        heroSlides={heroSlides}
+        events={eventsForUi}
+        directions={directionsForHomeCarousels(vitrine.directions)}
+        heroLoading={heroLoading}
+        listLoading={listLoading}
+        error={isError}
+        selectedDateLabel={dateFilter ? selectedDateLabel : null}
+        demoMode={demoMode}
+      />
     </>
   );
 }

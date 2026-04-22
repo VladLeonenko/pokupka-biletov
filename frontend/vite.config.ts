@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'node:path';
 import { readFileSync, writeFileSync } from 'fs';
@@ -70,8 +70,18 @@ const appVersion = packageJson.version || '1.0.0';
 const buildTimestamp = Date.now().toString();
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, path.resolve(__dirname), '');
+  const siteUrl = (env.VITE_SITE_URL || 'https://biletvsem.com').replace(/\/$/, '');
+
+  return {
   plugins: [
+    {
+      name: 'html-site-base',
+      transformIndexHtml(html) {
+        return html.split('__SITE_BASE__').join(siteUrl);
+      },
+    },
     react(),
     // Визуализация bundle для анализа
     visualizer({
@@ -194,12 +204,29 @@ export default defineConfig({
       allow: [path.resolve(__dirname)],
     },
     proxy: {
+      // Статика загрузок (POST /api/images → /uploads/images/...) — без этого в dev <img src="/uploads/..."> даёт 404
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
       // Проксируем все API запросы на backend
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         ws: true, // Для WebSocket соединений
+        // Долгий live-каталог GetBilet иначе даёт 504 у прокси Vite (http-proxy).
+        timeout: 600_000,
+        proxyTimeout: 600_000,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setTimeout(0);
+          });
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.setTimeout(0);
+          });
+        },
       },
       // Проксируем CSS файлы на backend
       '/css': {
@@ -254,6 +281,8 @@ export default defineConfig({
       },
     },
   },
+  };
 });
+
 
 

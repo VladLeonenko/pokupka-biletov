@@ -1,9 +1,13 @@
 import express from 'express';
 import pool from '../db.js';
+import ticketPool from '../ticketDb.js';
 import { optionalAuth, requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 import { createAiTeamSubscriptionForUser } from './aiTeam.js';
 import { createClientProjectFromOrder } from './projects.js';
 import { createDealForClient } from '../utils/funnelHelper.js';
+import { sendOrderCreatedEmail, sendOrderStatusChangedEmail } from '../services/mail/orderNotifications.js';
+import { fetchRemotePaymentState } from '../services/payment/remotePaymentStatus.js';
+import { applyOrderPaidState } from '../services/orderPaymentApply.js';
 
 const router = express.Router();
 
@@ -43,6 +47,16 @@ async function maybeAttachAiTeamSubscription(orderRow) {
   }
 }
 
+/** Побочные эффекты успешной оплаты: AI Team, проект клиента — вызывается из финализации оплаты и legacy-путей. */
+export async function runPaidOrderSideEffects(orderRow) {
+  await maybeAttachAiTeamSubscription(orderRow);
+  try {
+    await createClientProjectFromOrder(orderRow);
+  } catch (projErr) {
+    console.error('[orders] Failed to create client project from order:', orderRow.id, projErr);
+  }
+}
+
 // Все роуты используют опциональную аутентификацию (кроме специально помеченных)
 router.use(optionalAuth);
 
@@ -63,6 +77,10 @@ router.post('/', async (req, res) => {
       shippingAddress,
       paymentMethod,
       notes,
+      paymentProvider,
+      externalPaymentId,
+      externalOrderRef,
+      paymentCheckoutUrl,
     } = req.body || {};
     
     const userId = req.user?.id;
@@ -132,8 +150,9 @@ router.post('/', async (req, res) => {
       INSERT INTO orders(
         user_id, session_id, order_number, status, total_cents, currency,
         customer_name, customer_email, customer_phone, shipping_address,
-        payment_method, payment_status, notes, charity_preference
-      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        payment_method, payment_status, notes, charity_preference,
+        payment_provider, external_payment_id, external_order_ref, payment_checkout_url
+      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       RETURNING *
     `, [
       userId,
@@ -150,6 +169,10 @@ router.post('/', async (req, res) => {
       'pending',
       notes,
       charityPreference ? JSON.stringify(charityPreference) : null,
+      paymentProvider || null,
+      externalPaymentId || null,
+      externalOrderRef || null,
+      paymentCheckoutUrl || null,
     ]);
     
     const order = orderResult.rows[0];
@@ -247,6 +270,20 @@ router.post('/', async (req, res) => {
     } catch (projErr) {
       console.error('[orders] Error creating client project from order (on create):', order.id, projErr);
     }
+
+    try {
+      await sendOrderCreatedEmail({
+        to: customerEmail,
+        order: {
+          orderNumber: order.order_number,
+          totalCents: order.total_cents,
+          currency: order.currency,
+          paymentStatus: order.payment_status,
+        },
+      });
+    } catch (mailErr) {
+      console.warn('[orders] order created email:', mailErr.message);
+    }
     
     res.json({ order: {
       id: order.id,
@@ -255,6 +292,10 @@ router.post('/', async (req, res) => {
       totalCents: order.total_cents,
       currency: order.currency,
       createdAt: order.created_at,
+      paymentProvider: order.payment_provider,
+      externalPaymentId: order.external_payment_id,
+      externalOrderRef: order.external_order_ref,
+      paymentCheckoutUrl: order.payment_checkout_url,
     } });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -379,6 +420,53 @@ router.get('/my', requireAuth, async (req, res) => {
   }
 });
 
+// Polling статуса оплаты у поставщика (GetBilet / Profticket) + синхронизация с БД
+router.get('/:orderNumber/payment-status', async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+    const userId = req.user?.id;
+    const sessionId = userId ? null : req.headers['x-session-id'];
+
+    let orderQuery;
+    let params;
+    if (userId) {
+      orderQuery = 'SELECT * FROM orders WHERE order_number = $1 AND user_id = $2';
+      params = [orderNumber, userId];
+    } else {
+      orderQuery = 'SELECT * FROM orders WHERE order_number = $1 AND session_id = $2';
+      params = [orderNumber, sessionId];
+    }
+
+    const orderResult = await pool.query(orderQuery, params);
+    if (!orderResult.rows[0]) return res.status(404).json({ error: 'Order not found' });
+
+    let order = orderResult.rows[0];
+    await pool.query('UPDATE orders SET last_payment_poll_at = NOW() WHERE id = $1', [order.id]);
+    order = (await pool.query('SELECT * FROM orders WHERE id = $1', [order.id])).rows[0];
+
+    const remote = await fetchRemotePaymentState(order);
+
+    if (remote.state === 'paid') {
+      order = await applyOrderPaidState(order, {
+        externalPaymentId: remote.externalPaymentId,
+        ticketRefs: remote.ticketRefs,
+      });
+    }
+
+    res.json({
+      paymentStatus: order.payment_status,
+      status: order.status,
+      remote: {
+        state: remote.state,
+        detail: remote.detail ?? null,
+      },
+      lastPaymentPollAt: order.last_payment_poll_at,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Получить заказ по номеру
 router.get('/:orderNumber', async (req, res) => {
   try {
@@ -404,6 +492,12 @@ router.get('/:orderNumber', async (req, res) => {
     const itemsResult = await pool.query(`
       SELECT * FROM order_items WHERE order_id = $1
     `, [order.id]);
+
+    const ticketsRes = await ticketPool.query(
+      `SELECT id, order_item_id, provider, external_ticket_id, metadata
+       FROM ticket_external_ticket_refs WHERE legacy_order_id = $1 ORDER BY id`,
+      [order.id]
+    );
     
     res.json({
       order: {
@@ -418,6 +512,10 @@ router.get('/:orderNumber', async (req, res) => {
         shippingAddress: order.shipping_address,
         paymentMethod: order.payment_method,
         paymentStatus: order.payment_status,
+        paymentProvider: order.payment_provider,
+        externalPaymentId: order.external_payment_id,
+        externalOrderRef: order.external_order_ref,
+        paymentCheckoutUrl: order.payment_checkout_url,
         notes: order.notes,
         items: itemsResult.rows.map(row => ({
           id: row.id,
@@ -425,6 +523,13 @@ router.get('/:orderNumber', async (req, res) => {
           productTitle: row.product_title,
           priceCents: row.price_cents,
           quantity: row.quantity,
+        })),
+        externalTickets: ticketsRes.rows.map((row) => ({
+          id: row.id,
+          orderItemId: row.order_item_id,
+          provider: row.provider,
+          externalTicketId: row.external_ticket_id,
+          metadata: row.metadata,
         })),
         createdAt: order.created_at,
         updatedAt: order.updated_at,
@@ -448,6 +553,10 @@ router.put('/:orderNumber/status', requireAuth, requireAdminOrSalesManager, asyn
     if (!status && !paymentStatus) {
       return res.status(400).json({ error: 'status or paymentStatus required' });
     }
+
+    const prevRes = await pool.query('SELECT * FROM orders WHERE order_number = $1', [orderNumber]);
+    const prev = prevRes.rows[0];
+    if (!prev) return res.status(404).json({ error: 'Order not found' });
     
     const updates = [];
     const params = [];
@@ -474,15 +583,39 @@ router.put('/:orderNumber/status', requireAuth, requireAdminOrSalesManager, asyn
     const updated = r.rows[0];
     if (!updated) return res.status(404).json({ error: 'Order not found' });
 
-    // Если заказ успешно оплачен - проверяем, нужно ли создать подписку AI Team
-    const newStatus = status || updated.status;
-    const newPaymentStatus = paymentStatus || updated.payment_status;
-    if (newStatus === 'paid' || newPaymentStatus === 'paid') {
-      await maybeAttachAiTeamSubscription(updated);
+    const wasPaid =
+      prev.payment_status === 'paid' ||
+      prev.status === 'paid' ||
+      prev.status === 'completed';
+    const nowPaid =
+      updated.payment_status === 'paid' ||
+      updated.status === 'paid' ||
+      updated.status === 'completed';
+
+    if (nowPaid && !wasPaid) {
+      const { finalizePaidOrder } = await import('../services/orderPaymentFinalize.js');
+      await finalizePaidOrder(updated, { ticketRefs: [], runPaidHooks: runPaidOrderSideEffects });
+    }
+
+    if (
+      prev.status !== updated.status ||
+      prev.payment_status !== updated.payment_status
+    ) {
       try {
-        await createClientProjectFromOrder(updated);
-      } catch (projErr) {
-        console.error('[orders] Failed to create client project from order:', updated.id, projErr);
+        await sendOrderStatusChangedEmail({
+          to: updated.customer_email,
+          order: {
+            orderNumber: updated.order_number,
+            status: updated.status,
+            paymentStatus: updated.payment_status,
+            totalCents: updated.total_cents,
+            currency: updated.currency,
+          },
+          previousStatus: prev.status,
+          previousPaymentStatus: prev.payment_status,
+        });
+      } catch (mailErr) {
+        console.warn('[orders] status email:', mailErr.message);
       }
     }
     

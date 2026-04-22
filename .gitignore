@@ -116,3 +116,4 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 frontend/public/uploads/
+.DS_Store

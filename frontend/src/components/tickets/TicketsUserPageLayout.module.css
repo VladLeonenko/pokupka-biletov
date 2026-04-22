@@ -1,0 +1,142 @@
+.main {
+  min-height: calc(100vh - 120px);
+  padding-top: 28px;
+  padding-bottom: 56px;
+  background: #fafafa;
+  color: #111;
+  font-family: var(--neg-font, system-ui, sans-serif);
+}
+
+@media (min-width: 900px) {
+  .main {
+    padding-top: 36px;
+    padding-bottom: 72px;
+  }
+}
+
+.inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.head {
+  margin-bottom: 28px;
+}
+
+.overline {
+  margin: 0 0 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--neg-orange, #ff4e18);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.35rem, 3.5vw, 1.85rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: #111;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.55);
+  max-width: 52ch;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.cardPad {
+  padding: 20px 18px;
+}
+
+@media (min-width: 600px) {
+  .cardPad {
+    padding: 22px 22px;
+  }
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 8px;
+  background: var(--neg-orange, #ff4e18);
+  color: #fff !important;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease;
+}
+
+.btnPrimary:hover {
+  filter: brightness(0.95);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  color: #111 !important;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.btnGhost:hover {
+  border-color: var(--neg-orange, #ff4e18);
+  color: var(--neg-orange, #ff4e18) !important;
+}
+
+.link {
+  color: var(--neg-orange, #ff4e18);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.link:hover {
+  border-bottom-color: currentColor;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}

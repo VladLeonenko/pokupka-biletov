@@ -55,6 +55,11 @@ export function ThemeToggle() {
       document.body.style.color = '#141414';
     }
 
+    // Витрина билетов: не трогаем DOM шапки/подвала (свои стили, не <header> из-за legacy)
+    if (document.body.getAttribute('data-tickets') === 'true') {
+      return;
+    }
+
     // Применяем стили к header и footer (legacy части)
     const header = document.querySelector('header') as HTMLElement;
     const footer = document.querySelector('footer') as HTMLElement;

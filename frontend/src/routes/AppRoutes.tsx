@@ -15,25 +15,24 @@ const BlogBlockEditorPage = lazy(() => import('@/pages/blog/BlogBlockEditorPage'
 const BlogPageBuilderPage = lazy(() => import('@/pages/blog/BlogPageBuilderPage').then(m => ({ default: m.BlogPageBuilderPage })));
 const BlogCategoriesPage = lazy(() => import('@/pages/blog/BlogCategoriesPage').then(m => ({ default: m.BlogCategoriesPage })));
 const SeoPage = lazy(() => import('@/pages/seo/SeoPage').then(m => ({ default: m.SeoPage })));
-const CarouselListPage = lazy(() => import('@/pages/carousels/CarouselListPage').then(m => ({ default: m.CarouselListPage })));
-const CarouselEditorPage = lazy(() => import('@/pages/carousels/CarouselEditorPage').then(m => ({ default: m.CarouselEditorPage })));
-const CasesListPage = lazy(() => import('@/pages/cases/CasesListPage').then(m => ({ default: m.CasesListPage })));
-const CaseEditorPage = lazy(() => import('@/pages/cases/CaseEditorPage').then(m => ({ default: m.CaseEditorPage })));
-const CasePageBuilderPage = lazy(() => import('@/pages/cases/CasePageBuilderPage').then(m => ({ default: m.CasePageBuilderPage })));
-const CasePreviewPage = lazy(() => import('@/pages/cases/CasePreviewPage').then(m => ({ default: m.CasePreviewPage })));
-const ProductsListPage = lazy(() => import('@/pages/products/ProductsListPage').then(m => ({ default: m.ProductsListPage })));
-const ProductEditorPage = lazy(() => import('@/pages/products/ProductEditorPage').then(m => ({ default: m.ProductEditorPage })));
-const ProductPageBuilderPage = lazy(() => import('@/pages/products/ProductPageBuilderPage').then(m => ({ default: m.ProductPageBuilderPage })));
 const ProductCategoriesPage = lazy(() => import('@/pages/products/ProductCategoriesPage').then(m => ({ default: m.ProductCategoriesPage })));
 const PromotionsListPage = lazy(() => import('@/pages/promotions/PromotionsListPage').then(m => ({ default: m.PromotionsListPage })));
 const PromotionEditorPage = lazy(() => import('@/pages/promotions/PromotionEditorPage').then(m => ({ default: m.PromotionEditorPage })));
 const FormsManagementPage = lazy(() => import('@/pages/forms/FormsManagementPage').then(m => ({ default: m.FormsManagementPage })));
 const FunnelsListPage = lazy(() => import('@/pages/funnels/FunnelsListPage').then(m => ({ default: m.FunnelsListPage })));
 const FunnelViewPage = lazy(() => import('@/pages/funnels/FunnelViewPage').then(m => ({ default: m.FunnelViewPage })));
-const TasksListPage = lazy(() => import('@/pages/funnels/TasksListPage').then(m => ({ default: m.TasksListPage })));
-const TaskExecutor = lazy(() => import('@/components/tasks/TaskExecutor').then(m => ({ default: m.TaskExecutor })));
 import { HomePage } from '@/pages/public/HomePage';
+const EventsSearchPage = lazy(() =>
+  import('@/pages/public/EventsSearchPage').then((m) => ({ default: m.EventsSearchPage }))
+);
+const TicketCheckoutPage = lazy(() =>
+  import('@/pages/public/TicketCheckoutPage').then((m) => ({ default: m.TicketCheckoutPage }))
+);
 import { LoginPage } from '@/pages/auth/LoginPage';
+import { MagicLinkPage } from '@/pages/auth/MagicLinkPage';
+import { RequestMagicLinkPage } from '@/pages/auth/RequestMagicLinkPage';
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 // Lazy load публичных страниц — не загружаются при первом визите на главную
@@ -61,6 +60,12 @@ const WinnersPage = lazy(() => import('@/pages/public/WinnersPage').then(m => ({
 const PublicAIChatPage = lazy(() => import('@/pages/public/PublicAIChatPage').then(m => ({ default: m.PublicAIChatPage })));
 const AboutPage = lazy(() => import('@/pages/public/AboutPage').then(m => ({ default: m.AboutPage })));
 const ContactsPage = lazy(() => import('@/pages/public/ContactsPage').then(m => ({ default: m.ContactsPage })));
+const ReturnsExchangePage = lazy(() =>
+  import('@/pages/public/ReturnsExchangePage').then((m) => ({ default: m.ReturnsExchangePage }))
+);
+const TicketsFaqPage = lazy(() =>
+  import('@/pages/public/TicketsFaqPage').then((m) => ({ default: m.TicketsFaqPage }))
+);
 const NewClientPage = lazy(() => import('@/pages/public/NewClientPage').then(m => ({ default: m.NewClientPage })));
 const OrderDetailPage = lazy(() => import('@/pages/public/OrderDetailPage').then(m => ({ default: m.OrderDetailPage })));
 const RegisterPage = lazy(() => import('@/pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
@@ -73,7 +78,6 @@ const PublicPageView = lazy(() => import('@/pages/public/PublicPageView').then(m
 const ProposalViewPage = lazy(() => import('@/pages/commercial-proposals/ProposalViewPage').then(m => ({ default: m.ProposalViewPage })));
 
 // Lazy load остальных админских страниц
-const ParsingPage = lazy(() => import('@/pages/parsing/ParsingPage').then(m => ({ default: m.ParsingPage })));
 const ClientsListPage = lazy(() => import('@/pages/clients/ClientsListPage').then(m => ({ default: m.ClientsListPage })));
 const ClientEditorPage = lazy(() => import('@/pages/clients/ClientEditorPage').then(m => ({ default: m.ClientEditorPage })));
 const ChatsListPage = lazy(() => import('@/pages/chat/ChatsListPage').then(m => ({ default: m.ChatsListPage })));
@@ -83,31 +87,31 @@ const ReviewsManagePage = lazy(() => import('@/pages/admin/ReviewsManagePage').t
 const AwardsManagePage = lazy(() => import('@/pages/admin/AwardsManagePage').then(m => ({ default: m.AwardsManagePage })));
 const TeamListPage = lazy(() => import('@/pages/team/TeamListPage'));
 const TeamEditorPage = lazy(() => import('@/pages/team/TeamEditorPage'));
-const SubscribersPage = lazy(() => import('@/pages/email/SubscribersPage'));
-const CampaignsPage = lazy(() => import('@/pages/email/CampaignsPage'));
-const SalesPipelinePage = lazy(() => import('@/pages/sales/SalesPipelinePage').then(m => ({ default: m.default })));
-const SitesListPage = lazy(() => import('@/pages/sites/SitesListPage'));
-const SiteDetailPage = lazy(() => import('@/pages/sites/SiteDetailPage'));
-const SitePageEditorPage = lazy(() => import('@/pages/sites/SitePageEditorPage'));
-const SitePreviewPage = lazy(() => import('@/pages/sites/SitePreviewPage'));
-const SitePageBuilderPage = lazy(() => import('@/pages/sites/SitePageBuilderPage').then(m => ({ default: m.SitePageBuilderPage })));
-const PlannerDashboard = lazy(() => import('@/pages/planner/PlannerDashboard'));
-const PersonalDevelopment = lazy(() => import('@/pages/planner/PersonalDevelopment'));
-const TestAuth = lazy(() => import('@/pages/planner/TestAuth'));
-const ExerciseImagesPage = lazy(() => import('@/pages/admin/ExerciseImagesPage'));
 const AIChatPage = lazy(() => import('@/pages/admin/AIChatPage').then(m => ({ default: m.AIChatPage })));
 const AiTeamDashboardPage = lazy(() => import('@/pages/admin/AiTeamDashboardPage'));
 const ProjectsDashboardPage = lazy(() => import('@/pages/admin/ProjectsDashboardPage'));
-const ProposalsListPage = lazy(() => import('@/pages/commercial-proposals/ProposalsListPage').then(m => ({ default: m.ProposalsListPage })));
-const ProposalEditorPage = lazy(() => import('@/pages/commercial-proposals/ProposalEditorPage').then(m => ({ default: m.ProposalEditorPage })));
-const DonorsManagePage = lazy(() => import('@/pages/donors/DonorsManagePage').then(m => ({ default: m.DonorsManagePage })));
 const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
 const OrdersAdminPage = lazy(() => import('@/pages/admin/OrdersAdminPage').then(m => ({ default: m.default })));
 const AdminsManagePage = lazy(() => import('@/pages/admin/AdminsManagePage').then(m => ({ default: m.AdminsManagePage })));
-const SalesAcademyPage = lazy(() => import('@/pages/admin/SalesAcademyPage').then(m => ({ default: m.SalesAcademyPage })));
-const TrainingCoursePage = lazy(() => import('@/pages/admin/TrainingCoursePage').then(m => ({ default: m.TrainingCoursePage })));
-const CourseEditorPage = lazy(() => import('@/pages/admin/CourseEditorPage').then(m => ({ default: m.CourseEditorPage })));
 const SalesAnalyticsPage = lazy(() => import('@/pages/admin/SalesAnalyticsPage').then(m => ({ default: m.SalesAnalyticsPage })));
+const GetbiletEventsListPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletEventsListPage').then(m => ({ default: m.GetbiletEventsListPage }))
+);
+const GetbiletEventEditPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletEventEditPage').then(m => ({ default: m.GetbiletEventEditPage }))
+);
+const GetbiletMarkupPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletMarkupPage').then(m => ({ default: m.GetbiletMarkupPage }))
+);
+const GetbiletPromosPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletPromosPage').then(m => ({ default: m.GetbiletPromosPage }))
+);
+const GetbiletStageMapsPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletStageMapsPage').then(m => ({ default: m.GetbiletStageMapsPage }))
+);
+const TicketsVitrinePage = lazy(() =>
+  import('@/pages/admin/TicketsVitrinePage').then(m => ({ default: m.TicketsVitrinePage }))
+);
 
 // Loading fallback для lazy компонентов
 const LoadingFallback = () => (
@@ -167,6 +171,9 @@ export function AppRoutes() {
     <Routes>
       {/* Public routes - must come before admin routes */}
       <Route path="/" element={<HomePage />} />
+      <Route path="/afisha" element={<HomePage />} />
+      <Route path="/events" element={<EventsSearchPage />} />
+      <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
       <Route path="/ai-team" element={<PublicHomePageAI />} />
       <Route path="/ai-team-v2" element={<PublicHomePageAI_Noomo />} />
       <Route path="/catalog" element={<CatalogPage />} />
@@ -183,6 +190,10 @@ export function AppRoutes() {
       <Route path="/politic" element={<PrivacyPolicyPage />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/auth/magic" element={<MagicLinkPage />} />
+      <Route path="/auth/request-link" element={<RequestMagicLinkPage />} />
+      <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
       <Route path="/tools/position-checker" element={<SeoPositionCheckerPage />} />
       <Route path="/tools/technical-audit" element={<TechnicalAuditPage />} />
       <Route path="/tools/reputation-monitor" element={<ReputationMonitorPage />} />
@@ -199,6 +210,8 @@ export function AppRoutes() {
       <Route path="/ai-chat" element={<PublicAIChatPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contacts" element={<ContactsPage />} />
+      <Route path="/returns" element={<ReturnsExchangePage />} />
+      <Route path="/faq" element={<TicketsFaqPage />} />
       <Route path="/new-client" element={<NewClientPage />} />
       <Route path="/houses-case" element={<Navigate to="/cases/houses-case" replace />} />
       <Route path="/madeo-case" element={<Navigate to="/cases/madeo-case" replace />} />
@@ -208,9 +221,7 @@ export function AppRoutes() {
       {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
-      <Route path="/admin/sales-academy" element={<Protected><SalesAcademyPage /></Protected>} />
-      <Route path="/admin/sales-academy/courses/:slug/edit" element={<ProtectedAdmin><CourseEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/sales-academy/courses/:slug" element={<Protected><TrainingCoursePage /></Protected>} />
+      <Route path="/admin/sales-academy/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/admin/sales-analytics" element={<ProtectedAdmin><SalesAnalyticsPage /></ProtectedAdmin>} />
       <Route path="/admin/pages" element={<ProtectedAdmin><PagesListPage /></ProtectedAdmin>} />
       <Route path="/admin/pages/:id" element={<ProtectedAdmin><PageEditorPage /></ProtectedAdmin>} />
@@ -222,29 +233,22 @@ export function AppRoutes() {
       <Route path="/admin/blog/:id/builder" element={<ProtectedAdmin><BlogPageBuilderPage /></ProtectedAdmin>} />
       <Route path="/admin/blog/categories" element={<ProtectedAdmin><BlogCategoriesPage /></ProtectedAdmin>} />
       <Route path="/admin/seo" element={<ProtectedAdmin><SeoPage /></ProtectedAdmin>} />
-      <Route path="/admin/carousels" element={<ProtectedAdmin><CarouselListPage /></ProtectedAdmin>} />
-      <Route path="/admin/carousels/:id" element={<ProtectedAdmin><CarouselEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/cases" element={<ProtectedAdmin><CasesListPage /></ProtectedAdmin>} />
-      <Route path="/admin/cases/:id/preview" element={<ProtectedAdmin><CasePreviewPage /></ProtectedAdmin>} />
-      <Route path="/admin/cases/:id" element={<ProtectedAdmin><CaseEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/cases/:id/builder" element={<ProtectedAdmin><CasePageBuilderPage /></ProtectedAdmin>} />
+      <Route path="/admin/carousels/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
+      <Route path="/admin/cases/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/product-categories" element={<ProtectedAdmin><ProductCategoriesPage /></ProtectedAdmin>} />
-      <Route path="/admin/products" element={<ProtectedAdmin><ProductsListPage /></ProtectedAdmin>} />
-      <Route path="/admin/products/:id" element={<ProtectedAdmin><ProductEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/products/:id/builder" element={<ProtectedAdmin><ProductPageBuilderPage /></ProtectedAdmin>} />
+      <Route path="/admin/products/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/orders" element={<Protected><Suspense fallback={<LoadingFallback />}><OrdersAdminPage /></Suspense></Protected>} />
-      <Route path="/admin/parsing" element={<ProtectedAdmin><ParsingPage /></ProtectedAdmin>} />
+      <Route path="/admin/parsing" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
       <Route path="/admin/quiz" element={<ProtectedAdmin><QuizManagementPage /></ProtectedAdmin>} />
       <Route path="/admin/promotions/:id" element={<Protected><PromotionEditorPage /></Protected>} />
       <Route path="/admin/forms" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/funnels" element={<Protected><FunnelsListPage /></Protected>} />
       <Route path="/admin/funnels/:id" element={<Protected><FunnelViewPage /></Protected>} />
-      <Route path="/admin/tasks" element={<Protected><TasksListPage /></Protected>} />
-      <Route path="/admin/planner" element={<ProtectedAdmin><PlannerDashboard /></ProtectedAdmin>} />
-      <Route path="/admin/planner/personal" element={<ProtectedAdmin><PersonalDevelopment /></ProtectedAdmin>} />
-      <Route path="/admin/test-auth" element={<Protected><TestAuth /></Protected>} />
-      <Route path="/admin/task-executor" element={<Protected><TaskExecutor /></Protected>} />
+      <Route path="/admin/tasks/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
+      <Route path="/admin/planner/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
+      <Route path="/admin/test-auth" element={<Protected><Navigate to="/admin" replace /></Protected>} />
+      <Route path="/admin/task-executor" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/admin/clients" element={<Protected><ClientsListPage /></Protected>} />
       <Route path="/admin/clients/:id" element={<Protected><ClientEditorPage /></Protected>} />
       <Route path="/admin/chat" element={<Protected><ChatsListPage /></Protected>} />
@@ -255,31 +259,29 @@ export function AppRoutes() {
       <Route path="/admin/team" element={<ProtectedAdmin><TeamListPage /></ProtectedAdmin>} />
       <Route path="/admin/admins" element={<ProtectedAdmin><AdminsManagePage /></ProtectedAdmin>} />
       <Route path="/admin/team/:id" element={<ProtectedAdmin><TeamEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/email/subscribers" element={<Protected><SubscribersPage /></Protected>} />
-      <Route path="/admin/email/campaigns" element={<Protected><CampaignsPage /></Protected>} />
-      <Route path="/admin/sales-pipeline" element={<Protected><SalesPipelinePage /></Protected>} />
-      <Route path="/admin/sites" element={<ProtectedAdmin><SitesListPage /></ProtectedAdmin>} />
-      <Route path="/admin/sites/:siteId" element={<ProtectedAdmin><SiteDetailPage /></ProtectedAdmin>} />
-      <Route path="/admin/sites/:siteId/pages/:pageId" element={<ProtectedAdmin><SitePageEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/sites/:siteId/pages/:pageId/builder" element={<ProtectedAdmin><SitePageBuilderPage /></ProtectedAdmin>} />
-      <Route path="/admin/sites/:siteId/pages/:pageId/preview" element={<ProtectedAdmin><SitePreviewPage /></ProtectedAdmin>} />
-      <Route path="/admin/exercise-images" element={<ProtectedAdmin><ExerciseImagesPage /></ProtectedAdmin>} />
+      <Route path="/admin/email/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
+      <Route path="/admin/sales-pipeline" element={<Protected><Navigate to="/admin" replace /></Protected>} />
+      <Route path="/admin/sites/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
+      <Route path="/admin/exercise-images" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/ai-chat" element={<Protected><AIChatPage /></Protected>} />
       <Route path="/admin/ai-team" element={<Protected><AiTeamDashboardPage /></Protected>} />
       <Route path="/admin/projects-dashboard" element={<Protected><ProjectsDashboardPage /></Protected>} />
-      <Route path="/admin/commercial-proposals" element={<Protected><ProposalsListPage /></Protected>} />
-      <Route path="/admin/commercial-proposals/new" element={<Protected><ProposalEditorPage /></Protected>} />
-      <Route path="/admin/commercial-proposals/:id/edit" element={<Protected><ProposalEditorPage /></Protected>} />
-      <Route path="/admin/commercial-proposals/:id" element={<Protected><ProposalViewPage /></Protected>} />
+      <Route path="/admin/commercial-proposals/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/commercial-proposals/:id" element={<ProposalViewPage />} />
-      <Route path="/admin/donors" element={<ProtectedAdmin><DonorsManagePage /></ProtectedAdmin>} />
+      <Route path="/admin/donors" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
+      <Route path="/admin/getbilet/events" element={<Protected><GetbiletEventsListPage /></Protected>} />
+      <Route path="/admin/getbilet/events/:id" element={<Protected><GetbiletEventEditPage /></Protected>} />
+      <Route path="/admin/getbilet/stage-maps" element={<Protected><GetbiletStageMapsPage /></Protected>} />
+      <Route path="/admin/getbilet/markup" element={<Protected><GetbiletMarkupPage /></Protected>} />
+      <Route path="/admin/getbilet/promos" element={<Protected><GetbiletPromosPage /></Protected>} />
+      <Route path="/admin/tickets-vitrine" element={<Protected><TicketsVitrinePage /></Protected>} />
       {/* Redirect old admin routes to new /admin routes */}
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
       <Route path="/pages" element={<Navigate to="/admin/pages" replace />} />
       <Route path="/seo" element={<Navigate to="/admin/seo" replace />} />
-      <Route path="/carousels" element={<Navigate to="/admin/carousels" replace />} />
-      <Route path="/cases" element={<Navigate to="/admin/cases" replace />} />
-      <Route path="/products" element={<Navigate to="/admin/products" replace />} />
+      <Route path="/carousels" element={<Navigate to="/admin" replace />} />
+      <Route path="/cases" element={<Navigate to="/admin" replace />} />
+      <Route path="/products" element={<Navigate to="/admin" replace />} />
       {/* /promotion is a public route, so don't redirect it */}
       <Route path="/promotions" element={<Navigate to="/admin/promotions" replace />} />
       <Route path="/forms" element={<Navigate to="/admin/forms" replace />} />

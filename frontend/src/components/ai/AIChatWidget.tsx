@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { alpha } from '@mui/material/styles';
 import { Box, Paper, IconButton, TextField, Typography, Avatar, Tooltip, Chip, Dialog, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
@@ -10,8 +11,13 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { sendAIMessage, AIMessage } from '@/services/aiChatApi';
 import { useToast } from '@/components/common/ToastProvider';
+import { useTicketsChrome } from '@/hooks/useTicketsChrome';
+import { getChatWidgetTheme } from '@/utils/ticketWidgetTheme';
 
 export function AIChatWidget() {
+  const ticketsChrome = useTicketsChrome();
+  const th = useMemo(() => getChatWidgetTheme(ticketsChrome), [ticketsChrome]);
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -229,14 +235,14 @@ export function AIChatWidget() {
             onClick={() => setIsOpen(true)}
             aria-label="Открыть AI-чат"
             sx={{
-              background: 'linear-gradient(135deg, #ffbb00 0%, #ff8c00 100%)',
-              color: '#141414',
+              bgcolor: th.fabBg,
+              color: th.fabIcon,
               width: 60,
               height: 60,
               '&:hover': {
-                background: 'linear-gradient(135deg, #ffcc00 0%, #ff9900 100%)',
+                bgcolor: th.accentHover,
               },
-              boxShadow: '0 4px 12px rgba(255, 187, 0, 0.4)',
+              boxShadow: th.fabShadow,
             }}
           >
             <SmartToyIcon />
@@ -258,7 +264,8 @@ export function AIChatWidget() {
             maxHeight: '900px',
             borderRadius: 3,
             overflow: 'hidden',
-            bgcolor: 'background.paper',
+            bgcolor: ticketsChrome ? th.inputBarBg : 'background.paper',
+            border: ticketsChrome ? `1px solid ${th.inputBarBorder}` : undefined,
           },
         }}
         BackdropProps={{
@@ -280,9 +287,8 @@ export function AIChatWidget() {
           {/* Header */}
           <Box
             sx={{
-              bgcolor: 'background.paper',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
+              bgcolor: th.headerBg,
+              color: th.headerFg,
               p: 2,
               display: 'flex',
               justifyContent: 'space-between',
@@ -292,15 +298,15 @@ export function AIChatWidget() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Avatar
                 sx={{
-                  bgcolor: 'rgba(255, 187, 0, 0.15)',
-                  color: '#ffbb00',
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: th.headerFg,
                   width: 36,
                   height: 36,
                 }}
               >
                 <SmartToyIcon sx={{ fontSize: 20 }} />
               </Avatar>
-              <Typography variant="h6" fontWeight={600} color="text.primary">
+              <Typography variant="h6" fontWeight={600} sx={{ color: th.headerFg }}>
                 AI Ассистент
               </Typography>
             </Box>
@@ -308,9 +314,9 @@ export function AIChatWidget() {
               size="small"
               onClick={() => setIsOpen(false)}
               sx={{
-                color: 'text.secondary',
+                color: th.headerFg,
                 '&:hover': {
-                  bgcolor: 'rgba(0, 0, 0, 0.05)',
+                  bgcolor: 'rgba(255, 255, 255, 0.12)',
                 },
               }}
             >
@@ -324,15 +330,16 @@ export function AIChatWidget() {
               flex: 1,
               overflowY: 'auto',
               p: 3,
-              bgcolor: 'background.default',
+              bgcolor: th.threadBg,
+              backgroundImage: th.threadGradient,
               display: 'flex',
               flexDirection: 'column',
               gap: 2.5,
             }}
           >
           {messages.length === 0 ? (
-            <Box sx={{ textAlign: 'center', mt: 4, color: 'text.secondary' }}>
-              <SmartToyIcon sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
+            <Box sx={{ textAlign: 'center', mt: 4, color: th.emptyHint }}>
+              <SmartToyIcon sx={{ fontSize: 64, mb: 2, opacity: ticketsChrome ? 0.35 : 0.5, color: th.accent }} />
               <Typography variant="h6" gutterBottom>
                 Задайте вопрос AI-ассистенту
               </Typography>
@@ -353,8 +360,8 @@ export function AIChatWidget() {
                 {msg.role === 'assistant' && (
                   <Avatar
                     sx={{
-                      background: 'linear-gradient(135deg, #ffbb00 0%, #ff8c00 100%)',
-                      color: '#141414',
+                      background: `linear-gradient(135deg, ${th.accent} 0%, ${th.accentHover} 100%)`,
+                      color: th.headerFg,
                       width: 40,
                       height: 40,
                     }}
@@ -367,15 +374,26 @@ export function AIChatWidget() {
                     maxWidth: '70%',
                     p: 2,
                     borderRadius: 2.5,
-                    bgcolor: msg.role === 'user' 
-                      ? 'linear-gradient(135deg, #ffbb00 0%, #ff8c00 100%)'
-                      : 'background.paper',
-                    color: msg.role === 'user' ? '#141414' : 'text.primary',
-                    boxShadow: msg.role === 'user' 
-                      ? '0 4px 12px rgba(255, 187, 0, 0.3)'
-                      : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    bgcolor: msg.role === 'user' ? th.bubbleClientBg : th.bubbleOtherBg,
+                    color:
+                      msg.role === 'user' ? th.bubbleClientFg : `${th.bubbleOtherFg} !important`,
+                    boxShadow:
+                      msg.role === 'user'
+                        ? '0 1px 2px rgba(0,0,0,0.12)'
+                        : th.bubbleOtherShadow,
                     border: msg.role === 'assistant' ? '1px solid' : 'none',
-                    borderColor: msg.role === 'assistant' ? 'divider' : 'transparent',
+                    borderColor:
+                      msg.role === 'assistant'
+                        ? ticketsChrome
+                          ? 'rgba(0,0,0,0.08)'
+                          : 'divider'
+                        : 'transparent',
+                    '& *': {
+                      color:
+                        msg.role === 'user'
+                          ? `${th.bubbleClientFg} !important`
+                          : `${th.bubbleOtherFg} !important`,
+                    },
                   }}
                 >
                   <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 0.5 }}>
@@ -388,9 +406,9 @@ export function AIChatWidget() {
                 {msg.role === 'user' && (
                   <Avatar
                     sx={{
-                      bgcolor: 'rgba(255, 187, 0, 0.2)',
-                      color: '#ffbb00',
-                      border: '2px solid #ffbb00',
+                      bgcolor: alpha(th.accent, 0.15),
+                      color: th.accent,
+                      border: `2px solid ${th.accent}`,
                       width: 40,
                       height: 40,
                     }}
@@ -405,8 +423,8 @@ export function AIChatWidget() {
               <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 1.5 }}>
                 <Avatar
                   sx={{
-                    background: 'linear-gradient(135deg, #ffbb00 0%, #ff8c00 100%)',
-                    color: '#141414',
+                    background: `linear-gradient(135deg, ${th.accent} 0%, ${th.accentHover} 100%)`,
+                    color: th.headerFg,
                     width: 40,
                     height: 40,
                   }}
@@ -417,16 +435,16 @@ export function AIChatWidget() {
                   sx={{
                     p: 2,
                     borderRadius: 2.5,
-                    bgcolor: 'background.paper',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    bgcolor: th.bubbleOtherBg,
+                    boxShadow: th.bubbleOtherShadow,
                     border: '1px solid',
-                    borderColor: 'divider',
+                    borderColor: ticketsChrome ? 'rgba(0,0,0,0.08)' : 'divider',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.5,
                   }}
                 >
-                  <CircularProgress size={16} sx={{ color: '#ffbb00' }} />
+                  <CircularProgress size={16} sx={{ color: th.accent }} />
                   <Typography variant="body2" color="text.secondary">
                     Думаю...
                   </Typography>
@@ -448,9 +466,9 @@ export function AIChatWidget() {
                     maxWidth: '70%',
                     p: 2,
                     borderRadius: 2.5,
-                    bgcolor: 'rgba(255, 187, 0, 0.1)',
+                    bgcolor: alpha(th.accent, 0.1),
                     border: '1px dashed',
-                    borderColor: '#ffbb00',
+                    borderColor: th.accent,
                   }}
                 >
                   <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>
@@ -478,12 +496,11 @@ export function AIChatWidget() {
           sx={{
             px: 2,
             py: 1,
-            borderTop: 1,
-            borderColor: 'divider',
+            borderTop: `1px solid ${th.inputBarBorder}`,
             display: 'flex',
             gap: 1,
             alignItems: 'center',
-            bgcolor: 'background.paper',
+            bgcolor: th.inputBarBg,
           }}
         >
             <Tooltip title={isVoiceEnabled ? 'Отключить голосовой вывод' : 'Включить голосовой вывод'}>
@@ -491,9 +508,9 @@ export function AIChatWidget() {
                 size="small"
                 onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
                 sx={{
-                  color: isVoiceEnabled ? '#ffbb00' : 'text.secondary',
+                  color: isVoiceEnabled ? th.accent : 'text.secondary',
                   '&:hover': {
-                    bgcolor: isVoiceEnabled ? 'rgba(255, 187, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                    bgcolor: isVoiceEnabled ? alpha(th.accent, 0.12) : 'rgba(255, 255, 255, 0.05)',
                   },
                 }}
               >
@@ -504,9 +521,9 @@ export function AIChatWidget() {
               label={isVoiceEnabled ? 'Голос включен' : 'Голос выключен'}
               size="small"
               sx={{
-                bgcolor: isVoiceEnabled ? 'rgba(255, 187, 0, 0.15)' : 'transparent',
-                color: isVoiceEnabled ? '#ffbb00' : 'text.secondary',
-                borderColor: isVoiceEnabled ? '#ffbb00' : 'divider',
+                bgcolor: isVoiceEnabled ? alpha(th.accent, 0.15) : 'transparent',
+                color: isVoiceEnabled ? th.accent : 'text.secondary',
+                borderColor: isVoiceEnabled ? th.accent : 'divider',
                 border: '1px solid',
               }}
               variant="outlined"
@@ -517,9 +534,8 @@ export function AIChatWidget() {
         <Box
           sx={{
             p: 2,
-            borderTop: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
+            borderTop: `1px solid ${th.inputBarBorder}`,
+            bgcolor: th.inputBarBg,
           }}
         >
           {selectedFile && (
@@ -530,13 +546,13 @@ export function AIChatWidget() {
                 gap: 1,
                 mb: 1.5,
                 p: 1.5,
-                bgcolor: 'rgba(255, 187, 0, 0.1)',
+                bgcolor: alpha(th.accent, 0.1),
                 borderRadius: 1.5,
                 border: '1px solid',
-                borderColor: 'rgba(255, 187, 0, 0.3)',
+                borderColor: alpha(th.accent, 0.35),
               }}
             >
-              <AttachFileIcon sx={{ fontSize: 20, color: '#ffbb00' }} />
+              <AttachFileIcon sx={{ fontSize: 20, color: th.accent }} />
               <Typography variant="body2" sx={{ flex: 1, color: 'text.primary' }}>
                 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
               </Typography>
@@ -567,8 +583,8 @@ export function AIChatWidget() {
                 sx={{
                   color: 'text.secondary',
                   '&:hover': {
-                    bgcolor: 'rgba(255, 187, 0, 0.1)',
-                    color: '#ffbb00',
+                    bgcolor: alpha(th.accent, 0.12),
+                    color: th.accent,
                   },
                   '&:disabled': {
                     color: 'text.disabled',
@@ -588,15 +604,44 @@ export function AIChatWidget() {
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               disabled={isLoading}
+              sx={{
+                '& .MuiInputBase-root': {
+                  bgcolor: th.inputBg,
+                  color: th.inputFg,
+                  borderRadius: '12px',
+                  '&:hover': {
+                    bgcolor: th.inputBg,
+                  },
+                  '&.Mui-focused': {
+                    bgcolor: th.inputBg,
+                  },
+                },
+                '& .MuiInputBase-input': {
+                  color: `${th.inputFg} !important`,
+                  '&::placeholder': {
+                    color: th.inputPlaceholder,
+                    opacity: 1,
+                  },
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: th.inputBorder,
+                },
+                '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: th.inputBorderHover,
+                },
+                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: th.inputBorderFocus,
+                },
+              }}
             />
             <Tooltip title={isListening ? 'Остановить запись' : 'Голосовой ввод'}>
               <IconButton
                 onClick={handleVoiceInput}
                 disabled={isLoading}
                 sx={{
-                  color: isListening ? '#ff4444' : '#ffbb00',
+                  color: isListening ? '#ff4444' : th.accent,
                   '&:hover': {
-                    bgcolor: isListening ? 'rgba(255, 68, 68, 0.1)' : 'rgba(255, 187, 0, 0.1)',
+                    bgcolor: isListening ? 'rgba(255, 68, 68, 0.1)' : alpha(th.accent, 0.12),
                   },
                   '&:disabled': {
                     color: 'text.disabled',
@@ -610,17 +655,13 @@ export function AIChatWidget() {
               onClick={handleSend}
               disabled={isLoading || (!inputMessage.trim() && !selectedFile)}
               sx={{
-                background: (inputMessage.trim() || selectedFile) && !isLoading
-                  ? 'linear-gradient(135deg, #ffbb00 0%, #ff8c00 100%)'
-                  : 'transparent',
-                color: (inputMessage.trim() || selectedFile) && !isLoading ? '#141414' : 'text.disabled',
+                bgcolor: (inputMessage.trim() || selectedFile) && !isLoading ? th.sendBg : 'transparent',
+                color: (inputMessage.trim() || selectedFile) && !isLoading ? th.sendFg : 'text.disabled',
                 '&:hover': {
-                  background: (inputMessage.trim() || selectedFile) && !isLoading
-                    ? 'linear-gradient(135deg, #ffcc00 0%, #ff9900 100%)'
-                    : 'transparent',
+                  bgcolor: (inputMessage.trim() || selectedFile) && !isLoading ? th.accentHover : 'transparent',
                 },
                 '&:disabled': {
-                  background: 'transparent',
+                  bgcolor: 'transparent',
                 },
               }}
             >

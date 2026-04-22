@@ -3,11 +3,18 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { loadEnv } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const indexPath = path.join(__dirname, '../dist/index.html');
+const projectRoot = path.join(__dirname, '..');
+
+function siteBaseUrl() {
+  const env = loadEnv('production', projectRoot, '');
+  return (env.VITE_SITE_URL || 'https://biletvsem.com').replace(/\/$/, '');
+}
 
 console.log('[fix-index-html] Looking for file:', indexPath);
 
@@ -18,6 +25,11 @@ if (!fs.existsSync(indexPath)) {
 
 try {
   let html = fs.readFileSync(indexPath, 'utf-8');
+  const base = siteBaseUrl();
+  if (html.includes('__SITE_BASE__')) {
+    html = html.split('__SITE_BASE__').join(base);
+    console.log('[fix-index-html] __SITE_BASE__ →', base);
+  }
   console.log('[fix-index-html] File read, length:', html.length);
 
   // Находим основной script module src (динамически!)

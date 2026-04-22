@@ -105,6 +105,31 @@ export const clientSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+// === AUTH: magic link / сброс пароля ===
+
+export const magicLinkRequestSchema = z.object({
+  email: z.string().email('Некорректный email'),
+});
+
+export const magicLinkVerifySchema = z.object({
+  token: z.string().min(64, 'Некорректный токен'),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Некорректный email'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(64, 'Некорректный токен'),
+  newPassword: z
+    .string()
+    .min(8, 'Пароль должен содержать минимум 8 символов')
+    .regex(/[a-zа-яё]/, 'Пароль должен содержать строчную букву')
+    .regex(/[A-ZА-ЯЁ]/, 'Пароль должен содержать заглавную букву')
+    .regex(/[0-9]/, 'Пароль должен содержать цифру')
+    .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Пароль должен содержать специальный символ'),
+});
+
 // === UTILITY FUNCTIONS ===
 
 /**

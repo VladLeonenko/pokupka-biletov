@@ -1,0 +1,272 @@
+/* Страница контактов: отдельная композиция, не связана со старым макетом */
+
+.root {
+  min-height: 72vh;
+  background: #eceff4;
+  color: #111;
+  font-family: var(--neg-font, 'Inter', system-ui, sans-serif);
+}
+
+.shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 28px) 56px;
+  box-sizing: border-box;
+}
+
+/* ----- Hero ----- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 15% 0%, #2a2a2a 0%, #121212 45%, #0a0a0a 100%);
+  color: #fff;
+  margin-bottom: clamp(28px, 6vw, 48px);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 90% 30%, rgba(255, 78, 24, 0.35) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+.heroGrid {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(36px, 7vw, 64px) clamp(20px, 5vw, 40px);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+  align-items: center;
+}
+
+@media (min-width: 880px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(200px, 0.85fr);
+  }
+}
+
+.heroKicker {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 245, 240, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.heroTitle {
+  margin: 0 0 14px;
+  font-size: clamp(1.85rem, 5vw, 2.65rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+  text-transform: uppercase;
+  max-width: 16ch;
+  color: #fff;
+  text-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.heroLead {
+  margin: 0 0 22px;
+  font-size: clamp(0.94rem, 2vw, 1.05rem);
+  line-height: 1.6;
+  font-weight: 500;
+  color: rgba(255, 252, 248, 0.96);
+  max-width: 38ch;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.heroLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.heroCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: 10px;
+  background: var(--neg-orange, #ff4e18);
+  color: #fff !important;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.heroCta:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.heroGhost {
+  display: inline-flex;
+  align-items: center;
+  padding: 13px 22px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.heroGhost:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.heroPanel {
+  display: none;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-height: 180px;
+}
+
+@media (min-width: 880px) {
+  .heroPanel {
+    display: flex;
+  }
+}
+
+.heroPanelInner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 220px);
+  padding: 12px 0;
+}
+
+.heroPanelLine {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 78, 24, 0.95), rgba(255, 255, 255, 0.15));
+  opacity: 0.9;
+}
+
+.heroPanelLine:nth-child(2) {
+  width: 72%;
+  margin-left: auto;
+  opacity: 0.65;
+}
+
+.heroPanelLine:nth-child(3) {
+  width: 48%;
+  opacity: 0.45;
+}
+
+/* ----- Channels ----- */
+.channelsEmpty {
+  margin: 0 0 28px;
+  padding: 18px 20px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(0, 0, 0, 0.52);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+}
+
+.channelGrid {
+  list-style: none;
+  margin: 0 0 40px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 600px) {
+  .channelGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .channelGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .channelCardWide {
+    grid-column: 1 / -1;
+  }
+}
+
+.channelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 18px 22px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.05);
+  min-height: 0;
+}
+
+.channelIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(150deg, rgba(255, 78, 24, 0.12), rgba(100, 120, 180, 0.2));
+  color: #1a1a1a;
+}
+
+.channelLabel {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.38);
+}
+
+.channelValue {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--neg-orange, #ff4e18);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.channelValue:hover {
+  text-decoration: underline;
+}
+
+.channelStatic {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #1a1a1a;
+}
+
+.legal {
+  margin-top: 28px;
+  padding-top: 22px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  max-width: 70ch;
+}

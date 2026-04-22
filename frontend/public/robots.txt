@@ -1,13 +1,10 @@
-# https://prime-coder.ru/robots.txt
-# Обновлено: 2026-04-14
-#
-# Карта сайта XML генерируется на лету приложением (GET /sitemap.xml), не статический файл в dist.
-# Контекст для ИИ: /llms.txt, /llms-full.txt (тоже отдаёт backend).
-# Статический файл на диске после сборки: только этот robots.txt → frontend/dist/robots.txt
+# biletvsem.com — билетный сервис
+# sitemap: динамически (GET /sitemap.xml) на backend, не кладём sitemap.xml в dist.
+# llms-файлы: /llms.txt, /llms-full.txt (если включены в backend)
 
-Sitemap: https://prime-coder.ru/sitemap.xml
+Sitemap: https://biletvsem.com/sitemap.xml
 
-# --- Все роботы: общие правила ---
+# --- Все роботы ---
 User-agent: *
 Allow: /
 
@@ -15,26 +12,37 @@ Disallow: /404
 Disallow: /admin
 Disallow: /admin/
 Disallow: /api/
-Disallow: /uploads/chat-files/
 Disallow: /register
 Disallow: /account
 Disallow: /account/
+Disallow: /login
+Disallow: /login/
+Disallow: /forgot-password
+Disallow: /request-magic-link
+Disallow: /reset-password
+Disallow: /cart
+Disallow: /orders/
+Disallow: /order/
+Disallow: /ticket-checkout
+Disallow: /uploads/chat-files/
 Disallow: /commercial-proposals/
 Disallow: /tools/
 Disallow: /ai-chat
 
-# Параметры сортировки/фильтров/пагинации — дубли
+# Дубли с query (сортировки, фильтры, пагинация)
 Disallow: /*?*sort=
 Disallow: /*?*filter=
 Disallow: /*?*page=
 
 Allow: /assets/
 Allow: /uploads/images/
+Allow: /legacy/
 Allow: /sitemap.xml
 Allow: /llms.txt
 Allow: /llms-full.txt
 Allow: /.well-known/llms.txt
-Allow: /feed/services.yml
+Allow: /events
+Allow: /search
 
 # --- Google ---
 User-agent: Googlebot
@@ -44,10 +52,10 @@ User-agent: Googlebot-Image
 Allow: /uploads/images/
 Allow: /assets/
 
-# --- Яндекс: главное зеркало + срез мусорных query-параметров ---
+# --- Яндекс ---
 User-agent: Yandex
 Allow: /
-Host: https://prime-coder.ru
+Host: https://biletvsem.com
 Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&_ym_uid&_ym_d&from
 
 User-agent: YandexImages
@@ -58,58 +66,33 @@ Allow: /assets/
 User-agent: Bingbot
 Allow: /
 
-# --- ИИ-поиск и LLM: контент для выдачи и обучения (разрешён публичный сайт + llms) ---
+# --- LLM-боты (публичный контент) ---
 User-agent: Google-Extended
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: GPTBot
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: ChatGPT-User
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
-
-User-agent: OAI-SearchBot
-Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: PerplexityBot
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: Claude-Web
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: Anthropic-AI
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: Bytespider
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: Cohere-AI
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: Applebot-Extended
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
 
 User-agent: Meta-ExternalAgent
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt

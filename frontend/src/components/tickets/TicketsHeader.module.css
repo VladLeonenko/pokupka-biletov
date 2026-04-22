@@ -1,0 +1,480 @@
+/* Не используем тег <header>: в legacy/style.min.css для header задано box-shadow: none !important */
+.wrap {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  isolation: isolate;
+  background-color: rgba(255, 255, 255, 0.97);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 24px rgba(0, 0, 0, 0.07);
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.rowTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+}
+
+@media (min-width: 900px) {
+  .rowTop {
+    min-height: 64px;
+  }
+}
+
+.logo {
+  text-decoration: none;
+  color: #111;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  transition: opacity 0.2s;
+}
+
+.logo:hover {
+  opacity: 0.82;
+}
+
+.logoTitle {
+  font-family: var(--neg-font, system-ui, sans-serif);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.logoSub {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 2px;
+}
+
+.nav {
+  display: none;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (min-width: 900px) {
+  .nav {
+    display: flex;
+  }
+}
+
+.nav a {
+  text-decoration: none;
+  font-family: var(--neg-font, system-ui, sans-serif);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 10px;
+  color: #111;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.nav a:hover {
+  opacity: 1;
+  color: var(--neg-orange, #ff4e18);
+}
+
+.directionsRow {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 10px 0 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .directionsRow {
+    gap: 12px 16px;
+  }
+}
+
+.directionsLabel {
+  display: block;
+  flex: 0 0 auto;
+  margin-right: 2px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.38);
+}
+
+@media (max-width: 479px) {
+  .directionsLabel {
+    display: none;
+  }
+}
+
+/* Средняя колонка: скролл плашек, не выталкивает поиск на вторую строку */
+.directionsStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  flex: 1 1 0;
+  min-width: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.directionsStrip::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.dirPill {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 999px;
+  color: #111 !important;
+  text-decoration: none;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.dirPill:hover {
+  border-color: #111;
+  background: rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #1c1b19;
+}
+
+.iconBtn {
+  color: inherit !important;
+}
+
+.calendarRow {
+  padding: 10px 0 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.calendarHead {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+@media (min-width: 720px) {
+  .calendarHead {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px 20px;
+  }
+}
+
+.calendarLabel {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(0, 0, 0, 0.38);
+  flex: 0 0 auto;
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+}
+
+.monthArrow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    opacity 0.2s;
+}
+
+.monthArrow:hover:not(:disabled) {
+  border-color: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.monthArrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.monthPills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.monthPill {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  background: #fafafa;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #111;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+.monthPill:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+  background: #fff;
+}
+
+.monthPillActive {
+  border: 2px solid var(--neg-orange, #ff4e18);
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 10px rgba(255, 78, 24, 0.18);
+  padding: 7px 9px;
+}
+
+.monthPillActive:hover {
+  border-color: var(--neg-orange, #ff4e18);
+  background: #fff;
+  color: #111;
+}
+
+/* Поиск справа в том же ряду, что и направления */
+.inlineSearch {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: min(320px, 36vw);
+  min-width: 140px;
+  max-width: 360px;
+  margin-left: auto;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+@media (min-width: 900px) {
+  .inlineSearch {
+    width: min(320px, 28vw);
+  }
+}
+
+.inlineSearch:focus-within {
+  border-color: rgba(0, 0, 0, 0.22);
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #111;
+  outline: none;
+  padding: 9px 4px 9px 14px;
+}
+
+.searchInput::placeholder {
+  color: rgba(0, 0, 0, 0.36);
+}
+
+.searchSubmitIcon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding: 0 12px;
+  border: none;
+  background: var(--neg-orange, #ff4e18);
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+
+.searchSubmitIcon:hover {
+  filter: brightness(0.96);
+}
+
+.calendarStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.calendarStrip::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.dayBtn {
+  flex: 0 0 auto;
+  min-width: 52px;
+  padding: 10px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  color: #111;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+
+.dayBtn:hover {
+  border-color: rgba(0, 0, 0, 0.35);
+}
+
+/* Выбранный день — тот же вид, что и обычный (выбор только в URL / data-атрибуте) */
+.dayBtnActive {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  color: #111;
+  box-shadow: none;
+  padding: 10px 8px;
+}
+
+.dayNum {
+  font-family: var(--neg-font, system-ui, sans-serif);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dayWeek {
+  font-size: 0.58rem;
+  font-weight: 700;
+  opacity: 0.55;
+  text-transform: lowercase;
+  margin-top: 4px;
+}
+
+.burger {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+@media (min-width: 900px) {
+  .burger {
+    display: none;
+  }
+}
+
+.burger span {
+  width: 22px;
+  height: 2px;
+  background: #111;
+  border-radius: 1px;
+}
+
+.mobileNav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mobileNav a {
+  padding: 12px 12px;
+  text-decoration: none;
+  color: #111;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.mobileNav a:hover {
+  background: rgba(0, 0, 0, 0.04);
+}

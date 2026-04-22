@@ -2,10 +2,19 @@ import express from 'express';
 import pool from '../db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
 import { signUser } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
-import { loginSchema, registerSchema, verifyCodeSchema } from '../utils/validation.js';
+import {
+  loginSchema,
+  registerSchema,
+  verifyCodeSchema,
+  magicLinkRequestSchema,
+  magicLinkVerifySchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from '../utils/validation.js';
+import { sendVerificationCodeEmail, sendMagicLinkEmail, sendPasswordResetEmail } from '../services/mail/authMail.js';
+import { createLoginToken, consumeLoginToken, PURPOSE_MAGIC_LINK, PURPOSE_PASSWORD_RESET } from '../services/loginTokens.js';
 
 const router = express.Router();
 
@@ -33,64 +42,6 @@ function generateVerificationCode() {
 async function sendSMS(phone, code) {
   // TODO: Интеграция с SMS сервисом (SMS.ru, Twilio и т.д.)
   return true;
-}
-
-let emailTransporter = null;
-
-async function getEmailTransporter() {
-  if (emailTransporter) {
-    return emailTransporter;
-  }
-
-  const host = process.env.EMAIL_HOST;
-  const port = Number(process.env.EMAIL_PORT) || 587;
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-
-  if (!host || !user || !pass) {
-    throw new Error('Email transport is not configured. Provide EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS env variables.');
-  }
-
-  const secure = String(process.env.EMAIL_SECURE || '').toLowerCase() === 'true' || port === 465;
-
-  emailTransporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: {
-      user,
-      pass,
-    },
-  });
-
-  return emailTransporter;
-}
-
-async function sendEmail(email, code) {
-  const transporter = await getEmailTransporter();
-  const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-  const subject = 'Код подтверждения Primecoder';
-  const plainText = `Здравствуйте!\n\nВаш код подтверждения: ${code}\nКод действует 10 минут.\n\nЕсли вы не запрашивали регистрацию, проигнорируйте это сообщение.`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">
-      <h2 style="margin-bottom: 16px;">Код подтверждения Primecoder</h2>
-      <p style="margin: 0 0 12px;">Здравствуйте!</p>
-      <p style="margin: 0 0 12px;">Ваш код подтверждения:</p>
-      <div style="display: inline-block; padding: 12px 20px; border-radius: 8px; background: #111827; color: #ffffff; font-size: 24px; letter-spacing: 6px;">
-        ${code}
-      </div>
-      <p style="margin: 20px 0 12px;">Код действует в течение 10 минут.</p>
-      <p style="margin: 0;">Если вы не запрашивали регистрацию, просто проигнорируйте это письмо.</p>
-    </div>
-  `;
-
-  await transporter.sendMail({
-    from: fromAddress,
-    to: email,
-    subject,
-    text: plainText,
-    html,
-  });
 }
 
 // Верификация Google OAuth токена
@@ -215,7 +166,7 @@ router.post('/register', validate({ body: registerSchema }), async (req, res) =>
 
     try {
       // Отправляем код подтверждения
-      await sendEmail(email.trim(), code);
+      await sendVerificationCodeEmail(email.trim(), code);
     } catch (mailErr) {
       console.error('[auth] Failed to send verification email:', mailErr);
       await pool.query('DELETE FROM users WHERE id=$1', [user.id]);
@@ -411,6 +362,98 @@ router.post('/oauth/yandex', async (req, res) => {
     
     const jwtToken = signUser(user);
     res.json({ token: jwtToken, user: { id: user.id, email: user.email, name: user.name, role: user.role, avatarUrl: user.avatar_url } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Вход по magic link (ссылка из письма)
+router.post('/magic-link/request', validate({ body: magicLinkRequestSchema }), async (req, res) => {
+  try {
+    const email = req.body.email.trim().toLowerCase();
+    const r = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (!r.rows.length) {
+      return res.json({ ok: true });
+    }
+    const ttl = Number(process.env.MAGIC_LINK_EXPIRES_MINUTES) || 15;
+    const { raw } = await createLoginToken({
+      userId: r.rows[0].id,
+      email,
+      purpose: PURPOSE_MAGIC_LINK,
+      ttlMinutes: ttl,
+    });
+    await sendMagicLinkEmail(email, raw);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[auth] magic-link request:', e);
+    res.status(500).json({ error: e.message || 'Не удалось отправить письмо' });
+  }
+});
+
+router.post('/magic-link/verify', validate({ body: magicLinkVerifySchema }), async (req, res) => {
+  try {
+    const row = await consumeLoginToken(req.body.token, PURPOSE_MAGIC_LINK);
+    if (!row?.user_id) return res.status(400).json({ error: 'Неверная или просроченная ссылка' });
+    const r = await pool.query(
+      'SELECT id, email, name, role, avatar_url FROM users WHERE id = $1',
+      [row.user_id]
+    );
+    const user = r.rows[0];
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    const token = signUser(user);
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, role: user.role, name: user.name, avatarUrl: user.avatar_url },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Сброс пароля: письмо со ссылкой
+router.post('/forgot-password', validate({ body: forgotPasswordSchema }), async (req, res) => {
+  try {
+    const email = req.body.email.trim().toLowerCase();
+    const r = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (!r.rows.length) {
+      return res.json({ ok: true });
+    }
+    const ttl = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES) || 60;
+    const { raw } = await createLoginToken({
+      userId: r.rows[0].id,
+      email,
+      purpose: PURPOSE_PASSWORD_RESET,
+      ttlMinutes: ttl,
+    });
+    await sendPasswordResetEmail(email, raw);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[auth] forgot-password:', e);
+    res.status(500).json({ error: e.message || 'Не удалось отправить письмо' });
+  }
+});
+
+router.post('/reset-password', validate({ body: resetPasswordSchema }), async (req, res) => {
+  try {
+    const row = await consumeLoginToken(req.body.token, PURPOSE_PASSWORD_RESET);
+    if (!row?.user_id) return res.status(400).json({ error: 'Неверная или просроченная ссылка' });
+    const pwdErr = validatePasswordServer(req.body.newPassword);
+    if (pwdErr) return res.status(400).json({ error: pwdErr });
+    const hash = await bcrypt.hash(req.body.newPassword, 12);
+    await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [
+      hash,
+      row.user_id,
+    ]);
+    const r = await pool.query(
+      'SELECT id, email, name, role, avatar_url FROM users WHERE id = $1',
+      [row.user_id]
+    );
+    const user = r.rows[0];
+    const token = signUser(user);
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, role: user.role, name: user.name, avatarUrl: user.avatar_url },
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

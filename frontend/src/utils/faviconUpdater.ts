@@ -2,7 +2,7 @@
  * Утилита для динамического обновления фавиконки с анимацией и счетчиком уведомлений
  */
 
-const DEFAULT_FAVICON = '/favicon.ico';
+const DEFAULT_FAVICON = '/favicon.svg';
 let animationFrameId: number | null = null;
 let originalFaviconHref: string | null = null;
 let isAnimating = false;
@@ -46,13 +46,15 @@ function createDefaultIcon(): Promise<HTMLImageElement> {
   return new Promise((resolve) => {
     const canvas = createCanvas();
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#141414';
+    ctx.fillStyle = '#121212';
     ctx.fillRect(0, 0, 32, 32);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('P', 16, 16);
+    const grd = ctx.createLinearGradient(5, 8, 27, 24);
+    grd.addColorStop(0, '#ff6a3d');
+    grd.addColorStop(1, '#ff4e18');
+    ctx.fillStyle = grd;
+    ctx.fillRect(5, 10, 22, 12);
+    ctx.fillStyle = '#121212';
+    ctx.fillRect(13, 12, 6, 8);
     
     const img = new Image();
     img.onload = () => resolve(img);

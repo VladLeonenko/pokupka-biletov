@@ -24,15 +24,15 @@ export async function listAdmins(): Promise<Admin[]> {
   return res.json();
 }
 
-export async function addAdmin(data: { email: string; password: string; name?: string; role?: 'admin' | 'sales_manager' }): Promise<Admin> {
+export async function addAdmin(payload: { email: string; password: string; name?: string; role?: 'admin' | 'sales_manager' }): Promise<Admin> {
   const res = await fetch(`${API_BASE}/api/admins`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
-  const err = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(err.error || 'Ошибка добавления');
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string }).error || 'Ошибка добавления');
+  return data as Admin;
 }
 
 export async function removeAdmin(id: number): Promise<void> {

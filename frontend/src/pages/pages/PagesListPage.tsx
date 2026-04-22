@@ -9,11 +9,18 @@ import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WorkIcon from '@mui/icons-material/Work';
 import PriceChangeIcon from '@mui/icons-material/PriceChange';
-import { movePageToCase, movePageToProduct, uploadImage, undoLastPageMove } from '@/services/cmsApi';
+import { movePageToCase, movePageToProduct, uploadImage } from '@/services/cmsApi';
 import { useMemo, useState } from 'react';
 import { useToast } from '@/components/common/ToastProvider';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthProvider';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { mergeSitePagesWithRegistry, isParameterizedRoute } from '@/utils/sitePagesRegistry';
+
+function openPublicPath(path: string) {
+  if (isParameterizedRoute(path)) return;
+  window.open(`${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`, '_blank', 'noopener,noreferrer');
+}
 
 export function PagesListPage() {
   const navigate = useNavigate();
@@ -37,33 +44,21 @@ export function PagesListPage() {
   const [caseOpen, setCaseOpen] = useState<{ open: boolean; id?: string; slug?: string; summary?: string; hero?: string; tools?: string; gallery?: string; metrics?: string }>({ open: false });
   const [productOpen, setProductOpen] = useState<{ open: boolean; id?: string; slug?: string; price?: string; period?: 'one_time' | 'monthly' | 'yearly'; currency?: string; features?: string; sort?: string }>({ open: false });
 
+  const mergedPages = useMemo(() => mergeSitePagesWithRegistry(data || []), [data]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return (data || []).filter((p) => {
+    return mergedPages.filter((p) => {
       const title = (p?.title || '').toLowerCase();
       const path = (p?.path || '').toLowerCase();
       return title.includes(q) || path.includes(q);
     });
-  }, [data, search]);
+  }, [mergedPages, search]);
 
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
         <Typography variant="h5" sx={{ mr: 'auto' }}>Страницы сайта</Typography>
-        <Button size="small" variant="outlined" onClick={async () => {
-          try {
-            const r = await undoLastPageMove();
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['pages'] }),
-              queryClient.invalidateQueries({ queryKey: ['cases'] }),
-              queryClient.invalidateQueries({ queryKey: ['products'] }),
-              queryClient.invalidateQueries({ queryKey: ['blog'] }),
-            ]);
-            showToast(`Вернули страницу: ${r.restored_slug}`, 'success');
-          } catch (err: any) {
-            showToast(err?.message || 'Не удалось отменить перенос', 'error');
-          }
-        }}>Отменить перенос</Button>
         <ToggleButtonGroup size="small" exclusive value={view} onChange={(_e, v) => { if (v) { setView(v); localStorage.setItem('pages.viewMode', v); } }}>
           <ToggleButton value="list" aria-label="Список">Список</ToggleButton>
           <ToggleButton value="grid" aria-label="Плитка">Плитка</ToggleButton>
@@ -77,18 +72,10 @@ export function PagesListPage() {
           size="small"
           sx={{ flex: 1, minWidth: 200 }}
         />
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {['houses-case', 'madeo-case', 'polygon', 'straumann-case'].map((slug) => (
-            <Chip
-              key={slug}
-              label={slug}
-              size="small"
-              variant="outlined"
-              onClick={() => navigate(`/admin/pages/${encodeURIComponent(slug.startsWith('/') ? slug : '/' + slug)}`)}
-              sx={{ cursor: 'pointer' }}
-            />
-          ))}
-        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', maxWidth: 720 }}>
+          Реестр (sitePagesRegistry) + записи CMS. Чип «React» — маршрут из кода без строки в pages: правки в репозитории
+          или витрина билетов; «Редактировать» только у CMS-страниц.
+        </Typography>
       </Box>
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
@@ -101,81 +88,111 @@ export function PagesListPage() {
         <Paper variant="outlined">
           <List>
             {filtered.map((p) => {
+              const isStatic = p.listSource === 'static';
+              const canOpen = !isParameterizedRoute(p.path);
               const published = Boolean(p.isPublished);
               return (
-                <ListItem key={p.id}
+                <ListItem key={`${p.listSource}:${p.id}`}
                   secondaryAction={
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Tooltip title="Редактировать">
-                        <IconButton edge="end" onClick={(e) => { e.stopPropagation(); navigate(`/admin/pages/${encodeURIComponent(p.id)}`); }}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Предпросмотр">
-                        <IconButton edge="end" onClick={(e) => { e.stopPropagation(); window.open(`/admin/pages/${encodeURIComponent(p.id)}/preview`, '_blank'); }}>
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={published ? 'Скрыть' : 'Опубликовать'}>
-                        <IconButton edge="end" onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            await publishPage(p.id, !published);
-                            queryClient.invalidateQueries({ queryKey: ['pages'] });
-                            showToast(published ? 'Страница скрыта' : 'Страница опубликована', 'success');
-                          } catch (err: any) {
-                            showToast(err?.message || 'Ошибка публикации', 'error');
-                          }
-                        }}>
-                          {published ? <PublishedWithChangesIcon color="success" /> : <UnpublishedIcon />}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Перенести в блог">
-                        <IconButton edge="end" onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            await movePageToBlog(p.id);
-                            await Promise.all([
-                              queryClient.invalidateQueries({ queryKey: ['pages'] }),
-                              queryClient.invalidateQueries({ queryKey: ['blog'] }),
-                            ]);
-                            showToast('Перенесено в блог', 'success');
-                          } catch (err: any) {
-                            showToast(err?.message || 'Ошибка переноса', 'error');
-                          }
-                        }}>
-                          <DriveFileMoveIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Перенести в кейсы">
-                        <IconButton edge="end" onClick={(e) => { e.stopPropagation(); setCaseOpen({ open: true, id: p.id, slug: p.id }); }}>
-                          <WorkIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Перенести в продукты">
-                        <IconButton edge="end" onClick={(e) => { e.stopPropagation(); setProductOpen({ open: true, id: p.id, slug: p.id, period: 'one_time', currency: 'RUB' }); }}>
-                          <PriceChangeIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Удалить">
-                        <IconButton edge="end" onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            await deleteSitePage(p.id);
-                            queryClient.invalidateQueries({ queryKey: ['pages'] });
-                            showToast('Страница удалена', 'success');
-                          } catch (err: any) {
-                            showToast(err?.message || 'Ошибка удаления', 'error');
-                          }
-                        }}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
+                      {isStatic ? (
+                        <Tooltip title={canOpen ? 'Открыть на сайте' : 'Шаблон URL с параметром — откройте конкретный адрес вручную'}>
+                          <span>
+                            <IconButton edge="end" disabled={!canOpen} onClick={(e) => { e.stopPropagation(); openPublicPath(p.path); }}>
+                              <OpenInNewIcon />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          <Tooltip title="Редактировать">
+                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); navigate(`/admin/pages/${encodeURIComponent(p.id)}`); }}>
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Предпросмотр">
+                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); window.open(`/admin/pages/${encodeURIComponent(p.id)}/preview`, '_blank'); }}>
+                              <VisibilityIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={published ? 'Скрыть' : 'Опубликовать'}>
+                            <IconButton edge="end" onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await publishPage(p.id, !published);
+                                queryClient.invalidateQueries({ queryKey: ['pages'] });
+                                showToast(published ? 'Страница скрыта' : 'Страница опубликована', 'success');
+                              } catch (err: any) {
+                                showToast(err?.message || 'Ошибка публикации', 'error');
+                              }
+                            }}>
+                              {published ? <PublishedWithChangesIcon color="success" /> : <UnpublishedIcon />}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Перенести в блог">
+                            <IconButton edge="end" onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await movePageToBlog(p.id);
+                                await Promise.all([
+                                  queryClient.invalidateQueries({ queryKey: ['pages'] }),
+                                  queryClient.invalidateQueries({ queryKey: ['blog'] }),
+                                ]);
+                                showToast('Перенесено в блог', 'success');
+                              } catch (err: any) {
+                                showToast(err?.message || 'Ошибка переноса', 'error');
+                              }
+                            }}>
+                              <DriveFileMoveIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Перенести в кейсы">
+                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); setCaseOpen({ open: true, id: p.id, slug: p.id }); }}>
+                              <WorkIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Перенести в продукты">
+                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); setProductOpen({ open: true, id: p.id, slug: p.id, period: 'one_time', currency: 'RUB' }); }}>
+                              <PriceChangeIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Удалить">
+                            <IconButton edge="end" onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await deleteSitePage(p.id);
+                                queryClient.invalidateQueries({ queryKey: ['pages'] });
+                                showToast('Страница удалена', 'success');
+                              } catch (err: any) {
+                                showToast(err?.message || 'Ошибка удаления', 'error');
+                              }
+                            }}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
                     </Box>
                   }
                 >
-                  <ListItemButton onClick={() => navigate(`/admin/pages/${encodeURIComponent(p.id)}`)}>
-                    <ListItemText primary={p.title || '(без названия)'} secondary={p.path} />
+                  <ListItemButton
+                    onClick={() => {
+                      if (isStatic) {
+                        if (canOpen) openPublicPath(p.path);
+                        return;
+                      }
+                      navigate(`/admin/pages/${encodeURIComponent(p.id)}`);
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <span>{p.title || '(без названия)'}</span>
+                          {isStatic && <Chip size="small" label="React" variant="outlined" />}
+                        </Box>
+                      }
+                      secondary={p.path}
+                    />
                   </ListItemButton>
                 </ListItem>
               );
@@ -184,44 +201,69 @@ export function PagesListPage() {
         </Paper>
       ) : (
         <Grid container spacing={2}>
-          {filtered.map((p) => (
-            <Grid item xs={12} sm={6} md={4} key={p.id}>
+          {filtered.map((p) => {
+            const isStatic = p.listSource === 'static';
+            const canOpen = !isParameterizedRoute(p.path);
+            return (
+            <Grid item xs={12} sm={6} md={4} key={`${p.listSource}:${p.id}`}>
               <Card variant="outlined">
-                <CardActionArea onClick={() => navigate(`/admin/pages/${encodeURIComponent(p.id)}`)}>
+                <CardActionArea
+                  onClick={() => {
+                    if (isStatic) {
+                      if (canOpen) openPublicPath(p.path);
+                      return;
+                    }
+                    navigate(`/admin/pages/${encodeURIComponent(p.id)}`);
+                  }}
+                >
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>{p.title || '(без названия)'}</Typography>
-                      {p.isPublished && <Chip label="Опубликовано" size="small" color="success" />}
-                      {!p.isPublished && <Chip label="Скрыто" size="small" color="default" />}
+                      {isStatic && <Chip label="React" size="small" variant="outlined" />}
+                      {!isStatic && p.isPublished && <Chip label="Опубликовано" size="small" color="success" />}
+                      {!isStatic && !p.isPublished && <Chip label="Скрыто" size="small" color="default" />}
                     </Box>
                     <Typography variant="body2" color="text.secondary">{p.path}</Typography>
                   </CardContent>
                 </CardActionArea>
                 <Box sx={{ display: 'flex', gap: 0.5, p: 1, justifyContent: 'flex-end' }}>
-                  <Tooltip title="Редактировать">
-                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/pages/${encodeURIComponent(p.id)}`); }}><EditIcon fontSize="small" /></IconButton>
-                  </Tooltip>
-                  <Tooltip title="Предпросмотр">
-                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); window.open(`/admin/pages/${encodeURIComponent(p.id)}/preview`, '_blank'); }}><VisibilityIcon fontSize="small" /></IconButton>
-                  </Tooltip>
-                  <Tooltip title={p.isPublished ? 'Скрыть' : 'Опубликовать'}>
-                    <IconButton size="small" onClick={async (e) => {
-                      e.stopPropagation();
-                      try {
-                        await publishPage(p.id, !p.isPublished);
-                        queryClient.invalidateQueries({ queryKey: ['pages'] });
-                        showToast(p.isPublished ? 'Страница скрыта' : 'Страница опубликована', 'success');
-                      } catch (err: any) {
-                        showToast(err?.message || 'Ошибка публикации', 'error');
-                      }
-                    }}>
-                      {p.isPublished ? <PublishedWithChangesIcon fontSize="small" color="success" /> : <UnpublishedIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
+                  {isStatic ? (
+                    <Tooltip title={canOpen ? 'Открыть на сайте' : 'Шаблон с параметром'}>
+                      <span>
+                        <IconButton size="small" disabled={!canOpen} onClick={(e) => { e.stopPropagation(); openPublicPath(p.path); }}>
+                          <OpenInNewIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <>
+                      <Tooltip title="Редактировать">
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/pages/${encodeURIComponent(p.id)}`); }}><EditIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                      <Tooltip title="Предпросмотр">
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); window.open(`/admin/pages/${encodeURIComponent(p.id)}/preview`, '_blank'); }}><VisibilityIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                      <Tooltip title={p.isPublished ? 'Скрыть' : 'Опубликовать'}>
+                        <IconButton size="small" onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await publishPage(p.id, !p.isPublished);
+                            queryClient.invalidateQueries({ queryKey: ['pages'] });
+                            showToast(p.isPublished ? 'Страница скрыта' : 'Страница опубликована', 'success');
+                          } catch (err: any) {
+                            showToast(err?.message || 'Ошибка публикации', 'error');
+                          }
+                        }}>
+                          {p.isPublished ? <PublishedWithChangesIcon fontSize="small" color="success" /> : <UnpublishedIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                    </>
+                  )}
                 </Box>
               </Card>
             </Grid>
-          ))}
+            );
+          })}
         </Grid>
       )}
 

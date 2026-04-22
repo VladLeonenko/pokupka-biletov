@@ -7,6 +7,7 @@
     "products:seed": "cd backend && node scripts/create-all-products.js",
     "migrate": "cd backend && node scripts/apply-migrations-to-db.js",
     "test": "cd frontend && npm run test",
+    "loadtest": "bash scripts/loadtest-local.sh",
     "test:e2e": "playwright test",
     "seed:case-seo": "cd backend && node scripts/seed-case-pages-seo.js",
     "seed:portfolio-cases": "cd backend && node scripts/addPortfolioCases.js",

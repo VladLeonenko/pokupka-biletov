@@ -9,6 +9,7 @@ type AuthCtx = {
   user: User;
   token: string | null;
   login: (email: string, password: string) => Promise<NonNullable<User>>;
+  magicLinkLogin: (token: string) => Promise<NonNullable<User>>;
   register: (email: string, password: string, name?: string, phone?: string, agreeToTerms?: boolean, agreeToPrivacy?: boolean) => Promise<{ requiresVerification?: boolean }>;
   registerPhone: (phone: string, name?: string) => Promise<{ userId: number; requiresVerification: boolean }>;
   verifyCode: (emailOrPhone: string, code: string, isEmail: boolean) => Promise<void>;
@@ -57,19 +58,12 @@ const stored = localStorage.getItem('auth_user');
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const base = getApiBase();
-    const res = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    if (!res.ok) throw new Error('Неверный логин или пароль');
-    const data = await res.json();
-Cookies.set('auth_token', data.token, { expires: 7 });
+  const applyAuthPayload = async (data: { token: string; user: NonNullable<User> }) => {
+    Cookies.set('auth_token', data.token, { expires: 7 });
     setAuthToken(data.token);
-localStorage.setItem('auth_user', JSON.stringify(data.user));
-
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
-    
-    // Синхронизируем корзину после авторизации
     try {
       const { syncCart } = await import('@/services/ecommerceApi');
       await syncCart();
@@ -77,6 +71,20 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
       console.error('Failed to sync cart:', e);
     }
     return data.user;
+  };
+
+  const login = async (email: string, password: string) => {
+    const base = getApiBase();
+    const res = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    if (!res.ok) throw new Error('Неверный логин или пароль');
+    const data = await res.json();
+    return applyAuthPayload(data);
+  };
+
+  const magicLinkLogin = async (rawToken: string) => {
+    const { verifyMagicLinkToken } = await import('@/services/ecommerceApi');
+    const data = await verifyMagicLinkToken(rawToken);
+    return applyAuthPayload(data);
   };
 
   const register = async (
@@ -89,12 +97,7 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
   ) => {
     const { register: registerApi } = await import('@/services/ecommerceApi');
     const data = await registerApi(email, password, name, phone, agreeToTerms, agreeToPrivacy);
-Cookies.set('auth_token', data.token, { expires: 7 });
-    setAuthToken(data.token);
-localStorage.setItem('auth_user', JSON.stringify(data.user));
-
-    setToken(data.token);
-    setUser(data.user);
+    await applyAuthPayload(data);
     return { requiresVerification: data.requiresVerification };
   };
 
@@ -106,58 +109,19 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
   const verifyCode = async (emailOrPhone: string, code: string, isEmail: boolean) => {
     const { verifyCode: verifyCodeApi } = await import('@/services/ecommerceApi');
     const data = await verifyCodeApi(emailOrPhone, code, isEmail);
-Cookies.set('auth_token', data.token, { expires: 7 });
-    setAuthToken(data.token);
-localStorage.setItem('auth_user', JSON.stringify(data.user));
-
-    setToken(data.token);
-    setUser(data.user);
-    
-    // Синхронизируем корзину после верификации
-    try {
-      const { syncCart } = await import('@/services/ecommerceApi');
-      await syncCart();
-    } catch (e) {
-      console.error('Failed to sync cart:', e);
-    }
+    await applyAuthPayload(data);
   };
 
   const oauthGoogle = async (token: string) => {
     const { oauthGoogle: oauthGoogleApi } = await import('@/services/ecommerceApi');
     const data = await oauthGoogleApi(token);
-Cookies.set('auth_token', data.token, { expires: 7 });
-    setAuthToken(data.token);
-localStorage.setItem('auth_user', JSON.stringify(data.user));
-
-    setToken(data.token);
-    setUser(data.user);
-    
-    // Синхронизируем корзину после авторизации
-    try {
-      const { syncCart } = await import('@/services/ecommerceApi');
-      await syncCart();
-    } catch (e) {
-      console.error('Failed to sync cart:', e);
-    }
+    await applyAuthPayload(data);
   };
 
   const oauthYandex = async (token: string) => {
     const { oauthYandex: oauthYandexApi } = await import('@/services/ecommerceApi');
     const data = await oauthYandexApi(token);
-Cookies.set('auth_token', data.token, { expires: 7 });
-    setAuthToken(data.token);
-localStorage.setItem('auth_user', JSON.stringify(data.user));
-
-    setToken(data.token);
-    setUser(data.user);
-    
-    // Синхронизируем корзину после авторизации
-    try {
-      const { syncCart } = await import('@/services/ecommerceApi');
-      await syncCart();
-    } catch (e) {
-      console.error('Failed to sync cart:', e);
-    }
+    await applyAuthPayload(data);
   };
 
   const refreshUser = async () => {
@@ -243,7 +207,22 @@ localStorage.setItem('auth_user', JSON.stringify(data.user));
     };
   }, [token, user]);
 
-  const value = useMemo(() => ({ user, token, login, register, registerPhone, verifyCode, oauthGoogle, oauthYandex, logout, refreshUser }), [user, token]);
+  const value = useMemo(
+    () => ({
+      user,
+      token,
+      login,
+      magicLinkLogin,
+      register,
+      registerPhone,
+      verifyCode,
+      oauthGoogle,
+      oauthYandex,
+      logout,
+      refreshUser,
+    }),
+    [user, token]
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

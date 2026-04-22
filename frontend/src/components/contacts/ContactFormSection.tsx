@@ -1,11 +1,20 @@
 import { useState, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useToast } from '@/components/common/ToastProvider';
 import { getApiBase } from '@/utils/apiBase';
+import styles from './ContactFormSection.module.css';
 
-/**
- * Секция с формой обратной связи на странице /contacts
- */
-export function ContactFormSection() {
+export type ContactFormSectionProps = {
+  /** Заголовок из CMS / витрины */
+  title: string;
+  /** Подзаголовок под заголовком */
+  subtitle?: string;
+};
+
+const DEFAULT_SUBTITLE =
+  'Напишите детали заказа или вопрос — ответим на указанную почту. Если нужно срочно, лучше позвоните по номеру выше.';
+
+export function ContactFormSection({ title, subtitle = DEFAULT_SUBTITLE }: ContactFormSectionProps) {
   const { showToast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
@@ -18,29 +27,29 @@ export function ContactFormSection() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const validateEmail = (email: string): boolean => {
-    return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,8})+$/.test(email);
+  const validateEmail = (value: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   };
 
   const validateForm = (): { isValid: boolean; errors: Record<string, string> } => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Введите имя';
+      newErrors.name = 'Укажите, как к вам обращаться';
     }
 
     if (!formData.tel.trim()) {
-      newErrors.tel = 'Введите номер телефона';
+      newErrors.tel = 'Нужен телефон для связи';
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Введите email';
+      newErrors.email = 'Укажите email';
     } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Введите корректный email';
+      newErrors.email = 'Похоже, в адресе ошибка';
     }
 
     if (!formData.privacy_consent) {
-      newErrors.privacy_consent = 'Необходимо согласие на обработку персональных данных';
+      newErrors.privacy_consent = 'Нужно согласие на обработку данных';
     }
 
     setErrors(newErrors);
@@ -50,16 +59,14 @@ export function ContactFormSection() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Валидируем форму
     const validation = validateForm();
-    
+
     if (!validation.isValid) {
-      // Показываем первую ошибку через toast
       const errorMessages = Object.values(validation.errors);
       if (errorMessages.length > 0) {
         showToast(errorMessages[0], 'error');
       } else {
-        showToast('Пожалуйста, заполните все обязательные поля', 'error');
+        showToast('Заполните обязательные поля', 'error');
       }
       return;
     }
@@ -68,15 +75,11 @@ export function ContactFormSection() {
     setSubmitSuccess(false);
 
     try {
-      // Отправляем через публичный API форм
       const API_BASE = getApiBase();
-      
       const formId = 'contact-form';
       const response = await fetch(`${API_BASE}/api/forms/${formId}/submit`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name,
           tel: formData.tel,
@@ -87,8 +90,8 @@ export function ContactFormSection() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Ошибка отправки формы' }));
-        throw new Error(errorData.error || 'Ошибка отправки формы');
+        const errorData = await response.json().catch(() => ({ error: 'Не удалось отправить' }));
+        throw new Error(errorData.error || 'Ошибка отправки');
       }
 
       await response.json();
@@ -96,15 +99,13 @@ export function ContactFormSection() {
       setSubmitSuccess(true);
       setFormData({ name: '', tel: '', email: '', question: '', privacy_consent: false });
       setErrors({});
-      showToast('Спасибо! Ваше сообщение отправлено. Мы свяжемся с вами в ближайшее время.', 'success');
+      showToast('Сообщение отправлено — скоро ответим на почту.', 'success');
 
-      // Скрываем сообщение об успехе через 5 секунд
-      setTimeout(() => setSubmitSuccess(false), 5000);
-    } catch (error: any) {
-      console.error('Form submission error:', error);
-      const errorMessage = error.message || 'Ошибка при отправке формы';
-      setErrors({ submit: errorMessage });
-      showToast(errorMessage, 'error');
+      setTimeout(() => setSubmitSuccess(false), 6000);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Ошибка при отправке';
+      setErrors({ submit: message });
+      showToast(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -113,144 +114,144 @@ export function ContactFormSection() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
     }));
-    
-    // Убираем ошибку при вводе
+
     if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
       });
     }
   };
 
   return (
-    <div id="contacts-form" className="contacts-form">
-      <div className="form-header">
-        <h3>Обратная связь</h3>
+    <section
+      id="contacts-form"
+      className={styles.root}
+      aria-labelledby="contacts-form-heading"
+    >
+      <div className={styles.accent} aria-hidden />
+      <div className={styles.header}>
+        <h2 id="contacts-form-heading" className={styles.title}>
+          {title}
+        </h2>
+        <p className={styles.subtitle}>{subtitle}</p>
       </div>
+
       <form
-        id="contact-form"
+        className={`${styles.form} ${isSubmitting ? styles.formSending : ''}`}
         onSubmit={handleSubmit}
-        className={`d-flex flex-column gap-v-15 ${isSubmitting ? '_sending' : ''}`}
         data-react-handled="true"
+        noValidate
       >
-        <div className={`form-item ${errors.name ? '_error' : ''}`}>
-          <label className="labelInput" htmlFor="name">
-            Имя
-          </label>
-          <input
-            type="text"
-            name="name"
-            placeholder="Введите имя"
-            id="name"
-            className="_req"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
-          {errors.name && <span className="error-message">{errors.name}</span>}
+        <div className={styles.grid2}>
+          <div className={`${styles.field} ${errors.name ? styles.fieldError : ''}`}>
+            <label className={styles.label} htmlFor="contact-name">
+              Имя <span className={styles.req}>*</span>
+            </label>
+            <input
+              id="contact-name"
+              type="text"
+              name="name"
+              autoComplete="name"
+              placeholder="Как к вам обращаться"
+              className={styles.input}
+              value={formData.name}
+              onChange={handleChange}
+            />
+            {errors.name ? <p className={styles.errorText}>{errors.name}</p> : null}
+          </div>
+
+          <div className={`${styles.field} ${errors.tel ? styles.fieldError : ''}`}>
+            <label className={styles.label} htmlFor="contact-tel">
+              Телефон <span className={styles.req}>*</span>
+            </label>
+            <input
+              id="contact-tel"
+              type="tel"
+              name="tel"
+              autoComplete="tel"
+              placeholder="+7 …"
+              className={styles.input}
+              value={formData.tel}
+              onChange={handleChange}
+            />
+            {errors.tel ? <p className={styles.errorText}>{errors.tel}</p> : null}
+          </div>
         </div>
 
-        <div className={`form-item ${errors.tel ? '_error' : ''}`}>
-          <label className="labelInput" htmlFor="tel">
-            Телефон
+        <div className={`${styles.field} ${styles.fieldFull} ${errors.email ? styles.fieldError : ''}`}>
+          <label className={styles.label} htmlFor="contact-email">
+            Email <span className={styles.req}>*</span>
           </label>
           <input
-            type="tel"
-            name="tel"
-            placeholder="Введите номер телефона"
-            id="tel"
-            className="_req"
-            value={formData.tel}
-            onChange={handleChange}
-            required
-          />
-          {errors.tel && <span className="error-message">{errors.tel}</span>}
-        </div>
-
-        <div className={`form-item ${errors.email ? '_error' : ''}`}>
-          <label className="labelInput" htmlFor="email">
-            Электронная почта
-          </label>
-          <input
+            id="contact-email"
             type="email"
             name="email"
-            placeholder="Введите email"
-            id="email"
-            className="_req _email"
+            autoComplete="email"
+            placeholder="name@example.com"
+            className={styles.input}
             value={formData.email}
             onChange={handleChange}
-            required
           />
-          {errors.email && <span className="error-message">{errors.email}</span>}
+          {errors.email ? <p className={styles.errorText}>{errors.email}</p> : null}
         </div>
 
-        <div className="form-item">
-          <label className="labelInput" htmlFor="question">
-            Ваш вопрос
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="contact-question">
+            Сообщение
           </label>
           <textarea
-            className="question-input"
+            id="contact-question"
             name="question"
-            placeholder="Введите вопрос"
-            id="question"
+            placeholder="Заказ, возврат, вопрос по мероприятию…"
+            className={styles.textarea}
+            rows={5}
             value={formData.question}
             onChange={handleChange}
           />
         </div>
 
-        <div className="submit-form">
-          <input
-            type="submit"
-            className="submit-btn jcc"
-            value={isSubmitting ? 'Отправка...' : 'Отправить'}
-            id="submit"
-            disabled={isSubmitting}
-          />
-          {submitSuccess && (
-            <p className="pt-15" style={{ color: '#4caf50' }}>
-              Сообщение успешно отправлено!
+        <div className={`${styles.field} ${styles.privacy} ${errors.privacy_consent ? styles.fieldError : ''}`}>
+          <label className={styles.privacyLabel} htmlFor="contact-privacy">
+            <input
+              id="contact-privacy"
+              type="checkbox"
+              name="privacy_consent"
+              className={styles.checkbox}
+              checked={formData.privacy_consent}
+              onChange={handleChange}
+            />
+            <span>
+              Согласен на{' '}
+              <Link className={styles.privacyLink} to="/privacy" target="_blank" rel="noreferrer">
+                обработку персональных данных
+              </Link>
+              <span className={styles.req}> *</span>
+            </span>
+          </label>
+          {errors.privacy_consent ? <p className={styles.errorText}>{errors.privacy_consent}</p> : null}
+        </div>
+
+        <div className={styles.actions}>
+          <button type="submit" className={styles.submit} disabled={isSubmitting}>
+            {isSubmitting ? 'Отправляем…' : 'Отправить сообщение'}
+          </button>
+
+          {submitSuccess ? (
+            <p className={styles.success} role="status">
+              Готово — письмо ушло в поддержку. Проверьте почту, мы ответим в рабочее время.
             </p>
-          )}
-          {errors.submit && (
-            <p className="pt-15" style={{ color: '#f44336' }}>
-              {errors.submit}
-            </p>
-          )}
-          <div className={`form-item ${errors.privacy_consent ? '_error' : ''}`} style={{ marginTop: '15px' }}>
-            <label className="d-flex gap-h-15 align-items-center" style={{ cursor: 'pointer', fontSize: '14px', lineHeight: '1.4', color: '#B9B9B9' }}>
-              <input
-                type="checkbox"
-                name="privacy_consent"
-                id="privacy_consent"
-                checked={formData.privacy_consent}
-                onChange={handleChange}
-                required
-                style={{ width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0, accentColor: '#FFBB00' }}
-              />
-              <span>
-                Я согласен на{' '}
-                <a href="/privacy" target="_blank" style={{ color: '#FFBB00', textDecoration: 'underline' }}>
-                  обработку персональных данных
-                </a>
-                <span style={{ color: '#ff4444' }}> *</span>
-              </span>
-            </label>
-            {errors.privacy_consent && (
-              <div style={{ color: '#ff4444', marginTop: '5px', fontSize: '12px', paddingLeft: '28px' }}>
-                {errors.privacy_consent}
-              </div>
-            )}
-          </div>
+          ) : null}
+
+          {errors.submit ? <p className={styles.submitError}>{errors.submit}</p> : null}
         </div>
       </form>
-    </div>
+    </section>
   );
 }
-

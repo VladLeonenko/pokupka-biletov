@@ -576,12 +576,20 @@ export type WishlistItem = {
   createdAt?: string;
 };
 
+export type OrderExternalTicket = {
+  id: number;
+  orderItemId?: number | null;
+  provider: string;
+  externalTicketId: string;
+  metadata?: Record<string, unknown>;
+};
+
 export type Order = {
   id: number;
   userId?: number;
   sessionId?: string;
   orderNumber: string;
-  status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'completed';
   totalCents: number;
   currency: string;
   customerName?: string;
@@ -590,8 +598,15 @@ export type Order = {
   shippingAddress?: any;
   paymentMethod?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  paymentProvider?: string | null;
+  externalPaymentId?: string | null;
+  externalOrderRef?: string | null;
+  paymentCheckoutUrl?: string | null;
+  externalTickets?: OrderExternalTicket[];
   notes?: string;
   items?: OrderItem[];
+  /** legacy / совместимость с шаблонами, где ожидается total в копейках */
+  total?: number;
   createdAt?: string;
   updatedAt?: string;
 };

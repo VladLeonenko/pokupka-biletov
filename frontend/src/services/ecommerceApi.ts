@@ -203,6 +203,10 @@ export async function createOrder(orderData: {
   shippingAddress?: any;
   paymentMethod?: string;
   notes?: string;
+  paymentProvider?: string;
+  externalPaymentId?: string;
+  externalOrderRef?: string;
+  paymentCheckoutUrl?: string;
 }): Promise<{ order: Order }> {
   const res = await doFetch(`${getApiBaseUrl()}/api/public/orders`, {
     method: 'POST',
@@ -222,6 +226,21 @@ export async function getMyOrders(): Promise<{ orders: Order[] }> {
 export async function getOrder(orderNumber: string): Promise<{ order: Order }> {
   const res = await doFetch(`${getApiBaseUrl()}/api/public/orders/${encodeURIComponent(orderNumber)}`);
   if (!res.ok) throw new Error('Failed to fetch order');
+  return res.json();
+}
+
+export type OrderPaymentStatusResponse = {
+  paymentStatus: string;
+  status: string;
+  remote: { state: string; detail?: string | null };
+  lastPaymentPollAt?: string | null;
+};
+
+export async function getOrderPaymentStatus(orderNumber: string): Promise<OrderPaymentStatusResponse> {
+  const res = await doFetch(
+    `${getApiBaseUrl()}/api/public/orders/${encodeURIComponent(orderNumber)}/payment-status`
+  );
+  if (!res.ok) throw new Error('Failed to fetch payment status');
   return res.json();
 }
 
@@ -360,6 +379,56 @@ export async function oauthYandex(token: string): Promise<{ token: string; user:
 export async function getCurrentUser(): Promise<{ user: any }> {
   const res = await doFetch(`${getApiBaseUrl()}/api/auth/me`);
   if (!res.ok) throw new Error('Failed to get current user');
+  return res.json();
+}
+
+export async function requestMagicLink(email: string): Promise<void> {
+  const res = await fetch(`${getApiBaseUrl()}/api/auth/magic-link/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Не удалось отправить письмо');
+  }
+}
+
+export async function verifyMagicLinkToken(token: string): Promise<{ token: string; user: any }> {
+  const res = await fetch(`${getApiBaseUrl()}/api/auth/magic-link/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Неверная или просроченная ссылка');
+  }
+  return res.json();
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${getApiBaseUrl()}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Не удалось отправить письмо');
+  }
+}
+
+export async function resetPasswordWithToken(token: string, newPassword: string): Promise<{ token: string; user: any }> {
+  const res = await fetch(`${getApiBaseUrl()}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Не удалось сменить пароль');
+  }
   return res.json();
 }
 

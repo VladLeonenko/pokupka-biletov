@@ -1,0 +1,229 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: min(72vh, 760px);
+  max-height: min(92vh, 980px);
+  /* Светлый фон: типичные схемы залов — ч/б линии на белом; на тёмном фоне «пропадают» */
+  background: #e6e6e9;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #fafafa 0%, #f0f0f2 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.toolbarHint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(0, 0, 0, 0.45);
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .toolbarHint {
+    display: none;
+  }
+}
+
+.catalogHint {
+  margin: 0;
+  padding: 6px 12px 8px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #5d4037;
+  background: rgba(255, 193, 7, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.zoomBtns {
+  display: flex;
+  gap: 6px;
+}
+
+.zoomBtn {
+  min-width: 40px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoomBtn:hover {
+  background: #f3f3f5;
+}
+
+.zoomPct {
+  min-width: 52px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.zoomPct:hover {
+  background: #f3f3f5;
+}
+
+.viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 10px;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.viewport:active {
+  cursor: grabbing;
+}
+
+.panInner {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Высота задаётся потоком: svgLayer не absolute — иначе .layers схлопывается в 0 и схемы не видно */
+.layers {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 1600px);
+  margin: 0 auto;
+  will-change: transform;
+}
+
+.svgLayer {
+  position: relative;
+  width: 100%;
+  display: block;
+  line-height: 0;
+  pointer-events: none;
+}
+
+/* Без max-height: иначе при широком экране схема сжимается по высоте и становится «крошечной» по ширине */
+.svgLayer :global(svg) {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  display: block;
+  vertical-align: top;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Дубль: только заливка — обводка «доступности» только у кнопок-оверлея */
+.svgLayer :global(circle[place-name]) {
+  fill: #d0d0d0 !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+.seatLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seatDot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: clamp(30px, 3.2vw, 44px);
+  height: clamp(30px, 3.2vw, 44px);
+  border-radius: 6px;
+  border: 2px solid var(--seat-accent, #888);
+  background-color: #d0d0d0;
+  color: #1a1a1a;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 0;
+  font-size: clamp(0.5rem, 1.6vw, 0.62rem);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-width 0.12s ease;
+}
+
+.seatDot:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+  z-index: 2;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.seatDotOn {
+  z-index: 4;
+  border-width: 3px;
+  background-color: var(--seat-accent, #555);
+  color: #fff;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--seat-accent, #555);
+}
+
+.seatDotOn:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.seatDotLabel {
+  display: block;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .root {
+    min-height: min(78vh, 640px);
+    max-height: min(78vh, 640px);
+    border-radius: 0;
+  }
+}
+
+/* Внутри Dialog: занимает доступную высоту, без полноэкранного «листа» страницы */
+.rootInDialog {
+  min-height: min(56vh, 560px);
+  max-height: min(72vh, 780px);
+  flex: 1 1 auto;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+@media (max-width: 600px) {
+  .rootInDialog {
+    min-height: calc(100vh - 168px);
+    max-height: none;
+  }
+}

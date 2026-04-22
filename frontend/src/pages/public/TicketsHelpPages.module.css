@@ -1,0 +1,285 @@
+/* Общая вёрстка справочных страниц витрины (возврат, FAQ) — в одном стиле с ContactsPage */
+
+.page {
+  min-height: 72vh;
+  background: #eceff4;
+  color: #141414;
+  font-family: var(--neg-font, system-ui, sans-serif);
+}
+
+/* ----- Hero ----- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 15% 0%, #2a2a2a 0%, #121212 45%, #0a0a0a 100%);
+  color: #fff;
+  margin-bottom: clamp(24px, 5vw, 40px);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 90% 30%, rgba(255, 78, 24, 0.35) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+.heroInner {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 56px) clamp(20px, 5vw, 40px);
+}
+
+.kicker {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 245, 240, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.title {
+  margin: 0 0 14px;
+  font-size: clamp(1.65rem, 4.5vw, 2.35rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  max-width: 20ch;
+  color: #fff;
+  text-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.lead {
+  margin: 0;
+  font-size: clamp(0.94rem, 2vw, 1.05rem);
+  line-height: 1.58;
+  font-weight: 500;
+  color: rgba(255, 252, 248, 0.96);
+  max-width: min(46ch, 100%);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* ----- Контент ----- */
+.shell {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 28px) 64px;
+  box-sizing: border-box;
+}
+
+.updated {
+  margin: 0 0 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(20, 20, 20, 0.45);
+}
+
+.card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.04),
+    0 16px 40px rgba(0, 0, 0, 0.05);
+  padding: clamp(22px, 4vw, 36px);
+  margin-bottom: 20px;
+}
+
+.prose {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: rgba(20, 20, 20, 0.88);
+}
+
+.prose p {
+  margin: 0 0 1.1em;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #141414;
+}
+
+.sectionTitle:first-child {
+  margin-top: 0;
+}
+
+.list {
+  margin: 0 0 1rem;
+  padding-left: 1.15rem;
+}
+
+.list li {
+  margin-bottom: 0.5em;
+  padding-left: 0.15em;
+}
+
+.list li::marker {
+  color: var(--neg-orange, #ff4e18);
+}
+
+.note {
+  margin-top: 1.25rem;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(20, 20, 20, 0.72);
+  background: rgba(255, 78, 24, 0.07);
+  border: 1px solid rgba(255, 78, 24, 0.12);
+}
+
+.noteStrong {
+  font-weight: 700;
+  color: #141414;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 1.5rem;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: var(--neg-orange, #ff4e18);
+  color: #fff !important;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: filter 0.15s ease;
+}
+
+.cta:hover {
+  filter: brightness(1.05);
+}
+
+.ctaGhost {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #141414 !important;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.ctaGhost:hover {
+  border-color: rgba(255, 78, 24, 0.45);
+  background: rgba(255, 78, 24, 0.05);
+}
+
+/* FAQ: native details */
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.faqItem {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.faqItem:last-child {
+  border-bottom: none;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 4px 16px 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #141414;
+  cursor: pointer;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--neg-orange, #ff4e18);
+  border-bottom: 2px solid var(--neg-orange, #ff4e18);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  margin-top: -4px;
+  transition: transform 0.2s ease;
+}
+
+.faqItem[open] .summary::after {
+  transform: rotate(225deg);
+  margin-top: 4px;
+}
+
+.faqBody {
+  padding: 0 0 18px;
+  font-size: 0.9rem;
+  line-height: 1.62;
+  color: rgba(20, 20, 20, 0.78);
+}
+
+.faqBody p {
+  margin: 0 0 0.85em;
+}
+
+.faqBody p:last-child {
+  margin-bottom: 0;
+}
+
+.faqBody a {
+  color: var(--neg-orange, #ff4e18);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.faqBody a:hover {
+  text-decoration: underline;
+}
+
+.related {
+  margin-top: 8px;
+  padding-top: 20px;
+  font-size: 0.875rem;
+  color: rgba(20, 20, 20, 0.55);
+}
+
+.related a {
+  color: var(--neg-orange, #ff4e18);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.related a:hover {
+  text-decoration: underline;
+}

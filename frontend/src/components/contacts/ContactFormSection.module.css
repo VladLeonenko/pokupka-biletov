@@ -1,0 +1,234 @@
+/* Форма обратной связи — в стиле витрины билетов */
+
+.root {
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.04),
+    0 20px 48px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.accent {
+  height: 4px;
+  background: linear-gradient(90deg, var(--neg-orange, #ff4e18), rgba(255, 78, 24, 0.35));
+}
+
+.header {
+  padding: clamp(22px, 4vw, 32px) clamp(20px, 4vw, 36px) 0;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: clamp(1.25rem, 2.8vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #141414;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: rgba(20, 20, 20, 0.55);
+  max-width: 52ch;
+}
+
+.form {
+  padding: clamp(20px, 4vw, 28px) clamp(20px, 4vw, 36px) clamp(24px, 4vw, 36px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.formSending {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 640px) {
+  .grid2 {
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 20px;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(20, 20, 20, 0.65);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: #141414;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: rgba(20, 20, 20, 0.38);
+}
+
+.input:hover,
+.textarea:hover {
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  background: #fff;
+  border-color: rgba(255, 78, 24, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 78, 24, 0.18);
+}
+
+.textarea {
+  min-height: 132px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.fieldError .input,
+.fieldError .textarea {
+  border-color: rgba(198, 40, 40, 0.55);
+}
+
+.fieldError .input:focus,
+.fieldError .textarea:focus {
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
+}
+
+.errorText {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #c62828;
+}
+
+.privacy {
+  margin-top: 4px;
+}
+
+.privacyLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: rgba(20, 20, 20, 0.75);
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--neg-orange, #ff4e18);
+  cursor: pointer;
+}
+
+.privacyLink {
+  color: var(--neg-orange, #ff4e18);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.privacyLink:hover {
+  text-decoration: underline;
+}
+
+.req {
+  color: rgba(198, 40, 40, 0.9);
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 28px;
+  border: none;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--neg-orange, #ff4e18);
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.12s ease;
+}
+
+.submit:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.success {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #1b5e20;
+  background: rgba(46, 125, 50, 0.1);
+  border: 1px solid rgba(46, 125, 50, 0.22);
+}
+
+.submitError {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #c62828;
+  font-weight: 500;
+}

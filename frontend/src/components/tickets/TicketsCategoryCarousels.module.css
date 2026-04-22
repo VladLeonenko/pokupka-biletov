@@ -1,0 +1,133 @@
+/* Секции «Театр», «Концерты» и т.д.: заголовок + горизонтальная лента карточек */
+
+.block {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 28px 0 8px;
+}
+
+.block:first-of-type {
+  padding-top: 16px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 14px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.4vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #141414;
+}
+
+.seeAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--neg-orange, #ff4e18);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.seeAll:hover {
+  opacity: 0.88;
+  text-decoration: underline;
+}
+
+/* Лента на всю ширину вьюпорта; заголовок остаётся в max-width */
+.stripBleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+.strip {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 4px 0 18px;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.cardSlot {
+  flex: 0 0 auto;
+  width: min(200px, 72vw);
+  max-width: 220px;
+  scroll-snap-align: start;
+}
+
+.skeletonStrip {
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.skelCard {
+  flex: 0 0 auto;
+  width: min(200px, 72vw);
+  max-width: 220px;
+  height: 280px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: catShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes catShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.skelTitle {
+  height: 22px;
+  width: 160px;
+  border-radius: 8px;
+  margin: 0 20px 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.09) 50%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: catShimmer 1.2s ease-in-out infinite;
+}

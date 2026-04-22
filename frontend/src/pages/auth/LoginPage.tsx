@@ -59,6 +59,15 @@ export function LoginPage() {
           <Button type="submit" variant="contained" fullWidth disabled={loading}>Войти</Button>
         </form>
         <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <MuiLink component={Link} to="/auth/request-link" style={{ textDecoration: 'none' }}>
+              Войти по ссылке на email
+            </MuiLink>
+            {' · '}
+            <MuiLink component={Link} to="/auth/forgot-password" style={{ textDecoration: 'none' }}>
+              Забыли пароль
+            </MuiLink>
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Нет аккаунта?{' '}
             <MuiLink component={Link} to="/register" style={{ fontWeight: 'bold', textDecoration: 'none' }}>

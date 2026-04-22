@@ -104,6 +104,18 @@ const MIGRATION_FILES = [
   '064_sales_pipeline_from_clients.sql',
   '065_pipeline_settings.sql',
   '066_case_listing_preview_image.sql',
+  '067_getbilet_events_markup_promos.sql',
+  '068_orders_payment_external_tickets_auth_tokens.sql',
+  '069_orders_payment_columns_and_auth_login_tokens.sql',
+  '070_tickets_vitrine.sql',
+  '070_getbilet_events_poster_url.sql',
+  '071_getbilet_banner_stage_maps.sql',
+  '072_getbilet_poster_page_url.sql',
+  '073_getbilet_catalog_cache.sql',
+  '074_getbilet_stage_maps_external_plan_url.sql',
+  '075_getbilet_repertoire_offers_cache.sql',
+  '076_getbilet_poster_web_catalog_presence.sql',
+  '077_ticket_checkout_internal_product.sql',
 ];
 
 async function applyMigration(filename) {
