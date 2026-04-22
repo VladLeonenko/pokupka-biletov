@@ -367,6 +367,36 @@ app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский
 app.use('/api/admin/getbilet', requireAuth, requireAdminOrSalesManager, getbiletAdminRouter);
 app.use('/api/admin/tickets-vitrine', ticketsVitrineAdminRouter);
 
+// Корень dist: /manifest, /sw, /robots — до sitemap/SPA, путь от backend/__dirname (не PM2 cwd)
+const FRONTEND_DIST_ROOT = path.join(__dirname, '../frontend/dist');
+app.get('/manifest.json', (req, res) => {
+  const f = path.join(FRONTEND_DIST_ROOT, 'manifest.json');
+  if (fs.existsSync(f)) {
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.sendFile(path.resolve(f));
+  }
+  res.status(404).type('text/plain').send('Not found');
+});
+app.get('/sw.js', (req, res) => {
+  const f = path.join(FRONTEND_DIST_ROOT, 'sw.js');
+  if (fs.existsSync(f)) {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.sendFile(path.resolve(f));
+  }
+  res.status(404).type('text/plain').send('Not found');
+});
+app.get('/robots.txt', (req, res) => {
+  const f = path.join(FRONTEND_DIST_ROOT, 'robots.txt');
+  if (fs.existsSync(f)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.sendFile(path.resolve(f));
+  }
+  res.status(404).type('text/plain').send('Not found');
+});
+
 // Sitemap (публичный, должен быть до статических файлов)
 app.use('/', sitemapRouter);
 

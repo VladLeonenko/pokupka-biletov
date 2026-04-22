@@ -33,14 +33,29 @@ const indexPath = findIndexHtml();
 
 const API_BASE = process.env.API_INTERNAL_URL || `http://127.0.0.1:${Number(process.env.PORT) || 3000}`;
 
-function sendDistFile(req, res, relName, contentType, cacheControl) {
-  const distDir = path.dirname(indexPath);
-  const filePath = path.join(distDir, relName);
-  if (!fs.existsSync(filePath)) return false;
-  res.setHeader('Content-Type', contentType);
-  res.setHeader('Cache-Control', cacheControl);
-  res.sendFile(filePath);
-  return true;
+/** Каталоги dist (как в findIndexHtml) — не полагаемся только на indexPath при старте PM2. */
+function getDistRootCandidates() {
+  return [
+    path.resolve(__dirname, '../../frontend/dist'),
+    path.resolve(process.cwd(), 'frontend/dist'),
+    path.resolve(process.cwd(), '../frontend/dist'),
+  ];
+}
+
+/**
+ * Отдать файл из корня dist (manifest, robots, sw). Пробуем несколько путей к dist.
+ * @returns {boolean}
+ */
+function sendDistFile(res, relName, contentType, cacheControl) {
+  for (const dist of getDistRootCandidates()) {
+    const filePath = path.join(dist, relName);
+    if (!fs.existsSync(filePath)) continue;
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', cacheControl);
+    res.sendFile(path.resolve(filePath));
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -61,13 +76,16 @@ export async function seoRenderer(req, res, next) {
   // Статика из корня dist без express.static: иначе /robots.txt и /manifest.json не отдаются.
   if (req.method === 'GET') {
     if (req.path === '/robots.txt') {
-      if (sendDistFile(req, res, 'robots.txt', 'text/plain; charset=utf-8', 'public, max-age=3600')) return;
+      if (sendDistFile(res, 'robots.txt', 'text/plain; charset=utf-8', 'public, max-age=3600')) return;
+      return res.status(404).type('text/plain').send('Not found');
     }
     if (req.path === '/manifest.json') {
-      if (sendDistFile(req, res, 'manifest.json', 'application/manifest+json', 'public, max-age=3600')) return;
+      if (sendDistFile(res, 'manifest.json', 'application/manifest+json', 'public, max-age=3600')) return;
+      return res.status(404).type('text/plain').send('Not found');
     }
     if (req.path === '/sw.js') {
-      if (sendDistFile(req, res, 'sw.js', 'application/javascript; charset=utf-8', 'no-cache')) return;
+      if (sendDistFile(res, 'sw.js', 'application/javascript; charset=utf-8', 'no-cache')) return;
+      return res.status(404).type('text/plain').send('Not found');
     }
   }
 
@@ -91,7 +109,11 @@ export async function seoRenderer(req, res, next) {
     return next();
   }
 
-  if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2|ttf|eot|pdf|zip|json|xml|yml)$/i)) {
+  // Не уводить /manifest.json в next() (ниже сработал бы общий 404) — обрабатывается блоком выше
+  if (
+    req.path !== '/manifest.json' &&
+    req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2|ttf|eot|pdf|zip|json|xml|yml)$/i)
+  ) {
     return next();
   }
 
