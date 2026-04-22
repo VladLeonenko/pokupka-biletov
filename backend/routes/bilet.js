@@ -10,6 +10,7 @@ import {
 } from '../services/getbiletClient.js';
 import {
   restV2BuildEventsCatalog,
+  getRestV2AccessToken,
   restV2CancelOrder,
   restV2GetAgentList,
   restV2GetCategoryList,
@@ -155,6 +156,49 @@ router.get('/meta', (req, res) => {
     cityIdRequired: protocol === 'bil24_json',
     restV2: protocol === 'rest_v2',
   });
+});
+
+/**
+ * Без секретов: сводка env и (опц.) проверка Auth/GetToken.
+ * `GET /api/bilet/status?probe=1` — дернуть GetBilet (только rest_v2: получение x-access-token).
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const { protocol, baseUrl } = getGetbiletConfig();
+    const catalogSource = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
+    const v2Stages = process.env.GETBILET_V2_STAGE_IDS?.trim();
+    const payload = {
+      protocol,
+      baseUrl,
+      catalogSource,
+      v2StageIds: v2Stages ? 'explicit' : 'auto',
+      hasBil24: {
+        apiKey: Boolean(process.env.GETBILET_API_KEY?.trim()),
+        interfaceFid: Boolean(process.env.GETBILET_INTERFACE_FID?.trim()),
+      },
+      hasRestV2: {
+        userId: Boolean(process.env.GETBILET_USER_ID?.trim()),
+        hash: Boolean(
+          (process.env.GETBILET_HASH || process.env.GETBILET_HASH_ID || '').trim(),
+        ),
+      },
+    };
+    if (req.query.probe === '1' && protocol === 'rest_v2') {
+      try {
+        await getRestV2AccessToken();
+        payload.restV2AuthOk = true;
+      } catch (e) {
+        payload.restV2AuthOk = false;
+        payload.restV2AuthError = e instanceof Error ? e.message : String(e);
+      }
+    } else if (req.query.probe === '1' && protocol === 'bil24_json') {
+      payload.probeNote =
+        'bil24_json: probe не вызывает upstream; проверяйте GET /api/bilet/events?refresh=1 вручную.';
+    }
+    return res.json(payload);
+  } catch (err) {
+    return sendGetbiletError(err, res);
+  }
 });
 
 /** Подсказки для фронта: включены ли шаблоны URL постеров/баннеров (без раскрытия шаблона) */

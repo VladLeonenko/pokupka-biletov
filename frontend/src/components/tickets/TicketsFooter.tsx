@@ -38,7 +38,10 @@ export function TicketsFooter() {
             <Link to="/contacts">Контакты</Link>
             <Link to="/faq">Частые вопросы</Link>
             <Link to="/returns">Возврат и обмен</Link>
+            <Link to="/offer">Публичная оферта</Link>
             <Link to="/politic">Политика конфиденциальности</Link>
+            <Link to="/cookies">Политика cookie</Link>
+            <Link to="/requisites">Реквизиты</Link>
           </div>
         </div>
         <div className={styles.copy}>{copy}</div>

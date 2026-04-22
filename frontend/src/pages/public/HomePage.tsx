@@ -75,8 +75,6 @@ export function HomePage() {
     return normalized;
   }, [eventsPending, isError, normalized, dateFilter, filtered]);
 
-  const demoMode = !eventsPending && (isError || normalized.length === 0);
-
   const selectedDateLabel = useMemo(() => {
     if (!dateFilter) return null;
     try {
@@ -132,9 +130,7 @@ export function HomePage() {
         directions={directionsForHomeCarousels(vitrine.directions)}
         heroLoading={heroLoading}
         listLoading={listLoading}
-        error={isError}
         selectedDateLabel={dateFilter ? selectedDateLabel : null}
-        demoMode={demoMode}
       />
     </>
   );

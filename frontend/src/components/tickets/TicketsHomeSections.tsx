@@ -16,10 +16,7 @@ type Props = {
   heroLoading: boolean;
   /** Скелетон списка событий */
   listLoading: boolean;
-  error: boolean;
   selectedDateLabel?: string | null;
-  /** Показать компактное предупреждение про демо / API */
-  demoMode?: boolean;
 };
 
 export function TicketsHomeSections({
@@ -28,9 +25,7 @@ export function TicketsHomeSections({
   directions,
   heroLoading,
   listLoading,
-  error,
   selectedDateLabel,
-  demoMode,
 }: Props) {
   const list = events ?? [];
   const dir = directions ?? [];
@@ -40,27 +35,6 @@ export function TicketsHomeSections({
 
   return (
     <div className={styles.page}>
-      {demoMode && !listLoading && (
-        <div className={styles.demoBanner}>
-          {error ? (
-            <>
-              Не удалось загрузить афишу из GetBilet — показан <strong>демо-макет</strong> в стиле театральной
-              витрины. Проверьте переменные окружения на сервере.
-            </>
-          ) : (
-            <>Показана демо-афиша: подключите API, чтобы вывести реальные события.</>
-          )}
-          <details className={styles.details}>
-            <summary>Технические подсказки</summary>
-            <p>
-              BIL24: <code>GETBILET_API_KEY</code>, <code>GETBILET_INTERFACE_FID</code>, во фронте{' '}
-              <code>VITE_GETBILET_CITY_ID</code>. REST v2.2: <code>GETBILET_PROTOCOL=rest_v2</code>,{' '}
-              <code>GETBILET_V2_STAGE_IDS</code> и учётные данные из документации GetBilet.
-            </p>
-          </details>
-        </div>
-      )}
-
       <NeglinkaHero slides={hero} loading={heroLoading} />
 
       <TicketsTrustStrip />

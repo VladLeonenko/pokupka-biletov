@@ -49,6 +49,15 @@ const AccountProjectsPage = lazy(() => import('@/pages/public/AccountProjectsPag
 const UserFinancePlannerPage = lazy(() => import('@/pages/public/UserFinancePlannerPage').then(m => ({ default: m.UserFinancePlannerPage })));
 const UserPersonalDevelopmentPage = lazy(() => import('@/pages/public/UserPersonalDevelopmentPage').then(m => ({ default: m.UserPersonalDevelopmentPage })));
 const PrivacyPolicyPage = lazy(() => import('@/pages/public/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
+const PublicOfferPage = lazy(() =>
+  import('@/pages/public/PublicOfferPage').then((m) => ({ default: m.PublicOfferPage }))
+);
+const CookiesPolicyPage = lazy(() =>
+  import('@/pages/public/CookiesPolicyPage').then((m) => ({ default: m.CookiesPolicyPage }))
+);
+const RequisitesPage = lazy(() =>
+  import('@/pages/public/RequisitesPage').then((m) => ({ default: m.RequisitesPage }))
+);
 const PrivacySettingsPage = lazy(() => import('@/pages/public/PrivacySettingsPage').then(m => ({ default: m.PrivacySettingsPage })));
 const PortfolioPage = lazy(() => import('@/pages/public/PortfolioPage').then(m => ({ default: m.PortfolioPage })));
 const CasePage = lazy(() => import('@/pages/public/CasePage').then(m => ({ default: m.CasePage })));
@@ -189,6 +198,9 @@ export function AppRoutes() {
       <Route path="/account/privacy-settings" element={<PrivacySettingsPage />} />
       <Route path="/politic" element={<PrivacyPolicyPage />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/offer" element={<PublicOfferPage />} />
+      <Route path="/cookies" element={<CookiesPolicyPage />} />
+      <Route path="/requisites" element={<RequisitesPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/auth/magic" element={<MagicLinkPage />} />
       <Route path="/auth/request-link" element={<RequestMagicLinkPage />} />

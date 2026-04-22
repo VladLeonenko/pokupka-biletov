@@ -55,6 +55,14 @@ export type TicketsVitrineContent = {
   };
   /** HTML для /politic и /privacy */
   privacyHtml?: string;
+  /** Публичная оферта / пользовательское соглашение — /offer */
+  publicOfferHtml?: string;
+  /** Политика cookies — /cookies */
+  cookiesPolicyHtml?: string;
+  /** Возврат и обмен — при заполнении заменяет встроенный шаблон на /returns */
+  returnsPolicyHtml?: string;
+  /** Реквизиты и сведения об операторе — /requisites */
+  requisitesHtml?: string;
 };
 
 export type HeroSlideView = {

@@ -450,16 +450,55 @@ export function TicketsVitrinePage() {
 
           <Paper sx={{ p: 2 }}>
             <Typography fontWeight={700} sx={{ mb: 2 }}>
-              Политика конфиденциальности (HTML)
+              Документы (HTML) — публичные страницы
             </Typography>
-            <TextField
-              fullWidth
-              multiline
-              minRows={12}
-              value={draft.privacyHtml ?? ''}
-              onChange={(e) => setDraft({ ...draft, privacyHtml: e.target.value })}
-              placeholder="<p>…</p>"
-            />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Маршруты: /politic, /offer, /cookies, /returns, /requisites. Доверяйте только контенту из проверенных
+              источников; при необходимости согласуйте тексты с юристом.
+            </Typography>
+            <Stack spacing={2}>
+              <TextField
+                label="Политика конфиденциальности (/politic)"
+                fullWidth
+                multiline
+                minRows={8}
+                value={draft.privacyHtml ?? ''}
+                onChange={(e) => setDraft({ ...draft, privacyHtml: e.target.value })}
+                placeholder="<p>…</p>"
+              />
+              <TextField
+                label="Публичная оферта (/offer)"
+                fullWidth
+                multiline
+                minRows={8}
+                value={draft.publicOfferHtml ?? ''}
+                onChange={(e) => setDraft({ ...draft, publicOfferHtml: e.target.value })}
+              />
+              <TextField
+                label="Политика cookie (/cookies)"
+                fullWidth
+                multiline
+                minRows={6}
+                value={draft.cookiesPolicyHtml ?? ''}
+                onChange={(e) => setDraft({ ...draft, cookiesPolicyHtml: e.target.value })}
+              />
+              <TextField
+                label="Возврат и обмен (/returns) — при заполнении заменяет встроенный шаблон"
+                fullWidth
+                multiline
+                minRows={8}
+                value={draft.returnsPolicyHtml ?? ''}
+                onChange={(e) => setDraft({ ...draft, returnsPolicyHtml: e.target.value })}
+              />
+              <TextField
+                label="Реквизиты и сведения об операторе (/requisites)"
+                fullWidth
+                multiline
+                minRows={6}
+                value={draft.requisitesHtml ?? ''}
+                onChange={(e) => setDraft({ ...draft, requisitesHtml: e.target.value })}
+              />
+            </Stack>
           </Paper>
 
           <Divider />
