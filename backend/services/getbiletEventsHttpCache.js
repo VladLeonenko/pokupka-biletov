@@ -26,10 +26,17 @@ export function setGetbiletEventsHttpCache(key, payload) {
     return;
   }
   try {
+    let ttlMs = ttlSec * 1000;
+    if (payload && typeof payload === 'object' && 'actions' in /** @type {Record<string, unknown>} */ (payload)) {
+      const a = /** @type {Record<string, unknown>} */ (payload).actions;
+      if (Array.isArray(a) && a.length === 0) {
+        ttlMs = Math.min(ttlMs, 8000);
+      }
+    }
     slot = {
       key,
       body: JSON.stringify(payload),
-      expiresAt: Date.now() + ttlSec * 1000,
+      expiresAt: Date.now() + ttlMs,
     };
   } catch {
     slot = null;

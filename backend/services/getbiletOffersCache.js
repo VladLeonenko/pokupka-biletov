@@ -45,7 +45,15 @@ async function fetchUpsert(repertoireId) {
   if (inflight.has(k)) return inflight.get(k);
   const p = (async () => {
     const data = await restV2GetOfferListByRepertoireId(repertoireId);
-    await upsert(repertoireId, data);
+    try {
+      await upsert(repertoireId, data);
+    } catch (e) {
+      console.error(
+        '[getbilet] offers cache upsert failed (ответ GetBilet отдан без записи в БД):',
+        repertoireId,
+        e instanceof Error ? e.message : e
+      );
+    }
     return data;
   })().finally(() => {
     inflight.delete(k);

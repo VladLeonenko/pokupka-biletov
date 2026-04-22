@@ -362,6 +362,8 @@ export function normalizeBiletCitiesPayload(raw: unknown): { id: string; label: 
 }
 
 export async function fetchBiletCities(): Promise<{ id: string; label: string }[]> {
+  const meta = await getBiletMeta();
+  if (meta.restV2) return [];
   const base = getApiBase();
   const res = await fetch(`${base}/api/bilet/cities`, { headers: { Accept: 'application/json' } });
   if (res.status === 501 || res.status === 404) return [];

@@ -1,6 +1,6 @@
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 
-/** Демо-афиша (визуал как neglinka29.ru), если API недоступен или пустой ответ. */
+/** Демо-афиша, если API недоступен или пустой ответ. Постеры — градиенты (без внешних URL, таймаутов). */
 export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-1',
@@ -17,7 +17,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
     isPremiere: true,
     displayDate: '14.04',
     weekday: 'ВТОРНИК',
-    imageUrl: 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=960&q=80',
+    imageUrl: '',
   },
   {
     id: 'demo-2',
@@ -30,7 +30,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
     director: 'Александр Созонов',
     displayDate: '14.04',
     weekday: 'ВТОРНИК',
-    imageUrl: 'https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=960&q=80',
+    imageUrl: '',
   },
   {
     id: 'demo-3',
@@ -45,7 +45,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
     isPremiere: true,
     displayDate: '18.04',
     weekday: 'СУББОТА',
-    imageUrl: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=960&q=80',
+    imageUrl: '',
   },
   {
     id: 'demo-4',
@@ -58,7 +58,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
     author: 'Жан-Батист Мольер',
     displayDate: '16.04',
     weekday: 'ЧЕТВЕРГ',
-    imageUrl: 'https://images.unsplash.com/photo-1616469829581-73993eb86b00?w=960&q=80',
+    imageUrl: '',
   },
   {
     id: 'demo-5',
@@ -72,7 +72,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
     isPremiere: true,
     displayDate: '19.04',
     weekday: 'ВОСКРЕСЕНЬЕ',
-    imageUrl: 'https://images.unsplash.com/photo-1524712244904-cc2a7d1e242f?w=960&q=80',
+    imageUrl: '',
   },
   {
     id: 'demo-6',
@@ -84,6 +84,6 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
     age: '12+',
     displayDate: '22.04',
     weekday: 'ВТОРНИК',
-    imageUrl: 'https://images.unsplash.com/photo-1465847899274-095bf3a71784?w=960&q=80',
+    imageUrl: '',
   },
 ];

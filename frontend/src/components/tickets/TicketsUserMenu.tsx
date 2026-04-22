@@ -69,6 +69,8 @@ export function TicketsUserMenu() {
     queryFn: fetchBiletCities,
     staleTime: 3600_000,
     retry: false,
+    /** В GetBilet REST v2.2 нет /cities — не дергаем (убирает 501 в Network) */
+    enabled: Boolean(biletMeta && !biletMeta.restV2),
   });
 
   const cityOptions = useMemo(() => {

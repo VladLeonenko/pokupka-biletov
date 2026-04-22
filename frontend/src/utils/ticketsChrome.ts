@@ -17,6 +17,9 @@ export function matchesTicketsChromePath(pathname: string): boolean {
       '/faq',
       '/politic',
       '/privacy',
+      '/offer',
+      '/cookies',
+      '/requisites',
     ].includes(p)
   ) {
     return true;

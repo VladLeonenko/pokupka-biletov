@@ -1,4 +1,5 @@
 import type { TicketsVitrineContent } from '@/types/ticketsVitrine';
+import { TICKETS_VITRINE_LEGAL_HTML } from './ticketsVitrineLegalHtml';
 
 const DEFAULTS: TicketsVitrineContent = {
   cities: [
@@ -38,10 +39,25 @@ const DEFAULTS: TicketsVitrineContent = {
     tagline: 'Подбор и покупка билетов на концерты, театр и спорт.',
     copy: '',
   },
+  ...TICKETS_VITRINE_LEGAL_HTML,
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * Ключ не задан в БД → шаблон. Непустая строка → из админки. Явно "" в БД → пусто (и подсказка на странице).
+ */
+function coalesceHtmlField(
+  s: Record<string, unknown>,
+  key: 'privacyHtml' | 'publicOfferHtml' | 'cookiesPolicyHtml' | 'returnsPolicyHtml' | 'requisitesHtml',
+  fallback: string
+): string {
+  if (!Object.prototype.hasOwnProperty.call(s, key)) return fallback;
+  const v = s[key];
+  if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+  return typeof v === 'string' ? '' : fallback;
 }
 
 /** Поверх дефолтов накладываем сохранённый JSON (массивы из CMS — целиком, если ключ есть) */
@@ -63,5 +79,10 @@ export function mergeTicketsVitrine(saved: unknown): TicketsVitrineContent {
     header: { ...DEFAULTS.header, ...(isPlainObject(s.header) ? s.header : {}) },
     contacts: { ...DEFAULTS.contacts, ...(isPlainObject(s.contacts) ? s.contacts : {}) },
     footer: { ...DEFAULTS.footer, ...(isPlainObject(s.footer) ? s.footer : {}) },
+    privacyHtml: coalesceHtmlField(s, 'privacyHtml', DEFAULTS.privacyHtml ?? ''),
+    publicOfferHtml: coalesceHtmlField(s, 'publicOfferHtml', DEFAULTS.publicOfferHtml ?? ''),
+    cookiesPolicyHtml: coalesceHtmlField(s, 'cookiesPolicyHtml', DEFAULTS.cookiesPolicyHtml ?? ''),
+    returnsPolicyHtml: coalesceHtmlField(s, 'returnsPolicyHtml', DEFAULTS.returnsPolicyHtml ?? ''),
+    requisitesHtml: coalesceHtmlField(s, 'requisitesHtml', DEFAULTS.requisitesHtml ?? ''),
   };
 }

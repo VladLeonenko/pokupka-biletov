@@ -349,6 +349,21 @@ router.get('/events', async (req, res) => {
       } catch (e) {
         console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
       }
+      if (!Array.isArray(data.actions) || data.actions.length === 0) {
+        try {
+          const fromDb = await loadCatalogActionsFromDatabase();
+          if (Array.isArray(fromDb) && fromDb.length > 0) {
+            data.actions = fromDb;
+            data.fromDatabaseBecauseLiveEmpty = true;
+          }
+        } catch (e) {
+          if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
+            /* нет getbilet_catalog_cache */
+          } else {
+            console.error('[getbilet] live пуст, fallback БД не удался:', e instanceof Error ? e.message : e);
+          }
+        }
+      }
       return sendJsonWithEventsCache(req, res, data);
     }
     if (protocol === 'rest') {
