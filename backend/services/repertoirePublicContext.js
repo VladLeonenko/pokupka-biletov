@@ -299,6 +299,8 @@ export async function getRepertoirePublicContext(repertoireId) {
     repertoireId,
     stageId,
     title,
+    /** Площадка из каталога GetBilet (для героя страницы билета без ожидания офферов). */
+    venueLabel: venueFromPayload ?? null,
     descriptionSnippet,
     heroKicker: descPack.heroKicker ?? null,
     heroSubline,

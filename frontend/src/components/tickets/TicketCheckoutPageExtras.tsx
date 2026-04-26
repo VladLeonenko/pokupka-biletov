@@ -190,7 +190,20 @@ export function TicketCheckoutPageExtras({
       ) : null}
 
       <Box sx={{ pt: 1 }}>
-        <Button component={Link} to="/" variant="contained" color="primary" fullWidth sx={{ py: 1.5 }}>
+        <Button
+          component={Link}
+          to="/events"
+          variant="contained"
+          fullWidth
+          sx={{
+            py: 1.5,
+            bgcolor: 'var(--neg-orange, #ff4e18)',
+            color: '#fff',
+            fontWeight: 700,
+            boxShadow: 'none',
+            '&:hover': { bgcolor: '#e54414', boxShadow: 'none' },
+          }}
+        >
           Вернуться к афише
         </Button>
       </Box>

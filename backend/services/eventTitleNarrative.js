@@ -224,17 +224,25 @@ export function formatRuDateTimeHint(iso) {
  * @param {{ ageLimit?: string | null, cityName?: string | null, beginSample?: string | null } | null | undefined} catalogHints
  * @param {string | null | undefined} venueLabel
  */
+/** Фрагменты подстрочника: не пустые и не мусор вроде одной точки. */
+function catalogSublineBitOk(s) {
+  if (s == null) return false;
+  const t = String(s).trim();
+  if (!t || t === '.') return false;
+  return true;
+}
+
 export function formatCatalogHintsSubline(catalogHints, venueLabel) {
   const h = catalogHints || {};
   const bits = [];
   const city = h.cityName != null ? String(h.cityName).trim() : '';
-  if (city) bits.push(city);
+  if (catalogSublineBitOk(city)) bits.push(city);
   const when = formatRuDateTimeHint(h.beginSample);
-  if (when) bits.push(when);
+  if (catalogSublineBitOk(when)) bits.push(when);
   const venue = venueLabel != null ? String(venueLabel).trim() : '';
-  if (venue && !bits.some((b) => b.includes(venue))) bits.push(venue);
+  if (catalogSublineBitOk(venue) && !bits.some((b) => b.includes(venue))) bits.push(venue);
   if (bits.length) return bits.join(' · ');
-  return venue || null;
+  return catalogSublineBitOk(venue) ? venue : null;
 }
 
 /** Устаревшая формулировка из старого промпта OpenAI — меняем акцент на место проведения. */

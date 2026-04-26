@@ -158,6 +158,18 @@
     0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
+/* Место проведения — как строка «когда · где» на карточке афиши */
+.heroVenue {
+  margin: 6px 0 0 !important;
+  max-width: 60ch;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.01em;
+  color: rgba(255, 248, 240, 0.92) !important;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+
 .heroLead {
   margin: 12px 0 0 !important;
   max-width: 52ch;

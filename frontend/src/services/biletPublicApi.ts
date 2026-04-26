@@ -6,6 +6,7 @@ import {
   classifyEventTitle,
   type EventTitleKind,
 } from '@/utils/eventTitleHeuristics';
+import { slugify } from '@/utils/slugify';
 
 export type BiletMeta = {
   protocol: string;
@@ -123,7 +124,8 @@ export function ticketCheckoutHref(
     ev.repertoireId?.trim() ||
     (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') ||
     ev.id;
-  const q = new URLSearchParams({ title: ev.title });
+  const pathSlug = slugify(ev.title) || 'event';
+  const q = new URLSearchParams();
   if (ev.stageId?.trim()) q.set('stageId', ev.stageId.trim());
   if (ev.isoDate?.trim()) q.set('eventDateTime', ev.isoDate.trim());
   const poster = ev.imageUrl?.trim();
@@ -134,7 +136,8 @@ export function ticketCheckoutHref(
   if (ban && ban.startsWith('/uploads/') && ban.length < 512) {
     q.set('banner', ban);
   }
-  return `/ticket/${encodeURIComponent(rep)}?${q.toString()}`;
+  const qs = q.toString();
+  return `/ticket/${encodeURIComponent(rep)}/${pathSlug}${qs ? `?${qs}` : ''}`;
 }
 
 export type NormalizedVenue = {
@@ -581,6 +584,8 @@ export type RepertoireContext = {
   repertoireId: string;
   stageId: string | null;
   title: string;
+  /** Площадка из каталога (без запроса офферов). */
+  venueLabel?: string | null;
   descriptionSnippet: string | null;
   /** Лид героя (без заголовков секций). */
   heroLead?: string | null;

@@ -29,3 +29,30 @@ export function resolveHeroSublineForTicketPage(
   if (rest) return rest;
   return HERO_SUBLINE_VENUE_FALLBACK;
 }
+
+/** Убирает хвост « · .» и лишние разделители в подстрочнике даты. */
+export function cleanHeroSublineArtifacts(line: string | null | undefined): string | null {
+  if (!line?.trim()) return null;
+  let t = line.trim().replace(/\s*·\s*\.\s*$/u, '').replace(/\s*·\s*$/u, '').trim();
+  return t || null;
+}
+
+/**
+ * Если площадку показываем отдельной строкой под заголовком — убираем её дублирование из подстрочника даты.
+ */
+export function heroSublineWithoutDuplicateVenue(
+  subline: string | null | undefined,
+  venueLine: string | null | undefined,
+): string | null {
+  const base = cleanHeroSublineArtifacts(subline);
+  if (!base) return null;
+  const v = venueLine?.trim();
+  if (!v) return base;
+  if (base === v) return null;
+  const suffix = ` · ${v}`;
+  if (base.endsWith(suffix)) {
+    const cut = base.slice(0, -suffix.length).trim().replace(/\s*·\s*$/u, '').trim();
+    return cut || null;
+  }
+  return base;
+}

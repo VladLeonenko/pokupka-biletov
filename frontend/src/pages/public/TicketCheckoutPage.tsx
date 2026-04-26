@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Accordion,
@@ -53,7 +53,11 @@ import { TicketHallInteractiveBlock } from '@/components/tickets/TicketHallInter
 import { TicketPurchaseDialog } from '@/components/tickets/TicketPurchaseDialog';
 import { TicketCheckoutPageExtras } from '@/components/tickets/TicketCheckoutPageExtras';
 import { TicketEventMetaCard } from '@/components/tickets/TicketEventMetaCard';
-import { resolveHeroSublineForTicketPage } from '@/utils/ticketHeroSubline';
+import {
+  heroSublineWithoutDuplicateVenue,
+  resolveHeroSublineForTicketPage,
+} from '@/utils/ticketHeroSubline';
+import { slugify } from '@/utils/slugify';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -131,8 +135,9 @@ function absoluteUrl(origin: string, pathOrUrl: string | null | undefined): stri
 }
 
 export function TicketCheckoutPage() {
-  const { repertoireId = '' } = useParams<{ repertoireId: string }>();
+  const { repertoireId = '', slug: slugParam } = useParams<{ repertoireId: string; slug?: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const titleHint = searchParams.get('title') ?? 'Мероприятие';
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
@@ -200,6 +205,12 @@ export function TicketCheckoutPage() {
     const row = (offers as OfferRow[]).find((o) => o.PlaceName != null && String(o.PlaceName).trim());
     return row?.PlaceName ? String(row.PlaceName).trim() : null;
   }, [offers]);
+
+  const venueHeroLine = useMemo(() => {
+    const fromOffers = venueLabel?.trim();
+    const fromCtx = ctx?.venueLabel?.trim();
+    return fromOffers || fromCtx || null;
+  }, [venueLabel, ctx?.venueLabel]);
 
   const [filterState, setFilterState] = useState<OfferFilterState>({
     zone: 'all',
@@ -397,10 +408,14 @@ export function TicketCheckoutPage() {
     return `${base}…`;
   }, [ctx?.heroLead, ctx?.descriptionSnippet]);
 
-  const heroKickerDisplay = ctx?.heroKicker?.trim() || venueLabel || null;
+  const heroKickerDisplay = ctx?.heroKicker?.trim() || null;
   const heroSublineDisplay = useMemo(
     () => resolveHeroSublineForTicketPage(ctx?.heroSubline, venueLabel),
     [ctx?.heroSubline, venueLabel],
+  );
+  const heroDateSublineOnly = useMemo(
+    () => heroSublineWithoutDuplicateVenue(heroSublineDisplay, venueHeroLine),
+    [heroSublineDisplay, venueHeroLine],
   );
 
   const coverUrl = useMemo(() => {
@@ -502,6 +517,15 @@ export function TicketCheckoutPage() {
 
   const ogImage = absoluteUrl(origin, coverUrl || posterSideUrl);
 
+  const canonicalSlug = useMemo(() => slugify(displayTitle) || 'event', [displayTitle]);
+
+  const canonicalTicketPath = useMemo(() => {
+    if (!repertoireId) return '/events';
+    return `/ticket/${encodeURIComponent(repertoireId)}/${canonicalSlug}`;
+  }, [repertoireId, canonicalSlug]);
+
+  const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
+
   useEffect(() => {
     document.body.setAttribute('data-page', '/ticket');
     return () => document.body.removeAttribute('data-page');
@@ -510,6 +534,22 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     setShowAllOfferRows(false);
   }, [repertoireId]);
+
+  /** ЧПУ /ticket/:id/:slug и убираем устаревший query ?title= */
+  useEffect(() => {
+    if (!repertoireId || typeof window === 'undefined') return;
+    const want = canonicalSlug;
+    const pathSlug = (slugParam ?? '').trim();
+    const sp = new URLSearchParams(searchStrForCanonical);
+    const hadLegacyTitle = sp.has('title');
+    if (hadLegacyTitle) sp.delete('title');
+    const nextSearch = sp.toString();
+    const nextSuffix = nextSearch ? `?${nextSearch}` : '';
+    const target = `/ticket/${encodeURIComponent(repertoireId)}/${want}${nextSuffix}`;
+    if (pathSlug !== want || hadLegacyTitle) {
+      navigate(target, { replace: true });
+    }
+  }, [repertoireId, canonicalSlug, slugParam, searchStrForCanonical, navigate]);
 
   return (
     <>
@@ -520,7 +560,7 @@ export function TicketCheckoutPage() {
           'Выбор мест и бронирование через GetBilet.'
         }
         image={ogImage}
-        url={`${origin}/ticket/${encodeURIComponent(repertoireId)}`}
+        url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
       />
       <Box className={styles.page}>
         <div className={styles.hero}>
@@ -553,9 +593,14 @@ export function TicketCheckoutPage() {
                 <Typography variant="h4" component="h1" className={styles.heroTitle}>
                   {displayTitle}
                 </Typography>
-                {heroSublineDisplay ? (
+                {venueHeroLine ? (
+                  <Typography variant="body2" component="p" className={styles.heroVenue}>
+                    {venueHeroLine}
+                  </Typography>
+                ) : null}
+                {heroDateSublineOnly ? (
                   <Typography variant="body2" component="p" className={styles.heroSubline}>
-                    {heroSublineDisplay}
+                    {heroDateSublineOnly}
                   </Typography>
                 ) : null}
                 {heroLeadDisplay ? (
@@ -932,7 +977,7 @@ export function TicketCheckoutPage() {
             baseTotalRub={baseTotalRub}
             sessionLabel={purchaseSessionLabel}
             descriptionLead={
-              heroLeadDisplay ?? (venueLabel ? `Площадка: ${venueLabel}` : null)
+              heroLeadDisplay ?? (venueHeroLine ? `Площадка: ${venueHeroLine}` : null)
             }
           />
 
@@ -941,7 +986,7 @@ export function TicketCheckoutPage() {
             displayTitle={displayTitle}
             descriptionSnippet={ctx?.descriptionSnippet}
             descriptionSections={ctx?.descriptionSections}
-            venueLabel={venueLabel}
+            venueLabel={venueHeroLine}
             hasDescriptionInHero={Boolean(heroLeadDisplay?.trim())}
           />
         </Box>
