@@ -69,6 +69,14 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
       onMouseEnter={() => setPauseAutoplay(true)}
       onMouseLeave={() => setPauseAutoplay(false)}
     >
+      {img ? (
+        <div
+          className={styles.heroPhotoBg}
+          style={{ backgroundImage: `url(${img})` }}
+          aria-hidden
+        />
+      ) : null}
+      <div className={styles.heroPhotoOverlay} aria-hidden />
       <div className={styles.heroBody}>
         <Link
           to={current.ticketHref}
@@ -108,7 +116,7 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
           </div>
 
           <div className={styles.right}>
-            <div className={styles.visualMask} data-shape={current.visualShape}>
+            <div className={styles.visualFrame}>
               {img ? (
                 <TicketEventPosterImg
                   src={img}
@@ -131,24 +139,24 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
       <div className={styles.heroFooter}>
         <div className={styles.arrows}>
           <button type="button" className={styles.arrow} aria-label="Предыдущий" onClick={() => go(-1)}>
-            <svg className={styles.arrowSvg} viewBox="0 0 40 72" aria-hidden>
+            <svg className={styles.arrowSvg} viewBox="0 0 96 14" aria-hidden>
               <path
-                d="M28 8 L10 36 L28 64"
+                d="M 88 7 H 20 M 20 1 L 8 7 L 20 13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.75"
+                strokeWidth="1.1"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </svg>
           </button>
           <button type="button" className={styles.arrow} aria-label="Следующий" onClick={() => go(1)}>
-            <svg className={styles.arrowSvg} viewBox="0 0 40 72" aria-hidden>
+            <svg className={styles.arrowSvg} viewBox="0 0 96 14" aria-hidden>
               <path
-                d="M12 8 L30 36 L12 64"
+                d="M 8 7 H 76 M 76 1 L 88 7 L 76 13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.75"
+                strokeWidth="1.1"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />

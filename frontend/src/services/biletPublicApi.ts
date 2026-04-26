@@ -156,6 +156,36 @@ export function looksLikeMongoId(s: string): boolean {
   return /^[a-f0-9]{24}$/i.test(s.trim());
 }
 
+/** Шаблонные SEO-строки вместо площадки — не показываем как подзаголовок карточки */
+export function isTicketsSeoPlaceholderSubtitle(s: string): boolean {
+  const t = s.trim();
+  if (!t) return false;
+  if (/Билеты на событие/i.test(t)) return true;
+  if (/в продаже онлайн/i.test(t)) return true;
+  if (/выберите дату/i.test(t)) return true;
+  return false;
+}
+
+function truncateCardLine(s: string, max = 320): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 3).trimEnd()}…`;
+}
+
+/**
+ * Под заголовком карточки: площадка (театр / сцена), иначе короткое описание из API без SEO-заглушек.
+ */
+export function biletEventCardSubtitle(
+  venue: string | undefined,
+  apiSubtitle: string | undefined,
+): string | undefined {
+  const v = venue?.trim();
+  if (v) return truncateCardLine(v);
+  const sub = apiSubtitle?.trim();
+  if (sub && !isTicketsSeoPlaceholderSubtitle(sub)) return truncateCardLine(sub);
+  return undefined;
+}
+
 function pickBool(obj: Record<string, unknown>, keys: string[]): boolean | undefined {
   for (const k of keys) {
     const v = obj[k];
@@ -299,14 +329,11 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
     const displayDate = pickString(row, ['displayDate']) ?? derived.displayDate;
     const weekday = pickString(row, ['weekday']) ?? derived.weekday;
     const timeLabel = pickString(row, ['timeLabel']) ?? derived.timeLabel;
-    const { categoryLabel: inferredCategoryLabel, kind: inferredKind, descriptionBlurb } =
-      classifyEventTitle(title, { subtitle: subtitle?.trim(), genre });
-    const subtitleEff =
-      subtitle?.trim() && subtitle.trim().length > 0
-        ? subtitle.trim().length > 320
-          ? `${subtitle.trim().slice(0, 317).trimEnd()}…`
-          : subtitle.trim()
-        : descriptionBlurb;
+    const { categoryLabel: inferredCategoryLabel, kind: inferredKind } = classifyEventTitle(title, {
+      subtitle: subtitle?.trim(),
+      genre,
+    });
+    const subtitleEff = biletEventCardSubtitle(venue, subtitle);
 
     out.push({
       id: id || `anon-${out.length}`,

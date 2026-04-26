@@ -33,6 +33,10 @@ import {
   invalidateOffersCache,
 } from '../services/getbiletOffersCache.js';
 import {
+  applyGetbiletMarkupToOfferPayload,
+  getGetbiletMarkupRuleForRepertoire,
+} from '../services/getbiletMarkupPublic.js';
+import {
   getGetbiletEventsHttpCache,
   setGetbiletEventsHttpCache,
 } from '../services/getbiletEventsHttpCache.js';
@@ -257,7 +261,9 @@ router.get('/repertoire/:repertoireId/offers', async (req, res) => {
     if (meta.cache) {
       res.setHeader('X-Getbilet-Offers-Cache', meta.cache);
     }
-    return res.json(normalizeGetbiletOfferListPayload(data));
+    const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
+    const withMarkup = applyGetbiletMarkupToOfferPayload(data, markupRule);
+    return res.json(normalizeGetbiletOfferListPayload(withMarkup));
   } catch (err) {
     return sendGetbiletError(err, res);
   }

@@ -42,6 +42,8 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
       : [event.weekday, event.displayDate, event.timeLabel].filter(Boolean).join(' · ');
 
   const genreLine = displayGenreLine(event);
+  const venueExtra =
+    event.venue?.trim() && event.subtitle?.trim() && event.venue.trim() !== event.subtitle.trim();
 
   return (
     <div className={`${styles.wrap} ${variant === 'compact' ? styles.compact : ''}`}>
@@ -81,7 +83,7 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
               {event.director && <span>Режиссёр — {event.director}</span>}
             </div>
           )}
-          {event.venue && <p className={styles.venue}>{event.venue}</p>}
+          {venueExtra ? <p className={styles.venue}>{event.venue}</p> : null}
         </div>
       </Link>
       {isMhtChekhovMainHallStage(event.stageId) && (

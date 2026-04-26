@@ -26,6 +26,7 @@ import { directionsForHeader } from '@/utils/ticketsDirectionsFilter';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
 import styles from './TicketsHeader.module.css';
 import { TicketsUserMenu } from '@/components/tickets/TicketsUserMenu';
+import { TicketsSiteLogo } from '@/components/tickets/TicketsSiteLogo';
 
 const NAV = [
   { to: '/', label: 'Афиша' },
@@ -170,9 +171,8 @@ export function TicketsHeader() {
     <div role="banner" className={styles.wrap} data-tickets-nav>
       <div className={styles.inner}>
         <div className={styles.rowTop}>
-          <Link to="/" className={styles.logo}>
-            <span className={styles.logoTitle}>{logoTitle}</span>
-            <span className={styles.logoSub}>{logoSub}</span>
+          <Link to="/" className={styles.logo} title={`${logoTitle} — ${logoSub}`}>
+            <TicketsSiteLogo title={logoTitle} sub={logoSub} />
           </Link>
 
           <nav className={styles.nav} aria-label="Основное меню">

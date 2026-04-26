@@ -1,16 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="t" x1="12" y1="18" x2="52" y2="46">
-      <stop offset="0%" stop-color="#ff6a3d"/>
-      <stop offset="100%" stop-color="#ff4e18"/>
+    <linearGradient id="g" x1="12" y1="18" x2="52" y2="46">
+      <stop offset="0%" stop-color="#ff6a3d" />
+      <stop offset="100%" stop-color="#ff4e18" />
     </linearGradient>
   </defs>
-  <!-- подложка под иконку в табах -->
-  <rect width="64" height="64" rx="14" fill="#121212"/>
-  <!-- «билет»: оранжевая плашка + тёмная перфорация -->
-  <rect x="11" y="21" width="42" height="22" rx="4" fill="url(#t)"/>
-  <rect x="29" y="24" width="6" height="16" rx="2" fill="#121212"/>
-  <!-- блики -->
-  <rect x="15" y="24" width="11" height="2" rx="1" fill="#fff" opacity="0.2"/>
-  <rect x="15" y="29" width="8" height="1.5" rx="1" fill="#fff" opacity="0.12"/>
+  <rect width="64" height="64" rx="14" fill="#111" />
+  <rect x="11" y="21" width="42" height="22" rx="5" fill="url(#g)" />
+  <rect x="29" y="25" width="6" height="14" rx="1.5" fill="#111" />
+  <rect x="15" y="24" width="11" height="2" rx="1" fill="#fff" opacity="0.18" />
 </svg>

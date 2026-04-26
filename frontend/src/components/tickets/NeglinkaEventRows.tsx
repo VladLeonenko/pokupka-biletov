@@ -75,7 +75,7 @@ export function NeglinkaEventRows({ events }: Props) {
                 </div>
                 {ev.isPremiere && <span className={styles.premiereTag}>Премьера</span>}
                 <h3 className={styles.title}>{ev.title}</h3>
-                {ev.subtitle?.trim() && <p className={styles.subtitle}>{ev.subtitle.trim()}</p>}
+                {ev.subtitle?.trim() ? <p className={styles.subtitle}>{ev.subtitle.trim()}</p> : null}
                 {(ev.author || ev.director) && (
                   <div className={styles.creditsGrid}>
                     {ev.author && (

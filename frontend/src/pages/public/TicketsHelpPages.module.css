@@ -283,3 +283,15 @@
 .related a:hover {
   text-decoration: underline;
 }
+
+/* Пустой HTML из витрины (юр. страницы) */
+.emptyDoc {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.6;
+  color: rgba(20, 20, 20, 0.78);
+}
+
+.emptyDoc p {
+  margin: 0;
+}

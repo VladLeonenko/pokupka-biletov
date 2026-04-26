@@ -5,6 +5,11 @@
 import ticketPool from '../ticketDb.js';
 import { restV2GetCategoryList } from './getbiletRestV2.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
+import {
+  collectPlaceIdsFromCatalogActions,
+  pickPlaceId,
+  resolveVenueLabelsForPlaceIds,
+} from './getbiletVenueLabels.js';
 
 /** @type {{ at: number, map: Map<string, string> }} */
 let categoryCache = { at: 0, map: new Map() };
@@ -91,10 +96,25 @@ export async function enrichRestV2CatalogActions(actions) {
   const posterTpl = process.env.GETBILET_POSTER_URL_TEMPLATE?.trim();
   const bannerTpl = process.env.GETBILET_BANNER_URL_TEMPLATE?.trim();
 
+  /** Площадка по PlaceId: GetStageListByPlaceId (первый Name), иначе GetPlaceList */
+  let venueByPlace = new Map();
+  try {
+    venueByPlace = await resolveVenueLabelsForPlaceIds(collectPlaceIdsFromCatalogActions(actions));
+  } catch (e) {
+    console.error('[getbilet enrich] venue labels:', e instanceof Error ? e.message : e);
+  }
+
   const mapped = actions.map((row) => {
     const repId = String(row.Id ?? row.id ?? '');
     const o = overrides.get(repId);
     const out = { ...row };
+    const placeId = pickPlaceId(out);
+    if (placeId && venueByPlace.has(placeId)) {
+      const lab = venueByPlace.get(placeId);
+      if (lab && !String(out.PlaceName ?? out.placeName ?? '').trim()) {
+        out.PlaceName = lab;
+      }
+    }
     if (o?.title_manual?.trim() && o.is_published === true) {
       out.Name = o.title_manual.trim();
     }
@@ -138,7 +158,8 @@ export async function enrichRestV2CatalogActions(actions) {
         out.Description = short;
       }
     }
-    if (!String(out.shortDescription ?? '').trim() && titleForHeur) {
+    const venueForCard = String(out.PlaceName ?? out.placeName ?? '').trim();
+    if (!String(out.shortDescription ?? '').trim() && titleForHeur && !venueForCard) {
       const { descriptionBlurb } = classifyEventTitle(titleForHeur);
       out.shortDescription = descriptionBlurb;
       out.description = descriptionBlurb;

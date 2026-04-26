@@ -1,0 +1,68 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  text-align: left;
+}
+
+.mark {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+.markBg {
+  fill: #111;
+}
+
+.markTicket {
+  fill: var(--neg-orange, #ff4e18);
+}
+
+.markTear {
+  fill: #111;
+  opacity: 0.9;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.05;
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--neg-font, system-ui, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #111;
+}
+
+.sub {
+  font-size: 0.52rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(0, 0, 0, 0.42);
+  margin-top: 1px;
+}
+
+@media (min-width: 400px) {
+  .mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .title {
+    font-size: 1.02rem;
+  }
+
+  .sub {
+    font-size: 0.55rem;
+  }
+}

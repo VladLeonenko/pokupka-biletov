@@ -1,7 +1,7 @@
-/* Hero: оранжевый блок, карточка картинки (круг / скруглённые прямоугольники) */
+/* Герой: фон — фото афиши + затемнение; справа — постер в рамке */
 
 .hero {
-  background: var(--neg-orange, #ff4e18);
+  background: #141414;
   color: #fff !important;
   position: relative;
   z-index: 1;
@@ -11,33 +11,62 @@
   flex-direction: column;
 }
 
-.heroBody {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  z-index: 1;
-}
-
-.heroClick {
+.heroPhotoBg {
   position: absolute;
   inset: 0;
-  z-index: 4;
-  text-decoration: none;
+  z-index: 0;
+  background-size: cover;
+  background-position: center center;
+  filter: saturate(0.95) brightness(0.5);
+  transform: scale(1.02);
+  transition: filter 0.5s ease;
 }
 
-/* theme.css задаёт h1/p color: var(--text-color) (#141414 в светлой теме) — сбрасываем на hero */
-.hero :is(h1, p, span) {
-  color: #fff !important;
+.hero:hover .heroPhotoBg {
+  filter: saturate(1) brightness(0.55);
+}
+
+.heroPhotoOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.5) 44%,
+    rgba(20, 10, 8, 0.35) 100%
+  );
 }
 
 .hero::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 75% 55% at 88% 42%, rgba(255, 255, 255, 0.1) 0%, transparent 52%);
+  z-index: 1;
+  background: radial-gradient(ellipse 70% 55% at 90% 35%, rgba(255, 78, 24, 0.22) 0%, transparent 55%);
   pointer-events: none;
+}
+
+.heroBody {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  z-index: 2;
+}
+
+.heroClick {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  text-decoration: none;
+}
+
+/* theme.css задаёт h1/p color: var(--text-color) (#141414 в светлой теме) — сбрасываем на hero */
+.hero :is(h1, p, span) {
+  color: #fff !important;
 }
 
 .left {
@@ -64,7 +93,7 @@
 
 .inner {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   flex: 1;
   max-width: 1320px;
   margin: 0 auto;
@@ -218,66 +247,33 @@
   font-weight: 800;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  transition: background 0.25s, color 0.25s;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
   pointer-events: none;
 }
 
 .hero:hover .cta {
   background: #fff;
-  color: #ff4e18 !important;
+  color: #141414 !important;
+  border-color: #fff;
 }
 
-.visualMask {
+.visualFrame {
   position: relative;
   flex-shrink: 0;
+  width: min(88vw, 360px);
+  height: min(58vh, 500px);
+  max-width: 400px;
+  border-radius: 16px;
+  overflow: hidden;
   box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.33),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-.visualMask[data-shape='circle'] {
-  width: min(88vw, 480px);
-  height: min(88vw, 480px);
-  max-width: min(72vmin, 520px);
-  max-height: min(72vmin, 520px);
-  border-radius: 50%;
-  overflow: hidden;
+    0 24px 64px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 @media (min-width: 900px) {
-  .visualMask[data-shape='circle'] {
-    width: min(min(28vw, 340px), min(50vh, 420px));
-    height: min(min(28vw, 340px), min(50vh, 420px));
-  }
-}
-
-.visualMask[data-shape='shard'] {
-  width: min(88vw, 380px);
-  height: min(62vh, 520px);
-  max-width: 420px;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-@media (min-width: 900px) {
-  .visualMask[data-shape='shard'] {
-    width: min(38vw, 420px);
-    height: min(58vh, 560px);
-  }
-}
-
-.visualMask[data-shape='chevron'] {
-  width: min(88vw, 380px);
-  height: min(58vh, 520px);
-  max-width: 440px;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-@media (min-width: 900px) {
-  .visualMask[data-shape='chevron'] {
-    width: min(36vw, 420px);
-    height: min(56vh, 540px);
+  .visualFrame {
+    width: min(36vw, 400px);
+    height: min(56vh, 520px);
   }
 }
 
@@ -296,7 +292,7 @@
 
 .heroFooter {
   position: relative;
-  z-index: 2;
+  z-index: 4;
   max-width: 1320px;
   margin: 0 auto;
   width: 100%;
@@ -316,7 +312,7 @@
 
 .arrows {
   display: flex;
-  gap: 8px;
+  gap: 4px 12px;
   align-items: center;
 }
 
@@ -324,22 +320,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 72px;
-  padding: 0;
+  min-width: 88px;
+  height: 40px;
+  padding: 0 4px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   border-radius: 0;
   transition: color 0.2s, opacity 0.2s;
 }
 
 .arrowSvg {
-  width: 22px;
-  height: 56px;
+  width: 88px;
+  height: 14px;
   display: block;
-  opacity: 0.92;
+  opacity: 0.95;
 }
 
 .arrow:hover {

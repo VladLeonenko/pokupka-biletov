@@ -8,6 +8,10 @@ import {
 } from '../services/getbiletRestV2.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { validateGetbiletPromoForAmount, incrementGetbiletPromoUses } from '../services/getbiletPromoPublic.js';
+import {
+  applyGetbiletMarkupToOfferPayload,
+  getGetbiletMarkupRuleForRepertoire,
+} from '../services/getbiletMarkupPublic.js';
 import { isTbankEacqConfigured, tbankEacqInit, verifyTbankNotificationToken } from '../services/payment/tbankEacq.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
 
@@ -127,7 +131,9 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         return res.status(400).json({ error: 'session_required' });
       }
 
-      const offerPayload = await restV2GetOfferById(offerId);
+      let offerPayload = await restV2GetOfferById(offerId);
+      const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
+      offerPayload = applyGetbiletMarkupToOfferPayload(offerPayload, markupRule);
       const parsed = parseOfferRow(offerPayload);
       if (!parsed) {
         throw new GetbiletValidationError('Не удалось получить цену предложения');
