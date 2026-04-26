@@ -58,6 +58,7 @@ import {
   resolveHeroSublineForTicketPage,
 } from '@/utils/ticketHeroSubline';
 import { slugify } from '@/utils/slugify';
+import { compactSessionPathFromIso, isoLocalFromCompactSession } from '@/utils/ticketSessionUrl';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -110,6 +111,18 @@ function minPriceForOffers(rows: OfferRow[]): number | null {
   return Math.min(...nums);
 }
 
+function normSessionHintSeg(s: string) {
+  return s.replace(/\s+/g, '').trim();
+}
+
+function sessionMatchesHint(entryKey: string, hint: string | null | undefined): boolean {
+  if (!hint) return false;
+  if (entryKey === hint || normSessionHintSeg(entryKey) === normSessionHintSeg(hint)) return true;
+  const ta = new Date(entryKey).getTime();
+  const tb = new Date(hint).getTime();
+  return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
+}
+
 function formatSessionCard(dt: string): { time: string; dateLine: string } {
   if (dt === '_') return { time: '—', dateLine: 'Дата уточняется' };
   const d = new Date(dt);
@@ -135,13 +148,22 @@ function absoluteUrl(origin: string, pathOrUrl: string | null | undefined): stri
 }
 
 export function TicketCheckoutPage() {
-  const { repertoireId = '', slug: slugParam } = useParams<{ repertoireId: string; slug?: string }>();
+  const { repertoireId = '', slug: slugParam, sessionCompact: sessionCompactParam } = useParams<{
+    repertoireId: string;
+    slug?: string;
+    sessionCompact?: string;
+  }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const titleHint = searchParams.get('title') ?? 'Мероприятие';
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
-  const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
+  const sessionFromPath = useMemo(
+    () => isoLocalFromCompactSession(sessionCompactParam),
+    [sessionCompactParam],
+  );
+  const sessionHint =
+    sessionFromPath || searchParams.get('eventDateTime')?.trim() || null;
 
   const { data: ctx, isLoading: ctxLoading, isError: ctxError } = useQuery({
     queryKey: ['bilet-repertoire-context', repertoireId],
@@ -191,8 +213,7 @@ export function TicketCheckoutPage() {
       return String(a[0]).localeCompare(String(b[0]));
     });
     if (sessionHint) {
-      const hint = norm(sessionHint);
-      const idx = entries.findIndex(([e]) => e === sessionHint || norm(e) === hint);
+      const idx = entries.findIndex(([e]) => sessionMatchesHint(e, sessionHint));
       if (idx > 0) {
         const [hit] = entries.splice(idx, 1);
         entries.unshift(hit);
@@ -273,11 +294,9 @@ export function TicketCheckoutPage() {
   const sessionEntriesSorted = useMemo(() => {
     const entries = Array.from(bySession.entries());
     if (!sessionHint) return entries;
-    const norm = (s: string) => s.replace(/\s+/g, '').trim();
-    const hint = norm(sessionHint);
     return [...entries].sort((a, b) => {
-      const ma = a[0] === sessionHint || norm(a[0]) === hint ? 0 : 1;
-      const mb = b[0] === sessionHint || norm(b[0]) === hint ? 0 : 1;
+      const ma = sessionMatchesHint(a[0], sessionHint) ? 0 : 1;
+      const mb = sessionMatchesHint(b[0], sessionHint) ? 0 : 1;
       return ma - mb;
     });
   }, [bySession, sessionHint]);
@@ -310,12 +329,8 @@ export function TicketCheckoutPage() {
 
   const defaultSessionKey = useMemo(() => {
     if (allSessionsSorted.length === 0) return null;
-    const norm = (s: string) => s.replace(/\s+/g, '').trim();
     if (sessionHint) {
-      const hint = norm(sessionHint);
-      const hit = allSessionsSorted.find(
-        ([e]) => e === sessionHint || norm(e) === hint,
-      );
+      const hit = allSessionsSorted.find(([e]) => sessionMatchesHint(e, sessionHint));
       if (hit) return hit[0];
     }
     return allSessionsSorted[0][0];
@@ -519,10 +534,16 @@ export function TicketCheckoutPage() {
 
   const canonicalSlug = useMemo(() => slugify(displayTitle) || 'event', [displayTitle]);
 
+  const canonicalSessionSeg = useMemo(() => {
+    if (!sessionHint) return '';
+    const c = compactSessionPathFromIso(sessionHint);
+    return c ? `/${c}` : '';
+  }, [sessionHint]);
+
   const canonicalTicketPath = useMemo(() => {
     if (!repertoireId) return '/events';
-    return `/ticket/${encodeURIComponent(repertoireId)}/${canonicalSlug}`;
-  }, [repertoireId, canonicalSlug]);
+    return `/ticket/${encodeURIComponent(repertoireId)}/${canonicalSlug}${canonicalSessionSeg}`;
+  }, [repertoireId, canonicalSlug, canonicalSessionSeg]);
 
   const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
 
@@ -535,21 +556,47 @@ export function TicketCheckoutPage() {
     setShowAllOfferRows(false);
   }, [repertoireId]);
 
-  /** ЧПУ /ticket/:id/:slug и убираем устаревший query ?title= */
+  /**
+   * Канонический URL: /ticket/:id/:slug/:YYYYMMDDHHmm при выбранном сеансе,
+   * без ?title=, без eventDateTime в query (перенос в путь), без stageId если совпадает с контекстом.
+   */
   useEffect(() => {
     if (!repertoireId || typeof window === 'undefined') return;
-    const want = canonicalSlug;
+    const wantSlug = canonicalSlug;
     const pathSlug = (slugParam ?? '').trim();
+    const pathSess = (sessionCompactParam ?? '').trim();
     const sp = new URLSearchParams(searchStrForCanonical);
-    const hadLegacyTitle = sp.has('title');
-    if (hadLegacyTitle) sp.delete('title');
-    const nextSearch = sp.toString();
-    const nextSuffix = nextSearch ? `?${nextSearch}` : '';
-    const target = `/ticket/${encodeURIComponent(repertoireId)}/${want}${nextSuffix}`;
-    if (pathSlug !== want || hadLegacyTitle) {
+    if (sp.has('title')) sp.delete('title');
+
+    let compactSeg = /^\d{12}$/.test(pathSess) ? pathSess : '';
+    const dtQ = sp.get('eventDateTime')?.trim();
+    if (!compactSeg && dtQ) {
+      const c = compactSessionPathFromIso(dtQ);
+      if (c) {
+        compactSeg = c;
+        sp.delete('eventDateTime');
+      }
+    }
+    const sidQ = sp.get('stageId')?.trim();
+    if (sidQ && ctx?.stageId && sidQ === ctx.stageId.trim()) {
+      sp.delete('stageId');
+    }
+    const nextSuffix = sp.toString() ? `?${sp.toString()}` : '';
+    const sessPath = compactSeg ? `/${compactSeg}` : '';
+    const target = `/ticket/${encodeURIComponent(repertoireId)}/${wantSlug}${sessPath}${nextSuffix}`;
+    const cur = `${window.location.pathname}${window.location.search}`;
+    if (cur !== target) {
       navigate(target, { replace: true });
     }
-  }, [repertoireId, canonicalSlug, slugParam, searchStrForCanonical, navigate]);
+  }, [
+    repertoireId,
+    canonicalSlug,
+    slugParam,
+    sessionCompactParam,
+    searchStrForCanonical,
+    ctx?.stageId,
+    navigate,
+  ]);
 
   return (
     <>

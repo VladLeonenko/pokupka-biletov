@@ -7,6 +7,7 @@ import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { buildEventDescriptionPackResolved } from './eventDescriptionAi.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
 import { resolveHeroSublineVenueFocused } from './eventTitleNarrative.js';
+import { extractParentVenueFromRow } from './getbiletVenueLabels.js';
 
 function expandMediaTemplate(template, repertoireId) {
   if (!template?.trim()) return null;
@@ -122,7 +123,10 @@ async function loadRepertoireBase(repertoireId) {
 
   const title = (titleManual && String(titleManual).trim()) || payloadName || '';
 
-  const venueFromPayload = pickFirst(payload, ['PlaceName', 'placeName', 'Venue', 'venue', 'Place', 'place']);
+  const venueFlat = pickFirst(payload, ['PlaceName', 'placeName', 'Venue', 'venue', 'Place', 'place']);
+  const venueNested = extractParentVenueFromRow(payload);
+  const venueFromPayload =
+    (venueFlat && String(venueFlat).trim()) || (venueNested && String(venueNested).trim()) || null;
   const descriptionFromPayload = pickFirst(payload, [
     'Description',
     'description',
@@ -284,10 +288,16 @@ export async function getRepertoirePublicContext(repertoireId) {
     '';
   const descriptionSnippet = leadPlain ? leadPlain.slice(0, 400) : null;
 
+  const venueFromStageMap =
+    stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
+      ? stageMap.title.trim()
+      : null;
+  const venueResolved = venueFromPayload || venueFromStageMap || null;
+
   const heroSubline = resolveHeroSublineVenueFocused(
     descPack.heroSubline ?? null,
     catalogHints,
-    venueFromPayload,
+    venueResolved,
   );
 
   const externalPlanUrl =
@@ -299,8 +309,8 @@ export async function getRepertoirePublicContext(repertoireId) {
     repertoireId,
     stageId,
     title,
-    /** Площадка из каталога GetBilet (для героя страницы билета без ожидания офферов). */
-    venueLabel: venueFromPayload ?? null,
+    /** Площадка: каталог, вложенные поля, либо подпись схемы зала из админки. */
+    venueLabel: venueResolved ?? null,
     descriptionSnippet,
     heroKicker: descPack.heroKicker ?? null,
     heroSubline,

@@ -182,6 +182,7 @@ export function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/afisha" element={<HomePage />} />
       <Route path="/events" element={<EventsSearchPage />} />
+      <Route path="/ticket/:repertoireId/:slug/:sessionCompact" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
       <Route path="/ai-team" element={<PublicHomePageAI />} />

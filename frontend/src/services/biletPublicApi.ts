@@ -7,6 +7,7 @@ import {
   type EventTitleKind,
 } from '@/utils/eventTitleHeuristics';
 import { slugify } from '@/utils/slugify';
+import { compactSessionPathFromIso } from '@/utils/ticketSessionUrl';
 
 export type BiletMeta = {
   protocol: string;
@@ -125,9 +126,8 @@ export function ticketCheckoutHref(
     (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') ||
     ev.id;
   const pathSlug = slugify(ev.title) || 'event';
+  const sessionSeg = ev.isoDate?.trim() ? compactSessionPathFromIso(ev.isoDate.trim()) : null;
   const q = new URLSearchParams();
-  if (ev.stageId?.trim()) q.set('stageId', ev.stageId.trim());
-  if (ev.isoDate?.trim()) q.set('eventDateTime', ev.isoDate.trim());
   const poster = ev.imageUrl?.trim();
   if (poster && poster.startsWith('/uploads/') && poster.length < 512) {
     q.set('poster', poster);
@@ -137,7 +137,8 @@ export function ticketCheckoutHref(
     q.set('banner', ban);
   }
   const qs = q.toString();
-  return `/ticket/${encodeURIComponent(rep)}/${pathSlug}${qs ? `?${qs}` : ''}`;
+  const sessionPath = sessionSeg ? `/${sessionSeg}` : '';
+  return `/ticket/${encodeURIComponent(rep)}/${pathSlug}${sessionPath}${qs ? `?${qs}` : ''}`;
 }
 
 export type NormalizedVenue = {
