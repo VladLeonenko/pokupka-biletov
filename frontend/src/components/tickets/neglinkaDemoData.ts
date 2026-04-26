@@ -5,7 +5,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-1',
     title: 'САЛЕМСКИЕ ВЕДЬМЫ. ПРЕМЬЕРА!',
-    subtitle: 'Эрмитаж',
+    subtitle: 'По пьесе Артура Миллера.',
     dateLabel: '19:00',
     timeLabel: '19:00',
     genre: 'Драма',
@@ -21,7 +21,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-2',
     title: 'ОДНАЖДЫ',
-    subtitle: 'Зимний сад',
+    subtitle: 'История любви и памяти.',
     dateLabel: '19:00',
     timeLabel: '19:00',
     genre: 'Драма',
@@ -35,7 +35,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-3',
     title: 'ЖЁЛТЫЙ КАРЛИК. ПРЕМЬЕРА!',
-    subtitle: 'Эрмитаж',
+    subtitle: 'Трагикомедия в двух действиях.',
     dateLabel: '19:00',
     timeLabel: '19:00',
     genre: 'Трагикомедия',
@@ -51,7 +51,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-4',
     title: 'ПЛУТНИ СКАПЕНА',
-    subtitle: 'Зимний сад',
+    subtitle: 'Классическая комедия Мольера.',
     dateLabel: '19:00',
     timeLabel: '19:00',
     genre: 'Комедия',
@@ -65,7 +65,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-5',
     title: 'ПЯТЬ ВЕЧЕРОВ. ПРЕМЬЕРА!',
-    subtitle: 'Зимний сад',
+    subtitle: 'Мелодрама по пьесе Александра Володина.',
     dateLabel: '19:00',
     timeLabel: '19:00',
     genre: 'Мелодрама',
@@ -80,7 +80,7 @@ export const NEGLINKA_DEMO_EVENTS: NormalizedBiletEvent[] = [
   {
     id: 'demo-6',
     title: 'КОНЦЕРТ СИМФОНИЧЕСКОЙ МУЗЫКИ',
-    subtitle: 'Большой зал',
+    subtitle: 'Программа из любимых симфонических произведений.',
     dateLabel: '20:00',
     timeLabel: '20:00',
     genre: 'Концерт',

@@ -52,15 +52,9 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
     weekday: event.weekday,
     dateLabel: event.dateLabel,
   });
-  /** Compact: дата и время уже на бейдже на постере — внизу только день недели и площадка */
-  const whenUnderTitle =
-    variant === 'compact'
-      ? [event.weekday, event.venue].filter(Boolean).join(' · ')
-      : [event.weekday, event.displayDate, event.timeLabel].filter(Boolean).join(' · ');
+  const whenUnderTitle = buildWhenLine(event);
 
   const genreLine = displayGenreLine(event);
-  const venueExtra =
-    event.venue?.trim() && event.subtitle?.trim() && event.venue.trim() !== event.subtitle.trim();
 
   return (
     <div className={`${styles.wrap} ${variant === 'compact' ? styles.compact : ''}`}>
@@ -100,7 +94,6 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
               {event.director && <span>Режиссёр — {event.director}</span>}
             </div>
           )}
-          {venueExtra ? <p className={styles.venue}>{event.venue}</p> : null}
         </div>
       </Link>
       {isMhtChekhovMainHallStage(event.stageId) && (

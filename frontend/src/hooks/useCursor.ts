@@ -112,6 +112,28 @@ export function useCursor(currentPath?: string, disableCustomCursor?: boolean) {
           body {
             cursor: none !important;
           }
+
+          /* Ссылки и кликабельные элементы — системный курсор «рука» */
+          a[href],
+          button:not(:disabled),
+          [role="button"],
+          [role="link"],
+          input[type="submit"],
+          input[type="button"],
+          input[type="reset"],
+          label[for],
+          select,
+          summary,
+          .cursor-pointer,
+          .MuiButton-root,
+          .MuiIconButton-root,
+          .MuiChip-root,
+          .MuiTab-root,
+          .MuiLink-root,
+          .MuiListItemButton-root,
+          .MuiCardActionArea-root {
+            cursor: pointer !important;
+          }
           
           /* ИСКЛЮЧЕНИЯ - где курсор должен быть обычным */
           input, textarea, select, 

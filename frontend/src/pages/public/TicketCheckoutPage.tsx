@@ -53,6 +53,7 @@ import { TicketHallInteractiveBlock } from '@/components/tickets/TicketHallInter
 import { TicketPurchaseDialog } from '@/components/tickets/TicketPurchaseDialog';
 import { TicketCheckoutPageExtras } from '@/components/tickets/TicketCheckoutPageExtras';
 import { TicketEventMetaCard } from '@/components/tickets/TicketEventMetaCard';
+import { resolveHeroSublineForTicketPage } from '@/utils/ticketHeroSubline';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -397,7 +398,10 @@ export function TicketCheckoutPage() {
   }, [ctx?.heroLead, ctx?.descriptionSnippet]);
 
   const heroKickerDisplay = ctx?.heroKicker?.trim() || venueLabel || null;
-  const heroSublineDisplay = ctx?.heroSubline?.trim() || null;
+  const heroSublineDisplay = useMemo(
+    () => resolveHeroSublineForTicketPage(ctx?.heroSubline, venueLabel),
+    [ctx?.heroSubline, venueLabel],
+  );
 
   const coverUrl = useMemo(() => {
     return ctx?.bannerUrl || ctx?.posterUrl || bannerQ || posterQ || null;

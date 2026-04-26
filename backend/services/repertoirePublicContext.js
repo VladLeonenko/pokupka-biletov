@@ -6,6 +6,7 @@ import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { buildEventDescriptionPackResolved } from './eventDescriptionAi.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
+import { resolveHeroSublineVenueFocused } from './eventTitleNarrative.js';
 
 function expandMediaTemplate(template, repertoireId) {
   if (!template?.trim()) return null;
@@ -283,6 +284,12 @@ export async function getRepertoirePublicContext(repertoireId) {
     '';
   const descriptionSnippet = leadPlain ? leadPlain.slice(0, 400) : null;
 
+  const heroSubline = resolveHeroSublineVenueFocused(
+    descPack.heroSubline ?? null,
+    catalogHints,
+    venueFromPayload,
+  );
+
   const externalPlanUrl =
     stageMap && typeof stageMap.external_plan_url === 'string' && stageMap.external_plan_url.trim()
       ? stageMap.external_plan_url.trim()
@@ -294,7 +301,7 @@ export async function getRepertoirePublicContext(repertoireId) {
     title,
     descriptionSnippet,
     heroKicker: descPack.heroKicker ?? null,
-    heroSubline: descPack.heroSubline ?? null,
+    heroSubline,
     heroLead: descPack.heroLead ?? null,
     eventMeta: Array.isArray(descPack.eventMeta) ? descPack.eventMeta : [],
     descriptionSections: descPack.sections,

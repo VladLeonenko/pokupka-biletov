@@ -237,6 +237,41 @@ export function formatCatalogHintsSubline(catalogHints, venueLabel) {
   return venue || null;
 }
 
+/** Устаревшая формулировка из старого промпта OpenAI — меняем акцент на место проведения. */
+export const LEGACY_HERO_SUBLINE_SCHEDULE_HINT = 'Даты и время — в расписании ниже';
+
+/** Если нет данных о площадке в каталоге — нейтральная отсылка к блоку сеансов. */
+export const HERO_SUBLINE_VENUE_FALLBACK =
+  'Площадка (театр, стадион, арена) — в блоке сеансов ниже.';
+
+/**
+ * Подстрочник героя: без отсылки к «датам в расписании»; приоритет — город, дата сеанса (если есть), площадка.
+ * @param {string | null | undefined} heroSubline
+ * @param {{ ageLimit?: string | null, cityName?: string | null, beginSample?: string | null } | null | undefined} catalogHints
+ * @param {string | null | undefined} venueLabel
+ * @returns {string | null}
+ */
+export function resolveHeroSublineVenueFocused(heroSubline, catalogHints, venueLabel) {
+  const raw = heroSubline != null ? String(heroSubline).trim() : '';
+  if (!raw) return formatCatalogHintsSubline(catalogHints, venueLabel);
+
+  const legacy = LEGACY_HERO_SUBLINE_SCHEDULE_HINT;
+  if (!raw.includes(legacy)) return raw;
+
+  const rest = raw.replace(legacy, '').replace(/^[\s·]+|[\s·]+$/g, '').trim();
+  const fromHints = formatCatalogHintsSubline(catalogHints, venueLabel);
+  if (fromHints) {
+    if (rest && !fromHints.includes(rest) && !rest.includes(fromHints)) {
+      return `${fromHints} · ${rest}`;
+    }
+    return fromHints;
+  }
+  if (rest) return rest;
+  const v = venueLabel != null ? String(venueLabel).trim() : '';
+  if (v) return v;
+  return HERO_SUBLINE_VENUE_FALLBACK;
+}
+
 /**
  * Короткий лид для героя (2–3 предложения).
  * @param {string} title

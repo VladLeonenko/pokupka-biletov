@@ -21,6 +21,7 @@ import {
   buildProgrammaticMetaRows,
   formatCatalogHintsSubline,
   kickerExtraFromTitle,
+  resolveHeroSublineVenueFocused,
 } from './eventTitleNarrative.js';
 
 export function isEventDescriptionAiEnabled() {
@@ -281,7 +282,7 @@ export async function generateEventDescriptionWithOpenAI(input) {
 Структура ответа — один JSON-объект:
 {
   "heroKicker": "строка: тип · жанр или характер · возраст (например «Спектакль · Трагедия · 16+»). Если возраст неизвестен — без плюса в конце.",
-  "heroSubline": "одна строка: город (если есть во входе), день недели и дата сеанса (если есть во входе), площадка. Если даты нет — «Даты и время — в расписании ниже» + площадка если есть.",
+  "heroSubline": "одна строка: город (если есть во входе), день недели и дата/время сеанса (если есть во входе sampleSessionStart), затем место проведения — название театра, стадиона, арены и т.п. из venueName (без выдумок). Если даты сеанса во входе нет — не пиши про «расписание ниже»; только город (если есть), площадка из venueName, без плейсхолдеров про даты.",
   "heroLead": "2–3 коротких предложения: цепляют внимание, без заголовка «О событии», без повтора heroSubline.",
   "aboutParagraphs": ["абзацы под заголовком «О событии» — 4–7 развёрнутых абзацев, живой стиль"],
   "detailSections": [{"title":"заголовок опциональной секции","paragraphs":["..."]}],
@@ -323,6 +324,7 @@ export async function generateEventDescriptionWithOpenAI(input) {
   const rec = /** @type {Record<string, unknown>} */ (parsed);
 
   const structured = parseStructuredAi(rec, title);
+  const heroSublineResolved = resolveHeroSublineVenueFocused(structured.heroSubline, hints, venue);
 
   const tail = getPracticalTailSections(venue);
   /** @type {{ id: string; title: string; paragraphs: string[] }[]} */
@@ -380,7 +382,7 @@ export async function generateEventDescriptionWithOpenAI(input) {
     plainText,
     totalChars: plainText.length,
     heroKicker: structured.heroKicker,
-    heroSubline: structured.heroSubline,
+    heroSubline: heroSublineResolved,
     heroLead: structured.heroLead,
     eventMeta: structured.meta,
   };
