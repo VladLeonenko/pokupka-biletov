@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const SITE_URL = 'https://prime-coder.ru';
+import { getSiteBaseUrl, SITE_BRAND } from '@/config/site';
 
 interface CaseStudyJsonLdProps {
   name: string;
@@ -20,7 +20,13 @@ export function CaseStudyJsonLd({ name, description, url, image, datePublished }
     const existing = document.getElementById(scriptId);
     if (existing) existing.remove();
 
-    const imageUrl = image?.startsWith('http') ? image : image ? `${SITE_URL}${image}` : undefined;
+    const siteUrl = getSiteBaseUrl();
+    const logoUrl = `${siteUrl}/favicon.svg`;
+    const imageUrl = image?.startsWith('http')
+      ? image
+      : image
+        ? `${siteUrl}${image.startsWith('/') ? '' : '/'}${image}`
+        : undefined;
 
     const jsonLd = {
       '@context': 'https://schema.org',
@@ -31,9 +37,9 @@ export function CaseStudyJsonLd({ name, description, url, image, datePublished }
       ...(imageUrl && { image: imageUrl }),
       author: {
         '@type': 'Organization',
-        name: 'PrimeCoder',
-        url: SITE_URL,
-        logo: { '@type': 'ImageObject', url: `${SITE_URL}/legacy/img/logo.png` },
+        name: SITE_BRAND,
+        url: siteUrl,
+        logo: { '@type': 'ImageObject', url: logoUrl },
       },
       mainEntityOfPage: { '@type': 'WebPage', '@id': url },
       ...(datePublished && { datePublished }),

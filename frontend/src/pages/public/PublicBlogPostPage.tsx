@@ -11,6 +11,7 @@ import { BlogPostStyles } from '@/components/blog/BlogPostStyles';
 import { ArticleProgressBar } from '@/components/blog/ArticleProgressBar';
 import { InlineCarouselSlide } from '@/components/public/InlineImageCarousel';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
+import { getSiteBaseUrl } from '@/config/site';
 import { ParticleSphere } from '@/components/home/ParticleSphere';
 import { ScrollSection, useScrollReveal } from '@/components/home/ScrollAnimations';
 
@@ -82,7 +83,7 @@ export function PublicBlogPostPage() {
       ogTitle: s.ogTitle || s.og_title || post.seo_title || post.title || '',
       ogDescription: s.ogDescription || s.og_description || post.seo_description || '',
       ogImage: ogImage || '',
-      canonicalUrl: typeof window !== 'undefined' ? `${window.location.origin}/blog/${slug}` : `https://prime-coder.ru/blog/${slug}`,
+      canonicalUrl: `${getSiteBaseUrl()}/blog/${slug}`,
     };
   }, [post, slug]);
 

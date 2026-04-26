@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { getSiteBaseUrl, SITE_BRAND } from '@/config/site';
 
 interface ProductJsonLdProps {
   product: {
@@ -12,14 +13,14 @@ interface ProductJsonLdProps {
   url: string;
 }
 
-const SITE_URL = 'https://prime-coder.ru';
-
 export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
   useEffect(() => {
     const scriptId = 'product-jsonld';
     const existingScript = document.getElementById(scriptId);
     if (existingScript) existingScript.remove();
 
+    const siteUrl = getSiteBaseUrl();
+    const logoUrl = `${siteUrl}/favicon.svg`;
     const priceRubles = product.priceCents ? Math.round(product.priceCents / 100) : 0;
 
     const jsonLd: Record<string, unknown> = {
@@ -30,9 +31,9 @@ export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
       url: url,
       provider: {
         '@type': 'Organization',
-        name: 'PrimeCoder',
-        url: SITE_URL,
-        logo: { '@type': 'ImageObject', url: `${SITE_URL}/legacy/img/logo.png` },
+        name: SITE_BRAND,
+        url: siteUrl,
+        logo: { '@type': 'ImageObject', url: logoUrl },
         address: { '@type': 'PostalAddress', addressLocality: 'Москва', addressCountry: 'RU' },
       },
       areaServed: { '@type': 'Country', name: 'Россия' },
@@ -41,7 +42,7 @@ export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
 
     // Изображение — всегда URL
     if (product.imageUrl) {
-      jsonLd.image = product.imageUrl.startsWith('http') ? product.imageUrl : `${SITE_URL}${product.imageUrl}`;
+      jsonLd.image = product.imageUrl.startsWith('http') ? product.imageUrl : `${siteUrl}${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`;
     }
 
     // Цена — Offer с корректными типами
@@ -52,7 +53,7 @@ export function ProductJsonLd({ product, url }: ProductJsonLdProps) {
         priceCurrency: product.currency,
         availability: 'https://schema.org/InStock',
         priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        seller: { '@type': 'Organization', name: 'PrimeCoder', url: SITE_URL },
+        seller: { '@type': 'Organization', name: SITE_BRAND, url: siteUrl },
       };
     }
 

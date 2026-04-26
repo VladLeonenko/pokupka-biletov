@@ -55,7 +55,7 @@ Allow: /assets/
 # --- Яндекс ---
 User-agent: Yandex
 Allow: /
-Host: https://biletvsem.com
+Host: biletvsem.com
 Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&_ym_uid&_ym_d&from
 
 User-agent: YandexImages

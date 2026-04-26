@@ -23,6 +23,7 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { ProductJsonLd } from '@/components/common/ProductJsonLd';
 import { FaqJsonLd } from '@/components/common/FaqJsonLd';
 import { BreadcrumbJsonLd } from '@/components/common/BreadcrumbJsonLd';
+import { getSiteBaseUrl } from '@/config/site';
 import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
 import { motion } from 'framer-motion';
 import { TeamCarousel } from '@/components/public/TeamCarousel';
@@ -357,8 +358,8 @@ export function ProductPage() {
       />
       <BreadcrumbJsonLd
         items={[
-          { name: 'Главная', url: 'https://prime-coder.ru/' },
-          { name: 'Каталог', url: 'https://prime-coder.ru/catalog' },
+          { name: 'Главная', url: `${getSiteBaseUrl()}/` },
+          { name: 'Каталог', url: `${getSiteBaseUrl()}/catalog` },
           { name: product.title, url: currentUrl },
         ]}
       />

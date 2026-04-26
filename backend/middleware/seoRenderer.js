@@ -8,6 +8,7 @@ import {
   handleWellKnownLlms,
   handleServicesYml,
 } from '../routes/sitemap.js';
+import { siteBaseUrl, siteBrand } from '../siteConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +71,28 @@ function stripDefaultSeoFromHtml(html) {
   out = out.replace(/<meta property="og:[^"]*"[^>]*>/gi, '');
   out = out.replace(/<meta name="twitter:[^"]*"[^>]*>/gi, '');
   return out;
+}
+
+/**
+ * @param {{ base: string; brand: string; canonical: string; title: string; description: string; ogType: string }} p
+ */
+function metaBlockForPage(p) {
+  const { base, brand, canonical, title, description, ogType } = p;
+  const ogImage = `${base}/favicon.svg`;
+  return `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <link rel="canonical" href="${canonical}" />
+    <meta property="og:type" content="${escapeHtml(ogType)}" />
+    <meta property="og:url" content="${canonical}" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:image" content="${escapeHtml(ogImage)}" />
+    <meta property="og:site_name" content="${escapeHtml(brand)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`;
 }
 
 export async function seoRenderer(req, res, next) {
@@ -155,7 +178,8 @@ async function generateSeoTags(url) {
   let metaTags = '';
 
   try {
-    const base = (process.env.SITE_URL || 'https://biletvsem.com').replace(/\/$/, '');
+    const base = siteBaseUrl();
+    const brand = siteBrand();
 
     // Кейсы портфолио
     if (url.startsWith('/cases/')) {
@@ -177,7 +201,7 @@ async function generateSeoTags(url) {
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
         ${ogImage ? `<meta property="og:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}
-    <meta property="og:site_name" content="PrimeCoder" />
+    <meta property="og:site_name" content="${escapeHtml(brand)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
@@ -206,7 +230,7 @@ async function generateSeoTags(url) {
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     ${ogImage ? `<meta property="og:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}
-    <meta property="og:site_name" content="PrimeCoder" />
+    <meta property="og:site_name" content="${escapeHtml(brand)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
@@ -235,11 +259,81 @@ async function generateSeoTags(url) {
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     ${ogImage ? `<meta property="og:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}
-    <meta property="og:site_name" content="PrimeCoder" />
+    <meta property="og:site_name" content="${escapeHtml(brand)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     ${ogImage ? `<meta name="twitter:image" content="${ogImage.startsWith('http') ? ogImage : base + (ogImage.startsWith('/') ? ogImage : '/' + ogImage)}" />` : ''}`;
+      }
+    }
+
+    // Поиск мероприятий
+    else if (url === '/events' || url === '/events/') {
+      const canonical = `${base}/events`;
+      const title = 'Поиск мероприятий — афиша и билеты';
+      const description = 'Поиск событий по названию, площадке и жанру. Билеты онлайн.';
+      metaTags = metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' });
+    }
+
+    // Альтернативный путь главной (афиша)
+    else if (url === '/afisha' || url === '/afisha/') {
+      const canonical = `${base}/afisha`;
+      const title = 'Афиша — билеты на мероприятия';
+      const description = 'Календарь событий, поиск по площадкам и жанрам. Покупка билетов онлайн.';
+      metaTags = metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' });
+    }
+
+    // Страница билетов / бронирования
+    else if (url.startsWith('/ticket/')) {
+      const m = url.match(/^\/ticket\/([^/?#]+)(?:\/([^/?#]+))?/);
+      if (m) {
+        const repId = decodeURIComponent(m[1]);
+        const ctx = await getRepertoireContext(repId);
+        const slugPart = m[2] ? `/${m[2]}` : '';
+        const canonical = `${base}/ticket/${encodeURIComponent(repId)}${slugPart}`;
+        const displayTitle = (ctx && ctx.title) || 'Мероприятие';
+        const title = `Билеты — ${displayTitle}`;
+        const rawDesc =
+          (ctx && (ctx.heroLead || ctx.descriptionSnippet) && String(ctx.heroLead || ctx.descriptionSnippet).trim()) ||
+          'Выбор мест и бронирование билетов онлайн.';
+        const description = rawDesc.slice(0, 160);
+        let ogImage = '';
+        if (ctx && ctx.posterUrl) {
+          ogImage = String(ctx.posterUrl).startsWith('http')
+            ? String(ctx.posterUrl)
+            : `${base}${String(ctx.posterUrl).startsWith('/') ? '' : '/'}${ctx.posterUrl}`;
+        }
+        const ogLine = ogImage
+          ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />
+    <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`
+          : '';
+        const eventJson = ctx && ctx.title
+          ? `<script type="application/ld+json">${JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Event',
+              name: displayTitle,
+              url: canonical,
+              ...(ogImage ? { image: ogImage } : {}),
+              description: description.slice(0, 500),
+              organizer: { '@type': 'Organization', name: brand, url: base },
+              eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+              eventStatus: 'https://schema.org/EventScheduled',
+            })}</script>`
+          : '';
+        metaTags = `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <link rel="canonical" href="${canonical}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${canonical}" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    ${ogLine}
+    <meta property="og:site_name" content="${escapeHtml(brand)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    ${eventJson}`;
       }
     }
   } catch (err) {
@@ -278,6 +372,19 @@ async function getBlogPostData(slug) {
     return await response.json();
   } catch (err) {
     console.error('[SSR] Error fetching blog:', err.message);
+    return null;
+  }
+}
+
+async function getRepertoireContext(repertoireId) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/context`,
+    );
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.error('[SSR] Error fetching repertoire context:', err.message);
     return null;
   }
 }

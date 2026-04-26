@@ -1,10 +1,32 @@
 import express from 'express';
 import pool from '../db.js';
+import ticketPool from '../ticketDb.js';
+import { siteBaseUrl, siteBrand } from '../siteConfig.js';
 
 const router = express.Router();
 
-// Получить базовый URL из переменных окружения или использовать дефолтный
-const BASE_URL = (process.env.SITE_URL || 'https://biletvsem.com').replace(/\/$/, '');
+const BASE_URL = siteBaseUrl();
+const BRAND = siteBrand();
+
+async function poolRows(label, sql, params = []) {
+  try {
+    const r = await pool.query(sql, params);
+    return r.rows;
+  } catch (e) {
+    console.error(`[sitemap] ${label}:`, e.message);
+    return [];
+  }
+}
+
+async function ticketRows(label, sql, params = []) {
+  try {
+    const r = await ticketPool.query(sql, params);
+    return r.rows;
+  } catch (e) {
+    console.warn(`[sitemap] ${label}:`, e.message);
+    return [];
+  }
+}
 
 // Функция для форматирования даты в формат ISO
 function formatDate(date) {
@@ -61,101 +83,110 @@ function getChangeFreq(slug, type = 'page', updatedAt) {
 export async function handleSitemapXml(req, res) {
   try {
     const urls = [];
-    
-    // 1. Главная страница
+
     urls.push({
-      loc: BASE_URL + '/',
+      loc: `${BASE_URL}/`,
       lastmod: formatDate(new Date()),
       changefreq: 'daily',
-      priority: '1.0'
+      priority: '1.0',
     });
-    
-    // 2. Публичные страницы
-    const pagesResult = await pool.query(
-      `SELECT slug, updated_at, robots_index 
-       FROM pages 
-       WHERE is_published = TRUE 
+
+    const pagesRows = await poolRows(
+      'pages',
+      `SELECT slug, updated_at, robots_index
+       FROM pages
+       WHERE is_published = TRUE
        AND (robots_index IS NULL OR robots_index = TRUE)
-       ORDER BY updated_at DESC`
+       ORDER BY updated_at DESC`,
     );
-    
-    for (const page of pagesResult.rows) {
+    for (const page of pagesRows) {
       const slug = page.slug === '/' ? '' : page.slug;
       urls.push({
         loc: BASE_URL + slug,
         lastmod: formatDate(page.updated_at),
         changefreq: getChangeFreq(page.slug, 'page', page.updated_at),
-        priority: getPriority(page.slug, 'page')
+        priority: getPriority(page.slug, 'page'),
       });
     }
-    
-    // 3. Блог посты
-    const blogResult = await pool.query(
-      `SELECT slug, updated_at 
-       FROM blog_posts 
-       WHERE is_published = TRUE 
-       ORDER BY updated_at DESC`
+
+    const blogRows = await poolRows(
+      'blog_posts',
+      `SELECT slug, updated_at
+       FROM blog_posts
+       WHERE is_published = TRUE
+       ORDER BY updated_at DESC`,
     );
-    
-    for (const post of blogResult.rows) {
+    for (const post of blogRows) {
       urls.push({
-        loc: BASE_URL + '/blog/' + post.slug,
+        loc: `${BASE_URL}/blog/${post.slug}`,
         lastmod: formatDate(post.updated_at),
         changefreq: getChangeFreq(post.slug, 'blog', post.updated_at),
-        priority: getPriority(post.slug, 'blog')
+        priority: getPriority(post.slug, 'blog'),
       });
     }
-    
-    // 4. Категории блога
-    const categoriesResult = await pool.query(
-      `SELECT slug FROM blog_categories ORDER BY id`
-    );
-    
-    for (const category of categoriesResult.rows) {
+
+    const categoryRows = await poolRows('blog_categories', `SELECT slug FROM blog_categories ORDER BY id`);
+    for (const category of categoryRows) {
       urls.push({
-        loc: BASE_URL + '/blog/category/' + category.slug,
+        loc: `${BASE_URL}/blog/category/${category.slug}`,
         lastmod: formatDate(new Date()),
         changefreq: 'weekly',
-        priority: '0.7'
+        priority: '0.7',
       });
     }
-    
-    // 5. Продукты
-    const productsResult = await pool.query(
-      `SELECT slug, updated_at 
-       FROM products 
-       WHERE is_active = TRUE 
-       ORDER BY updated_at DESC`
+
+    const productRows = await poolRows(
+      'products',
+      `SELECT slug, updated_at
+       FROM products
+       WHERE is_active = TRUE
+       ORDER BY updated_at DESC`,
     );
-    
-    for (const product of productsResult.rows) {
+    for (const product of productRows) {
       urls.push({
-        loc: BASE_URL + '/products/' + product.slug,
+        loc: `${BASE_URL}/products/${product.slug}`,
         lastmod: formatDate(product.updated_at),
         changefreq: getChangeFreq(product.slug, 'product', product.updated_at),
-        priority: getPriority(product.slug, 'product')
+        priority: getPriority(product.slug, 'product'),
       });
     }
-    
-    // 6. Кейсы
-    const casesResult = await pool.query(
-      `SELECT slug, updated_at 
-       FROM cases 
-       WHERE is_published = TRUE 
-       ORDER BY updated_at DESC`
+
+    const caseRows = await poolRows(
+      'cases',
+      `SELECT slug, updated_at
+       FROM cases
+       WHERE is_published = TRUE
+       ORDER BY updated_at DESC`,
     );
-    
-    for (const caseItem of casesResult.rows) {
+    for (const caseItem of caseRows) {
       urls.push({
-        loc: BASE_URL + '/cases/' + caseItem.slug,
+        loc: `${BASE_URL}/cases/${caseItem.slug}`,
         lastmod: formatDate(caseItem.updated_at),
         changefreq: getChangeFreq(caseItem.slug, 'case', caseItem.updated_at),
-        priority: getPriority(caseItem.slug, 'case')
+        priority: getPriority(caseItem.slug, 'case'),
       });
     }
-    
-    // 7. Статические важные страницы
+
+    const ticketEventRows = await ticketRows(
+      'getbilet_events',
+      `SELECT getbilet_external_id::text AS ext_id, updated_at
+       FROM getbilet_events
+       WHERE is_published = TRUE
+       ORDER BY updated_at DESC`,
+    );
+    for (const row of ticketEventRows) {
+      const rid = encodeURIComponent(row.ext_id);
+      urls.push({
+        loc: `${BASE_URL}/ticket/${rid}`,
+        lastmod: formatDate(row.updated_at),
+        changefreq: 'weekly',
+        priority: '0.9',
+      });
+    }
+
     const staticPages = [
+      { path: '/events', priority: '0.95', changefreq: 'daily' },
+      { path: '/afisha', priority: '0.95', changefreq: 'daily' },
       { path: '/catalog', priority: '0.9', changefreq: 'weekly' },
       { path: '/blog', priority: '0.8', changefreq: 'weekly' },
       { path: '/portfolio', priority: '0.8', changefreq: 'weekly' },
@@ -166,31 +197,41 @@ export async function handleSitemapXml(req, res) {
       { path: '/new-client', priority: '0.8', changefreq: 'monthly' },
       { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
     ];
-    
+
     for (const staticPage of staticPages) {
-      // Проверяем, не добавлена ли уже эта страница из базы
-      if (!urls.find(u => u.loc === BASE_URL + staticPage.path)) {
+      if (!urls.find((u) => u.loc === BASE_URL + staticPage.path)) {
         urls.push({
           loc: BASE_URL + staticPage.path,
           lastmod: formatDate(new Date()),
           changefreq: staticPage.changefreq,
-          priority: staticPage.priority
+          priority: staticPage.priority,
         });
       }
     }
-    
-    // Генерируем XML
+
+    const seen = new Set();
+    const unique = [];
+    for (const u of urls) {
+      if (seen.has(u.loc)) continue;
+      seen.add(u.loc);
+      unique.push(u);
+    }
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-${urls.map(url => `  <url>
+${unique
+  .map(
+    (url) => `  <url>
     <loc>${escapeXml(url.loc)}</loc>
     <lastmod>${url.lastmod}</lastmod>
     <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority}</priority>
-  </url>`).join('\n')}
+  </url>`,
+  )
+  .join('\n')}
 </urlset>`;
 
     res.set('Content-Type', 'application/xml; charset=utf-8');
@@ -214,30 +255,36 @@ router.get('/.well-known/llms.txt', handleWellKnownLlms);
 // llms.txt — «sitemap для ИИ» по спецификации llmstxt.org
 export async function handleLlmsTxt(req, res) {
   try {
-    const [productsRes, casesRes, blogRes] = await Promise.all([
-      pool.query('SELECT slug, title, summary FROM products WHERE is_active = TRUE ORDER BY slug'),
-      pool.query('SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug'),
-      pool.query('SELECT slug, title FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC'),
-    ]);
-    const products = productsRes.rows;
-    const cases = casesRes.rows;
-    const blogPosts = blogRes.rows;
+    const products = await poolRows(
+      'llms.txt products',
+      'SELECT slug, title, summary FROM products WHERE is_active = TRUE ORDER BY slug',
+    );
+    const cases = await poolRows(
+      'llms.txt cases',
+      'SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug',
+    );
+    const blogPosts = await poolRows(
+      'llms.txt blog',
+      'SELECT slug, title FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC',
+    );
 
     const productsLinks = products.map((p) => `- [${p.title}](${BASE_URL}/products/${p.slug}): ${(p.summary || '').slice(0, 80)}...`).join('\n');
     const casesLinks = cases.slice(0, 15).map((c) => `- [${c.title}](${BASE_URL}/cases/${c.slug}): ${(c.summary || '').slice(0, 80)}...`).join('\n');
     const blogLinks = blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})`).join('\n');
 
-    const md = `# Prime Coder
+    const md = `# ${BRAND}
 
-> Prime Coder — digital-студия в Москве: разработка сайтов (WordPress, Tilda, Битрикс), SEO-продвижение, AI-автоматизация, чат-боты, контекстная реклама. 73% клиентов получают рост трафика 200%+ за 6 месяцев.
+> ${BRAND} — покупка билетов на концерты, театр и мероприятия: афиша, выбор мест, оплата, электронный билет.
 
 Ключевые разделы:
-- Каталог услуг: ${BASE_URL}/catalog
+- Афиша и поиск: ${BASE_URL}/events
+- Альтернативная афиша: ${BASE_URL}/afisha
+- Каталог услуг (при наличии): ${BASE_URL}/catalog
 - Портфолио и кейсы: ${BASE_URL}/portfolio
 - Блог: ${BASE_URL}/blog
 - Контакты: ${BASE_URL}/contacts
 
-## Услуги (prime-coder.ru/products)
+## Услуги (${BASE_URL}/products)
 
 ${productsLinks}
 
@@ -279,14 +326,18 @@ router.get('/llms.txt', handleLlmsTxt);
 // llms-full.txt — расширенная версия: domain-specific, recency, примеры промптов, блог
 export async function handleLlmsFullTxt(req, res) {
   try {
-    const [productsRes, casesRes, blogRes] = await Promise.all([
-      pool.query('SELECT slug, title, summary, meta_description, content_json FROM products WHERE is_active = TRUE ORDER BY slug'),
-      pool.query('SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug LIMIT 25'),
-      pool.query('SELECT slug, title, seo_description FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC'),
-    ]);
-    const products = productsRes.rows;
-    const cases = casesRes.rows;
-    const blogPosts = blogRes.rows;
+    const products = await poolRows(
+      'llms-full products',
+      'SELECT slug, title, summary, meta_description, content_json FROM products WHERE is_active = TRUE ORDER BY slug',
+    );
+    const cases = await poolRows(
+      'llms-full cases',
+      'SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug LIMIT 25',
+    );
+    const blogPosts = await poolRows(
+      'llms-full blog',
+      'SELECT slug, title, seo_description FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC',
+    );
 
     const productBlocks = products.map((p) => {
       const desc = p.meta_description || p.summary || '';
@@ -297,15 +348,17 @@ export async function handleLlmsFullTxt(req, res) {
       return `### ${p.title}${priceInfo}\n${BASE_URL}/products/${p.slug}\n${desc}\n`;
     }).join('\n');
 
-    const md = `# Prime Coder — полный контекст для ИИ
+    const host = BASE_URL.replace(/^https?:\/\//, '');
+    const md = `# ${BRAND} — полный контекст для ИИ
 
-> Digital-студия в Москве: сайты (WordPress, Tilda, Битрикс), SEO, AI-продвижение, чат-боты, контекстная реклама. Результаты: +200% трафика за 6 мес, ROI ×4-6. 73% клиентов — рост трафика 200%+.
+> ${BRAND}: афиша мероприятий, поиск по площадкам и жанрам, покупка билетов онлайн, выбор мест, оплата, электронный билет.
 
 ---
-domain: prime-coder.ru
+domain: ${host}
+domain-specific: ${BASE_URL}/events
+domain-specific: ${BASE_URL}/afisha
 domain-specific: ${BASE_URL}/catalog
 domain-specific: ${BASE_URL}/products
-recency: 2026-02
 updated: ${formatDate(new Date())}
 language: ru
 ---
@@ -326,22 +379,15 @@ ${blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})${p.seo_descri
 
 - Сайт: ${BASE_URL}
 - Контакты: ${BASE_URL}/contacts
-- Каталог услуг: ${BASE_URL}/catalog
+- Афиша: ${BASE_URL}/events
 
-## Примеры промптов для dev-запросов
+## Примеры промптов для ИИ
 
-При обращении к ИИ с запросом о Prime Coder используйте:
-
-1. **Услуги**: "Опиши услуги Prime Coder по разработке сайтов и цены"
-2. **SEO**: "Какие услуги по SEO и маркетингу у Prime Coder?"
-3. **AI**: "Чем Prime Coder занимается в AI-продвижении и автоматизации?"
-4. **Цены**: "Сколько стоит разработка сайта / интернет-магазина в Prime Coder?"
-5. **Кейсы**: "Покажи кейсы Prime Coder по e-commerce и корпоративным сайтам"
-6. **Локация**: "Где находится Prime Coder? Офис в Москве?"
-7. **Результаты**: "Какие результаты даёт Prime Coder клиентам? ROI, трафик"
-8. **Технологии**: "На каких технологиях делает сайты Prime Coder? WordPress, Битрикс, Tilda"
-9. **Интернет-магазин**: "Сколько стоит интернет-магазин под ключ от Prime Coder?"
-10. **Лендинг**: "Стоимость лендинга от Prime Coder"
+1. **Билеты**: "Как купить билет на ${BRAND}?"
+2. **Афиша**: "Какие события на этой неделе на ${BASE_URL}?"
+3. **Площадка**: "Как найти мероприятия по театру или концертному залу?"
+4. **Оплата**: "Какие способы оплаты на сайте ${BRAND}?"
+5. **Электронный билет**: "Как получить билет после оплаты?"
 
 Ключевые slug услуг: ${products.map((p) => p.slug).join(', ')}
 
@@ -417,14 +463,14 @@ export async function handleServicesYml(req, res) {
     const yml = `<?xml version="1.0" encoding="UTF-8"?>
 <yml_catalog date="${dateStr}">
   <shop>
-    <name>PrimeCoder</name>
+    <name>${escapeXml(BRAND)}</name>
     <company>ИП Леоненко Владислав</company>
     <url>${BASE_URL}</url>
     <currencies>
       <currency id="RUB" rate="1"/>
     </currencies>
     <categories>
-      <category id="1">Услуги веб-студии</category>
+      <category id="1">Услуги и билеты</category>
     </categories>
     <offers>
 ${offersXml}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { getSiteBaseUrl } from '@/config/site';
 
 interface BreadcrumbItem {
   name: string;
@@ -28,7 +29,11 @@ export function BreadcrumbJsonLd({ items }: BreadcrumbJsonLdProps) {
         '@type': 'ListItem',
         position: index + 1,
         name: item.name,
-        item: { '@id': item.url.startsWith('http') ? item.url : `https://prime-coder.ru${item.url.startsWith('/') ? item.url : '/' + item.url}` },
+        item: {
+          '@id': item.url.startsWith('http')
+            ? item.url
+            : `${getSiteBaseUrl()}${item.url.startsWith('/') ? item.url : '/' + item.url}`,
+        },
       })),
     };
 
