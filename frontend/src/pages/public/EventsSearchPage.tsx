@@ -24,10 +24,7 @@ import {
   uniqueVenuesFromEvents,
 } from '@/services/biletPublicApi';
 import styles from './EventsSearchPage.module.css';
-import {
-  MHT_CHEKHOV_MAIN_STAGE_ID,
-  MHT_MAIN_HALL_SCHEME_SVG_PATH,
-} from '@/constants/getbiletStages';
+import { MHT_CHEKHOV_MAIN_STAGE_ID } from '@/constants/getbiletStages';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 
 const GENRE_CHIPS = ['Театр', 'Концерт', 'Драма', 'Комедия', 'Детям', 'Спорт'];
@@ -206,16 +203,6 @@ export function EventsSearchPage() {
               },
             }}
           />
-          {stageUrl === MHT_CHEKHOV_MAIN_STAGE_ID && (
-            <a
-              className={styles.hallSchemeLink}
-              href={MHT_MAIN_HALL_SCHEME_SVG_PATH}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Схема зала
-            </a>
-          )}
         </div>
 
         {genreUrl === 'Спорт' && (

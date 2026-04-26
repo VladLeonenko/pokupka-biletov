@@ -1,9 +1,5 @@
 import { Link } from 'react-router-dom';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
-import {
-  isMhtChekhovMainHallStage,
-  MHT_MAIN_HALL_SCHEME_SVG_PATH,
-} from '@/constants/getbiletStages';
 import { formatEventPosterDateBadge } from '@/utils/eventDateLabels';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
@@ -25,12 +21,8 @@ function displayGenreLine(ev: NormalizedBiletEvent): string | null {
   return null;
 }
 
-/** День · дата · время · площадка; дубликаты по регистру не повторяем. */
-function buildWhenLine(ev: NormalizedBiletEvent): string {
-  const venue = ev.venue?.trim() || '';
-  const parts = [ev.weekday, ev.displayDate, ev.timeLabel, venue]
-    .map((s) => (typeof s === 'string' ? s.trim() : ''))
-    .filter(Boolean);
+/** Убираем повторяющиеся фрагменты (без учёта регистра). */
+function dedupeParts(parts: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const p of parts) {
@@ -39,7 +31,22 @@ function buildWhenLine(ev: NormalizedBiletEvent): string {
     seen.add(k);
     out.push(p);
   }
-  return out.join(' · ');
+  return out;
+}
+
+/** Одна строка: день · дата · время и при необходимости площадка (без повтора названия зала). */
+function buildWhenWhereLine(ev: NormalizedBiletEvent): string | null {
+  const venue = ev.venue?.trim() || '';
+  const sched = dedupeParts(
+    [ev.weekday, ev.displayDate, ev.timeLabel]
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean),
+  );
+  const schedStr = sched.join(' · ');
+  if (!venue) return schedStr || null;
+  if (!schedStr) return venue;
+  if (schedStr.toLowerCase().includes(venue.toLowerCase())) return schedStr;
+  return `${schedStr} · ${venue}`;
 }
 
 export function EventPosterCard({ event, variant = 'poster' }: Props) {
@@ -52,7 +59,7 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
     weekday: event.weekday,
     dateLabel: event.dateLabel,
   });
-  const whenUnderTitle = buildWhenLine(event);
+  const whenWhereLine = buildWhenWhereLine(event);
 
   const genreLine = displayGenreLine(event);
 
@@ -87,7 +94,7 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
           {event.subtitle?.trim() ? (
             <p className={styles.subtitle}>{event.subtitle.trim()}</p>
           ) : null}
-          {whenUnderTitle && <p className={styles.when}>{whenUnderTitle}</p>}
+          {whenWhereLine ? <p className={styles.whenWhere}>{whenWhereLine}</p> : null}
           {(event.author || event.director) && (
             <div className={styles.credits}>
               {event.author && <span>Автор — {event.author}</span>}
@@ -96,16 +103,6 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
           )}
         </div>
       </Link>
-      {isMhtChekhovMainHallStage(event.stageId) && (
-        <a
-          className={styles.hallScheme}
-          href={MHT_MAIN_HALL_SCHEME_SVG_PATH}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Схема основного зала
-        </a>
-      )}
     </div>
   );
 }

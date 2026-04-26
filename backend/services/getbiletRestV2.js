@@ -263,7 +263,19 @@ export async function restV2GetRepertoireListByStageId(stageId) {
 }
 
 export async function restV2GetOfferListByRepertoireId(repertoireId) {
-  return restV2Request('GetOfferListByRepertoireId', 'POST', { RepertoireId: repertoireId });
+  try {
+    return await restV2Request('GetOfferListByRepertoireId', 'POST', { RepertoireId: repertoireId });
+  } catch (e) {
+    // Upstream: HTTP 404 или тело StatusCode 404 / «Null Result» — нет офферов по репертуару (сеанс снят, пустая выборка).
+    if (e instanceof GetbiletUpstreamError && isSkippableEmptyCatalogError(e)) {
+      console.warn(
+        '[getbilet] GetOfferListByRepertoireId: пустой результат upstream, отдаём пустой ResultData:',
+        repertoireId,
+      );
+      return { StatusCode: 200, ResultData: [] };
+    }
+    throw e;
+  }
 }
 
 export async function restV2GetOfferListByEventInfo(repertoireId, eventDateTime) {

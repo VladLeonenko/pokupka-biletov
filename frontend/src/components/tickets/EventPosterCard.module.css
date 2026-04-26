@@ -188,14 +188,14 @@
   overflow: hidden;
 }
 
-.when {
+.whenWhere {
   margin: 0 0 4px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(28, 27, 25, 0.5);
-  line-height: 1.35;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #1c1b19;
+  line-height: 1.45;
 }
 
 .credits {
@@ -205,27 +205,6 @@
   font-size: 0.78rem;
   color: rgba(28, 27, 25, 0.55);
   line-height: 1.35;
-}
-
-.venue {
-  margin: 4px 0 0;
-  font-size: 0.82rem;
-  color: rgba(28, 27, 25, 0.5);
-}
-
-.hallScheme {
-  display: block;
-  padding: 0 14px 14px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--neg-orange, #ff4e18);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.hallScheme:hover {
-  color: #e64514;
 }
 
 /* Компактная сетка на главной — выше постер, чтобы блок не казался «пустым» */

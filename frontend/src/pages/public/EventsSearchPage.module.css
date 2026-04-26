@@ -98,19 +98,6 @@
   margin-right: 4px;
 }
 
-.hallSchemeLink {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--neg-orange, #ff4e18);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  margin-left: 4px;
-}
-
-.hallSchemeLink:hover {
-  color: #e64514;
-}
-
 .count {
   font-size: 0.82rem;
   color: rgba(0, 0, 0, 0.45);

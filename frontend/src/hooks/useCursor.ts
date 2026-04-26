@@ -112,8 +112,19 @@ export function useCursor(currentPath?: string, disableCustomCursor?: boolean) {
           body {
             cursor: none !important;
           }
+          
+          /* ИСКЛЮЧЕНИЯ - текстовый ввод и встроенный контент */
+          input, textarea,
+          [contenteditable="true"],
+          .chat-widget, .chat-widget *,
+          .MuiDialog-root, .MuiDialog-root *,
+          .MuiModal-root, .MuiModal-root *,
+          .show_popup, .show_popup *,
+          iframe, iframe * {
+            cursor: auto !important;
+          }
 
-          /* Ссылки и кликабельные элементы — системный курсор «рука» */
+          /* Ссылки и кликабельные элементы — системный курсор «рука» (после блока выше) */
           a[href],
           button:not(:disabled),
           [role="button"],
@@ -133,17 +144,6 @@ export function useCursor(currentPath?: string, disableCustomCursor?: boolean) {
           .MuiListItemButton-root,
           .MuiCardActionArea-root {
             cursor: pointer !important;
-          }
-          
-          /* ИСКЛЮЧЕНИЯ - где курсор должен быть обычным */
-          input, textarea, select, 
-          [contenteditable="true"],
-          .chat-widget, .chat-widget *,
-          .MuiDialog-root, .MuiDialog-root *,
-          .MuiModal-root, .MuiModal-root *,
-          .show_popup, .show_popup *,
-          iframe, iframe * {
-            cursor: auto !important;
           }
           
           .cursor {
