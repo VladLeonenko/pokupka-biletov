@@ -5,6 +5,7 @@
 import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { buildEventDescriptionPackResolved } from './eventDescriptionAi.js';
+import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
 
 function expandMediaTemplate(template, repertoireId) {
   if (!template?.trim()) return null;
@@ -25,30 +26,28 @@ function pickFirst(obj, keys) {
 /**
  * @param {string} repertoireId
  * @returns {Promise<{
- *   repertoireId: string;
- *   stageId: string | null;
+ *   hasCatalogRow: boolean;
  *   title: string;
- *   descriptionSnippet: string | null;
- *   heroKicker: string | null;
- *   heroSubline: string | null;
- *   heroLead: string | null;
- *   eventMeta: { label: string; value: string }[];
- *   descriptionSections: { id: string; title: string; paragraphs: string[] }[];
- *   posterUrl: string | null;
- *   bannerUrl: string | null;
- *   stageMap: null | {
- *     stage_external_id: string;
- *     place_external_id: string | null;
- *     title: string | null;
- *     svg_markup: string | null;
- *     layout_json: unknown;
- *   };
+ *   venueFromPayload: string | null;
+ *   descriptionFromPayload: string | null;
+ *   genreFromPayload: string | null;
+ *   catalogHints: { ageLimit: string | null; cityName: string | null; beginSample: string | null };
+ *   descriptionManual: string | null;
+ *   descriptionPackJson: unknown;
+ *   eventRowId: number | null;
+ *   stageId: string | null;
+ *   payload: Record<string, unknown>;
+ *   titleManual: string | null;
+ *   posterManual: string | null;
+ *   posterWeb: string | null;
+ *   bannerManual: string | null;
  * }>}
  */
-export async function getRepertoirePublicContext(repertoireId) {
+async function loadRepertoireBase(repertoireId) {
   let stageId = null;
   /** @type {Record<string, unknown>} */
   let payload = {};
+  let hasCatalogRow = false;
 
   try {
     const r = await ticketPool.query(
@@ -57,6 +56,7 @@ export async function getRepertoirePublicContext(repertoireId) {
     );
     const row = r.rows[0];
     if (row) {
+      hasCatalogRow = true;
       stageId = row.stage_id || null;
       const p = row.payload_json;
       if (p && typeof p === 'object' && !Array.isArray(p)) payload = /** @type {Record<string, unknown>} */ (p);
@@ -73,19 +73,40 @@ export async function getRepertoirePublicContext(repertoireId) {
   let posterWeb = null;
   let bannerManual = null;
   let descriptionManual = null;
+  /** @type {unknown} */
+  let descriptionPackJson = null;
+  /** @type {number | null} */
+  let eventRowId = null;
 
   try {
-    const er = await ticketPool.query(
-      `SELECT title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual
-       FROM getbilet_events WHERE getbilet_external_id = $1`,
-      [repertoireId],
-    );
+    let er;
+    try {
+      er = await ticketPool.query(
+        `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json
+         FROM getbilet_events WHERE getbilet_external_id = $1`,
+        [repertoireId],
+      );
+    } catch (e) {
+      if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
+        er = await ticketPool.query(
+          `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual
+           FROM getbilet_events WHERE getbilet_external_id = $1`,
+          [repertoireId],
+        );
+      } else {
+        throw e;
+      }
+    }
     if (er.rows[0]) {
+      eventRowId = Number(er.rows[0].id);
       titleManual = er.rows[0].title_manual;
       posterManual = er.rows[0].poster_url_manual;
       posterWeb = er.rows[0].poster_url_web;
       bannerManual = er.rows[0].banner_url_manual;
       descriptionManual = er.rows[0].description_manual;
+      if ('description_pack_json' in er.rows[0]) {
+        descriptionPackJson = er.rows[0].description_pack_json;
+      }
     }
   } catch {
     /* нет ticket-схемы */
@@ -98,11 +119,8 @@ export async function getRepertoirePublicContext(repertoireId) {
         ? payload.name.trim()
         : '';
 
-  const title =
-    (titleManual && String(titleManual).trim()) || payloadName || '';
+  const title = (titleManual && String(titleManual).trim()) || payloadName || '';
 
-  const imageFromPayload = pickFirst(payload, ['ImageUrl', 'imageUrl', 'Image', 'PosterUrl', 'posterUrl']);
-  const bannerFromPayload = pickFirst(payload, ['BannerUrl', 'bannerUrl']);
   const venueFromPayload = pickFirst(payload, ['PlaceName', 'placeName', 'Venue', 'venue', 'Place', 'place']);
   const descriptionFromPayload = pickFirst(payload, [
     'Description',
@@ -137,20 +155,94 @@ export async function getRepertoirePublicContext(repertoireId) {
     ]),
   };
 
+  return {
+    hasCatalogRow,
+    title,
+    venueFromPayload,
+    descriptionFromPayload,
+    genreFromPayload,
+    catalogHints,
+    descriptionManual: descriptionManual != null ? String(descriptionManual) : null,
+    descriptionPackJson,
+    eventRowId: Number.isFinite(eventRowId) ? eventRowId : null,
+    stageId,
+    payload,
+    titleManual,
+    posterManual,
+    posterWeb,
+    bannerManual,
+  };
+}
+
+/**
+ * Входы для OpenAI и скрипта backfill (есть строка getbilet_events и каталог).
+ * @param {string} repertoireId
+ */
+export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
+  const base = await loadRepertoireBase(repertoireId);
+  if (!base.hasCatalogRow) return null;
+  const { kind, categoryLabel } = classifyEventTitle(base.title, {
+    subtitle: base.descriptionFromPayload || '',
+    genre: base.genreFromPayload || '',
+  });
+  return {
+    title: base.title,
+    kind,
+    categoryLabel,
+    venueLabel: base.venueFromPayload,
+    manualHint: base.descriptionManual != null ? String(base.descriptionManual).trim() || null : null,
+    catalogHints: base.catalogHints,
+    eventRowId: base.eventRowId,
+    existingStoredPack: base.descriptionPackJson,
+  };
+}
+
+/**
+ * @param {string} repertoireId
+ * @returns {Promise<{
+ *   repertoireId: string;
+ *   stageId: string | null;
+ *   title: string;
+ *   descriptionSnippet: string | null;
+ *   heroKicker: string | null;
+ *   heroSubline: string | null;
+ *   heroLead: string | null;
+ *   eventMeta: { label: string; value: string }[];
+ *   descriptionSections: { id: string; title: string; paragraphs: string[] }[];
+ *   posterUrl: string | null;
+ *   bannerUrl: string | null;
+ *   stageMap: null | {
+ *     stage_external_id: string;
+ *     place_external_id: string | null;
+ *     title: string | null;
+ *     svg_markup: string | null;
+ *     layout_json: unknown;
+ *   };
+ * }>}
+ */
+export async function getRepertoirePublicContext(repertoireId) {
+  const base = await loadRepertoireBase(repertoireId);
+
+  const { payload, stageId, title, venueFromPayload, descriptionFromPayload, genreFromPayload, catalogHints, descriptionManual, descriptionPackJson } =
+    base;
+
+  const imageFromPayload = pickFirst(payload, ['ImageUrl', 'imageUrl', 'Image', 'PosterUrl', 'posterUrl']);
+  const bannerFromPayload = pickFirst(payload, ['BannerUrl', 'bannerUrl']);
+
   const posterTpl = process.env.GETBILET_POSTER_URL_TEMPLATE?.trim();
   const bannerTpl = process.env.GETBILET_BANNER_URL_TEMPLATE?.trim();
 
-  const posterWebTrim = posterWeb != null && String(posterWeb).trim() ? String(posterWeb).trim() : '';
+  const posterWebTrim = base.posterWeb != null && String(base.posterWeb).trim() ? String(base.posterWeb).trim() : '';
 
   const posterUrl =
-    (posterManual && String(posterManual).trim()) ||
+    (base.posterManual && String(base.posterManual).trim()) ||
     expandMediaTemplate(posterTpl, repertoireId) ||
     imageFromPayload ||
     posterWebTrim ||
     null;
 
   const bannerUrl =
-    (bannerManual && String(bannerManual).trim()) ||
+    (base.bannerManual && String(base.bannerManual).trim()) ||
     expandMediaTemplate(bannerTpl, repertoireId) ||
     bannerFromPayload ||
     null;
@@ -173,14 +265,18 @@ export async function getRepertoirePublicContext(repertoireId) {
     subtitle: descriptionFromPayload || '',
     genre: genreFromPayload || '',
   });
-  const descPack = await buildEventDescriptionPackResolved({
-    title,
-    kind,
-    categoryLabel,
-    venueLabel: venueFromPayload,
-    manualText: descriptionManual != null ? String(descriptionManual) : null,
-    catalogHints,
-  });
+
+  let descPack = descPackFromStoredJson(descriptionPackJson);
+  if (!descPack) {
+    descPack = await buildEventDescriptionPackResolved({
+      title,
+      kind,
+      categoryLabel,
+      venueLabel: venueFromPayload,
+      manualText: descriptionManual,
+      catalogHints,
+    });
+  }
 
   const leadPlain =
     (descPack.heroLead != null && String(descPack.heroLead).trim()) ||

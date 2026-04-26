@@ -24,6 +24,8 @@ const DEFAULTS: TicketsVitrineContent = {
   header: {
     logoTitle: 'Афиша',
     logoSub: 'билеты на мероприятия',
+    logoPlacement: 'left',
+    logoShowTextWithImage: true,
   },
   contacts: {
     pageTitle: 'Контакты',

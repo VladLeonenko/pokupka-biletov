@@ -43,6 +43,8 @@ export interface GetbiletEventRow {
   poster_page_url?: string | null;
   title_manual: string | null;
   description_manual: string | null;
+  /** Снимок AI-описания для публичной страницы (см. backfill description_pack) */
+  description_pack_json?: Record<string, unknown> | null;
   notes_internal: string | null;
   is_published: boolean;
   sort_order: number;

@@ -1,5 +1,5 @@
 /**
- * Минималистичный логотип витрины: знак (билет) + словесная часть.
+ * Логотип витрины: картинка из CMS и/или знак «билет» + словесная часть.
  */
 import styles from './TicketsSiteLogo.module.css';
 
@@ -8,6 +8,10 @@ type Props = {
   title?: string;
   /** Подпись: «билеты на мероприятия» */
   sub?: string;
+  /** URL или `/uploads/…` — если задан, показываем картинку */
+  imageUrl?: string;
+  /** При imageUrl: показывать title/sub рядом (по умолчанию true) */
+  showTextWithImage?: boolean;
 };
 
 function Mark() {
@@ -20,7 +24,31 @@ function Mark() {
   );
 }
 
-export function TicketsSiteLogo({ title = 'Афиша', sub = 'билеты на мероприятия' }: Props) {
+export function TicketsSiteLogo({
+  title = 'Афиша',
+  sub = 'билеты на мероприятия',
+  imageUrl,
+  showTextWithImage = true,
+}: Props) {
+  const img = imageUrl?.trim();
+  const showText = !img || showTextWithImage !== false;
+
+  if (img) {
+    return (
+      <span className={styles.root} aria-label={`${title} — ${sub}`}>
+        <span className={styles.imgWrap}>
+          <img className={styles.logoImg} src={img} alt="" decoding="async" />
+        </span>
+        {showText ? (
+          <span className={styles.text}>
+            <span className={styles.title}>{title}</span>
+            <span className={styles.sub}>{sub}</span>
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+
   return (
     <span className={styles.root} aria-label={`${title} — ${sub}`}>
       <Mark />

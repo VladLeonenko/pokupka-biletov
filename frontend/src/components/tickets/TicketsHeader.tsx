@@ -24,6 +24,8 @@ import { fetchPublicTicketsVitrine } from '@/services/ticketsVitrineApi';
 import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
 import { directionsForHeader } from '@/utils/ticketsDirectionsFilter';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
+import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
+import { setTicketsVitrineFaviconBase } from '@/utils/faviconUpdater';
 import styles from './TicketsHeader.module.css';
 import { TicketsUserMenu } from '@/components/tickets/TicketsUserMenu';
 import { TicketsSiteLogo } from '@/components/tickets/TicketsSiteLogo';
@@ -64,6 +66,25 @@ export function TicketsHeader() {
   const directions = directionsForHeader(vitrine.directions);
   const logoTitle = vitrine.header?.logoTitle ?? 'Афиша';
   const logoSub = vitrine.header?.logoSub ?? 'билеты на мероприятия';
+  const logoImageUrl = vitrine.header?.logoImageUrl?.trim();
+  const logoShowTextWithImage = vitrine.header?.logoShowTextWithImage !== false;
+  const logoPlacement = vitrine.header?.logoPlacement === 'center' ? 'center' : 'left';
+  const faviconUrl = vitrine.header?.faviconUrl?.trim();
+
+  const ticketsChrome = matchesTicketsChromePath(loc.pathname);
+
+  useEffect(() => {
+    if (!ticketsChrome) {
+      setTicketsVitrineFaviconBase(null);
+      return;
+    }
+    if (!faviconUrl) {
+      setTicketsVitrineFaviconBase(null);
+      return;
+    }
+    setTicketsVitrineFaviconBase(faviconUrl);
+    return () => setTicketsVitrineFaviconBase(null);
+  }, [ticketsChrome, faviconUrl]);
 
   const homePaths = loc.pathname === '/' || loc.pathname === '/afisha';
 
@@ -170,9 +191,16 @@ export function TicketsHeader() {
   return (
     <div role="banner" className={styles.wrap} data-tickets-nav>
       <div className={styles.inner}>
-        <div className={styles.rowTop}>
+        <div
+          className={`${styles.rowTop} ${logoPlacement === 'center' ? styles.rowTopLogoCenter : ''}`.trim()}
+        >
           <Link to="/" className={styles.logo} title={`${logoTitle} — ${logoSub}`}>
-            <TicketsSiteLogo title={logoTitle} sub={logoSub} />
+            <TicketsSiteLogo
+              title={logoTitle}
+              sub={logoSub}
+              imageUrl={logoImageUrl}
+              showTextWithImage={logoShowTextWithImage}
+            />
           </Link>
 
           <nav className={styles.nav} aria-label="Основное меню">

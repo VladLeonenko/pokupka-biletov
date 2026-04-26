@@ -5,9 +5,13 @@ import {
   Button,
   Checkbox,
   Divider,
+  FormControl,
   FormControlLabel,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -21,6 +25,7 @@ import {
 } from '@/services/ticketsVitrineApi';
 import type { CmsHeroSlide, TicketsVitrineContent } from '@/types/ticketsVitrine';
 import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
+import { uploadImage } from '@/services/cmsApi';
 
 const emptySlide = (): CmsHeroSlide => ({
   title: '',
@@ -44,6 +49,8 @@ export function TicketsVitrinePage() {
 
   const merged = useMemo(() => mergeTicketsVitrine(data?.content), [data]);
   const [draft, setDraft] = useState<TicketsVitrineContent>(merged);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
   useEffect(() => {
     setDraft(merged);
@@ -153,6 +160,145 @@ export function TicketsVitrinePage() {
                   setDraft({ ...draft, header: { ...draft.header, logoSub: e.target.value } })
                 }
               />
+              <TextField
+                label="Картинка логотипа (URL или путь после загрузки)"
+                fullWidth
+                placeholder="https://… или /uploads/…"
+                value={draft.header?.logoImageUrl ?? ''}
+                onChange={(e) =>
+                  setDraft({ ...draft, header: { ...draft.header, logoImageUrl: e.target.value } })
+                }
+                helperText="Необязательно. Если задана — показывается в шапке витрины (PNG/SVG/WebP)."
+              />
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                <Button variant="outlined" component="label" size="small" disabled={uploadingLogo}>
+                  {uploadingLogo ? 'Загрузка…' : 'Загрузить файл логотипа'}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!f) return;
+                      setUploadingLogo(true);
+                      try {
+                        const { url } = await uploadImage(f);
+                        setDraft((d) => ({
+                          ...d,
+                          header: { ...d.header, logoImageUrl: url },
+                        }));
+                        showToast('Логотип загружен', 'success');
+                      } catch (err) {
+                        showToast((err as Error).message, 'error');
+                      } finally {
+                        setUploadingLogo(false);
+                      }
+                    }}
+                  />
+                </Button>
+                {draft.header?.logoImageUrl ? (
+                  <Button
+                    size="small"
+                    color="inherit"
+                    onClick={() =>
+                      setDraft((d) => ({
+                        ...d,
+                        header: { ...d.header, logoImageUrl: '' },
+                      }))
+                    }
+                  >
+                    Убрать картинку
+                  </Button>
+                ) : null}
+              </Stack>
+              <FormControl size="small" sx={{ minWidth: 280 }}>
+                <InputLabel id="logo-placement-label">Позиция логотипа</InputLabel>
+                <Select
+                  labelId="logo-placement-label"
+                  label="Позиция логотипа"
+                  value={draft.header?.logoPlacement ?? 'left'}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      header: {
+                        ...draft.header,
+                        logoPlacement: e.target.value as 'left' | 'center',
+                      },
+                    })
+                  }
+                >
+                  <MenuItem value="left">Слева (как раньше)</MenuItem>
+                  <MenuItem value="center">По центру верхней строки</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draft.header?.logoShowTextWithImage !== false}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        header: { ...draft.header, logoShowTextWithImage: e.target.checked },
+                      })
+                    }
+                  />
+                }
+                label="Рядом с картинкой показывать название и подзаголовок (если выключить — только картинка)"
+              />
+              <Divider sx={{ my: 1 }} />
+              <TextField
+                label="Фавиконка (URL или путь)"
+                fullWidth
+                placeholder="/favicon.svg или /uploads/…"
+                value={draft.header?.faviconUrl ?? ''}
+                onChange={(e) =>
+                  setDraft({ ...draft, header: { ...draft.header, faviconUrl: e.target.value } })
+                }
+                helperText="Иконка вкладки на страницах билетной витрины. PWA manifest в index остаётся общим."
+              />
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                <Button variant="outlined" component="label" size="small" disabled={uploadingFavicon}>
+                  {uploadingFavicon ? 'Загрузка…' : 'Загрузить фавиконку'}
+                  <input
+                    type="file"
+                    hidden
+                    accept=".ico,.png,.svg,image/*"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!f) return;
+                      setUploadingFavicon(true);
+                      try {
+                        const { url } = await uploadImage(f);
+                        setDraft((d) => ({
+                          ...d,
+                          header: { ...d.header, faviconUrl: url },
+                        }));
+                        showToast('Фавиконка загружена', 'success');
+                      } catch (err) {
+                        showToast((err as Error).message, 'error');
+                      } finally {
+                        setUploadingFavicon(false);
+                      }
+                    }}
+                  />
+                </Button>
+                {draft.header?.faviconUrl ? (
+                  <Button
+                    size="small"
+                    color="inherit"
+                    onClick={() =>
+                      setDraft((d) => ({
+                        ...d,
+                        header: { ...d.header, faviconUrl: '' },
+                      }))
+                    }
+                  >
+                    Сбросить фавиконку
+                  </Button>
+                ) : null}
+              </Stack>
             </Stack>
           </Paper>
 

@@ -150,6 +150,7 @@ router.put('/events/:id', async (req, res) => {
     getbilet_external_id,
     title_manual,
     description_manual,
+    description_pack_json,
     notes_internal,
     poster_url_manual,
     poster_url_web,
@@ -169,11 +170,21 @@ router.put('/events/:id', async (req, res) => {
     const so = sort_order !== undefined ? Number(sort_order) : c.sort_order;
     if (!Number.isFinite(so)) return res.status(400).json({ error: 'Порядок сортировки: число' });
 
+    let packJson = c.description_pack_json;
+    if (description_pack_json !== undefined) {
+      if (description_pack_json === null) {
+        packJson = null;
+      } else if (description_pack_json && typeof description_pack_json === 'object') {
+        packJson = description_pack_json;
+      }
+    }
+
     await ticketPool.query(
       `UPDATE getbilet_events SET
         getbilet_external_id = $2,
         title_manual = $3,
         description_manual = $4,
+        description_pack_json = $12,
         notes_internal = $5,
         poster_url_manual = $6,
         poster_url_web = $7,
@@ -195,6 +206,7 @@ router.put('/events/:id', async (req, res) => {
         poster_page_url !== undefined ? poster_page_url?.trim() || null : c.poster_page_url,
         is_published !== undefined ? Boolean(is_published) : c.is_published,
         so,
+        description_pack_json !== undefined ? packJson : c.description_pack_json,
       ]
     );
 

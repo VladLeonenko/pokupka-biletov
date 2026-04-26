@@ -456,6 +456,23 @@ function buildTemplateDescriptionPack(opts) {
  * @param {string | null | undefined} opts.manualText
  * @param {{ ageLimit?: string | null, cityName?: string | null, beginSample?: string | null } | undefined} [opts.catalogHints]
  */
+/**
+ * Сохранение в getbilet_events.description_pack_json (без plainText).
+ * @param {Pick<Awaited<ReturnType<typeof generateEventDescriptionWithOpenAI>>, 'sections' | 'totalChars' | 'heroKicker' | 'heroSubline' | 'heroLead' | 'eventMeta'>} pack
+ * @returns {Record<string, unknown>}
+ */
+export function serializeDescriptionPackForStorage(pack) {
+  return {
+    v: 1,
+    heroKicker: pack.heroKicker ?? null,
+    heroSubline: pack.heroSubline ?? null,
+    heroLead: pack.heroLead ?? null,
+    eventMeta: Array.isArray(pack.eventMeta) ? pack.eventMeta : [],
+    sections: pack.sections,
+    totalChars: pack.totalChars,
+  };
+}
+
 export async function buildEventDescriptionPackResolved(opts) {
   const manual = opts.manualText != null ? String(opts.manualText) : '';
   const useAi = isEventDescriptionAiEnabled() && shouldRegenerateDescriptionWithAi(manual);

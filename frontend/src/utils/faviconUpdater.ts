@@ -5,6 +5,8 @@
 const DEFAULT_FAVICON = '/favicon.svg';
 let animationFrameId: number | null = null;
 let originalFaviconHref: string | null = null;
+/** База для бейджа уведомлений: подмена с билетной витрины (см. setTicketsVitrineFaviconBase). */
+let ticketsVitrineForcedBase: string | null = null;
 let isAnimating = false;
 let canvasCache: HTMLCanvasElement | null = null;
 
@@ -12,6 +14,9 @@ let canvasCache: HTMLCanvasElement | null = null;
  * Получает оригинальную фавиконку или создает базовую
  */
 function getOriginalFavicon(): string {
+  if (ticketsVitrineForcedBase) {
+    return ticketsVitrineForcedBase;
+  }
   if (originalFaviconHref) {
     return originalFaviconHref;
   }
@@ -23,6 +28,27 @@ function getOriginalFavicon(): string {
   }
 
   return DEFAULT_FAVICON;
+}
+
+function toAbsoluteIconUrl(raw: string): string {
+  const t = raw.trim();
+  if (!t) return new URL(DEFAULT_FAVICON, window.location.origin).href;
+  if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('data:') || t.startsWith('blob:')) return t;
+  if (t.startsWith('//')) return `${window.location.protocol}${t}`;
+  if (t.startsWith('/')) return `${window.location.origin}${t}`;
+  return `${window.location.origin}/${t.replace(/^\/+/, '')}`;
+}
+
+/**
+ * На страницах билетной витрины подменяет иконку вкладки; при `null` — снова дефолт из index.
+ * Сбрасывайте при уходе с витрины (cleanup в TicketsHeader).
+ */
+export function setTicketsVitrineFaviconBase(href: string | null): void {
+  ticketsVitrineForcedBase = href && href.trim() ? toAbsoluteIconUrl(href.trim()) : null;
+  originalFaviconHref = null;
+  const link = document.querySelector<HTMLLinkElement>('link[rel*="icon"]');
+  if (!link) return;
+  link.href = ticketsVitrineForcedBase || new URL(DEFAULT_FAVICON, window.location.origin).href;
 }
 
 /**

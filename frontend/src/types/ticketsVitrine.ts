@@ -38,6 +38,14 @@ export type TicketsVitrineContent = {
   header?: {
     logoTitle?: string;
     logoSub?: string;
+    /** Полный URL или путь `/uploads/…` — картинка логотипа в шапке */
+    logoImageUrl?: string;
+    /** При заданной картинке: показывать рядом строки logoTitle / logoSub (иначе только картинка) */
+    logoShowTextWithImage?: boolean;
+    /** Положение блока логотипа в верхней строке шапки */
+    logoPlacement?: 'left' | 'center';
+    /** Иконка вкладки (URL или `/uploads/…`); для билетной витрины подменяет `/favicon.svg` */
+    faviconUrl?: string;
   };
   contacts?: {
     pageTitle?: string;

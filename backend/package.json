@@ -25,7 +25,8 @@
     "ensure:stage-maps-columns": "node scripts/ensure-getbilet-stage-maps-columns.js",
     "test": "node --test tests/*.test.js",
     "poster:from-cache": "node scripts/run-posters-from-catalog-cache.js",
-    "poster:web-batch": "node scripts/run-poster-web-batch.js"
+    "poster:web-batch": "node scripts/run-poster-web-batch.js",
+    "backfill:event-description-packs": "node scripts/backfill-event-description-packs.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

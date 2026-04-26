@@ -6,6 +6,23 @@
   text-align: left;
 }
 
+.imgWrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 44px;
+}
+
+.logoImg {
+  display: block;
+  max-height: 40px;
+  max-width: min(200px, 42vw);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
 .mark {
   flex: 0 0 auto;
   width: 36px;
