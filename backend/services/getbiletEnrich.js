@@ -6,9 +6,9 @@ import ticketPool from '../ticketDb.js';
 import { restV2GetCategoryList } from './getbiletRestV2.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import {
-  collectPlaceIdsFromCatalogActions,
+  extractPlaceNameFromRow,
+  getVenueLookupMaps,
   pickPlaceId,
-  resolveVenueLabelsForPlaceIds,
 } from './getbiletVenueLabels.js';
 
 /** @type {{ at: number, map: Map<string, string> }} */
@@ -96,24 +96,32 @@ export async function enrichRestV2CatalogActions(actions) {
   const posterTpl = process.env.GETBILET_POSTER_URL_TEMPLATE?.trim();
   const bannerTpl = process.env.GETBILET_BANNER_URL_TEMPLATE?.trim();
 
-  /** Площадка по PlaceId: GetStageListByPlaceId (первый Name), иначе GetPlaceList */
-  let venueByPlace = new Map();
+  /** Площадки: вложенные поля репертуара + справочник placeId / stageId из GetPlaceList + GetStageListByPlaceId */
+  let byPlaceId = new Map();
+  let byStageId = new Map();
   try {
-    venueByPlace = await resolveVenueLabelsForPlaceIds(collectPlaceIdsFromCatalogActions(actions));
+    const maps = await getVenueLookupMaps();
+    byPlaceId = maps.byPlaceId;
+    byStageId = maps.byStageId;
   } catch (e) {
-    console.error('[getbilet enrich] venue labels:', e instanceof Error ? e.message : e);
+    console.error('[getbilet enrich] venue lookup:', e instanceof Error ? e.message : e);
   }
 
   const mapped = actions.map((row) => {
     const repId = String(row.Id ?? row.id ?? '');
     const o = overrides.get(repId);
     const out = { ...row };
-    const placeId = pickPlaceId(out);
-    if (placeId && venueByPlace.has(placeId)) {
-      const lab = venueByPlace.get(placeId);
-      if (lab && !String(out.PlaceName ?? out.placeName ?? '').trim()) {
-        out.PlaceName = lab;
-      }
+    let venueLabel = extractPlaceNameFromRow(out);
+    if (!venueLabel) {
+      const pid = pickPlaceId(out);
+      if (pid && byPlaceId.has(pid)) venueLabel = byPlaceId.get(pid) || '';
+    }
+    if (!venueLabel) {
+      const sid = String(out.stageId ?? out.StageId ?? row.stageId ?? row.StageId ?? '').trim();
+      if (sid && byStageId.has(sid)) venueLabel = byStageId.get(sid) || '';
+    }
+    if (venueLabel && !String(out.PlaceName ?? out.placeName ?? '').trim()) {
+      out.PlaceName = venueLabel;
     }
     if (o?.title_manual?.trim() && o.is_published === true) {
       out.Name = o.title_manual.trim();

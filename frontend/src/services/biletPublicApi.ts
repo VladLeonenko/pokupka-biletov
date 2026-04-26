@@ -151,6 +151,35 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | unde
   return undefined;
 }
 
+/** Площадка из плоских и вложенных полей (как в ответе GetBilet). */
+function extractVenueFromCatalogRow(row: Record<string, unknown>): string | undefined {
+  const flat = pickString(row, [
+    'PlaceName',
+    'placeName',
+    'StageName',
+    'stageName',
+    'venueName',
+    'VenueName',
+    'BuildingName',
+    'buildingName',
+    'LocationName',
+    'locationName',
+    'HallName',
+    'hallName',
+    'venue',
+    'Venue',
+  ]);
+  if (flat) return flat;
+  for (const key of ['Place', 'place', 'Venue', 'venue', 'Building', 'building', 'Location', 'location']) {
+    const o = row[key];
+    if (o && typeof o === 'object' && !Array.isArray(o)) {
+      const nm = pickString(o as Record<string, unknown>, ['Name', 'name', 'Title', 'title']);
+      if (nm) return nm;
+    }
+  }
+  return undefined;
+}
+
 /** Mongo ObjectId в поле «категория» — не показываем как жанр */
 export function looksLikeMongoId(s: string): boolean {
   return /^[a-f0-9]{24}$/i.test(s.trim());
@@ -261,15 +290,7 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
       'Subtitle',
     ]);
     if (subtitle && looksLikeMongoId(subtitle)) subtitle = undefined;
-    const venue = pickString(row, [
-      'venueName',
-      'placeName',
-      'hallName',
-      'venue',
-      'Venue',
-      'PlaceName',
-      'StageName',
-    ]);
+    const venue = extractVenueFromCatalogRow(row);
     let genre = pickString(row, ['genreName', 'genre', 'Genre', 'categoryName', 'Category']);
     if (genre && looksLikeMongoId(genre)) genre = undefined;
     let age = pickString(row, ['age', 'ageLimit', 'Age', 'restriction', 'AgeLimit']);
