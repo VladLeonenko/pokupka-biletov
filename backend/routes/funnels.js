@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { applyTaskTemplateToDeal } from '../utils/taskTemplates.js';
+import { MAIN_SALES_FUNNEL_NAME } from '../utils/funnelHelper.js';
 
 const router = express.Router();
 
@@ -75,6 +76,7 @@ router.get('/:id', requireAuth, async (req, res) => {
       );
     }
     
+    const defaultStageColors = ['#f44336', '#ff9800', '#2196f3', '#9c27b0', '#00bcd4', '#4caf50', '#607d8b'];
     res.json({
       id: funnel.id,
       name: funnel.name,
@@ -83,15 +85,20 @@ router.get('/:id', requireAuth, async (req, res) => {
       sortOrder: funnel.sort_order,
       createdAt: funnel.created_at,
       updatedAt: funnel.updated_at,
-      stages: stagesResult.rows.map(s => ({
-        id: s.id,
-        funnelId: s.funnel_id,
-        name: s.name,
-        color: s.color,
-        sortOrder: s.sort_order,
-        probability: s.probability,
-        createdAt: s.created_at,
-      })),
+      stages: stagesResult.rows.map((s, idx) => {
+        const c = (s.color && String(s.color).trim() && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(String(s.color).trim()))
+          ? String(s.color).trim()
+          : defaultStageColors[idx % defaultStageColors.length];
+        return {
+          id: s.id,
+          funnelId: s.funnel_id,
+          name: s.name,
+          color: c,
+          sortOrder: s.sort_order,
+          probability: s.probability,
+          createdAt: s.created_at,
+        };
+      }),
     });
   } catch (err) {
     console.error('Error fetching funnel:', err);
@@ -174,6 +181,13 @@ router.put('/:id', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await pool.query('SELECT name FROM sales_funnels WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Funnel not found' });
+    }
+    if (existing.rows[0].name === MAIN_SALES_FUNNEL_NAME) {
+      return res.status(403).json({ error: `Воронку «${MAIN_SALES_FUNNEL_NAME}» нельзя удалить` });
+    }
     await pool.query('DELETE FROM sales_funnels WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {

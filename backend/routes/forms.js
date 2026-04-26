@@ -53,6 +53,66 @@ router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   }
 });
 
+// Статические пути выше /:formId, чтобы не пересекаться с form_id вроде "stats"
+// GET /api/forms/stats/overview
+router.get('/stats/overview', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const stats = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM forms) as total_forms,
+        (SELECT COUNT(*) FROM form_submissions) as total_submissions,
+        (SELECT COUNT(*) FROM form_submissions WHERE status = 'new') as new_submissions,
+        (SELECT COUNT(*) FROM form_submissions WHERE status = 'read') as read_submissions,
+        (SELECT COUNT(*) FROM form_submissions WHERE status = 'replied') as replied_submissions,
+        (SELECT COUNT(*) FROM form_abandonments) as total_abandonments,
+        (SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= CURRENT_DATE) as submissions_today,
+        (SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= CURRENT_DATE - INTERVAL '7 days') as submissions_week,
+        (SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= CURRENT_DATE - INTERVAL '30 days') as submissions_month
+    `);
+
+    const perFormStats = await pool.query(`
+      SELECT 
+        f.form_id,
+        f.form_name,
+        COUNT(DISTINCT s.id) as submission_count,
+        COUNT(DISTINCT a.id) as abandonment_count,
+        COUNT(DISTINCT CASE WHEN s.status = 'new' THEN s.id END) as new_count
+      FROM forms f
+      LEFT JOIN form_submissions s ON f.form_id = s.form_id
+      LEFT JOIN form_abandonments a ON f.form_id = a.form_id
+      GROUP BY f.form_id, f.form_name
+      ORDER BY submission_count DESC
+    `);
+
+    res.json({
+      overview: stats.rows[0],
+      byForm: perFormStats.rows
+    });
+  } catch (err) {
+    console.error('Error fetching stats:', err);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// GET /api/forms/submissions/recent — последние заявки по всем формам
+router.get('/submissions/recent', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const result = await pool.query(
+      `SELECT s.*, f.form_name
+       FROM form_submissions s
+       LEFT JOIN forms f ON f.form_id = s.form_id
+       ORDER BY s.submitted_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching recent submissions:', err);
+    res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
+});
+
 // GET /api/forms/:formId - Get form details
 router.get('/:formId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
@@ -149,6 +209,8 @@ router.post('/:formId/submit', async (req, res) => {
 
       console.log('[forms] Extracted client data:', { name, email, phone, company });
 
+      let resolvedClientId = null;
+
       if (name || email || phone) {
         // Ищем существующего клиента по email или телефону
         let existingClient = null;
@@ -172,6 +234,7 @@ router.post('/:formId/submit', async (req, res) => {
         }
 
         if (existingClient) {
+          resolvedClientId = existingClient.id;
           // Обновляем существующего клиента - обновляем все данные, которые пришли
           const updates = [];
           const params = [];
@@ -237,23 +300,19 @@ router.post('/:formId/submit', async (req, res) => {
             ]
           );
           
-          console.log('[forms] New client created:', newClientResult.rows[0].id);
-          
-          // Автоматически создаем сделку в воронке продаж
-          try {
-            const { createDealForClient } = await import('../utils/funnelHelper.js');
-            await createDealForClient(
-              newClientResult.rows[0].id,
-              name || 'Неизвестно',
-              email,
-              phone,
-              'form'
-            );
-            console.log('[forms] Deal created for client:', newClientResult.rows[0].id);
-          } catch (dealErr) {
-            console.warn('[forms] Error creating deal:', dealErr);
-          }
+          resolvedClientId = newClientResult.rows[0].id;
+          console.log('[forms] New client created:', resolvedClientId);
         }
+      }
+
+      // Каждая отправка формы — новая сделка в основной воронке (и для существующих клиентов)
+      try {
+        const { createDealForClient } = await import('../utils/funnelHelper.js');
+        const dealTitleName = name || email || phone || `Заявка #${result.rows[0].id} (${formId})`;
+        await createDealForClient(resolvedClientId, dealTitleName, email, phone, 'form');
+        console.log('[forms] Deal created in main funnel for submission', result.rows[0].id);
+      } catch (dealErr) {
+        console.warn('[forms] Error creating deal:', dealErr);
       }
     } catch (clientErr) {
       // Логируем ошибку, но не прерываем отправку формы
@@ -456,47 +515,6 @@ router.get('/:formId/abandonments', requireAuth, requireAdminOrSalesManager, asy
   } catch (err) {
     console.error('Error fetching abandonments:', err);
     res.status(500).json({ error: 'Failed to fetch abandonments' });
-  }
-});
-
-// GET /api/forms/stats/overview - Get overall statistics
-router.get('/stats/overview', requireAuth, requireAdminOrSalesManager, async (req, res) => {
-  try {
-    const stats = await pool.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM forms) as total_forms,
-        (SELECT COUNT(*) FROM form_submissions) as total_submissions,
-        (SELECT COUNT(*) FROM form_submissions WHERE status = 'new') as new_submissions,
-        (SELECT COUNT(*) FROM form_submissions WHERE status = 'read') as read_submissions,
-        (SELECT COUNT(*) FROM form_submissions WHERE status = 'replied') as replied_submissions,
-        (SELECT COUNT(*) FROM form_abandonments) as total_abandonments,
-        (SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= CURRENT_DATE) as submissions_today,
-        (SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= CURRENT_DATE - INTERVAL '7 days') as submissions_week,
-        (SELECT COUNT(*) FROM form_submissions WHERE submitted_at >= CURRENT_DATE - INTERVAL '30 days') as submissions_month
-    `);
-
-    // Per-form stats
-    const perFormStats = await pool.query(`
-      SELECT 
-        f.form_id,
-        f.form_name,
-        COUNT(DISTINCT s.id) as submission_count,
-        COUNT(DISTINCT a.id) as abandonment_count,
-        COUNT(DISTINCT CASE WHEN s.status = 'new' THEN s.id END) as new_count
-      FROM forms f
-      LEFT JOIN form_submissions s ON f.form_id = s.form_id
-      LEFT JOIN form_abandonments a ON f.form_id = a.form_id
-      GROUP BY f.form_id, f.form_name
-      ORDER BY submission_count DESC
-    `);
-
-    res.json({
-      overview: stats.rows[0],
-      byForm: perFormStats.rows
-    });
-  } catch (err) {
-    console.error('Error fetching stats:', err);
-    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 

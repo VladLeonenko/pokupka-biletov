@@ -15,7 +15,9 @@
     "seed:cases": "cd backend && node scripts/addPortfolioCases.js && node scripts/seed-portfolio-cases-content.js",
     "seed:cases-seo": "cd backend && node scripts/seed-cases-seo.js",
     "restore:blog-body": "cd backend && node scripts/restore-blog-article-body.js",
-    "restore:blog-body:prod": "cd backend && node scripts/restore-blog-article-body.js --prod"
+    "restore:blog-body:prod": "cd backend && node scripts/restore-blog-article-body.js --prod",
+    "backfill:event-description-packs": "cd backend && node scripts/backfill-event-description-packs.js",
+    "backfill:event-description-packs:force": "cd backend && npm run backfill:event-description-packs:force"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"

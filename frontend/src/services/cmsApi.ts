@@ -1155,6 +1155,25 @@ export async function listFormSubmissions(formId: string, status?: string): Prom
   }));
 }
 
+export async function listRecentFormSubmissions(limit = 100): Promise<FormSubmission[]> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/forms/submissions/recent?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch recent submissions');
+  const data = await res.json();
+  return data.map((r: any) => ({
+    id: r.id,
+    form_id: r.form_id,
+    form_name: r.form_name ?? null,
+    form_data: typeof r.form_data === 'object' ? r.form_data : (r.form_data ? JSON.parse(r.form_data) : {}),
+    status: r.status || 'new',
+    ip_address: r.ip_address,
+    user_agent: r.user_agent,
+    referrer: r.referrer,
+    submitted_at: r.submitted_at,
+    read_at: r.read_at,
+    replied_at: r.replied_at,
+  }));
+}
+
 export async function getFormSubmission(formId: string, submissionId: number): Promise<FormSubmission | undefined> {
   const res = await doFetch(`${getApiBaseUrl()}/api/forms/${encodeURIComponent(formId)}/submissions/${submissionId}`);
   if (res.status === 404) return undefined;
@@ -1275,7 +1294,16 @@ export async function upsertFunnel(funnel: Partial<SalesFunnel>): Promise<SalesF
 
 export async function deleteFunnel(funnelId: number): Promise<void> {
   const res = await doFetch(`${getApiBaseUrl()}/api/funnels/${funnelId}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete funnel');
+  if (!res.ok) {
+    let msg = 'Failed to delete funnel';
+    try {
+      const j = await res.json();
+      if (j?.error) msg = j.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
 }
 
 export async function upsertFunnelStage(funnelId: number, stage: Partial<FunnelStage>): Promise<FunnelStage> {

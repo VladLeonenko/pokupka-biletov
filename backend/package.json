@@ -26,7 +26,8 @@
     "test": "node --test tests/*.test.js",
     "poster:from-cache": "node scripts/run-posters-from-catalog-cache.js",
     "poster:web-batch": "node scripts/run-poster-web-batch.js",
-    "backfill:event-description-packs": "node scripts/backfill-event-description-packs.js"
+    "backfill:event-description-packs": "node scripts/backfill-event-description-packs.js",
+    "backfill:event-description-packs:force": "BACKFILL_EVENT_DESCRIPTIONS_FORCE=1 node scripts/backfill-event-description-packs.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

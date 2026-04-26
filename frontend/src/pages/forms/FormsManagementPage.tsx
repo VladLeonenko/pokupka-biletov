@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box,
@@ -42,6 +43,8 @@ import {
   listForms,
   getFormStats,
   listFormSubmissions,
+  listRecentFormSubmissions,
+  getFormSubmission,
   updateSubmissionStatus,
   deleteSubmission,
   listFormAbandonments,
@@ -50,12 +53,14 @@ import {
 import { Form, FormSubmission, FormAbandonment } from '@/types/cms';
 import { useToast } from '@/components/common/ToastProvider';
 
-type TabValue = 'overview' | 'submissions' | 'abandonments';
+type TabValue = 'all_submissions' | 'overview' | 'submissions' | 'abandonments';
 
 export function FormsManagementPage() {
+  const params = useParams<{ formId?: string; submissionId?: string }>();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedTab, setSelectedTab] = useState<TabValue>('overview');
+  const [selectedTab, setSelectedTab] = useState<TabValue>('all_submissions');
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -66,6 +71,11 @@ export function FormsManagementPage() {
     queryKey: ['forms', selectedFormId, 'submissions', statusFilter],
     queryFn: () => selectedFormId ? listFormSubmissions(selectedFormId, statusFilter === 'all' ? undefined : statusFilter) : Promise.resolve([]),
     enabled: !!selectedFormId && selectedTab === 'submissions',
+  });
+  const { data: allRecentSubmissions = [] } = useQuery({
+    queryKey: ['forms', 'submissions', 'recent'],
+    queryFn: () => listRecentFormSubmissions(200),
+    enabled: selectedTab === 'all_submissions',
   });
   const { data: abandonments = [] } = useQuery({
     queryKey: ['forms', selectedFormId, 'abandonments'],
@@ -78,6 +88,7 @@ export function FormsManagementPage() {
       updateSubmissionStatus(formId, submissionId, status as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] });
+      queryClient.invalidateQueries({ queryKey: ['forms', 'submissions', 'recent'] });
       showToast('Статус обновлён', 'success');
     },
   });
@@ -87,6 +98,7 @@ export function FormsManagementPage() {
       deleteSubmission(formId, submissionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] });
+      queryClient.invalidateQueries({ queryKey: ['forms', 'submissions', 'recent'] });
       showToast('Отправка удалена', 'success');
     },
   });
@@ -100,10 +112,29 @@ export function FormsManagementPage() {
   });
 
   useEffect(() => {
+    if (params.formId) {
+      setSelectedFormId(params.formId);
+      setSelectedTab('submissions');
+    }
+  }, [params.formId]);
+
+  useEffect(() => {
+    if (params.formId && params.submissionId) {
+      const sid = parseInt(params.submissionId, 10);
+      if (!Number.isNaN(sid)) {
+        getFormSubmission(params.formId, sid).then((s) => {
+          if (s) setSelectedSubmission(s);
+        }).catch(() => {});
+      }
+    }
+  }, [params.formId, params.submissionId]);
+
+  useEffect(() => {
+    if (params.formId) return;
     if (!selectedFormId && forms.length > 0) {
       setSelectedFormId(forms[0].form_id);
     }
-  }, [selectedFormId, forms]);
+  }, [params.formId, selectedFormId, forms]);
 
   const selectedForm = forms.find((f) => f.form_id === selectedFormId);
 
@@ -281,18 +312,110 @@ export function FormsManagementPage() {
 
         {/* Form Details */}
         <Grid item xs={12} md={8}>
-          {selectedForm ? (
+          {selectedForm || selectedTab === 'all_submissions' ? (
             <Paper sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">{selectedForm.form_name}</Typography>
-                <Tabs value={selectedTab} onChange={(_, v) => setSelectedTab(v)}>
+                <Typography variant="h6">
+                  {selectedTab === 'all_submissions'
+                    ? 'Все заявки с форм'
+                    : (selectedForm?.form_name || 'Форма')}
+                </Typography>
+                <Tabs value={selectedTab} onChange={(_, v) => setSelectedTab(v)} variant="scrollable" scrollButtons="auto">
+                  <Tab label="Все заявки" value="all_submissions" />
                   <Tab label="Обзор" value="overview" />
                   <Tab label="Отправки" value="submissions" />
                   <Tab label="Брошенные" value="abandonments" />
                 </Tabs>
               </Box>
 
-              {selectedTab === 'overview' && (
+              {selectedTab === 'all_submissions' && (
+                <Box>
+                  <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                    Последние обращения по всем формам сайта
+                  </Typography>
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Дата</TableCell>
+                          <TableCell>Форма</TableCell>
+                          <TableCell>Данные</TableCell>
+                          <TableCell>Статус</TableCell>
+                          <TableCell align="right">Действия</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {allRecentSubmissions.map((sub) => (
+                          <TableRow key={`${sub.form_id}-${sub.id}`}>
+                            <TableCell>{formatDate(sub.submitted_at)}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2">{sub.form_name || sub.form_id}</Typography>
+                              <Typography variant="caption" color="textSecondary">{sub.form_id}</Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box>
+                                {Object.entries(sub.form_data).slice(0, 2).map(([key, val]) => (
+                                  <Typography key={key} variant="body2">
+                                    <strong>{key}:</strong> {String(val)}
+                                  </Typography>
+                                ))}
+                                {Object.keys(sub.form_data).length > 2 && (
+                                  <Typography variant="body2" color="textSecondary">
+                                    ...ещё {Object.keys(sub.form_data).length - 2}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={getStatusLabel(sub.status)} color={getStatusColor(sub.status) as any} size="small" />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton size="small" onClick={() => setSelectedSubmission(sub)}>
+                                <VisibilityIcon />
+                              </IconButton>
+                              {sub.status !== 'read' && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => updateStatusMut.mutate({ formId: sub.form_id, submissionId: sub.id, status: 'read' })}
+                                >
+                                  <CheckCircleIcon />
+                                </IconButton>
+                              )}
+                              {sub.status !== 'replied' && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => updateStatusMut.mutate({ formId: sub.form_id, submissionId: sub.id, status: 'replied' })}
+                                >
+                                  <ReplyIcon />
+                                </IconButton>
+                              )}
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  if (window.confirm('Удалить отправку?')) {
+                                    deleteSubmissionMut.mutate({ formId: sub.form_id, submissionId: sub.id });
+                                  }
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {allRecentSubmissions.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center">
+                              <Typography color="textSecondary">Нет отправок</Typography>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
+
+              {selectedTab === 'overview' && selectedForm && (
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>Поля формы</Typography>
                   <TableContainer>
@@ -318,7 +441,7 @@ export function FormsManagementPage() {
                 </Box>
               )}
 
-              {selectedTab === 'submissions' && (
+              {selectedTab === 'submissions' && selectedForm && (
                 <Box>
                   <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                     <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -413,7 +536,7 @@ export function FormsManagementPage() {
                 </Box>
               )}
 
-              {selectedTab === 'abandonments' && (
+              {selectedTab === 'abandonments' && selectedForm && (
                 <Box>
                   <TableContainer>
                     <Table>
@@ -467,7 +590,15 @@ export function FormsManagementPage() {
       </Grid>
 
       {/* Submission Detail Dialog */}
-      <Dialog open={!!selectedSubmission} onClose={() => setSelectedSubmission(null)} maxWidth="md" fullWidth>
+      <Dialog
+        open={!!selectedSubmission}
+        onClose={() => {
+          setSelectedSubmission(null);
+          if (params.submissionId) navigate('/admin/forms', { replace: true });
+        }}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>Детали отправки</DialogTitle>
         <DialogContent>
           {selectedSubmission && (
@@ -525,7 +656,14 @@ export function FormsManagementPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedSubmission(null)}>Закрыть</Button>
+          <Button
+            onClick={() => {
+              setSelectedSubmission(null);
+              if (params.submissionId) navigate('/admin/forms', { replace: true });
+            }}
+          >
+            Закрыть
+          </Button>
           {selectedSubmission && (
             <>
               {selectedSubmission.status !== 'read' && (
@@ -533,6 +671,7 @@ export function FormsManagementPage() {
                   onClick={() => {
                     updateStatusMut.mutate({ formId: selectedSubmission.form_id, submissionId: selectedSubmission.id, status: 'read' });
                     setSelectedSubmission(null);
+                    if (params.submissionId) navigate('/admin/forms', { replace: true });
                   }}
                 >
                   Прочитана
@@ -543,6 +682,7 @@ export function FormsManagementPage() {
                   onClick={() => {
                     updateStatusMut.mutate({ formId: selectedSubmission.form_id, submissionId: selectedSubmission.id, status: 'replied' });
                     setSelectedSubmission(null);
+                    if (params.submissionId) navigate('/admin/forms', { replace: true });
                   }}
                 >
                   Отвечена

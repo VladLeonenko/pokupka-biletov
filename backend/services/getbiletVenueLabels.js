@@ -15,26 +15,22 @@ function pickMongoId(row) {
 }
 
 /**
- * Имя площадки из плоских и вложенных полей ответа GetBilet (репертуар / оффер).
+ * Имя **родительской** площадки (театр / стадион), без подписи конкретной сцены («Малая сцена», «Стадион»).
  * @param {unknown} row
  * @returns {string}
  */
-export function extractPlaceNameFromRow(row) {
+export function extractParentVenueFromRow(row) {
   if (!row || typeof row !== 'object') return '';
   const r = /** @type {Record<string, unknown>} */ (row);
   const flatKeys = [
     'PlaceName',
     'placeName',
-    'StageName',
-    'stageName',
     'venueName',
     'VenueName',
     'BuildingName',
     'buildingName',
     'LocationName',
     'locationName',
-    'HallName',
-    'hallName',
   ];
   for (const k of flatKeys) {
     const v = r[k];
@@ -94,24 +90,32 @@ function clampInt(n, min, max, fallback) {
   return Math.min(max, Math.max(min, x));
 }
 
-/** @type {{ at: number; byPlaceId: Map<string, string>; byStageId: Map<string, string> } | null} */
+/** @type {{ at: number; byPlaceId: Map<string, string>; stageIdToParentVenue: Map<string, string> } | null} */
 let venueLookupCache = null;
 const VENUE_LOOKUP_TTL_MS = 45 * 60 * 1000;
 
 /**
- * Один проход: все площадки → сцены; заполняет placeId→подпись (первый Name в списке сцен)
- * и stageId→Name каждой сцены (для строк каталога без PlaceId).
- * @returns {Promise<{ byPlaceId: Map<string, string>; byStageId: Map<string, string> }>}
+ * Один проход: GetPlaceList + GetStageListByPlaceId.
+ * placeId → имя из списка площадок (театр/стадион), иначе первый Name в списке сцен.
+ * Каждая сцена → то же родительское имя (не «Малая сцена» / «Стадион» как отдельная сущность).
+ * @returns {Promise<{ byPlaceId: Map<string, string>; stageIdToParentVenue: Map<string, string> }>}
  */
 export async function getVenueLookupMaps() {
   const now = Date.now();
-  if (venueLookupCache && now - venueLookupCache.at < VENUE_LOOKUP_TTL && venueLookupCache.byStageId.size > 0) {
-    return { byPlaceId: venueLookupCache.byPlaceId, byStageId: venueLookupCache.byStageId };
+  if (
+    venueLookupCache &&
+    now - venueLookupCache.at < VENUE_LOOKUP_TTL &&
+    venueLookupCache.stageIdToParentVenue.size > 0
+  ) {
+    return {
+      byPlaceId: venueLookupCache.byPlaceId,
+      stageIdToParentVenue: venueLookupCache.stageIdToParentVenue,
+    };
   }
 
   const placeListNames = await loadPlaceIdToNameFromPlaceList();
   const byPlaceId = new Map();
-  const byStageId = new Map();
+  const stageIdToParentVenue = new Map();
 
   try {
     const placesData = await restV2GetPlaceList();
@@ -130,22 +134,22 @@ export async function getVenueLookupMaps() {
           try {
             const sd = await restV2GetStageListByPlaceId(pid);
             const rows = Array.isArray(sd.ResultData) ? sd.ResultData : [];
-            let placeLabel = '';
+            const official = (placeListNames.get(pid) || '').trim();
+            let fromFirstStage = '';
             const first = rows[0];
             if (first && typeof first === 'object') {
               const nm =
                 /** @type {Record<string, unknown>} */ (first).Name ??
                 /** @type {Record<string, unknown>} */ (first).name;
-              if (nm != null && String(nm).trim()) placeLabel = String(nm).trim();
+              if (nm != null && String(nm).trim()) fromFirstStage = String(nm).trim();
             }
-            if (!placeLabel) placeLabel = placeListNames.get(pid) || '';
-            if (placeLabel) byPlaceId.set(pid, placeLabel);
+            const cardVenue = official || fromFirstStage;
+            if (cardVenue) byPlaceId.set(pid, cardVenue);
 
             for (const st of rows) {
               if (!st || typeof st !== 'object') continue;
               const sid = pickMongoId(st);
-              const n = /** @type {Record<string, unknown>} */ (st).Name ?? /** @type {Record<string, unknown>} */ (st).name;
-              if (sid && n != null && String(n).trim()) byStageId.set(String(sid).trim(), String(n).trim());
+              if (sid && cardVenue) stageIdToParentVenue.set(String(sid).trim(), cardVenue);
             }
           } catch (e) {
             if (!(e instanceof GetbiletUpstreamError)) {
@@ -159,8 +163,8 @@ export async function getVenueLookupMaps() {
     console.error('[getbiletVenueLabels] warm maps:', e instanceof Error ? e.message : e);
   }
 
-  venueLookupCache = { at: now, byPlaceId, byStageId };
-  return { byPlaceId, byStageId };
+  venueLookupCache = { at: now, byPlaceId, stageIdToParentVenue };
+  return { byPlaceId, stageIdToParentVenue };
 }
 
 /**

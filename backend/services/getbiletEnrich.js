@@ -6,7 +6,7 @@ import ticketPool from '../ticketDb.js';
 import { restV2GetCategoryList } from './getbiletRestV2.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import {
-  extractPlaceNameFromRow,
+  extractParentVenueFromRow,
   getVenueLookupMaps,
   pickPlaceId,
 } from './getbiletVenueLabels.js';
@@ -98,11 +98,11 @@ export async function enrichRestV2CatalogActions(actions) {
 
   /** Площадки: вложенные поля репертуара + справочник placeId / stageId из GetPlaceList + GetStageListByPlaceId */
   let byPlaceId = new Map();
-  let byStageId = new Map();
+  let stageIdToParentVenue = new Map();
   try {
     const maps = await getVenueLookupMaps();
     byPlaceId = maps.byPlaceId;
-    byStageId = maps.byStageId;
+    stageIdToParentVenue = maps.stageIdToParentVenue;
   } catch (e) {
     console.error('[getbilet enrich] venue lookup:', e instanceof Error ? e.message : e);
   }
@@ -111,14 +111,14 @@ export async function enrichRestV2CatalogActions(actions) {
     const repId = String(row.Id ?? row.id ?? '');
     const o = overrides.get(repId);
     const out = { ...row };
-    let venueLabel = extractPlaceNameFromRow(out);
+    let venueLabel = extractParentVenueFromRow(out);
     if (!venueLabel) {
       const pid = pickPlaceId(out);
       if (pid && byPlaceId.has(pid)) venueLabel = byPlaceId.get(pid) || '';
     }
     if (!venueLabel) {
       const sid = String(out.stageId ?? out.StageId ?? row.stageId ?? row.StageId ?? '').trim();
-      if (sid && byStageId.has(sid)) venueLabel = byStageId.get(sid) || '';
+      if (sid && stageIdToParentVenue.has(sid)) venueLabel = stageIdToParentVenue.get(sid) || '';
     }
     if (venueLabel && !String(out.PlaceName ?? out.placeName ?? '').trim()) {
       out.PlaceName = venueLabel;

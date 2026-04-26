@@ -151,21 +151,20 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | unde
   return undefined;
 }
 
-/** Площадка из плоских и вложенных полей (как в ответе GetBilet). */
+/**
+ * Родительская площадка (театр / стадион) для строки «когда · где».
+ * Без подписи сцены («Малая сцена», «Стадион») — её даёт бэкенд в PlaceName после обогащения.
+ */
 function extractVenueFromCatalogRow(row: Record<string, unknown>): string | undefined {
   const flat = pickString(row, [
     'PlaceName',
     'placeName',
-    'StageName',
-    'stageName',
     'venueName',
     'VenueName',
     'BuildingName',
     'buildingName',
     'LocationName',
     'locationName',
-    'HallName',
-    'hallName',
     'venue',
     'Venue',
   ]);
@@ -202,16 +201,17 @@ function truncateCardLine(s: string, max = 320): string {
 }
 
 /**
- * Под заголовком карточки: площадка (театр / сцена), иначе короткое описание из API без SEO-заглушек.
+ * Под заголовком карточки: короткое описание из API; при пустом / SEO-заглушке — эвристический blurb.
+ * Площадка не подставляется сюда (она в `venue` и в нижней строке карточки).
  */
 export function biletEventCardSubtitle(
-  venue: string | undefined,
   apiSubtitle: string | undefined,
+  descriptionBlurb?: string | undefined,
 ): string | undefined {
-  const v = venue?.trim();
-  if (v) return truncateCardLine(v);
   const sub = apiSubtitle?.trim();
   if (sub && !isTicketsSeoPlaceholderSubtitle(sub)) return truncateCardLine(sub);
+  const b = descriptionBlurb?.trim();
+  if (b) return truncateCardLine(b);
   return undefined;
 }
 
@@ -350,11 +350,12 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
     const displayDate = pickString(row, ['displayDate']) ?? derived.displayDate;
     const weekday = pickString(row, ['weekday']) ?? derived.weekday;
     const timeLabel = pickString(row, ['timeLabel']) ?? derived.timeLabel;
-    const { categoryLabel: inferredCategoryLabel, kind: inferredKind } = classifyEventTitle(title, {
-      subtitle: subtitle?.trim(),
-      genre,
-    });
-    const subtitleEff = biletEventCardSubtitle(venue, subtitle);
+    const { categoryLabel: inferredCategoryLabel, kind: inferredKind, descriptionBlurb } =
+      classifyEventTitle(title, {
+        subtitle: subtitle?.trim(),
+        genre,
+      });
+    const subtitleEff = biletEventCardSubtitle(subtitle, descriptionBlurb);
 
     out.push({
       id: id || `anon-${out.length}`,

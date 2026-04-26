@@ -254,6 +254,7 @@ export function AppRoutes() {
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
       <Route path="/admin/quiz" element={<ProtectedAdmin><QuizManagementPage /></ProtectedAdmin>} />
       <Route path="/admin/promotions/:id" element={<Protected><PromotionEditorPage /></Protected>} />
+      <Route path="/admin/forms/:formId/submissions/:submissionId" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/forms" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/funnels" element={<Protected><FunnelsListPage /></Protected>} />
       <Route path="/admin/funnels/:id" element={<Protected><FunnelViewPage /></Protected>} />

@@ -10,6 +10,8 @@ import { SalesFunnel } from '@/types/cms';
 import { useToast } from '@/components/common/ToastProvider';
 import { TasksListPage } from './TasksListPage';
 
+const MAIN_SALES_FUNNEL_NAME = 'Основная воронка продаж';
+
 export function FunnelsListPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -130,15 +132,17 @@ export function FunnelsListPage() {
                 <IconButton onClick={() => handleOpenDialog(funnel)}>
                   <EditIcon />
                 </IconButton>
-                <IconButton
-                  onClick={() => {
-                    if (window.confirm('Удалить воронку?')) {
-                      deleteMut.mutate(funnel.id);
-                    }
-                  }}
-                >
-                  <DeleteIcon />
-                </IconButton>
+                {funnel.name !== MAIN_SALES_FUNNEL_NAME && (
+                  <IconButton
+                    onClick={() => {
+                      if (window.confirm('Удалить воронку?')) {
+                        deleteMut.mutate(funnel.id);
+                      }
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                )}
               </Box>
             </Box>
           </Paper>

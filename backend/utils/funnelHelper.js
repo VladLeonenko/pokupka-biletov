@@ -1,7 +1,9 @@
 import pool from '../db.js';
 import { getTaskTemplateByProduct } from './taskTemplates.js';
 
-// Создать сделку в воронке продаж для клиента
+/** Системная воронка: нельзя удалять (см. routes/funnels.js). */
+export const MAIN_SALES_FUNNEL_NAME = 'Основная воронка продаж';
+
 // Создать сделку в воронке продаж для клиента
 export async function createDealForClient(clientId, clientName, clientEmail, clientPhone, source = 'chatbot') {
   try {
@@ -9,7 +11,8 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
 
     // Находим основную воронку продаж (или создаем, если нет)
     let funnelResult = await pool.query(
-      "SELECT id FROM sales_funnels WHERE name = 'Основная воронка продаж' AND is_active = TRUE ORDER BY created_at ASC LIMIT 1"
+      `SELECT id FROM sales_funnels WHERE name = $1 AND is_active = TRUE ORDER BY created_at ASC LIMIT 1`,
+      [MAIN_SALES_FUNNEL_NAME]
     );
 
     let funnelId;
@@ -19,7 +22,7 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
       const newFunnel = await pool.query(
         `INSERT INTO sales_funnels (name, description, is_active)
          VALUES ($1, $2, $3) RETURNING id`,
-        ['Основная воронка продаж', 'Основная воронка продаж для всех клиентов', true]
+        [MAIN_SALES_FUNNEL_NAME, 'Основная воронка продаж для всех клиентов', true]
       );
       funnelId = newFunnel.rows[0].id;
 
@@ -287,9 +290,10 @@ export async function removeDuplicateFunnels() {
     const duplicates = await pool.query(
       `SELECT name, COUNT(*) as count, array_agg(id ORDER BY created_at) as ids
        FROM sales_funnels
-       WHERE name = 'Основная воронка продаж'
+       WHERE name = $1
        GROUP BY name
-       HAVING COUNT(*) > 1`
+       HAVING COUNT(*) > 1`,
+      [MAIN_SALES_FUNNEL_NAME]
     );
 
     if (duplicates.rows.length === 0) {

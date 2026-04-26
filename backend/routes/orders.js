@@ -229,7 +229,7 @@ router.post('/', async (req, res) => {
               customerName || 'Неизвестно',
               customerEmail || null,
               customerPhone || null,
-              'form',
+              'order',
               'lead'
             ]
           );

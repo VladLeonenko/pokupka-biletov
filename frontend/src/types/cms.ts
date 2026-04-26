@@ -259,6 +259,8 @@ export type Form = {
 export type FormSubmission = {
   id: number;
   form_id: string;
+  /** Подставляется в списке «Все заявки» (JOIN к forms). */
+  form_name?: string | null;
   form_data: Record<string, any>;
   status: 'new' | 'read' | 'replied' | 'archived';
   ip_address?: string;

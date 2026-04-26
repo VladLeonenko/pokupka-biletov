@@ -8,6 +8,8 @@
  *   node scripts/backfill-event-description-packs.js
  *   node scripts/backfill-event-description-packs.js --limit=5
  *   node scripts/backfill-event-description-packs.js --force
+ *   npm run backfill:event-description-packs -- --force   (обязательно «--» перед --force)
+ *   BACKFILL_EVENT_DESCRIPTIONS_FORCE=1 npm run backfill:event-description-packs
  *   node scripts/backfill-event-description-packs.js --repertoire-id=12345
  *   node scripts/backfill-event-description-packs.js --sleep-ms=2000
  */
@@ -29,8 +31,10 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 function parseArgs(argv) {
   const out = { limit: 0, force: false, sleepMs: 1200, repertoireId: '' };
+  /** Без второго `--` npm съедает `--force`; env — запасной вариант для CI/сервера. */
+  if (process.env.BACKFILL_EVENT_DESCRIPTIONS_FORCE === '1') out.force = true;
   for (const a of argv) {
-    if (a === '--force') out.force = true;
+    if (a === '--force' || a === '-f') out.force = true;
     else if (a.startsWith('--limit=')) out.limit = Math.max(0, parseInt(a.slice('--limit='.length), 10) || 0);
     else if (a.startsWith('--sleep-ms=')) out.sleepMs = Math.max(0, parseInt(a.slice('--sleep-ms='.length), 10) || 0);
     else if (a.startsWith('--repertoire-id=')) out.repertoireId = String(a.slice('--repertoire-id='.length)).trim();
@@ -66,6 +70,9 @@ async function main() {
 
   if (limit > 0 && ids.length > limit) ids = ids.slice(0, limit);
 
+  if (force) {
+    console.log('Режим force: существующие description_pack_json будут перезаписаны.');
+  }
   console.log(`В очереди: ${ids.length} репертуар(ов). force=${force} sleepMs=${sleepMs}`);
 
   let ok = 0;

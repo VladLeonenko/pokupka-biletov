@@ -25,6 +25,23 @@ function displayGenreLine(ev: NormalizedBiletEvent): string | null {
   return null;
 }
 
+/** День · дата · время · площадка; дубликаты по регистру не повторяем. */
+function buildWhenLine(ev: NormalizedBiletEvent): string {
+  const venue = ev.venue?.trim() || '';
+  const parts = [ev.weekday, ev.displayDate, ev.timeLabel, venue]
+    .map((s) => (typeof s === 'string' ? s.trim() : ''))
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of parts) {
+    const k = p.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p);
+  }
+  return out.join(' · ');
+}
+
 export function EventPosterCard({ event, variant = 'poster' }: Props) {
   const to = ticketCheckoutHref(event);
   const posterSrc = event.imageUrl ?? event.bannerUrl;
