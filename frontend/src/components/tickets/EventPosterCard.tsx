@@ -34,19 +34,47 @@ function dedupeParts(parts: string[]): string[] {
   return out;
 }
 
-/** Одна строка: день · дата · время и при необходимости площадка (без повтора названия зала). */
-function buildWhenWhereLine(ev: NormalizedBiletEvent): string | null {
-  const venue = ev.venue?.trim() || '';
+/**
+ * Площадка для карточки: сначала поле API, иначе эвристика по скобкам в названии
+ * («… (Гастроли Александринского театра)»), чтобы отличать гастроли в разных городах.
+ */
+function resolveVenueLine(ev: NormalizedBiletEvent): string | null {
+  const v = ev.venue?.trim();
+  if (v) return v;
+  return hintVenueFromTitle(ev.title);
+}
+
+/**
+ * Берёт последнюю осмысленную скобку в названии, если похоже на площадку/гастроли (не 12+ и не короткий мусор).
+ */
+function hintVenueFromTitle(title: string | undefined): string | null {
+  if (!title?.trim()) return null;
+  const matches = [...title.matchAll(/\(([^)]+)\)/g)];
+  if (matches.length === 0) return null;
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const inner = matches[i][1]?.trim() ?? '';
+    if (!inner || inner.length < 4) continue;
+    if (/^\d{1,2}\s*\+$/.test(inner.replace(/\s/g, ''))) continue;
+    if (
+      /гастрол|театр|арен[аы]|стадио|филармон|кремл|цирк|двор|зал[ае]?[мя]?|площад|музей|опер/i.test(
+        inner,
+      )
+    ) {
+      return inner;
+    }
+  }
+  return null;
+}
+
+/** Строка даты/время сеанса (без площадки — она отдельной строкой). */
+function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
   const sched = dedupeParts(
     [ev.weekday, ev.displayDate, ev.timeLabel]
       .map((s) => (typeof s === 'string' ? s.trim() : ''))
       .filter(Boolean),
   );
-  const schedStr = sched.join(' · ');
-  if (!venue) return schedStr || null;
-  if (!schedStr) return venue;
-  if (schedStr.toLowerCase().includes(venue.toLowerCase())) return schedStr;
-  return `${schedStr} · ${venue}`;
+  if (sched.length === 0) return null;
+  return sched.join(' · ');
 }
 
 export function EventPosterCard({ event, variant = 'poster' }: Props) {
@@ -59,7 +87,8 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
     weekday: event.weekday,
     dateLabel: event.dateLabel,
   });
-  const whenWhereLine = buildWhenWhereLine(event);
+  const venueLine = resolveVenueLine(event);
+  const scheduleLine = buildScheduleLine(event);
 
   const genreLine = displayGenreLine(event);
 
@@ -94,7 +123,13 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
           {event.subtitle?.trim() ? (
             <p className={styles.subtitle}>{event.subtitle.trim()}</p>
           ) : null}
-          {whenWhereLine ? <p className={styles.whenWhere}>{whenWhereLine}</p> : null}
+          {venueLine ? (
+            <p className={styles.venueBlock}>
+              <span className={styles.venueKicker}>Площадка</span>
+              <span className={styles.venueName}>{venueLine}</span>
+            </p>
+          ) : null}
+          {scheduleLine ? <p className={styles.whenWhere}>{scheduleLine}</p> : null}
           {(event.author || event.director) && (
             <div className={styles.credits}>
               {event.author && <span>Автор — {event.author}</span>}

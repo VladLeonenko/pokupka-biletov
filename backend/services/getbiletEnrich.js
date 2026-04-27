@@ -8,6 +8,7 @@ import { classifyEventTitle } from './eventTitleHeuristics.js';
 import {
   extractParentVenueFromRow,
   getVenueLookupMaps,
+  hintVenueFromTitle,
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
@@ -174,6 +175,11 @@ export async function enrichRestV2CatalogActions(actions) {
     }
     if (venueLabel && !String(out.PlaceName ?? out.placeName ?? '').trim()) {
       out.PlaceName = venueLabel;
+    }
+    if (!String(out.PlaceName ?? out.placeName ?? '').trim()) {
+      const t = String(out.Name ?? out.name ?? '').trim();
+      const h = t ? hintVenueFromTitle(t) : null;
+      if (h) out.PlaceName = h;
     }
     if (o?.title_manual?.trim() && o.is_published === true) {
       out.Name = o.title_manual.trim();

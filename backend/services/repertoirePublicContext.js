@@ -7,7 +7,12 @@ import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { buildEventDescriptionPackResolved } from './eventDescriptionAi.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
 import { resolveHeroSublineVenueFocused } from './eventTitleNarrative.js';
-import { extractParentVenueFromRow } from './getbiletVenueLabels.js';
+import {
+  extractParentVenueFromRow,
+  getVenueLookupMaps,
+  hintVenueFromTitle,
+  pickPlaceId,
+} from './getbiletVenueLabels.js';
 
 function expandMediaTemplate(template, repertoireId) {
   if (!template?.trim()) return null;
@@ -21,6 +26,38 @@ function pickFirst(obj, keys) {
   for (const k of keys) {
     const v = obj[k];
     if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return null;
+}
+
+/** Только строка/число — иначе «Venue»-объект стал бы "[object Object]" и ломал извлечение площадки. */
+function pickStringField(obj, keys) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  }
+  return null;
+}
+
+/**
+ * Те же справочники, что в enrich афиши: stageId/placeId → имя площадки по GetPlaceList.
+ * @param {Record<string, unknown>} payload
+ * @param {string | null} stageId
+ * @returns {Promise<string | null>}
+ */
+async function resolveVenueFromGetbiletMaps(payload, stageId) {
+  try {
+    const { byPlaceId, stageIdToParentVenue } = await getVenueLookupMaps();
+    const sid = String(stageId || '').trim();
+    if (sid && stageIdToParentVenue.has(sid)) {
+      return stageIdToParentVenue.get(sid) || null;
+    }
+    const pid = pickPlaceId(payload);
+    if (pid && byPlaceId.has(pid)) return byPlaceId.get(pid) || null;
+  } catch (e) {
+    console.error('[repertoirePublicContext] resolveVenueFromGetbiletMaps:', e instanceof Error ? e.message : e);
   }
   return null;
 }
@@ -77,7 +114,7 @@ async function loadRepertoireBase(repertoireId) {
     const row = r.rows[0];
     if (row) {
       hasCatalogRow = true;
-      stageId = row.stage_id || null;
+      stageId = row.stage_id != null && String(row.stage_id).trim() ? String(row.stage_id).trim() : null;
       const p = row.payload_json;
       if (p && typeof p === 'object' && !Array.isArray(p)) payload = /** @type {Record<string, unknown>} */ (p);
     }
@@ -141,10 +178,27 @@ async function loadRepertoireBase(repertoireId) {
 
   const title = (titleManual && String(titleManual).trim()) || payloadName || '';
 
-  const venueFlat = pickFirst(payload, ['PlaceName', 'placeName', 'Venue', 'venue', 'Place', 'place']);
+  if (!stageId) {
+    const sid = pickStringField(payload, ['stageId', 'StageId', 'stageID', 'StageID']);
+    if (sid) stageId = String(sid).trim();
+  }
+
+  const fromStrings = pickStringField(payload, [
+    'PlaceName',
+    'placeName',
+    'venueName',
+    'VenueName',
+    'HallName',
+    'hallName',
+    'PlaceTitle',
+    'placeTitle',
+    'BuildingName',
+    'buildingName',
+    'LocationName',
+    'locationName',
+  ]);
   const venueNested = extractParentVenueFromRow(payload);
-  const venueFromPayload =
-    (venueFlat && String(venueFlat).trim()) || (venueNested && String(venueNested).trim()) || null;
+  const venueFromPayload = fromStrings || (venueNested && String(venueNested).trim()) || null;
   const descriptionFromPayload = pickFirst(payload, [
     'Description',
     'description',
@@ -284,6 +338,20 @@ export async function getRepertoirePublicContext(repertoireId) {
     }
   }
 
+  const venueFromStageMap =
+    stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
+      ? stageMap.title.trim()
+      : null;
+
+  let venueFromCatalogOrMaps = venueFromPayload;
+  if (!venueFromCatalogOrMaps) {
+    venueFromCatalogOrMaps = await resolveVenueFromGetbiletMaps(payload, stageId);
+  }
+  if (!venueFromCatalogOrMaps && title) {
+    venueFromCatalogOrMaps = hintVenueFromTitle(title);
+  }
+  const venueForRichText = venueFromCatalogOrMaps || venueFromStageMap || null;
+
   const { kind, categoryLabel } = classifyEventTitle(title, {
     subtitle: descriptionFromPayload || '',
     genre: genreFromPayload || '',
@@ -295,7 +363,7 @@ export async function getRepertoirePublicContext(repertoireId) {
       title,
       kind,
       categoryLabel,
-      venueLabel: venueFromPayload,
+      venueLabel: venueForRichText,
       manualText: descriptionManual,
       catalogHints,
     });
@@ -306,12 +374,8 @@ export async function getRepertoirePublicContext(repertoireId) {
     '';
   const descriptionSnippet = leadPlain ? leadPlain.slice(0, 400) : null;
 
-  const venueFromStageMap =
-    stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
-      ? stageMap.title.trim()
-      : null;
   const venueFromMeta = pickVenueFromMeta(descPack.eventMeta);
-  const venueResolved = venueFromPayload || venueFromStageMap || venueFromMeta || null;
+  const venueResolved = venueForRichText || venueFromMeta || null;
 
   const heroSubline = resolveHeroSublineVenueFocused(
     descPack.heroSubline ?? null,

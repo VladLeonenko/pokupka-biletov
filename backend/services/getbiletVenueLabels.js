@@ -27,6 +27,10 @@ export function extractParentVenueFromRow(row) {
     'placeName',
     'venueName',
     'VenueName',
+    'HallName',
+    'hallName',
+    'PlaceTitle',
+    'placeTitle',
     'BuildingName',
     'buildingName',
     'LocationName',
@@ -44,6 +48,30 @@ export function extractParentVenueFromRow(row) {
     if (typeof nm === 'string' && nm.trim()) return nm.trim();
   }
   return '';
+}
+
+/**
+ * Подсказка площадки из скобок в названии (гастроли, «… (театр …)»), если GetBilet не отдал PlaceName.
+ * @param {string | null | undefined} title
+ * @returns {string | null}
+ */
+export function hintVenueFromTitle(title) {
+  if (!title || typeof title !== 'string' || !title.trim()) return null;
+  const matches = [...title.matchAll(/\(([^)]+)\)/g)];
+  if (matches.length === 0) return null;
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const inner = (matches[i][1] ?? '').trim();
+    if (!inner || inner.length < 4) continue;
+    if (/^\d{1,2}\s*\+$/.test(inner.replace(/\s/g, ''))) continue;
+    if (
+      /гастрол|театр|арен[аы]|стадио|филармон|кремл|цирк|двор|зал[ае]?[мя]?|площад|музей|опер/i.test(
+        inner,
+      )
+    ) {
+      return inner;
+    }
+  }
+  return null;
 }
 
 /**
