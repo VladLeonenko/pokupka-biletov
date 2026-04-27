@@ -155,14 +155,21 @@ export default defineConfig(({ mode }) => {
         // React должен быть в отдельном chunk и загружаться ПЕРВЫМ
         // Это решает проблему с useState is not defined в Safari
         manualChunks(id) {
+          const norm = id.replace(/\\/g, '/');
           // MUI в отдельный chunk
-          if (id.includes('@mui')) return 'mui';
-          // React в отдельный chunk (ПЕРВЫЙ для загрузки)
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+          if (norm.includes('@mui')) return 'mui';
+          // Только react / react-dom / react-router* — НЕ по подстроке "react" в @tanstack/react-query, @emotion/react и т.д.
+          // Иначе Safari/WebKit: ReferenceError: Cannot access uninitialized variable (порядок инициализации чанков).
+          if (
+            norm.includes('node_modules/react/') ||
+            norm.includes('node_modules/react-dom/') ||
+            norm.includes('node_modules/react-router') ||
+            norm.includes('node_modules/scheduler/')
+          ) {
             return 'react-vendor';
           }
           // Остальные node_modules в vendor chunk
-          if (id.includes('node_modules') && !id.includes('vite')) {
+          if (norm.includes('node_modules') && !norm.includes('vite')) {
             return 'vendor';
           }
           // Все остальное в main bundle
