@@ -388,6 +388,34 @@ function sendDistRootFile(res, relName, setHeaders) {
 }
 
 const existingDistRoots = getFrontendDistRoots().filter((r) => fs.existsSync(r));
+
+app.get('/manifest.json', (req, res) => {
+  const ok = sendDistRootFile(res, 'manifest.json', (r) => {
+    r.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    r.setHeader('Cache-Control', 'public, max-age=3600');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/sw.js', (req, res) => {
+  const ok = sendDistRootFile(res, 'sw.js', (r) => {
+    r.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    r.setHeader('Cache-Control', 'no-cache');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/robots.txt', (req, res) => {
+  const ok = sendDistRootFile(res, 'robots.txt', (r) => {
+    r.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    r.setHeader('Cache-Control', 'public, max-age=3600');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
 if (existingDistRoots.length) {
   const staticOpts = {
     maxAge: '1y',
@@ -416,30 +444,6 @@ if (existingDistRoots.length) {
     '[app] Нет frontend/dist — выполните: cd frontend && npm run build. Проверены пути: %s',
     getFrontendDistRoots().join(', '),
   );
-  app.get('/manifest.json', (req, res) => {
-    const ok = sendDistRootFile(res, 'manifest.json', (r) => {
-      r.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
-      r.setHeader('Cache-Control', 'public, max-age=3600');
-    });
-    if (ok) return;
-    res.status(404).type('text/plain').send('Not found');
-  });
-  app.get('/sw.js', (req, res) => {
-    const ok = sendDistRootFile(res, 'sw.js', (r) => {
-      r.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      r.setHeader('Cache-Control', 'no-cache');
-    });
-    if (ok) return;
-    res.status(404).type('text/plain').send('Not found');
-  });
-  app.get('/robots.txt', (req, res) => {
-    const ok = sendDistRootFile(res, 'robots.txt', (r) => {
-      r.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      r.setHeader('Cache-Control', 'public, max-age=3600');
-    });
-    if (ok) return;
-    res.status(404).type('text/plain').send('Not found');
-  });
 }
 
 // Sitemap (публичный, должен быть до статических файлов)
