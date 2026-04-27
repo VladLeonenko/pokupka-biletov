@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
+import { getHorizontalWheelDelta, scaleWheelDelta } from '@/utils/portfolioCarouselWheel';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './NeglinkaHero.module.css';
@@ -14,14 +15,16 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
   /** padSlides уже в buildHeroSlides; без props — пустой массив */
   const slides = slideInput ?? [];
 
+  const heroRef = useRef<HTMLElement | null>(null);
+  const wheelGestureRef = useRef({ acc: 0, timer: 0 });
   const [idx, setIdx] = useState(0);
   const [pauseAutoplay, setPauseAutoplay] = useState(false);
   const current = slides[idx] ?? slides[0];
 
-  const go = (d: -1 | 1) => {
+  const go = useCallback((d: -1 | 1) => {
     if (slides.length === 0) return;
     setIdx((i) => (i + d + slides.length) % slides.length);
-  };
+  }, [slides.length]);
 
   useEffect(() => {
     if (loading || slides.length <= 1 || pauseAutoplay) return;
@@ -31,6 +34,46 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
     }, ms);
     return () => clearInterval(id);
   }, [loading, slides.length, pauseAutoplay]);
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || loading || slides.length <= 1) return;
+
+    const resetWheelGesture = () => {
+      wheelGestureRef.current.acc = 0;
+      wheelGestureRef.current.timer = 0;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return;
+
+      const dx = getHorizontalWheelDelta(e, el);
+      const dy = scaleWheelDelta(e.deltaY, e.deltaMode, el);
+      const horizontal = e.shiftKey ? dy : dx;
+      if (Math.abs(horizontal) < 8 || Math.abs(horizontal) < Math.abs(dy) * 0.75) return;
+
+      e.preventDefault();
+      setPauseAutoplay(true);
+
+      const gesture = wheelGestureRef.current;
+      gesture.acc += horizontal;
+      if (gesture.timer) window.clearTimeout(gesture.timer);
+
+      if (Math.abs(gesture.acc) >= 70) {
+        go(gesture.acc > 0 ? 1 : -1);
+        gesture.acc = 0;
+      }
+
+      gesture.timer = window.setTimeout(resetWheelGesture, 180);
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (wheelGestureRef.current.timer) window.clearTimeout(wheelGestureRef.current.timer);
+      resetWheelGesture();
+    };
+  }, [go, loading, slides.length]);
 
   if (loading) {
     return (
@@ -64,6 +107,7 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
 
   return (
     <section
+      ref={heroRef}
       className={styles.hero}
       data-tickets-hero
       onMouseEnter={() => setPauseAutoplay(true)}
@@ -143,24 +187,24 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
       <div className={styles.heroFooter}>
         <div className={styles.arrows}>
           <button type="button" className={styles.arrow} aria-label="Предыдущий" onClick={() => go(-1)}>
-            <svg className={styles.arrowSvg} viewBox="0 0 96 14" aria-hidden>
+            <svg className={styles.arrowSvg} viewBox="0 0 24 24" aria-hidden>
               <path
-                d="M 88 7 H 20 M 20 1 L 8 7 L 20 13"
+                d="M 15 6 L 9 12 L 15 18 M 10 12 H 21"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.1"
+                strokeWidth="1.9"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </svg>
           </button>
           <button type="button" className={styles.arrow} aria-label="Следующий" onClick={() => go(1)}>
-            <svg className={styles.arrowSvg} viewBox="0 0 96 14" aria-hidden>
+            <svg className={styles.arrowSvg} viewBox="0 0 24 24" aria-hidden>
               <path
-                d="M 8 7 H 76 M 76 1 L 88 7 L 76 13"
+                d="M 9 6 L 15 12 L 9 18 M 14 12 H 3"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.1"
+                strokeWidth="1.9"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
