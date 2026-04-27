@@ -25,6 +25,24 @@ function pickFirst(obj, keys) {
   return null;
 }
 
+function looksUsefulMetaVenue(value) {
+  const s = value != null ? String(value).trim() : '';
+  if (!s) return '';
+  if (/уточняйте/i.test(s)) return '';
+  return s;
+}
+
+function pickVenueFromMeta(rows) {
+  if (!Array.isArray(rows)) return null;
+  const preferred = [/площад/i, /мест/i, /театр/i, /арен/i, /стадион/i];
+  for (const rx of preferred) {
+    const hit = rows.find((r) => r && typeof r === 'object' && rx.test(String(r.label ?? '')));
+    const v = looksUsefulMetaVenue(hit?.value);
+    if (v) return v;
+  }
+  return null;
+}
+
 /**
  * @param {string} repertoireId
  * @returns {Promise<{
@@ -292,7 +310,8 @@ export async function getRepertoirePublicContext(repertoireId) {
     stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
       ? stageMap.title.trim()
       : null;
-  const venueResolved = venueFromPayload || venueFromStageMap || null;
+  const venueFromMeta = pickVenueFromMeta(descPack.eventMeta);
+  const venueResolved = venueFromPayload || venueFromStageMap || venueFromMeta || null;
 
   const heroSubline = resolveHeroSublineVenueFocused(
     descPack.heroSubline ?? null,
@@ -315,7 +334,8 @@ export async function getRepertoirePublicContext(repertoireId) {
     heroKicker: descPack.heroKicker ?? null,
     heroSubline,
     heroLead: descPack.heroLead ?? null,
-    eventMeta: Array.isArray(descPack.eventMeta) ? descPack.eventMeta : [],
+    // Метаданные не выводим отдельной плашкой: важное (площадка) уже попадает в hero.
+    eventMeta: [],
     descriptionSections: descPack.sections,
     descriptionTotalChars: descPack.totalChars,
     posterUrl,

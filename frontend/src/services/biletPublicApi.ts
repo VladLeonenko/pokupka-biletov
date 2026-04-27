@@ -83,6 +83,8 @@ export type NormalizedBiletEvent = {
   repertoireId?: string;
   title: string;
   subtitle?: string;
+  /** Первый абзац развёрнутого описания — для hero на главной. */
+  heroDescription?: string;
   dateLabel?: string;
   isoDate?: string;
   venue?: string;
@@ -274,6 +276,7 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
       'Subtitle',
     ]);
     if (subtitle && looksLikeMongoId(subtitle)) subtitle = undefined;
+    const heroDescription = pickString(row, ['HeroDescription', 'heroDescription']);
     const venue = extractVenueFromCatalogRow(row);
     let genre = pickString(row, ['genreName', 'genre', 'Genre', 'categoryName', 'Category']);
     if (genre && looksLikeMongoId(genre)) genre = undefined;
@@ -346,6 +349,7 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
       repertoireId: repertoireId || undefined,
       title,
       subtitle: subtitleEff,
+      heroDescription,
       dateLabel,
       isoDate: isoRaw,
       displayDate,

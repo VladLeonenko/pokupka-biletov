@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -23,6 +23,7 @@ import {
   Select,
   Slider,
   Switch,
+  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -55,12 +56,12 @@ import {
 import { TicketHallInteractiveBlock } from '@/components/tickets/TicketHallInteractiveBlock';
 import { TicketPurchaseDialog } from '@/components/tickets/TicketPurchaseDialog';
 import { TicketCheckoutPageExtras } from '@/components/tickets/TicketCheckoutPageExtras';
-import { TicketEventMetaCard } from '@/components/tickets/TicketEventMetaCard';
 import {
   heroSublineWithoutDuplicateVenue,
   resolveHeroSublineForTicketPage,
 } from '@/utils/ticketHeroSubline';
 import { slugify } from '@/utils/slugify';
+import { submitForm } from '@/services/cmsApi';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -259,7 +260,7 @@ export function TicketCheckoutPage() {
   const venueHeroLine = useMemo(() => {
     const fromOffers = venueLabel?.trim();
     const fromCtx = ctx?.venueLabel?.trim();
-    return fromOffers || fromCtx || 'Площадка уточняется';
+    return fromOffers || fromCtx || null;
   }, [venueLabel, ctx?.venueLabel]);
 
   const [filterState, setFilterState] = useState<OfferFilterState>({
@@ -370,6 +371,14 @@ export function TicketCheckoutPage() {
   const [offerId, setOfferId] = useState<string | null>(null);
   const [seats, setSeats] = useState<string[]>([]);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [ticketRequest, setTicketRequest] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    comment: '',
+  });
+  const [ticketRequestStatus, setTicketRequestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [ticketRequestError, setTicketRequestError] = useState<string | null>(null);
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   useEffect(() => {
@@ -413,6 +422,39 @@ export function TicketCheckoutPage() {
       if (!available.includes(seat)) return prev;
       return [...prev, seat];
     });
+  };
+
+  const submitTicketRequest = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const name = ticketRequest.name.trim();
+    const phone = ticketRequest.phone.trim();
+    const email = ticketRequest.email.trim();
+    const comment = ticketRequest.comment.trim();
+    if (!phone && !email) {
+      setTicketRequestStatus('error');
+      setTicketRequestError('Оставьте телефон или email, чтобы мы могли ответить.');
+      return;
+    }
+    setTicketRequestStatus('sending');
+    setTicketRequestError(null);
+    try {
+      await submitForm('ticket-request', {
+        name,
+        phone,
+        email,
+        comment,
+        eventTitle: displayTitle,
+        repertoireId,
+        venue: venueHeroLine,
+        pageUrl: typeof window !== 'undefined' ? window.location.href : '',
+        source: 'ticket_empty_offers',
+      });
+      setTicketRequestStatus('sent');
+      setTicketRequest({ name: '', phone: '', email: '', comment: '' });
+    } catch (err) {
+      setTicketRequestStatus('error');
+      setTicketRequestError(err instanceof Error ? err.message : 'Не удалось отправить заявку');
+    }
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -694,10 +736,6 @@ export function TicketCheckoutPage() {
             </Alert>
           )}
 
-          {ctx?.eventMeta && ctx.eventMeta.length > 0 ? (
-            <TicketEventMetaCard rows={ctx.eventMeta} />
-          ) : null}
-
           {allSessionsSorted.length > 0 && (
             <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, letterSpacing: '0.04em' }}>
@@ -919,7 +957,78 @@ export function TicketCheckoutPage() {
           )}
 
           {!isLoading && !isError && offers.length === 0 && (
-            <Alert severity="warning">Нет доступных офферов на это мероприятие.</Alert>
+            <Paper className={styles.ticketRequestCard} elevation={0}>
+              <div className={styles.ticketRequestCopy}>
+                <Typography variant="h6" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
+                  Билеты можно запросить у партнёров
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(28,27,25,0.68)', lineHeight: 1.65 }}>
+                  Сейчас GetBilet не отдаёт доступные офферы по этому мероприятию. Это не всегда значит, что
+                  билетов нет: мы можем уточнить наличие у партнёров и вернуться с вариантами по цене и местам.
+                </Typography>
+              </div>
+
+              {ticketRequestStatus === 'sent' ? (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Заявка отправлена. Мы проверим наличие билетов и свяжемся с вами.
+                </Alert>
+              ) : (
+                <Box component="form" className={styles.ticketRequestForm} onSubmit={submitTicketRequest}>
+                  <TextField
+                    label="Имя"
+                    size="small"
+                    value={ticketRequest.name}
+                    onChange={(e) => setTicketRequest((v) => ({ ...v, name: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Телефон"
+                    size="small"
+                    value={ticketRequest.phone}
+                    onChange={(e) => setTicketRequest((v) => ({ ...v, phone: e.target.value }))}
+                    fullWidth
+                    placeholder="+7"
+                  />
+                  <TextField
+                    label="Email"
+                    size="small"
+                    type="email"
+                    value={ticketRequest.email}
+                    onChange={(e) => setTicketRequest((v) => ({ ...v, email: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Комментарий"
+                    size="small"
+                    value={ticketRequest.comment}
+                    onChange={(e) => setTicketRequest((v) => ({ ...v, comment: e.target.value }))}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    placeholder="Сколько билетов нужно, желаемая зона или бюджет"
+                  />
+                  {ticketRequestStatus === 'error' && ticketRequestError ? (
+                    <Alert severity="error" sx={{ gridColumn: '1 / -1' }}>
+                      {ticketRequestError}
+                    </Alert>
+                  ) : null}
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={ticketRequestStatus === 'sending'}
+                    sx={{
+                      bgcolor: 'var(--neg-orange, #ff4e18)',
+                      color: '#fff',
+                      fontWeight: 800,
+                      boxShadow: 'none',
+                      '&:hover': { bgcolor: '#e54414', boxShadow: 'none' },
+                    }}
+                  >
+                    {ticketRequestStatus === 'sending' ? 'Отправляем…' : 'Запросить билеты'}
+                  </Button>
+                </Box>
+              )}
+            </Paper>
           )}
 
           {bySession.size > 0 && (

@@ -10,6 +10,7 @@ import {
   getVenueLookupMaps,
   pickPlaceId,
 } from './getbiletVenueLabels.js';
+import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
 
 /** @type {{ at: number, map: Map<string, string> }} */
 let categoryCache = { at: 0, map: new Map() };
@@ -50,16 +51,35 @@ function catalogCardDescription(s) {
   return t.length > 380 ? `${t.slice(0, 377).trimEnd()}…` : t;
 }
 
+/** Первое содержательное описание из сохранённого пакета для hero на главной. */
+function firstDescriptionParagraphFromPack(raw) {
+  const pack = descPackFromStoredJson(raw);
+  const first = pack?.sections?.find((s) => Array.isArray(s.paragraphs) && s.paragraphs[0]?.trim());
+  return first?.paragraphs?.[0]?.trim() || '';
+}
+
 /**
- * @returns {Promise<Map<string, { title_manual: string | null, poster_url_manual: string | null, poster_url_web: string | null, banner_url_manual: string | null, description_manual: string | null, is_published: boolean }>>}
+ * @returns {Promise<Map<string, { title_manual: string | null, poster_url_manual: string | null, poster_url_web: string | null, banner_url_manual: string | null, description_manual: string | null, description_pack_json?: unknown, is_published: boolean }>>}
  */
 async function loadStorefrontOverrides() {
   const m = new Map();
   try {
-    const r = await ticketPool.query(
-      `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, is_published
-       FROM getbilet_events`,
-    );
+    let r;
+    try {
+      r = await ticketPool.query(
+        `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json, is_published
+         FROM getbilet_events`,
+      );
+    } catch (e) {
+      if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
+        r = await ticketPool.query(
+          `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, is_published
+           FROM getbilet_events`,
+        );
+      } else {
+        throw e;
+      }
+    }
     for (const row of r.rows) {
       m.set(row.getbilet_external_id, row);
     }
@@ -179,6 +199,16 @@ export async function enrichRestV2CatalogActions(actions) {
       out.shortDescription = short;
       out.description = short;
       out.Description = short;
+    }
+    const firstPackParagraph = firstDescriptionParagraphFromPack(o?.description_pack_json);
+    if (firstPackParagraph) {
+      out.HeroDescription = catalogCardDescription(firstPackParagraph);
+      out.heroDescription = out.HeroDescription;
+      if (!String(out.shortDescription ?? '').trim()) {
+        out.shortDescription = out.HeroDescription;
+        out.description = out.HeroDescription;
+        out.Description = out.HeroDescription;
+      }
     }
     if (!String(out.shortDescription ?? '').trim() && titleForHeur) {
       const apiDesc = [

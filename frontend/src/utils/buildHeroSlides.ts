@@ -15,7 +15,7 @@ function venueLine(ev: Pick<NormalizedBiletEvent, 'venue'> | undefined): string 
 }
 
 function slideDescription(ev: NormalizedBiletEvent | undefined, fallback?: string): string | undefined {
-  const s = (fallback || ev?.subtitle || '').trim();
+  const s = (fallback || ev?.heroDescription || ev?.subtitle || '').trim();
   if (!s) return undefined;
   return s.length > 220 ? `${s.slice(0, 217).trimEnd()}…` : s;
 }
