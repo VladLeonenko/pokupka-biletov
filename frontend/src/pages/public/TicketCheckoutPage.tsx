@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -8,9 +8,15 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -21,7 +27,11 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import EventSeatIcon from '@mui/icons-material/EventSeat';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { TicketEventPosterImg } from '@/components/tickets/TicketEventPosterImg';
@@ -30,6 +40,7 @@ import {
   fetchBiletEvents,
   fetchRepertoireContext,
   fetchRepertoireOffers,
+  fetchStageMap,
   normalizeBiletEventsPayload,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
@@ -42,6 +53,7 @@ import {
   type ZoneFilterId,
   type OfferRowLike,
 } from '@/utils/ticketOfferFilters';
+import { TicketHallInteractiveBlock } from '@/components/tickets/TicketHallInteractiveBlock';
 import { TicketPurchaseDialog } from '@/components/tickets/TicketPurchaseDialog';
 import { TicketCheckoutPageExtras } from '@/components/tickets/TicketCheckoutPageExtras';
 import {
@@ -206,6 +218,16 @@ export function TicketCheckoutPage() {
     retry: 1,
   });
 
+  const stageIdEff =
+    searchParams.get('stageId')?.trim() || ctx?.stageId?.trim() || null;
+
+  const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
+    queryKey: ['bilet-stage-map', stageIdEff],
+    queryFn: () => fetchStageMap(stageIdEff!),
+    enabled: Boolean(stageIdEff),
+    staleTime: 120_000,
+  });
+
   const { data: raw, isLoading, isError, error, isSuccess } = useQuery({
     queryKey: ['bilet-offers', repertoireId],
     queryFn: () => fetchRepertoireOffers(repertoireId),
@@ -363,6 +385,7 @@ export function TicketCheckoutPage() {
   }, [allSessionsSorted, sessionHint]);
 
   const [selectedSessionKey, setSelectedSessionKey] = useState<string | null>(null);
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
   const [offerId, setOfferId] = useState<string | null>(null);
   const [seats, setSeats] = useState<string[]>([]);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
@@ -374,9 +397,19 @@ export function TicketCheckoutPage() {
   });
   const [ticketRequestStatus, setTicketRequestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [ticketRequestError, setTicketRequestError] = useState<string | null>(null);
+  const theme = useTheme();
+  const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   useEffect(() => {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
+
+  /** Все офферы выбранного сеанса — для схемы зала (фильтр списка места на схеме не скрывает). */
+  const offersForMap = useMemo(() => {
+    if (!selectedSessionKey) return [];
+    return (offers as OfferRow[]).filter(
+      (o) => (o.EventDateTime ?? '_') === selectedSessionKey,
+    );
+  }, [offers, selectedSessionKey]);
 
   useEffect(() => {
     setOfferId(null);
@@ -517,6 +550,74 @@ export function TicketCheckoutPage() {
 
   const minPriceHero =
     offers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
+
+  const hallSvg = useMemo(() => {
+    if (!stageIdEff) return ctx?.stageMap?.svg_markup ?? null;
+    if (!stageMapFetched) {
+      return ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup ?? null : null;
+    }
+    return (
+      mapByStageId?.svg_markup ??
+      (ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup ?? null : null)
+    );
+  }, [
+    stageIdEff,
+    stageMapFetched,
+    mapByStageId?.svg_markup,
+    ctx?.stageId,
+    ctx?.stageMap?.svg_markup,
+  ]);
+
+  const layoutJsonForStage = useMemo(() => {
+    if (!stageIdEff) return ctx?.stageMap?.layout_json;
+    if (!stageMapFetched) {
+      return ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json : null;
+    }
+    return (
+      mapByStageId?.layout_json ??
+      (ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json : null)
+    );
+  }, [
+    stageIdEff,
+    stageMapFetched,
+    mapByStageId?.layout_json,
+    ctx?.stageId,
+    ctx?.stageMap?.layout_json,
+  ]);
+
+  const externalPlanUrl = useMemo(() => {
+    const t = (s: string | null | undefined) =>
+      s != null && String(s).trim() ? String(s).trim() : null;
+    if (!stageIdEff) return t(ctx?.externalPlanUrl);
+    if (!stageMapFetched) {
+      return ctx?.stageId === stageIdEff ? t(ctx?.externalPlanUrl) : null;
+    }
+    return (
+      t(mapByStageId?.external_plan_url) ??
+      (ctx?.stageId === stageIdEff ? t(ctx?.externalPlanUrl) : null)
+    );
+  }, [
+    stageIdEff,
+    stageMapFetched,
+    mapByStageId?.external_plan_url,
+    ctx?.stageId,
+    ctx?.externalPlanUrl,
+  ]);
+
+  const showHallMissingCard =
+    Boolean(!hallSvg && !externalPlanUrl && (!stageIdEff || stageMapFetched));
+
+  const colorSeat = useCallback(
+    (p: string) => colorForPrice(priceMap, p),
+    [priceMap],
+  );
+
+  const navigateToPlacesList = useCallback(() => {
+    setMapDialogOpen(false);
+    requestAnimationFrame(() => {
+      document.getElementById('ticket-places-and-prices')?.scrollIntoView({ behavior: 'smooth' });
+    });
+  }, []);
 
   const ogImage = absoluteUrl(origin, coverUrl || posterSideUrl);
 
@@ -684,15 +785,78 @@ export function TicketCheckoutPage() {
                   );
                 })}
               </div>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', mt: 2 }}>
+                {hallSvg ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    startIcon={<EventSeatIcon />}
+                    disabled={!selectedSessionKey}
+                    onClick={() => setMapDialogOpen(true)}
+                  >
+                    Схема зала — выбрать места
+                  </Button>
+                ) : null}
+                {!hallSvg && externalPlanUrl ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    href={externalPlanUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Схема на сайте театра
+                  </Button>
+                ) : null}
+                {hallSvg && externalPlanUrl ? (
+                  <Button size="small" variant="text" href={externalPlanUrl} target="_blank" rel="noopener noreferrer">
+                    Схема залов на сайте организатора
+                  </Button>
+                ) : null}
+              </Box>
             </Box>
           )}
 
+          {showHallMissingCard ? (
+            <Paper
+              className={styles.hallPlaceholder}
+              elevation={0}
+              sx={{ mb: 3, p: 2.5, bgcolor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.08)' }}
+            >
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65, m: 0 }}>
+                План зала для этого события временно недоступен в сервисе. Выберите зону и места в списке ниже. Если
+                нужна схема рассадки — уточните у организатора или{' '}
+                <Link to="/contacts">напишите нам</Link>.
+              </Typography>
+            </Paper>
+          ) : null}
         </Box>
 
         <Box id="ticket-places-and-prices" className={styles.wrap} sx={{ maxWidth: 960, mx: 'auto', px: 2, pb: 4 }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em', mb: 1 }}>
-            Места и цены
-          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              mb: 1,
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+              Места и цены
+            </Typography>
+            {hallSvg && selectedSessionKey ? (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<EventSeatIcon />}
+                onClick={() => setMapDialogOpen(true)}
+              >
+                Схема зала
+              </Button>
+            ) : null}
+          </Box>
 
           {!isLoading && !isError && offers.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -966,7 +1130,7 @@ export function TicketCheckoutPage() {
             </Accordion>
           )}
 
-          {offerId && seats.length > 0 && (
+          {offerId && seats.length > 0 && !mapDialogOpen && (
             <Paper className={styles.stickyBar} elevation={3}>
               <Typography variant="body2">Выбрано мест: {seats.join(', ')}</Typography>
               <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
@@ -998,6 +1162,160 @@ export function TicketCheckoutPage() {
             hasDescriptionInHero={Boolean(heroLeadDisplay?.trim())}
           />
         </Box>
+
+        <Dialog
+          open={Boolean(mapDialogOpen && hallSvg && selectedSessionKey)}
+          onClose={() => setMapDialogOpen(false)}
+          fullScreen={fullScreenMap}
+          maxWidth="lg"
+          fullWidth
+          scroll="paper"
+          slotProps={{
+            paper: {
+              sx: {
+                display: 'flex',
+                flexDirection: 'column',
+                maxHeight: fullScreenMap ? '100%' : '95vh',
+              },
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 1,
+              pr: 1,
+              py: 1.5,
+            }}
+          >
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                План рассадки
+              </Typography>
+              {selectedSessionKey && selectedSessionKey !== '_' ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                  {new Date(selectedSessionKey).toLocaleString('ru-RU')}
+                </Typography>
+              ) : null}
+            </Box>
+            <IconButton aria-label="Закрыть" onClick={() => setMapDialogOpen(false)} edge="end" size="small">
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent
+            sx={{
+              flex: '1 1 auto',
+              minHeight: 0,
+              p: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              bgcolor: '#fafafa',
+            }}
+          >
+            {allSessionsSorted.length > 1 && selectedSessionKey ? (
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  bgcolor: '#fff',
+                  borderBottom: '1px solid rgba(0,0,0,0.06)',
+                }}
+              >
+                <FormControl size="small" sx={{ minWidth: 280, maxWidth: '100%' }}>
+                  <InputLabel id="ticket-session-map-dialog">Сеанс</InputLabel>
+                  <Select
+                    labelId="ticket-session-map-dialog"
+                    label="Сеанс"
+                    value={selectedSessionKey}
+                    onChange={(e) => setSelectedSessionKey(e.target.value)}
+                  >
+                    {allSessionsSorted.map(([dt]) => (
+                      <MenuItem key={dt} value={dt}>
+                        {dt === '_' ? 'Дата уточняется' : new Date(dt).toLocaleString('ru-RU')}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            ) : null}
+            <Box
+              sx={{
+                px: 2,
+                py: 1.5,
+                bgcolor: '#fafafa',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+                Легенда цен — свободные места из каталога. Клик по точке — выбор; бронь идёт с идентификаторами мест, как
+                в списке оффера.
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {Array.from(priceMap.entries())
+                  .sort((a, b) => Number(a[0]) - Number(b[0]))
+                  .map(([p]) => (
+                    <Chip
+                      key={p}
+                      size="small"
+                      label={`${Number(p).toLocaleString('ru-RU')} ₽`}
+                      sx={{
+                        backgroundColor: colorForPrice(priceMap, p),
+                        color: '#fff',
+                      }}
+                    />
+                  ))}
+              </Box>
+            </Box>
+            {hallSvg && selectedSessionKey ? (
+              <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', px: 0 }}>
+                <TicketHallInteractiveBlock
+                  variant="dialog"
+                  hallSvgHtml={hallSvg}
+                  layoutJson={layoutJsonForStage}
+                  offers={offersForMap}
+                  getPriceKey={(o) => priceKey(o as OfferRow)}
+                  colorForSeat={colorSeat}
+                  activeOfferId={offerId}
+                  selectedSeats={seats}
+                  onToggleSeat={toggleSeat}
+                  selectedOffer={
+                    offerId ? (offersForMap.find((o) => String(o.Id ?? '') === offerId) ?? null) : null
+                  }
+                  onReserveFromMap={() => setPurchaseOpen(true)}
+                  reservePending={false}
+                  onNavigateToList={navigateToPlacesList}
+                />
+              </Box>
+            ) : null}
+          </DialogContent>
+          <DialogActions
+            sx={{
+              flexWrap: 'wrap',
+              gap: 1,
+              px: 2,
+              py: 1.5,
+              borderTop: '1px solid rgba(0,0,0,0.08)',
+              bgcolor: 'background.paper',
+            }}
+          >
+            {offerId && seats.length > 0 ? (
+              <>
+                <Typography variant="body2" sx={{ flex: '1 1 200px', mr: 'auto' }}>
+                  Выбрано: {seats.join(', ')}
+                </Typography>
+                <Button variant="contained" onClick={() => setPurchaseOpen(true)}>
+                  Забронировать
+                </Button>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ width: '100%' }}>
+                Выберите места на схеме или в списке ниже на странице.
+              </Typography>
+            )}
+          </DialogActions>
+        </Dialog>
       </Box>
     </>
   );

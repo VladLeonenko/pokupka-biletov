@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import {
   fetchBiletEvents,
@@ -73,10 +73,6 @@ export function TicketCheckoutPageExtras({
     return out;
   }, [catalog, recentIds, repertoireId]);
 
-  const mapsHref = venueLabel
-    ? `https://yandex.ru/maps/?text=${encodeURIComponent(venueLabel)}`
-    : null;
-
   const aboutFallback = (() => {
     if (hasDescriptionInHero) {
       return `Условия для зрителей и изменения в программе уточняйте у организатора. Оформление билетов — на этой странице.`;
@@ -127,26 +123,11 @@ export function TicketCheckoutPageExtras({
 
       <section className={styles.block} aria-labelledby="ticket-venue">
         <h2 id="ticket-venue" className={styles.h2}>
-          <MapOutlinedIcon className={styles.h2Icon} sx={{ fontSize: 22 }} aria-hidden />
+          <PlaceOutlinedIcon className={styles.h2Icon} sx={{ fontSize: 22 }} aria-hidden />
           Площадка
         </h2>
         {venueLabel ? (
-          <>
-            <p className={styles.venueLine}>{venueLabel}</p>
-            {mapsHref ? (
-              <Button
-                component="a"
-                href={mapsHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="outlined"
-                size="medium"
-                sx={{ mt: 1 }}
-              >
-                Открыть на карте
-              </Button>
-            ) : null}
-          </>
+          <p className={styles.venueLine}>{venueLabel}</p>
         ) : (
           <Typography variant="body2" color="text.secondary">
             Название площадки появится после загрузки каталога билетов.
