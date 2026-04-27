@@ -45,6 +45,7 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import { resolveVenueDisplay } from '@/utils/venueHint';
 import {
   type OfferFilterState,
   filterOffers,
@@ -250,8 +251,9 @@ export function TicketCheckoutPage() {
     const c = ctx?.venueLabel?.trim();
     if (c) return c;
     if (venueFromCatalog) return venueFromCatalog;
-    return null;
-  }, [offers, ctx?.venueLabel, venueFromCatalog]);
+    const titleForHint = ctx?.title?.trim() || titleHint;
+    return resolveVenueDisplay(undefined, titleForHint);
+  }, [offers, ctx?.venueLabel, venueFromCatalog, ctx?.title, titleHint]);
 
   /** Все сеансы по полному каталогу (расписание не зависит от фильтра цены/зоны). */
   const allSessionsSorted = useMemo(() => {

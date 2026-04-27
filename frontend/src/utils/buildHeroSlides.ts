@@ -1,6 +1,7 @@
 import { format, isValid, parseISO } from 'date-fns';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import type { CmsHeroSlide, HeroSlideView, HeroVisualShape } from '@/types/ticketsVitrine';
+import { resolveVenueDisplay } from '@/utils/venueHint';
 
 /** В герое — рамка-постер (без круга), фон — полноэкранное фото */
 const SHAPES: HeroVisualShape[] = ['shard'];
@@ -8,10 +9,6 @@ const SHAPES: HeroVisualShape[] = ['shard'];
 function whenLine(ev: NormalizedBiletEvent): string {
   const parts = [ev.weekday, ev.displayDate, ev.timeLabel].filter(Boolean);
   return parts.length ? parts.join(' · ') : '';
-}
-
-function venueLine(ev: Pick<NormalizedBiletEvent, 'venue'> | undefined): string {
-  return ev?.venue?.trim() || '';
 }
 
 function slideDescription(ev: NormalizedBiletEvent | undefined, fallback?: string): string | undefined {
@@ -45,7 +42,8 @@ function eventDateLines(ev: NormalizedBiletEvent): { lineLeft: string; lineRight
 
 function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView {
   const when = whenLine(ev);
-  const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, venueLine(ev) || null, ev.genre]
+  const venueLabel = resolveVenueDisplay(ev.venue, ev.title);
+  const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, ev.genre]
     .filter(Boolean)
     .join(' · ');
   const { lineLeft, lineRight } = eventDateLines(ev);
@@ -54,6 +52,7 @@ function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView
     title: ev.title.toUpperCase(),
     imageUrl: ev.imageUrl ?? ev.bannerUrl ?? null,
     tags,
+    venueLabel,
     description: slideDescription(ev),
     author: ev.author,
     director: ev.director,
@@ -70,11 +69,11 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
   const lines = ev ? eventDateLines(ev) : { lineLeft: '—', lineRight: format(new Date(), 'MM.yyyy') };
   const title = (c.title || ev?.title || 'Событие').toUpperCase();
   const evWhen = ev ? whenLine(ev) : '';
-  const tags =
-    c.tags ||
-    [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, venueLine(ev) || null, ev?.genre]
-      .filter(Boolean)
-      .join(' · ');
+  const venueLabel = ev ? resolveVenueDisplay(ev.venue, ev.title) : null;
+  const autoTags = [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, ev?.genre]
+    .filter(Boolean)
+    .join(' · ');
+  const tags = c.tags?.trim() || autoTags;
   const lineLeft = c.lineLeft ?? lines.lineLeft;
   const lineRight = c.lineRight ?? lines.lineRight;
   const imageUrl = c.imageUrl || ev?.imageUrl || ev?.bannerUrl || null;
@@ -86,6 +85,7 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
     title,
     imageUrl,
     tags,
+    venueLabel,
     description: slideDescription(ev),
     author: c.author ?? ev?.author,
     director: c.director ?? ev?.director,

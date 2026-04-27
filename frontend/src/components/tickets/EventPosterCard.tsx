@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { formatEventPosterDateBadge } from '@/utils/eventDateLabels';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import { resolveVenueDisplay } from '@/utils/venueHint';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './EventPosterCard.module.css';
 
@@ -34,38 +35,6 @@ function dedupeParts(parts: string[]): string[] {
   return out;
 }
 
-/**
- * Площадка для карточки: сначала поле API, иначе эвристика по скобкам в названии
- * («… (Гастроли Александринского театра)»), чтобы отличать гастроли в разных городах.
- */
-function resolveVenueLine(ev: NormalizedBiletEvent): string | null {
-  const v = ev.venue?.trim();
-  if (v) return v;
-  return hintVenueFromTitle(ev.title);
-}
-
-/**
- * Берёт последнюю осмысленную скобку в названии, если похоже на площадку/гастроли (не 12+ и не короткий мусор).
- */
-function hintVenueFromTitle(title: string | undefined): string | null {
-  if (!title?.trim()) return null;
-  const matches = [...title.matchAll(/\(([^)]+)\)/g)];
-  if (matches.length === 0) return null;
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const inner = matches[i][1]?.trim() ?? '';
-    if (!inner || inner.length < 4) continue;
-    if (/^\d{1,2}\s*\+$/.test(inner.replace(/\s/g, ''))) continue;
-    if (
-      /гастрол|театр|арен[аы]|стадио|филармон|кремл|цирк|двор|зал[ае]?[мя]?|площад|музей|опер/i.test(
-        inner,
-      )
-    ) {
-      return inner;
-    }
-  }
-  return null;
-}
-
 /** Строка даты/время сеанса (без площадки — она отдельной строкой). */
 function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
   const sched = dedupeParts(
@@ -87,7 +56,7 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
     weekday: event.weekday,
     dateLabel: event.dateLabel,
   });
-  const venueLine = resolveVenueLine(event);
+  const venueLine = resolveVenueDisplay(event.venue, event.title);
   const scheduleLine = buildScheduleLine(event);
 
   const genreLine = displayGenreLine(event);

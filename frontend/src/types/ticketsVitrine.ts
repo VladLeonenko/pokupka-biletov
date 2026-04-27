@@ -78,6 +78,8 @@ export type HeroSlideView = {
   title: string;
   imageUrl: string | null;
   tags: string;
+  /** Площадка — отдельно от `tags`, всегда видна (подготовлено в buildHeroSlides). */
+  venueLabel?: string | null;
   /** Краткое описание для главного hero. */
   description?: string;
   author?: string | null;

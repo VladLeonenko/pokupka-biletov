@@ -7,6 +7,7 @@ import {
   type EventTitleKind,
 } from '@/utils/eventTitleHeuristics';
 import { slugify } from '@/utils/slugify';
+import { resolveVenueDisplay } from '@/utils/venueHint';
 
 export type BiletMeta = {
   protocol: string;
@@ -283,7 +284,8 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
     ]);
     if (subtitle && looksLikeMongoId(subtitle)) subtitle = undefined;
     const heroDescription = pickString(row, ['HeroDescription', 'heroDescription']);
-    const venue = extractVenueFromCatalogRow(row);
+    const venue =
+      resolveVenueDisplay(extractVenueFromCatalogRow(row), title) ?? undefined;
     let genre = pickString(row, ['genreName', 'genre', 'Genre', 'categoryName', 'Category']);
     if (genre && looksLikeMongoId(genre)) genre = undefined;
     let age = pickString(row, ['age', 'ageLimit', 'Age', 'restriction', 'AgeLimit']);
@@ -656,7 +658,8 @@ export function attachInferredEventFields(ev: NormalizedBiletEvent): NormalizedB
         ? `${rawSub.slice(0, 317).trimEnd()}…`
         : rawSub
       : descriptionBlurb;
-  return { ...ev, inferredCategoryLabel: categoryLabel, inferredKind: kind, subtitle };
+  const venue = resolveVenueDisplay(ev.venue, ev.title) ?? ev.venue;
+  return { ...ev, inferredCategoryLabel: categoryLabel, inferredKind: kind, subtitle, venue };
 }
 
 function eventMatchesGenreChip(ev: NormalizedBiletEvent, g: string): boolean {
