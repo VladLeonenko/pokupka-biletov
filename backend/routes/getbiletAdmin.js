@@ -9,6 +9,7 @@ import {
   isOpenAIPosterSearchConfigured,
   searchPosterImageByEventTitle,
 } from '../services/eventPosterWebSearch.js';
+import { buildResolvedForForm } from '../services/getbiletAdminResolvedForm.js';
 
 /**
  * @param {string} externalId
@@ -106,7 +107,9 @@ router.get('/events/:id', async (req, res) => {
       [id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Не найдено' });
-    res.json(r.rows[0]);
+    const eventRow = r.rows[0];
+    const resolved_for_form = await buildResolvedForForm(eventRow);
+    res.json({ ...eventRow, resolved_for_form });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

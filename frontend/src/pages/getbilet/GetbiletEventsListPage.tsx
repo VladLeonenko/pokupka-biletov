@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +33,8 @@ import {
   deleteGetbiletEvent,
   listGetbiletEvents,
   syncGetbiletCatalog,
+  updateGetbiletEvent,
+  uploadAdminImage,
   type GetbiletEventRow,
 } from '@/services/getbiletAdminApi';
 import { useToast } from '@/components/common/ToastProvider';
@@ -51,6 +54,8 @@ export function GetbiletEventsListPage() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [publishedFilter, setPublishedFilter] = useState<'all' | '1' | '0'>('all');
+  const [bannerRowId, setBannerRowId] = useState<number | null>(null);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(searchInput.trim()), 280);
@@ -115,6 +120,18 @@ export function GetbiletEventsListPage() {
       const ok = data.results.filter((x) => x.ok).length;
       const fail = data.results.length - ok;
       showToast(`Поиск Google: ${ok} ок, ${fail} без картинки`, fail ? 'warning' : 'success');
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+
+  const uploadBanner = useMutation({
+    mutationFn: async ({ id, file }: { id: number; file: File }) => {
+      const { url } = await uploadAdminImage(file);
+      return updateGetbiletEvent(id, { banner_url_manual: url });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['getbilet-events'] });
+      showToast('Баннер сохранён', 'success');
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -316,11 +333,26 @@ export function GetbiletEventsListPage() {
           </Button>
         </Alert>
       )}
+      <input
+        ref={bannerFileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+        hidden
+        onChange={async (e) => {
+          const id = bannerRowId;
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          setBannerRowId(null);
+          if (!id || !f) return;
+          uploadBanner.mutate({ id, file: f });
+        }}
+      />
       <Paper variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 72 }}> </TableCell>
+              <TableCell sx={{ width: 120 }}>Баннер</TableCell>
               <TableCell>Внешний id</TableCell>
               <TableCell>Название (ручное)</TableCell>
               <TableCell>Порядок</TableCell>
@@ -332,7 +364,7 @@ export function GetbiletEventsListPage() {
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <Typography color="text.secondary" sx={{ py: 2 }}>
                     {debouncedQ || publishedFilter !== 'all'
                       ? 'Нет строк, подходящих под поиск. Очистите поле поиска или переключите «Все».'
@@ -356,6 +388,44 @@ export function GetbiletEventsListPage() {
                         —
                       </Typography>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      {r.banner_url_manual ? (
+                        <Box
+                          component="img"
+                          src={r.banner_url_manual}
+                          alt=""
+                          sx={{
+                            width: 72,
+                            height: 40,
+                            objectFit: 'cover',
+                            borderRadius: 0.5,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                      <Tooltip title="Загрузить баннер (hero)">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={uploadBanner.isPending}
+                            onClick={() => {
+                              setBannerRowId(r.id);
+                              queueMicrotask(() => bannerFileRef.current?.click());
+                            }}
+                            aria-label="Загрузить баннер"
+                          >
+                            <CloudUploadIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{r.getbilet_external_id}</TableCell>
                   <TableCell>{r.title_manual || '—'}</TableCell>

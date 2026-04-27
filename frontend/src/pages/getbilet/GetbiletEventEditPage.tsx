@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -68,15 +69,16 @@ export function GetbiletEventEditPage() {
   useEffect(() => {
     if (!existing) return;
     setExt(existing.getbilet_external_id);
-    setTitle(existing.title_manual || '');
+    const r = existing.resolved_for_form;
+    setTitle((r?.title ?? existing.title_manual) || '');
     setPosterUrl(existing.poster_url_manual || '');
     setPosterWeb(existing.poster_url_web || '');
     setBannerUrl(existing.banner_url_manual || '');
     setPosterPageUrl(existing.poster_page_url || '');
-    setVenueManual(existing.venue_manual || '');
-    setVenueAddressManual(existing.venue_address_manual || '');
-    setCardSubtitleManual(existing.card_subtitle_manual || '');
-    setDesc(existing.description_manual || '');
+    setVenueManual((r?.venue ?? existing.venue_manual) || '');
+    setVenueAddressManual((r?.venue_address ?? existing.venue_address_manual) || '');
+    setCardSubtitleManual((r?.card_subtitle ?? existing.card_subtitle_manual) || '');
+    setDesc((r?.description ?? existing.description_manual) || '');
     setNotes(existing.notes_internal || '');
     setPub(existing.is_published);
     setSort(existing.sort_order);
@@ -142,6 +144,12 @@ export function GetbiletEventEditPage() {
       <Typography variant="h5" sx={{ mb: 2 }}>
         {isNew ? 'Новая карточка мероприятия' : 'Редактирование мероприятия'}
       </Typography>
+      {!isNew && existing?.resolved_for_form && (
+        <Alert severity="info" sx={{ mb: 0 }}>
+          Ниже подставлено то же, что на витрине: кэш каталога GetBilet в БД и при необходимости текст из пакета
+          описания. Сохранение записывает значения в карточку.
+        </Alert>
+      )}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <TextField
           required

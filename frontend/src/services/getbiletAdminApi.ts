@@ -32,9 +32,20 @@ async function handle<T>(res: Response): Promise<T> {
   return parsed as T;
 }
 
+/** Подстановки «как на сайте» для админ-формы (кэш каталога + пакет описания), только в GET /events/:id */
+export type GetbiletEventResolvedForForm = {
+  title: string;
+  venue: string;
+  venue_address: string;
+  card_subtitle: string;
+  description: string;
+};
+
 export interface GetbiletEventRow {
   id: number;
   getbilet_external_id: string;
+  /** Заполняется только ответом одной карточки — для полей, совпадающих с витриной */
+  resolved_for_form?: GetbiletEventResolvedForForm;
   poster_url_manual?: string | null;
   /** Автообложка из поиска (Google CSE); ниже приоритета, чем poster_url_manual */
   poster_url_web?: string | null;
