@@ -54,13 +54,36 @@ function parseId(param) {
 
 router.get('/events', async (req, res) => {
   try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const published = req.query.published;
+    const params = [];
+    const cond = ['TRUE'];
+    if (q) {
+      params.push(`%${q}%`);
+      cond.push(`(
+        e.getbilet_external_id ILIKE $1
+        OR COALESCE(e.title_manual, '') ILIKE $1
+        OR COALESCE(e.notes_internal, '') ILIKE $1
+        OR COALESCE(e.description_manual, '') ILIKE $1
+        OR COALESCE(c.payload_json->>'Name', c.payload_json->>'name', '') ILIKE $1
+      )`);
+    }
+    if (published === '1') {
+      cond.push('e.is_published = true');
+    } else if (published === '0') {
+      cond.push('e.is_published = false');
+    }
+    const where = cond.join(' AND ');
     const r = await ticketPool.query(
       `SELECT e.id, e.getbilet_external_id, e.title_manual, e.description_manual, e.notes_internal,
               e.poster_url_manual, e.poster_url_web, e.banner_url_manual, e.poster_page_url,
               e.is_published, e.sort_order, e.last_seen_in_catalog_at, e.created_at, e.updated_at,
               (SELECT m.last_completed_at FROM getbilet_catalog_sync_meta m WHERE m.singleton = 1) AS catalog_last_sync_at
        FROM getbilet_events e
-       ORDER BY e.sort_order ASC, e.id ASC`
+       LEFT JOIN getbilet_catalog_cache c ON c.repertoire_external_id = e.getbilet_external_id
+       WHERE ${where}
+       ORDER BY e.sort_order ASC, e.id ASC`,
+      params,
     );
     res.json(r.rows);
   } catch (e) {

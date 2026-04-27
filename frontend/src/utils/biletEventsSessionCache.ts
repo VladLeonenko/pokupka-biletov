@@ -1,6 +1,6 @@
 import { getTicketsCityId } from '@/utils/ticketsCity';
 
-const KEY_PREFIX = 'pb-bilet-events-v1';
+const KEY_PREFIX = 'pb-bilet-events-v2';
 
 function keyForCity(cityId: string) {
   return `${KEY_PREFIX}:${cityId}`;

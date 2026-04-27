@@ -10,6 +10,16 @@ function whenLine(ev: NormalizedBiletEvent): string {
   return parts.length ? parts.join(' · ') : '';
 }
 
+function venueLine(ev: Pick<NormalizedBiletEvent, 'venue'> | undefined): string {
+  return ev?.venue?.trim() || 'Площадка уточняется';
+}
+
+function slideDescription(ev: NormalizedBiletEvent | undefined, fallback?: string): string | undefined {
+  const s = (fallback || ev?.subtitle || '').trim();
+  if (!s) return undefined;
+  return s.length > 220 ? `${s.slice(0, 217).trimEnd()}…` : s;
+}
+
 function eventDateLines(ev: NormalizedBiletEvent): { lineLeft: string; lineRight: string } {
   let lineRight = format(new Date(), 'MM.yyyy');
   if (ev.isoDate?.trim()) {
@@ -35,8 +45,7 @@ function eventDateLines(ev: NormalizedBiletEvent): { lineLeft: string; lineRight
 
 function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView {
   const when = whenLine(ev);
-  const venueLine = ev.venue?.trim() || null;
-  const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, venueLine, ev.genre]
+  const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, venueLine(ev), ev.genre]
     .filter(Boolean)
     .join(' · ');
   const { lineLeft, lineRight } = eventDateLines(ev);
@@ -45,6 +54,7 @@ function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView
     title: ev.title.toUpperCase(),
     imageUrl: ev.imageUrl ?? ev.bannerUrl ?? null,
     tags,
+    description: slideDescription(ev),
     author: ev.author,
     director: ev.director,
     lineLeft,
@@ -60,10 +70,9 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
   const lines = ev ? eventDateLines(ev) : { lineLeft: '—', lineRight: format(new Date(), 'MM.yyyy') };
   const title = (c.title || ev?.title || 'Событие').toUpperCase();
   const evWhen = ev ? whenLine(ev) : '';
-  const venueLine = ev?.venue?.trim() || null;
   const tags =
     c.tags ||
-    [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, venueLine, ev?.genre].filter(Boolean).join(' · ');
+    [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, venueLine(ev), ev?.genre].filter(Boolean).join(' · ');
   const lineLeft = c.lineLeft ?? lines.lineLeft;
   const lineRight = c.lineRight ?? lines.lineRight;
   const imageUrl = c.imageUrl || ev?.imageUrl || ev?.bannerUrl || null;
@@ -75,6 +84,7 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
     title,
     imageUrl,
     tags,
+    description: slideDescription(ev),
     author: c.author ?? ev?.author,
     director: c.director ?? ev?.director,
     lineLeft,

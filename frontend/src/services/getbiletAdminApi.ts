@@ -56,8 +56,22 @@ export interface GetbiletEventRow {
   updated_at: string;
 }
 
-export async function listGetbiletEvents(): Promise<GetbiletEventRow[]> {
-  const res = await fetch(`${API_BASE}/api/admin/getbilet/events`, { headers: authHeaders() });
+export type ListGetbiletEventsParams = {
+  /** Поиск по id репертуара, ручному названию, заметкам, описанию, названию из кэша каталога */
+  q?: string;
+  /** 1 = только в продаже, 0 = только скрытые, не передано = все */
+  published?: '1' | '0';
+};
+
+export async function listGetbiletEvents(params?: ListGetbiletEventsParams): Promise<GetbiletEventRow[]> {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set('q', params.q);
+  if (params?.published) sp.set('published', params.published);
+  const qs = sp.toString();
+  const res = await fetch(
+    `${API_BASE}/api/admin/getbilet/events${qs ? `?${qs}` : ''}`,
+    { headers: authHeaders() },
+  );
   return handle(res);
 }
 

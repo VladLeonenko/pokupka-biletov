@@ -199,6 +199,16 @@
   max-width: 20ch;
 }
 
+.description {
+  margin: -6px 0 20px;
+  max-width: 58ch;
+  font-size: clamp(0.86rem, 1.6vw, 1rem);
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  opacity: 0.92;
+}
+
 .credits {
   display: grid;
   grid-template-columns: 1fr;

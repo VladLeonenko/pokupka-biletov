@@ -70,6 +70,31 @@ async function loadStorefrontOverrides() {
 }
 
 /**
+ * Подписи сцен из админки — последний локальный fallback для площадки в карточках и hero.
+ * @param {string[]} stageIds
+ * @returns {Promise<Map<string, string>>}
+ */
+async function loadStageMapTitles(stageIds) {
+  const ids = [...new Set(stageIds.map((x) => String(x || '').trim()).filter(Boolean))];
+  const m = new Map();
+  if (ids.length === 0) return m;
+  try {
+    const r = await ticketPool.query(
+      `SELECT stage_external_id, title FROM getbilet_stage_maps WHERE stage_external_id = ANY($1::text[])`,
+      [ids],
+    );
+    for (const row of r.rows) {
+      if (row.stage_external_id && row.title && String(row.title).trim()) {
+        m.set(String(row.stage_external_id), String(row.title).trim());
+      }
+    }
+  } catch {
+    /* таблица схем может отсутствовать */
+  }
+  return m;
+}
+
+/**
  * @param {Record<string, unknown>[]} actions
  * @returns {Promise<Record<string, unknown>[]>}
  */
@@ -107,18 +132,25 @@ export async function enrichRestV2CatalogActions(actions) {
     console.error('[getbilet enrich] venue lookup:', e instanceof Error ? e.message : e);
   }
 
+  const stageMapTitles = await loadStageMapTitles(
+    actions.map((row) => String(row.stageId ?? row.StageId ?? '').trim()),
+  );
+
   const mapped = actions.map((row) => {
     const repId = String(row.Id ?? row.id ?? '');
     const o = overrides.get(repId);
     const out = { ...row };
+    const sid = String(out.stageId ?? out.StageId ?? row.stageId ?? row.StageId ?? '').trim();
     let venueLabel = extractParentVenueFromRow(out);
     if (!venueLabel) {
       const pid = pickPlaceId(out);
       if (pid && byPlaceId.has(pid)) venueLabel = byPlaceId.get(pid) || '';
     }
     if (!venueLabel) {
-      const sid = String(out.stageId ?? out.StageId ?? row.stageId ?? row.StageId ?? '').trim();
       if (sid && stageIdToParentVenue.has(sid)) venueLabel = stageIdToParentVenue.get(sid) || '';
+    }
+    if (!venueLabel && sid && stageMapTitles.has(sid)) {
+      venueLabel = stageMapTitles.get(sid) || '';
     }
     if (venueLabel && !String(out.PlaceName ?? out.placeName ?? '').trim()) {
       out.PlaceName = venueLabel;

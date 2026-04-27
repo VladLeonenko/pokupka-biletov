@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -6,17 +7,23 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  InputAdornment,
   Paper,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { useNavigate } from 'react-router-dom';
 import {
   batchFetchPosters,
@@ -27,6 +34,7 @@ import {
   syncGetbiletCatalog,
   type GetbiletEventRow,
 } from '@/services/getbiletAdminApi';
+import { useToast } from '@/components/common/ToastProvider';
 
 function isAbsentFromLastCatalog(r: GetbiletEventRow): boolean {
   const sync = r.catalog_last_sync_at;
@@ -35,15 +43,31 @@ function isAbsentFromLastCatalog(r: GetbiletEventRow): boolean {
   if (!seen) return true;
   return new Date(seen).getTime() < new Date(sync).getTime();
 }
-import { useToast } from '@/components/common/ToastProvider';
 
 export function GetbiletEventsListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['getbilet-events'],
-    queryFn: listGetbiletEvents,
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const [publishedFilter, setPublishedFilter] = useState<'all' | '1' | '0'>('all');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(searchInput.trim()), 280);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const { data: rows = [], isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: [
+      'getbilet-events',
+      debouncedQ,
+      publishedFilter,
+    ] as const,
+    queryFn: () =>
+      listGetbiletEvents({
+        q: debouncedQ || undefined,
+        published: publishedFilter === 'all' ? undefined : publishedFilter,
+      }),
   });
 
   const del = useMutation({
@@ -114,6 +138,8 @@ export function GetbiletEventsListPage() {
       </Box>
     );
   }
+
+  const listBusy = isFetching;
 
   if (isError) {
     return (
@@ -195,16 +221,71 @@ export function GetbiletEventsListPage() {
           Добавить карточку
         </Button>
       </Box>
+
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 2,
+          mb: 2,
+          alignItems: 'center',
+        }}
+      >
+        <TextField
+          size="small"
+          placeholder="Поиск: id GetBilet, название, заметки, название из каталога…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          autoComplete="off"
+          sx={{ flex: '1 1 280px', minWidth: 260 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" fontSize="small" />
+              </InputAdornment>
+            ),
+            endAdornment: searchInput ? (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  aria-label="Очистить"
+                  onClick={() => {
+                    setSearchInput('');
+                    setDebouncedQ('');
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
+        />
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={publishedFilter}
+          onChange={(_, v) => v != null && setPublishedFilter(v)}
+        >
+          <ToggleButton value="all">Все</ToggleButton>
+          <ToggleButton value="1">В продаже</ToggleButton>
+          <ToggleButton value="0">Скрытые</ToggleButton>
+        </ToggleButtonGroup>
+        {listBusy && <CircularProgress size={22} sx={{ flexShrink: 0 }} />}
+      </Box>
+
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {rows.length === 0 ? (
+        {rows.length === 0 && !debouncedQ && publishedFilter === 'all' ? (
           <>
             Список пустой, пока вы не загрузите каталог из GetBilet или не создадите карточку вручную. После
             появления строк укажите «Страницу спектакля» в карточке и подтяните постер.
           </>
+        ) : rows.length === 0 ? (
+          <>По запросу ничего не найдено — измените поиск или сбросьте фильтр «статус».</>
         ) : (
           <>
-            Каталог в БД не затирается при исчезновении спектакля из GetBilet: карточка и кэш остаются до следующего
-            сезона. Метка «не в последнем каталоге» — не было в ответе при последней синхронизации.
+            Показано {rows.length}{debouncedQ || publishedFilter !== 'all' ? ' (с фильтром)' : ''}. Каталог в БД не
+            затирается при исчезновении спектакля из GetBilet. Метка «не в последнем каталоге» — id не было в ответе при
+            последней синхронизации.
           </>
         )}
       </Typography>
@@ -253,7 +334,9 @@ export function GetbiletEventsListPage() {
               <TableRow>
                 <TableCell colSpan={7}>
                   <Typography color="text.secondary" sx={{ py: 2 }}>
-                    Пока нет строк — выполните синхронизацию выше или добавьте карточку вручную.
+                    {debouncedQ || publishedFilter !== 'all'
+                      ? 'Нет строк, подходящих под поиск. Очистите поле поиска или переключите «Все».'
+                      : 'Пока нет строк — выполните синхронизацию выше или добавьте карточку вручную.'}
                   </Typography>
                 </TableCell>
               </TableRow>

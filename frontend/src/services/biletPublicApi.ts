@@ -7,7 +7,6 @@ import {
   type EventTitleKind,
 } from '@/utils/eventTitleHeuristics';
 import { slugify } from '@/utils/slugify';
-import { compactSessionPathFromIso } from '@/utils/ticketSessionUrl';
 
 export type BiletMeta = {
   protocol: string;
@@ -109,10 +108,7 @@ export type NormalizedBiletEvent = {
   timeLabel?: string;
 };
 
-/**
- * Ссылка на страницу выбора мест.
- * Локальные `/uploads/...` добавляются в query как подстраховка до загрузки контекста из API.
- */
+/** Публичная ссылка на страницу выбора мест: только человекочитаемый slug события. */
 export function ticketCheckoutHref(
   ev: Pick<NormalizedBiletEvent, 'id' | 'title' | 'stageId'> & {
     imageUrl?: string;
@@ -121,24 +117,8 @@ export function ticketCheckoutHref(
     isoDate?: string;
   },
 ): string {
-  const rep =
-    ev.repertoireId?.trim() ||
-    (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') ||
-    ev.id;
   const pathSlug = slugify(ev.title) || 'event';
-  const sessionSeg = ev.isoDate?.trim() ? compactSessionPathFromIso(ev.isoDate.trim()) : null;
-  const q = new URLSearchParams();
-  const poster = ev.imageUrl?.trim();
-  if (poster && poster.startsWith('/uploads/') && poster.length < 512) {
-    q.set('poster', poster);
-  }
-  const ban = ev.bannerUrl?.trim();
-  if (ban && ban.startsWith('/uploads/') && ban.length < 512) {
-    q.set('banner', ban);
-  }
-  const qs = q.toString();
-  const sessionPath = sessionSeg ? `/${sessionSeg}` : '';
-  return `/ticket/${encodeURIComponent(rep)}/${pathSlug}${sessionPath}${qs ? `?${qs}` : ''}`;
+  return `/ticket/${pathSlug}`;
 }
 
 export type NormalizedVenue = {

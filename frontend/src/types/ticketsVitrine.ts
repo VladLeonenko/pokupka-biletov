@@ -78,6 +78,8 @@ export type HeroSlideView = {
   title: string;
   imageUrl: string | null;
   tags: string;
+  /** Краткое описание для главного hero. */
+  description?: string;
   author?: string | null;
   director?: string | null;
   /** Обычно число дня или «15, 21» */

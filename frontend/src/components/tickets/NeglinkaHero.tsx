@@ -95,6 +95,10 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
 
             <h1 className={styles.title}>{title}</h1>
 
+            {current.description ? (
+              <p className={styles.description}>{current.description}</p>
+            ) : null}
+
             {(current.author || current.director) && (
               <div className={styles.credits}>
                 {current.author && (

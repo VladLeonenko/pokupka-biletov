@@ -36,9 +36,12 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { TicketEventPosterImg } from '@/components/tickets/TicketEventPosterImg';
 import {
   ensurePublicSessionForCheckout,
+  fetchBiletEvents,
   fetchRepertoireContext,
   fetchRepertoireOffers,
   fetchStageMap,
+  normalizeBiletEventsPayload,
+  type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 import {
@@ -58,7 +61,6 @@ import {
   resolveHeroSublineForTicketPage,
 } from '@/utils/ticketHeroSubline';
 import { slugify } from '@/utils/slugify';
-import { compactSessionPathFromIso, isoLocalFromCompactSession } from '@/utils/ticketSessionUrl';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -147,23 +149,50 @@ function absoluteUrl(origin: string, pathOrUrl: string | null | undefined): stri
   return `${origin}${s.startsWith('/') ? '' : '/'}${s}`;
 }
 
+function looksLikeGetbiletId(s: string): boolean {
+  return /^[a-f0-9]{24}$/i.test(s.trim());
+}
+
+function eventRepId(ev: NormalizedBiletEvent | null | undefined): string {
+  if (!ev) return '';
+  return (
+    ev.repertoireId?.trim() ||
+    (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') ||
+    ev.id
+  );
+}
+
 export function TicketCheckoutPage() {
-  const { repertoireId = '', slug: slugParam, sessionCompact: sessionCompactParam } = useParams<{
-    repertoireId: string;
+  const { eventSlug = '', repertoireId: legacyRepertoireId = '', slug: legacySlug } = useParams<{
+    eventSlug?: string;
+    repertoireId?: string;
     slug?: string;
-    sessionCompact?: string;
   }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const titleHint = searchParams.get('title') ?? 'Мероприятие';
+  const routeKey = legacyRepertoireId || eventSlug;
+  const routeKeyIsId = looksLikeGetbiletId(routeKey);
+  const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
+
+  const { data: rawEventsForSlug } = useQuery({
+    queryKey: ['bilet-events-public', 'ticket-slug-resolve'],
+    queryFn: () => fetchBiletEvents(),
+    enabled: Boolean(routeKey && !routeKeyIsId),
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  const resolvedEventFromSlug = useMemo(() => {
+    if (!routeSlug || routeKeyIsId) return null;
+    const target = routeSlug.toLowerCase();
+    return normalizeBiletEventsPayload(rawEventsForSlug).find((ev) => slugify(ev.title) === target) ?? null;
+  }, [rawEventsForSlug, routeSlug, routeKeyIsId]);
+
+  const repertoireId = routeKeyIsId ? routeKey : eventRepId(resolvedEventFromSlug);
+  const titleHint = searchParams.get('title') ?? resolvedEventFromSlug?.title ?? 'Мероприятие';
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
-  const sessionFromPath = useMemo(
-    () => isoLocalFromCompactSession(sessionCompactParam),
-    [sessionCompactParam],
-  );
-  const sessionHint =
-    sessionFromPath || searchParams.get('eventDateTime')?.trim() || null;
+  const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
 
   const { data: ctx, isLoading: ctxLoading, isError: ctxError } = useQuery({
     queryKey: ['bilet-repertoire-context', repertoireId],
@@ -230,7 +259,7 @@ export function TicketCheckoutPage() {
   const venueHeroLine = useMemo(() => {
     const fromOffers = venueLabel?.trim();
     const fromCtx = ctx?.venueLabel?.trim();
-    return fromOffers || fromCtx || null;
+    return fromOffers || fromCtx || 'Площадка уточняется';
   }, [venueLabel, ctx?.venueLabel]);
 
   const [filterState, setFilterState] = useState<OfferFilterState>({
@@ -534,16 +563,10 @@ export function TicketCheckoutPage() {
 
   const canonicalSlug = useMemo(() => slugify(displayTitle) || 'event', [displayTitle]);
 
-  const canonicalSessionSeg = useMemo(() => {
-    if (!sessionHint) return '';
-    const c = compactSessionPathFromIso(sessionHint);
-    return c ? `/${c}` : '';
-  }, [sessionHint]);
-
   const canonicalTicketPath = useMemo(() => {
-    if (!repertoireId) return '/events';
-    return `/ticket/${encodeURIComponent(repertoireId)}/${canonicalSlug}${canonicalSessionSeg}`;
-  }, [repertoireId, canonicalSlug, canonicalSessionSeg]);
+    if (!canonicalSlug || canonicalSlug === 'event') return '/events';
+    return `/ticket/${canonicalSlug}`;
+  }, [canonicalSlug]);
 
   const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
 
@@ -556,45 +579,20 @@ export function TicketCheckoutPage() {
     setShowAllOfferRows(false);
   }, [repertoireId]);
 
-  /**
-   * Канонический URL: /ticket/:id/:slug/:YYYYMMDDHHmm при выбранном сеансе,
-   * без ?title=, без eventDateTime в query (перенос в путь), без stageId если совпадает с контекстом.
-   */
+  /** Канонический URL: только /ticket/:slug, без id GetBilet и query-параметров. */
   useEffect(() => {
-    if (!repertoireId || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
+    if (!routeKey || canonicalSlug === 'event') return;
     const wantSlug = canonicalSlug;
-    const pathSlug = (slugParam ?? '').trim();
-    const pathSess = (sessionCompactParam ?? '').trim();
-    const sp = new URLSearchParams(searchStrForCanonical);
-    if (sp.has('title')) sp.delete('title');
-
-    let compactSeg = /^\d{12}$/.test(pathSess) ? pathSess : '';
-    const dtQ = sp.get('eventDateTime')?.trim();
-    if (!compactSeg && dtQ) {
-      const c = compactSessionPathFromIso(dtQ);
-      if (c) {
-        compactSeg = c;
-        sp.delete('eventDateTime');
-      }
-    }
-    const sidQ = sp.get('stageId')?.trim();
-    if (sidQ && ctx?.stageId && sidQ === ctx.stageId.trim()) {
-      sp.delete('stageId');
-    }
-    const nextSuffix = sp.toString() ? `?${sp.toString()}` : '';
-    const sessPath = compactSeg ? `/${compactSeg}` : '';
-    const target = `/ticket/${encodeURIComponent(repertoireId)}/${wantSlug}${sessPath}${nextSuffix}`;
+    const target = `/ticket/${wantSlug}`;
     const cur = `${window.location.pathname}${window.location.search}`;
     if (cur !== target) {
       navigate(target, { replace: true });
     }
   }, [
-    repertoireId,
+    routeKey,
     canonicalSlug,
-    slugParam,
-    sessionCompactParam,
     searchStrForCanonical,
-    ctx?.stageId,
     navigate,
   ]);
 

@@ -127,12 +127,12 @@ function normalizeGetbiletOfferListPayload(data) {
   };
 }
 
-/** Ключ in-memory кэша афиши (протокол + режим каталога + cityId для BIL24). */
+/** Ключ in-memory кэша афиши (протокол + режим каталога + cityId для BIL24 + версия формы ответа). */
 function getbiletEventsCacheKey(req) {
   const { protocol } = getGetbiletConfig();
   const mode = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
   const cityId = req.query.cityId != null ? String(req.query.cityId) : '';
-  return `${protocol}|${mode}|${cityId}`;
+  return `v2|${protocol}|${mode}|${cityId}`;
 }
 
 /**
