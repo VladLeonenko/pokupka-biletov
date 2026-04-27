@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
-import { getHorizontalWheelDelta, scaleWheelDelta } from '@/utils/portfolioCarouselWheel';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './NeglinkaHero.module.css';
@@ -15,8 +14,6 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
   /** padSlides уже в buildHeroSlides; без props — пустой массив */
   const slides = slideInput ?? [];
 
-  const heroRef = useRef<HTMLElement | null>(null);
-  const wheelGestureRef = useRef({ acc: 0, timer: 0 });
   const [idx, setIdx] = useState(0);
   const [pauseAutoplay, setPauseAutoplay] = useState(false);
   const current = slides[idx] ?? slides[0];
@@ -34,46 +31,6 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
     }, ms);
     return () => clearInterval(id);
   }, [loading, slides.length, pauseAutoplay]);
-
-  useEffect(() => {
-    const el = heroRef.current;
-    if (!el || loading || slides.length <= 1) return;
-
-    const resetWheelGesture = () => {
-      wheelGestureRef.current.acc = 0;
-      wheelGestureRef.current.timer = 0;
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) return;
-
-      const dx = getHorizontalWheelDelta(e, el);
-      const dy = scaleWheelDelta(e.deltaY, e.deltaMode, el);
-      const horizontal = e.shiftKey ? dy : dx;
-      if (Math.abs(horizontal) < 8 || Math.abs(horizontal) < Math.abs(dy) * 0.75) return;
-
-      e.preventDefault();
-      setPauseAutoplay(true);
-
-      const gesture = wheelGestureRef.current;
-      gesture.acc += horizontal;
-      if (gesture.timer) window.clearTimeout(gesture.timer);
-
-      if (Math.abs(gesture.acc) >= 70) {
-        go(gesture.acc > 0 ? 1 : -1);
-        gesture.acc = 0;
-      }
-
-      gesture.timer = window.setTimeout(resetWheelGesture, 180);
-    };
-
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      el.removeEventListener('wheel', onWheel);
-      if (wheelGestureRef.current.timer) window.clearTimeout(wheelGestureRef.current.timer);
-      resetWheelGesture();
-    };
-  }, [go, loading, slides.length]);
 
   if (loading) {
     return (
@@ -107,7 +64,6 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
 
   return (
     <section
-      ref={heroRef}
       className={styles.hero}
       data-tickets-hero
       onMouseEnter={() => setPauseAutoplay(true)}
