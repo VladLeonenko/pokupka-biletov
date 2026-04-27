@@ -42,6 +42,11 @@ export interface GetbiletEventRow {
   /** Страница спектакля на сайте театра — источник для кнопки «Подтянуть постер» */
   poster_page_url?: string | null;
   title_manual: string | null;
+  /** Площадка на витрине; перекрывает GetBilet */
+  venue_manual?: string | null;
+  venue_address_manual?: string | null;
+  /** Краткая строка под заголовком на карточке; иначе — из описания/API */
+  card_subtitle_manual?: string | null;
   description_manual: string | null;
   /** Снимок AI-описания для публичной страницы (см. backfill description_pack) */
   description_pack_json?: Record<string, unknown> | null;

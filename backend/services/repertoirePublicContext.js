@@ -139,21 +139,39 @@ async function loadRepertoireBase(repertoireId) {
   /** @type {number | null} */
   let eventRowId = null;
 
+  /** @type {string | null} */
+  let venueManual = null;
+  /** @type {string | null} */
+  let venueAddressManual = null;
+
   try {
     let er;
     try {
       er = await ticketPool.query(
-        `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json
+        `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json,
+                venue_manual, venue_address_manual
          FROM getbilet_events WHERE getbilet_external_id = $1`,
         [repertoireId],
       );
     } catch (e) {
       if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
-        er = await ticketPool.query(
-          `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual
-           FROM getbilet_events WHERE getbilet_external_id = $1`,
-          [repertoireId],
-        );
+        try {
+          er = await ticketPool.query(
+            `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json
+             FROM getbilet_events WHERE getbilet_external_id = $1`,
+            [repertoireId],
+          );
+        } catch (e2) {
+          if (e2 && typeof e2 === 'object' && 'code' in e2 && e2.code === '42703') {
+            er = await ticketPool.query(
+              `SELECT id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual
+               FROM getbilet_events WHERE getbilet_external_id = $1`,
+              [repertoireId],
+            );
+          } else {
+            throw e2;
+          }
+        }
       } else {
         throw e;
       }
@@ -167,6 +185,16 @@ async function loadRepertoireBase(repertoireId) {
       descriptionManual = er.rows[0].description_manual;
       if ('description_pack_json' in er.rows[0]) {
         descriptionPackJson = er.rows[0].description_pack_json;
+      }
+      if ('venue_manual' in er.rows[0] && er.rows[0].venue_manual != null && String(er.rows[0].venue_manual).trim()) {
+        venueManual = String(er.rows[0].venue_manual).trim();
+      }
+      if (
+        'venue_address_manual' in er.rows[0] &&
+        er.rows[0].venue_address_manual != null &&
+        String(er.rows[0].venue_address_manual).trim()
+      ) {
+        venueAddressManual = String(er.rows[0].venue_address_manual).trim();
       }
     }
   } catch {
@@ -255,6 +283,8 @@ async function loadRepertoireBase(repertoireId) {
     posterManual,
     posterWeb,
     bannerManual,
+    venueManual,
+    venueAddressManual,
   };
 }
 
@@ -269,11 +299,13 @@ export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
     subtitle: base.descriptionFromPayload || '',
     genre: base.genreFromPayload || '',
   });
+  const manualVenue =
+    base.venueManual != null && String(base.venueManual).trim() ? String(base.venueManual).trim() : null;
   return {
     title: base.title,
     kind,
     categoryLabel,
-    venueLabel: base.venueFromPayload,
+    venueLabel: manualVenue || base.venueFromPayload,
     manualHint: base.descriptionManual != null ? String(base.descriptionManual).trim() || null : null,
     catalogHints: base.catalogHints,
     eventRowId: base.eventRowId,
@@ -361,10 +393,21 @@ export async function getRepertoirePublicContext(repertoireId) {
       : null;
 
   const placeFromMaps = await resolvePlaceFromGetbiletMaps(payload, stageId);
-  const venueFromCatalogOrMaps = venueFromPayload || placeFromMaps.venue;
+  const manualVenue =
+    base.venueManual != null && String(base.venueManual).trim() ? String(base.venueManual).trim() : null;
+  const manualAddress =
+    base.venueAddressManual != null && String(base.venueAddressManual).trim()
+      ? String(base.venueAddressManual).trim()
+      : null;
+  let venueFromCatalogOrMaps = venueFromPayload || placeFromMaps.venue;
+  if (manualVenue) venueFromCatalogOrMaps = manualVenue;
   const addressFromMaps = placeFromMaps.address;
   const venueForRichText = venueFromCatalogOrMaps || venueFromStageMap || null;
-  const addressForUi = (addressFromPayload && String(addressFromPayload).trim()) || (addressFromMaps && String(addressFromMaps).trim()) || null;
+  const addressForUi =
+    manualAddress ||
+    (addressFromPayload && String(addressFromPayload).trim()) ||
+    (addressFromMaps && String(addressFromMaps).trim()) ||
+    null;
 
   const { kind, categoryLabel } = classifyEventTitle(title, {
     subtitle: descriptionFromPayload || '',

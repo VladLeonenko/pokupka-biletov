@@ -54,6 +54,9 @@ export function GetbiletEventEditPage() {
   const [poster_page_url, setPosterPageUrl] = useState('');
   const [alsoBannerOnFetch, setAlsoBannerOnFetch] = useState(true);
   const [probePreview, setProbePreview] = useState<string | null>(null);
+  const [venue_manual, setVenueManual] = useState('');
+  const [venue_address_manual, setVenueAddressManual] = useState('');
+  const [card_subtitle_manual, setCardSubtitleManual] = useState('');
   const [description_manual, setDesc] = useState('');
   const [notes_internal, setNotes] = useState('');
   const [is_published, setPub] = useState(true);
@@ -70,6 +73,9 @@ export function GetbiletEventEditPage() {
     setPosterWeb(existing.poster_url_web || '');
     setBannerUrl(existing.banner_url_manual || '');
     setPosterPageUrl(existing.poster_page_url || '');
+    setVenueManual(existing.venue_manual || '');
+    setVenueAddressManual(existing.venue_address_manual || '');
+    setCardSubtitleManual(existing.card_subtitle_manual || '');
     setDesc(existing.description_manual || '');
     setNotes(existing.notes_internal || '');
     setPub(existing.is_published);
@@ -82,6 +88,9 @@ export function GetbiletEventEditPage() {
       const payload = {
         getbilet_external_id,
         title_manual: title_manual || null,
+        venue_manual: venue_manual?.trim() || null,
+        venue_address_manual: venue_address_manual?.trim() || null,
+        card_subtitle_manual: card_subtitle_manual?.trim() || null,
         poster_url_manual: poster_url_manual?.trim() || null,
         poster_url_web: poster_url_web?.trim() || null,
         banner_url_manual: banner_url_manual?.trim() || null,
@@ -144,6 +153,30 @@ export function GetbiletEventEditPage() {
           disabled={!isNew}
         />
         <TextField label="Название (ручное)" value={title_manual} onChange={(e) => setTitle(e.target.value)} fullWidth />
+        <TextField
+          label="Площадка (как на сайте)"
+          value={venue_manual}
+          onChange={(e) => setVenueManual(e.target.value)}
+          fullWidth
+          helperText="Перекрывает название площадки из GetBilet. Пусто — из API и справочников"
+        />
+        <TextField
+          label="Адрес площадки"
+          value={venue_address_manual}
+          onChange={(e) => setVenueAddressManual(e.target.value)}
+          fullWidth
+          multiline
+          minRows={2}
+        />
+        <TextField
+          label="Краткий текст на карточке"
+          value={card_subtitle_manual}
+          onChange={(e) => setCardSubtitleManual(e.target.value)}
+          fullWidth
+          multiline
+          minRows={2}
+          helperText="Одна–две строки под заголовком на афише. Если пусто — краткое из «Описание (ручное)» или из API"
+        />
         <TextField
           label="URL постера (ручной, приоритет)"
           value={poster_url_manual}

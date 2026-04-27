@@ -65,6 +65,8 @@ router.get('/events', async (req, res) => {
         OR COALESCE(e.title_manual, '') ILIKE $1
         OR COALESCE(e.notes_internal, '') ILIKE $1
         OR COALESCE(e.description_manual, '') ILIKE $1
+        OR COALESCE(e.venue_manual, '') ILIKE $1
+        OR COALESCE(e.card_subtitle_manual, '') ILIKE $1
         OR COALESCE(c.payload_json->>'Name', c.payload_json->>'name', '') ILIKE $1
       )`);
     }
@@ -76,6 +78,7 @@ router.get('/events', async (req, res) => {
     const where = cond.join(' AND ');
     const r = await ticketPool.query(
       `SELECT e.id, e.getbilet_external_id, e.title_manual, e.description_manual, e.notes_internal,
+              e.venue_manual, e.venue_address_manual, e.card_subtitle_manual,
               e.poster_url_manual, e.poster_url_web, e.banner_url_manual, e.poster_page_url,
               e.is_published, e.sort_order, e.last_seen_in_catalog_at, e.created_at, e.updated_at,
               (SELECT m.last_completed_at FROM getbilet_catalog_sync_meta m WHERE m.singleton = 1) AS catalog_last_sync_at
@@ -115,6 +118,9 @@ router.post('/events', async (req, res) => {
     title_manual,
     description_manual,
     notes_internal,
+    venue_manual,
+    venue_address_manual,
+    card_subtitle_manual,
     poster_url_manual,
     poster_url_web,
     banner_url_manual,
@@ -129,14 +135,18 @@ router.post('/events', async (req, res) => {
     const r = await ticketPool.query(
       `INSERT INTO getbilet_events (
         getbilet_external_id, title_manual, description_manual, notes_internal,
+        venue_manual, venue_address_manual, card_subtitle_manual,
         poster_url_manual, poster_url_web, banner_url_manual, poster_page_url, is_published, sort_order, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, TRUE), COALESCE($10, 0), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, TRUE), COALESCE($13, 0), NOW())
       RETURNING *`,
       [
         ext,
         title_manual?.trim() || null,
         description_manual?.trim() || null,
         notes_internal?.trim() || null,
+        venue_manual?.trim() || null,
+        venue_address_manual?.trim() || null,
+        card_subtitle_manual?.trim() || null,
         poster_url_manual?.trim() || null,
         poster_url_web?.trim() || null,
         banner_url_manual?.trim() || null,
@@ -159,6 +169,7 @@ router.post('/events', async (req, res) => {
        LEFT JOIN getbilet_event_group_members m ON m.event_id = e.id WHERE e.id = $1`,
       [row.id]
     );
+    invalidateGetbiletEventsHttpCache();
     res.status(201).json(full.rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой внешний id уже есть' });
@@ -175,6 +186,9 @@ router.put('/events/:id', async (req, res) => {
     description_manual,
     description_pack_json,
     notes_internal,
+    venue_manual,
+    venue_address_manual,
+    card_subtitle_manual,
     poster_url_manual,
     poster_url_web,
     banner_url_manual,
@@ -207,7 +221,6 @@ router.put('/events/:id', async (req, res) => {
         getbilet_external_id = $2,
         title_manual = $3,
         description_manual = $4,
-        description_pack_json = $12,
         notes_internal = $5,
         poster_url_manual = $6,
         poster_url_web = $7,
@@ -215,6 +228,10 @@ router.put('/events/:id', async (req, res) => {
         poster_page_url = $9,
         is_published = $10,
         sort_order = $11,
+        description_pack_json = $12,
+        venue_manual = $13,
+        venue_address_manual = $14,
+        card_subtitle_manual = $15,
         updated_at = NOW()
       WHERE id = $1`,
       [
@@ -230,6 +247,9 @@ router.put('/events/:id', async (req, res) => {
         is_published !== undefined ? Boolean(is_published) : c.is_published,
         so,
         description_pack_json !== undefined ? packJson : c.description_pack_json,
+        venue_manual !== undefined ? venue_manual?.trim() || null : c.venue_manual,
+        venue_address_manual !== undefined ? venue_address_manual?.trim() || null : c.venue_address_manual,
+        card_subtitle_manual !== undefined ? card_subtitle_manual?.trim() || null : c.card_subtitle_manual,
       ]
     );
 
@@ -249,6 +269,7 @@ router.put('/events/:id', async (req, res) => {
        LEFT JOIN getbilet_event_group_members m ON m.event_id = e.id WHERE e.id = $1`,
       [id]
     );
+    invalidateGetbiletEventsHttpCache();
     res.json(full.rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой внешний id уже есть' });

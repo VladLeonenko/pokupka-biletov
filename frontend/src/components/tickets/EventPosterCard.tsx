@@ -95,7 +95,6 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
           ) : null}
           {venueLine || venueAddrLine ? (
             <p className={styles.venueBlock}>
-              <span className={styles.venueKicker}>Площадка проведения</span>
               {venueLine ? <span className={styles.venueName}>{venueLine}</span> : null}
               {venueAddrLine ? <span className={styles.venueAddress}>{venueAddrLine}</span> : null}
             </p>

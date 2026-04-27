@@ -60,7 +60,7 @@ function firstDescriptionParagraphFromPack(raw) {
 }
 
 /**
- * @returns {Promise<Map<string, { title_manual: string | null, poster_url_manual: string | null, poster_url_web: string | null, banner_url_manual: string | null, description_manual: string | null, description_pack_json?: unknown, is_published: boolean }>>}
+ * @returns {Promise<Map<string, object>>}
  */
 async function loadStorefrontOverrides() {
   const m = new Map();
@@ -68,15 +68,27 @@ async function loadStorefrontOverrides() {
     let r;
     try {
       r = await ticketPool.query(
-        `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json, is_published
+        `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json,
+                venue_manual, venue_address_manual, card_subtitle_manual, is_published
          FROM getbilet_events`,
       );
     } catch (e) {
       if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
-        r = await ticketPool.query(
-          `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, is_published
-           FROM getbilet_events`,
-        );
+        try {
+          r = await ticketPool.query(
+            `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json, is_published
+             FROM getbilet_events`,
+          );
+        } catch (e2) {
+          if (e2 && typeof e2 === 'object' && 'code' in e2 && e2.code === '42703') {
+            r = await ticketPool.query(
+              `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, is_published
+               FROM getbilet_events`,
+            );
+          } else {
+            throw e2;
+          }
+        }
       } else {
         throw e;
       }
@@ -184,6 +196,12 @@ export async function enrichRestV2CatalogActions(actions) {
     if (!addressLabel && sid && stageIdToAddress.has(sid)) addressLabel = stageIdToAddress.get(sid) || '';
     if (!addressLabel && pid && placeIdToAddress.has(pid)) addressLabel = placeIdToAddress.get(pid) || '';
     if (addressLabel) out.PlaceAddress = addressLabel;
+    if (o?.venue_manual != null && String(o.venue_manual).trim()) {
+      out.PlaceName = String(o.venue_manual).trim();
+    }
+    if (o?.venue_address_manual != null && String(o.venue_address_manual).trim()) {
+      out.PlaceAddress = String(o.venue_address_manual).trim();
+    }
     if (o?.title_manual?.trim() && o.is_published === true) {
       out.Name = o.title_manual.trim();
     }
@@ -202,7 +220,12 @@ export async function enrichRestV2CatalogActions(actions) {
       const u = expandMediaTemplate(bannerTpl, repId);
       if (u) out.BannerUrl = u;
     }
-    if (o?.description_manual?.trim() && o.is_published === true) {
+    if (o?.card_subtitle_manual?.trim() && o.is_published === true) {
+      const short = catalogCardDescription(o.card_subtitle_manual.trim());
+      out.shortDescription = short;
+      out.description = short;
+      out.Description = short;
+    } else if (o?.description_manual?.trim() && o.is_published === true) {
       const d = o.description_manual.trim();
       const short = catalogCardDescription(d);
       out.shortDescription = short;

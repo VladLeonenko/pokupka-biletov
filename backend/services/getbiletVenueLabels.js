@@ -144,7 +144,7 @@ export async function getVenueLookupMaps() {
   const now = Date.now();
   if (
     venueLookupCache &&
-    now - venueLookupCache.at < VENUE_LOOKUP_TTL &&
+    now - venueLookupCache.at < VENUE_LOOKUP_TTL_MS &&
     (venueLookupCache.byPlaceId.size > 0 || venueLookupCache.stageIdToParentVenue.size > 0)
   ) {
     return {
