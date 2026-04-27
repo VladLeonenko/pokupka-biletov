@@ -40,6 +40,18 @@ function eventDateLines(ev: NormalizedBiletEvent): { lineLeft: string; lineRight
   return { lineLeft, lineRight };
 }
 
+/** Слайд CMS хранит ticketId = репертуар; в афише id может быть vitrineRowId (rep::сессия) — сопоставляем оба. */
+function findEventForHeroSlide(
+  events: NormalizedBiletEvent[],
+  ticketId: string | undefined,
+): NormalizedBiletEvent | undefined {
+  if (!ticketId?.trim()) return undefined;
+  const t = String(ticketId).trim();
+  return events.find(
+    (e) => String(e.id) === t || String(e.repertoireId ?? '') === t || (e.id.includes('::') && e.id.split('::')[0] === t),
+  );
+}
+
 function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView {
   const when = whenLine(ev);
   const venueLabel = resolveVenueDisplay(ev.venue, ev.title);
@@ -65,11 +77,14 @@ function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView
 }
 
 function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]): HeroSlideView {
-  const ev = c.ticketId ? events.find((e) => String(e.id) === String(c.ticketId)) : undefined;
+  const ev = c.ticketId ? findEventForHeroSlide(events, c.ticketId) : undefined;
+  const baseTitle = c.title || ev?.title || 'Событие';
   const lines = ev ? eventDateLines(ev) : { lineLeft: '—', lineRight: format(new Date(), 'MM.yyyy') };
-  const title = (c.title || ev?.title || 'Событие').toUpperCase();
+  const title = baseTitle.toUpperCase();
   const evWhen = ev ? whenLine(ev) : '';
-  const venueLabel = ev ? resolveVenueDisplay(ev.venue, ev.title) : null;
+  const venueLabel = ev
+    ? resolveVenueDisplay(ev.venue, ev.title)
+    : resolveVenueDisplay(undefined, baseTitle);
   const autoTags = [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, ev?.genre]
     .filter(Boolean)
     .join(' · ');
