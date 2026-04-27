@@ -215,6 +215,18 @@
   overflow: hidden;
 }
 
+.venueAddress {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgba(28, 27, 25, 0.72);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .whenWhere {
   margin: 0 0 4px;
   font-size: 0.82rem;
@@ -256,6 +268,10 @@
 .compact .venueName {
   font-size: 0.76rem;
   -webkit-line-clamp: 2;
+}
+
+.compact .venueAddress {
+  font-size: 0.72rem;
 }
 
 .compact .body {

@@ -45,7 +45,6 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { resolveVenueDisplay } from '@/utils/venueHint';
 import {
   type OfferFilterState,
   filterOffers,
@@ -84,11 +83,25 @@ type OfferRow = {
   venueName?: string;
   StageName?: string;
   stageName?: string;
+  Address?: string;
+  address?: string;
+  PlaceAddress?: string;
+  placeAddress?: string;
 };
 
 function firstVenueFromOffers(rows: OfferRow[]): string | null {
   for (const o of rows) {
     const cands = [o.PlaceName, o.placeName, o.VenueName, o.venueName, o.StageName, o.stageName];
+    for (const v of cands) {
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+  }
+  return null;
+}
+
+function firstAddressFromOffers(rows: OfferRow[]): string | null {
+  for (const o of rows) {
+    const cands = [o.Address, o.address, o.PlaceAddress, o.placeAddress];
     for (const v of cands) {
       if (typeof v === 'string' && v.trim()) return v.trim();
     }
@@ -245,15 +258,28 @@ export function TicketCheckoutPage() {
     [resolvedEventFromSlug],
   );
 
+  const venueAddressFromCatalog = useMemo(
+    () => resolvedEventFromSlug?.venueAddress?.trim() || null,
+    [resolvedEventFromSlug],
+  );
+
   const mergedVenue = useMemo(() => {
     const o = firstVenueFromOffers(offers as OfferRow[]);
     if (o) return o;
     const c = ctx?.venueLabel?.trim();
     if (c) return c;
     if (venueFromCatalog) return venueFromCatalog;
-    const titleForHint = ctx?.title?.trim() || titleHint;
-    return resolveVenueDisplay(undefined, titleForHint);
-  }, [offers, ctx?.venueLabel, venueFromCatalog, ctx?.title, titleHint]);
+    return null;
+  }, [offers, ctx?.venueLabel, venueFromCatalog]);
+
+  const mergedVenueAddress = useMemo(() => {
+    const a = firstAddressFromOffers(offers as OfferRow[]);
+    if (a) return a;
+    const c = ctx?.venueAddress?.trim();
+    if (c) return c;
+    if (venueAddressFromCatalog) return venueAddressFromCatalog;
+    return null;
+  }, [offers, ctx?.venueAddress, venueAddressFromCatalog]);
 
   /** Все сеансы по полному каталогу (расписание не зависит от фильтра цены/зоны). */
   const allSessionsSorted = useMemo(() => {
@@ -466,6 +492,7 @@ export function TicketCheckoutPage() {
         eventTitle: displayTitle,
         repertoireId,
         venue: mergedVenue,
+        venueAddress: mergedVenueAddress,
         pageUrl: typeof window !== 'undefined' ? window.location.href : '',
         source: 'ticket_empty_offers',
       });
@@ -700,10 +727,22 @@ export function TicketCheckoutPage() {
                 <Typography variant="h4" component="h1" className={styles.heroTitle}>
                   {displayTitle}
                 </Typography>
-                {mergedVenue ? (
-                  <Typography variant="body2" component="p" className={styles.heroVenue}>
-                    {mergedVenue}
-                  </Typography>
+                {mergedVenue || mergedVenueAddress ? (
+                  <div className={styles.heroVenueBlock}>
+                    <Typography variant="caption" component="p" className={styles.heroVenueKicker}>
+                      Площадка проведения
+                    </Typography>
+                    {mergedVenue ? (
+                      <Typography variant="body2" component="p" className={styles.heroVenue}>
+                        {mergedVenue}
+                      </Typography>
+                    ) : null}
+                    {mergedVenueAddress ? (
+                      <Typography variant="body2" component="p" className={styles.heroVenueAddress}>
+                        {mergedVenueAddress}
+                      </Typography>
+                    ) : null}
+                  </div>
                 ) : null}
                 {heroDateSublineOnly ? (
                   <Typography variant="body2" component="p" className={styles.heroSubline}>
@@ -761,10 +800,22 @@ export function TicketCheckoutPage() {
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, letterSpacing: '0.04em' }}>
                 Расписание
               </Typography>
-              {mergedVenue ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  {mergedVenue}
-                </Typography>
+              {mergedVenue || mergedVenueAddress ? (
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                    Площадка проведения
+                  </Typography>
+                  {mergedVenue ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      {mergedVenue}
+                    </Typography>
+                  ) : null}
+                  {mergedVenueAddress ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {mergedVenueAddress}
+                    </Typography>
+                  ) : null}
+                </Box>
               ) : null}
               <div className={styles.scheduleStrip}>
                 {allSessionsSorted.map(([dt, rows]) => {
@@ -1151,7 +1202,10 @@ export function TicketCheckoutPage() {
             baseTotalRub={baseTotalRub}
             sessionLabel={purchaseSessionLabel}
             descriptionLead={
-              heroLeadDisplay ?? (mergedVenue ? `Площадка: ${mergedVenue}` : null)
+              heroLeadDisplay ??
+              (mergedVenue
+                ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
+                : null)
             }
           />
 
@@ -1161,6 +1215,7 @@ export function TicketCheckoutPage() {
             descriptionSnippet={ctx?.descriptionSnippet}
             descriptionSections={ctx?.descriptionSections}
             venueLabel={mergedVenue}
+            venueAddress={mergedVenueAddress}
             hasDescriptionInHero={Boolean(heroLeadDisplay?.trim())}
           />
         </Box>

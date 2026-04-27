@@ -1,7 +1,7 @@
 import { format, isValid, parseISO } from 'date-fns';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import type { CmsHeroSlide, HeroSlideView, HeroVisualShape } from '@/types/ticketsVitrine';
-import { resolveVenueDisplay } from '@/utils/venueHint';
+import { venueFromApiOnly } from '@/utils/venueHint';
 
 /** В герое — рамка-постер (без круга), фон — полноэкранное фото */
 const SHAPES: HeroVisualShape[] = ['shard'];
@@ -54,7 +54,8 @@ function findEventForHeroSlide(
 
 function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView {
   const when = whenLine(ev);
-  const venueLabel = resolveVenueDisplay(ev.venue, ev.title);
+  const venueLabel = venueFromApiOnly(ev.venue);
+  const venueAddress = venueFromApiOnly(ev.venueAddress);
   const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, ev.genre]
     .filter(Boolean)
     .join(' · ');
@@ -65,6 +66,7 @@ function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView
     imageUrl: ev.imageUrl ?? ev.bannerUrl ?? null,
     tags,
     venueLabel,
+    venueAddress: venueAddress || null,
     description: slideDescription(ev),
     author: ev.author,
     director: ev.director,
@@ -82,9 +84,8 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
   const lines = ev ? eventDateLines(ev) : { lineLeft: '—', lineRight: format(new Date(), 'MM.yyyy') };
   const title = baseTitle.toUpperCase();
   const evWhen = ev ? whenLine(ev) : '';
-  const venueLabel = ev
-    ? resolveVenueDisplay(ev.venue, ev.title)
-    : resolveVenueDisplay(undefined, baseTitle);
+  const venueLabel = ev ? venueFromApiOnly(ev.venue) : null;
+  const venueAddress = ev ? venueFromApiOnly(ev.venueAddress) : null;
   const autoTags = [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, ev?.genre]
     .filter(Boolean)
     .join(' · ');
@@ -101,6 +102,7 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
     imageUrl,
     tags,
     venueLabel,
+    venueAddress: venueAddress || null,
     description: slideDescription(ev),
     author: c.author ?? ev?.author,
     director: c.director ?? ev?.director,

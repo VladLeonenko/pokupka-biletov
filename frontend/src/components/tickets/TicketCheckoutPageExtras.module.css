@@ -80,6 +80,14 @@
   color: #111;
 }
 
+.venueAddress {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(17, 17, 17, 0.75);
+}
+
 .rowHead {
   display: flex;
   flex-wrap: wrap;

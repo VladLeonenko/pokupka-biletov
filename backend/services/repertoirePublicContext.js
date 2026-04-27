@@ -8,9 +8,9 @@ import { buildEventDescriptionPackResolved } from './eventDescriptionAi.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
 import { resolveHeroSublineVenueFocused } from './eventTitleNarrative.js';
 import {
+  extractAddressFromRow,
   extractParentVenueFromRow,
   getVenueLookupMaps,
-  hintVenueFromTitle,
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 
@@ -42,24 +42,27 @@ function pickStringField(obj, keys) {
 }
 
 /**
- * Те же справочники, что в enrich афиши: stageId/placeId → имя площадки по GetPlaceList.
+ * GetPlaceList + GetStageListByPlaceId: подпись площадки и адрес (как в enrich каталога).
  * @param {Record<string, unknown>} payload
  * @param {string | null} stageId
- * @returns {Promise<string | null>}
+ * @returns {Promise<{ venue: string | null; address: string | null }>}
  */
-async function resolveVenueFromGetbiletMaps(payload, stageId) {
+async function resolvePlaceFromGetbiletMaps(payload, stageId) {
   try {
-    const { byPlaceId, stageIdToParentVenue } = await getVenueLookupMaps();
+    const { byPlaceId, stageIdToParentVenue, stageIdToAddress, placeIdToAddress } = await getVenueLookupMaps();
     const sid = String(stageId || '').trim();
-    if (sid && stageIdToParentVenue.has(sid)) {
-      return stageIdToParentVenue.get(sid) || null;
-    }
     const pid = pickPlaceId(payload);
-    if (pid && byPlaceId.has(pid)) return byPlaceId.get(pid) || null;
+    let venue = null;
+    let address = null;
+    if (sid && stageIdToParentVenue.has(sid)) venue = stageIdToParentVenue.get(sid) || null;
+    if (!venue && pid && byPlaceId.has(pid)) venue = byPlaceId.get(pid) || null;
+    if (sid && stageIdToAddress.has(sid)) address = stageIdToAddress.get(sid) || null;
+    if (!address && pid && placeIdToAddress.has(pid)) address = placeIdToAddress.get(pid) || null;
+    return { venue, address };
   } catch (e) {
-    console.error('[repertoirePublicContext] resolveVenueFromGetbiletMaps:', e instanceof Error ? e.message : e);
+    console.error('[repertoirePublicContext] resolvePlaceFromGetbiletMaps:', e instanceof Error ? e.message : e);
   }
-  return null;
+  return { venue: null, address: null };
 }
 
 function looksUsefulMetaVenue(value) {
@@ -86,6 +89,7 @@ function pickVenueFromMeta(rows) {
  *   hasCatalogRow: boolean;
  *   title: string;
  *   venueFromPayload: string | null;
+ *   addressFromPayload: string | null;
  *   descriptionFromPayload: string | null;
  *   genreFromPayload: string | null;
  *   catalogHints: { ageLimit: string | null; cityName: string | null; beginSample: string | null };
@@ -199,6 +203,8 @@ async function loadRepertoireBase(repertoireId) {
   ]);
   const venueNested = extractParentVenueFromRow(payload);
   const venueFromPayload = fromStrings || (venueNested && String(venueNested).trim()) || null;
+  const addrFlat = extractAddressFromRow(payload);
+  const addressFromPayload = addrFlat || null;
   const descriptionFromPayload = pickFirst(payload, [
     'Description',
     'description',
@@ -236,6 +242,7 @@ async function loadRepertoireBase(repertoireId) {
     hasCatalogRow,
     title,
     venueFromPayload,
+    addressFromPayload,
     descriptionFromPayload,
     genreFromPayload,
     catalogHints,
@@ -300,8 +307,18 @@ export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
 export async function getRepertoirePublicContext(repertoireId) {
   const base = await loadRepertoireBase(repertoireId);
 
-  const { payload, stageId, title, venueFromPayload, descriptionFromPayload, genreFromPayload, catalogHints, descriptionManual, descriptionPackJson } =
-    base;
+  const {
+    payload,
+    stageId,
+    title,
+    venueFromPayload,
+    addressFromPayload,
+    descriptionFromPayload,
+    genreFromPayload,
+    catalogHints,
+    descriptionManual,
+    descriptionPackJson,
+  } = base;
 
   const imageFromPayload = pickFirst(payload, ['ImageUrl', 'imageUrl', 'Image', 'PosterUrl', 'posterUrl']);
   const bannerFromPayload = pickFirst(payload, ['BannerUrl', 'bannerUrl']);
@@ -343,14 +360,11 @@ export async function getRepertoirePublicContext(repertoireId) {
       ? stageMap.title.trim()
       : null;
 
-  let venueFromCatalogOrMaps = venueFromPayload;
-  if (!venueFromCatalogOrMaps) {
-    venueFromCatalogOrMaps = await resolveVenueFromGetbiletMaps(payload, stageId);
-  }
-  if (!venueFromCatalogOrMaps && title) {
-    venueFromCatalogOrMaps = hintVenueFromTitle(title);
-  }
+  const placeFromMaps = await resolvePlaceFromGetbiletMaps(payload, stageId);
+  const venueFromCatalogOrMaps = venueFromPayload || placeFromMaps.venue;
+  const addressFromMaps = placeFromMaps.address;
   const venueForRichText = venueFromCatalogOrMaps || venueFromStageMap || null;
+  const addressForUi = (addressFromPayload && String(addressFromPayload).trim()) || (addressFromMaps && String(addressFromMaps).trim()) || null;
 
   const { kind, categoryLabel } = classifyEventTitle(title, {
     subtitle: descriptionFromPayload || '',
@@ -394,6 +408,8 @@ export async function getRepertoirePublicContext(repertoireId) {
     title,
     /** Площадка: каталог, вложенные поля, либо подпись схемы зала из админки. */
     venueLabel: venueResolved ?? null,
+    /** Адрес площадки (GetStageListByPlaceId / GetPlaceList / payload). */
+    venueAddress: addressForUi,
     descriptionSnippet,
     heroKicker: descPack.heroKicker ?? null,
     heroSubline,

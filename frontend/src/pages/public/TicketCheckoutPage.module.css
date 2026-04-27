@@ -159,14 +159,38 @@
 }
 
 /* Место проведения — как строка «когда · где» на карточке афиши */
+.heroVenueBlock {
+  margin: 6px 0 0;
+  max-width: 60ch;
+}
+
+.heroVenueKicker {
+  margin: 0 0 4px !important;
+  font-size: 0.65rem !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 240, 0.7) !important;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
 .heroVenue {
-  margin: 6px 0 0 !important;
+  margin: 0 !important;
   max-width: 60ch;
   font-size: 0.875rem !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   line-height: 1.45 !important;
   letter-spacing: 0.01em;
-  color: rgba(255, 248, 240, 0.92) !important;
+  color: rgba(255, 248, 240, 0.95) !important;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+
+.heroVenueAddress {
+  margin: 6px 0 0 !important;
+  max-width: 64ch;
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  color: rgba(255, 248, 240, 0.85) !important;
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
 }
 

@@ -21,6 +21,8 @@ type Props = {
   descriptionSnippet: string | null | undefined;
   descriptionSections?: RepertoireDescriptionSection[] | null;
   venueLabel: string | null;
+  /** Адрес площадки (как в GetStageListByPlaceId). */
+  venueAddress?: string | null;
   /** Тот же текст уже под заголовком в шапке страницы — не повторяем абзац */
   hasDescriptionInHero: boolean;
 };
@@ -40,6 +42,7 @@ export function TicketCheckoutPageExtras({
   descriptionSnippet,
   descriptionSections,
   venueLabel,
+  venueAddress,
   hasDescriptionInHero,
 }: Props) {
   const recentIds = useTicketRecentRepertoires(repertoireId);
@@ -126,11 +129,16 @@ export function TicketCheckoutPageExtras({
           <PlaceOutlinedIcon className={styles.h2Icon} sx={{ fontSize: 22 }} aria-hidden />
           Площадка
         </h2>
-        {venueLabel ? (
-          <p className={styles.venueLine}>{venueLabel}</p>
+        {venueLabel || venueAddress ? (
+          <div>
+            {venueLabel ? <p className={styles.venueLine}>{venueLabel}</p> : null}
+            {venueAddress ? (
+              <p className={styles.venueAddress}>{venueAddress}</p>
+            ) : null}
+          </div>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Название площадки появится после загрузки каталога билетов.
+            Адрес и название площадки подгружаются из каталога GetBilet (при отсутствии данных у агента).
           </Typography>
         )}
       </section>

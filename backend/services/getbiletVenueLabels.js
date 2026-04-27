@@ -51,27 +51,26 @@ export function extractParentVenueFromRow(row) {
 }
 
 /**
- * Подсказка площадки из скобок в названии (гастроли, «… (театр …)»), если GetBilet не отдал PlaceName.
- * @param {string | null | undefined} title
- * @returns {string | null}
+ * Адрес площадки из репертуара/оффера (GetBilet) или пусто.
+ * @param {unknown} row
+ * @returns {string}
  */
-export function hintVenueFromTitle(title) {
-  if (!title || typeof title !== 'string' || !title.trim()) return null;
-  const matches = [...title.matchAll(/\(([^)]+)\)/g)];
-  if (matches.length === 0) return null;
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const inner = (matches[i][1] ?? '').trim();
-    if (!inner || inner.length < 4) continue;
-    if (/^\d{1,2}\s*\+$/.test(inner.replace(/\s/g, ''))) continue;
-    if (
-      /гастрол|театр|арен[аы]|стадио|филармон|кремл|цирк|двор|зал[ае]?[мя]?|площад|музей|опер/i.test(
-        inner,
-      )
-    ) {
-      return inner;
-    }
+export function extractAddressFromRow(row) {
+  if (!row || typeof row !== 'object') return '';
+  const r = /** @type {Record<string, unknown>} */ (row);
+  const flat = ['PlaceAddress', 'placeAddress', 'Address', 'address', 'VenueAddress', 'venueAddress', 'locationAddress', 'LocationAddress'];
+  for (const k of flat) {
+    const v = r[k];
+    if (typeof v === 'string' && v.trim()) return v.trim();
   }
-  return null;
+  for (const key of ['Place', 'place', 'Venue', 'venue', 'Location', 'location']) {
+    const o = r[key];
+    if (!o || typeof o !== 'object') continue;
+    const orec = /** @type {Record<string, unknown>} */ (o);
+    const a = orec.Address ?? orec.address;
+    if (typeof a === 'string' && a.trim()) return a.trim();
+  }
+  return '';
 }
 
 /**
@@ -130,7 +129,7 @@ function clampInt(n, min, max, fallback) {
   return Math.min(max, Math.max(min, x));
 }
 
-/** @type {{ at: number; byPlaceId: Map<string, string>; stageIdToParentVenue: Map<string, string> } | null} */
+/** @type {{ at: number; byPlaceId: Map<string, string>; stageIdToParentVenue: Map<string, string>; stageIdToAddress: Map<string, string>; placeIdToAddress: Map<string, string> } | null} */
 let venueLookupCache = null;
 const VENUE_LOOKUP_TTL_MS = 45 * 60 * 1000;
 
@@ -138,7 +137,8 @@ const VENUE_LOOKUP_TTL_MS = 45 * 60 * 1000;
  * Один проход: GetPlaceList + GetStageListByPlaceId.
  * placeId → имя из списка площадок (театр/стадион), иначе первый Name в списке сцен.
  * Каждая сцена → то же родительское имя (не «Малая сцена» / «Стадион» как отдельная сущность).
- * @returns {Promise<{ byPlaceId: Map<string, string>; stageIdToParentVenue: Map<string, string> }>}
+ * address: из строки сцены (ResultData) — Address, при отсутствии на сцене — с первой строки площадки.
+ * @returns {Promise<{ byPlaceId: Map<string, string>; stageIdToParentVenue: Map<string, string>; stageIdToAddress: Map<string, string>; placeIdToAddress: Map<string, string> }>}
  */
 export async function getVenueLookupMaps() {
   const now = Date.now();
@@ -150,6 +150,8 @@ export async function getVenueLookupMaps() {
     return {
       byPlaceId: venueLookupCache.byPlaceId,
       stageIdToParentVenue: venueLookupCache.stageIdToParentVenue,
+      stageIdToAddress: venueLookupCache.stageIdToAddress,
+      placeIdToAddress: venueLookupCache.placeIdToAddress,
     };
   }
 
@@ -157,10 +159,22 @@ export async function getVenueLookupMaps() {
   /** Все имена из GetPlaceList — иначе byPlaceId заполнялся только для первых N площадок в цикле по сценам. */
   const byPlaceId = new Map(placeListNames);
   const stageIdToParentVenue = new Map();
+  const stageIdToAddress = new Map();
+  const placeIdToAddress = new Map();
 
   try {
     const placesData = await restV2GetPlaceList();
     const placeRows = Array.isArray(placesData.ResultData) ? placesData.ResultData : [];
+    for (const p of placeRows) {
+      if (!p || typeof p !== 'object') continue;
+      const pid = pickMongoId(p);
+      if (!pid) continue;
+      const pre = /** @type {Record<string, unknown>} */ (p);
+      const aPlace = pre.Address ?? pre.address;
+      if (aPlace != null && String(aPlace).trim() && !placeIdToAddress.has(pid)) {
+        placeIdToAddress.set(pid, String(aPlace).trim());
+      }
+    }
     const maxPlaces = clampInt(process.env.GETBILET_V2_CATALOG_MAX_PLACES || '200', 1, 400, 200);
     const slice = placeRows.slice(0, maxPlaces);
     const conc = 6;
@@ -187,10 +201,26 @@ export async function getVenueLookupMaps() {
             const cardVenue = official || fromFirstStage;
             if (cardVenue) byPlaceId.set(pid, cardVenue);
 
+            let fallbackAddr = placeIdToAddress.get(pid) || '';
             for (const st of rows) {
               if (!st || typeof st !== 'object') continue;
+              const orec = /** @type {Record<string, unknown>} */ (st);
+              const rawA = orec.Address ?? orec.address;
+              const ad = rawA != null && String(rawA).trim() ? String(rawA).trim() : '';
+              if (ad && !fallbackAddr) fallbackAddr = ad;
+            }
+            if (fallbackAddr) placeIdToAddress.set(pid, fallbackAddr);
+
+            for (const st of rows) {
+              if (!st || typeof st !== 'object') continue;
+              const orec = /** @type {Record<string, unknown>} */ (st);
               const sid = pickMongoId(st);
-              if (sid && cardVenue) stageIdToParentVenue.set(String(sid).trim(), cardVenue);
+              if (!sid) continue;
+              if (cardVenue) stageIdToParentVenue.set(String(sid).trim(), cardVenue);
+              const rawA = orec.Address ?? orec.address;
+              const own = rawA != null && String(rawA).trim() ? String(rawA).trim() : '';
+              const useAddr = own || fallbackAddr;
+              if (useAddr) stageIdToAddress.set(String(sid).trim(), useAddr);
             }
           } catch (e) {
             if (!(e instanceof GetbiletUpstreamError)) {
@@ -204,8 +234,8 @@ export async function getVenueLookupMaps() {
     console.error('[getbiletVenueLabels] warm maps:', e instanceof Error ? e.message : e);
   }
 
-  venueLookupCache = { at: now, byPlaceId, stageIdToParentVenue };
-  return { byPlaceId, stageIdToParentVenue };
+  venueLookupCache = { at: now, byPlaceId, stageIdToParentVenue, stageIdToAddress, placeIdToAddress };
+  return { byPlaceId, stageIdToParentVenue, stageIdToAddress, placeIdToAddress };
 }
 
 /**

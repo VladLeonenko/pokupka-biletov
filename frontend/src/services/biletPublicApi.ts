@@ -7,7 +7,6 @@ import {
   type EventTitleKind,
 } from '@/utils/eventTitleHeuristics';
 import { slugify } from '@/utils/slugify';
-import { resolveVenueDisplay } from '@/utils/venueHint';
 
 export type BiletMeta = {
   protocol: string;
@@ -89,6 +88,8 @@ export type NormalizedBiletEvent = {
   dateLabel?: string;
   isoDate?: string;
   venue?: string;
+  /** Адрес площадки (GetStageListByPlaceId / enrich). */
+  venueAddress?: string;
   genre?: string;
   /** Категория по эвристике названия (см. backend eventTitleHeuristics), если API не даёт жанр */
   inferredCategoryLabel?: string;
@@ -167,6 +168,26 @@ function extractVenueFromCatalogRow(row: Record<string, unknown>): string | unde
     if (o && typeof o === 'object' && !Array.isArray(o)) {
       const nm = pickString(o as Record<string, unknown>, ['Name', 'name', 'Title', 'title']);
       if (nm) return nm;
+    }
+  }
+  return undefined;
+}
+
+function extractVenueAddressFromCatalogRow(row: Record<string, unknown>): string | undefined {
+  const flat = pickString(row, [
+    'PlaceAddress',
+    'placeAddress',
+    'venueAddress',
+    'VenueAddress',
+    'Address',
+    'address',
+  ]);
+  if (flat) return flat;
+  for (const key of ['Place', 'place', 'Venue', 'venue', 'Location', 'location']) {
+    const o = row[key];
+    if (o && typeof o === 'object' && !Array.isArray(o)) {
+      const a = pickString(o as Record<string, unknown>, ['Address', 'address']);
+      if (a) return a;
     }
   }
   return undefined;
@@ -284,8 +305,8 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
     ]);
     if (subtitle && looksLikeMongoId(subtitle)) subtitle = undefined;
     const heroDescription = pickString(row, ['HeroDescription', 'heroDescription']);
-    const venue =
-      resolveVenueDisplay(extractVenueFromCatalogRow(row), title) ?? undefined;
+    const venue = extractVenueFromCatalogRow(row) ?? undefined;
+    const venueAddress = extractVenueAddressFromCatalogRow(row) ?? undefined;
     let genre = pickString(row, ['genreName', 'genre', 'Genre', 'categoryName', 'Category']);
     if (genre && looksLikeMongoId(genre)) genre = undefined;
     let age = pickString(row, ['age', 'ageLimit', 'Age', 'restriction', 'AgeLimit']);
@@ -364,6 +385,7 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
       weekday,
       timeLabel,
       venue,
+      venueAddress,
       genre,
       inferredCategoryLabel,
       inferredKind,
@@ -579,6 +601,8 @@ export type RepertoireContext = {
   title: string;
   /** Площадка из каталога (без запроса офферов). */
   venueLabel?: string | null;
+  /** Адрес площадки (GetStageList / payload). */
+  venueAddress?: string | null;
   descriptionSnippet: string | null;
   /** Лид героя (без заголовков секций). */
   heroLead?: string | null;
@@ -658,8 +682,7 @@ export function attachInferredEventFields(ev: NormalizedBiletEvent): NormalizedB
         ? `${rawSub.slice(0, 317).trimEnd()}…`
         : rawSub
       : descriptionBlurb;
-  const venue = resolveVenueDisplay(ev.venue, ev.title) ?? ev.venue;
-  return { ...ev, inferredCategoryLabel: categoryLabel, inferredKind: kind, subtitle, venue };
+  return { ...ev, inferredCategoryLabel: categoryLabel, inferredKind: kind, subtitle };
 }
 
 function eventMatchesGenreChip(ev: NormalizedBiletEvent, g: string): boolean {

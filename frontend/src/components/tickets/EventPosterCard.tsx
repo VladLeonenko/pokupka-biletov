@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { formatEventPosterDateBadge } from '@/utils/eventDateLabels';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { resolveVenueDisplay } from '@/utils/venueHint';
+import { venueFromApiOnly } from '@/utils/venueHint';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './EventPosterCard.module.css';
 
@@ -56,7 +56,8 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
     weekday: event.weekday,
     dateLabel: event.dateLabel,
   });
-  const venueLine = resolveVenueDisplay(event.venue, event.title);
+  const venueLine = venueFromApiOnly(event.venue);
+  const venueAddrLine = venueFromApiOnly(event.venueAddress);
   const scheduleLine = buildScheduleLine(event);
 
   const genreLine = displayGenreLine(event);
@@ -92,10 +93,11 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
           {event.subtitle?.trim() ? (
             <p className={styles.subtitle}>{event.subtitle.trim()}</p>
           ) : null}
-          {venueLine ? (
+          {venueLine || venueAddrLine ? (
             <p className={styles.venueBlock}>
-              <span className={styles.venueKicker}>Площадка</span>
-              <span className={styles.venueName}>{venueLine}</span>
+              <span className={styles.venueKicker}>Площадка проведения</span>
+              {venueLine ? <span className={styles.venueName}>{venueLine}</span> : null}
+              {venueAddrLine ? <span className={styles.venueAddress}>{venueAddrLine}</span> : null}
             </p>
           ) : null}
           {scheduleLine ? <p className={styles.whenWhere}>{scheduleLine}</p> : null}

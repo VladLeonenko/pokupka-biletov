@@ -93,10 +93,13 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
 
             <p className={styles.tags}>{current.tags}</p>
 
-            {current.venueLabel ? (
+            {(current.venueLabel || current.venueAddress) ? (
               <p className={styles.venueInHero} data-hero-venue>
-                <span className={styles.venueInHeroK}>Площадка</span>
-                <span className={styles.venueInHeroV}>{current.venueLabel}</span>
+                <span className={styles.venueInHeroK}>Площадка проведения</span>
+                {current.venueLabel ? <span className={styles.venueInHeroV}>{current.venueLabel}</span> : null}
+                {current.venueAddress ? (
+                  <span className={styles.venueInHeroAddr}>{current.venueAddress}</span>
+                ) : null}
               </p>
             ) : null}
 
