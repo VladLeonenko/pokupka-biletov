@@ -36,7 +36,7 @@ function dedupeParts(parts: string[]): string[] {
 
 /** Одна строка: день · дата · время и при необходимости площадка (без повтора названия зала). */
 function buildWhenWhereLine(ev: NormalizedBiletEvent): string | null {
-  const venue = ev.venue?.trim() || 'Площадка уточняется';
+  const venue = ev.venue?.trim() || '';
   const sched = dedupeParts(
     [ev.weekday, ev.displayDate, ev.timeLabel]
       .map((s) => (typeof s === 'string' ? s.trim() : ''))

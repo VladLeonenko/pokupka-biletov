@@ -151,6 +151,8 @@ function extractVenueFromCatalogRow(row: Record<string, unknown>): string | unde
     'buildingName',
     'LocationName',
     'locationName',
+    'StageName',
+    'stageName',
     'venue',
     'Venue',
   ]);

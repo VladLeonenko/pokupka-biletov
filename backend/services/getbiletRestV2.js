@@ -516,12 +516,25 @@ async function expandOneRepertoireToSessions(repertoireRow) {
       .replace(/[^\w\u0400-\u04FF+\-:.]/g, '_')
       .slice(0, 120);
   for (const [dt, sampleOffer] of byDt) {
+    const so = /** @type {Record<string, unknown>} */ (sampleOffer);
     const placeFromOffer =
-      typeof sampleOffer.PlaceName === 'string'
-        ? sampleOffer.PlaceName
-        : typeof sampleOffer.StageName === 'string'
-          ? sampleOffer.StageName
-          : undefined;
+      (typeof so.PlaceName === 'string' && so.PlaceName.trim()
+        ? so.PlaceName.trim()
+        : null) ||
+      (typeof so.placeName === 'string' && so.placeName.trim()
+        ? so.placeName.trim()
+        : null) ||
+      (typeof so.VenueName === 'string' && so.VenueName.trim()
+        ? so.VenueName.trim()
+        : null) ||
+      (typeof so.venueName === 'string' && so.venueName.trim()
+        ? so.venueName.trim()
+        : null) ||
+      (typeof so.StageName === 'string' && so.StageName.trim()
+        ? so.StageName.trim()
+        : null) ||
+      (typeof so.stageName === 'string' && so.stageName.trim() ? so.stageName.trim() : null) ||
+      undefined;
     const vitrineRowId = `${rid}::${safeSlug(dt)}`;
     rows.push({
       ...repertoireRow,

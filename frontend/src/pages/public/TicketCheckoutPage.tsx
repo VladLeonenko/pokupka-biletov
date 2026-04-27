@@ -78,7 +78,22 @@ type OfferRow = {
   NominalPrice?: string;
   AgentPrice?: string;
   PlaceName?: string;
+  placeName?: string;
+  VenueName?: string;
+  venueName?: string;
+  StageName?: string;
+  stageName?: string;
 };
+
+function firstVenueFromOffers(rows: OfferRow[]): string | null {
+  for (const o of rows) {
+    const cands = [o.PlaceName, o.placeName, o.VenueName, o.venueName, o.StageName, o.stageName];
+    for (const v of cands) {
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+  }
+  return null;
+}
 
 function normalizeSeatList(row: OfferRow): string[] {
   const sl = row.SeatList;
@@ -252,10 +267,7 @@ export function TicketCheckoutPage() {
     return entries;
   }, [offers, sessionHint]);
 
-  const venueLabel = useMemo(() => {
-    const row = (offers as OfferRow[]).find((o) => o.PlaceName != null && String(o.PlaceName).trim());
-    return row?.PlaceName ? String(row.PlaceName).trim() : null;
-  }, [offers]);
+  const venueLabel = useMemo(() => firstVenueFromOffers(offers as OfferRow[]), [offers]);
 
   const venueHeroLine = useMemo(() => {
     const fromOffers = venueLabel?.trim();
@@ -960,11 +972,11 @@ export function TicketCheckoutPage() {
             <Paper className={styles.ticketRequestCard} elevation={0}>
               <div className={styles.ticketRequestCopy}>
                 <Typography variant="h6" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
-                  Билеты можно запросить у партнёров
+                  Запросить билеты
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'rgba(28,27,25,0.68)', lineHeight: 1.65 }}>
-                  Сейчас GetBilet не отдаёт доступные офферы по этому мероприятию. Это не всегда значит, что
-                  билетов нет: мы можем уточнить наличие у партнёров и вернуться с вариантами по цене и местам.
+                  Сейчас на сайте нет доступных предложений по этому мероприятию. Это не всегда значит, что
+                  билетов нет: мы можем уточнить наличие и вернуться с вариантами по цене и местам.
                 </Typography>
               </div>
 

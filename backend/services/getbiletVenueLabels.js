@@ -53,7 +53,19 @@ export function extractParentVenueFromRow(row) {
 export function pickPlaceId(row) {
   if (!row || typeof row !== 'object') return null;
   const r = /** @type {Record<string, unknown>} */ (row);
-  const keys = ['PlaceId', 'placeId', 'PlaceID', 'VenuePlaceId', 'venuePlaceId', 'LocationId', 'locationId'];
+  const keys = [
+    'PlaceId',
+    'placeId',
+    'PlaceID',
+    'ParentPlaceId',
+    'parentPlaceId',
+    'VenuePlaceId',
+    'venuePlaceId',
+    'PlaceExternalId',
+    'placeExternalId',
+    'LocationId',
+    'locationId',
+  ];
   for (const k of keys) {
     const v = r[k];
     if (v != null && String(v).trim()) return String(v).trim();
@@ -105,7 +117,7 @@ export async function getVenueLookupMaps() {
   if (
     venueLookupCache &&
     now - venueLookupCache.at < VENUE_LOOKUP_TTL &&
-    venueLookupCache.stageIdToParentVenue.size > 0
+    (venueLookupCache.byPlaceId.size > 0 || venueLookupCache.stageIdToParentVenue.size > 0)
   ) {
     return {
       byPlaceId: venueLookupCache.byPlaceId,
@@ -114,13 +126,14 @@ export async function getVenueLookupMaps() {
   }
 
   const placeListNames = await loadPlaceIdToNameFromPlaceList();
-  const byPlaceId = new Map();
+  /** Все имена из GetPlaceList — иначе byPlaceId заполнялся только для первых N площадок в цикле по сценам. */
+  const byPlaceId = new Map(placeListNames);
   const stageIdToParentVenue = new Map();
 
   try {
     const placesData = await restV2GetPlaceList();
     const placeRows = Array.isArray(placesData.ResultData) ? placesData.ResultData : [];
-    const maxPlaces = clampInt(process.env.GETBILET_V2_CATALOG_MAX_PLACES || '50', 1, 120, 50);
+    const maxPlaces = clampInt(process.env.GETBILET_V2_CATALOG_MAX_PLACES || '200', 1, 400, 200);
     const slice = placeRows.slice(0, maxPlaces);
     const conc = 6;
 

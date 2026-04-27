@@ -11,7 +11,7 @@ function whenLine(ev: NormalizedBiletEvent): string {
 }
 
 function venueLine(ev: Pick<NormalizedBiletEvent, 'venue'> | undefined): string {
-  return ev?.venue?.trim() || 'Площадка уточняется';
+  return ev?.venue?.trim() || '';
 }
 
 function slideDescription(ev: NormalizedBiletEvent | undefined, fallback?: string): string | undefined {
@@ -45,7 +45,7 @@ function eventDateLines(ev: NormalizedBiletEvent): { lineLeft: string; lineRight
 
 function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView {
   const when = whenLine(ev);
-  const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, venueLine(ev), ev.genre]
+  const tags = [when || null, ev.isPremiere ? 'ПРЕМЬЕРА' : null, ev.age, venueLine(ev) || null, ev.genre]
     .filter(Boolean)
     .join(' · ');
   const { lineLeft, lineRight } = eventDateLines(ev);
@@ -72,7 +72,9 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
   const evWhen = ev ? whenLine(ev) : '';
   const tags =
     c.tags ||
-    [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, venueLine(ev), ev?.genre].filter(Boolean).join(' · ');
+    [evWhen || null, ev?.isPremiere ? 'ПРЕМЬЕРА' : null, ev?.age, venueLine(ev) || null, ev?.genre]
+      .filter(Boolean)
+      .join(' · ');
   const lineLeft = c.lineLeft ?? lines.lineLeft;
   const lineRight = c.lineRight ?? lines.lineRight;
   const imageUrl = c.imageUrl || ev?.imageUrl || ev?.bannerUrl || null;
