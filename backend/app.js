@@ -387,30 +387,60 @@ function sendDistRootFile(res, relName, setHeaders) {
   return false;
 }
 
-app.get('/manifest.json', (req, res) => {
-  const ok = sendDistRootFile(res, 'manifest.json', (r) => {
-    r.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
-    r.setHeader('Cache-Control', 'public, max-age=3600');
+const existingDistRoots = getFrontendDistRoots().filter((r) => fs.existsSync(r));
+if (existingDistRoots.length) {
+  const staticOpts = {
+    maxAge: '1y',
+    index: false,
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('manifest.json')) {
+        res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      } else if (filePath.endsWith('sw.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.endsWith('robots.txt')) {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      } else if (filePath.endsWith('favicon.svg')) {
+        res.setHeader('Content-Type', 'image/svg+xml');
+      }
+    },
+  };
+  for (const root of existingDistRoots) {
+    // Несколько кандидатов dist: сначала совпавший __dirname, иначе cwd (PM2) — отдают favicon, manifest, index.html, /assets/…
+    app.use(express.static(root, staticOpts));
+  }
+} else {
+  console.error(
+    '[app] Нет frontend/dist — выполните: cd frontend && npm run build. Проверены пути: %s',
+    getFrontendDistRoots().join(', '),
+  );
+  app.get('/manifest.json', (req, res) => {
+    const ok = sendDistRootFile(res, 'manifest.json', (r) => {
+      r.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+      r.setHeader('Cache-Control', 'public, max-age=3600');
+    });
+    if (ok) return;
+    res.status(404).type('text/plain').send('Not found');
   });
-  if (ok) return;
-  res.status(404).type('text/plain').send('Not found');
-});
-app.get('/sw.js', (req, res) => {
-  const ok = sendDistRootFile(res, 'sw.js', (r) => {
-    r.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    r.setHeader('Cache-Control', 'no-cache');
+  app.get('/sw.js', (req, res) => {
+    const ok = sendDistRootFile(res, 'sw.js', (r) => {
+      r.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      r.setHeader('Cache-Control', 'no-cache');
+    });
+    if (ok) return;
+    res.status(404).type('text/plain').send('Not found');
   });
-  if (ok) return;
-  res.status(404).type('text/plain').send('Not found');
-});
-app.get('/robots.txt', (req, res) => {
-  const ok = sendDistRootFile(res, 'robots.txt', (r) => {
-    r.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    r.setHeader('Cache-Control', 'public, max-age=3600');
+  app.get('/robots.txt', (req, res) => {
+    const ok = sendDistRootFile(res, 'robots.txt', (r) => {
+      r.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      r.setHeader('Cache-Control', 'public, max-age=3600');
+    });
+    if (ok) return;
+    res.status(404).type('text/plain').send('Not found');
   });
-  if (ok) return;
-  res.status(404).type('text/plain').send('Not found');
-});
+}
 
 // Sitemap (публичный, должен быть до статических файлов)
 app.use('/', sitemapRouter);

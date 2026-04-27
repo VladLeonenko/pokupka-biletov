@@ -156,23 +156,12 @@ export default defineConfig(({ mode }) => {
         // Это решает проблему с useState is not defined в Safari
         manualChunks(id) {
           const norm = id.replace(/\\/g, '/');
-          // MUI в отдельный chunk
+          // MUI — отдельный chunk. Все остальные node_modules (в т.ч. React, react-query, react-router) — один vendor,
+          // чтобы не ловить ReferenceError: Cannot access uninitialized variable из-за порядка react-vendor vs vendor.
           if (norm.includes('@mui')) return 'mui';
-          // Только react / react-dom / react-router* — НЕ по подстроке "react" в @tanstack/react-query, @emotion/react и т.д.
-          // Иначе Safari/WebKit: ReferenceError: Cannot access uninitialized variable (порядок инициализации чанков).
-          if (
-            norm.includes('node_modules/react/') ||
-            norm.includes('node_modules/react-dom/') ||
-            norm.includes('node_modules/react-router') ||
-            norm.includes('node_modules/scheduler/')
-          ) {
-            return 'react-vendor';
-          }
-          // Остальные node_modules в vendor chunk
           if (norm.includes('node_modules') && !norm.includes('vite')) {
             return 'vendor';
           }
-          // Все остальное в main bundle
           return undefined;
         },
         // Оптимизация имен файлов для кэширования
