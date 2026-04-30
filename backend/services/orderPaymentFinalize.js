@@ -61,7 +61,7 @@ export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
 
   if (!orderRow.user_id && userId) {
     await pool.query(
-      'UPDATE orders SET user_id = $1, session_id = NULL, updated_at = NOW() WHERE id = $2',
+      'UPDATE orders SET user_id = $1, updated_at = NOW() WHERE id = $2',
       [userId, orderRow.id]
     );
   }
