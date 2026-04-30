@@ -49,12 +49,23 @@ export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
     );
     const name = orderRow.customer_name || null;
     const phone = orderRow.customer_phone || null;
-    const ins = await pool.query(
-      `INSERT INTO users (email, password_hash, name, phone, role, email_verified, oauth_provider, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'user', TRUE, NULL, NOW(), NOW())
-       RETURNING id`,
-      [email, randomHash, name, phone]
-    );
+    let ins;
+    try {
+      ins = await pool.query(
+        `INSERT INTO users (email, password_hash, name, phone, role, email_verified, oauth_provider, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'user', TRUE, NULL, NOW(), NOW())
+         RETURNING id`,
+        [email, randomHash, name, phone]
+      );
+    } catch (e) {
+      if (e?.code !== '23505' || !String(e?.constraint || '').includes('phone')) throw e;
+      ins = await pool.query(
+        `INSERT INTO users (email, password_hash, name, phone, role, email_verified, oauth_provider, created_at, updated_at)
+         VALUES ($1, $2, $3, NULL, 'user', TRUE, NULL, NOW(), NOW())
+         RETURNING id`,
+        [email, randomHash, name]
+      );
+    }
     userId = ins.rows[0].id;
     isNew = true;
   }

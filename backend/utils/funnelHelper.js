@@ -114,10 +114,8 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
         client_name, 
         client_email, 
         client_phone, 
-        description,
-        source,
-        status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id`,
       [
         funnelId,
@@ -127,9 +125,7 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
         clientName || null,
         clientEmail || null,
         clientPhone || null,
-        options.description || `Создано автоматически из ${source}`,
-        source,
-        'active'
+        options.description || `Создано автоматически из ${source}`
       ]
     );
 
