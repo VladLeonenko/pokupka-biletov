@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Popover, Typography } from '@mui/material';
+import { Button, Paper, Popper, Typography } from '@mui/material';
 import {
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
@@ -57,6 +57,11 @@ function sortOffersForGrid(rows: HallOfferRow[]): HallOfferRow[] {
   });
 }
 
+function formatRub(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return `${value.toLocaleString('ru-RU')} ₽`;
+}
+
 type Props = {
   hallSvgHtml: string;
   layoutJson: unknown;
@@ -96,7 +101,6 @@ export function TicketHallInteractiveBlock({
   onReserveFromMap,
   reservePending = false,
   variant = 'page',
-  onNavigateToList,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -249,6 +253,8 @@ export function TicketHallInteractiveBlock({
   }, [clampZoom]);
 
   const zoomPctLabel = Math.max(1, Math.round((zoom / Math.max(0.001, fitZoom)) * 100));
+  const selectedPrice = selectedOffer ? Number(getPriceKey(selectedOffer)) : 0;
+  const selectedTotal = Number.isFinite(selectedPrice) ? selectedPrice * selectedSeats.length : 0;
 
   const rootClass =
     variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
@@ -372,6 +378,7 @@ export function TicketHallInteractiveBlock({
                           onToggleSeat(p.offerId, p.seat, p.available);
                         }}
                       >
+                        {active ? <span className={styles.seatDotCheck}>✓</span> : null}
                         <span className={styles.seatDotLabel}>{p.seat}</span>
                       </button>
                     );
@@ -433,6 +440,7 @@ export function TicketHallInteractiveBlock({
                             onToggleSeat(oid, seat, seats);
                           }}
                         >
+                          {active ? <span className={styles.seatDotCheck}>✓</span> : null}
                           <span className={styles.seatDotLabel}>{seat}</span>
                         </button>
                       );
@@ -440,67 +448,47 @@ export function TicketHallInteractiveBlock({
                   })}
             </div>
           </div>
+          {selectedOffer && activeOfferId && selectedSeats.length > 0 && String(selectedOffer.Id ?? '') === activeOfferId ? (
+            <div className={styles.selectionBar}>
+              <div className={styles.selectionSummary}>
+                <div className={styles.selectionCount}>
+                  {selectedSeats.length} билет{selectedSeats.length === 1 ? '' : selectedSeats.length < 5 ? 'а' : 'ов'}
+                </div>
+                <div className={styles.selectionText}>
+                  <strong>{selectedOffer.Sector ?? '—'}</strong> · ряд {selectedOffer.Row ?? '—'} · места{' '}
+                  {selectedSeats.join(', ')}
+                </div>
+              </div>
+              <div className={styles.selectionActions}>
+                <div className={styles.selectionTotal}>{formatRub(selectedTotal)}</div>
+                {onReserveFromMap ? (
+                  <Button variant="contained" size="small" disabled={reservePending} onClick={() => onReserveFromMap()}>
+                    {reservePending ? 'Бронирование…' : 'Забронировать'}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <Popover
+      <Popper
         open={Boolean(hoverAnchor && hoverSeat)}
         anchorEl={hoverAnchor}
-        onClose={hideSeatInfo}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-        disableAutoFocus
-        disableEnforceFocus
-        disableRestoreFocus
-        slotProps={{
-          paper: {
-            sx: { p: 1.25, maxWidth: 280, borderRadius: 2 },
-          },
-        }}
+        placement="top"
+        modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
+        sx={{ zIndex: 20 }}
       >
         {hoverSeat && (
-          <>
+          <Paper elevation={4} sx={{ p: 1.25, maxWidth: 280, borderRadius: 2 }}>
             <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
               <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
               {hoverSeat.seat}, цена{' '}
-              <strong>{Number(hoverSeat.priceKey).toLocaleString('ru-RU')} ₽</strong>
+              <strong>{formatRub(Number(hoverSeat.priceKey))}</strong>
             </Typography>
-            {onReserveFromMap && activeOfferId === hoverSeat.offerId && selectedSeats.includes(hoverSeat.seat) ? (
-              <Button
-                fullWidth
-                variant="contained"
-                size="small"
-                disabled={reservePending}
-                onClick={() => onReserveFromMap()}
-                sx={{ mt: 1 }}
-              >
-                {reservePending ? 'Бронирование…' : 'Забронировать'}
-              </Button>
-            ) : null}
-          </>
+          </Paper>
         )}
-      </Popover>
-
-      {selectedOffer && activeOfferId && selectedSeats.length > 0 && String(selectedOffer.Id ?? '') === activeOfferId ? (
-        <div className={styles.selectionBar}>
-          <div className={styles.selectionText}>
-            <strong>{selectedOffer.Sector ?? '—'}</strong> · ряд {selectedOffer.Row ?? '—'} · места{' '}
-            {selectedSeats.join(', ')}
-          </div>
-          <div className={styles.selectionActions}>
-            {onNavigateToList ? (
-              <Button size="small" variant="text" onClick={onNavigateToList}>
-                К списку мест
-              </Button>
-            ) : null}
-            {onReserveFromMap ? (
-              <Button variant="contained" size="small" disabled={reservePending} onClick={() => onReserveFromMap()}>
-                {reservePending ? 'Бронирование…' : 'Забронировать'}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      </Popper>
     </div>
   );
 }
