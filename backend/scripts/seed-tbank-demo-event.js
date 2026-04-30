@@ -44,6 +44,30 @@ const offersPayload = {
   ],
 };
 
+const descriptionPack = {
+  heroKicker: 'Тест интернет-эквайринга',
+  heroSubline: 'Тестовая площадка · Онлайн',
+  heroLead:
+    'Служебное мероприятие для проверки оплаты через тестовый терминал T-Банка. Выберите любое место и перейдите на защищенную страницу оплаты.',
+  eventMeta: [
+    { label: 'Площадка', value: 'Тестовая площадка' },
+    { label: 'Формат', value: 'Онлайн-тест' },
+  ],
+  sections: [
+    {
+      id: 'about',
+      title: 'О тестовом мероприятии',
+      paragraphs: [
+        'Это событие создано только для проверки интеграции интернет-эквайринга T-Банка.',
+        'Оплата проходит через тестовый терминал, реальные билеты и места у организатора не бронируются.',
+      ],
+    },
+  ],
+};
+descriptionPack.totalChars = descriptionPack.sections.reduce((sum, section) => {
+  return sum + section.title.length + section.paragraphs.join('\n\n').length;
+}, 0);
+
 async function main() {
   await ticketPool.query(
     `INSERT INTO getbilet_catalog_cache (repertoire_external_id, stage_id, payload_json, synced_at)
@@ -57,13 +81,14 @@ async function main() {
 
   await ticketPool.query(
     `INSERT INTO getbilet_events (
-       getbilet_external_id, title_manual, description_manual, venue_manual, venue_address_manual,
+       getbilet_external_id, title_manual, description_manual, description_pack_json, venue_manual, venue_address_manual,
        is_published, sort_order, updated_at
      )
-     VALUES ($1, $2, $3, $4, $5, TRUE, -1000, NOW())
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, TRUE, -1000, NOW())
      ON CONFLICT (getbilet_external_id) DO UPDATE SET
        title_manual = EXCLUDED.title_manual,
        description_manual = EXCLUDED.description_manual,
+       description_pack_json = EXCLUDED.description_pack_json,
        venue_manual = EXCLUDED.venue_manual,
        venue_address_manual = EXCLUDED.venue_address_manual,
        is_published = TRUE,
@@ -73,6 +98,7 @@ async function main() {
       REPERTOIRE_ID,
       catalogPayload.Name,
       catalogPayload.Description,
+      JSON.stringify(descriptionPack),
       catalogPayload.PlaceName,
       catalogPayload.PlaceAddress,
     ],
