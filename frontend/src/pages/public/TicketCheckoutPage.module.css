@@ -453,14 +453,6 @@
   background: linear-gradient(180deg, #fff 0%, #fafafa 100%);
 }
 
-.primaryHallLegend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
 @media (max-width: 600px) {
   .primaryHallMap {
     margin-left: -16px;

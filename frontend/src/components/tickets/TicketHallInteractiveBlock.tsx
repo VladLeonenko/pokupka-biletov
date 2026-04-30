@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Popover, Stack, Typography } from '@mui/material';
+import { Button, Popover, Typography } from '@mui/material';
 import {
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
   parseLayoutMode,
   processHallSvgForNative,
   seatMapKey,
-  type HallLayoutDiagnostics,
   type SvgNativePlacement,
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
@@ -22,6 +21,12 @@ export type HallOfferRow = {
 };
 
 type OverlayRect = { x: number; y: number; w: number; h: number };
+type HoverSeatInfo = {
+  sector: string;
+  row: string;
+  seat: string;
+  priceKey: string;
+};
 
 function parseOverlayRect(layout: unknown): OverlayRect {
   if (!layout || typeof layout !== 'object') {
@@ -118,37 +123,19 @@ export function TicketHallInteractiveBlock({
     [hallSvgHtml, useSvgNative, nativeSource, nativeProcessed],
   );
 
-  const { nativePlacements, unmatchedSvgSeats, nativeDiagnostics } = useMemo(() => {
-    const emptyDiagnostics: HallLayoutDiagnostics = {
-      totalSvgSeats: 0,
-      matchedSeats: 0,
-      unmatchedSvgCount: 0,
-      unmatchedOfferSeats: 0,
-    };
+  const { nativePlacements } = useMemo(() => {
     if (!useSvgNative || nativeSeats.length < 2) {
       return {
         nativePlacements: [] as SvgNativePlacement[],
-        unmatchedSvgSeats: 0,
-        nativeDiagnostics: emptyDiagnostics,
       };
     }
-    const { placements, unmatchedSvgCount } = buildSvgNativePlacements(
+    const { placements } = buildSvgNativePlacements(
       nativeSeats,
       offers,
       getPriceKey,
     );
     return {
       nativePlacements: placements,
-      unmatchedSvgSeats: unmatchedSvgCount,
-      nativeDiagnostics: {
-        totalSvgSeats: nativeSeats.length,
-        matchedSeats: placements.length,
-        unmatchedSvgCount,
-        unmatchedOfferSeats: Math.max(0, offers.reduce((sum, offer) => {
-          const seats = Array.isArray(offer.SeatList) ? offer.SeatList.length : 0;
-          return sum + seats;
-        }, 0) - placements.length),
-      },
     };
   }, [useSvgNative, nativeSeats, offers, getPriceKey]);
 
@@ -164,7 +151,8 @@ export function TicketHallInteractiveBlock({
   const [zoom, setZoom] = useState(1);
   const clampZoom = useCallback((z: number) => Math.min(2.75, Math.max(0.2, z)), []);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [mapPopoverAnchor, setMapPopoverAnchor] = useState<HTMLElement | null>(null);
+  const [hoverAnchor, setHoverAnchor] = useState<HTMLElement | null>(null);
+  const [hoverSeat, setHoverSeat] = useState<HoverSeatInfo | null>(null);
   const dragRef = useRef<{ active: boolean; id: number; sx: number; sy: number; ox: number; oy: number } | null>(
     null,
   );
@@ -248,10 +236,6 @@ export function TicketHallInteractiveBlock({
     return () => el.removeEventListener('wheel', onWheel);
   }, [clampZoom]);
 
-  useEffect(() => {
-    if (!activeOfferId || selectedSeats.length === 0) setMapPopoverAnchor(null);
-  }, [activeOfferId, selectedSeats.length]);
-
   const zoomPctLabel = Math.max(1, Math.round((zoom / Math.max(0.001, fitZoom)) * 100));
 
   const rootClass =
@@ -260,10 +244,6 @@ export function TicketHallInteractiveBlock({
   return (
     <div className={rootClass}>
       <div className={styles.toolbar}>
-        <p className={styles.toolbarHint}>
-          Перетаскивание — сдвиг; колёсико — масштаб. Серые круги в зале — все места; цветная обводка и номер —
-          свободные из GetBilet. «{zoomPctLabel}%» — относительно подгонки под экран.
-        </p>
         <div className={styles.zoomBtns}>
           <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => clampZoom(z - 0.15))} aria-label="Уменьшить">
             −
@@ -284,21 +264,6 @@ export function TicketHallInteractiveBlock({
           </button>
         </div>
       </div>
-
-      {unmatchedSvgSeats > 0 && (
-        <p className={styles.catalogHint}>
-          На схеме {unmatchedSvgSeats} мест(а) без предложения в каталоге на эту дату — бронь только по
-          кликабельным точкам.
-        </p>
-      )}
-      {useSvgNative && nativeDiagnostics.totalSvgSeats > 0 && (
-        <p className={styles.mapStatus}>
-          Сопоставлено {nativeDiagnostics.matchedSeats} из {nativeDiagnostics.totalSvgSeats} мест схемы.
-          {nativeDiagnostics.unmatchedOfferSeats > 0
-            ? ` Ещё ${nativeDiagnostics.unmatchedOfferSeats} мест из GetBilet пока доступны только в списке.`
-            : ''}
-        </p>
-      )}
 
       <div
         ref={viewportRef}
@@ -355,17 +320,26 @@ export function TicketHallInteractiveBlock({
                             '--seat-accent': bg,
                           } as React.CSSProperties
                         }
-                        title={p.title}
+                        aria-label={p.title}
                         onPointerDown={(ev) => ev.stopPropagation()}
-                        onClick={(ev) => {
+                        onMouseEnter={(ev) => {
+                          setHoverAnchor(ev.currentTarget);
+                          setHoverSeat({
+                            sector: p.sectorLabel,
+                            row: p.rowLabel,
+                            seat: p.seat,
+                            priceKey: p.priceKey,
+                          });
+                        }}
+                        onMouseLeave={() => {
+                          setHoverAnchor(null);
+                          setHoverSeat(null);
+                        }}
+                        onClick={() => {
                           onToggleSeat(p.offerId, p.seat, p.available);
-                          setMapPopoverAnchor(ev.currentTarget);
                         }}
                       >
-                        <span className={styles.seatDotLabel}>
-                          {p.rowLabel ? `${p.rowLabel}·` : ''}
-                          {p.seat}
-                        </span>
+                        <span className={styles.seatDotLabel}>{p.seat}</span>
                       </button>
                     );
                   })
@@ -386,11 +360,23 @@ export function TicketHallInteractiveBlock({
                           type="button"
                           className={`${styles.seatDot} ${active ? styles.seatDotOn : ''}`}
                           style={{ left: `${gx * 100}%`, top: `${gy * 100}%`, '--seat-accent': bg } as React.CSSProperties}
-                          title={`${row.Sector ?? ''} · ряд ${row.Row ?? ''} · место ${seat} · ${pk} ₽`}
+                          aria-label={`${row.Sector ?? ''} · ряд ${row.Row ?? ''} · место ${seat} · ${pk} ₽`}
                           onPointerDown={(ev) => ev.stopPropagation()}
-                          onClick={(ev) => {
+                          onMouseEnter={(ev) => {
+                            setHoverAnchor(ev.currentTarget);
+                            setHoverSeat({
+                              sector: String(row.Sector ?? ''),
+                              row: String(row.Row ?? ''),
+                              seat,
+                              priceKey: pk,
+                            });
+                          }}
+                          onMouseLeave={() => {
+                            setHoverAnchor(null);
+                            setHoverSeat(null);
+                          }}
+                          onClick={() => {
                             onToggleSeat(oid, seat, seats);
-                            setMapPopoverAnchor(ev.currentTarget);
                           }}
                         >
                           <span className={styles.seatDotLabel}>{seat}</span>
@@ -404,82 +390,50 @@ export function TicketHallInteractiveBlock({
       </div>
 
       <Popover
-        open={Boolean(
-          mapPopoverAnchor &&
-            selectedOffer &&
-            activeOfferId &&
-            selectedSeats.length > 0 &&
-            String(selectedOffer.Id ?? '') === activeOfferId,
-        )}
-        anchorEl={mapPopoverAnchor}
-        onClose={() => setMapPopoverAnchor(null)}
+        open={Boolean(hoverAnchor && hoverSeat)}
+        anchorEl={hoverAnchor}
+        onClose={() => {
+          setHoverAnchor(null);
+          setHoverSeat(null);
+        }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        disableRestoreFocus
         slotProps={{
-          paper: { sx: { p: 2, maxWidth: 320, borderRadius: 2 } },
+          paper: {
+            sx: { p: 1.25, maxWidth: 280, borderRadius: 2, pointerEvents: 'none' },
+          },
         }}
       >
-        {selectedOffer && (
-          <Stack spacing={1.25}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-              Выбранные места
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {selectedOffer.Sector ?? '—'} · ряд {selectedOffer.Row ?? '—'}
-            </Typography>
-            <Typography variant="body1">
-              Места: <strong>{selectedSeats.join(', ')}</strong>
-            </Typography>
-            <Typography variant="body2">
-              {(() => {
-                const unit = Number(getPriceKey(selectedOffer));
-                const total = unit * selectedSeats.length;
-                return (
-                  <>
-                    За место:{' '}
-                    <strong>{unit.toLocaleString('ru-RU')} ₽</strong>
-                    {selectedSeats.length > 1 ? (
-                      <>
-                        {' '}
-                        · всего: <strong>{total.toLocaleString('ru-RU')} ₽</strong>
-                      </>
-                    ) : null}
-                  </>
-                );
-              })()}
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, pt: 0.5 }}>
-              {onReserveFromMap ? (
-                <Button
-                  variant="contained"
-                  size="small"
-                  disabled={reservePending}
-                  onClick={() => onReserveFromMap()}
-                >
-                  {reservePending ? 'Бронирование…' : 'Забронировать'}
-                </Button>
-              ) : null}
-              <Button size="small" variant="outlined" onClick={() => setMapPopoverAnchor(null)}>
-                Закрыть
-              </Button>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => {
-                  setMapPopoverAnchor(null);
-                  if (onNavigateToList) {
-                    onNavigateToList();
-                  } else {
-                    document.getElementById('ticket-places-and-prices')?.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-              >
-                К списку мест
-              </Button>
-            </Box>
-          </Stack>
+        {hoverSeat && (
+          <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
+            <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
+            {hoverSeat.seat}, цена{' '}
+            <strong>{Number(hoverSeat.priceKey).toLocaleString('ru-RU')} ₽</strong>
+          </Typography>
         )}
       </Popover>
+
+      {selectedOffer && activeOfferId && selectedSeats.length > 0 && String(selectedOffer.Id ?? '') === activeOfferId ? (
+        <div className={styles.selectionBar}>
+          <div className={styles.selectionText}>
+            <strong>{selectedOffer.Sector ?? '—'}</strong> · ряд {selectedOffer.Row ?? '—'} · места{' '}
+            {selectedSeats.join(', ')}
+          </div>
+          <div className={styles.selectionActions}>
+            {onNavigateToList ? (
+              <Button size="small" variant="text" onClick={onNavigateToList}>
+                К списку мест
+              </Button>
+            ) : null}
+            {onReserveFromMap ? (
+              <Button variant="contained" size="small" disabled={reservePending} onClick={() => onReserveFromMap()}>
+                {reservePending ? 'Бронирование…' : 'Забронировать'}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -352,6 +352,7 @@ export type SvgNativePlacement = {
   key: string;
   svgKey: string;
   offerId: string;
+  sectorLabel: string;
   seat: string;
   /** Ряд из оффера GetBilet (для подписи на схеме) */
   rowLabel: string;
@@ -417,6 +418,7 @@ export function buildSvgNativePlacements(
       key: `${oid}-${seat}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-ex`,
       svgKey: k,
       offerId: oid,
+      sectorLabel: String(offer.Sector ?? s.sector ?? '').trim(),
       seat,
       rowLabel: String(offer.Row ?? s.row ?? '').trim(),
       available,
@@ -485,6 +487,7 @@ export function buildSvgNativePlacements(
         key: `${oid}-${seatApi}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-zip`,
         svgKey: sk,
         offerId: oid,
+        sectorLabel: String(offer.Sector ?? first.sector ?? '').trim(),
         seat: seatApi,
         rowLabel: String(offer.Row ?? first.row ?? '').trim(),
         available: list,
@@ -510,6 +513,7 @@ export function buildSvgNativePlacements(
       key: `${oid}-${seat}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-fz`,
       svgKey: k,
       offerId: oid,
+      sectorLabel: String(offer.Sector ?? s.sector ?? '').trim(),
       seat,
       rowLabel: String(offer.Row ?? s.row ?? '').trim(),
       available,

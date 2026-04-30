@@ -8,7 +8,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -939,22 +938,6 @@ export function TicketCheckoutPage() {
                   На весь экран
                 </Button>
               </Box>
-              <Box className={styles.primaryHallLegend}>
-                {Array.from(priceMap.entries())
-                  .sort((a, b) => Number(a[0]) - Number(b[0]))
-                  .map(([p]) => (
-                    <Chip
-                      key={p}
-                      size="small"
-                      label={`${Number(p).toLocaleString('ru-RU')} ₽`}
-                      sx={{
-                        backgroundColor: colorForPrice(priceMap, p),
-                        color: '#fff',
-                      }}
-                    />
-                  ))}
-                <Chip size="small" variant="outlined" label="серые — недоступны" />
-              </Box>
               <TicketHallInteractiveBlock
                 hallSvgHtml={hallSvg}
                 layoutJson={layoutJsonForStage}
@@ -1358,34 +1341,6 @@ export function TicketCheckoutPage() {
                 </FormControl>
               </Box>
             ) : null}
-            <Box
-              sx={{
-                px: 2,
-                py: 1.5,
-                bgcolor: '#fafafa',
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
-              }}
-            >
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
-                Легенда цен — свободные места из каталога. Клик по точке — выбор; бронь идёт с идентификаторами мест, как
-                в списке оффера.
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {Array.from(priceMap.entries())
-                  .sort((a, b) => Number(a[0]) - Number(b[0]))
-                  .map(([p]) => (
-                    <Chip
-                      key={p}
-                      size="small"
-                      label={`${Number(p).toLocaleString('ru-RU')} ₽`}
-                      sx={{
-                        backgroundColor: colorForPrice(priceMap, p),
-                        color: '#fff',
-                      }}
-                    />
-                  ))}
-              </Box>
-            </Box>
             {hallSvg && selectedSessionKey ? (
               <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', px: 0 }}>
                 <TicketHallInteractiveBlock
