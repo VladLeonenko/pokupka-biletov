@@ -61,6 +61,69 @@ function parseOfferRow(offerPayload) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
+
+function isTbankDemoCheckoutAllowed() {
+  const terminalKey = process.env.TBANK_TERMINAL_KEY?.trim() || process.env.TINKOFF_TERMINAL_KEY?.trim() || '';
+  return process.env.TBANK_ENABLE_DEMO_EVENT === '1' || /DEMO$/i.test(terminalKey);
+}
+
+function isDemoCheckoutPayload(repertoireId, offerId) {
+  return isTbankDemoCheckoutAllowed() && repertoireId === DEMO_REPERTOIRE_ID && offerId.startsWith('tb-demo-');
+}
+
+async function loadDemoOffer(repertoireId, offerId) {
+  const r = await ticketPool.query(
+    `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+    [repertoireId]
+  );
+  const payload = r.rows[0]?.payload_json;
+  const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+  return rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === offerId) || null;
+}
+
+async function prepareTicketReservation({ offerId, repertoireId, seats }) {
+  if (isDemoCheckoutPayload(repertoireId, offerId)) {
+    const row = await loadDemoOffer(repertoireId, offerId);
+    if (!row) throw new GetbiletValidationError('Тестовое предложение не найдено');
+    const availableSeats = Array.isArray(row.SeatList) ? row.SeatList.map(String) : [];
+    const unavailable = seats.filter((seat) => !availableSeats.includes(String(seat)));
+    if (unavailable.length > 0) {
+      throw new GetbiletValidationError(`Места недоступны: ${unavailable.join(', ')}`);
+    }
+    const unitRub = Number(row.AgentPrice ?? row.NominalPrice ?? 0);
+    if (!Number.isFinite(unitRub) || unitRub <= 0) {
+      throw new GetbiletValidationError('Некорректная цена тестового предложения');
+    }
+    return {
+      baseRub: unitRub * seats.length,
+      makeData: {
+        Success: true,
+        Method: 'DemoMakeOrder',
+        ResultData: seats.map((seat) => ({
+          TicketId: `demo-${offerId}-${seat}`,
+          OfferId: offerId,
+          Seat: String(seat),
+        })),
+      },
+      getbiletOrderId: null,
+    };
+  }
+
+  let offerPayload = await restV2GetOfferById(offerId);
+  const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
+  offerPayload = applyGetbiletMarkupToOfferPayload(offerPayload, markupRule);
+  const parsed = parseOfferRow(offerPayload);
+  if (!parsed) {
+    throw new GetbiletValidationError('Не удалось получить цену предложения');
+  }
+  const makeData = await restV2MakeOrder(offerId, seats);
+  return {
+    baseRub: parsed.unitRub * seats.length,
+    makeData,
+    getbiletOrderId: pickGetbiletOrderId(makeData),
+  };
+}
 
 /**
  * @param {import('express').Router} router
@@ -131,14 +194,8 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         return res.status(400).json({ error: 'session_required' });
       }
 
-      let offerPayload = await restV2GetOfferById(offerId);
-      const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
-      offerPayload = applyGetbiletMarkupToOfferPayload(offerPayload, markupRule);
-      const parsed = parseOfferRow(offerPayload);
-      if (!parsed) {
-        throw new GetbiletValidationError('Не удалось получить цену предложения');
-      }
-      const baseRub = parsed.unitRub * seats.length;
+      const reservation = await prepareTicketReservation({ offerId, repertoireId, seats });
+      const baseRub = reservation.baseRub;
       let finalRub = baseRub;
       let promoId = null;
       if (promoCode) {
@@ -155,8 +212,8 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         throw new GetbiletValidationError('Сумма заказа слишком мала');
       }
 
-      const makeData = await restV2MakeOrder(offerId, seats);
-      getbiletOrderIdToCancel = pickGetbiletOrderId(makeData);
+      const makeData = reservation.makeData;
+      getbiletOrderIdToCancel = reservation.getbiletOrderId;
 
       invalidateOffersCache(repertoireId).catch(() => {});
 

@@ -28,7 +28,8 @@
     "poster:web-batch": "node scripts/run-poster-web-batch.js",
     "sync:event-descriptions": "node scripts/sync-and-backfill-new-events.js",
     "backfill:event-description-packs": "node scripts/backfill-event-description-packs.js",
-    "backfill:event-description-packs:force": "BACKFILL_EVENT_DESCRIPTIONS_FORCE=1 node scripts/backfill-event-description-packs.js"
+    "backfill:event-description-packs:force": "BACKFILL_EVENT_DESCRIPTIONS_FORCE=1 node scripts/backfill-event-description-packs.js",
+    "seed:tbank-demo-event": "node scripts/seed-tbank-demo-event.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
