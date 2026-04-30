@@ -22,7 +22,10 @@ export function buildTbankEacqToken(params, password) {
 
 function getTerminalAndPassword() {
   const terminalKey = process.env.TBANK_TERMINAL_KEY?.trim() || process.env.TINKOFF_TERMINAL_KEY?.trim();
-  const password = process.env.TBANK_PASSWORD?.trim() || process.env.TINKOFF_PASSWORD?.trim();
+  const password =
+    process.env.TBANK_PASSWORD?.trim() ||
+    process.env.TBANK_KEY?.trim() ||
+    process.env.TINKOFF_PASSWORD?.trim();
   return { terminalKey, password };
 }
 
@@ -47,7 +50,7 @@ export async function tbankEacqInit({
 }) {
   const { terminalKey, password } = getTerminalAndPassword();
   if (!terminalKey || !password) {
-    throw new Error('TBANK_TERMINAL_KEY и TBANK_PASSWORD не заданы в окружении');
+    throw new Error('TBANK_TERMINAL_KEY и TBANK_PASSWORD/TBANK_KEY не заданы в окружении');
   }
 
   const baseUrl = (process.env.TBANK_EACQ_BASE_URL || 'https://securepay.tinkoff.ru/v2').replace(/\/$/, '');
@@ -60,15 +63,16 @@ export async function tbankEacqInit({
     FailURL: failUrl,
     NotificationURL: notificationUrl,
   };
+  const DATA = {};
   if (email && String(email).trim()) {
-    root.Email = String(email).trim().slice(0, 100);
+    DATA.Email = String(email).trim().slice(0, 100);
   }
   if (phone && String(phone).trim()) {
-    root.Phone = String(phone).replace(/\s+/g, ' ').trim().slice(0, 18);
+    DATA.Phone = String(phone).replace(/\s+/g, ' ').trim().slice(0, 18);
   }
 
   const Token = buildTbankEacqToken(root, password);
-  const body = { ...root, Token };
+  const body = Object.keys(DATA).length > 0 ? { ...root, DATA, Token } : { ...root, Token };
 
   const res = await fetch(`${baseUrl}/Init`, {
     method: 'POST',
