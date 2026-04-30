@@ -15,7 +15,7 @@ export function buildTbankEacqToken(params, password) {
     pairs.push([k, String(v)]);
   }
   pairs.push(['Password', password]);
-  pairs.sort((a, b) => a[0].localeCompare(b[0]));
+  pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   const concatenated = pairs.map(([, val]) => val).join('');
   return crypto.createHash('sha256').update(concatenated, 'utf8').digest('hex');
 }
