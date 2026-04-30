@@ -107,6 +107,7 @@ async function prepareTicketReservation({ offerId, repertoireId, seats }) {
         })),
       },
       getbiletOrderId: null,
+      isDemo: true,
     };
   }
 
@@ -122,6 +123,7 @@ async function prepareTicketReservation({ offerId, repertoireId, seats }) {
     baseRub: parsed.unitRub * seats.length,
     makeData,
     getbiletOrderId: pickGetbiletOrderId(makeData),
+    isDemo: false,
   };
 }
 
@@ -215,7 +217,9 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       const makeData = reservation.makeData;
       getbiletOrderIdToCancel = reservation.getbiletOrderId;
 
-      invalidateOffersCache(repertoireId).catch(() => {});
+      if (!reservation.isDemo) {
+        invalidateOffersCache(repertoireId).catch(() => {});
+      }
 
       const orderNumber = generateOrderNumber();
       const paymentMeta = {
