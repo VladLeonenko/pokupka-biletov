@@ -339,6 +339,19 @@ export async function handleTbankEacqNotification(req, res) {
       body.Success === true &&
       (body.Status === 'CONFIRMED' || body.Status === 'AUTHORIZED');
     if (!paid) {
+      const failedStatuses = new Set(['REJECTED', 'CANCELED', 'DEADLINE_EXPIRED']);
+      const status = body.Status != null ? String(body.Status).toUpperCase() : '';
+      if (orderNumber && failedStatuses.has(status)) {
+        await pool.query(
+          `UPDATE orders SET
+            payment_status = 'failed',
+            status = CASE WHEN status = 'pending' THEN 'cancelled' ELSE status END,
+            external_payment_id = COALESCE($2::text, external_payment_id),
+            updated_at = NOW()
+           WHERE order_number = $1 AND payment_status <> 'paid'`,
+          [orderNumber, body.PaymentId != null ? String(body.PaymentId) : null]
+        );
+      }
       return res.status(200).send('OK');
     }
 

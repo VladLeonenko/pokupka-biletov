@@ -113,8 +113,28 @@ async function main() {
     [REPERTOIRE_ID, JSON.stringify(offersPayload)],
   );
 
+  await ticketPool.query(
+    `INSERT INTO getbilet_promo_codes (
+       code, discount_kind, discount_value, max_uses_total, uses_count,
+       valid_from, valid_until, min_order_amount, is_active, notes, updated_at
+     )
+     VALUES ('TBANK10', 'percent', 10, NULL, 0, NOW() - INTERVAL '1 day', NOW() + INTERVAL '1 year', 50, TRUE,
+       'Демо-промокод для проверки T-Bank checkout', NOW())
+     ON CONFLICT (lower(trim(code))) DO UPDATE SET
+       discount_kind = EXCLUDED.discount_kind,
+       discount_value = EXCLUDED.discount_value,
+       max_uses_total = EXCLUDED.max_uses_total,
+       valid_from = EXCLUDED.valid_from,
+       valid_until = EXCLUDED.valid_until,
+       min_order_amount = EXCLUDED.min_order_amount,
+       is_active = TRUE,
+       notes = EXCLUDED.notes,
+       updated_at = NOW()`,
+  );
+
   console.log(`Demo event ready: /ticket/${encodeURIComponent(REPERTOIRE_ID)}/testovaya-oplata-t-bank`);
   console.log(`Demo offer: ${OFFER_ID}, seats: ${offersPayload.ResultData[0].SeatList.join(', ')}`);
+  console.log('Demo promo: TBANK10 (-10%)');
 }
 
 main()

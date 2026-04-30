@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Box, Container, Typography, Button, Card, CardContent, Grid, CircularProgress, Chip } from '@mui/material';
+import { Alert, Box, Container, Typography, Button, Card, CardContent, Grid, CircularProgress, Chip } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
@@ -9,7 +9,9 @@ import { getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
 export function OrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const returnedFromPayment = searchParams.get('paid') === '1';
 
   const { data, isLoading } = useQuery({
     queryKey: ['order', orderNumber],
@@ -31,7 +33,7 @@ export function OrderDetailPage() {
     queryFn: () => getOrderPaymentStatus(orderNumber || ''),
     enabled: !!orderNumber && pollPayments,
     refetchInterval: (query) =>
-      query.state.data?.paymentStatus === 'paid' ? false : 8000,
+      ['paid', 'failed'].includes(query.state.data?.paymentStatus || '') ? false : 8000,
   });
 
   useEffect(() => {
@@ -101,6 +103,24 @@ export function OrderDetailPage() {
           >
             №{order.orderNumber}
           </Typography>
+
+          {returnedFromPayment && order.paymentStatus === 'pending' ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Мы проверяем оплату. Обычно статус обновляется за несколько секунд, страницу можно не закрывать.
+            </Alert>
+          ) : null}
+
+          {order.paymentStatus === 'paid' ? (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Оплата прошла успешно. Подтверждение заказа и письмо для входа в личный кабинет отправляются на email.
+            </Alert>
+          ) : null}
+
+          {order.paymentStatus === 'failed' ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Оплата не прошла. Деньги не списаны, попробуйте оплатить другой картой или оформите заказ заново.
+            </Alert>
+          ) : null}
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>

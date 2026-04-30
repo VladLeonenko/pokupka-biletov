@@ -102,6 +102,39 @@ export async function tbankEacqInit({
   return { paymentUrl, paymentId, raw: data };
 }
 
+export async function tbankEacqGetState(paymentId) {
+  const { terminalKey, password } = getTerminalAndPassword();
+  if (!terminalKey || !password) {
+    throw new Error('TBANK_TERMINAL_KEY и TBANK_PASSWORD/TBANK_KEY не заданы в окружении');
+  }
+  const pid = paymentId != null ? String(paymentId).trim() : '';
+  if (!pid) throw new Error('PaymentId обязателен');
+
+  const baseUrl = (process.env.TBANK_EACQ_BASE_URL || 'https://securepay.tinkoff.ru/v2').replace(/\/$/, '');
+  const root = {
+    TerminalKey: terminalKey,
+    PaymentId: pid,
+  };
+  const Token = buildTbankEacqToken(root, password);
+  const res = await fetch(`${baseUrl}/GetState`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ ...root, Token }),
+  });
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { raw: text };
+  }
+  if (!res.ok) {
+    const msg = data && typeof data === 'object' && data.Message ? String(data.Message) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
 /**
  * Проверка токена входящего уведомления (Notification).
  */

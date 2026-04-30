@@ -222,6 +222,7 @@ export function TicketCheckoutPage() {
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
   const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
+  const paymentFailed = searchParams.get('payment') === 'failed';
 
   const { data: ctx, isLoading: ctxLoading, isError: ctxError } = useQuery({
     queryKey: ['bilet-repertoire-context', repertoireId],
@@ -800,6 +801,12 @@ export function TicketCheckoutPage() {
         </div>
 
         <Box className={styles.wrap} sx={{ maxWidth: 960, mx: 'auto', p: 2, pb: 4 }}>
+          {paymentFailed ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Оплата не завершилась. Деньги не списаны: можно выбрать места ещё раз или попробовать другую карту.
+            </Alert>
+          ) : null}
+
           {ctxLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
               <CircularProgress size={28} />

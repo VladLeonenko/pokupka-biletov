@@ -451,6 +451,18 @@ router.get('/:orderNumber/payment-status', async (req, res) => {
         externalPaymentId: remote.externalPaymentId,
         ticketRefs: remote.ticketRefs,
       });
+    } else if (remote.state === 'failed') {
+      const failed = await pool.query(
+        `UPDATE orders SET
+          payment_status = 'failed',
+          status = CASE WHEN status = 'pending' THEN 'cancelled' ELSE status END,
+          external_payment_id = COALESCE($2::text, external_payment_id),
+          updated_at = NOW()
+        WHERE id = $1 AND payment_status <> 'paid'
+        RETURNING *`,
+        [order.id, remote.externalPaymentId || null]
+      );
+      order = failed.rows[0] || order;
     }
 
     res.json({
