@@ -22,6 +22,7 @@ export type HallOfferRow = {
 
 type OverlayRect = { x: number; y: number; w: number; h: number };
 type HoverSeatInfo = {
+  offerId: string;
   sector: string;
   row: string;
   seat: string;
@@ -187,6 +188,7 @@ export function TicketHallInteractiveBlock({
 
   const onPointerDownPan = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
+    hideSeatInfo();
     if (e.button !== 0 && e.pointerType !== 'touch') return;
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
@@ -198,7 +200,7 @@ export function TicketHallInteractiveBlock({
       ox: pan.x,
       oy: pan.y,
     };
-  }, [pan.x, pan.y]);
+  }, [hideSeatInfo, pan.x, pan.y]);
 
   const onPointerMovePan = useCallback((e: React.PointerEvent) => {
     const d = dragRef.current;
@@ -322,7 +324,7 @@ export function TicketHallInteractiveBlock({
                       <button
                         key={p.key}
                         type="button"
-                        className={`${styles.seatDot} ${active ? styles.seatDotOn : ''}`}
+                        className={`${styles.seatDot} ${styles.seatDotNative} ${active ? styles.seatDotOn : ''}`}
                         style={
                           {
                             left: `${p.xPct}%`,
@@ -331,29 +333,37 @@ export function TicketHallInteractiveBlock({
                           } as React.CSSProperties
                         }
                         aria-label={p.title}
-                        onPointerDown={(ev) => ev.stopPropagation()}
-                        onPointerEnter={(ev) => {
+                        onPointerDown={(ev) => {
+                          ev.stopPropagation();
                           showSeatInfo(ev.currentTarget, {
+                            offerId: p.offerId,
                             sector: p.sectorLabel,
                             row: p.rowLabel,
                             seat: p.seat,
                             priceKey: p.priceKey,
                           });
                         }}
-                        onPointerLeave={(ev) => {
-                          if (ev.pointerType === 'mouse') hideSeatInfo();
+                        onPointerEnter={(ev) => {
+                          showSeatInfo(ev.currentTarget, {
+                            offerId: p.offerId,
+                            sector: p.sectorLabel,
+                            row: p.rowLabel,
+                            seat: p.seat,
+                            priceKey: p.priceKey,
+                          });
                         }}
                         onFocus={(ev) => {
                           showSeatInfo(ev.currentTarget, {
+                            offerId: p.offerId,
                             sector: p.sectorLabel,
                             row: p.rowLabel,
                             seat: p.seat,
                             priceKey: p.priceKey,
                           });
                         }}
-                        onBlur={hideSeatInfo}
                         onClick={(ev) => {
                           showSeatInfo(ev.currentTarget, {
+                            offerId: p.offerId,
                             sector: p.sectorLabel,
                             row: p.rowLabel,
                             seat: p.seat,
@@ -384,29 +394,37 @@ export function TicketHallInteractiveBlock({
                           className={`${styles.seatDot} ${active ? styles.seatDotOn : ''}`}
                           style={{ left: `${gx * 100}%`, top: `${gy * 100}%`, '--seat-accent': bg } as React.CSSProperties}
                           aria-label={`${row.Sector ?? ''} · ряд ${row.Row ?? ''} · место ${seat} · ${pk} ₽`}
-                          onPointerDown={(ev) => ev.stopPropagation()}
-                          onPointerEnter={(ev) => {
+                          onPointerDown={(ev) => {
+                            ev.stopPropagation();
                             showSeatInfo(ev.currentTarget, {
+                              offerId: oid,
                               sector: String(row.Sector ?? ''),
                               row: String(row.Row ?? ''),
                               seat,
                               priceKey: pk,
                             });
                           }}
-                          onPointerLeave={(ev) => {
-                            if (ev.pointerType === 'mouse') hideSeatInfo();
+                          onPointerEnter={(ev) => {
+                            showSeatInfo(ev.currentTarget, {
+                              offerId: oid,
+                              sector: String(row.Sector ?? ''),
+                              row: String(row.Row ?? ''),
+                              seat,
+                              priceKey: pk,
+                            });
                           }}
                           onFocus={(ev) => {
                             showSeatInfo(ev.currentTarget, {
+                              offerId: oid,
                               sector: String(row.Sector ?? ''),
                               row: String(row.Row ?? ''),
                               seat,
                               priceKey: pk,
                             });
                           }}
-                          onBlur={hideSeatInfo}
                           onClick={(ev) => {
                             showSeatInfo(ev.currentTarget, {
+                              offerId: oid,
                               sector: String(row.Sector ?? ''),
                               row: String(row.Row ?? ''),
                               seat,
@@ -436,16 +454,30 @@ export function TicketHallInteractiveBlock({
         disableRestoreFocus
         slotProps={{
           paper: {
-            sx: { p: 1.25, maxWidth: 280, borderRadius: 2, pointerEvents: 'none' },
+            sx: { p: 1.25, maxWidth: 280, borderRadius: 2 },
           },
         }}
       >
         {hoverSeat && (
-          <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
-            <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
-            {hoverSeat.seat}, цена{' '}
-            <strong>{Number(hoverSeat.priceKey).toLocaleString('ru-RU')} ₽</strong>
-          </Typography>
+          <>
+            <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
+              <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
+              {hoverSeat.seat}, цена{' '}
+              <strong>{Number(hoverSeat.priceKey).toLocaleString('ru-RU')} ₽</strong>
+            </Typography>
+            {onReserveFromMap && activeOfferId === hoverSeat.offerId && selectedSeats.includes(hoverSeat.seat) ? (
+              <Button
+                fullWidth
+                variant="contained"
+                size="small"
+                disabled={reservePending}
+                onClick={() => onReserveFromMap()}
+                sx={{ mt: 1 }}
+              >
+                {reservePending ? 'Бронирование…' : 'Забронировать'}
+              </Button>
+            ) : null}
+          </>
         )}
       </Popover>
 
