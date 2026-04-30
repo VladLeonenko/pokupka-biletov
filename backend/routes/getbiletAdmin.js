@@ -1088,6 +1088,19 @@ router.get('/stage-maps', async (req, res) => {
       `SELECT id, stage_external_id, place_external_id, title,
               (svg_markup IS NOT NULL AND length(trim(svg_markup)) > 0) AS has_svg,
               (external_plan_url IS NOT NULL AND trim(external_plan_url) <> '') AS has_external_plan,
+              (
+                COALESCE((length(COALESCE(svg_markup, '')) - length(replace(COALESCE(svg_markup, ''), 'place-name=', ''))) / NULLIF(length('place-name='), 0), 0) +
+                COALESCE((length(COALESCE(svg_markup, '')) - length(replace(COALESCE(svg_markup, ''), 'data-replaced=', ''))) / NULLIF(length('data-replaced='), 0), 0)
+              )::int AS native_seat_count,
+              (
+                CASE
+                  WHEN jsonb_typeof(layout_json->'seats') = 'array' THEN jsonb_array_length(layout_json->'seats')
+                  WHEN jsonb_typeof(layout_json->'seatPositions') = 'array' THEN jsonb_array_length(layout_json->'seatPositions')
+                  WHEN jsonb_typeof(layout_json->'places') = 'array' THEN jsonb_array_length(layout_json->'places')
+                  WHEN jsonb_typeof(layout_json->'points') = 'array' THEN jsonb_array_length(layout_json->'points')
+                  ELSE 0
+                END
+              )::int AS layout_seat_count,
               layout_json, notes_internal, updated_at
        FROM getbilet_stage_maps
        ORDER BY title NULLS LAST, id ASC`

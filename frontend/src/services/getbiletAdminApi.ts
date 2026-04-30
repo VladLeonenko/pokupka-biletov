@@ -445,6 +445,8 @@ export interface GetbiletStageMapListRow {
   title: string | null;
   has_svg: boolean;
   has_external_plan?: boolean;
+  native_seat_count?: number;
+  layout_seat_count?: number;
   layout_json: unknown;
   notes_internal: string | null;
   updated_at: string;

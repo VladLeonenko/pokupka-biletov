@@ -234,11 +234,12 @@ export function TicketCheckoutPage() {
 
   const stageIdEff =
     searchParams.get('stageId')?.trim() || ctx?.stageId?.trim() || null;
+  const hasStageMapFromContext = Boolean(ctx?.stageId === stageIdEff && ctx?.stageMap);
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
     queryKey: ['bilet-stage-map', stageIdEff],
     queryFn: () => fetchStageMap(stageIdEff!),
-    enabled: Boolean(stageIdEff),
+    enabled: Boolean(stageIdEff) && !ctxLoading && ctx?.stageId !== stageIdEff && !hasStageMapFromContext,
     staleTime: 120_000,
   });
 
@@ -582,6 +583,9 @@ export function TicketCheckoutPage() {
 
   const hallSvg = useMemo(() => {
     if (!stageIdEff) return ctx?.stageMap?.svg_markup ?? null;
+    if (ctx?.stageId === stageIdEff && ctx?.stageMap?.svg_markup) {
+      return ctx.stageMap.svg_markup;
+    }
     if (!stageMapFetched) {
       return ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup ?? null : null;
     }
@@ -594,11 +598,15 @@ export function TicketCheckoutPage() {
     stageMapFetched,
     mapByStageId?.svg_markup,
     ctx?.stageId,
+    ctx?.stageMap,
     ctx?.stageMap?.svg_markup,
   ]);
 
   const layoutJsonForStage = useMemo(() => {
     if (!stageIdEff) return ctx?.stageMap?.layout_json;
+    if (ctx?.stageId === stageIdEff && ctx?.stageMap) {
+      return ctx.stageMap.layout_json;
+    }
     if (!stageMapFetched) {
       return ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json : null;
     }
@@ -611,6 +619,7 @@ export function TicketCheckoutPage() {
     stageMapFetched,
     mapByStageId?.layout_json,
     ctx?.stageId,
+    ctx?.stageMap,
     ctx?.stageMap?.layout_json,
   ]);
 
@@ -618,6 +627,9 @@ export function TicketCheckoutPage() {
     const t = (s: string | null | undefined) =>
       s != null && String(s).trim() ? String(s).trim() : null;
     if (!stageIdEff) return t(ctx?.externalPlanUrl);
+    if (ctx?.stageId === stageIdEff && ctx?.stageMap) {
+      return t(ctx.externalPlanUrl);
+    }
     if (!stageMapFetched) {
       return ctx?.stageId === stageIdEff ? t(ctx?.externalPlanUrl) : null;
     }
@@ -630,15 +642,21 @@ export function TicketCheckoutPage() {
     stageMapFetched,
     mapByStageId?.external_plan_url,
     ctx?.stageId,
+    ctx?.stageMap,
     ctx?.externalPlanUrl,
   ]);
 
   const showHallMissingCard =
-    Boolean(!hallSvg && !externalPlanUrl && (!stageIdEff || stageMapFetched));
+    Boolean(!hallSvg && !externalPlanUrl && (!stageIdEff || stageMapFetched || ctx?.stageId === stageIdEff));
 
   const colorSeat = useCallback(
     (p: string) => colorForPrice(priceMap, p),
     [priceMap],
+  );
+
+  const selectedOfferForMap = useMemo(
+    () => (offerId ? (offersForMap.find((o) => String(o.Id ?? '') === offerId) ?? null) : null),
+    [offerId, offersForMap],
   );
 
   const navigateToPlacesList = useCallback(() => {
@@ -841,13 +859,13 @@ export function TicketCheckoutPage() {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', mt: 2 }}>
                 {hallSvg ? (
                   <Button
-                    variant="contained"
-                    size="large"
+                    variant="outlined"
+                    size="medium"
                     startIcon={<EventSeatIcon />}
                     disabled={!selectedSessionKey}
                     onClick={() => setMapDialogOpen(true)}
                   >
-                    Схема зала — выбрать места
+                    Открыть схему на весь экран
                   </Button>
                 ) : null}
                 {!hallSvg && externalPlanUrl ? (
@@ -897,19 +915,62 @@ export function TicketCheckoutPage() {
             }}
           >
             <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-              Места и цены
+              Выберите места
             </Typography>
-            {hallSvg && selectedSessionKey ? (
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<EventSeatIcon />}
-                onClick={() => setMapDialogOpen(true)}
-              >
-                Схема зала
-              </Button>
-            ) : null}
           </Box>
+
+          {hallSvg && selectedSessionKey ? (
+            <Paper className={styles.primaryHallMap} elevation={0}>
+              <Box className={styles.primaryHallMapHead}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    Схема зала
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Кликните по свободному месту на схеме, затем нажмите «Забронировать».
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<EventSeatIcon />}
+                  onClick={() => setMapDialogOpen(true)}
+                >
+                  На весь экран
+                </Button>
+              </Box>
+              <Box className={styles.primaryHallLegend}>
+                {Array.from(priceMap.entries())
+                  .sort((a, b) => Number(a[0]) - Number(b[0]))
+                  .map(([p]) => (
+                    <Chip
+                      key={p}
+                      size="small"
+                      label={`${Number(p).toLocaleString('ru-RU')} ₽`}
+                      sx={{
+                        backgroundColor: colorForPrice(priceMap, p),
+                        color: '#fff',
+                      }}
+                    />
+                  ))}
+                <Chip size="small" variant="outlined" label="серые — недоступны" />
+              </Box>
+              <TicketHallInteractiveBlock
+                hallSvgHtml={hallSvg}
+                layoutJson={layoutJsonForStage}
+                offers={offersForMap}
+                getPriceKey={(o) => priceKey(o as OfferRow)}
+                colorForSeat={colorSeat}
+                activeOfferId={offerId}
+                selectedSeats={seats}
+                onToggleSeat={toggleSeat}
+                selectedOffer={selectedOfferForMap}
+                onReserveFromMap={() => setPurchaseOpen(true)}
+                reservePending={false}
+                onNavigateToList={navigateToPlacesList}
+              />
+            </Paper>
+          ) : null}
 
           {!isLoading && !isError && offers.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -1104,7 +1165,7 @@ export function TicketCheckoutPage() {
 
           {bySession.size > 0 && (
             <Accordion
-              defaultExpanded
+              defaultExpanded={!hallSvg}
               sx={{
                 mb: 2,
                 boxShadow: 'none',
@@ -1115,7 +1176,7 @@ export function TicketCheckoutPage() {
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Список по рядам (дополнительно)
+                  {hallSvg ? 'Список мест (дополнительно)' : 'Список мест'}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0 }}>
@@ -1337,9 +1398,7 @@ export function TicketCheckoutPage() {
                   activeOfferId={offerId}
                   selectedSeats={seats}
                   onToggleSeat={toggleSeat}
-                  selectedOffer={
-                    offerId ? (offersForMap.find((o) => String(o.Id ?? '') === offerId) ?? null) : null
-                  }
+                  selectedOffer={selectedOfferForMap}
                   onReserveFromMap={() => setPurchaseOpen(true)}
                   reservePending={false}
                   onNavigateToList={navigateToPlacesList}

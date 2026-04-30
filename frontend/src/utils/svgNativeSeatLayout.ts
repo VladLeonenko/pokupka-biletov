@@ -13,6 +13,77 @@ export type SvgNativeSeat = {
   yPct: number;
 };
 
+export type HallLayoutDiagnostics = {
+  totalSvgSeats: number;
+  matchedSeats: number;
+  unmatchedSvgCount: number;
+  unmatchedOfferSeats: number;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function cleanString(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
+function parsePct(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? '').replace('%', ''));
+  if (!Number.isFinite(n)) return null;
+  if (n >= 0 && n <= 1) return n * 100;
+  if (n >= 0 && n <= 100) return n;
+  return null;
+}
+
+function layoutSeatArray(layout: unknown): unknown[] {
+  const root = asRecord(layout);
+  if (!root) return [];
+  for (const key of ['seats', 'seatPositions', 'places', 'points']) {
+    const value = root[key];
+    if (Array.isArray(value)) return value;
+  }
+  const native = asRecord(root.nativeSeatLayout) || asRecord(root.seatLayout) || asRecord(root.map);
+  if (!native) return [];
+  for (const key of ['seats', 'seatPositions', 'places', 'points']) {
+    const value = native[key];
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+}
+
+/** Явные координаты мест из layout_json: seats / seatPositions [{ sector,row,seat,xPct,yPct }]. */
+export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
+  const rawSeats = layoutSeatArray(layout);
+  const seats: SvgNativeSeat[] = [];
+  const seen = new Set<string>();
+
+  for (const item of rawSeats) {
+    const row = asRecord(item);
+    if (!row) continue;
+
+    const sector = cleanString(
+      row.sector ?? row.Sector ?? row.placeName ?? row.place_name ?? row['place-name'],
+    );
+    const rowLabel = cleanString(row.row ?? row.Row ?? row.r);
+    const seat = cleanString(row.seat ?? row.Seat ?? row.place ?? row.Place ?? row.number ?? row.n);
+    const xPct = parsePct(row.xPct ?? row.x_percent ?? row.xPercent ?? row.left ?? row.x);
+    const yPct = parsePct(row.yPct ?? row.y_percent ?? row.yPercent ?? row.top ?? row.y);
+    if (!sector || !rowLabel || !seat || xPct == null || yPct == null) continue;
+
+    const key = seatMapKey(sector, rowLabel, seat);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    seats.push({ sector, row: rowLabel, seat, xPct, yPct });
+  }
+
+  return seats;
+}
+
 function normToken(s: string): string {
   return s
     .replace(/\u00a0/g, ' ')
@@ -55,6 +126,22 @@ function applyMatrix(
   };
 }
 
+function parseDataReplacedSeat(value: string | null): { sector: string; row: string; seat: string } | null {
+  const text = value?.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  const rowMatch = text.match(/(?:^|[,;])\s*ряд\s+([^,;]+)/i);
+  const seatMatch = text.match(/(?:^|[,;])\s*место\s+([^,;]+)/i);
+  if (!rowMatch || !seatMatch) return null;
+  const row = rowMatch[1]?.trim() ?? '';
+  const seat = seatMatch[1]?.trim() ?? '';
+  const sector = text
+    .slice(0, rowMatch.index ?? 0)
+    .replace(/[,;]\s*$/g, '')
+    .trim();
+  if (!sector || !row || !seat) return null;
+  return { sector, row, seat };
+}
+
 function readSvgSize(svg: SVGSVGElement): { w: number; h: number } {
   const vb = svg.getAttribute('viewBox');
   if (vb) {
@@ -69,7 +156,7 @@ function readSvgSize(svg: SVGSVGElement): { w: number; h: number } {
 }
 
 /**
- * Извлекает центры мест из SVG (circle с place-name / row / place), с учётом matrix на предке.
+ * Извлекает центры мест из SVG (circle с place-name / row / place или data-replaced), с учётом matrix на предке.
  * @deprecated Используйте {@link processHallSvgForNative} — там же подрезка viewBox под контент.
  */
 export function parseSvgNativeSeatLayout(html: string): { seats: SvgNativeSeat[]; vbW: number; vbH: number } | null {
@@ -103,7 +190,7 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
   const svg = doc.querySelector('svg');
   if (!svg) return null;
 
-  const circles = Array.from(svg.querySelectorAll('circle[place-name]'));
+  const circles = Array.from(svg.querySelectorAll('circle[place-name], circle[data-replaced]'));
   if (circles.length < 2) return null;
 
   let matrix: [number, number, number, number, number, number] | null = null;
@@ -116,9 +203,10 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
   const raw: Raw[] = [];
 
   for (const c of circles) {
-    const sector = c.getAttribute('place-name')?.trim() ?? '';
-    const row = (c.getAttribute('row') ?? c.getAttribute('data-row') ?? '').trim();
-    const seat = (c.getAttribute('place') ?? c.getAttribute('data-place') ?? '').trim();
+    const replaced = parseDataReplacedSeat(c.getAttribute('data-replaced'));
+    const sector = c.getAttribute('place-name')?.trim() || replaced?.sector || '';
+    const row = (c.getAttribute('row') ?? c.getAttribute('data-row') ?? replaced?.row ?? '').trim();
+    const seat = (c.getAttribute('place') ?? c.getAttribute('data-place') ?? replaced?.seat ?? '').trim();
     if (!sector || !row || !seat) continue;
 
     const cx = Number.parseFloat(c.getAttribute('cx') || '');
@@ -167,7 +255,7 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
   /** Цвета «доступности» в исходном SVG не совпадают с GetBilet — все места-серые, цена только в оверлее. */
-  const seatCircles = Array.from(svg.querySelectorAll('circle[place-name]'));
+  const seatCircles = Array.from(svg.querySelectorAll('circle[place-name], circle[data-replaced]'));
   const radii = seatCircles
     .map((c) => Number.parseFloat(c.getAttribute('r') || ''))
     .filter((n) => Number.isFinite(n) && n > 0);
@@ -262,6 +350,7 @@ export function matchSvgSeatToOffer(
 
 export type SvgNativePlacement = {
   key: string;
+  svgKey: string;
   offerId: string;
   seat: string;
   /** Ряд из оффера GetBilet (для подписи на схеме) */
@@ -280,6 +369,14 @@ function sortSeatTokens(a: string, b: string): number {
   return String(a).localeCompare(String(b), 'ru', { numeric: true });
 }
 
+function countOfferSeats(offers: OfferLike[]): number {
+  let total = 0;
+  for (const offer of offers) {
+    total += Array.isArray(offer.SeatList) ? offer.SeatList.length : 0;
+  }
+  return total;
+}
+
 function rowGroupKey(sector: string, row: string): string {
   return `${normSectorLoose(sector)}|${normRow(row)}`;
 }
@@ -292,7 +389,11 @@ export function buildSvgNativePlacements(
   svgSeats: SvgNativeSeat[],
   offers: OfferLike[],
   getPriceKey: (o: OfferLike) => string,
-): { placements: SvgNativePlacement[]; unmatchedSvgCount: number } {
+): {
+  placements: SvgNativePlacement[];
+  unmatchedSvgCount: number;
+  diagnostics: HallLayoutDiagnostics;
+} {
   const idx = buildOfferSeatIndex(offers);
   const uniqueSvg = new Map<string, SvgNativeSeat>();
   for (const s of svgSeats) {
@@ -314,6 +415,7 @@ export function buildSvgNativePlacements(
     const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
     out.push({
       key: `${oid}-${seat}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-ex`,
+      svgKey: k,
       offerId: oid,
       seat,
       rowLabel: String(offer.Row ?? s.row ?? '').trim(),
@@ -381,6 +483,7 @@ export function buildSvgNativePlacements(
       placedSvg.add(sk);
       out.push({
         key: `${oid}-${seatApi}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-zip`,
+        svgKey: sk,
         offerId: oid,
         seat: seatApi,
         rowLabel: String(offer.Row ?? first.row ?? '').trim(),
@@ -405,6 +508,7 @@ export function buildSvgNativePlacements(
     const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
     out.push({
       key: `${oid}-${seat}-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}-fz`,
+      svgKey: k,
       offerId: oid,
       seat,
       rowLabel: String(offer.Row ?? s.row ?? '').trim(),
@@ -416,7 +520,23 @@ export function buildSvgNativePlacements(
     });
   }
 
-  return { placements: out, unmatchedSvgCount: uniqueSvg.size - placedSvg.size };
+  const matchedOfferSeatKeys = new Set<string>();
+  for (const p of out) {
+    const offer = offers.find((o) => String(o.Id ?? '') === p.offerId);
+    if (!offer) continue;
+    matchedOfferSeatKeys.add(seatMapKey(String(offer.Sector ?? ''), String(offer.Row ?? ''), p.seat));
+  }
+  const unmatchedSvgCount = uniqueSvg.size - placedSvg.size;
+  return {
+    placements: out,
+    unmatchedSvgCount,
+    diagnostics: {
+      totalSvgSeats: uniqueSvg.size,
+      matchedSeats: out.length,
+      unmatchedSvgCount,
+      unmatchedOfferSeats: Math.max(0, countOfferSeats(offers) - matchedOfferSeatKeys.size),
+    },
+  };
 }
 
 export type LayoutMode = 'auto' | 'grid' | 'svgNative';

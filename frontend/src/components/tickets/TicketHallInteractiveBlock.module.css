@@ -48,6 +48,17 @@
   flex-shrink: 0;
 }
 
+.mapStatus {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(0, 0, 0, 0.62);
+  background: rgba(255, 255, 255, 0.72);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
 .zoomBtns {
   display: flex;
   gap: 6px;
@@ -146,7 +157,8 @@
 }
 
 /* Дубль: только заливка — обводка «доступности» только у кнопок-оверлея */
-.svgLayer :global(circle[place-name]) {
+.svgLayer :global(circle[place-name]),
+.svgLayer :global(circle[data-replaced]) {
   fill: #d0d0d0 !important;
   stroke: none !important;
   stroke-width: 0 !important;
@@ -174,6 +186,19 @@
   font-weight: 700;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-width 0.12s ease;
+}
+
+.seatDotUnavailable {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: clamp(18px, 2.1vw, 28px);
+  height: clamp(18px, 2.1vw, 28px);
+  border-radius: 50%;
+  background: rgba(150, 150, 150, 0.55);
+  border: 1px solid rgba(90, 90, 90, 0.35);
+  pointer-events: auto;
+  cursor: not-allowed;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .seatDot:hover {

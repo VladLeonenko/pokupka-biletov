@@ -40,9 +40,39 @@ const emptyForm = {
   place_external_id: '',
   title: '',
   svg_markup: '',
+  layout_json_text: '{\n  "layoutMode": "auto"\n}',
   external_plan_url: '',
   notes_internal: '',
 };
+
+function formatLayoutJson(value: unknown): string {
+  if (!value || typeof value !== 'object') return '{\n  "layoutMode": "auto"\n}';
+  return JSON.stringify(value, null, 2);
+}
+
+function parseLayoutJsonText(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('layout_json должен быть JSON-объектом');
+    }
+    return parsed;
+  } catch (e) {
+    if (e instanceof Error) throw new Error(`Некорректный layout_json: ${e.message}`);
+    throw new Error('Некорректный layout_json');
+  }
+}
+
+function stageMapStatus(row: GetbiletStageMapListRow): { label: string; color: 'success' | 'warning' | 'default' } {
+  const layoutSeats = Number(row.layout_seat_count ?? 0);
+  const nativeSeats = Number(row.native_seat_count ?? 0);
+  if (layoutSeats >= 2) return { label: `координаты JSON: ${layoutSeats}`, color: 'success' };
+  if (nativeSeats >= 2) return { label: `SVG-места: ${nativeSeats}`, color: 'success' };
+  if (row.has_svg) return { label: 'только фон', color: 'warning' };
+  return { label: 'нет координат', color: 'default' };
+}
 
 export function GetbiletStageMapsPage() {
   const queryClient = useQueryClient();
@@ -77,6 +107,7 @@ export function GetbiletStageMapsPage() {
         place_external_id: full.place_external_id ?? '',
         title: full.title ?? '',
         svg_markup: full.svg_markup ?? '',
+        layout_json_text: formatLayoutJson(full.layout_json),
         external_plan_url: full.external_plan_url ?? '',
         notes_internal: full.notes_internal ?? '',
       });
@@ -95,6 +126,7 @@ export function GetbiletStageMapsPage() {
         place_external_id: form.place_external_id.trim() || null,
         title: form.title.trim() || null,
         svg_markup: form.svg_markup.trim() || null,
+        layout_json: parseLayoutJsonText(form.layout_json_text),
         external_plan_url: form.external_plan_url.trim() || null,
         notes_internal: form.notes_internal.trim() || null,
       };
@@ -279,45 +311,49 @@ export function GetbiletStageMapsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => (
-                <TableRow key={r.id} hover>
-                  <TableCell>
-                    <code>{r.stage_external_id}</code>
-                  </TableCell>
-                  <TableCell>{r.title || '—'}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {r.has_svg ? (
-                        <Chip size="small" color="success" label="SVG" />
-                      ) : null}
-                      {r.has_external_plan ? (
-                        <Chip size="small" color="primary" variant="outlined" label="сайт" />
-                      ) : null}
-                      {!r.has_svg && !r.has_external_plan ? (
-                        <Chip size="small" label="нет" />
-                      ) : null}
-                    </Box>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Редактировать">
-                      <IconButton size="small" onClick={() => openEdit(r)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Удалить">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => {
-                          if (window.confirm('Удалить схему?')) del.mutate(r.id);
-                        }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
+              rows.map((r) => {
+                const status = stageMapStatus(r);
+                return (
+                  <TableRow key={r.id} hover>
+                    <TableCell>
+                      <code>{r.stage_external_id}</code>
+                    </TableCell>
+                    <TableCell>{r.title || '—'}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {r.has_svg ? (
+                          <Chip size="small" color="success" label="SVG" />
+                        ) : null}
+                        {r.has_external_plan ? (
+                          <Chip size="small" color="primary" variant="outlined" label="сайт" />
+                        ) : null}
+                        <Chip size="small" color={status.color} variant="outlined" label={status.label} />
+                        {!r.has_svg && !r.has_external_plan ? (
+                          <Chip size="small" label="нет подложки" />
+                        ) : null}
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Редактировать">
+                        <IconButton size="small" onClick={() => openEdit(r)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Удалить">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            if (window.confirm('Удалить схему?')) del.mutate(r.id);
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -355,7 +391,17 @@ export function GetbiletStageMapsPage() {
             multiline
             minRows={8}
             InputProps={{ sx: { fontFamily: 'monospace', fontSize: 12 } }}
-            helperText="Пробная схема МХТ: скопируйте целиком frontend/public/hall-maps/mht-im-chekhova-osnovnoy-zal.embed.svg (рядом лежит PNG той же схемы)."
+            helperText="Для интерактива нужен SVG с circle[place-name] или circle[data-replaced]. Для МХТ используйте frontend/public/hall-maps/mht-chekhov-osnovnoy-zal-native.svg."
+          />
+          <TextField
+            label="layout_json"
+            value={form.layout_json_text}
+            onChange={(e) => setForm((f) => ({ ...f, layout_json_text: e.target.value }))}
+            fullWidth
+            multiline
+            minRows={6}
+            InputProps={{ sx: { fontFamily: 'monospace', fontSize: 12 } }}
+            helperText={'Координаты можно хранить как {"layoutMode":"svgNative","seatPositions":[{"sector":"Партер","row":"1","seat":"1","xPct":50,"yPct":70}]}. Если SVG содержит circle[data-replaced], JSON с координатами не нужен.'}
           />
           <TextField
             label="Схема залов на сайте театра (URL)"

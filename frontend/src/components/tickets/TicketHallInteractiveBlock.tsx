@@ -2,9 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Button, Popover, Stack, Typography } from '@mui/material';
 import {
   buildSvgNativePlacements,
+  parseLayoutSeatPositions,
   parseLayoutMode,
   processHallSvgForNative,
+  seatMapKey,
+  type HallLayoutDiagnostics,
   type SvgNativePlacement,
+  type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
 import styles from './TicketHallInteractiveBlock.module.css';
 
@@ -68,8 +72,9 @@ type Props = {
 
 /**
  * Слой кликабельных мест поверх статичной SVG/PNG-схемы.
- * Режимы: (1) SVG с circle[place-name][row][place] — точки по координатам и сопоставление с офферами;
- * (2) условная сетка внутри overlayRect (layout_json.overlayRect или дефолт).
+ * Режимы: (1) layout_json.seats / seatPositions — точки по координатам поверх любой подложки;
+ * (2) SVG с circle[place-name][row][place] — точки по координатам и сопоставление с офферами;
+ * (3) условная сетка внутри overlayRect (layout_json.overlayRect или дефолт).
  * layout_json.layoutMode: auto | grid | svgNative (auto: нативный SVG, если найдены круги).
  */
 export function TicketHallInteractiveBlock({
@@ -96,28 +101,61 @@ export function TicketHallInteractiveBlock({
   const numRows = Math.max(1, sorted.length);
 
   const layoutMode = useMemo(() => parseLayoutMode(layoutJson), [layoutJson]);
+  const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
+  const nativeSource = layoutSeats.length >= 2 ? 'layout' : nativeProcessed ? 'svg' : null;
+  const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (layoutSeats.length >= 2) return layoutSeats;
+    return nativeProcessed?.seats ?? [];
+  }, [layoutSeats, nativeProcessed]);
   const useSvgNative =
     layoutMode !== 'grid' &&
     (layoutMode === 'svgNative' ||
-      (layoutMode === 'auto' && nativeProcessed != null && nativeProcessed.seats.length >= 2));
+      (layoutMode === 'auto' && nativeSeats.length >= 2));
 
   const svgHtmlSafe = useMemo(
-    () => (useSvgNative && nativeProcessed ? nativeProcessed.svgHtml : hallSvgHtml),
-    [hallSvgHtml, useSvgNative, nativeProcessed],
+    () => (useSvgNative && nativeSource === 'svg' && nativeProcessed ? nativeProcessed.svgHtml : hallSvgHtml),
+    [hallSvgHtml, useSvgNative, nativeSource, nativeProcessed],
   );
 
-  const { nativePlacements, unmatchedSvgSeats } = useMemo(() => {
-    if (!useSvgNative || !nativeProcessed) {
-      return { nativePlacements: [] as SvgNativePlacement[], unmatchedSvgSeats: 0 };
+  const { nativePlacements, unmatchedSvgSeats, nativeDiagnostics } = useMemo(() => {
+    const emptyDiagnostics: HallLayoutDiagnostics = {
+      totalSvgSeats: 0,
+      matchedSeats: 0,
+      unmatchedSvgCount: 0,
+      unmatchedOfferSeats: 0,
+    };
+    if (!useSvgNative || nativeSeats.length < 2) {
+      return {
+        nativePlacements: [] as SvgNativePlacement[],
+        unmatchedSvgSeats: 0,
+        nativeDiagnostics: emptyDiagnostics,
+      };
     }
     const { placements, unmatchedSvgCount } = buildSvgNativePlacements(
-      nativeProcessed.seats,
+      nativeSeats,
       offers,
       getPriceKey,
     );
-    return { nativePlacements: placements, unmatchedSvgSeats: unmatchedSvgCount };
-  }, [useSvgNative, nativeProcessed, offers, getPriceKey]);
+    return {
+      nativePlacements: placements,
+      unmatchedSvgSeats: unmatchedSvgCount,
+      nativeDiagnostics: {
+        totalSvgSeats: nativeSeats.length,
+        matchedSeats: placements.length,
+        unmatchedSvgCount,
+        unmatchedOfferSeats: Math.max(0, offers.reduce((sum, offer) => {
+          const seats = Array.isArray(offer.SeatList) ? offer.SeatList.length : 0;
+          return sum + seats;
+        }, 0) - placements.length),
+      },
+    };
+  }, [useSvgNative, nativeSeats, offers, getPriceKey]);
+
+  const matchedNativeSeatKeys = useMemo(
+    () => new Set(nativePlacements.map((p) => p.svgKey)),
+    [nativePlacements],
+  );
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<HTMLDivElement>(null);
@@ -253,6 +291,14 @@ export function TicketHallInteractiveBlock({
           кликабельным точкам.
         </p>
       )}
+      {useSvgNative && nativeDiagnostics.totalSvgSeats > 0 && (
+        <p className={styles.mapStatus}>
+          Сопоставлено {nativeDiagnostics.matchedSeats} из {nativeDiagnostics.totalSvgSeats} мест схемы.
+          {nativeDiagnostics.unmatchedOfferSeats > 0
+            ? ` Ещё ${nativeDiagnostics.unmatchedOfferSeats} мест из GetBilet пока доступны только в списке.`
+            : ''}
+        </p>
+      )}
 
       <div
         ref={viewportRef}
@@ -281,6 +327,18 @@ export function TicketHallInteractiveBlock({
               className={styles.seatLayer}
               aria-hidden={useSvgNative ? nativePlacements.length === 0 : sorted.length === 0}
             >
+              {useSvgNative && nativeSource === 'layout'
+                ? nativeSeats
+                    .filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
+                    .map((seat) => (
+                      <span
+                        key={`unavailable-${seatMapKey(seat.sector, seat.row, seat.seat)}`}
+                        className={styles.seatDotUnavailable}
+                        style={{ left: `${seat.xPct}%`, top: `${seat.yPct}%` }}
+                        title={`${seat.sector} · ряд ${seat.row} · место ${seat.seat} — недоступно`}
+                      />
+                    ))
+                : null}
               {useSvgNative
                 ? nativePlacements.map((p) => {
                     const active = activeOfferId === p.offerId && selectedSeats.includes(p.seat);

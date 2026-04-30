@@ -14,6 +14,8 @@ import {
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 
+const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
+
 function expandMediaTemplate(template, repertoireId) {
   if (!template?.trim()) return null;
   return template
@@ -81,6 +83,46 @@ function pickVenueFromMeta(rows) {
     if (v) return v;
   }
   return null;
+}
+
+function normVenueText(value) {
+  return String(value || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/Ё/g, 'е')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function looksLikeMhtChekhovVenue(...values) {
+  const text = normVenueText(values.filter(Boolean).join(' '));
+  if (!text) return false;
+  const hasChekhov = text.includes('чехов') || text.includes('chekhov') || text.includes('chehov');
+  const hasMht = text.includes('мхт') || text.includes('мхат') || text.includes('mxat');
+  const hasArtTheatre = text.includes('художественн') && text.includes('театр');
+  if (hasMht && !text.includes('горьк')) return true;
+  return hasChekhov && (hasMht || hasArtTheatre);
+}
+
+async function loadMhtChekhovStageMapFallback() {
+  const r = await ticketPool.query(
+    `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url
+     FROM getbilet_stage_maps
+     WHERE stage_external_id = $1
+        OR (
+          lower(coalesce(title, '')) LIKE '%мхт%'
+          AND lower(coalesce(title, '')) LIKE '%чехов%'
+        )
+        OR (
+          lower(coalesce(title, '')) LIKE '%мхат%'
+          AND lower(coalesce(title, '')) LIKE '%чехов%'
+        )
+     ORDER BY (stage_external_id = $1) DESC, id ASC
+     LIMIT 1`,
+    [MHT_MAIN_STAGE_ID],
+  );
+  return r.rows[0] || null;
 }
 
 /**
@@ -401,6 +443,29 @@ export async function getRepertoirePublicContext(repertoireId) {
       : null;
   let venueFromCatalogOrMaps = venueFromPayload || placeFromMaps.venue;
   if (manualVenue) venueFromCatalogOrMaps = manualVenue;
+  if (
+    !stageMap &&
+    looksLikeMhtChekhovVenue(
+      manualVenue,
+      venueFromPayload,
+      placeFromMaps.venue,
+      title,
+      pickFirst(payload, ['StageName', 'stageName', 'HallName', 'hallName', 'PlaceName', 'placeName']),
+    )
+  ) {
+    try {
+      stageMap = await loadMhtChekhovStageMapFallback();
+    } catch {
+      /* таблицы схем может не быть */
+    }
+  }
+  const venueFromFallbackStageMap =
+    stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
+      ? stageMap.title.trim()
+      : null;
+  if (!venueFromCatalogOrMaps && venueFromFallbackStageMap) {
+    venueFromCatalogOrMaps = venueFromFallbackStageMap;
+  }
   const addressFromMaps = placeFromMaps.address;
   const venueForRichText = venueFromCatalogOrMaps || venueFromStageMap || null;
   const addressForUi =

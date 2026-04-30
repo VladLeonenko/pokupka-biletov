@@ -29,10 +29,11 @@ const FALLBACK_EMBED = path.join(
   '../../frontend/public/hall-maps/mht-im-chekhova-osnovnoy-zal.embed.svg',
 );
 
-const LAYOUT_JSON = JSON.stringify({
-  layoutMode: 'auto',
-  note: 'auto: векторные circle[place-name] → точки по координатам; иначе сетка overlayRect',
-});
+function countNativeSeatCircles(svg) {
+  const placeNameCount = (svg.match(/<circle\b[^>]*\bplace-name=/gi) || []).length;
+  const dataReplacedCount = (svg.match(/<circle\b[^>]*\bdata-replaced=/gi) || []).length;
+  return placeNameCount + dataReplacedCount;
+}
 
 async function main() {
   let svgPath = NATIVE_SVG;
@@ -45,6 +46,21 @@ async function main() {
     process.exit(1);
   }
   const svg_markup = fs.readFileSync(svgPath, 'utf-8');
+  const nativeSeatCount = countNativeSeatCircles(svg_markup);
+  const layoutJson = JSON.stringify({
+    layoutMode: nativeSeatCount >= 2 ? 'svgNative' : 'grid',
+    nativeSeatCount,
+    note:
+      nativeSeatCount >= 2
+        ? 'svgNative: места берутся из circle[place-name] или circle[data-replaced]'
+        : 'grid: в SVG нет координат мест, это только визуальная подложка',
+  });
+  if (nativeSeatCount < 2) {
+    console.warn(
+      '[seed-mht-main-hall-stage-map] выбранная схема не содержит координат мест, интерактив будет только сеткой:',
+      path.basename(svgPath),
+    );
+  }
 
   const r = await ticketPool.query(
     `INSERT INTO getbilet_stage_maps (
@@ -57,7 +73,7 @@ async function main() {
        layout_json = EXCLUDED.layout_json,
        updated_at = NOW()
      RETURNING id, stage_external_id, title`,
-    [STAGE_ID, TITLE, svg_markup, LAYOUT_JSON],
+    [STAGE_ID, TITLE, svg_markup, layoutJson],
   );
 
   console.log('[seed-mht-main-hall-stage-map] сохранено:', r.rows[0], 'источник:', path.basename(svgPath));
