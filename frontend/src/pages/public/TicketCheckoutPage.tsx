@@ -450,12 +450,12 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (!offerId) return;
-    const still = filteredOffers.some((o) => String(o.Id ?? '') === offerId);
+    const still = offersForMap.some((o) => String(o.Id ?? '') === offerId);
     if (!still) {
       setOfferId(null);
       setSeats([]);
     }
-  }, [filteredOffers, offerId]);
+  }, [offersForMap, offerId]);
 
   const toggleSeat = (oid: string, seat: string, available: string[]) => {
     if (offerId !== oid) {

@@ -157,6 +157,16 @@ export function TicketHallInteractiveBlock({
     null,
   );
 
+  const showSeatInfo = useCallback((anchor: HTMLElement, info: HoverSeatInfo) => {
+    setHoverAnchor(anchor);
+    setHoverSeat(info);
+  }, []);
+
+  const hideSeatInfo = useCallback(() => {
+    setHoverAnchor(null);
+    setHoverSeat(null);
+  }, []);
+
   const applyFit = useCallback((resetPan: boolean) => {
     const vp = viewportRef.current;
     const layers = layersRef.current;
@@ -322,20 +332,33 @@ export function TicketHallInteractiveBlock({
                         }
                         aria-label={p.title}
                         onPointerDown={(ev) => ev.stopPropagation()}
-                        onMouseEnter={(ev) => {
-                          setHoverAnchor(ev.currentTarget);
-                          setHoverSeat({
+                        onPointerEnter={(ev) => {
+                          showSeatInfo(ev.currentTarget, {
                             sector: p.sectorLabel,
                             row: p.rowLabel,
                             seat: p.seat,
                             priceKey: p.priceKey,
                           });
                         }}
-                        onMouseLeave={() => {
-                          setHoverAnchor(null);
-                          setHoverSeat(null);
+                        onPointerLeave={(ev) => {
+                          if (ev.pointerType === 'mouse') hideSeatInfo();
                         }}
-                        onClick={() => {
+                        onFocus={(ev) => {
+                          showSeatInfo(ev.currentTarget, {
+                            sector: p.sectorLabel,
+                            row: p.rowLabel,
+                            seat: p.seat,
+                            priceKey: p.priceKey,
+                          });
+                        }}
+                        onBlur={hideSeatInfo}
+                        onClick={(ev) => {
+                          showSeatInfo(ev.currentTarget, {
+                            sector: p.sectorLabel,
+                            row: p.rowLabel,
+                            seat: p.seat,
+                            priceKey: p.priceKey,
+                          });
                           onToggleSeat(p.offerId, p.seat, p.available);
                         }}
                       >
@@ -362,20 +385,33 @@ export function TicketHallInteractiveBlock({
                           style={{ left: `${gx * 100}%`, top: `${gy * 100}%`, '--seat-accent': bg } as React.CSSProperties}
                           aria-label={`${row.Sector ?? ''} · ряд ${row.Row ?? ''} · место ${seat} · ${pk} ₽`}
                           onPointerDown={(ev) => ev.stopPropagation()}
-                          onMouseEnter={(ev) => {
-                            setHoverAnchor(ev.currentTarget);
-                            setHoverSeat({
+                          onPointerEnter={(ev) => {
+                            showSeatInfo(ev.currentTarget, {
                               sector: String(row.Sector ?? ''),
                               row: String(row.Row ?? ''),
                               seat,
                               priceKey: pk,
                             });
                           }}
-                          onMouseLeave={() => {
-                            setHoverAnchor(null);
-                            setHoverSeat(null);
+                          onPointerLeave={(ev) => {
+                            if (ev.pointerType === 'mouse') hideSeatInfo();
                           }}
-                          onClick={() => {
+                          onFocus={(ev) => {
+                            showSeatInfo(ev.currentTarget, {
+                              sector: String(row.Sector ?? ''),
+                              row: String(row.Row ?? ''),
+                              seat,
+                              priceKey: pk,
+                            });
+                          }}
+                          onBlur={hideSeatInfo}
+                          onClick={(ev) => {
+                            showSeatInfo(ev.currentTarget, {
+                              sector: String(row.Sector ?? ''),
+                              row: String(row.Row ?? ''),
+                              seat,
+                              priceKey: pk,
+                            });
                             onToggleSeat(oid, seat, seats);
                           }}
                         >
@@ -392,12 +428,11 @@ export function TicketHallInteractiveBlock({
       <Popover
         open={Boolean(hoverAnchor && hoverSeat)}
         anchorEl={hoverAnchor}
-        onClose={() => {
-          setHoverAnchor(null);
-          setHoverSeat(null);
-        }}
+        onClose={hideSeatInfo}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        disableAutoFocus
+        disableEnforceFocus
         disableRestoreFocus
         slotProps={{
           paper: {
