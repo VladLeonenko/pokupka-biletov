@@ -181,6 +181,11 @@ function looksLikeGetbiletId(s: string): boolean {
   return /^[a-f0-9]{24}$/i.test(s.trim());
 }
 
+/** Совпадает с TBANK_DEMO_REPERTOIRE_ID на backend (seed-tbank-demo-event). */
+const demoRepEnv = import.meta.env.VITE_TBANK_DEMO_REPERTOIRE_ID;
+const DEMO_REPERTOIRE_ID =
+  typeof demoRepEnv === 'string' && demoRepEnv.trim() ? demoRepEnv.trim() : 'tbank-demo-event';
+
 function eventRepId(ev: NormalizedBiletEvent | null | undefined): string {
   if (!ev) return '';
   return (
@@ -217,7 +222,15 @@ export function TicketCheckoutPage() {
     return matches.length === 1 ? matches[0] : null;
   }, [rawEventsForSlug, routeSlug, routeKeyIsId]);
 
-  const repertoireId = routeKeyIsId ? routeKey : eventRepId(resolvedEventFromSlug);
+  const repertoireId = useMemo(() => {
+    const rk = routeKey.trim();
+    if (!rk) return '';
+    if (looksLikeGetbiletId(rk)) return rk;
+    const leg = legacyRepertoireId.trim();
+    if (leg) return leg;
+    if (rk === DEMO_REPERTOIRE_ID) return rk;
+    return eventRepId(resolvedEventFromSlug);
+  }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);
   const titleHint = searchParams.get('title') ?? resolvedEventFromSlug?.title ?? 'Мероприятие';
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
@@ -742,10 +755,20 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
+    if (legacyRepertoireId.trim() && legacySlug.trim()) return;
+    if (routeSlug === DEMO_REPERTOIRE_ID) return;
     if (!resolvedEventFromSlug) {
       navigate('/events', { replace: true });
     }
-  }, [navigate, resolvedEventFromSlug, routeKeyIsId, routeSlug, slugResolveFetched]);
+  }, [
+    navigate,
+    resolvedEventFromSlug,
+    routeKeyIsId,
+    routeSlug,
+    slugResolveFetched,
+    legacyRepertoireId,
+    legacySlug,
+  ]);
 
   useEffect(() => {
     setShowAllOfferRows(false);

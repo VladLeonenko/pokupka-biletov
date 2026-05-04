@@ -4,6 +4,12 @@
 import ticketPool from '../ticketDb.js';
 import { restV2GetOfferListByRepertoireId } from './getbiletRestV2.js';
 
+const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
+
+function isDemoRepertoireId(repertoireId) {
+  return String(repertoireId || '').trim() === DEMO_REPERTOIRE_ID;
+}
+
 /** @type {Map<string, Promise<unknown>>} */
 const inflight = new Map();
 
@@ -41,6 +47,13 @@ async function upsert(repertoireId, data) {
  * @param {string} repertoireId
  */
 async function fetchUpsert(repertoireId) {
+  if (isDemoRepertoireId(repertoireId)) {
+    const r = await ticketPool.query(
+      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [repertoireId],
+    );
+    return r.rows[0]?.payload_json ?? { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] };
+  }
   const k = inflightKey(repertoireId);
   if (inflight.has(k)) return inflight.get(k);
   const p = (async () => {
@@ -84,6 +97,19 @@ export async function invalidateOffersCache(repertoireId) {
  */
 export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) {
   const forceRefresh = Boolean(opts.forceRefresh);
+
+  if (isDemoRepertoireId(repertoireId)) {
+    const r = await ticketPool.query(
+      `SELECT payload_json, fetched_at FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [repertoireId],
+    );
+    const row = r.rows[0];
+    if (row?.payload_json) {
+      return { data: row.payload_json, meta: { cache: 'demo', ageMs: Date.now() - new Date(row.fetched_at).getTime() } };
+    }
+    const empty = { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] };
+    return { data: empty, meta: { cache: 'demo_empty' } };
+  }
 
   if (!cacheEnabled()) {
     const data = await restV2GetOfferListByRepertoireId(repertoireId);
