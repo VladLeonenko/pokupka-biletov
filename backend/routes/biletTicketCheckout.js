@@ -63,13 +63,9 @@ function parseOfferRow(offerPayload) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
 
-function isTbankDemoCheckoutAllowed() {
-  const terminalKey = process.env.TBANK_TERMINAL_KEY?.trim() || process.env.TINKOFF_TERMINAL_KEY?.trim() || '';
-  return process.env.TBANK_ENABLE_DEMO_EVENT === '1' || /DEMO$/i.test(terminalKey);
-}
-
+/** Локальное демо из seed-tbank-demo-event: не вызываем GetBilet, сумма из кэша офферов, оплата — обычный T-Bank. */
 function isDemoCheckoutPayload(repertoireId, offerId) {
-  return isTbankDemoCheckoutAllowed() && repertoireId === DEMO_REPERTOIRE_ID && offerId.startsWith('tb-demo-');
+  return repertoireId === DEMO_REPERTOIRE_ID && String(offerId).startsWith('tb-demo-');
 }
 
 async function loadDemoOffer(repertoireId, offerId) {
