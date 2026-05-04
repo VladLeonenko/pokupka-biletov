@@ -1,5 +1,8 @@
 /* Chrome/Android: не раздувать шрифт при «удобном» масштабе */
 html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -12,6 +15,9 @@ html {
 
 /* Глобальные стили для темной темы */
 body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   background-color: #141414 !important;
   color: #ffffff !important;
   font-family: 'Raleway', 'Play', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif !important;
@@ -25,6 +31,13 @@ body {
   user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
+}
+
+@supports not (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
 }
 
 /* Единая типографика на весь сайт */

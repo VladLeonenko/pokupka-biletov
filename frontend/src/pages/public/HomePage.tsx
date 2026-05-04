@@ -13,7 +13,8 @@ import { NEGLINKA_DEMO_EVENTS } from '@/components/tickets/neglinkaDemoData';
 import {
   attachInferredEventFields,
   dedupeBiletEventsByShow,
-  fetchBiletEvents,
+  fetchBiletHome,
+  fetchBiletEventsLite,
   normalizeBiletEventsPayload,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
@@ -36,13 +37,21 @@ export function HomePage() {
   const sessionEvents = useMemo(() => readBiletEventsSessionCache(cityId), [cityId]);
 
   const { data: raw, isPending: eventsPending, isError } = useQuery({
-    queryKey: ['bilet-events-public', cityId],
-    queryFn: () => fetchBiletEvents(),
+    queryKey: ['bilet-home-public', cityId],
+    queryFn: () => fetchBiletHome(),
     staleTime: 120_000,
     gcTime: 30 * 60_000,
     retry: 1,
     initialData: sessionEvents?.data,
     initialDataUpdatedAt: sessionEvents?.updatedAt,
+  });
+
+  const { data: rawSportLite } = useQuery({
+    queryKey: ['bilet-events-lite-public', cityId, 'sport-home'],
+    queryFn: () => fetchBiletEventsLite(500),
+    staleTime: 120_000,
+    gcTime: 30 * 60_000,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -58,6 +67,7 @@ export function HomePage() {
   const vitrine = useMemo(() => mergeTicketsVitrine(vitrineRes?.content), [vitrineRes]);
 
   const normalized = useMemo(() => normalizeBiletEventsPayload(raw), [raw]);
+  const normalizedSportLite = useMemo(() => normalizeBiletEventsPayload(rawSportLite), [rawSportLite]);
 
   const filtered = useMemo(() => {
     if (!dateFilter) return normalized;
@@ -105,6 +115,13 @@ export function HomePage() {
     return dedupeBiletEventsByShow(displayEvents);
   }, [emptyDateFilter, displayEvents]);
 
+  const sportEventsForUi = useMemo(() => {
+    const source = dateFilter
+      ? normalizedSportLite.filter((e) => e.isoDate?.startsWith(dateFilter))
+      : normalizedSportLite;
+    return dedupeBiletEventsByShow(source);
+  }, [dateFilter, normalizedSportLite]);
+
   const heroSlides = useMemo(
     () => buildHeroSlides(vitrine.heroSlides, eventsForUi),
     [vitrine.heroSlides, eventsForUi]
@@ -127,6 +144,7 @@ export function HomePage() {
       <TicketsHomeSections
         heroSlides={heroSlides}
         events={eventsForUi}
+        sportEvents={sportEventsForUi}
         directions={directionsForHomeCarousels(vitrine.directions)}
         heroLoading={heroLoading}
         listLoading={listLoading}

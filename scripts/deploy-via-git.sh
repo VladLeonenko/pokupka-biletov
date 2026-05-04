@@ -61,6 +61,8 @@ npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit
 : "${NODE_OPTIONS:=--max-old-space-size=4096}"
 export NODE_OPTIONS
 npm run build
+# Google Search Console (файл не храним в git — dist пересобирается на каждом деплое)
+printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
 chown -R www-data:www-data dist 2>/dev/null || true
 echo "✅ Frontend собран"
 
@@ -83,6 +85,11 @@ fi
 if [ -f "scripts/apply-ticket-migrations.js" ]; then
   echo "🎫 Миграции ticket DB..."
   node scripts/apply-ticket-migrations.js 2>/dev/null || echo "⚠️ Ticket DB: задайте TICKET_* в .env и примените migrate:tickets"
+fi
+
+if [ -f "scripts/seed-tbank-demo-event.js" ]; then
+  echo "🧪 Демо-мероприятие T-Bank (тест интернет-эквайринга)..."
+  node scripts/seed-tbank-demo-event.js 2>/dev/null || echo "⚠️ seed T-Bank demo: проверьте TICKET_* и ticket DB"
 fi
 
 if [ -f "scripts/seed-mht-main-hall-stage-map.js" ]; then

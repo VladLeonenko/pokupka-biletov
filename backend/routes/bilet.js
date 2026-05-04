@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import {
   bil24JsonCommand,
   getGetbiletConfig,
@@ -135,6 +136,10 @@ function getbiletEventsCacheKey(req) {
   return `v2|${protocol}|${mode}|${cityId}`;
 }
 
+/** Один общий loadEventsPayload на ключ: главная параллельно дергает /home и /events-lite. */
+/** @type {Map<string, Promise<unknown>>} */
+const loadEventsPayloadInflight = new Map();
+
 /**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -148,7 +153,194 @@ function sendJsonWithEventsCache(req, res, payload) {
   } else {
     res.setHeader('X-Getbilet-Events-Cache', 'bypass');
   }
-  return res.json(payload);
+  return sendPublicJson(req, res, payload, { cacheSeconds: 60, staleSeconds: 300 });
+}
+
+function publicJsonEtag(body) {
+  return `"${crypto.createHash('sha1').update(body).digest('base64url')}"`;
+}
+
+function sendPublicJson(req, res, payload, opts = {}) {
+  const body = JSON.stringify(payload);
+  const etag = publicJsonEtag(body);
+  const maxAge = Number.isFinite(opts.cacheSeconds) ? opts.cacheSeconds : 60;
+  const stale = Number.isFinite(opts.staleSeconds) ? opts.staleSeconds : 300;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=${stale}`);
+  res.setHeader('ETag', etag);
+  if (req.headers['if-none-match'] === etag) {
+    return res.status(304).end();
+  }
+  return res.send(body);
+}
+
+function pickPublicString(row, keys) {
+  if (!row || typeof row !== 'object') return undefined;
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return undefined;
+}
+
+function compactGetbiletAction(row) {
+  if (!row || typeof row !== 'object') return null;
+  const id = pickPublicString(row, [
+    'vitrineRowId',
+    'VitrineRowId',
+    'actionId',
+    'id',
+    'Id',
+    'ID',
+    'eventId',
+    'EventId',
+    'RepertoireId',
+    'repertoireId',
+  ]);
+  const title = pickPublicString(row, [
+    'actionName',
+    'name',
+    'Name',
+    'title',
+    'Title',
+    'eventName',
+    'subject',
+  ]);
+  if (!id && !title) return null;
+  return {
+    id: id || title,
+    repertoireId: pickPublicString(row, ['RepertoireId', 'repertoireId', 'repertoireID']),
+    title: title || 'Без названия',
+    shortDescription: pickPublicString(row, ['shortDescription', 'ShortDescription', 'subtitle', 'Subtitle']),
+    HeroDescription: pickPublicString(row, ['HeroDescription', 'heroDescription']),
+    PlaceName: pickPublicString(row, ['PlaceName', 'placeName', 'venueName', 'VenueName', 'venue']),
+    PlaceAddress: pickPublicString(row, ['PlaceAddress', 'placeAddress', 'venueAddress', 'VenueAddress']),
+    genreName: pickPublicString(row, ['genreName', 'genre', 'Genre', 'categoryName', 'Category']),
+    ageLimit: pickPublicString(row, ['age', 'ageLimit', 'Age', 'restriction', 'AgeLimit']),
+    beginDateTime: pickPublicString(row, ['beginDateTime', 'beginDate', 'dateTime', 'date', 'Date']),
+    startDateTime: pickPublicString(row, ['startDateTime', 'isoDate', 'BeginDateTime', 'EventDateTime']),
+    posterUrl: pickPublicString(row, ['posterUrl', 'poster', 'Poster', 'imageUrl', 'ImageUrl', 'Image']),
+    bannerUrl: pickPublicString(row, ['BannerUrl', 'bannerUrl', 'BannerURL']),
+    stageId: pickPublicString(row, ['stageId', 'StageId']),
+    authorName: pickPublicString(row, ['authorName', 'Author', 'author', 'AuthorName']),
+    directorName: pickPublicString(row, ['directorName', 'director', 'Director', 'DirectorName']),
+    isPremiere: row.isPremiere ?? row.premiere ?? row.IsPremiere,
+  };
+}
+
+function compactActions(actions, limit = 120) {
+  if (!Array.isArray(actions)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const action of actions) {
+    const item = compactGetbiletAction(action);
+    if (!item) continue;
+    const key = item.repertoireId || item.id || item.title;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * Тот же объект каталога, что в GET /api/bilet/events (полный payload.actions).
+ * Главная и /events-lite раньше не читали in-memory слой: при сценарии «только главная»
+ * кэш от /events не использовался и не заполнялся этими маршрутами.
+ * @param {import('express').Request} req
+ * @param {{ bypass?: boolean }} [opts]
+ * @returns {Promise<{ data: unknown, fromCache: boolean }>}
+ */
+async function getOrLoadEventsPayloadForPublic(req, opts = {}) {
+  const bypass =
+    opts.bypass === true || req.query.refresh === '1' || req.query.fresh === '1';
+  const cacheKey = getbiletEventsCacheKey(req);
+  if (!bypass) {
+    const hit = getGetbiletEventsHttpCache(cacheKey);
+    if (hit) {
+      try {
+        return { data: JSON.parse(hit), fromCache: true };
+      } catch {
+        /* битый слот — пересобираем */
+      }
+    }
+  }
+  if (bypass) {
+    const data = await loadEventsPayload(req);
+    return { data, fromCache: false };
+  }
+  let inflight = loadEventsPayloadInflight.get(cacheKey);
+  if (!inflight) {
+    inflight = loadEventsPayload(req).finally(() => {
+      if (loadEventsPayloadInflight.get(cacheKey) === inflight) {
+        loadEventsPayloadInflight.delete(cacheKey);
+      }
+    });
+    loadEventsPayloadInflight.set(cacheKey, inflight);
+  }
+  const data = await inflight;
+  return { data, fromCache: false };
+}
+
+async function loadEventsPayload(req) {
+  const { protocol } = getGetbiletConfig();
+  if (protocol === 'rest_v2') {
+    const mode = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
+
+    if (mode === 'database') {
+      const actions = await loadCatalogActionsFromDatabase();
+      return { actions };
+    }
+
+    if (mode === 'database_fallback') {
+      try {
+        const data = await restV2BuildEventsCatalog();
+        let actions = data.actions || [];
+        try {
+          actions = await enrichRestV2CatalogActions(actions);
+        } catch (e) {
+          console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
+        }
+        return { ...data, actions };
+      } catch (e) {
+        console.error('[getbilet] live catalog failed, using DB cache:', e instanceof Error ? e.message : e);
+        const actions = await loadCatalogActionsFromDatabase();
+        return { actions, fromDatabaseFallback: true };
+      }
+    }
+
+    const data = await restV2BuildEventsCatalog();
+    try {
+      data.actions = await enrichRestV2CatalogActions(data.actions);
+    } catch (e) {
+      console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
+    }
+    if (!Array.isArray(data.actions) || data.actions.length === 0) {
+      try {
+        const fromDb = await loadCatalogActionsFromDatabase();
+        if (Array.isArray(fromDb) && fromDb.length > 0) {
+          data.actions = fromDb;
+          data.fromDatabaseBecauseLiveEmpty = true;
+        }
+      } catch (e) {
+        if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
+          /* нет getbilet_catalog_cache */
+        } else {
+          console.error('[getbilet] live пуст, fallback БД не удался:', e instanceof Error ? e.message : e);
+        }
+      }
+    }
+    return data;
+  }
+  if (protocol === 'rest') {
+    const path = process.env.GETBILET_REST_EVENTS_PATH || '/events';
+    return restGetJson(path, /** @type {Record<string, string>} */ (req.query));
+  }
+
+  const cityId = parseQueryULong(req.query.cityId, 'cityId');
+  return bil24JsonCommand('GET_ACTIONS_V2', { cityId });
 }
 
 /** Публично: протокол бэкенда — фронт подставляет cityId только для BIL24 */
@@ -296,6 +488,51 @@ router.post('/reserve', async (req, res) => {
   }
 });
 
+/** Компактный payload для главной: меньше JSON и меньше CPU на слабых устройствах. */
+router.get('/home', async (req, res) => {
+  try {
+    const bypass = req.query.refresh === '1' || req.query.fresh === '1';
+    const { data, fromCache } = await getOrLoadEventsPayloadForPublic(req, { bypass });
+    if (!bypass && !fromCache) {
+      setGetbiletEventsHttpCache(getbiletEventsCacheKey(req), data);
+    }
+    const actions = compactActions(data?.actions, Number(process.env.GETBILET_HOME_EVENTS_LIMIT || 120));
+    return sendPublicJson(req, res, {
+      actions,
+      total: Array.isArray(data?.actions) ? data.actions.length : actions.length,
+      compact: true,
+    }, { cacheSeconds: 120, staleSeconds: 600 });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({
+        error: 'catalog_cache_missing',
+        message: 'Таблица getbilet_catalog_cache не создана — выполните миграции и POST /api/admin/getbilet/sync-catalog',
+      });
+    }
+    return sendGetbiletError(err, res);
+  }
+});
+
+/** Лёгкий список для перелинковки/SEO-блоков и будущих виджетов. */
+router.get('/events-lite', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
+    const bypass = req.query.refresh === '1' || req.query.fresh === '1';
+    const { data, fromCache } = await getOrLoadEventsPayloadForPublic(req, { bypass });
+    if (!bypass && !fromCache) {
+      setGetbiletEventsHttpCache(getbiletEventsCacheKey(req), data);
+    }
+    const actions = compactActions(data?.actions, limit);
+    return sendPublicJson(req, res, {
+      actions,
+      total: Array.isArray(data?.actions) ? data.actions.length : actions.length,
+      compact: true,
+    }, { cacheSeconds: 120, staleSeconds: 600 });
+  } catch (err) {
+    return sendGetbiletError(err, res);
+  }
+});
+
 /** Список мероприятий: BIL24 GET_ACTIONS_V2 | REST | rest_v2 репертуары по сценам */
 router.get('/events', async (req, res) => {
   try {
@@ -303,85 +540,26 @@ router.get('/events', async (req, res) => {
     if (!bypass) {
       const hit = getGetbiletEventsHttpCache(getbiletEventsCacheKey(req));
       if (hit) {
+        const etag = publicJsonEtag(hit);
         res.setHeader('X-Getbilet-Events-Cache', 'hit');
-        res.type('application/json');
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        res.setHeader('ETag', etag);
+        if (req.headers['if-none-match'] === etag) {
+          return res.status(304).end();
+        }
         return res.send(hit);
       }
     }
-
-    const { protocol } = getGetbiletConfig();
-    if (protocol === 'rest_v2') {
-      const mode = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
-
-      if (mode === 'database') {
-        try {
-          const actions = await loadCatalogActionsFromDatabase();
-          return sendJsonWithEventsCache(req, res, { actions });
-        } catch (e) {
-          if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
-            return res.status(503).json({
-              error: 'catalog_cache_missing',
-              message: 'Таблица getbilet_catalog_cache не создана — выполните миграции и POST /api/admin/getbilet/sync-catalog',
-            });
-          }
-          throw e;
-        }
-      }
-
-      if (mode === 'database_fallback') {
-        try {
-          const data = await restV2BuildEventsCatalog();
-          let actions = data.actions || [];
-          try {
-            actions = await enrichRestV2CatalogActions(actions);
-          } catch (e) {
-            console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
-          }
-          return sendJsonWithEventsCache(req, res, { actions });
-        } catch (e) {
-          console.error('[getbilet] live catalog failed, using DB cache:', e instanceof Error ? e.message : e);
-          try {
-            const actions = await loadCatalogActionsFromDatabase();
-            return sendJsonWithEventsCache(req, res, { actions, fromDatabaseFallback: true });
-          } catch (e2) {
-            return sendGetbiletError(e2, res);
-          }
-        }
-      }
-
-      const data = await restV2BuildEventsCatalog();
-      try {
-        data.actions = await enrichRestV2CatalogActions(data.actions);
-      } catch (e) {
-        console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
-      }
-      if (!Array.isArray(data.actions) || data.actions.length === 0) {
-        try {
-          const fromDb = await loadCatalogActionsFromDatabase();
-          if (Array.isArray(fromDb) && fromDb.length > 0) {
-            data.actions = fromDb;
-            data.fromDatabaseBecauseLiveEmpty = true;
-          }
-        } catch (e) {
-          if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
-            /* нет getbilet_catalog_cache */
-          } else {
-            console.error('[getbilet] live пуст, fallback БД не удался:', e instanceof Error ? e.message : e);
-          }
-        }
-      }
-      return sendJsonWithEventsCache(req, res, data);
-    }
-    if (protocol === 'rest') {
-      const path = process.env.GETBILET_REST_EVENTS_PATH || '/events';
-      const data = await restGetJson(path, /** @type {Record<string, string>} */ (req.query));
-      return sendJsonWithEventsCache(req, res, data);
-    }
-
-    const cityId = parseQueryULong(req.query.cityId, 'cityId');
-    const data = await bil24JsonCommand('GET_ACTIONS_V2', { cityId });
+    const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
     return sendJsonWithEventsCache(req, res, data);
   } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({
+        error: 'catalog_cache_missing',
+        message: 'Таблица getbilet_catalog_cache не создана — выполните миграции и POST /api/admin/getbilet/sync-catalog',
+      });
+    }
     return sendGetbiletError(err, res);
   }
 });

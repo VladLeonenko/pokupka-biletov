@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { IconButton, Tooltip } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -43,6 +43,11 @@ function isYearMonth(s: string | null): s is string {
 
 export function TicketsHeader() {
   const [open, setOpen] = useState(false);
+  const [calendarCollapsed, setCalendarCollapsed] = useState(false);
+  const [calendarAutoHidden, setCalendarAutoHidden] = useState(false);
+  const calendarAutoHiddenRef = useRef(false);
+  const lastScrollYRef = useRef(0);
+  const scrollRafRef = useRef<number | null>(null);
   const loc = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -85,6 +90,38 @@ export function TicketsHeader() {
     setTicketsVitrineFaviconBase(faviconUrl);
     return () => setTicketsVitrineFaviconBase(null);
   }, [ticketsChrome, faviconUrl]);
+
+  useEffect(() => {
+    if (!ticketsChrome) return undefined;
+    const updateCalendarVisibility = () => {
+      scrollRafRef.current = null;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      const scrollingUp = y < lastScrollYRef.current;
+      const shouldShowNearTop = calendarAutoHiddenRef.current && scrollingUp && y <= 48;
+      const hidden = y > 1 && !shouldShowNearTop;
+      lastScrollYRef.current = y;
+      if (calendarAutoHiddenRef.current !== hidden) {
+        calendarAutoHiddenRef.current = hidden;
+        setCalendarAutoHidden(hidden);
+      }
+      if (!hidden) {
+        setCalendarCollapsed(false);
+      }
+    };
+    const scheduleCalendarVisibilityUpdate = () => {
+      if (scrollRafRef.current != null) return;
+      scrollRafRef.current = window.requestAnimationFrame(updateCalendarVisibility);
+    };
+    updateCalendarVisibility();
+    window.addEventListener('scroll', scheduleCalendarVisibilityUpdate, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', scheduleCalendarVisibilityUpdate);
+      if (scrollRafRef.current != null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+  }, [ticketsChrome]);
 
   const homePaths = loc.pathname === '/' || loc.pathname === '/afisha';
 
@@ -280,67 +317,85 @@ export function TicketsHeader() {
           </form>
         </div>
 
-        <div className={styles.calendarRow}>
-          <div className={styles.calendarHead}>
-            <div className={styles.calendarLabel}>Календарь мероприятий</div>
-            <div className={styles.monthNav} aria-label="Быстрый выбор месяца">
-              <button
-                type="button"
-                className={styles.monthArrow}
-                aria-label="Предыдущие три месяца"
-                disabled={monthBlock === 0}
-                onClick={() => setMonthBlock((b) => Math.max(0, b - 1))}
-              >
-                <ChevronLeftIcon sx={{ fontSize: 22 }} />
-              </button>
-              <div className={styles.monthPills}>
-                {monthPills.map((d) => {
-                  const ym = monthPillKey(d);
-                  return (
-                    <button
-                      key={ym}
-                      type="button"
-                      className={`${styles.monthPill} ${isMonthActive(d) ? styles.monthPillActive : ''}`}
-                      onClick={() => setMonthYm(ym)}
-                    >
-                      {monthPillLabel(d)}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                className={styles.monthArrow}
-                aria-label="Следующие три месяца"
-                onClick={() => setMonthBlock((b) => b + 1)}
-              >
-                <ChevronRightIcon sx={{ fontSize: 22 }} />
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.calendarStrip} role="list">
-            {days.map((d) => {
-              const iso = format(d, 'yyyy-MM-dd');
-              const active =
-                homePaths &&
-                (selectedDate === iso ||
-                  (isYearMonth(selectedDate) && iso.startsWith(selectedDate)));
-              return (
+        <div
+          className={`${styles.calendarRow} ${calendarAutoHidden ? styles.calendarRowAutoHidden : ''}`}
+          aria-hidden={calendarAutoHidden ? 'true' : undefined}
+        >
+          <div className={styles.calendarRowInner}>
+            <div className={styles.calendarHead}>
+              <div className={styles.calendarTitleRow}>
+                <div className={styles.calendarLabel}>Календарь мероприятий</div>
                 <button
-                  key={iso}
                   type="button"
-                  role="listitem"
-                  data-tickets-day-active={active ? 'true' : undefined}
-                  className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
-                  onClick={() => setDate(iso)}
-                  title={format(d, 'd MMMM yyyy', { locale: ru })}
+                  className={styles.calendarToggle}
+                  onClick={() => setCalendarCollapsed((value) => !value)}
                 >
-                  <div className={styles.dayNum}>{format(d, 'd')}</div>
-                  <div className={styles.dayWeek}>{format(d, 'EEE', { locale: ru })}</div>
+                  {calendarCollapsed ? 'Показать даты' : 'Скрыть даты'}
                 </button>
-              );
-            })}
+              </div>
+              {!calendarCollapsed ? (
+              <div className={styles.monthNav} aria-label="Быстрый выбор месяца">
+                <button
+                  type="button"
+                  className={styles.monthArrow}
+                  aria-label="Предыдущие три месяца"
+                  disabled={monthBlock === 0}
+                  onClick={() => setMonthBlock((b) => Math.max(0, b - 1))}
+                >
+                  <ChevronLeftIcon sx={{ fontSize: 22 }} />
+                </button>
+                <div className={styles.monthPills}>
+                  {monthPills.map((d) => {
+                    const ym = monthPillKey(d);
+                    return (
+                      <button
+                        key={ym}
+                        type="button"
+                        className={`${styles.monthPill} ${isMonthActive(d) ? styles.monthPillActive : ''}`}
+                        onClick={() => setMonthYm(ym)}
+                      >
+                        {monthPillLabel(d)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className={styles.monthArrow}
+                  aria-label="Следующие три месяца"
+                  onClick={() => setMonthBlock((b) => b + 1)}
+                >
+                  <ChevronRightIcon sx={{ fontSize: 22 }} />
+                </button>
+              </div>
+              ) : null}
+            </div>
+
+            {!calendarCollapsed ? (
+            <div className={styles.calendarStrip} role="list">
+              {days.map((d) => {
+                const iso = format(d, 'yyyy-MM-dd');
+                const active =
+                  homePaths &&
+                  (selectedDate === iso ||
+                    (isYearMonth(selectedDate) && iso.startsWith(selectedDate)));
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    role="listitem"
+                    data-tickets-day-active={active ? 'true' : undefined}
+                    className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
+                    onClick={() => setDate(iso)}
+                    title={format(d, 'd MMMM yyyy', { locale: ru })}
+                  >
+                    <div className={styles.dayNum}>{format(d, 'd')}</div>
+                    <div className={styles.dayWeek}>{format(d, 'EEE', { locale: ru })}</div>
+                  </button>
+                );
+              })}
+            </div>
+            ) : null}
           </div>
         </div>
 

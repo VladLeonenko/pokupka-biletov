@@ -103,7 +103,7 @@ export function classifyEventTitle(title, ctx = {}) {
           ))));
 
   const sportCore =
-    /\bхоккей\b|\bhockey\b|\bкхл\b|\bkhl\b|\bnhl\b|баскетбол|basketball|\bnba\b|волейбол|volleyball|теннис|tennis|биатлон|фигурн|самбо|борьб|легкоатлет|лёгк(ая|ой)\s+атлет|футзал|rugby|регби|гандбол|handball|олимпиад|olympiad|champions\s+league|лига\s+чемпион|серия\s+[aа]\b|суперкубок|super\s+cup|play[\s-]?off|плей\W*оф|stadium|стадион\b|арена\s+спорт|\bufc\b|\bmma\b|бокс\b|boxing|padel|кёрлинг|curling|финал\s+кубка|derby|дерби|формула[\s-]?1|\bf1\b|мото|ралли|rally|шахмат|chess|шайб/i.test(
+    /\bхоккей\b|\bhockey\b|\bкхл\b|\bkhl\b|\bnhl\b|баскетбол|basketball|\bnba\b|волейбол|volleyball|теннис|tennis|биатлон|фигурн|самбо|борьб|единоборств|боев(ые|ых)\s+искусств|бои\b|fight|легкоатлет|лёгк(ая|ой)\s+атлет|футзал|rugby|регби|гандбол|handball|олимпиад|olympiad|champions\s+league|лига\s+чемпион|серия\s+[aа]\b|суперкубок|super\s+cup|play[\s-]?off|плей\W*оф|stadium|стадион\b|арена\s+спорт|\bufc\b|\bmma\b|бокс\b|boxing|padel|кёрлинг|curling|финал\s+кубка|derby|дерби|формула[\s-]?1|\bf1\b|мото|ралли|rally|шахмат|chess|шайб/i.test(
       c,
     );
 

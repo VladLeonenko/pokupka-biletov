@@ -135,38 +135,6 @@ export async function handleSitemapXml(req, res) {
       });
     }
 
-    const productRows = await poolRows(
-      'products',
-      `SELECT slug, updated_at
-       FROM products
-       WHERE is_active = TRUE
-       ORDER BY updated_at DESC`,
-    );
-    for (const product of productRows) {
-      urls.push({
-        loc: `${BASE_URL}/products/${product.slug}`,
-        lastmod: formatDate(product.updated_at),
-        changefreq: getChangeFreq(product.slug, 'product', product.updated_at),
-        priority: getPriority(product.slug, 'product'),
-      });
-    }
-
-    const caseRows = await poolRows(
-      'cases',
-      `SELECT slug, updated_at
-       FROM cases
-       WHERE is_published = TRUE
-       ORDER BY updated_at DESC`,
-    );
-    for (const caseItem of caseRows) {
-      urls.push({
-        loc: `${BASE_URL}/cases/${caseItem.slug}`,
-        lastmod: formatDate(caseItem.updated_at),
-        changefreq: getChangeFreq(caseItem.slug, 'case', caseItem.updated_at),
-        priority: getPriority(caseItem.slug, 'case'),
-      });
-    }
-
     const ticketEventRows = await ticketRows(
       'getbilet_events',
       `SELECT getbilet_external_id::text AS ext_id, updated_at
@@ -187,15 +155,30 @@ export async function handleSitemapXml(req, res) {
     const staticPages = [
       { path: '/events', priority: '0.95', changefreq: 'daily' },
       { path: '/afisha', priority: '0.95', changefreq: 'daily' },
-      { path: '/catalog', priority: '0.9', changefreq: 'weekly' },
-      { path: '/blog', priority: '0.8', changefreq: 'weekly' },
-      { path: '/portfolio', priority: '0.8', changefreq: 'weekly' },
-      { path: '/reviews', priority: '0.7', changefreq: 'weekly' },
-      { path: '/promotion', priority: '0.7', changefreq: 'weekly' },
       { path: '/contacts', priority: '0.7', changefreq: 'monthly' },
-      { path: '/about', priority: '0.7', changefreq: 'monthly' },
-      { path: '/new-client', priority: '0.8', changefreq: 'monthly' },
+      { path: '/faq', priority: '0.6', changefreq: 'monthly' },
+      { path: '/returns', priority: '0.6', changefreq: 'monthly' },
       { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
+      { path: '/offer', priority: '0.3', changefreq: 'yearly' },
+      { path: '/cookies', priority: '0.3', changefreq: 'yearly' },
+      { path: '/requisites', priority: '0.3', changefreq: 'yearly' },
+    ];
+
+    const landingPages = [
+      '/events/city/moskva',
+      '/events/city/sankt-peterburg',
+      '/events/city/kazan',
+      '/events/city/ekaterinburg',
+      '/events/city/novosibirsk',
+      '/events/genre/teatr',
+      '/events/genre/koncert',
+      '/events/genre/komediya',
+      '/events/genre/detyam',
+      '/events/genre/sport',
+      '/events/venue/teatr-na-taganke',
+      '/events/venue/mht-chehova',
+      '/events/venue/krokus-siti-holl',
+      '/events/venue/vtb-arena',
     ];
 
     for (const staticPage of staticPages) {
@@ -205,6 +188,17 @@ export async function handleSitemapXml(req, res) {
           lastmod: formatDate(new Date()),
           changefreq: staticPage.changefreq,
           priority: staticPage.priority,
+        });
+      }
+    }
+
+    for (const path of landingPages) {
+      if (!urls.find((u) => u.loc === BASE_URL + path)) {
+        urls.push({
+          loc: BASE_URL + path,
+          lastmod: formatDate(new Date()),
+          changefreq: 'daily',
+          priority: '0.85',
         });
       }
     }

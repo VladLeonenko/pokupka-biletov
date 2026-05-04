@@ -1,6 +1,7 @@
+import { tbankEacqGetState } from './tbankEacq.js';
+
 /**
- * Запрос статуса оплаты у поставщика (GetBilet / Profticket).
- * Реальные URL и поля ответа подставляются по документации API — пока безопасные заглушки + HTTP, если заданы env.
+ * Запрос статуса оплаты у поставщика.
  */
 
 function notConfigured() {
@@ -94,7 +95,27 @@ export async function fetchProfticketPaymentState(order) {
 export async function fetchRemotePaymentState(order) {
   const p = (order.payment_provider || '').toLowerCase();
   if (!p || p === 'manual') return { state: 'unknown' };
+  if (p === 'tbank' || p === 'tinkoff') return fetchTbankPaymentState(order);
   if (p === 'getbilet') return fetchGetbiletPaymentState(order);
   if (p === 'profticket') return fetchProfticketPaymentState(order);
   return { state: 'unknown' };
+}
+
+export async function fetchTbankPaymentState(order) {
+  const ref = order.external_payment_id || order.external_order_ref;
+  if (!ref) return notConfigured();
+  try {
+    const data = await tbankEacqGetState(ref);
+    const status = String(data?.Status || '').toUpperCase();
+    const success = data?.Success === true;
+    if (success && (status === 'CONFIRMED' || status === 'AUTHORIZED')) {
+      return { state: 'paid', externalPaymentId: String(data.PaymentId ?? ref), ticketRefs: [] };
+    }
+    if (['REJECTED', 'CANCELED', 'DEADLINE_EXPIRED', 'REFUNDED', 'PARTIAL_REFUNDED'].includes(status)) {
+      return { state: 'failed', externalPaymentId: String(data.PaymentId ?? ref), detail: data };
+    }
+    return { state: 'pending', externalPaymentId: String(data?.PaymentId ?? ref), detail: data };
+  } catch (e) {
+    return { state: 'error', detail: e.message };
+  }
 }

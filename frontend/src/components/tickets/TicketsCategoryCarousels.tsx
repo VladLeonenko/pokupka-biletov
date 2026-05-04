@@ -16,6 +16,7 @@ export type CategoryDirection = { label: string; q?: string; genre?: string };
 type Props = {
   directions: CategoryDirection[];
   events: NormalizedBiletEvent[];
+  sportEvents?: NormalizedBiletEvent[];
   listLoading: boolean;
 };
 
@@ -37,22 +38,27 @@ function sortCategoryEvents(rows: NormalizedBiletEvent[]): NormalizedBiletEvent[
   });
 }
 
-export function TicketsCategoryCarousels({ directions, events, listLoading }: Props) {
+function isSportDirection(dir: CategoryDirection): boolean {
+  return dir.genre?.trim().toLowerCase() === 'спорт' || dir.label.trim().toLowerCase() === 'спорт';
+}
+
+export function TicketsCategoryCarousels({ directions, events, sportEvents, listLoading }: Props) {
   const rows = useMemo(() => {
     return directions
       .map((d) => {
         const genre = d.genre?.trim();
         const q = d.q?.trim();
         if (!genre && !q) return { dir: d, items: [] as NormalizedBiletEvent[] };
+        const source = isSportDirection(d) && sportEvents ? sportEvents : events;
         const filtered = filterEventsClient(
-          events,
+          source,
           genre ? { genre } : { q: q! },
         );
         const sorted = sortCategoryEvents(filtered).slice(0, MAX_PER_ROW);
         return { dir: d, items: sorted };
       })
       .filter((r) => r.items.length > 0);
-  }, [directions, events]);
+  }, [directions, events, sportEvents]);
 
   if (listLoading) {
     return (

@@ -252,6 +252,8 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
 
   svg.removeAttribute('style');
   svg.setAttribute('viewBox', `${originX} ${originY} ${vbW} ${vbH}`);
+  svg.setAttribute('width', String(vbW));
+  svg.setAttribute('height', String(vbH));
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
   /** Цвета «доступности» в исходном SVG не совпадают с GetBilet — все места-серые, цена только в оверлее. */

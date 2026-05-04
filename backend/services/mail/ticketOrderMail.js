@@ -40,6 +40,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, rawMagicToken
   const loginLink = rawMagicToken
     ? `${siteUrl()}/auth/magic?token=${encodeURIComponent(rawMagicToken)}`
     : null;
+  let accountMail = null;
 
   if (isNew && loginLink) {
     const subj1 = `${siteName()}: доступ в личный кабинет`;
@@ -62,7 +63,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, rawMagicToken
         <p style="margin: 0; font-size: 13px; color: #666; word-break: break-all;">${escapeHtml(loginLink)}</p>
         <p style="margin: 24px 0 0; font-size: 13px; color: #888;">${escapeHtml(siteName())}</p>
       </div>`;
-    await transporter.sendMail({ from, to, subject: subj1, text: text1, html: html1 });
+    accountMail = { subject: subj1, text: text1, html: html1 };
   }
 
   const subj2 = `${siteName()}: билеты оплачены — ${eventTitle}`;
@@ -95,6 +96,9 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, rawMagicToken
       <p style="margin: 24px 0 0; font-size: 13px; color: #888;">${escapeHtml(siteName())}</p>
     </div>`;
   await transporter.sendMail({ from, to, subject: subj2, text: text2, html: html2 });
+  if (accountMail) {
+    await transporter.sendMail({ from, to, ...accountMail });
+  }
 }
 
 function escapeHtml(s) {

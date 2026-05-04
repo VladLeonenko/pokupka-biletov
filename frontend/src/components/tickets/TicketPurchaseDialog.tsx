@@ -11,6 +11,8 @@ export type TicketPurchaseDialogProps = {
   repertoireId: string;
   offerId: string;
   seats: string[];
+  offerSelections?: Array<{ offerId: string; seats: string[] }>;
+  seatLabels?: string[];
   eventTitle: string;
   /** Сумма до промокода, ₽ */
   baseTotalRub: number;
@@ -31,6 +33,8 @@ export function TicketPurchaseDialog({
   repertoireId,
   offerId,
   seats,
+  offerSelections,
+  seatLabels,
   eventTitle,
   baseTotalRub,
   sessionLabel,
@@ -94,6 +98,7 @@ export function TicketPurchaseDialog({
       return checkoutBiletTickets({
         offerId,
         seats,
+        offerSelections,
         repertoireId,
         eventTitle,
         customerName: fullName.trim(),
@@ -159,8 +164,8 @@ export function TicketPurchaseDialog({
           ) : null}
           <div className={styles.seatsRow}>
             <span className={styles.seatsLabel}>Места</span>
-            {seats.map((s) => (
-              <span key={s} className={styles.seatChip}>
+            {(seatLabels?.length ? seatLabels : seats).map((s, idx) => (
+              <span key={`${s}-${idx}`} className={styles.seatChip}>
                 {s}
               </span>
             ))}

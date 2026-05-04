@@ -10,6 +10,7 @@ import styles from './TicketsHomeSections.module.css';
 type Props = {
   heroSlides?: HeroSlideView[] | null;
   events?: NormalizedBiletEvent[] | null;
+  sportEvents?: NormalizedBiletEvent[] | null;
   /** Направления из витрины — секции с горизонтальными подборками */
   directions?: CategoryDirection[] | null;
   /** Скелетон hero (витрина или афиша) */
@@ -22,6 +23,7 @@ type Props = {
 export function TicketsHomeSections({
   heroSlides,
   events,
+  sportEvents,
   directions,
   heroLoading,
   listLoading,
@@ -46,7 +48,7 @@ export function TicketsHomeSections({
       )}
 
       {dir.length > 0 && (
-        <TicketsCategoryCarousels directions={dir} events={list} listLoading={listLoading} />
+        <TicketsCategoryCarousels directions={dir} events={list} sportEvents={sportEvents ?? undefined} listLoading={listLoading} />
       )}
 
       {listLoading && rowEvents.length === 0 && (

@@ -112,7 +112,7 @@ export type NormalizedBiletEvent = {
   timeLabel?: string;
 };
 
-/** Публичная ссылка на страницу выбора мест: только человекочитаемый slug события. */
+/** Публичная ссылка на страницу выбора мест: ID репертуара + человекочитаемый slug, чтобы однотипные названия не склеивались. */
 export function ticketCheckoutHref(
   ev: Pick<NormalizedBiletEvent, 'id' | 'title' | 'stageId'> & {
     imageUrl?: string;
@@ -122,7 +122,8 @@ export function ticketCheckoutHref(
   },
 ): string {
   const pathSlug = slugify(ev.title) || 'event';
-  return `/ticket/${pathSlug}`;
+  const repertoireId = ev.repertoireId?.trim() || (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') || ev.id.trim();
+  return repertoireId ? `/ticket/${encodeURIComponent(repertoireId)}/${pathSlug}` : `/ticket/${pathSlug}`;
 }
 
 export type NormalizedVenue = {
@@ -469,6 +470,38 @@ export async function fetchBiletEvents(query?: Record<string, string>): Promise<
   return res.json();
 }
 
+export async function fetchBiletHome(): Promise<unknown> {
+  const base = getApiBase();
+  const meta = await resolveBiletMetaForFetch();
+  const params = new URLSearchParams();
+  if (meta.cityIdRequired) {
+    params.set('cityId', cityId());
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${base}/api/bilet/home${suffix}`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchBiletEventsLite(limit = 200): Promise<unknown> {
+  const base = getApiBase();
+  const meta = await resolveBiletMetaForFetch();
+  const params = new URLSearchParams();
+  params.set('limit', String(Math.max(1, Math.min(limit, 500))));
+  if (meta.cityIdRequired) {
+    params.set('cityId', cityId());
+  }
+  const res = await fetch(`${base}/api/bilet/events-lite?${params.toString()}`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 /** Площадки (GET_VENUES / REST / rest_v2 GetPlaceList). */
 export async function fetchBiletVenues(): Promise<unknown> {
   const base = getApiBase();
@@ -687,19 +720,30 @@ export function attachInferredEventFields(ev: NormalizedBiletEvent): NormalizedB
 
 function eventMatchesGenreChip(ev: NormalizedBiletEvent, g: string): boolean {
   const gNorm = normalizeSearchText(g);
-  /* Ошибочная метка «Спорт» в API — эвристика концерта/театра важнее */
+  const ic = ev.inferredCategoryLabel ? normalizeSearchText(ev.inferredCategoryLabel) : '';
+  const genreBlob = normalizeSearchText(ev.genre || '');
+  const venueBlob = normalizeSearchText([ev.venue, ev.venueAddress].filter(Boolean).join(' '));
+  const titleBlob = normalizeSearchText([ev.title, ev.subtitle].filter(Boolean).join(' '));
+  const fullBlob = normalizeSearchText([ev.title, ev.subtitle, ev.genre, ev.venue, ev.venueAddress].filter(Boolean).join(' '));
+  const sportSignalBlob = normalizeSearchText([ev.title, ev.subtitle, ev.genre].filter(Boolean).join(' '));
+
+  /* Ошибочная метка «Спорт» в API — спорт показываем только по явным спортивным признакам. */
   if (gNorm === 'спорт') {
-    if (ev.inferredKind === 'concert' || ev.inferredKind === 'theater') return false;
+    if (ev.inferredKind === 'concert' || ev.inferredKind === 'theater' || ev.inferredKind === 'kids') return false;
+    if (/(спектакль|театр|опера|балет|мюзикл|цирк|кукольн|сказк|драматич|комеди|гастрол|мхт|мхат|вахтангов|александринск|сатирикон|ленком|современник)/i.test(fullBlob)) return false;
+    if (/(театр|балет|опера|мюзикл|детям|цирк|концерт)/i.test(ic)) return false;
+    if (/(театр|мхт|мхат|вахтангов|александринск|сатирикон|ленком|современник|драм)/i.test(venueBlob)) return false;
+    if (/(театр|спектакль|балет|опера|мюзикл|цирк|концерт)/i.test(genreBlob)) return false;
+
+    if (ev.inferredKind === 'football') return true;
+    if (['футбол', 'хоккей', 'баскетбол', 'волейбол', 'бои', 'бокс'].includes(ic)) return true;
+    if (/(футбол|хоккей|баскетбол|волейбол|бои|единоборств|mma|ufc|бокс|матч|турнир|кубок|чемпионат|лига|плей\s*оф|стадион)/i.test(sportSignalBlob)) return true;
+    if (/(футбол|хоккей|баскет|волейб|бокс|mma|ufc|единоборств)/i.test(genreBlob)) return true;
+    return false;
   }
   if (ev.genre && normalizeSearchText(ev.genre).includes(g)) return true;
-  const ic = ev.inferredCategoryLabel ? normalizeSearchText(ev.inferredCategoryLabel) : '';
   if (ic.includes(g)) return true;
-  const titleBlob = normalizeSearchText([ev.title, ev.subtitle].filter(Boolean).join(' '));
   if (titleBlob.includes(g)) return true;
-  if (g === 'спорт') {
-    if (ev.inferredKind === 'sport' || ev.inferredKind === 'football') return true;
-    if (ic === 'футбол' || ic === 'хоккей') return true;
-  }
   if (g === 'театр') {
     if (ev.inferredKind === 'theater') return true;
     if (/(балет|мюзикл|опера|театр)/i.test(ic)) return true;
@@ -817,6 +861,7 @@ export async function validateBiletTicketPromo(
 export type BiletCheckoutPayload = {
   offerId: string;
   seats: string[];
+  offerSelections?: Array<{ offerId: string; seats: string[] }>;
   repertoireId: string;
   eventTitle: string;
   customerName: string;

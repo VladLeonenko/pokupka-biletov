@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   TextField,
@@ -28,8 +28,51 @@ import { MHT_CHEKHOV_MAIN_STAGE_ID } from '@/constants/getbiletStages';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 
 const GENRE_CHIPS = ['Театр', 'Концерт', 'Драма', 'Комедия', 'Детям', 'Спорт'];
+const LANDING_CITIES = [
+  { slug: 'moskva', label: 'Москва' },
+  { slug: 'sankt-peterburg', label: 'Санкт-Петербург' },
+  { slug: 'kazan', label: 'Казань' },
+  { slug: 'ekaterinburg', label: 'Екатеринбург' },
+  { slug: 'novosibirsk', label: 'Новосибирск' },
+];
+const LANDING_GENRES = [
+  { slug: 'teatr', label: 'Театр' },
+  { slug: 'koncert', label: 'Концерт' },
+  { slug: 'komediya', label: 'Комедия' },
+  { slug: 'detyam', label: 'Детям' },
+  { slug: 'sport', label: 'Спорт' },
+];
+const LANDING_VENUES = [
+  { slug: 'teatr-na-taganke', label: 'Театр на Таганке' },
+  { slug: 'mht-chehova', label: 'МХТ Чехова' },
+  { slug: 'krokus-siti-holl', label: 'Крокус Сити Холл' },
+  { slug: 'vtb-arena', label: 'ВТБ Арена' },
+];
+
+const LANDING_CITY_TO_Q: Record<string, string> = {
+  moskva: 'Москва',
+  'sankt-peterburg': 'Санкт-Петербург',
+  kazan: 'Казань',
+  ekaterinburg: 'Екатеринбург',
+  novosibirsk: 'Новосибирск',
+};
+const LANDING_GENRE_TO_FILTER: Record<string, string> = {
+  teatr: 'Театр',
+  koncert: 'Концерт',
+  komediya: 'Комедия',
+  detyam: 'Детям',
+  sport: 'Спорт',
+};
+const LANDING_VENUE_TO_FILTER: Record<string, string> = {
+  'teatr-na-taganke': 'Театр на Таганке',
+  'mht-chehova': 'МХТ Чехова',
+  'krokus-siti-holl': 'Крокус Сити Холл',
+  'vtb-arena': 'ВТБ Арена',
+};
 
 export function EventsSearchPage() {
+  const { citySlug, genreSlug, venueSlug } = useParams();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const qUrl = searchParams.get('q') ?? '';
   const venueUrl = searchParams.get('venue') ?? '';
@@ -47,6 +90,26 @@ export function EventsSearchPage() {
   useEffect(() => {
     document.body.setAttribute('data-page', '/events');
   }, []);
+
+  useEffect(() => {
+    if (!citySlug && !genreSlug && !venueSlug) return;
+    const next = new URLSearchParams(searchParams);
+    if (citySlug) {
+      const cityQuery = LANDING_CITY_TO_Q[citySlug] || '';
+      if (cityQuery) next.set('q', cityQuery);
+    }
+    if (genreSlug) {
+      const genreFilter = LANDING_GENRE_TO_FILTER[genreSlug] || '';
+      if (genreFilter) next.set('genre', genreFilter);
+    }
+    if (venueSlug) {
+      const venueFilter = LANDING_VENUE_TO_FILTER[venueSlug] || '';
+      if (venueFilter) next.set('venue', venueFilter);
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [citySlug, genreSlug, venueSlug, searchParams, setSearchParams]);
 
   const cityId = useTicketsCityId();
 
@@ -129,13 +192,40 @@ export function EventsSearchPage() {
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const seo = useMemo(() => {
+    if (citySlug && LANDING_CITY_TO_Q[citySlug]) {
+      const city = LANDING_CITY_TO_Q[citySlug];
+      return {
+        title: `Афиша ${city} — билеты на мероприятия`,
+        description: `События в ${city}: театр, концерты и шоу с онлайн-покупкой билетов.`,
+      };
+    }
+    if (genreSlug && LANDING_GENRE_TO_FILTER[genreSlug]) {
+      const genre = LANDING_GENRE_TO_FILTER[genreSlug];
+      return {
+        title: `${genre} — афиша и билеты`,
+        description: `Подборка событий в жанре «${genre}»: актуальные мероприятия и покупка билетов онлайн.`,
+      };
+    }
+    if (venueSlug && LANDING_VENUE_TO_FILTER[venueSlug]) {
+      const venue = LANDING_VENUE_TO_FILTER[venueSlug];
+      return {
+        title: `${venue} — афиша площадки и билеты`,
+        description: `Расписание событий на площадке «${venue}», выбор мест и покупка билетов онлайн.`,
+      };
+    }
+    return {
+      title: 'Поиск мероприятий',
+      description: 'Поиск событий по названию, площадке и жанру.',
+    };
+  }, [citySlug, genreSlug, venueSlug]);
 
   return (
     <>
       <SeoMetaTags
-        title="Поиск мероприятий"
-        description="Поиск событий по названию, площадке и жанру."
-        url={`${origin}/events`}
+        title={seo.title}
+        description={seo.description}
+        url={`${origin}${location.pathname}`}
       />
 
       <main className={styles.main}>
@@ -267,6 +357,47 @@ export function EventsSearchPage() {
             ))}
           </div>
         )}
+
+        <section className={styles.seoLinksSection} aria-labelledby="seo-links-title">
+          <h2 id="seo-links-title" className={styles.seoLinksTitle}>
+            Популярные подборки
+          </h2>
+          <p className={styles.seoLinksIntro}>
+            Быстрые переходы к тематическим подборкам по городам, жанрам и площадкам.
+          </p>
+          <div className={styles.seoLinksGrid}>
+            <div>
+              <p className={styles.seoLinksLabel}>Города</p>
+              <div className={styles.seoLinksList}>
+                {LANDING_CITIES.map((item) => (
+                  <Link key={item.slug} className={styles.seoLink} to={`/events/city/${item.slug}`}>
+                    Афиша {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className={styles.seoLinksLabel}>Жанры</p>
+              <div className={styles.seoLinksList}>
+                {LANDING_GENRES.map((item) => (
+                  <Link key={item.slug} className={styles.seoLink} to={`/events/genre/${item.slug}`}>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className={styles.seoLinksLabel}>Площадки</p>
+              <div className={styles.seoLinksList}>
+                {LANDING_VENUES.map((item) => (
+                  <Link key={item.slug} className={styles.seoLink} to={`/events/venue/${item.slug}`}>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </>
   );

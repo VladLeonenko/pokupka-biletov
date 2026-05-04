@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   min-height: min(72vh, 760px);
   max-height: min(92vh, 980px);
   /* Светлый фон: типичные схемы залов — ч/б линии на белом; на тёмном фоне «пропадают» */
@@ -13,32 +15,42 @@
 }
 
 .toolbar {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  z-index: 12;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 8px 12px;
-  background: linear-gradient(180deg, #fafafa 0%, #f0f0f2 100%);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  flex-shrink: 0;
+  justify-content: center;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  transform: translateY(-50%);
+  backdrop-filter: blur(8px);
 }
 
 .zoomBtns {
   display: flex;
-  gap: 6px;
+  flex-direction: column-reverse;
+  gap: 5px;
 }
 
 .zoomBtn {
-  min-width: 40px;
-  height: 36px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 0;
   background: #fff;
   color: #1a1a1a;
   font-size: 1.1rem;
+  font-weight: 800;
   line-height: 1;
   cursor: pointer;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
 }
 
 .zoomBtn:hover {
@@ -46,16 +58,18 @@
 }
 
 .zoomPct {
-  min-width: 52px;
-  height: 36px;
-  padding: 0 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 0;
   background: #fff;
   color: #1a1a1a;
-  font-size: 0.8rem;
+  font-size: 0.58rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
 }
 
 .zoomPct:hover {
@@ -73,12 +87,63 @@
   justify-content: center;
   padding: 10px;
   touch-action: none;
-  cursor: grab;
+  cursor: default;
   user-select: none;
 }
 
 .viewport:active {
-  cursor: grabbing;
+  cursor: default;
+}
+
+.stadiumCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.mapPreloader {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.66)),
+    rgba(230, 230, 233, 0.72);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.mapPreloaderCard {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1f2937;
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+}
+
+.mapPreloaderSpinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(148, 163, 184, 0.45);
+  border-top-color: #ff4b1f;
+  animation: mapPreloaderSpin 0.75s linear infinite;
+}
+
+@keyframes mapPreloaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .panInner {
@@ -90,6 +155,7 @@
   justify-content: center;
   overflow: hidden;
   position: relative;
+  z-index: 1;
 }
 
 /* Высота задаётся потоком: svgLayer не absolute — иначе .layers схлопывается в 0 и схемы не видно */
@@ -98,7 +164,9 @@
   width: 100%;
   max-width: min(100%, 1600px);
   margin: 0 auto;
+  touch-action: none;
   will-change: transform;
+  transition: transform 180ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 .svgLayer {
@@ -121,6 +189,26 @@
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
 }
 
+.svgLayerCanvasBacked {
+  opacity: 0;
+}
+
+.svgLayerFocused :global(svg) {
+  opacity: 1;
+  filter: grayscale(1) contrast(1.05) brightness(1.04);
+}
+
+.svgLayerFocused :global(path) {
+  fill: rgba(226, 232, 240, 0.46) !important;
+  stroke: rgba(203, 213, 225, 0.5) !important;
+}
+
+.svgLayerFocused :global(text),
+.svgLayerFocused :global(tspan) {
+  fill: rgba(100, 116, 139, 0.82) !important;
+  stroke: none !important;
+}
+
 /* Дубль: только заливка — обводка «доступности» только у кнопок-оверлея */
 .svgLayer :global(circle[place-name]),
 .svgLayer :global(circle[data-replaced]) {
@@ -135,8 +223,87 @@
   pointer-events: none;
 }
 
+.backgroundSeatLayer {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.backgroundSeatDot {
+  fill: rgba(148, 163, 184, 0.74);
+  vector-effect: non-scaling-stroke;
+}
+
+.sectorLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  overflow: visible;
+}
+
+.sectorLayerFocused {
+  pointer-events: auto;
+}
+
+.sectorLayerFocused .sectorPath {
+  fill: transparent !important;
+  stroke: transparent !important;
+  opacity: 0;
+  pointer-events: auto;
+}
+
+.sectorPath {
+  fill: rgba(148, 163, 184, 0.16);
+  stroke: rgba(148, 163, 184, 0.46);
+  stroke-width: 24;
+  pointer-events: auto;
+  transition: fill 0.14s ease, stroke 0.14s ease, opacity 0.14s ease;
+}
+
+.sectorPathInteractive {
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.82;
+}
+
+.sectorPathUnavailable {
+  fill: rgba(148, 163, 184, 0.18);
+  stroke: rgba(100, 116, 139, 0.48);
+}
+
+.sectorPathAvailable {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 22%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 70%, #fff);
+}
+
+.sectorPathInteractive:hover,
+.sectorPathInteractive:focus {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 30%, transparent);
+  stroke: var(--sector-accent, #2f80ed);
+  opacity: 1;
+  outline: none;
+}
+
+.sectorPathUnavailable:hover,
+.sectorPathUnavailable:focus {
+  fill: rgba(100, 116, 139, 0.26);
+  stroke: rgba(71, 85, 105, 0.72);
+}
+
+.sectorPathActive {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 34%, transparent);
+  stroke: var(--sector-accent, #2f80ed);
+  opacity: 1;
+}
+
 .seatDot {
   position: absolute;
+  z-index: 2;
   transform: translate(-50%, -50%);
   width: 10px;
   height: 10px;
@@ -160,6 +327,32 @@
   aspect-ratio: 1;
 }
 
+.seatDotStadium {
+  width: 0.14%;
+  height: auto;
+  min-width: 0;
+  border: 0;
+  opacity: 0.92;
+  box-shadow: none;
+}
+
+.seatDotCanvasHit {
+  background: transparent;
+  opacity: 1;
+  box-shadow: none !important;
+}
+
+.seatDotCanvasHit.seatDotOn {
+  background: transparent;
+  color: transparent;
+  box-shadow: none !important;
+}
+
+.seatDotOverview {
+  width: 0.11%;
+  opacity: 0.78;
+}
+
 .seatDot::before {
   content: '';
   position: absolute;
@@ -167,8 +360,13 @@
   border-radius: 50%;
 }
 
+.seatDot.seatDotOverview::before {
+  inset: -1px;
+}
+
 .seatDotUnavailable {
   position: absolute;
+  z-index: 1;
   transform: translate(-50%, -50%);
   width: clamp(18px, 2.1vw, 28px);
   height: clamp(18px, 2.1vw, 28px);
@@ -180,6 +378,19 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
+.seatDotUnavailableNative {
+  width: 0.11%;
+  height: auto;
+  min-width: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(149, 151, 160, 0.55);
+  border: 0;
+  pointer-events: none;
+  cursor: default;
+  box-shadow: none;
+}
+
 .seatDot:hover {
   transform: translate(-50%, -50%);
   z-index: 2;
@@ -188,6 +399,13 @@
     0 0 0 1px #fff,
     0 0 0 2px var(--seat-accent, #888),
     0 2px 6px rgba(0, 0, 0, 0.26);
+}
+
+.seatDotStadium:hover {
+  filter: saturate(1.16);
+  box-shadow:
+    0 0 0 0.5px #fff,
+    0 0 0 1px var(--seat-accent, #888);
 }
 
 .seatDotOn {
@@ -228,14 +446,154 @@
   white-space: nowrap;
 }
 
+.sectorPanel {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: min(360px, calc(100% - 32px));
+  max-height: min(78%, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+  z-index: 8;
+  cursor: default;
+}
+
+.sectorPanelActions {
+  float: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: 10px;
+  margin-bottom: 6px;
+}
+
+.sectorPanelClose {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #f1f1f4;
+  color: rgba(0, 0, 0, 0.72);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sectorPanelClose:hover {
+  background: #e2e2e7;
+}
+
+.sectorPanelRestore {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 8;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.94);
+  color: rgba(0, 0, 0, 0.76);
+  font-size: 0.78rem;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  cursor: pointer;
+}
+
+.sectorPanelRestore:hover {
+  background: #fff;
+}
+
+.sectorPanelTitle {
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.sectorPanelMeta {
+  margin-top: 4px;
+  color: rgba(0, 0, 0, 0.58);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.sectorOfferList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(52vh, 430px);
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.sectorOfferRow {
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.sectorOfferHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: rgba(0, 0, 0, 0.78);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sectorSeatButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sectorSeatButton {
+  min-width: 32px;
+  height: 30px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 999px;
+  background: #fff;
+  color: rgba(0, 0, 0, 0.82);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sectorSeatButton:hover {
+  border-color: #111827;
+}
+
+.sectorSeatButtonActive {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+.sectorOfferEmpty {
+  color: rgba(0, 0, 0, 0.52);
+  font-size: 0.8rem;
+}
+
 .selectionBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  position: absolute;
+  position: fixed;
   left: 50%;
-  bottom: 14px;
+  bottom: max(18px, env(safe-area-inset-bottom));
   width: min(calc(100% - 28px), 620px);
   transform: translateX(-50%);
   padding: 12px 14px;
@@ -243,7 +601,23 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-  z-index: 8;
+  z-index: 1500;
+}
+
+.selectionClose {
+  position: absolute !important;
+  top: -10px;
+  right: -10px;
+  width: 28px;
+  height: 28px;
+  background: #2b2b2f !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.selectionClose:hover {
+  background: #111114 !important;
 }
 
 .selectionSummary {
@@ -283,9 +657,18 @@
 
 @media (max-width: 600px) {
   .root {
-    min-height: min(78vh, 640px);
-    max-height: min(78vh, 640px);
+    min-height: min(70svh, 620px);
+    max-height: min(76svh, 680px);
     border-radius: 0;
+  }
+
+  .toolbar {
+    right: 8px;
+    padding: 5px;
+  }
+
+  .viewport {
+    padding: 6px;
   }
 
   .seatDot {
@@ -302,12 +685,31 @@
     height: auto;
   }
 
+  .seatDotStadium {
+    width: 0.14%;
+  }
+
+  .seatDotOverview,
+  .seatDotUnavailableNative {
+    width: 0.11%;
+  }
+
   .selectionBar {
-    bottom: 8px;
+    bottom: max(10px, env(safe-area-inset-bottom));
     width: calc(100% - 16px);
+    padding: 10px;
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
+  }
+
+  .selectionClose {
+    top: -8px;
+    right: -6px;
+  }
+
+  .selectionText {
+    white-space: normal;
   }
 
   .selectionActions {
@@ -318,6 +720,19 @@
   .selectionActions button {
     flex: 1 1 auto;
   }
+
+  .sectorPanel {
+    display: none;
+  }
+
+  .sectorPanelRestore {
+    display: none;
+  }
+
+  .sectorOfferList {
+    max-height: min(28vh, 260px);
+  }
+
 }
 
 /* Внутри Dialog: занимает доступную высоту, без полноэкранного «листа» страницы */
@@ -330,9 +745,22 @@
   border-right: none;
 }
 
+.rootInDialog .selectionBar {
+  position: fixed;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: min(calc(100% - 28px), 620px);
+  z-index: 1500;
+}
+
 @media (max-width: 600px) {
   .rootInDialog {
-    min-height: calc(100vh - 168px);
+    min-height: calc(100svh - 116px);
     max-height: none;
+  }
+
+  .rootInDialog .selectionBar {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: calc(100% - 18px);
   }
 }

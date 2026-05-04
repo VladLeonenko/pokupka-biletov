@@ -38,8 +38,6 @@ import { NotFoundPage } from '@/pages/public/NotFoundPage';
 // Lazy load публичных страниц — не загружаются при первом визите на главную
 const PublicHomePageAI = lazy(() => import('@/pages/public/PublicHomePageAI').then(m => ({ default: m.default })));
 const PublicHomePageAI_Noomo = lazy(() => import('@/pages/public/PublicHomePageAI_Noomo').then(m => ({ default: m.default })));
-const CatalogPage = lazy(() => import('@/pages/public/CatalogPage').then(m => ({ default: m.CatalogPage })));
-const ProductPage = lazy(() => import('@/pages/public/ProductPage').then(m => ({ default: m.ProductPage })));
 const CartPage = lazy(() => import('@/pages/public/CartPage').then(m => ({ default: m.CartPage })));
 const WishlistPage = lazy(() => import('@/pages/public/WishlistPage').then(m => ({ default: m.WishlistPage })));
 const SearchPage = lazy(() => import('@/pages/public/SearchPage').then(m => ({ default: m.SearchPage })));
@@ -59,15 +57,7 @@ const RequisitesPage = lazy(() =>
   import('@/pages/public/RequisitesPage').then((m) => ({ default: m.RequisitesPage }))
 );
 const PrivacySettingsPage = lazy(() => import('@/pages/public/PrivacySettingsPage').then(m => ({ default: m.PrivacySettingsPage })));
-const PortfolioPage = lazy(() => import('@/pages/public/PortfolioPage').then(m => ({ default: m.PortfolioPage })));
-const CasePage = lazy(() => import('@/pages/public/CasePage').then(m => ({ default: m.CasePage })));
-const PublicBlogPage = lazy(() => import('@/pages/public/PublicBlogPage').then(m => ({ default: m.PublicBlogPage })));
-const PublicBlogPostPage = lazy(() => import('@/pages/public/PublicBlogPostPage').then(m => ({ default: m.PublicBlogPostPage })));
-const PublicPromotionsPage = lazy(() => import('@/pages/public/PublicPromotionsPage').then(m => ({ default: m.PublicPromotionsPage })));
-const ReviewsPage = lazy(() => import('@/pages/public/ReviewsPage').then(m => ({ default: m.ReviewsPage })));
-const WinnersPage = lazy(() => import('@/pages/public/WinnersPage').then(m => ({ default: m.WinnersPage })));
 const PublicAIChatPage = lazy(() => import('@/pages/public/PublicAIChatPage').then(m => ({ default: m.PublicAIChatPage })));
-const AboutPage = lazy(() => import('@/pages/public/AboutPage').then(m => ({ default: m.AboutPage })));
 const ContactsPage = lazy(() => import('@/pages/public/ContactsPage').then(m => ({ default: m.ContactsPage })));
 const ReturnsExchangePage = lazy(() =>
   import('@/pages/public/ReturnsExchangePage').then((m) => ({ default: m.ReturnsExchangePage }))
@@ -75,7 +65,6 @@ const ReturnsExchangePage = lazy(() =>
 const TicketsFaqPage = lazy(() =>
   import('@/pages/public/TicketsFaqPage').then((m) => ({ default: m.TicketsFaqPage }))
 );
-const NewClientPage = lazy(() => import('@/pages/public/NewClientPage').then(m => ({ default: m.NewClientPage })));
 const OrderDetailPage = lazy(() => import('@/pages/public/OrderDetailPage').then(m => ({ default: m.OrderDetailPage })));
 const RegisterPage = lazy(() => import('@/pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const CharityPage = lazy(() => import('@/pages/public/CharityPage').then(m => ({ default: m.CharityPage })));
@@ -182,14 +171,15 @@ export function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/afisha" element={<HomePage />} />
       <Route path="/events" element={<EventsSearchPage />} />
+      <Route path="/events/city/:citySlug" element={<EventsSearchPage />} />
+      <Route path="/events/genre/:genreSlug" element={<EventsSearchPage />} />
+      <Route path="/events/venue/:venueSlug" element={<EventsSearchPage />} />
       <Route path="/ticket/:eventSlug" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug/:sessionCompact" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
       <Route path="/ai-team" element={<PublicHomePageAI />} />
       <Route path="/ai-team-v2" element={<PublicHomePageAI_Noomo />} />
-      <Route path="/catalog" element={<CatalogPage />} />
-      <Route path="/products/:slug" element={<ProductPage />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/wishlist" element={<WishlistPage />} />
       <Route path="/search" element={<SearchPage />} />
@@ -214,24 +204,11 @@ export function AppRoutes() {
       <Route path="/tools/reputation-monitor" element={<ReputationMonitorPage />} />
       <Route path="/tools/roi-calculator" element={<RoiCalculatorPage />} />
       <Route path="/orders/:orderNumber" element={<OrderDetailPage />} />
-      <Route path="/blog" element={<PublicBlogPage />} />
-      <Route path="/blog/:slug" element={<PublicBlogPostPage />} />
-      <Route path="/promotion" element={<PublicPromotionsPage />} />
-      <Route path="/portfolio" element={<PortfolioPage />} />
-      <Route path="/cases/winners" element={<WinnersPage />} />
-      <Route path="/cases/:slug" element={<CasePage />} />
       <Route path="/charity" element={<CharityPage />} />
-      <Route path="/reviews" element={<ReviewsPage />} />
       <Route path="/ai-chat" element={<PublicAIChatPage />} />
-      <Route path="/about" element={<AboutPage />} />
       <Route path="/contacts" element={<ContactsPage />} />
       <Route path="/returns" element={<ReturnsExchangePage />} />
       <Route path="/faq" element={<TicketsFaqPage />} />
-      <Route path="/new-client" element={<NewClientPage />} />
-      <Route path="/houses-case" element={<Navigate to="/cases/houses-case" replace />} />
-      <Route path="/madeo-case" element={<Navigate to="/cases/madeo-case" replace />} />
-      <Route path="/polygon" element={<Navigate to="/cases/polygon-case" replace />} />
-      <Route path="/straumann-case" element={<Navigate to="/cases/straumann-case" replace />} />
       
       {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
       <Route path="/admin/login" element={<LoginPage />} />

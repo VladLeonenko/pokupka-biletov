@@ -21,6 +21,10 @@ describe('getbiletClient', () => {
 
   it('getGetbiletConfig uses defaults', () => {
     delete process.env.GETBILET_API_BASE;
+    delete process.env.GETBILET_PROTOCOL;
+    delete process.env.GETBILET_USER_ID;
+    delete process.env.GETBILET_HASH;
+    delete process.env.GETBILET_HASH_ID;
     const c = getGetbiletConfig();
     assert.equal(c.baseUrl, 'https://api.getbilet.ru');
     assert.equal(c.protocol, 'bil24_json');

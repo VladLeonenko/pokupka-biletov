@@ -5,7 +5,7 @@ import { getTaskTemplateByProduct } from './taskTemplates.js';
 export const MAIN_SALES_FUNNEL_NAME = 'Основная воронка продаж';
 
 // Создать сделку в воронке продаж для клиента
-export async function createDealForClient(clientId, clientName, clientEmail, clientPhone, source = 'chatbot') {
+export async function createDealForClient(clientId, clientName, clientEmail, clientPhone, source = 'chatbot', options = {}) {
   try {
     console.log('[funnelHelper] 🎯 Creating deal for client:', { clientId, clientName, source });
 
@@ -48,11 +48,33 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
       console.log('[funnelHelper] ✅ Found existing funnel:', funnelId);
     }
 
-    // Получаем первый этап воронки
-    const stageResult = await pool.query(
-      'SELECT id FROM funnel_stages WHERE funnel_id = $1 ORDER BY sort_order ASC LIMIT 1',
-      [funnelId]
-    );
+    let stageResult;
+    const stageName = typeof options.stageName === 'string' ? options.stageName.trim() : '';
+    if (stageName) {
+      stageResult = await pool.query(
+        'SELECT id FROM funnel_stages WHERE funnel_id = $1 AND lower(trim(name)) = lower(trim($2)) LIMIT 1',
+        [funnelId, stageName]
+      );
+      if (stageResult.rows.length === 0) {
+        stageResult = await pool.query(
+          `INSERT INTO funnel_stages (funnel_id, name, color, sort_order, probability)
+           VALUES (
+             $1,
+             $2,
+             $3,
+             COALESCE((SELECT MAX(sort_order) + 1 FROM funnel_stages WHERE funnel_id = $1), 1),
+             $4
+           )
+           RETURNING id`,
+          [funnelId, stageName, options.stageColor || '#ff4e18', Number(options.probability ?? 40)]
+        );
+      }
+    } else {
+      stageResult = await pool.query(
+        'SELECT id FROM funnel_stages WHERE funnel_id = $1 ORDER BY sort_order ASC LIMIT 1',
+        [funnelId]
+      );
+    }
 
     if (stageResult.rows.length === 0) {
       console.error('[funnelHelper] ❌ No stages in funnel', funnelId);
@@ -92,22 +114,18 @@ export async function createDealForClient(clientId, clientName, clientEmail, cli
         client_name, 
         client_email, 
         client_phone, 
-        description,
-        source,
-        status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id`,
       [
         funnelId,
         stageId,
-        `Лид из ${source}: ${clientName || clientEmail || clientPhone || 'Новый клиент'}`,
+        options.title || `Лид из ${source}: ${clientName || clientEmail || clientPhone || 'Новый клиент'}`,
         finalClientId || null,
         clientName || null,
         clientEmail || null,
         clientPhone || null,
-        `Создано автоматически из ${source}`,
-        source,
-        'active'
+        options.description || `Создано автоматически из ${source}`
       ]
     );
 

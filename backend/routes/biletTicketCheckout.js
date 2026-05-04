@@ -127,6 +127,72 @@ async function prepareTicketReservation({ offerId, repertoireId, seats }) {
   };
 }
 
+function normalizeOfferSelections(body) {
+  const rawSelections = Array.isArray(body?.offerSelections) ? body.offerSelections : [];
+  const source = rawSelections.length > 0
+    ? rawSelections
+    : [{
+        offerId: body?.offerId,
+        seats: body?.seats,
+      }];
+
+  const grouped = new Map();
+  for (const item of source) {
+    const offerId = requireNonEmptyString(item?.offerId, 'offerId');
+    const seatsRaw = item?.seats;
+    if (!Array.isArray(seatsRaw) || seatsRaw.length === 0) {
+      throw new GetbiletValidationError('Выберите хотя бы одно место');
+    }
+    const seats = seatsRaw.map((s) => String(s).trim()).filter(Boolean);
+    if (seats.length === 0) throw new GetbiletValidationError('Некорректный список мест');
+    const existing = grouped.get(offerId) ?? [];
+    for (const seat of seats) {
+      if (!existing.includes(seat)) existing.push(seat);
+    }
+    grouped.set(offerId, existing);
+  }
+
+  return [...grouped.entries()].map(([offerId, seats]) => ({ offerId, seats }));
+}
+
+async function prepareTicketReservations({ offerSelections, repertoireId }) {
+  const getbiletOrderIds = [];
+  const makeDataList = [];
+  let baseRub = 0;
+  let isDemo = true;
+
+  try {
+    for (const selection of offerSelections) {
+      const reservation = await prepareTicketReservation({
+        offerId: selection.offerId,
+        repertoireId,
+        seats: selection.seats,
+      });
+      baseRub += reservation.baseRub;
+      isDemo = isDemo && reservation.isDemo;
+      if (reservation.getbiletOrderId) getbiletOrderIds.push(reservation.getbiletOrderId);
+      makeDataList.push({
+        offerId: selection.offerId,
+        seats: selection.seats,
+        makeData: reservation.makeData,
+        getbiletOrderId: reservation.getbiletOrderId,
+      });
+    }
+  } catch (err) {
+    for (const orderId of getbiletOrderIds) {
+      restV2CancelOrder(orderId).catch(() => {});
+    }
+    throw err;
+  }
+
+  return {
+    baseRub,
+    makeData: makeDataList.length === 1 ? makeDataList[0].makeData : makeDataList,
+    getbiletOrderIds,
+    isDemo,
+  };
+}
+
 /**
  * @param {import('express').Router} router
  * @param {{ optionalAuth: import('express').RequestHandler }} deps
@@ -153,7 +219,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
   });
 
   router.post('/checkout', optionalAuth, async (req, res) => {
-    let getbiletOrderIdToCancel = null;
+    let getbiletOrderIdsToCancel = [];
     let insertedOrderId = null;
     try {
       if (!isTbankEacqConfigured()) {
@@ -163,18 +229,14 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         });
       }
 
-      const offerId = requireNonEmptyString(req.body?.offerId, 'offerId');
       const repertoireId = requireNonEmptyString(req.body?.repertoireId, 'repertoireId');
       const eventTitle =
         typeof req.body?.eventTitle === 'string' && req.body.eventTitle.trim()
           ? req.body.eventTitle.trim().slice(0, 300)
           : 'Мероприятие';
-      const seatsRaw = req.body?.seats;
-      if (!Array.isArray(seatsRaw) || seatsRaw.length === 0) {
-        throw new GetbiletValidationError('Выберите хотя бы одно место');
-      }
-      const seats = seatsRaw.map((s) => String(s).trim()).filter(Boolean);
-      if (seats.length === 0) throw new GetbiletValidationError('Некорректный список мест');
+      const offerSelections = normalizeOfferSelections(req.body);
+      const offerId = offerSelections[0].offerId;
+      const seats = offerSelections.flatMap((selection) => selection.seats);
 
       const customerName = requireNonEmptyString(req.body?.customerName, 'ФИО');
       let customerEmail = requireNonEmptyString(req.body?.customerEmail, 'Email');
@@ -196,7 +258,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         return res.status(400).json({ error: 'session_required' });
       }
 
-      const reservation = await prepareTicketReservation({ offerId, repertoireId, seats });
+      const reservation = await prepareTicketReservations({ offerSelections, repertoireId });
       const baseRub = reservation.baseRub;
       let finalRub = baseRub;
       let promoId = null;
@@ -215,7 +277,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       }
 
       const makeData = reservation.makeData;
-      getbiletOrderIdToCancel = reservation.getbiletOrderId;
+      getbiletOrderIdsToCancel = reservation.getbiletOrderIds;
 
       if (!reservation.isDemo) {
         invalidateOffersCache(repertoireId).catch(() => {});
@@ -227,10 +289,12 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         eventTitle,
         seats,
         offerId,
+        offerSelections,
         repertoireId,
         promoId,
         getbiletMakeOrder: makeData,
-        getbiletOrderId: getbiletOrderIdToCancel,
+        getbiletOrderId: getbiletOrderIdsToCancel[0] ?? null,
+        getbiletOrderIds: getbiletOrderIdsToCancel,
       };
 
       const orderResult = await pool.query(
@@ -306,8 +370,10 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       if (insertedOrderId) {
         await pool.query('DELETE FROM orders WHERE id = $1', [insertedOrderId]).catch(() => {});
       }
-      if (getbiletOrderIdToCancel) {
-        restV2CancelOrder(getbiletOrderIdToCancel).catch(() => {});
+      if (getbiletOrderIdsToCancel.length > 0) {
+        for (const orderId of getbiletOrderIdsToCancel) {
+          restV2CancelOrder(orderId).catch(() => {});
+        }
       }
       if (err instanceof GetbiletValidationError) {
         return res.status(400).json({ error: 'validation', message: err.message });
@@ -339,6 +405,19 @@ export async function handleTbankEacqNotification(req, res) {
       body.Success === true &&
       (body.Status === 'CONFIRMED' || body.Status === 'AUTHORIZED');
     if (!paid) {
+      const failedStatuses = new Set(['REJECTED', 'CANCELED', 'DEADLINE_EXPIRED']);
+      const status = body.Status != null ? String(body.Status).toUpperCase() : '';
+      if (orderNumber && failedStatuses.has(status)) {
+        await pool.query(
+          `UPDATE orders SET
+            payment_status = 'failed',
+            status = CASE WHEN status = 'pending' THEN 'cancelled' ELSE status END,
+            external_payment_id = COALESCE($2::text, external_payment_id),
+            updated_at = NOW()
+           WHERE order_number = $1 AND payment_status <> 'paid'`,
+          [orderNumber, body.PaymentId != null ? String(body.PaymentId) : null]
+        );
+      }
       return res.status(200).send('OK');
     }
 

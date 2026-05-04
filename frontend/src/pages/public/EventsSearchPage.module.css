@@ -126,14 +126,81 @@
   gap: 24px;
 }
 
+.seoLinksSection {
+  margin-top: 48px;
+  padding: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.seoLinksTitle {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #111;
+}
+
+.seoLinksIntro {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.seoLinksGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+
+.seoLinksLabel {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.seoLinksList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seoLink {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #111;
+  text-decoration: none;
+  font-size: 0.86rem;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.seoLink:hover {
+  border-color: var(--neg-orange, #ff4e18);
+  color: var(--neg-orange, #ff4e18);
+}
+
 @media (min-width: 560px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .seoLinksGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 900px) {
   .grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .seoLinksGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

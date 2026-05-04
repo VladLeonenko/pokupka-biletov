@@ -113,14 +113,34 @@
 
 .directionsRow {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px 12px;
   padding: 6px 0 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
-  overflow-x: auto;
+  overflow-x: visible;
   overflow-y: visible;
   min-width: 0;
+}
+
+@media (max-width: 899px) {
+  .directionsRow {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 0 10px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .directionsRow::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 @media (min-width: 900px) {
@@ -149,15 +169,25 @@
 /* Средняя колонка: скролл плашек, не выталкивает поиск на вторую строку */
 .directionsStrip {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  overflow-x: auto;
+  overflow-x: visible;
   padding: 4px 0 4px;
   flex: 1 1 0;
   min-width: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 899px) {
+  .directionsStrip {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    overflow: visible;
+    gap: 7px;
+  }
 }
 
 .directionsStrip::-webkit-scrollbar {
@@ -204,6 +234,29 @@
   padding: 10px 0 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  transition: none !important;
+}
+
+.calendarRowAutoHidden {
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-color: transparent;
+  pointer-events: none;
+}
+
+.calendarRowInner {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  will-change: opacity, transform;
+}
+
+.calendarRowAutoHidden .calendarRowInner {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .calendarHead {
@@ -230,6 +283,35 @@
   letter-spacing: 0.22em;
   color: rgba(0, 0, 0, 0.38);
   flex: 0 0 auto;
+}
+
+.calendarTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.calendarToggle {
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: #fff;
+  color: rgba(0, 0, 0, 0.64);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    background 0.2s;
+}
+
+.calendarToggle:hover {
+  border-color: rgba(0, 0, 0, 0.28);
+  color: #111;
+  background: rgba(0, 0, 0, 0.025);
 }
 
 .monthNav {
@@ -322,7 +404,7 @@
 
 /* Поиск справа в том же ряду, что и направления */
 .inlineSearch {
-  flex: 0 0 auto;
+  flex: 1 1 260px;
   display: flex;
   align-items: stretch;
   gap: 0;
@@ -338,6 +420,15 @@
     border-color 0.2s,
     background 0.2s,
     box-shadow 0.2s;
+}
+
+@media (max-width: 899px) {
+  .inlineSearch {
+    flex: 0 0 min(260px, 66vw);
+    width: min(260px, 66vw);
+    min-width: min(220px, 62vw);
+    margin-left: 0;
+  }
 }
 
 @media (min-width: 900px) {
@@ -389,6 +480,7 @@
 
 .calendarStrip {
   display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Paper, Popper, Typography } from '@mui/material';
+import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
@@ -28,6 +29,28 @@ type HoverSeatInfo = {
   seat: string;
   priceKey: string;
 };
+export type HallSelectedSeat = HoverSeatInfo & { key: string };
+type Point = { x: number; y: number };
+type BBox = { minX: number; minY: number; maxX: number; maxY: number };
+type SectorMeta = {
+  id: string;
+  label: string;
+  path: string;
+  availableSeats?: number;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+};
+type SectorSummary = {
+  meta: SectorMeta;
+  offers: HallOfferRow[];
+  seatCount: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+};
+type BackgroundSeatCoordinate = {
+  xPct: number;
+  yPct: number;
+};
 
 function parseOverlayRect(layout: unknown): OverlayRect {
   if (!layout || typeof layout !== 'object') {
@@ -48,6 +71,132 @@ function parseOverlayRect(layout: unknown): OverlayRect {
   return { x: 0.06, y: 0.14, w: 0.88, h: 0.72 };
 }
 
+function shouldShowUnavailableSeats(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return true;
+  return (layout as Record<string, unknown>).showUnavailableSeats !== false;
+}
+
+function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordinate[] {
+  if (!layout || typeof layout !== 'object') return [];
+  const record = layout as Record<string, unknown>;
+  const raw = record.allSeatCoordinates ?? record.backgroundSeats ?? record.coordinates;
+  if (!Array.isArray(raw)) return [];
+  const out: BackgroundSeatCoordinate[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const seat = item as Record<string, unknown>;
+    const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
+    const y = Number(seat.yPct ?? seat.y_percent ?? seat.yPercent ?? seat.top ?? seat.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const xPct = x >= 0 && x <= 1 ? x * 100 : x;
+    const yPct = y >= 0 && y <= 1 ? y * 100 : y;
+    if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) continue;
+    out.push({ xPct, yPct });
+  }
+  return out;
+}
+
+function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMeta[] } {
+  if (!layout || typeof layout !== 'object') return { enabled: false, sectors: [] };
+  const raw = (layout as Record<string, unknown>).sectorMode;
+  if (!raw || typeof raw !== 'object') return { enabled: false, sectors: [] };
+  const record = raw as Record<string, unknown>;
+  const sectors = Array.isArray(record.sectors)
+    ? record.sectors
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const s = item as Record<string, unknown>;
+          const id = String(s.id ?? '').trim();
+          const label = String(s.label ?? '').trim();
+          const path = String(s.path ?? '').trim();
+          if (!id || !label || !path) return null;
+          const minPrice = Number(s.minPrice);
+          const maxPrice = Number(s.maxPrice);
+          return {
+            id,
+            label,
+            path,
+            availableSeats: Number(s.availableSeats) || 0,
+            minPrice: Number.isFinite(minPrice) ? minPrice : null,
+            maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
+          };
+        })
+        .filter(Boolean) as SectorMeta[]
+    : [];
+  return { enabled: record.enabled === true && sectors.length > 0, sectors };
+}
+
+function normalizeSectorLabel(value: unknown): string {
+  return String(value ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/Ё/g, 'е')
+    .replace(/^сектор\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeSimpleToken(value: unknown): string {
+  return String(value ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/Ё/g, 'е')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeRowLabel(value: unknown): string {
+  return normalizeSimpleToken(String(value ?? '').replace(/ряд/gi, ' '));
+}
+
+function strictSeatKey(sector: unknown, row: unknown, seat: unknown): string {
+  return `${normalizeSectorLabel(sector)}|${normalizeRowLabel(row)}|${normalizeSimpleToken(seat)}`;
+}
+
+function selectionSeatKey(offerId: unknown, row: unknown, seat: unknown): string {
+  return `${String(offerId ?? '')}|${normalizeRowLabel(row)}|${normalizeSimpleToken(seat)}`;
+}
+
+function parseSvgViewBox(svg: string): { value: string; width: number; height: number } {
+  const viewBox = svg.match(/\bviewBox=["']([^"']+)["']/i)?.[1];
+  if (viewBox) {
+    const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+    if (parts.length >= 4 && parts.every(Number.isFinite) && parts[2] > 0 && parts[3] > 0) {
+      return { value: viewBox, width: parts[2], height: parts[3] };
+    }
+  }
+  const width = Number(svg.match(/\bwidth=["']([^"']+)["']/i)?.[1]);
+  const height = Number(svg.match(/\bheight=["']([^"']+)["']/i)?.[1]);
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    return { value: `0 0 ${width} ${height}`, width, height };
+  }
+  return { value: '0 0 100 100', width: 100, height: 100 };
+}
+
+function pathBBox(path: string): BBox | null {
+  const nums = path.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)?.map(Number) ?? [];
+  if (nums.length < 2) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = nums[i];
+    const y = nums[i + 1];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 function sortOffersForGrid(rows: HallOfferRow[]): HallOfferRow[] {
   return [...rows].sort((a, b) => {
     const sa = String(a.Sector ?? '');
@@ -62,6 +211,31 @@ function formatRub(value: number): string {
   return `${value.toLocaleString('ru-RU')} ₽`;
 }
 
+function formatSelectedPlaces(seats: string[], row: unknown): string {
+  const rowLabel = String(row ?? '').trim();
+  const rowText = rowLabel ? `, ${rowLabel} ряд` : '';
+  if (seats.length === 1) {
+    return `Выбрано: ${seats[0]} место${rowText}`;
+  }
+  return `Выбрано: места ${seats.join(', ')}${rowText}`;
+}
+
+function formatSelectedPlacesDetailed(details: HallSelectedSeat[], fallbackSeats: string[], fallbackRow: unknown): string {
+  if (details.length === 0) return formatSelectedPlaces(fallbackSeats, fallbackRow);
+  if (details.length === 1) return formatSelectedPlaces([details[0].seat], details[0].row);
+  const rows = new Set(details.map((d) => d.row).filter(Boolean));
+  if (rows.size === 1) return formatSelectedPlaces(details.map((d) => d.seat), details[0].row);
+  return `Выбрано: ${details.map((d) => `${d.seat} место${d.row ? `, ${d.row} ряд` : ''}`).join('; ')}`;
+}
+
+function pointDistance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function pointMiddle(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
 type Props = {
   hallSvgHtml: string;
   layoutJson: unknown;
@@ -74,6 +248,8 @@ type Props = {
   /** Оффер, соответствующий activeOfferId — для карточки на схеме */
   selectedOffer?: HallOfferRow | null;
   onReserveFromMap?: () => void;
+  onClearSelection?: () => void;
+  onSelectionChange?: (details: HallSelectedSeat[]) => void;
   reservePending?: boolean;
   /** В модальном окне — другие отступы и высота под Dialog */
   variant?: 'page' | 'dialog';
@@ -99,6 +275,8 @@ export function TicketHallInteractiveBlock({
   onToggleSeat,
   selectedOffer = null,
   onReserveFromMap,
+  onClearSelection,
+  onSelectionChange,
   reservePending = false,
   variant = 'page',
 }: Props) {
@@ -111,7 +289,11 @@ export function TicketHallInteractiveBlock({
   const numRows = Math.max(1, sorted.length);
 
   const layoutMode = useMemo(() => parseLayoutMode(layoutJson), [layoutJson]);
+  const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
+  const sectorMode = useMemo(() => parseSectorMode(layoutJson), [layoutJson]);
+  const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
+  const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const nativeSource = layoutSeats.length >= 2 ? 'layout' : nativeProcessed ? 'svg' : null;
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
@@ -134,6 +316,47 @@ export function TicketHallInteractiveBlock({
         nativePlacements: [] as SvgNativePlacement[],
       };
     }
+
+    if (sectorMode.enabled) {
+      const exactOffers = new Map<string, { offer: HallOfferRow; seat: string }>();
+      for (const offer of offers) {
+        if (!Array.isArray(offer.SeatList)) continue;
+        for (const seat of offer.SeatList) {
+          exactOffers.set(strictSeatKey(offer.Sector, offer.Row, seat), { offer, seat: String(seat) });
+        }
+      }
+
+      const placements: SvgNativePlacement[] = [];
+      for (const svgSeat of nativeSeats) {
+        const match = exactOffers.get(strictSeatKey(svgSeat.sector, svgSeat.row, svgSeat.seat));
+        if (!match) continue;
+
+        const svgKey = seatMapKey(svgSeat.sector, svgSeat.row, svgSeat.seat);
+        const priceKey = getPriceKey(match.offer);
+        const offerId = String(match.offer.Id ?? '');
+        const available = Array.isArray(match.offer.SeatList) ? match.offer.SeatList.map(String) : [];
+        const rowLabel = String(match.offer.Row ?? svgSeat.row);
+        const sectorLabel = String(match.offer.Sector ?? svgSeat.sector);
+        placements.push({
+          svgKey,
+          key: selectionSeatKey(offerId, rowLabel, match.seat),
+          offerId,
+          sectorLabel,
+          seat: match.seat,
+          rowLabel,
+          available,
+          xPct: svgSeat.xPct,
+          yPct: svgSeat.yPct,
+          title: `${sectorLabel}, ${rowLabel} ряд, место ${match.seat}, цена ${formatRub(Number(priceKey))}`,
+          priceKey,
+        });
+      }
+
+      return {
+        nativePlacements: placements,
+      };
+    }
+
     const { placements } = buildSvgNativePlacements(
       nativeSeats,
       offers,
@@ -142,25 +365,132 @@ export function TicketHallInteractiveBlock({
     return {
       nativePlacements: placements,
     };
-  }, [useSvgNative, nativeSeats, offers, getPriceKey]);
+  }, [colorForSeat, getPriceKey, offers, sectorMode.enabled, useSvgNative, nativeSeats]);
 
   const matchedNativeSeatKeys = useMemo(
     () => new Set(nativePlacements.map((p) => p.svgKey)),
     [nativePlacements],
   );
 
+  const sectorSummaries = useMemo(() => {
+    const offersBySector = new Map<string, HallOfferRow[]>();
+    for (const offer of offers) {
+      const key = normalizeSectorLabel(offer.Sector);
+      if (!key) continue;
+      const arr = offersBySector.get(key) ?? [];
+      arr.push(offer);
+      offersBySector.set(key, arr);
+    }
+
+    return sectorMode.sectors.map((meta) => {
+      const sectorOffers = offersBySector.get(normalizeSectorLabel(meta.label)) ?? [];
+      const prices = sectorOffers.map((offer) => Number(getPriceKey(offer))).filter(Number.isFinite);
+      const seatCount = sectorOffers.reduce(
+        (sum, offer) => sum + (Array.isArray(offer.SeatList) ? offer.SeatList.length : 0),
+        0,
+      );
+      return {
+        meta,
+        offers: sectorOffers,
+        seatCount,
+        minPrice: prices.length ? Math.min(...prices) : sectorOffers.length > 0 ? meta.minPrice ?? null : null,
+        maxPrice: prices.length ? Math.max(...prices) : sectorOffers.length > 0 ? meta.maxPrice ?? null : null,
+      };
+    });
+  }, [getPriceKey, offers, sectorMode.sectors]);
+
+  const sectorSummaryByLabel = useMemo(() => {
+    const map = new Map<string, SectorSummary>();
+    for (const summary of sectorSummaries) {
+      map.set(normalizeSectorLabel(summary.meta.label), summary);
+    }
+    return map;
+  }, [sectorSummaries]);
+
   const viewportRef = useRef<HTMLDivElement>(null);
+  const panInnerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasImageRef = useRef<HTMLImageElement | null>(null);
+  const [canvasImageVersion, setCanvasImageVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
 
   const [zoom, setZoom] = useState(1);
-  const clampZoom = useCallback((z: number) => Math.min(2.75, Math.max(0.2, z)), []);
+  const maxZoom = fitZoom * (sectorMode.enabled ? 12 : 8);
+  const clampZoom = useCallback((z: number) => Math.min(maxZoom || 4, Math.max(0.03, z)), [maxZoom]);
+  const discreteZoomLevels = useMemo(
+    () => {
+      const multipliers = sectorMode.enabled ? [1, 2, 3, 4, 6, 8, 10, 12] : [1, 2, 3, 4, 6, 8];
+      return multipliers.map((multiplier) => fitZoom * multiplier).map(clampZoom);
+    },
+    [clampZoom, fitZoom, sectorMode.enabled],
+  );
+  const getNextZoomLevel = useCallback((current: number, direction: 1 | -1) => {
+    const ordered = [...new Set(discreteZoomLevels.map((level) => Number(level.toFixed(4))))].sort((a, b) => a - b);
+    return direction > 0
+      ? ordered.find((level) => level > current + 0.01)
+      : [...ordered].reverse().find((level) => level < current - 0.01);
+  }, [discreteZoomLevels]);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isMapDragging, setIsMapDragging] = useState(false);
+  const [mapPreparing, setMapPreparing] = useState(true);
   const [hoverAnchor, setHoverAnchor] = useState<HTMLElement | null>(null);
   const [hoverSeat, setHoverSeat] = useState<HoverSeatInfo | null>(null);
-  const dragRef = useRef<{ active: boolean; id: number; sx: number; sy: number; ox: number; oy: number } | null>(
+  const [hoverSectorAnchor, setHoverSectorAnchor] = useState<Element | null>(null);
+  const [hoverSector, setHoverSector] = useState<SectorSummary | null>(null);
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [sectorPanelCollapsed, setSectorPanelCollapsed] = useState(false);
+  const [selectedSeatDetails, setSelectedSeatDetails] = useState<HallSelectedSeat[]>([]);
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  const pointersRef = useRef(new Map<number, Point>());
+  const suppressMapClickRef = useRef(false);
+  const pinchRef = useRef<{
+    startDistance: number;
+    startZoom: number;
+    startPan: Point;
+    startMiddle: Point;
+  } | null>(null);
+  const dragRef = useRef<{ active: boolean; moved: boolean; id: number; sx: number; sy: number; ox: number; oy: number } | null>(
     null,
   );
+
+  const getLayerBase = useCallback(() => {
+    const vp = viewportRef.current;
+    const inner = panInnerRef.current;
+    const layers = layersRef.current;
+    if (!vp || !inner || !layers) return null;
+    const vpRect = vp.getBoundingClientRect();
+    const innerRect = inner.getBoundingClientRect();
+    return {
+      x: innerRect.left - vpRect.left + layers.offsetLeft,
+      y: innerRect.top - vpRect.top + layers.offsetTop,
+      width: layers.offsetWidth,
+      height: layers.offsetHeight,
+    };
+  }, []);
+
+  const applyCamera = useCallback((nextZoom: number, nextPan: Point) => {
+    zoomRef.current = nextZoom;
+    panRef.current = nextPan;
+    setZoom(nextZoom);
+    setPan(nextPan);
+  }, []);
+
+  const applyPan = useCallback((nextPan: Point) => {
+    panRef.current = nextPan;
+    setPan(nextPan);
+  }, []);
+
+  const getCenteredPan = useCallback((targetZoom: number) => {
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) return { x: 0, y: 0 };
+    return {
+      x: vp.clientWidth / 2 - base.x - (base.width * targetZoom) / 2,
+      y: vp.clientHeight / 2 - base.y - (base.height * targetZoom) / 2,
+    };
+  }, [getLayerBase]);
 
   const showSeatInfo = useCallback((anchor: HTMLElement, info: HoverSeatInfo) => {
     setHoverAnchor(anchor);
@@ -171,6 +501,75 @@ export function TicketHallInteractiveBlock({
     setHoverAnchor(null);
     setHoverSeat(null);
   }, []);
+
+  const showSectorInfo = useCallback((anchor: SVGPathElement, sector: SectorSummary) => {
+    setHoverSectorAnchor(anchor);
+    setHoverSector(sector);
+  }, []);
+
+  const hideSectorInfo = useCallback(() => {
+    setHoverSectorAnchor(null);
+    setHoverSector(null);
+  }, []);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  const stadiumCanvasEnabled = sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
+
+  useEffect(() => {
+    if (!stadiumCanvasEnabled || !svgHtmlSafe.trim()) {
+      canvasImageRef.current = null;
+      setCanvasImageVersion((v) => v + 1);
+      return;
+    }
+
+    const blob = new Blob([svgHtmlSafe], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      canvasImageRef.current = img;
+      setCanvasImageVersion((v) => v + 1);
+    };
+    img.onerror = () => {
+      canvasImageRef.current = null;
+      setCanvasImageVersion((v) => v + 1);
+    };
+    img.src = url;
+
+    return () => {
+      URL.revokeObjectURL(url);
+      if (canvasImageRef.current === img) canvasImageRef.current = null;
+    };
+  }, [stadiumCanvasEnabled, svgHtmlSafe]);
+
+  useEffect(() => {
+    if (!activeOfferId || selectedSeats.length === 0) {
+      setSelectedSeatDetails([]);
+    }
+  }, [activeOfferId, selectedSeats.length]);
+
+  useEffect(() => {
+    setSectorPanelCollapsed(false);
+  }, [selectedSector]);
+
+  useEffect(() => {
+    setMapPreparing(true);
+  }, [hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
+
+  useEffect(() => {
+    if (stadiumCanvasEnabled && !canvasImageRef.current) return undefined;
+    const timeout = window.setTimeout(() => {
+      setMapPreparing(false);
+    }, stadiumCanvasEnabled ? 520 : 280);
+    return () => window.clearTimeout(timeout);
+  }, [canvasImageVersion, hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
 
   const applyFit = useCallback((resetPan: boolean) => {
     const vp = viewportRef.current;
@@ -186,45 +585,129 @@ export function TicketHallInteractiveBlock({
     const zy = (vh - margin * 2) / lh;
     const fit = Math.min(1, zx, zy);
     setFitZoom(fit);
-    setZoom(fit);
-    if (resetPan) setPan({ x: 0, y: 0 });
+    if (resetPan || zoomRef.current < fit) {
+      applyCamera(fit, resetPan ? getCenteredPan(fit) : panRef.current);
+    }
+  }, [applyCamera, getCenteredPan]);
+
+  const startPinchIfReady = useCallback(() => {
+    const points = [...pointersRef.current.values()];
+    if (points.length < 2) {
+      pinchRef.current = null;
+      return;
+    }
+    const [a, b] = points;
+    pinchRef.current = {
+      startDistance: Math.max(1, pointDistance(a, b)),
+      startZoom: zoomRef.current,
+      startPan: panRef.current,
+      startMiddle: pointMiddle(a, b),
+    };
   }, []);
 
   const onPointerDownPan = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     hideSeatInfo();
+    hideSectorInfo();
     if (e.button !== 0 && e.pointerType !== 'touch') return;
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragRef.current = {
       active: true,
+      moved: false,
       id: e.pointerId,
       sx: e.clientX,
       sy: e.clientY,
-      ox: pan.x,
-      oy: pan.y,
+      ox: panRef.current.x,
+      oy: panRef.current.y,
     };
-  }, [hideSeatInfo, pan.x, pan.y]);
+    setIsMapDragging(true);
+    if (pointersRef.current.size >= 2) startPinchIfReady();
+  }, [hideSeatInfo, hideSectorInfo, startPinchIfReady]);
 
   const onPointerMovePan = useCallback((e: React.PointerEvent) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      const points = [...pointersRef.current.values()];
+      const [a, b] = points;
+      const middle = pointMiddle(a, b);
+      applyPan({
+        x: pinchRef.current.startPan.x + (middle.x - pinchRef.current.startMiddle.x),
+        y: pinchRef.current.startPan.y + (middle.y - pinchRef.current.startMiddle.y),
+      });
+      return;
+    }
     const d = dragRef.current;
     if (!d?.active || e.pointerId !== d.id) return;
-    setPan({
-      x: d.ox + (e.clientX - d.sx),
-      y: d.oy + (e.clientY - d.sy),
+    const dx = e.clientX - d.sx;
+    const dy = e.clientY - d.sy;
+    if (!d.moved && Math.hypot(dx, dy) < 4) return;
+    d.moved = true;
+    suppressMapClickRef.current = true;
+    applyPan({
+      x: d.ox + dx,
+      y: d.oy + dy,
     });
-  }, []);
+  }, [applyPan]);
+
+  const focusLayerPoint = useCallback((layerX: number, layerY: number, targetZoom: number, sectorLabel?: string) => {
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) return;
+    const panelOffset = vp.clientWidth >= 760 ? Math.min(390, vp.clientWidth * 0.38) : 0;
+    const targetScreenX = panelOffset + (vp.clientWidth - panelOffset) / 2;
+    const targetScreenY = vp.clientHeight / 2;
+    if (sectorLabel) setSelectedSector(normalizeSectorLabel(sectorLabel));
+    applyCamera(targetZoom, {
+      x: targetScreenX - base.x - layerX * targetZoom,
+      y: targetScreenY - base.y - layerY * targetZoom,
+    });
+  }, [applyCamera, getLayerBase]);
+
+  const focusClickPoint = useCallback((clientX: number, clientY: number) => {
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) return;
+    const vpRect = vp.getBoundingClientRect();
+    const currentZoom = Math.max(0.001, zoomRef.current);
+    const layerX = (clientX - vpRect.left - base.x - panRef.current.x) / currentZoom;
+    const layerY = (clientY - vpRect.top - base.y - panRef.current.y) / currentZoom;
+    const nextZoom = getNextZoomLevel(currentZoom, 1);
+    if (typeof nextZoom !== 'number') return;
+    setSelectedSector(null);
+    focusLayerPoint(layerX, layerY, nextZoom);
+  }, [focusLayerPoint, getLayerBase, getNextZoomLevel]);
 
   const endPan = useCallback((e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     const d = dragRef.current;
-    if (!d || e.pointerId !== d.id) return;
-    dragRef.current = null;
+    const clicked = d && e.pointerId === d.id && !d.moved;
+    const moved = Boolean(d && e.pointerId === d.id && d.moved);
+    if (d && e.pointerId === d.id) dragRef.current = null;
+    if (moved) {
+      window.setTimeout(() => {
+        suppressMapClickRef.current = false;
+      }, 0);
+    }
+    if (pointersRef.current.size === 0) setIsMapDragging(false);
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
       /* */
     }
-  }, []);
+    if (
+      clicked
+      && !(e.target as HTMLElement).closest('button')
+      && !(e.target as HTMLElement).closest('[data-seat-dot="true"]')
+      && !(e.target as HTMLElement).closest('[data-sector-path="true"]')
+    ) {
+      focusClickPoint(e.clientX, e.clientY);
+    }
+  }, [focusClickPoint]);
 
   useEffect(() => {
     applyFit(true);
@@ -240,21 +723,217 @@ export function TicketHallInteractiveBlock({
     return () => ro.disconnect();
   }, [applyFit]);
 
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.07 : 0.07;
-      setZoom((z) => clampZoom(z + delta));
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [clampZoom]);
+  const focusSector = useCallback((sector: SectorSummary) => {
+    setSectorPanelCollapsed(false);
+    const bbox = pathBBox(sector.meta.path);
+    const vp = viewportRef.current;
+    const layers = layersRef.current;
+    if (!bbox || !vp || !layers) {
+      setSelectedSector(normalizeSectorLabel(sector.meta.label));
+      return;
+    }
+
+    const centerX = ((bbox.minX + bbox.maxX) / 2 / svgViewBox.width) * layers.offsetWidth;
+    const centerY = ((bbox.minY + bbox.maxY) / 2 / svgViewBox.height) * layers.offsetHeight;
+    focusLayerPoint(centerX, centerY, maxZoom, sector.meta.label);
+  }, [focusLayerPoint, maxZoom, svgViewBox.height, svgViewBox.width]);
+
+  const stepZoom = useCallback((direction: 1 | -1) => {
+    const current = zoomRef.current;
+    const next = getNextZoomLevel(current, direction);
+    if (typeof next !== 'number') return;
+    if (next <= fitZoom + 0.01) {
+      setSelectedSector(null);
+      applyCamera(next, { x: 0, y: 0 });
+      return;
+    }
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) {
+      applyCamera(next, panRef.current);
+      return;
+    }
+    const currentZoom = Math.max(0.001, zoomRef.current);
+    const focusX = vp.clientWidth / 2;
+    const focusY = vp.clientHeight / 2;
+    const layerX = (focusX - base.x - panRef.current.x) / currentZoom;
+    const layerY = (focusY - base.y - panRef.current.y) / currentZoom;
+    focusLayerPoint(layerX, layerY, next);
+  }, [applyCamera, fitZoom, focusLayerPoint, getLayerBase, getNextZoomLevel]);
+
+  const resetSectorFocus = useCallback(() => {
+    setSelectedSector(null);
+    applyCamera(fitZoom, getCenteredPan(fitZoom));
+  }, [applyCamera, fitZoom, getCenteredPan]);
 
   const zoomPctLabel = Math.max(1, Math.round((zoom / Math.max(0.001, fitZoom)) * 100));
-  const selectedPrice = selectedOffer ? Number(getPriceKey(selectedOffer)) : 0;
-  const selectedTotal = Number.isFinite(selectedPrice) ? selectedPrice * selectedSeats.length : 0;
+  const selectedPrices = selectedSeatDetails.map((d) => Number(d.priceKey)).filter(Number.isFinite);
+  const selectedTotal = selectedPrices.reduce((sum, price) => sum + price, 0);
+  const selectedPlacesText = formatSelectedPlacesDetailed(selectedSeatDetails, selectedSeats, selectedOffer?.Row);
+  const selectedSectors = new Set(selectedSeatDetails.map((d) => d.sector).filter(Boolean));
+  const selectedPriceKeys = new Set(selectedSeatDetails.map((d) => d.priceKey).filter(Boolean));
+  const selectionMetaText =
+    selectedSeatDetails.length === 0
+      ? ''
+      : `${selectedSectors.size === 1 ? [...selectedSectors][0] : 'Несколько зон'} · ${
+          selectedPriceKeys.size === 1 ? `цена за место ${formatRub(Number([...selectedPriceKeys][0]))}` : 'разные цены'
+        }`;
+  const updateSelectedDetails = useCallback((detail: HallSelectedSeat, available: string[]) => {
+    setSelectedSeatDetails((prev) => {
+      if (!available.includes(detail.seat)) return prev;
+      const next = prev.some((d) => d.key === detail.key)
+        ? prev.filter((d) => d.key !== detail.key)
+        : [...prev, detail];
+      onSelectionChange?.(next);
+      return next;
+    });
+  }, [onSelectionChange]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedSeatDetails([]);
+    hideSeatInfo();
+    onSelectionChange?.([]);
+    onClearSelection?.();
+  }, [hideSeatInfo, onClearSelection, onSelectionChange]);
+
+  const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
+  const mapZoomed = zoom > fitZoom + 0.01;
+  const selectedSectorOffers = useMemo(
+    () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
+    [selectedSectorSummary],
+  );
+  const selectedSectorOffersWithSeats = useMemo(
+    () => selectedSectorOffers.filter((offer) => Array.isArray(offer.SeatList) && offer.SeatList.length > 0),
+    [selectedSectorOffers],
+  );
+  const visibleNativePlacements = useMemo(() => {
+    if (!sectorMode.enabled) return nativePlacements;
+    return nativePlacements;
+  }, [nativePlacements, sectorMode.enabled]);
+  const visibleUnavailableNativeSeats = useMemo(() => {
+    if (!useSvgNative) return [];
+    if (sectorMode.enabled) {
+      if (backgroundSeatCoordinates.length > 0) return [];
+      if (!selectedSectorSummary) return [];
+      return nativeSeats.filter(
+        (seat) => normalizeSectorLabel(seat.sector) === selectedSector
+          && !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
+      );
+    }
+    return showUnavailableSeats ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seat.key)) : [];
+  }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
+
+  const visibleBackgroundSeatCoordinates = useMemo(() => {
+    if (!sectorMode.enabled || !mapZoomed || backgroundSeatCoordinates.length === 0) return [];
+    return backgroundSeatCoordinates;
+  }, [backgroundSeatCoordinates, mapZoomed, sectorMode.enabled]);
+
+  const layersStyle = useMemo<React.CSSProperties>(() => {
+    const style: React.CSSProperties = {
+      transform: `matrix(${zoom}, 0, 0, ${zoom}, ${pan.x}, ${pan.y})`,
+      transformOrigin: '0 0',
+      transition: isMapDragging || stadiumCanvasEnabled ? 'none' : undefined,
+    };
+    if (sectorMode.enabled && svgViewBox.width > 100) {
+      style.width = `${Math.round(svgViewBox.width)}px`;
+      style.maxWidth = 'none';
+    }
+    return style;
+  }, [isMapDragging, pan.x, pan.y, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.width, zoom]);
+
+  useEffect(() => {
+    if (!stadiumCanvasEnabled) return;
+    const canvas = canvasRef.current;
+    const viewport = viewportRef.current;
+    if (!canvas || !viewport) return;
+
+    let frame = requestAnimationFrame(() => {
+      const base = getLayerBase();
+      if (!base) return;
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      if (width <= 0 || height <= 0) return;
+
+      const dpr = Math.min(3, window.devicePixelRatio || 1);
+      const pixelWidth = Math.max(1, Math.round(width * dpr));
+      const pixelHeight = Math.max(1, Math.round(height * dpr));
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+      }
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
+
+      const x = base.x + pan.x;
+      const y = base.y + pan.y;
+      const w = base.width * zoom;
+      const h = base.height * zoom;
+
+      const img = canvasImageRef.current;
+      if (img) {
+        ctx.save();
+        ctx.filter = zoom > fitZoom + 0.01 ? 'grayscale(1) contrast(1.05) brightness(1.04)' : 'none';
+        ctx.drawImage(img, x, y, w, h);
+        ctx.restore();
+      }
+
+      if (zoom > fitZoom + 0.01 && backgroundSeatCoordinates.length > 0) {
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.74)';
+        ctx.beginPath();
+        const r = Math.max(1.15, Math.min(3.2, (w / svgViewBox.width) * 7));
+        for (const seat of backgroundSeatCoordinates) {
+          const sx = x + (seat.xPct / 100) * w;
+          const sy = y + (seat.yPct / 100) * h;
+          if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
+          ctx.moveTo(sx + r, sy);
+          ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        }
+        ctx.fill();
+      }
+
+      if (visibleNativePlacements.length > 0) {
+        const activeKeys = new Set(selectedSeatDetails.map((seat) => seat.key));
+        for (const seat of visibleNativePlacements) {
+          const sx = x + (seat.xPct / 100) * w;
+          const sy = y + (seat.yPct / 100) * h;
+          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
+          const active = activeKeys.has(seat.key);
+          const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
+          ctx.beginPath();
+          ctx.fillStyle = colorForSeat(seat.priceKey);
+          ctx.arc(sx, sy, r, 0, Math.PI * 2);
+          ctx.fill();
+          if (active) {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+          }
+        }
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    backgroundSeatCoordinates,
+    canvasImageVersion,
+    colorForSeat,
+    fitZoom,
+    getLayerBase,
+    selectedSeatDetails,
+    stadiumCanvasEnabled,
+    svgViewBox.width,
+    visibleNativePlacements,
+    zoom,
+    pan.x,
+    pan.y,
+  ]);
 
   const rootClass =
     variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
@@ -263,21 +942,20 @@ export function TicketHallInteractiveBlock({
     <div className={rootClass}>
       <div className={styles.toolbar}>
         <div className={styles.zoomBtns}>
-          <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => clampZoom(z - 0.15))} aria-label="Уменьшить">
+          <button type="button" className={styles.zoomBtn} onClick={() => stepZoom(-1)} aria-label="Уменьшить">
             −
           </button>
           <button
             type="button"
             className={styles.zoomPct}
             onClick={() => {
-              setZoom(fitZoom);
-              setPan({ x: 0, y: 0 });
+              resetSectorFocus();
             }}
             aria-label="Сброс масштаба и позиции"
           >
-            {zoomPctLabel}%
+            {selectedSectorSummary ? '⤢' : `${zoomPctLabel}%`}
           </button>
-          <button type="button" className={styles.zoomBtn} onClick={() => setZoom((z) => clampZoom(z + 0.15))} aria-label="Увеличить">
+          <button type="button" className={styles.zoomBtn} onClick={() => stepZoom(1)} aria-label="Увеличить">
             +
           </button>
         </div>
@@ -292,45 +970,126 @@ export function TicketHallInteractiveBlock({
         onPointerCancel={endPan}
         role="presentation"
       >
-        <div className={styles.panInner}>
+        {stadiumCanvasEnabled ? <canvas ref={canvasRef} className={styles.stadiumCanvas} aria-hidden="true" /> : null}
+        <div ref={panInnerRef} className={styles.panInner}>
           <div
             ref={layersRef}
             className={styles.layers}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: 'center center',
-            }}
+            style={layersStyle}
           >
             <div
-              className={styles.svgLayer}
+              className={`${styles.svgLayer} ${stadiumCanvasEnabled ? styles.svgLayerCanvasBacked : ''} ${
+                !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
+              }`}
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
             />
+            {sectorMode.enabled ? (
+              <svg
+                className={`${styles.sectorLayer} ${selectedSectorSummary || mapZoomed ? styles.sectorLayerFocused : ''}`}
+                viewBox={svgViewBox.value}
+                preserveAspectRatio="xMidYMid meet"
+                aria-label="Секторы стадиона"
+              >
+                {sectorSummaries.map((sector) => {
+                  const available = sector.seatCount > 0 || sector.offers.length > 0;
+                  const active = selectedSector === normalizeSectorLabel(sector.meta.label);
+                  const priceForColor = sector.minPrice != null ? String(sector.minPrice) : '0';
+                  return (
+                    <path
+                      key={sector.meta.id}
+                      d={sector.meta.path}
+                      data-sector-path="true"
+                      className={`${styles.sectorPath} ${styles.sectorPathInteractive} ${
+                        available ? styles.sectorPathAvailable : styles.sectorPathUnavailable
+                      } ${
+                        active ? styles.sectorPathActive : ''
+                      }`}
+                      style={
+                        {
+                          '--sector-accent': available ? colorForSeat(priceForColor) : '#9ca3af',
+                        } as React.CSSProperties
+                      }
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${sector.meta.label}: ${sector.seatCount > 0 ? `${sector.seatCount} мест` : 'нет мест в наличии'}`}
+                      onPointerDown={(ev) => {
+                        showSectorInfo(ev.currentTarget, sector);
+                      }}
+                      onPointerEnter={(ev) => {
+                        showSectorInfo(ev.currentTarget, sector);
+                      }}
+                      onFocus={(ev) => {
+                        showSectorInfo(ev.currentTarget, sector);
+                      }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        if (suppressMapClickRef.current) return;
+                        focusSector(sector);
+                      }}
+                    />
+                  );
+                })}
+              </svg>
+            ) : null}
             <div
               className={styles.seatLayer}
               aria-hidden={useSvgNative ? nativePlacements.length === 0 : sorted.length === 0}
             >
-              {useSvgNative && nativeSource === 'layout'
-                ? nativeSeats
-                    .filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
+              {!stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? (
+                <svg
+                  className={styles.backgroundSeatLayer}
+                  viewBox={`0 0 ${svgViewBox.width} ${svgViewBox.height}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  aria-hidden="true"
+                >
+                  {visibleBackgroundSeatCoordinates.map((seat, index) => (
+                    <circle
+                      key={`bg-seat-${index}-${seat.xPct.toFixed(3)}-${seat.yPct.toFixed(3)}`}
+                      className={styles.backgroundSeatDot}
+                      cx={(seat.xPct / 100) * svgViewBox.width}
+                      cy={(seat.yPct / 100) * svgViewBox.height}
+                      r="7"
+                    />
+                  ))}
+                </svg>
+              ) : null}
+              {visibleUnavailableNativeSeats.length > 0
+                ? visibleUnavailableNativeSeats
                     .map((seat) => (
                       <span
                         key={`unavailable-${seatMapKey(seat.sector, seat.row, seat.seat)}`}
-                        className={styles.seatDotUnavailable}
+                        className={`${styles.seatDotUnavailable} ${sectorMode.enabled ? styles.seatDotUnavailableNative : ''}`}
                         style={{ left: `${seat.xPct}%`, top: `${seat.yPct}%` }}
                         title={`${seat.sector} · ряд ${seat.row} · место ${seat.seat} — недоступно`}
                       />
                     ))
                 : null}
               {useSvgNative
-                ? nativePlacements.map((p) => {
-                    const active = activeOfferId === p.offerId && selectedSeats.includes(p.seat);
+                ? visibleNativePlacements.map((p) => {
+                    const visualKey = p.key;
+                    const active = selectedSeatDetails.some((d) => d.key === visualKey);
                     const bg = colorForSeat(p.priceKey);
+                    const seatInfo = {
+                      key: visualKey,
+                      offerId: p.offerId,
+                      sector: p.sectorLabel,
+                      row: p.rowLabel,
+                      seat: p.seat,
+                      priceKey: p.priceKey,
+                    };
                     return (
                       <button
                         key={p.key}
                         type="button"
-                        className={`${styles.seatDot} ${styles.seatDotNative} ${active ? styles.seatDotOn : ''}`}
+                        data-seat-dot="true"
+                        className={`${styles.seatDot} ${styles.seatDotNative} ${
+                          sectorMode.enabled ? styles.seatDotStadium : ''
+                        } ${
+                          stadiumCanvasEnabled ? styles.seatDotCanvasHit : ''
+                        } ${
+                          sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
+                        } ${active ? styles.seatDotOn : ''}`}
                         style={
                           {
                             left: `${p.xPct}%`,
@@ -341,41 +1100,22 @@ export function TicketHallInteractiveBlock({
                         aria-label={p.title}
                         onPointerDown={(ev) => {
                           ev.stopPropagation();
-                          showSeatInfo(ev.currentTarget, {
-                            offerId: p.offerId,
-                            sector: p.sectorLabel,
-                            row: p.rowLabel,
-                            seat: p.seat,
-                            priceKey: p.priceKey,
-                          });
+                          showSeatInfo(ev.currentTarget, seatInfo);
                         }}
                         onPointerEnter={(ev) => {
-                          showSeatInfo(ev.currentTarget, {
-                            offerId: p.offerId,
-                            sector: p.sectorLabel,
-                            row: p.rowLabel,
-                            seat: p.seat,
-                            priceKey: p.priceKey,
-                          });
+                          showSeatInfo(ev.currentTarget, seatInfo);
+                        }}
+                        onPointerLeave={(ev) => {
+                          if (ev.pointerType !== 'touch') hideSeatInfo();
                         }}
                         onFocus={(ev) => {
-                          showSeatInfo(ev.currentTarget, {
-                            offerId: p.offerId,
-                            sector: p.sectorLabel,
-                            row: p.rowLabel,
-                            seat: p.seat,
-                            priceKey: p.priceKey,
-                          });
+                          showSeatInfo(ev.currentTarget, seatInfo);
                         }}
+                        onBlur={hideSeatInfo}
                         onClick={(ev) => {
-                          showSeatInfo(ev.currentTarget, {
-                            offerId: p.offerId,
-                            sector: p.sectorLabel,
-                            row: p.rowLabel,
-                            seat: p.seat,
-                            priceKey: p.priceKey,
-                          });
-                          onToggleSeat(p.offerId, p.seat, p.available);
+                          showSeatInfo(ev.currentTarget, seatInfo);
+                          updateSelectedDetails(seatInfo, p.available);
+                          if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
                         }}
                       >
                         {active ? <span className={styles.seatDotCheck}>✓</span> : null}
@@ -393,51 +1133,42 @@ export function TicketHallInteractiveBlock({
                     return seats.map((seat, j) => {
                       const gx = overlay.x + overlay.w * ((offset + j + 0.5) / maxSeatsInAnyRow);
                       const gy = overlay.y + overlay.h * ((rowIdx + 0.5) / numRows);
-                      const active = activeOfferId === oid && selectedSeats.includes(seat);
+                      const visualKey = selectionSeatKey(oid, row.Row, seat);
+                      const active = selectedSeatDetails.some((d) => d.key === visualKey);
+                      const seatInfo = {
+                        key: visualKey,
+                        offerId: oid,
+                        sector: String(row.Sector ?? ''),
+                        row: String(row.Row ?? ''),
+                        seat,
+                        priceKey: pk,
+                      };
                       return (
                         <button
                           key={`${oid}-${seat}`}
                           type="button"
+                          data-seat-dot="true"
                           className={`${styles.seatDot} ${active ? styles.seatDotOn : ''}`}
                           style={{ left: `${gx * 100}%`, top: `${gy * 100}%`, '--seat-accent': bg } as React.CSSProperties}
                           aria-label={`${row.Sector ?? ''} · ряд ${row.Row ?? ''} · место ${seat} · ${pk} ₽`}
                           onPointerDown={(ev) => {
                             ev.stopPropagation();
-                            showSeatInfo(ev.currentTarget, {
-                              offerId: oid,
-                              sector: String(row.Sector ?? ''),
-                              row: String(row.Row ?? ''),
-                              seat,
-                              priceKey: pk,
-                            });
+                            showSeatInfo(ev.currentTarget, seatInfo);
                           }}
                           onPointerEnter={(ev) => {
-                            showSeatInfo(ev.currentTarget, {
-                              offerId: oid,
-                              sector: String(row.Sector ?? ''),
-                              row: String(row.Row ?? ''),
-                              seat,
-                              priceKey: pk,
-                            });
+                            showSeatInfo(ev.currentTarget, seatInfo);
+                          }}
+                          onPointerLeave={(ev) => {
+                            if (ev.pointerType !== 'touch') hideSeatInfo();
                           }}
                           onFocus={(ev) => {
-                            showSeatInfo(ev.currentTarget, {
-                              offerId: oid,
-                              sector: String(row.Sector ?? ''),
-                              row: String(row.Row ?? ''),
-                              seat,
-                              priceKey: pk,
-                            });
+                            showSeatInfo(ev.currentTarget, seatInfo);
                           }}
+                          onBlur={hideSeatInfo}
                           onClick={(ev) => {
-                            showSeatInfo(ev.currentTarget, {
-                              offerId: oid,
-                              sector: String(row.Sector ?? ''),
-                              row: String(row.Row ?? ''),
-                              seat,
-                              priceKey: pk,
-                            });
-                            onToggleSeat(oid, seat, seats);
+                            showSeatInfo(ev.currentTarget, seatInfo);
+                            updateSelectedDetails(seatInfo, seats);
+                            if (!onSelectionChange) onToggleSeat(oid, seat, seats);
                           }}
                         >
                           {active ? <span className={styles.seatDotCheck}>✓</span> : null}
@@ -448,15 +1179,101 @@ export function TicketHallInteractiveBlock({
                   })}
             </div>
           </div>
-          {selectedOffer && activeOfferId && selectedSeats.length > 0 && String(selectedOffer.Id ?? '') === activeOfferId ? (
+          {selectedSectorSummary && sectorPanelCollapsed ? (
+            <button
+              type="button"
+              className={styles.sectorPanelRestore}
+              onPointerDown={(ev) => ev.stopPropagation()}
+              onClick={() => setSectorPanelCollapsed(false)}
+            >
+              Показать места
+            </button>
+          ) : null}
+          {selectedSectorSummary && !sectorPanelCollapsed ? (
+            <div className={styles.sectorPanel} onPointerDown={(ev) => ev.stopPropagation()}>
+              <div className={styles.sectorPanelActions}>
+                <button type="button" className={styles.sectorPanelClose} onClick={() => setSectorPanelCollapsed(true)}>
+                  Скрыть
+                </button>
+                <button type="button" className={styles.sectorPanelClose} onClick={resetSectorFocus}>
+                  Вся схема
+                </button>
+              </div>
+              <div className={styles.sectorPanelTitle}>{selectedSectorSummary.meta.label}</div>
+              <div className={styles.sectorPanelMeta}>
+                {selectedSectorSummary.seatCount > 0
+                  ? `${selectedSectorSummary.seatCount} мест`
+                  : 'Нет мест в наличии'}{' '}
+                {selectedSectorSummary.minPrice != null
+                  ? `· ${formatRub(selectedSectorSummary.minPrice)}${
+                      selectedSectorSummary.maxPrice && selectedSectorSummary.maxPrice !== selectedSectorSummary.minPrice
+                        ? ` - ${formatRub(selectedSectorSummary.maxPrice)}`
+                        : ''
+                    }`
+                  : ''}
+              </div>
+              <div className={styles.sectorOfferList}>
+                {selectedSectorOffersWithSeats.length > 0 ? selectedSectorOffersWithSeats.map((offer) => {
+                  const oid = String(offer.Id ?? '');
+                  const seats = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+                  const priceKey = getPriceKey(offer);
+                  return (
+                    <div key={`${oid}-${offer.Row ?? ''}`} className={styles.sectorOfferRow}>
+                      <div className={styles.sectorOfferHead}>
+                        <span>Ряд {offer.Row ?? '—'}</span>
+                        <strong>{formatRub(Number(priceKey))}</strong>
+                      </div>
+                      <div className={styles.sectorSeatButtons}>
+                        {seats.map((seat) => {
+                          const detail = {
+                            key: selectionSeatKey(oid, offer.Row, seat),
+                            offerId: oid,
+                            sector: String(offer.Sector ?? selectedSectorSummary.meta.label),
+                            row: String(offer.Row ?? ''),
+                            seat,
+                            priceKey,
+                          };
+                          const active = selectedSeatDetails.some((d) => d.key === detail.key);
+                          return (
+                            <button
+                              key={seat}
+                              type="button"
+                              className={`${styles.sectorSeatButton} ${active ? styles.sectorSeatButtonActive : ''}`}
+                              onClick={() => updateSelectedDetails(detail, seats)}
+                            >
+                              {seat}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div className={styles.sectorOfferEmpty}>
+                    Сейчас в этом секторе нет доступных мест для бронирования.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+          {selectedSeatDetails.length > 0 ? (
             <div className={styles.selectionBar}>
+              {onClearSelection ? (
+                <IconButton
+                  className={styles.selectionClose}
+                  size="small"
+                  aria-label="Сбросить выбранные места"
+                  onClick={clearSelection}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              ) : null}
               <div className={styles.selectionSummary}>
                 <div className={styles.selectionCount}>
-                  {selectedSeats.length} билет{selectedSeats.length === 1 ? '' : selectedSeats.length < 5 ? 'а' : 'ов'}
+                  {selectedPlacesText}
                 </div>
                 <div className={styles.selectionText}>
-                  <strong>{selectedOffer.Sector ?? '—'}</strong> · ряд {selectedOffer.Row ?? '—'} · места{' '}
-                  {selectedSeats.join(', ')}
+                  {selectionMetaText}
                 </div>
               </div>
               <div className={styles.selectionActions}>
@@ -472,6 +1289,15 @@ export function TicketHallInteractiveBlock({
         </div>
       </div>
 
+      {mapPreparing ? (
+        <div className={styles.mapPreloader} aria-live="polite" aria-label="Схема загружается">
+          <div className={styles.mapPreloaderCard}>
+            <span className={styles.mapPreloaderSpinner} aria-hidden="true" />
+            <span>Готовим схему</span>
+          </div>
+        </div>
+      ) : null}
+
       <Popper
         open={Boolean(hoverAnchor && hoverSeat)}
         anchorEl={hoverAnchor}
@@ -485,6 +1311,36 @@ export function TicketHallInteractiveBlock({
               <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
               {hoverSeat.seat}, цена{' '}
               <strong>{formatRub(Number(hoverSeat.priceKey))}</strong>
+            </Typography>
+          </Paper>
+        )}
+      </Popper>
+
+      <Popper
+        open={Boolean(hoverSectorAnchor && hoverSector)}
+        anchorEl={hoverSectorAnchor as HTMLElement | null}
+        placement="top"
+        modifiers={[{ name: 'offset', options: { offset: [0, 10] } }]}
+        sx={{ zIndex: 30 }}
+      >
+        {hoverSector && (
+          <Paper elevation={4} sx={{ p: 1.35, maxWidth: 260, borderRadius: 2 }}>
+            <Typography variant="body2" sx={{ lineHeight: 1.45, color: 'rgba(0,0,0,0.82)' }}>
+              <span style={{ color: 'rgba(0,0,0,0.5)' }}>
+                {hoverSector.seatCount > 0 ? `${hoverSector.seatCount} свободных мест` : 'Нет мест в наличии'}
+              </span>
+              <br />
+              <strong>{hoverSector.meta.label}</strong>
+              <br />
+              <strong>
+                {hoverSector.minPrice != null
+                  ? `${formatRub(hoverSector.minPrice)}${
+                      hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
+                        ? ` - ${formatRub(hoverSector.maxPrice)}`
+                        : ''
+                    }`
+                  : 'Цена уточняется'}
+              </strong>
             </Typography>
           </Paper>
         )}

@@ -10,7 +10,6 @@ import {
   Button,
   CircularProgress,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
@@ -52,7 +51,7 @@ import {
   type ZoneFilterId,
   type OfferRowLike,
 } from '@/utils/ticketOfferFilters';
-import { TicketHallInteractiveBlock } from '@/components/tickets/TicketHallInteractiveBlock';
+import { TicketHallInteractiveBlock, type HallSelectedSeat } from '@/components/tickets/TicketHallInteractiveBlock';
 import { TicketPurchaseDialog } from '@/components/tickets/TicketPurchaseDialog';
 import { TicketCheckoutPageExtras } from '@/components/tickets/TicketCheckoutPageExtras';
 import {
@@ -203,7 +202,7 @@ export function TicketCheckoutPage() {
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
 
-  const { data: rawEventsForSlug } = useQuery({
+  const { data: rawEventsForSlug, isFetched: slugResolveFetched } = useQuery({
     queryKey: ['bilet-events-public', 'ticket-slug-resolve'],
     queryFn: () => fetchBiletEvents(),
     enabled: Boolean(routeKey && !routeKeyIsId),
@@ -214,7 +213,8 @@ export function TicketCheckoutPage() {
   const resolvedEventFromSlug = useMemo(() => {
     if (!routeSlug || routeKeyIsId) return null;
     const target = routeSlug.toLowerCase();
-    return normalizeBiletEventsPayload(rawEventsForSlug).find((ev) => slugify(ev.title) === target) ?? null;
+    const matches = normalizeBiletEventsPayload(rawEventsForSlug).filter((ev) => slugify(ev.title) === target);
+    return matches.length === 1 ? matches[0] : null;
   }, [rawEventsForSlug, routeSlug, routeKeyIsId]);
 
   const repertoireId = routeKeyIsId ? routeKey : eventRepId(resolvedEventFromSlug);
@@ -222,6 +222,7 @@ export function TicketCheckoutPage() {
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
   const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
+  const paymentFailed = searchParams.get('payment') === 'failed';
 
   const { data: ctx, isLoading: ctxLoading, isError: ctxError } = useQuery({
     queryKey: ['bilet-repertoire-context', repertoireId],
@@ -414,8 +415,10 @@ export function TicketCheckoutPage() {
 
   const [selectedSessionKey, setSelectedSessionKey] = useState<string | null>(null);
   const [mapDialogOpen, setMapDialogOpen] = useState(false);
+  const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [offerId, setOfferId] = useState<string | null>(null);
   const [seats, setSeats] = useState<string[]>([]);
+  const [mapSelectedSeats, setMapSelectedSeats] = useState<HallSelectedSeat[]>([]);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [ticketRequest, setTicketRequest] = useState({
     name: '',
@@ -442,6 +445,7 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     setOfferId(null);
     setSeats([]);
+    setMapSelectedSeats([]);
   }, [selectedSessionKey]);
 
   useEffect(() => {
@@ -454,10 +458,12 @@ export function TicketCheckoutPage() {
     if (!still) {
       setOfferId(null);
       setSeats([]);
+      setMapSelectedSeats([]);
     }
   }, [offersForMap, offerId]);
 
   const toggleSeat = (oid: string, seat: string, available: string[]) => {
+    setMapSelectedSeats([]);
     if (offerId !== oid) {
       setOfferId(oid);
       setSeats([seat]);
@@ -469,6 +475,19 @@ export function TicketCheckoutPage() {
       return [...prev, seat];
     });
   };
+
+  const handleMapSelectionChange = useCallback((details: HallSelectedSeat[]) => {
+    setMapSelectedSeats(details);
+    if (details.length === 0) {
+      setOfferId(null);
+      setSeats([]);
+      setPurchaseOpen(false);
+      return;
+    }
+    const primaryOfferId = details[0].offerId;
+    setOfferId(primaryOfferId);
+    setSeats(details.filter((d) => d.offerId === primaryOfferId).map((d) => d.seat));
+  }, []);
 
   const submitTicketRequest = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -512,13 +531,45 @@ export function TicketCheckoutPage() {
   );
 
   const baseTotalRub = useMemo(() => {
+    if (mapSelectedSeats.length > 0) {
+      return mapSelectedSeats.reduce((sum, seat) => {
+        const price = Number(seat.priceKey);
+        return Number.isFinite(price) ? sum + price : sum;
+      }, 0);
+    }
     if (!offerId || seats.length === 0) return 0;
     const row = (offers as OfferRow[]).find((o) => String(o.Id ?? '') === offerId);
     if (!row) return 0;
     const u = Number(priceKey(row));
     if (!Number.isFinite(u)) return 0;
     return u * seats.length;
-  }, [offerId, seats, offers]);
+  }, [mapSelectedSeats, offerId, seats, offers]);
+
+  const mapOfferSelections = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const item of mapSelectedSeats) {
+      const list = groups.get(item.offerId) ?? [];
+      if (!list.includes(item.seat)) list.push(item.seat);
+      groups.set(item.offerId, list);
+    }
+    return [...groups.entries()].map(([selectionOfferId, selectionSeats]) => ({
+      offerId: selectionOfferId,
+      seats: selectionSeats,
+    }));
+  }, [mapSelectedSeats]);
+
+  const purchaseSeats = useMemo(
+    () => (mapSelectedSeats.length > 0 ? mapSelectedSeats.map((s) => s.seat) : seats),
+    [mapSelectedSeats, seats],
+  );
+
+  const purchaseSeatLabels = useMemo(
+    () =>
+      mapSelectedSeats.length > 0
+        ? mapSelectedSeats.map((s) => `${s.sector ? `${s.sector}, ` : ''}${s.row ? `${s.row} ряд, ` : ''}место ${s.seat}`)
+        : undefined,
+    [mapSelectedSeats],
+  );
 
   /** Дата/время выбранного оффера — для модалки оформления. */
   const purchaseSessionLabel = useMemo(() => {
@@ -658,6 +709,13 @@ export function TicketCheckoutPage() {
     [offerId, offersForMap],
   );
 
+  const resetSelectedSeats = useCallback(() => {
+    setOfferId(null);
+    setSeats([]);
+    setMapSelectedSeats([]);
+    setPurchaseOpen(false);
+  }, []);
+
   const navigateToPlacesList = useCallback(() => {
     setMapDialogOpen(false);
     requestAnimationFrame(() => {
@@ -671,8 +729,9 @@ export function TicketCheckoutPage() {
 
   const canonicalTicketPath = useMemo(() => {
     if (!canonicalSlug || canonicalSlug === 'event') return '/events';
+    if (repertoireId) return `/ticket/${encodeURIComponent(repertoireId)}/${canonicalSlug}`;
     return `/ticket/${canonicalSlug}`;
-  }, [canonicalSlug]);
+  }, [canonicalSlug, repertoireId]);
 
   const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
 
@@ -680,6 +739,13 @@ export function TicketCheckoutPage() {
     document.body.setAttribute('data-page', '/ticket');
     return () => document.body.removeAttribute('data-page');
   }, []);
+
+  useEffect(() => {
+    if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
+    if (!resolvedEventFromSlug) {
+      navigate('/events', { replace: true });
+    }
+  }, [navigate, resolvedEventFromSlug, routeKeyIsId, routeSlug, slugResolveFetched]);
 
   useEffect(() => {
     setShowAllOfferRows(false);
@@ -690,7 +756,7 @@ export function TicketCheckoutPage() {
     if (typeof window === 'undefined') return;
     if (!routeKey || canonicalSlug === 'event') return;
     const wantSlug = canonicalSlug;
-    const target = `/ticket/${wantSlug}`;
+    const target = repertoireId ? `/ticket/${encodeURIComponent(repertoireId)}/${wantSlug}` : `/ticket/${wantSlug}`;
     const cur = `${window.location.pathname}${window.location.search}`;
     if (cur !== target) {
       navigate(target, { replace: true });
@@ -698,6 +764,7 @@ export function TicketCheckoutPage() {
   }, [
     routeKey,
     canonicalSlug,
+    repertoireId,
     searchStrForCanonical,
     navigate,
   ]);
@@ -800,6 +867,12 @@ export function TicketCheckoutPage() {
         </div>
 
         <Box className={styles.wrap} sx={{ maxWidth: 960, mx: 'auto', p: 2, pb: 4 }}>
+          {paymentFailed ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Оплата не завершилась. Деньги не списаны: можно выбрать места ещё раз или попробовать другую карту.
+            </Alert>
+          ) : null}
+
           {ctxLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
               <CircularProgress size={28} />
@@ -814,59 +887,62 @@ export function TicketCheckoutPage() {
 
           {allSessionsSorted.length > 0 && (
             <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, letterSpacing: '0.04em' }}>
-                Расписание
-              </Typography>
-              {mergedVenue || mergedVenueAddress ? (
-                <Box sx={{ mb: 1.5 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                    Площадка проведения
-                  </Typography>
-                  {mergedVenue ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                      {mergedVenue}
-                    </Typography>
-                  ) : null}
-                  {mergedVenueAddress ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {mergedVenueAddress}
-                    </Typography>
-                  ) : null}
-                </Box>
-              ) : null}
-              <div className={styles.scheduleStrip}>
-                {allSessionsSorted.map(([dt, rows]) => {
-                  const minP = minPriceForOffers(rows);
-                  const { time, dateLine } = formatSessionCard(dt);
-                  const selected = selectedSessionKey === dt;
-                  return (
-                    <button
-                      key={dt}
-                      type="button"
-                      className={`${styles.scheduleCard} ${selected ? styles.scheduleCardSelected : ''}`}
-                      onClick={() => setSelectedSessionKey(dt)}
-                    >
-                      <div className={styles.scheduleCardDate}>{dateLine}</div>
-                      <div className={styles.scheduleCardTime}>{time}</div>
-                      {minP != null ? (
-                        <div className={styles.scheduleCardPrice}>от {minP.toLocaleString('ru-RU')} ₽</div>
-                      ) : null}
-                    </button>
-                  );
-                })}
+              <div className={styles.scheduleHeader}>
+                <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                  Расписание
+                </Typography>
+                <button
+                  type="button"
+                  className={styles.scheduleToggle}
+                  onClick={() => setScheduleCollapsed((v) => !v)}
+                  aria-expanded={!scheduleCollapsed}
+                >
+                  {scheduleCollapsed ? 'Показать календарь' : 'Скрыть календарь'}
+                </button>
               </div>
+              {!scheduleCollapsed ? (
+                <>
+                  {mergedVenue || mergedVenueAddress ? (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                        Площадка проведения
+                      </Typography>
+                      {mergedVenue ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                          {mergedVenue}
+                        </Typography>
+                      ) : null}
+                      {mergedVenueAddress ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {mergedVenueAddress}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  ) : null}
+                  <div className={styles.scheduleStrip}>
+                    {allSessionsSorted.map(([dt, rows]) => {
+                      const minP = minPriceForOffers(rows);
+                      const { time, dateLine } = formatSessionCard(dt);
+                      const selected = selectedSessionKey === dt;
+                      return (
+                        <button
+                          key={dt}
+                          type="button"
+                          className={`${styles.scheduleCard} ${selected ? styles.scheduleCardSelected : ''}`}
+                          onClick={() => setSelectedSessionKey(dt)}
+                        >
+                          <div className={styles.scheduleCardDate}>{dateLine}</div>
+                          <div className={styles.scheduleCardTime}>{time}</div>
+                          {minP != null ? (
+                            <div className={styles.scheduleCardPrice}>от {minP.toLocaleString('ru-RU')} ₽</div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', mt: 2 }}>
-                {hallSvg ? (
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    startIcon={<EventSeatIcon />}
-                    disabled={!selectedSessionKey}
-                    onClick={() => setMapDialogOpen(true)}
-                  >
-                    Открыть схему на весь экран
-                  </Button>
-                ) : null}
                 {!hallSvg && externalPlanUrl ? (
                   <Button
                     variant="contained"
@@ -949,6 +1025,8 @@ export function TicketCheckoutPage() {
                 onToggleSeat={toggleSeat}
                 selectedOffer={selectedOfferForMap}
                 onReserveFromMap={() => setPurchaseOpen(true)}
+                onClearSelection={resetSelectedSeats}
+                onSelectionChange={handleMapSelectionChange}
                 reservePending={false}
                 onNavigateToList={navigateToPlacesList}
               />
@@ -1227,7 +1305,7 @@ export function TicketCheckoutPage() {
             </Accordion>
           )}
 
-          {offerId && seats.length > 0 && !mapDialogOpen && (
+          {offerId && seats.length > 0 && !mapDialogOpen && !hallSvg && (
             <Paper className={styles.stickyBar} elevation={3}>
               <Typography variant="body2">Выбрано мест: {seats.join(', ')}</Typography>
               <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
@@ -1241,7 +1319,9 @@ export function TicketCheckoutPage() {
             onClose={() => setPurchaseOpen(false)}
             repertoireId={repertoireId}
             offerId={offerId ?? ''}
-            seats={seats}
+            seats={purchaseSeats}
+            offerSelections={mapOfferSelections.length > 0 ? mapOfferSelections : undefined}
+            seatLabels={purchaseSeatLabels}
             eventTitle={displayTitle}
             baseTotalRub={baseTotalRub}
             sessionLabel={purchaseSessionLabel}
@@ -1355,37 +1435,14 @@ export function TicketCheckoutPage() {
                   onToggleSeat={toggleSeat}
                   selectedOffer={selectedOfferForMap}
                   onReserveFromMap={() => setPurchaseOpen(true)}
+                  onClearSelection={resetSelectedSeats}
+                  onSelectionChange={handleMapSelectionChange}
                   reservePending={false}
                   onNavigateToList={navigateToPlacesList}
                 />
               </Box>
             ) : null}
           </DialogContent>
-          <DialogActions
-            sx={{
-              flexWrap: 'wrap',
-              gap: 1,
-              px: 2,
-              py: 1.5,
-              borderTop: '1px solid rgba(0,0,0,0.08)',
-              bgcolor: 'background.paper',
-            }}
-          >
-            {offerId && seats.length > 0 ? (
-              <>
-                <Typography variant="body2" sx={{ flex: '1 1 200px', mr: 'auto' }}>
-                  Выбрано: {seats.join(', ')}
-                </Typography>
-                <Button variant="contained" onClick={() => setPurchaseOpen(true)}>
-                  Забронировать
-                </Button>
-              </>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ width: '100%' }}>
-                Выберите места на схеме или в списке ниже на странице.
-              </Typography>
-            )}
-          </DialogActions>
         </Dialog>
       </Box>
     </>

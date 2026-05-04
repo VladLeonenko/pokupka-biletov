@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import pool from '../db.js';
 import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 
@@ -12,13 +13,25 @@ async function loadRow() {
   return r.rows[0] || null;
 }
 
+function sendCachedJson(req, res, payload) {
+  const body = JSON.stringify(payload);
+  const etag = `"${crypto.createHash('sha1').update(body).digest('base64url')}"`;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
+  res.setHeader('ETag', etag);
+  if (req.headers['if-none-match'] === etag) {
+    return res.status(304).end();
+  }
+  return res.send(body);
+}
+
 ticketsVitrinePublicRouter.get('/', async (req, res) => {
   try {
     const row = await loadRow();
     if (!row) {
-      return res.json({ content: {}, updated_at: null });
+      return sendCachedJson(req, res, { content: {}, updated_at: null });
     }
-    res.json({ content: row.content || {}, updated_at: row.updated_at });
+    return sendCachedJson(req, res, { content: row.content || {}, updated_at: row.updated_at });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

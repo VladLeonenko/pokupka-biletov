@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
@@ -61,21 +61,20 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
 
   const title = current.title;
   const img = current.imageUrl;
+  const heroStyle = img
+    ? ({
+        '--hero-image': `url("${img.replace(/["\\]/g, '')}")`,
+      } as CSSProperties)
+    : undefined;
 
   return (
     <section
       className={styles.hero}
+      style={heroStyle}
       data-tickets-hero
       onMouseEnter={() => setPauseAutoplay(true)}
       onMouseLeave={() => setPauseAutoplay(false)}
     >
-      {img ? (
-        <div
-          className={styles.heroPhotoBg}
-          style={{ backgroundImage: `url(${img})` }}
-          aria-hidden
-        />
-      ) : null}
       <div className={styles.heroPhotoOverlay} aria-hidden />
       <div className={styles.heroBody}>
         <Link
@@ -154,10 +153,10 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
           <button type="button" className={styles.arrow} aria-label="Предыдущий" onClick={() => go(-1)}>
             <svg className={styles.arrowSvg} viewBox="0 0 24 24" aria-hidden>
               <path
-                d="M 15 6 L 9 12 L 15 18 M 10 12 H 21"
+                d="M15 6L9 12l6 6"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.9"
+                strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -166,10 +165,10 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
           <button type="button" className={styles.arrow} aria-label="Следующий" onClick={() => go(1)}>
             <svg className={styles.arrowSvg} viewBox="0 0 24 24" aria-hidden>
               <path
-                d="M 9 6 L 15 12 L 9 18 M 14 12 H 3"
+                d="M9 6l6 6-6 6"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.9"
+                strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
