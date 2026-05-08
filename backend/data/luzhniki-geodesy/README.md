@@ -67,7 +67,7 @@ npm run seed:luzhniki-football-map-partial
 
 В **`coordinates`** pbilet часто есть массив **`coordinates`** (~77k точек `{x,y}` без подписей). Сид кладёт его в **`layout_json.allSeatCoordinates`** — на чекауте отрисовывается **полная чаша** серыми маркерами, а подписанные места из **`tickets`** накладываются сверху для клика/цен.
 
-При этом **`uniformHallSeatAppearance: true`** — места из оффера **не** подсвечиваются цветом категории, выглядят как остальная чаша (выделение только выбранного места).
+При этом **`uniformHallSeatAppearance: true`** — полная чаша из **`coordinates`** и точки без оффера остаются **единым серым** стилем; места, пришедшие в офферах **GetBilet**, на схеме красятся **`colorForSeat(price)`** (разные цвета по цене).
 
 Отключить фоновые точки: **`LUZHNIKI_SKIP_COORDINATE_DOTS=1`**.
 

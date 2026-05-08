@@ -14,7 +14,7 @@ import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
 const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
-/** Маркер места в DOM при uniformHallSeatAppearance (slate-400 ≈ rgb(148,163,184)). */
+/** Маркер без оффера / превью схемы в DOM (slate ≈ rgb(148,163,184)); офферы — colorForSeat. */
 const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
 /** Подложка при zoom — без grayscale, поле остаётся зелёным. */
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
@@ -1076,20 +1076,18 @@ export function TicketHallInteractiveBlock({
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         for (const seat of visibleNativePlacements) {
           const active = activeKeys.has(seat.key);
-          if (skipDuplicateInteractiveDotsOnCanvas && !active) continue;
+          /** Серые «лишние» точки без оффера совпадают с фоном allSeatCoordinates — не дублировать. Офферы GetBilet всегда цветом цены. */
+          if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
 
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
           const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
           ctx.beginPath();
-          ctx.fillStyle =
-            seat.previewOnly || uniformHallSeatAppearance
-              ? CANVAS_HALL_SEAT_DOT_FILL
-              : colorForSeat(seat.priceKey);
+          ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
-          if (active && (!seat.previewOnly || uniformHallSeatAppearance)) {
+          if (active && !seat.previewOnly) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
@@ -1251,8 +1249,7 @@ export function TicketHallInteractiveBlock({
                 ? visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);
-                    const bg =
-                      p.previewOnly || uniformHallSeatAppearance ? DOM_UNIFORM_SEAT_ACCENT : colorForSeat(p.priceKey);
+                    const bg = p.previewOnly ? DOM_UNIFORM_SEAT_ACCENT : colorForSeat(p.priceKey);
                     const seatInfo = {
                       key: visualKey,
                       offerId: p.offerId,
