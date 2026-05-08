@@ -10,6 +10,7 @@ import {
   searchPosterImageByEventTitle,
 } from '../services/eventPosterWebSearch.js';
 import { buildResolvedForForm } from '../services/getbiletAdminResolvedForm.js';
+import { sanitizeStageMapLayoutJson } from '../utils/sanitizeStageMapLayoutJson.js';
 
 /**
  * @param {string} externalId
@@ -1238,6 +1239,10 @@ router.post('/stage-maps', async (req, res) => {
   const sid = (stage_external_id || '').trim();
   if (!sid) return res.status(400).json({ error: 'stage_external_id обязателен (Id сцены из GetBilet)' });
   try {
+    const svgRaw = svg_markup?.trim() || null;
+    const layoutIncoming =
+      typeof layout_json === 'object' && layout_json !== null ? layout_json : {};
+    const { layoutJson: layoutClean, warnings } = sanitizeStageMapLayoutJson(layoutIncoming, svgRaw);
     const r = await ticketPool.query(
       `INSERT INTO getbilet_stage_maps (
         stage_external_id, place_external_id, title, svg_markup, layout_json, notes_internal, external_plan_url, updated_at
@@ -1247,13 +1252,17 @@ router.post('/stage-maps', async (req, res) => {
         sid,
         place_external_id?.trim() || null,
         title?.trim() || null,
-        svg_markup?.trim() || null,
-        typeof layout_json === 'object' && layout_json !== null ? layout_json : {},
+        svgRaw,
+        layoutClean,
         notes_internal?.trim() || null,
         external_plan_url?.trim() || null,
       ]
     );
-    res.status(201).json(r.rows[0]);
+    const row = r.rows[0];
+    res.status(201).json({
+      ...row,
+      ...(warnings.length ? { layoutSanitizeWarnings: warnings } : {}),
+    });
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Схема для этой сцены уже есть' });
     res.status(500).json({ error: e.message });
@@ -1279,6 +1288,15 @@ router.put('/stage-maps/:id', async (req, res) => {
     const sid =
       stage_external_id !== undefined ? String(stage_external_id).trim() : c.stage_external_id;
     if (!sid) return res.status(400).json({ error: 'stage_external_id не может быть пустым' });
+    const mergedSvg =
+      svg_markup !== undefined ? (svg_markup != null ? String(svg_markup).trim() || null : null) : c.svg_markup;
+    const mergedLayout =
+      layout_json !== undefined
+        ? typeof layout_json === 'object' && layout_json !== null
+          ? layout_json
+          : {}
+        : c.layout_json || {};
+    const { layoutJson: layoutClean, warnings } = sanitizeStageMapLayoutJson(mergedLayout, mergedSvg || '');
     const r = await ticketPool.query(
       `UPDATE getbilet_stage_maps SET
         stage_external_id = $2,
@@ -1296,13 +1314,17 @@ router.put('/stage-maps/:id', async (req, res) => {
         sid,
         place_external_id !== undefined ? place_external_id?.trim() || null : c.place_external_id,
         title !== undefined ? title?.trim() || null : c.title,
-        svg_markup !== undefined ? svg_markup?.trim() || null : c.svg_markup,
-        layout_json !== undefined ? layout_json : c.layout_json,
+        svg_markup !== undefined ? (svg_markup != null ? String(svg_markup).trim() || null : null) : c.svg_markup,
+        layoutClean,
         notes_internal !== undefined ? notes_internal?.trim() || null : c.notes_internal,
         external_plan_url !== undefined ? external_plan_url?.trim() || null : c.external_plan_url,
       ]
     );
-    res.json(r.rows[0]);
+    const row = r.rows[0];
+    res.json({
+      ...row,
+      ...(warnings.length ? { layoutSanitizeWarnings: warnings } : {}),
+    });
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой stage_external_id уже занят' });
     res.status(500).json({ error: e.message });

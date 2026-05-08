@@ -5,6 +5,7 @@ import {
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
   parseLayoutMode,
+  parsePreferLayoutSeatPositions,
   processHallSvgForNative,
   seatMapKey,
   type SvgNativePlacement,
@@ -345,8 +346,8 @@ type Props = {
 
 /**
  * Слой кликабельных мест поверх статичной SVG/PNG-схемы.
- * Режимы: (1) layout_json.seats / seatPositions — точки по координатам поверх любой подложки;
- * (2) SVG с circle[place-name][row][place] — точки по координатам и сопоставление с офферами;
+ * Режимы: (1) SVG с circle — координаты и подрезка viewBox из {@link processHallSvgForNative} (приоритет);
+ * (2) только layout_json.seats / seatPositions — если в SVG нет кругов мест или явно preferLayoutSeatPositions;
  * (3) условная сетка внутри overlayRect (layout_json.overlayRect или дефолт).
  * layout_json.layoutMode: auto | grid | svgNative (auto: нативный SVG, если найдены круги).
  */
@@ -390,20 +391,32 @@ export function TicketHallInteractiveBlock({
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
-  const nativeSource = layoutSeats.length >= 2 ? 'layout' : nativeProcessed ? 'svg' : null;
+  const preferLayoutSeatPositions = useMemo(
+    () => parsePreferLayoutSeatPositions(layoutJson),
+    [layoutJson],
+  );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
+    const fromSvg = nativeProcessed?.seats ?? [];
+    if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
-    return nativeProcessed?.seats ?? [];
-  }, [layoutSeats, nativeProcessed]);
+    return [];
+  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
+  const svgGeometryFromParsedCircles = useMemo(() => {
+    if (preferLayoutSeatPositions) return false;
+    return (nativeProcessed?.seats?.length ?? 0) >= 2;
+  }, [preferLayoutSeatPositions, nativeProcessed]);
   const useSvgNative =
     layoutMode !== 'grid' &&
     (layoutMode === 'svgNative' ||
       (layoutMode === 'auto' && nativeSeats.length >= 2));
 
-  const svgHtmlSafe = useMemo(
-    () => (useSvgNative && nativeSource === 'svg' && nativeProcessed ? nativeProcessed.svgHtml : hallSvgHtml),
-    [hallSvgHtml, useSvgNative, nativeSource, nativeProcessed],
-  );
+  const svgHtmlSafe = useMemo(() => {
+    if (!useSvgNative) return hallSvgHtml;
+    if (svgGeometryFromParsedCircles && nativeProcessed?.svgHtml) return nativeProcessed.svgHtml;
+    return hallSvgHtml;
+  }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
 
   const { nativePlacements } = useMemo(() => {
     if (!useSvgNative || nativeSeats.length < 2) {

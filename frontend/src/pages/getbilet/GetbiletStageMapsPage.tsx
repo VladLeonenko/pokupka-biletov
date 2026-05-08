@@ -135,9 +135,14 @@ export function GetbiletStageMapsPage() {
       }
       return createGetbiletStageMap(body);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['getbilet-stage-maps'] });
-      showToast('Сохранено', 'success');
+      const ws = data?.layoutSanitizeWarnings;
+      if (Array.isArray(ws) && ws.length) {
+        showToast(ws.join(' '), 'warning');
+      } else {
+        showToast('Сохранено', 'success');
+      }
       setDialogOpen(false);
     },
     onError: (e: Error) => showToast(e.message, 'error'),
@@ -408,7 +413,9 @@ export function GetbiletStageMapsPage() {
             multiline
             minRows={6}
             InputProps={{ sx: { fontFamily: 'monospace', fontSize: 12 } }}
-            helperText={'Координаты можно хранить как {"layoutMode":"svgNative","seatPositions":[{"sector":"Партер","row":"1","seat":"1","xPct":50,"yPct":70}]}. Если SVG содержит circle[data-replaced], JSON с координатами не нужен.'}
+            helperText={
+              'Координаты: {"layoutMode":"svgNative","seatPositions":[{"sector":"Партер","row":"1","seat":"1","xPct":50,"yPct":70}]} — только если в SVG нет circle мест. Если circle есть, координаты из JSON игнорируются (чтобы не ломать карту). Чтобы принудительно взять точки из JSON, добавьте "preferLayoutSeatPositions": true.'
+            }
           />
           <TextField
             label="Схема залов на сайте театра (URL)"

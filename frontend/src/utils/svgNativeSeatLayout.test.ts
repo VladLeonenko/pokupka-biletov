@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { buildSvgNativePlacements, parseLayoutSeatPositions } from './svgNativeSeatLayout';
+import { buildSvgNativePlacements, parseLayoutSeatPositions, parsePreferLayoutSeatPositions } from './svgNativeSeatLayout';
 
 describe('svgNativeSeatLayout', () => {
+  it('preferLayoutSeatPositions opt-in', () => {
+    expect(parsePreferLayoutSeatPositions({ preferLayoutSeatPositions: true })).toBe(true);
+    expect(parsePreferLayoutSeatPositions({ preferLayoutSeatPositions: false })).toBe(false);
+    expect(
+      parsePreferLayoutSeatPositions({
+        seatPositions: [{ sector: 'A', row: '1', seat: '1', xPct: 1, yPct: 2 }],
+      }),
+    ).toBe(false);
+  });
+
   it('reads explicit seat coordinates from layout_json', () => {
     const seats = parseLayoutSeatPositions({
       layoutMode: 'svgNative',

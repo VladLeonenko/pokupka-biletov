@@ -84,6 +84,16 @@ export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
   return seats;
 }
 
+/**
+ * Если true — брать координаты только из layout_json (seats / seatPositions), даже при наличии circle в SVG.
+ * По умолчанию при ошибочном или тестовом массиве в JSON геометрия перетирала парсинг SVG и на экран шёл сырой SVG
+ * без подрезки viewBox — ломало карты (МХТ: цены не там, «балкон у сцены», огромные круги).
+ */
+export function parsePreferLayoutSeatPositions(layout: unknown): boolean {
+  const r = asRecord(layout);
+  return r?.preferLayoutSeatPositions === true;
+}
+
 function normToken(s: string): string {
   return s
     .replace(/\u00a0/g, ' ')

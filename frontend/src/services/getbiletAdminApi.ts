@@ -468,6 +468,11 @@ export interface GetbiletStageMapRow {
   updated_at: string;
 }
 
+/** Ответ POST/PUT: при конфликте JSON↔SVG бэкенд мог удалить массивы координат из layout_json. */
+export type GetbiletStageMapSaveResponse = GetbiletStageMapRow & {
+  layoutSanitizeWarnings?: string[];
+};
+
 export async function listGetbiletStageMaps(): Promise<GetbiletStageMapListRow[]> {
   const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-maps`, { headers: authHeaders() });
   return handle(res);
@@ -497,7 +502,7 @@ export async function createGetbiletStageMap(body: {
   external_plan_url?: string | null;
   layout_json?: unknown;
   notes_internal?: string | null;
-}): Promise<GetbiletStageMapRow> {
+}): Promise<GetbiletStageMapSaveResponse> {
   const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-maps`, {
     method: 'POST',
     headers: authHeaders(),
@@ -517,7 +522,7 @@ export async function updateGetbiletStageMap(
     layout_json: unknown;
     notes_internal: string | null;
   }>
-): Promise<GetbiletStageMapRow> {
+): Promise<GetbiletStageMapSaveResponse> {
   const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-maps/${id}`, {
     method: 'PUT',
     headers: authHeaders(),
