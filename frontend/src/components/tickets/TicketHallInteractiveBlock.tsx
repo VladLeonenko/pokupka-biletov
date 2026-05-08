@@ -12,6 +12,11 @@ import {
 } from '../../utils/svgNativeSeatLayout';
 import styles from './TicketHallInteractiveBlock.module.css';
 
+/** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
+const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
+/** Маркер места в DOM при uniformHallSeatAppearance (slate-400 ≈ rgb(148,163,184)). */
+const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
+
 export type HallOfferRow = {
   Id?: string;
   Sector?: string;
@@ -116,6 +121,12 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
 function parseSeatSelectionDisabled(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   return (layout as Record<string, unknown>).seatSelectionDisabled === true;
+}
+
+/** Места из офферов выглядят как остальная чаша (без цвета цены поверх фона). */
+function parseUniformHallSeatAppearance(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).uniformHallSeatAppearance === true;
 }
 
 /** Пока нет офферов GetBilet — отрисовать все места из layout_json серым (ориентир). */
@@ -368,6 +379,10 @@ export function TicketHallInteractiveBlock({
   const grayHallWhenNoOffers = useMemo(
     () => parseGrayHallWhenNoOffers(layoutJson, seatSelectionDisabled),
     [layoutJson, seatSelectionDisabled],
+  );
+  const uniformHallSeatAppearance = useMemo(
+    () => parseUniformHallSeatAppearance(layoutJson),
+    [layoutJson],
   );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
@@ -944,6 +959,9 @@ export function TicketHallInteractiveBlock({
   }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
+  /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */
+  const skipDuplicateInteractiveDotsOnCanvas =
+    uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
 
   const visibleBackgroundSeatCoordinates = useMemo(() => {
     if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
@@ -1050,18 +1068,23 @@ export function TicketHallInteractiveBlock({
       }
 
       if (visibleNativePlacements.length > 0) {
-        const activeKeys = new Set(selectedSeatDetails.map((seat) => seat.key));
+        const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         for (const seat of visibleNativePlacements) {
+          const active = activeKeys.has(seat.key);
+          if (skipDuplicateInteractiveDotsOnCanvas && !active) continue;
+
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-          const active = activeKeys.has(seat.key);
           const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
           ctx.beginPath();
-          ctx.fillStyle = seat.previewOnly ? 'rgba(148, 163, 184, 0.88)' : colorForSeat(seat.priceKey);
+          ctx.fillStyle =
+            seat.previewOnly || uniformHallSeatAppearance
+              ? CANVAS_HALL_SEAT_DOT_FILL
+              : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
-          if (active && !seat.previewOnly) {
+          if (active && (!seat.previewOnly || uniformHallSeatAppearance)) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
@@ -1078,7 +1101,8 @@ export function TicketHallInteractiveBlock({
     fitZoom,
     getLayerBase,
     selectedSeatDetails,
-    useCanvasCompositing,
+    skipDuplicateInteractiveDotsOnCanvas,
+    uniformHallSeatAppearance,
     svgViewBox.width,
     visibleNativePlacements,
     zoom,
@@ -1222,7 +1246,8 @@ export function TicketHallInteractiveBlock({
                 ? visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);
-                    const bg = p.previewOnly ? '#94a3af' : colorForSeat(p.priceKey);
+                    const bg =
+                      p.previewOnly || uniformHallSeatAppearance ? DOM_UNIFORM_SEAT_ACCENT : colorForSeat(p.priceKey);
                     const seatInfo = {
                       key: visualKey,
                       offerId: p.offerId,

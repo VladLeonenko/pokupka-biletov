@@ -210,7 +210,13 @@ async function main() {
     showUnavailableSeats: true,
     grayHallWhenNoOffers: true,
     nativeSeatCount: seats.length,
-    ...(allSeatCoordinates.length > 0 ? { allSeatCoordinates } : {}),
+    ...(allSeatCoordinates.length > 0
+      ? {
+          allSeatCoordinates,
+          /** На чекауте места из оффера не подсвечивать цветом цены — как общий фон чаши. */
+          uniformHallSeatAppearance: true,
+        }
+      : {}),
     sectorPathCount: sectorsMeta.length,
     seats,
     sectorMode: {
