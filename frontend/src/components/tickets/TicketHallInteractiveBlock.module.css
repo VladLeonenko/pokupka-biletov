@@ -447,9 +447,11 @@
 }
 
 .seatDotUnavailableNative {
-  width: 0.11%;
+  /* Как .seatDotNative: не clamp(18px), иначе на svgNative не matched места закрывают весь зал */
+  width: 0.34%;
   height: auto;
-  min-width: 0;
+  min-width: 5px;
+  min-height: 5px;
   aspect-ratio: 1;
   border-radius: 50%;
   background: rgba(149, 151, 160, 0.55);
@@ -759,9 +761,14 @@
     width: 0.14%;
   }
 
-  .seatDotOverview,
-  .seatDotUnavailableNative {
+  .seatDotOverview {
     width: 0.11%;
+  }
+
+  .seatDotUnavailableNative {
+    width: 0.4%;
+    min-width: 6px;
+    min-height: 6px;
   }
 
   .selectionBar {

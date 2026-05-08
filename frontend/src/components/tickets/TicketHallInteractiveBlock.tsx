@@ -1252,7 +1252,9 @@ export function TicketHallInteractiveBlock({
                     .map((seat) => (
                       <span
                         key={`unavailable-${seatMapKey(seat.sector, seat.row, seat.seat)}`}
-                        className={`${styles.seatDotUnavailable} ${sectorMode.enabled ? styles.seatDotUnavailableNative : ''}`}
+                        className={`${styles.seatDotUnavailable} ${
+                          useSvgNative ? styles.seatDotUnavailableNative : ''
+                        }`}
                         style={{ left: `${seat.xPct}%`, top: `${seat.yPct}%` }}
                         title={`${seat.sector} · ряд ${seat.row} · место ${seat.seat} — недоступно`}
                       />
