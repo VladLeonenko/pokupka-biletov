@@ -31,6 +31,9 @@ export function SeoMetaTags({
   articleSchema,
 }: SeoMetaTagsProps) {
   useEffect(() => {
+    const base = getSiteBaseUrl();
+    const resolvedUrl = url || (typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : `${base}/`);
+
     if (title) {
       document.title = title;
     }
@@ -64,7 +67,6 @@ export function SeoMetaTags({
       setMetaTag('keywords', keywords);
     }
 
-    const base = getSiteBaseUrl();
     const defaultImg = defaultOgImageUrl();
 
     // Open Graph
@@ -83,9 +85,7 @@ export function SeoMetaTags({
     } else {
       setMetaTag('og:image', defaultImg, true);
     }
-    if (url) {
-      setMetaTag('og:url', url, true);
-    }
+    setMetaTag('og:url', resolvedUrl, true);
 
     // Twitter Card
     setMetaTag('twitter:card', 'summary_large_image');
@@ -96,6 +96,7 @@ export function SeoMetaTags({
     }
     if (title) setMetaTag('twitter:title', title);
     if (description) setMetaTag('twitter:description', description);
+    setMetaTag('twitter:url', resolvedUrl);
     if (image) {
       setMetaTag('twitter:image', image.startsWith('http') ? image : `${base}${image.startsWith('/') ? '' : '/'}${image}`);
     } else {
@@ -103,15 +104,13 @@ export function SeoMetaTags({
     }
 
     // Canonical URL
-    if (url) {
-      let canonical = document.querySelector('link[rel="canonical"]');
-      if (!canonical) {
-        canonical = document.createElement('link');
-        canonical.setAttribute('rel', 'canonical');
-        document.head.appendChild(canonical);
-      }
-      canonical.setAttribute('href', url);
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
     }
+    canonical.setAttribute('href', resolvedUrl);
 
     const logoUrl = defaultImg;
     let script = document.querySelector('script[type="application/ld+json"][data-seo-schema]') as HTMLScriptElement | null;
@@ -134,10 +133,31 @@ export function SeoMetaTags({
           name: SITE_BRAND,
           logo: { '@type': 'ImageObject', url: logoUrl },
         },
-        mainEntityOfPage: url ? { '@type': 'WebPage', '@id': url } : undefined,
+        mainEntityOfPage: { '@type': 'WebPage', '@id': resolvedUrl },
       };
       script.textContent = JSON.stringify(structuredData);
-    } else if (script) {
+    } else if (title && description) {
+      if (!script) {
+        script = document.createElement('script');
+        script.setAttribute('type', 'application/ld+json');
+        script.setAttribute('data-seo-schema', 'true');
+        document.head.appendChild(script);
+      }
+      const structuredData = {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: title,
+        description,
+        url: resolvedUrl,
+        inLanguage: 'ru-RU',
+        isPartOf: {
+          '@type': 'WebSite',
+          name: SITE_BRAND,
+          url: `${base}/`,
+        },
+      };
+      script.textContent = JSON.stringify(structuredData);
+    } else if (script && !articleSchema) {
       script.remove();
     }
   }, [title, description, keywords, image, url, type, ogTitle, ogDescription, noindex, articleSchema]);

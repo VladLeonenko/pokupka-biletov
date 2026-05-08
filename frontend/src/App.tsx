@@ -24,6 +24,7 @@ import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
 import { usePageAnimations } from '@/hooks/usePageAnimations';
 import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
+import { RouteSeoDefaults } from '@/components/common/RouteSeoDefaults';
 
 export default function App() {
   const location = useLocation();
@@ -94,6 +95,7 @@ export default function App() {
   return (
     <ThemeModeProvider>
       <ToastProvider>
+        <RouteSeoDefaults />
         {/* Глобальное отслеживание уведомлений и обновление фавиконки */}
         <FaviconNotificationTracker />
         {/* Глобальная валидация форм с toast-уведомлениями для всех страниц */}

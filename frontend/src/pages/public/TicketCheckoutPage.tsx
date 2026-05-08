@@ -447,14 +447,6 @@ export function TicketCheckoutPage() {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
 
-  /** Все офферы выбранного сеанса — для схемы зала (фильтр списка места на схеме не скрывает). */
-  const offersForMap = useMemo(() => {
-    if (!selectedSessionKey) return [];
-    return (offers as OfferRow[]).filter(
-      (o) => (o.EventDateTime ?? '_') === selectedSessionKey,
-    );
-  }, [offers, selectedSessionKey]);
-
   useEffect(() => {
     setOfferId(null);
     setSeats([]);
@@ -464,16 +456,6 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     ensurePublicSessionForCheckout().catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!offerId) return;
-    const still = offersForMap.some((o) => String(o.Id ?? '') === offerId);
-    if (!still) {
-      setOfferId(null);
-      setSeats([]);
-      setMapSelectedSeats([]);
-    }
-  }, [offersForMap, offerId]);
 
   const toggleSeat = (oid: string, seat: string, available: string[]) => {
     setMapSelectedSeats([]);
@@ -712,6 +694,34 @@ export function TicketCheckoutPage() {
   const showHallMissingCard =
     Boolean(!hallSvg && !externalPlanUrl && (!stageIdEff || stageMapFetched || ctx?.stageId === stageIdEff));
 
+  /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
+  const noOffersAfterFetch = !isLoading && (isSuccess || isError) && offers.length === 0;
+
+  /** Ключ сеанса для карты: без офферов используем «_», чтобы отрисовать подложку без выбора даты. */
+  const hallMapSessionKey = useMemo(() => {
+    if (selectedSessionKey) return selectedSessionKey;
+    if (noOffersAfterFetch) return '_';
+    return null;
+  }, [selectedSessionKey, noOffersAfterFetch]);
+
+  /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
+  const offersForMap = useMemo(() => {
+    if (!hallMapSessionKey) return [];
+    return (offers as OfferRow[]).filter(
+      (o) => (o.EventDateTime ?? '_') === hallMapSessionKey,
+    );
+  }, [offers, hallMapSessionKey]);
+
+  useEffect(() => {
+    if (!offerId) return;
+    const still = offersForMap.some((o) => String(o.Id ?? '') === offerId);
+    if (!still) {
+      setOfferId(null);
+      setSeats([]);
+      setMapSelectedSeats([]);
+    }
+  }, [offersForMap, offerId]);
+
   const colorSeat = useCallback(
     (p: string) => colorForPrice(priceMap, p),
     [priceMap],
@@ -795,10 +805,10 @@ export function TicketCheckoutPage() {
   return (
     <>
       <SeoMetaTags
-        title={`Билеты — ${displayTitle}`}
+        title={`Купить билеты на ${displayTitle} - выбор мест онлайн`}
         description={
           (ctx?.heroLead?.trim() || ctx?.descriptionSnippet?.trim())?.slice(0, 160) ||
-          'Выбор мест и бронирование через GetBilet.'
+          'Выберите лучшие места на схеме зала, оформите заказ онлайн и получите электронный билет сразу после оплаты.'
         }
         image={ogImage}
         url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
@@ -1017,7 +1027,7 @@ export function TicketCheckoutPage() {
             </Typography>
           </Box>
 
-          {hallSvg && selectedSessionKey ? (
+          {hallSvg && hallMapSessionKey ? (
             <Paper className={styles.primaryHallMap} elevation={0}>
               <Box className={styles.primaryHallMapHead}>
                 <Box sx={{ minWidth: 0 }}>
@@ -1025,7 +1035,9 @@ export function TicketCheckoutPage() {
                     Схема зала
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Кликните по свободному месту на схеме, затем нажмите «Забронировать».
+                    {noOffersAfterFetch
+                      ? 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.'
+                      : 'Кликните по свободному месту на схеме, затем нажмите «Забронировать».'}
                   </Typography>
                 </Box>
                 <Button
@@ -1371,7 +1383,7 @@ export function TicketCheckoutPage() {
         </Box>
 
         <Dialog
-          open={Boolean(mapDialogOpen && hallSvg && selectedSessionKey)}
+          open={Boolean(mapDialogOpen && hallSvg && hallMapSessionKey)}
           onClose={() => setMapDialogOpen(false)}
           fullScreen={fullScreenMap}
           maxWidth="lg"
@@ -1404,6 +1416,10 @@ export function TicketCheckoutPage() {
               {selectedSessionKey && selectedSessionKey !== '_' ? (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
                   {new Date(selectedSessionKey).toLocaleString('ru-RU')}
+                </Typography>
+              ) : noOffersAfterFetch ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                  Нет доступных предложений — показана схема площадки.
                 </Typography>
               ) : null}
             </Box>
@@ -1447,7 +1463,7 @@ export function TicketCheckoutPage() {
                 </FormControl>
               </Box>
             ) : null}
-            {hallSvg && selectedSessionKey ? (
+            {hallSvg && hallMapSessionKey ? (
               <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', px: 0 }}>
                 <TicketHallInteractiveBlock
                   variant="dialog"
