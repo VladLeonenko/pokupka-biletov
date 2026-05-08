@@ -324,16 +324,36 @@ function normSectorLoose(s: string): string {
   return normToken(s.replace(/\([^)]*\)/g, ' '));
 }
 
-function sectorsFuzzyMatch(apiSector: string, svgSector: string): boolean {
+/**
+ * Оценка совпадения сектора API со строкой сектора из SVG (обычно длиннее и точнее).
+ * Выше = лучше. Старый boolean includes() давал ложные попадания между разными зонами зала.
+ */
+export function sectorMatchScore(apiSector: string, svgSector: string): number {
   const a = normToken(apiSector);
   const b = normToken(svgSector);
-  if (a === b) return true;
+  if (!a || !b) return 0;
+  if (a === b) return 100;
   const a2 = normSectorLoose(apiSector);
   const b2 = normSectorLoose(svgSector);
-  if (a2 === b2) return true;
-  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) return true;
-  if (a2.length >= 4 && b2.length >= 4 && (a2.includes(b2) || b2.includes(a2))) return true;
-  return false;
+  if (a2 === b2) return 85;
+  /* API короче: «Партер» ⊂ «Партер центральный» */
+  if (b.startsWith(`${a} `) || b.startsWith(`${a},`) || b.startsWith(`${a}(`)) return 72;
+  /* SVG короче подписи на схеме */
+  if (a.startsWith(`${b} `) || a.startsWith(`${b},`) || a.startsWith(`${b}(`)) return 68;
+  const short = a.length <= b.length ? a : b;
+  const long = a.length <= b.length ? b : a;
+  /* Только для достаточно длинных корней — иначе шум от общих морфем */
+  if (short.length >= 7 && long.includes(short)) {
+    let idx = long.indexOf(short);
+    while (idx !== -1) {
+      const beforeOk = idx === 0 || /[\s(,]/.test(long[idx - 1] ?? '');
+      const afterOk =
+        idx + short.length >= long.length || /[\s,)]/.test(long[idx + short.length] ?? '');
+      if (beforeOk && afterOk) return 55;
+      idx = long.indexOf(short, idx + 1);
+    }
+  }
+  return 0;
 }
 
 function sameSeatInList(apiSeat: string, svgSeat: string): boolean {
@@ -352,28 +372,27 @@ export function matchSvgSeatToOffer(
   const exact = idx.get(seatMapKey(svg.sector, svg.row, svg.seat));
   if (exact?.length) return exact[0];
 
+  type Cand = { offer: OfferLike; seat: string; score: number };
+  const candidates: Cand[] = [];
   for (const o of offers) {
     const row = String(o.Row ?? '');
     if (normRow(row) !== normRow(svg.row)) continue;
     const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
     const seatHit = list.find((st) => sameSeatInList(st, svg.seat));
     if (!seatHit) continue;
-    if (sectorsFuzzyMatch(String(o.Sector ?? ''), svg.sector)) {
-      return { offer: o, seat: seatHit };
-    }
+    const score = sectorMatchScore(String(o.Sector ?? ''), svg.sector);
+    if (score <= 0) continue;
+    candidates.push({ offer: o, seat: seatHit, score });
   }
-
-  const ambiguous: { offer: OfferLike; seat: string }[] = [];
-  for (const o of offers) {
-    const row = String(o.Row ?? '');
-    if (normRow(row) !== normRow(svg.row)) continue;
-    const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
-    const seatHit = list.find((st) => sameSeatInList(st, svg.seat));
-    if (seatHit) ambiguous.push({ offer: o, seat: seatHit });
-  }
-  if (ambiguous.length === 1) return ambiguous[0];
-
-  return null;
+  if (candidates.length === 0) return null;
+  candidates.sort((x, y) => {
+    if (y.score !== x.score) return y.score - x.score;
+    return String(y.offer.Sector ?? '').length - String(x.offer.Sector ?? '').length;
+  });
+  const best = candidates[0].score;
+  const top = candidates.filter((c) => c.score === best);
+  top.sort((x, y) => String(y.offer.Sector ?? '').length - String(x.offer.Sector ?? '').length);
+  return { offer: top[0].offer, seat: top[0].seat };
 }
 
 export type SvgNativePlacement = {
@@ -472,11 +491,18 @@ export function buildSvgNativePlacements(
   for (const [, svgList] of byRow) {
     if (svgList.length === 0) continue;
     const first = svgList[0];
-    const offersRow = offers.filter(
-      (o) =>
-        sectorsFuzzyMatch(String(o.Sector ?? ''), first.sector) &&
-        normRow(String(o.Row ?? '')) === normRow(first.row),
-    );
+    const scored = offers
+      .map((o) => ({
+        offer: o,
+        score: sectorMatchScore(String(o.Sector ?? ''), first.sector),
+      }))
+      .filter(
+        ({ offer: o, score }) =>
+          score > 0 && normRow(String(o.Row ?? '')) === normRow(first.row),
+      );
+    if (scored.length === 0) continue;
+    const maxSc = Math.max(...scored.map((x) => x.score));
+    const offersRow = scored.filter((x) => x.score === maxSc).map((x) => x.offer);
     if (offersRow.length !== 1) continue;
     const offer = offersRow[0];
     const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];

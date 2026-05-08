@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { buildSvgNativePlacements, parseLayoutSeatPositions, parsePreferLayoutSeatPositions } from './svgNativeSeatLayout';
+import {
+  buildSvgNativePlacements,
+  matchSvgSeatToOffer,
+  parseLayoutSeatPositions,
+  parsePreferLayoutSeatPositions,
+  sectorMatchScore,
+} from './svgNativeSeatLayout';
 
 describe('svgNativeSeatLayout', () => {
+  it('sectorMatchScore ranks refinement over unrelated sectors', () => {
+    expect(sectorMatchScore('Партер', 'Партер центральный')).toBeGreaterThan(0);
+    expect(sectorMatchScore('Балкон левый', 'Партер центральный')).toBe(0);
+    expect(sectorMatchScore('Партер центральный', 'Партер центральный')).toBe(100);
+  });
+
+  it('matchSvgSeatToOffer picks best sector among row+seat collisions', () => {
+    const svg = { sector: 'Партер центральный фланг', row: '5', seat: '10', xPct: 50, yPct: 50 };
+    const offers = [
+      { Id: 'gen', Sector: 'Партер', Row: '5', SeatList: ['10'], AgentPrice: '1000' },
+      { Id: 'mid', Sector: 'Партер центральный', Row: '5', SeatList: ['10'], AgentPrice: '2000' },
+    ];
+    expect(matchSvgSeatToOffer(svg, offers)?.offer.Id).toBe('mid');
+  });
+
   it('preferLayoutSeatPositions opt-in', () => {
     expect(parsePreferLayoutSeatPositions({ preferLayoutSeatPositions: true })).toBe(true);
     expect(parsePreferLayoutSeatPositions({ preferLayoutSeatPositions: false })).toBe(false);
