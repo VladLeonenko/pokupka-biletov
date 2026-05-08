@@ -804,7 +804,12 @@ export function TicketCheckoutPage() {
 
   const ogImage = absoluteUrl(origin, coverUrl || posterSideUrl);
 
-  const canonicalSlug = useMemo(() => slugify(displayTitle) || 'event', [displayTitle]);
+  const canonicalSourceTitle = useMemo(
+    () => ctx?.title?.trim() || resolvedEventFromSlug?.title?.trim() || '',
+    [ctx?.title, resolvedEventFromSlug],
+  );
+
+  const canonicalSlug = useMemo(() => slugify(canonicalSourceTitle) || 'event', [canonicalSourceTitle]);
 
   const canonicalTicketPath = useMemo(() => {
     if (!canonicalSlug || canonicalSlug === 'event') return '/events';
@@ -867,7 +872,9 @@ export function TicketCheckoutPage() {
   /** Канонический URL: только /ticket/:slug, без id GetBilet в пути. */
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!routeKey || canonicalSlug === 'event') return;
+    if (!routeKey || !canonicalSourceTitle || canonicalSlug === 'event') return;
+    if (!routeKeyIsId && !resolvedEventFromSlug) return;
+    if (routeKeyIsId && !ctx?.title?.trim()) return;
     const wantSlug = canonicalSlug;
     const target = `/ticket/${wantSlug}`;
     const cur = `${window.location.pathname}${window.location.search}`;
@@ -876,8 +883,12 @@ export function TicketCheckoutPage() {
     }
   }, [
     routeKey,
+    canonicalSourceTitle,
     canonicalSlug,
     searchStrForCanonical,
+    routeKeyIsId,
+    resolvedEventFromSlug,
+    ctx?.title,
     navigate,
   ]);
 
