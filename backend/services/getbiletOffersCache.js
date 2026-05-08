@@ -10,6 +10,23 @@ function isDemoRepertoireId(repertoireId) {
   return String(repertoireId || '').trim() === DEMO_REPERTOIRE_ID;
 }
 
+async function isOffersCacheOnlyRepertoire(repertoireId) {
+  const rid = String(repertoireId || '').trim();
+  if (!rid) return false;
+  try {
+    const r = await ticketPool.query(
+      `SELECT 1 FROM getbilet_events
+       WHERE getbilet_external_id = $1
+         AND position($2 in coalesce(notes_internal, '')) > 0
+       LIMIT 1`,
+      [rid, 'OFFERS_CACHE_ONLY'],
+    );
+    return r.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** @type {Map<string, Promise<unknown>>} */
 const inflight = new Map();
 
@@ -53,6 +70,22 @@ async function fetchUpsert(repertoireId) {
       [repertoireId],
     );
     return r.rows[0]?.payload_json ?? { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] };
+  }
+  if (await isOffersCacheOnlyRepertoire(repertoireId)) {
+    const r = await ticketPool.query(
+      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [repertoireId],
+    );
+    let data = r.rows[0]?.payload_json ?? null;
+    if (!data) {
+      data = { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] };
+      try {
+        await upsert(repertoireId, data);
+      } catch (e) {
+        console.error('[getbilet] offers cache-only upsert:', repertoireId, e instanceof Error ? e.message : e);
+      }
+    }
+    return data;
   }
   const k = inflightKey(repertoireId);
   if (inflight.has(k)) return inflight.get(k);

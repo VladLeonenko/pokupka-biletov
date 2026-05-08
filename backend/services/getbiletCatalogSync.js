@@ -99,3 +99,61 @@ export async function loadCatalogActionsFromDatabase() {
   const expanded = await expandCatalogActionsWithOfferSessions(actions);
   return enrichRestV2CatalogActions(expanded);
 }
+
+/**
+ * Добавляет в ленту события из БД с «закрепом» (sort_order ≤ -400): ручные карточки вне ответа GetBilet.
+ * @param {Record<string, unknown>[] | null | undefined} actionsInput
+ */
+export async function mergePinnedCatalogCacheIntoActions(actionsInput) {
+  const actions = Array.isArray(actionsInput) ? [...actionsInput] : [];
+  const seen = new Set();
+  for (const a of actions) {
+    const id = String(a?.Id ?? a?.id ?? '').trim();
+    if (id) seen.add(id);
+  }
+
+  let r;
+  try {
+    r = await ticketPool.query(
+      `SELECT c.payload_json, c.stage_id
+       FROM getbilet_catalog_cache c
+       INNER JOIN getbilet_events e ON e.getbilet_external_id = c.repertoire_external_id
+       WHERE e.is_published = TRUE AND COALESCE(e.sort_order, 0) <= -400`,
+    );
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && /** @type {{ code?: string }} */ (e).code === '42P01') {
+      return actions;
+    }
+    throw e;
+  }
+
+  for (const row of r.rows) {
+    let obj = row.payload_json;
+    if (typeof obj === 'string') {
+      try {
+        obj = JSON.parse(obj);
+      } catch {
+        continue;
+      }
+    }
+    if (!obj || typeof obj !== 'object') continue;
+    const repId = String(obj.Id ?? obj.id ?? '').trim();
+    if (!repId || seen.has(repId)) continue;
+    seen.add(repId);
+    const o = /** @type {Record<string, unknown>} */ ({ ...obj });
+    if (row.stage_id) o.stageId = row.stage_id;
+    try {
+      const expanded = await expandCatalogActionsWithOfferSessions([o]);
+      const enriched = await enrichRestV2CatalogActions(expanded);
+      for (const item of enriched) actions.push(item);
+    } catch (err) {
+      console.error(
+        '[getbilet] mergePinnedCatalog: enrich failed',
+        repId,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  return actions;
+}

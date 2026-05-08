@@ -1,4 +1,4 @@
-import { getMailTransporter, isMailConfigured, mailFromAddress } from './transporter.js';
+import { sendTransactionalMail } from './transporter.js';
 
 function siteName() {
   return process.env.SITE_NAME || process.env.SENDER_NAME || 'Покупка билетов';
@@ -9,11 +9,6 @@ function siteUrl() {
 }
 
 export async function sendVerificationCodeEmail(email, code) {
-  if (!isMailConfigured()) {
-    throw new Error('Email not configured');
-  }
-  const transporter = await getMailTransporter();
-  const fromAddress = mailFromAddress();
   const subject = `Код подтверждения ${siteName()}`;
   const plainText = `Здравствуйте!\n\nВаш код подтверждения: ${code}\nКод действует 10 минут.\n\nЕсли вы не запрашивали регистрацию, проигнорируйте это сообщение.`;
   const html = `
@@ -29,21 +24,11 @@ export async function sendVerificationCodeEmail(email, code) {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: fromAddress,
-    to: email,
-    subject,
-    text: plainText,
-    html,
-  });
+  const r = await sendTransactionalMail({ to: email, subject, text: plainText, html });
+  if (!r.ok) throw new Error(r.reason || 'Email not configured');
 }
 
 export async function sendMagicLinkEmail(email, rawToken) {
-  if (!isMailConfigured()) {
-    throw new Error('Email not configured');
-  }
-  const transporter = await getMailTransporter();
-  const fromAddress = mailFromAddress();
   const link = `${siteUrl()}/auth/magic?token=${encodeURIComponent(rawToken)}`;
   const subject = `Вход в личный кабинет — ${siteName()}`;
   const text = [
@@ -65,15 +50,11 @@ export async function sendMagicLinkEmail(email, rawToken) {
       <p style="color: #666; font-size: 13px; margin-top: 24px;">${siteName()}</p>
     </div>
   `;
-  await transporter.sendMail({ from: fromAddress, to: email, subject, text, html });
+  const r = await sendTransactionalMail({ to: email, subject, text, html });
+  if (!r.ok) throw new Error(r.reason || 'Email not configured');
 }
 
 export async function sendPasswordResetEmail(email, rawToken) {
-  if (!isMailConfigured()) {
-    throw new Error('Email not configured');
-  }
-  const transporter = await getMailTransporter();
-  const fromAddress = mailFromAddress();
   const link = `${siteUrl()}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
   const subject = `Сброс пароля — ${siteName()}`;
   const text = [
@@ -95,5 +76,6 @@ export async function sendPasswordResetEmail(email, rawToken) {
       <p style="color: #666; font-size: 13px; margin-top: 24px;">${siteName()}</p>
     </div>
   `;
-  await transporter.sendMail({ from: fromAddress, to: email, subject, text, html });
+  const r = await sendTransactionalMail({ to: email, subject, text, html });
+  if (!r.ok) throw new Error(r.reason || 'Email not configured');
 }

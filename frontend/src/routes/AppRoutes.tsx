@@ -28,6 +28,9 @@ const EventsSearchPage = lazy(() =>
 const TicketCheckoutPage = lazy(() =>
   import('@/pages/public/TicketCheckoutPage').then((m) => ({ default: m.TicketCheckoutPage }))
 );
+const LuzhnikiCupFinalSchemeTestPage = lazy(() =>
+  import('@/pages/test/LuzhnikiCupFinalSchemeTestPage').then((m) => ({ default: m.LuzhnikiCupFinalSchemeTestPage }))
+);
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { MagicLinkPage } from '@/pages/auth/MagicLinkPage';
 import { RequestMagicLinkPage } from '@/pages/auth/RequestMagicLinkPage';
@@ -178,6 +181,7 @@ export function AppRoutes() {
       <Route path="/ticket/:repertoireId/:slug/:sessionCompact" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
+      <Route path="/test/luzhniki-cup-final-scheme" element={<LuzhnikiCupFinalSchemeTestPage />} />
       <Route path="/ai-team" element={<PublicHomePageAI />} />
       <Route path="/ai-team-v2" element={<PublicHomePageAI_Noomo />} />
       <Route path="/cart" element={<CartPage />} />

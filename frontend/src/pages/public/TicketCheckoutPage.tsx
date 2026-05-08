@@ -181,6 +181,16 @@ function looksLikeGetbiletId(s: string): boolean {
   return /^[a-f0-9]{24}$/i.test(s.trim());
 }
 
+/**
+ * Репертуарный ключ из URL (`luzhniki-cup-final-2026`): есть в getbilet_catalog_cache, но может отсутствовать в общей выдаче /events (кэш, только что засидили).
+ */
+function looksLikeManualTicketRouteKey(s: string): boolean {
+  const t = s.trim();
+  if (t.length < 8 || t.length > 130) return false;
+  if (looksLikeGetbiletId(t)) return false;
+  return /^[a-z0-9][a-z0-9-]*$/i.test(t) && t.includes('-');
+}
+
 /** Совпадает с TBANK_DEMO_REPERTOIRE_ID на backend (seed-tbank-demo-event). */
 const demoRepEnv = import.meta.env.VITE_TBANK_DEMO_REPERTOIRE_ID;
 const DEMO_REPERTOIRE_ID =
@@ -218,7 +228,13 @@ export function TicketCheckoutPage() {
   const resolvedEventFromSlug = useMemo(() => {
     if (!routeSlug || routeKeyIsId) return null;
     const target = routeSlug.toLowerCase();
-    const matches = normalizeBiletEventsPayload(rawEventsForSlug).filter((ev) => slugify(ev.title) === target);
+    const list = normalizeBiletEventsPayload(rawEventsForSlug);
+    const matches = list.filter((ev) => {
+      if (slugify(ev.title) === target) return true;
+      const rid = eventRepId(ev).trim();
+      if (rid && rid.toLowerCase() === target) return true;
+      return false;
+    });
     return matches.length === 1 ? matches[0] : null;
   }, [rawEventsForSlug, routeSlug, routeKeyIsId]);
 
@@ -229,8 +245,12 @@ export function TicketCheckoutPage() {
     const leg = legacyRepertoireId.trim();
     if (leg) return leg;
     if (rk === DEMO_REPERTOIRE_ID) return rk;
-    return eventRepId(resolvedEventFromSlug);
+    const fromSlug = eventRepId(resolvedEventFromSlug);
+    if (fromSlug) return fromSlug;
+    if (looksLikeManualTicketRouteKey(rk)) return rk;
+    return '';
   }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);
+
   const titleHint = searchParams.get('title') ?? resolvedEventFromSlug?.title ?? 'Мероприятие';
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
@@ -668,6 +688,12 @@ export function TicketCheckoutPage() {
     ctx?.stageMap?.layout_json,
   ]);
 
+  const seatSelectionDisabledUi = useMemo(() => {
+    const lj = layoutJsonForStage;
+    if (!lj || typeof lj !== 'object') return false;
+    return (lj as Record<string, unknown>).seatSelectionDisabled === true;
+  }, [layoutJsonForStage]);
+
   const externalPlanUrl = useMemo(() => {
     const t = (s: string | null | undefined) =>
       s != null && String(s).trim() ? String(s).trim() : null;
@@ -767,6 +793,7 @@ export function TicketCheckoutPage() {
     if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
     if (legacyRepertoireId.trim() && legacySlug.trim()) return;
     if (routeSlug === DEMO_REPERTOIRE_ID) return;
+    if (looksLikeManualTicketRouteKey(routeSlug)) return;
     if (!resolvedEventFromSlug) {
       navigate('/events', { replace: true });
     }
@@ -1035,9 +1062,11 @@ export function TicketCheckoutPage() {
                     Схема зала
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {noOffersAfterFetch
-                      ? 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.'
-                      : 'Кликните по свободному месту на схеме, затем нажмите «Забронировать».'}
+                    {seatSelectionDisabledUi
+                      ? 'Схема для ориентира: точки мест — условная модель с чужого билетного сайта. Выбор мест и покупка появятся после запуска продаж.'
+                      : noOffersAfterFetch
+                        ? 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.'
+                        : 'Кликните по свободному месту на схеме, затем нажмите «Забронировать».'}
                   </Typography>
                 </Box>
                 <Button

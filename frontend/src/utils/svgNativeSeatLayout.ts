@@ -363,6 +363,8 @@ export type SvgNativePlacement = {
   yPct: number;
   title: string;
   priceKey: string;
+  /** Только ориентир: без выбора и брони */
+  previewOnly?: boolean;
 };
 
 function sortSeatTokens(a: string, b: string): number {

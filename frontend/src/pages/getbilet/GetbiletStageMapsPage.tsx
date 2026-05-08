@@ -218,6 +218,13 @@ export function GetbiletStageMapsPage() {
           Добавить вручную
         </Button>
       </Box>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Здесь только то, что уже лежит в PostgreSQL (<code>getbilet_stage_maps</code>). Ручные мероприятия вроде
+        финала Кубка на Лужниках с <code>luzhniki-cup-final-2026-stage</code> на проде нужно один раз записать
+        скриптом <code>npm run seed:luzhniki-cup-final-2026</code> в каталоге <code>backend</code> или через «Добавить
+        вручную». «Подтянуть залы из каталога» добавляет строки только для <code>stage_id</code>, которые уже есть в
+        кэше каталога после синхронизации.
+      </Alert>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         <strong>Что такое StageId:</strong> внешний id сцены в GetBilet (то же значение, что{' '}
         <code>stageId</code> в каталоге и в ссылке на покупку). В поле «StageId» ниже нужно вставить{' '}

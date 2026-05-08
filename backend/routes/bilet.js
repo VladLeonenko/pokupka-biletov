@@ -27,6 +27,7 @@ import {
 import { enrichRestV2CatalogActions } from '../services/getbiletEnrich.js';
 import {
   loadCatalogActionsFromDatabase,
+  mergePinnedCatalogCacheIntoActions,
 } from '../services/getbiletCatalogSync.js';
 import { getRepertoirePublicContext } from '../services/repertoirePublicContext.js';
 import {
@@ -44,6 +45,10 @@ import {
 import ticketPool from '../ticketDb.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { registerBiletTicketCheckoutRoutes } from './biletTicketCheckout.js';
+import {
+  buildLuzhnikiFootballStadiumInkscapePreview,
+  buildLuzhnikiFootballStadiumPreview,
+} from '../services/pbiletLuzhnikiFootballPreview.js';
 
 const router = express.Router();
 
@@ -303,6 +308,11 @@ async function loadEventsPayload(req) {
         } catch (e) {
           console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
         }
+        try {
+          actions = await mergePinnedCatalogCacheIntoActions(actions);
+        } catch (e) {
+          console.error('[getbilet] merge pinned catalog:', e instanceof Error ? e.message : e);
+        }
         return { ...data, actions };
       } catch (e) {
         console.error('[getbilet] live catalog failed, using DB cache:', e instanceof Error ? e.message : e);
@@ -316,6 +326,11 @@ async function loadEventsPayload(req) {
       data.actions = await enrichRestV2CatalogActions(data.actions);
     } catch (e) {
       console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
+    }
+    try {
+      data.actions = await mergePinnedCatalogCacheIntoActions(Array.isArray(data.actions) ? data.actions : []);
+    } catch (e) {
+      console.error('[getbilet] merge pinned catalog:', e instanceof Error ? e.message : e);
     }
     if (!Array.isArray(data.actions) || data.actions.length === 0) {
       try {
@@ -402,6 +417,43 @@ router.get('/media-config', (req, res) => {
     posterTemplateEnabled: Boolean(process.env.GETBILET_POSTER_URL_TEMPLATE?.trim()),
     bannerTemplateEnabled: Boolean(process.env.GETBILET_BANNER_URL_TEMPLATE?.trim()),
   });
+});
+
+/** Превью схемы Лужники (футбол): публичный pbilet + демо-офферы (или реальные места при eventSourceId/eventDateId в query или env). */
+router.get('/preview/luzhniki-football-stadium', async (req, res) => {
+  try {
+    const rawSource = typeof req.query.source === 'string' ? req.query.source.trim().toLowerCase() : '';
+    const demoEventIso =
+      typeof req.query.demoEventIso === 'string' && req.query.demoEventIso.trim()
+        ? req.query.demoEventIso.trim()
+        : '2026-05-24T15:00:00.000Z';
+
+    if (rawSource === 'inkscape') {
+      const data = await buildLuzhnikiFootballStadiumInkscapePreview({ demoEventIso });
+      return res.json(data);
+    }
+
+    const layoutId = typeof req.query.layoutId === 'string' ? req.query.layoutId : undefined;
+    const qSrc = typeof req.query.eventSourceId === 'string' ? req.query.eventSourceId.trim() : '';
+    const qDate = typeof req.query.eventDateId === 'string' ? req.query.eventDateId.trim() : '';
+    const envSrc = process.env.PBILET_LUZHNIKI_PREVIEW_EVENT_SOURCE_ID?.trim() || '';
+    const envDate = process.env.PBILET_LUZHNIKI_PREVIEW_EVENT_DATE_ID?.trim() || '';
+    const eventSourceId = qSrc || envSrc || null;
+    const eventDateId = qDate || envDate || null;
+    const data = await buildLuzhnikiFootballStadiumPreview({
+      layoutId,
+      eventSourceId,
+      eventDateId,
+      demoEventIso,
+    });
+    return res.json(data);
+  } catch (err) {
+    console.error('[bilet] preview/luzhniki-football-stadium', err);
+    return res.status(502).json({
+      error: 'pbilet_preview_failed',
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 });
 
 /** SVG/JSON схемы зала по StageId (из GetStageListByPlaceId) */

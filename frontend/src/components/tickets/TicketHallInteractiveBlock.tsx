@@ -96,6 +96,11 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
   return out;
 }
 
+function parseSeatSelectionDisabled(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).seatSelectionDisabled === true;
+}
+
 function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMeta[] } {
   if (!layout || typeof layout !== 'object') return { enabled: false, sectors: [] };
   const raw = (layout as Record<string, unknown>).sectorMode;
@@ -291,6 +296,7 @@ export function TicketHallInteractiveBlock({
   const layoutMode = useMemo(() => parseLayoutMode(layoutJson), [layoutJson]);
   const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
   const sectorMode = useMemo(() => parseSectorMode(layoutJson), [layoutJson]);
+  const seatSelectionDisabled = useMemo(() => parseSeatSelectionDisabled(layoutJson), [layoutJson]);
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
@@ -352,6 +358,26 @@ export function TicketHallInteractiveBlock({
         });
       }
 
+      if (placements.length === 0 && offers.length === 0 && seatSelectionDisabled && nativeSeats.length >= 2) {
+        for (const svgSeat of nativeSeats) {
+          const svgKey = seatMapKey(svgSeat.sector, svgSeat.row, svgSeat.seat);
+          placements.push({
+            svgKey,
+            key: `preview-${svgKey}`,
+            offerId: '',
+            sectorLabel: String(svgSeat.sector ?? ''),
+            seat: String(svgSeat.seat ?? ''),
+            rowLabel: String(svgSeat.row ?? ''),
+            available: [],
+            xPct: svgSeat.xPct,
+            yPct: svgSeat.yPct,
+            title: `${svgSeat.sector}, ${svgSeat.row} ряд, место ${svgSeat.seat} — просмотр`,
+            priceKey: '0',
+            previewOnly: true,
+          });
+        }
+      }
+
       return {
         nativePlacements: placements,
       };
@@ -365,7 +391,7 @@ export function TicketHallInteractiveBlock({
     return {
       nativePlacements: placements,
     };
-  }, [colorForSeat, getPriceKey, offers, sectorMode.enabled, useSvgNative, nativeSeats]);
+  }, [colorForSeat, getPriceKey, offers, sectorMode.enabled, seatSelectionDisabled, useSvgNative, nativeSeats]);
 
   const matchedNativeSeatKeys = useMemo(
     () => new Set(nativePlacements.map((p) => p.svgKey)),
@@ -907,10 +933,10 @@ export function TicketHallInteractiveBlock({
           const active = activeKeys.has(seat.key);
           const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
           ctx.beginPath();
-          ctx.fillStyle = colorForSeat(seat.priceKey);
+          ctx.fillStyle = seat.previewOnly ? 'rgba(148, 163, 184, 0.88)' : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
-          if (active) {
+          if (active && !seat.previewOnly) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
@@ -1069,7 +1095,7 @@ export function TicketHallInteractiveBlock({
                 ? visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);
-                    const bg = colorForSeat(p.priceKey);
+                    const bg = p.previewOnly ? '#94a3af' : colorForSeat(p.priceKey);
                     const seatInfo = {
                       key: visualKey,
                       offerId: p.offerId,
@@ -1078,6 +1104,27 @@ export function TicketHallInteractiveBlock({
                       seat: p.seat,
                       priceKey: p.priceKey,
                     };
+                    if (p.previewOnly) {
+                      return (
+                        <span
+                          key={p.key}
+                          className={`${styles.seatDot} ${styles.seatDotNative} ${styles.seatDotNonInteractive} ${
+                            sectorMode.enabled ? styles.seatDotStadium : ''
+                          } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''}`}
+                          style={
+                            {
+                              left: `${p.xPct}%`,
+                              top: `${p.yPct}%`,
+                              '--seat-accent': bg,
+                            } as React.CSSProperties
+                          }
+                          title={p.title}
+                          aria-hidden
+                        >
+                          <span className={styles.seatDotLabel}>{p.seat}</span>
+                        </span>
+                      );
+                    }
                     return (
                       <button
                         key={p.key}

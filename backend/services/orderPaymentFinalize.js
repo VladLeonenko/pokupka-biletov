@@ -223,6 +223,28 @@ export async function finalizePaidOrder(orderRow, { ticketRefs = [], runPaidHook
     } catch (e) {
       console.warn('[orderPaymentFinalize] ticket booking deal failed:', e.message);
     }
+    try {
+      const { createNotification } = await import('../routes/notifications.js');
+      const totalRub = (Number(orderRow.total_cents || 0) / 100).toFixed(2);
+      const cur = orderRow.currency || 'RUB';
+      await createNotification({
+        userId: 0,
+        type: 'ticket_order_paid',
+        title: `Оплачен заказ на билеты ${orderRow.order_number}`,
+        message: [
+          orderRow.customer_email ? `Покупатель: ${orderRow.customer_email}` : null,
+          pm?.eventTitle ? `Событие: ${pm.eventTitle}` : null,
+          `Сумма: ${totalRub} ${cur}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        linkUrl: '/admin/orders',
+        relatedEntityType: 'order',
+        relatedEntityId: orderRow.id,
+      });
+    } catch (e) {
+      console.warn('[orderPaymentFinalize] admin ticket notification failed:', e.message);
+    }
   }
 
   const fresh = await pool.query('SELECT * FROM orders WHERE id = $1', [orderRow.id]);

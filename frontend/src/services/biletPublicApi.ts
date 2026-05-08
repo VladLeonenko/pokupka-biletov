@@ -722,6 +722,57 @@ export async function fetchStageMap(stageId: string): Promise<StageMapRow | null
   return res.json() as Promise<StageMapRow>;
 }
 
+/** Превью Лужники (футбол): GET /api/bilet/preview/luzhniki-football-stadium — для /test/luzhniki-cup-final-scheme */
+export type LuzhnikiFootballStadiumPreviewPayload = {
+  svg_markup: string;
+  layout_json: Record<string, unknown>;
+  demoOffers: {
+    Id?: string;
+    Sector?: string;
+    Row?: string;
+    SeatList?: string[];
+    NominalPrice?: string;
+    AgentPrice?: string;
+    EventDateTime?: string;
+  }[];
+  meta: {
+    mode: string;
+    layoutId: string;
+    width: number;
+    height: number;
+    sectorCount: number;
+    seatCount: number;
+    demoEventIso: string;
+    /** Заполнено в режиме Inkscape (путь на сервере). */
+    svgPath?: string;
+  };
+};
+
+export async function fetchLuzhnikiFootballStadiumPreview(params?: {
+  layoutId?: string;
+  eventSourceId?: string;
+  eventDateId?: string;
+  demoEventIso?: string;
+  /** `inkscape` — локальный SVG (см. backend LUZHNIKI_INKSCAPE_SVG_PATH / frontend/public/maps/luzhniki-go.svg). */
+  source?: 'inkscape';
+}): Promise<LuzhnikiFootballStadiumPreviewPayload> {
+  const base = getApiBase();
+  const sp = new URLSearchParams();
+  if (params?.source === 'inkscape') sp.set('source', 'inkscape');
+  if (params?.layoutId?.trim()) sp.set('layoutId', params.layoutId.trim());
+  if (params?.eventSourceId?.trim()) sp.set('eventSourceId', params.eventSourceId.trim());
+  if (params?.eventDateId?.trim()) sp.set('eventDateId', params.eventDateId.trim());
+  if (params?.demoEventIso?.trim()) sp.set('demoEventIso', params.demoEventIso.trim());
+  const qs = sp.toString();
+  const url = `${base}/api/bilet/preview/luzhniki-football-stadium${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<LuzhnikiFootballStadiumPreviewPayload>;
+}
+
 /** Флаги: включены ли шаблоны URL в `.env` (сами шаблоны не отдаются). */
 export async function fetchMediaConfig(): Promise<{
   posterTemplateEnabled?: boolean;

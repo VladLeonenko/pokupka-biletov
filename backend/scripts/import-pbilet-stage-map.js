@@ -8,6 +8,25 @@
  *   STAGE_MAP_STAGE_ID=66f16a8c09a369003081a02f \
  *   STAGE_MAP_TITLE="Лукойл Арена — Спартак - ЦСКА" \
  *   npm run import:pbilet-stage-map
+ *
+ * Лужники (футбол, SSD на сайте донора — schemeId = PBILET_LAYOUT_ID):
+ *   Резервная копия подложки pbilet для layout 1173: frontend/public/maps/luzhniki-pbilet-1173.svg
+ *   (тот же файл, что coordinates.bg на CDN; боевой импорт всё равно тянет bg по URL из API).
+ *   SSD_EVENT_PAGE_URL='https://luzhniki-tickets.online/football/cup-of-russia/57057/' \
+ *     node scripts/extract-ssd-scheme-from-luzhniki-event-url.js
+ *   В ответе schemeId (например 1173). Пару event_source_id / event_date_id возьмите из Network
+ *   запроса к api.pbilet.net/public/v2/tickets при открытии схемы на том же сайте.
+ *
+ * Пример переменных для Кубка России (layout 1173 — проверяйте актуальность в Network):
+ *   PBILET_LAYOUT_ID=1173 \
+ *   PBILET_EVENT_SOURCE_ID=<из запроса tickets> \
+ *   PBILET_EVENT_DATE_ID=<из запроса tickets> \
+ *   STAGE_MAP_STAGE_ID=<Mongo ObjectId Stage из GetBilet> \
+ *   STAGE_MAP_TITLE="Лужники — финал Кубка России" \
+ *   npm run import:pbilet-stage-map
+ *
+ * Концерты на том же стадионе — другая схема и обычно другой schemeId / другой StageId в GetBilet:
+ * отдельная строка в getbilet_stage_maps на каждый StageId.
  */
 
 import ticketPool from '../ticketDb.js';

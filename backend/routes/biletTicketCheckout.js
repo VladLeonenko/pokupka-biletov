@@ -10,6 +10,7 @@ import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { validateGetbiletPromoForAmount, incrementGetbiletPromoUses } from '../services/getbiletPromoPublic.js';
 import {
   applyGetbiletMarkupToOfferPayload,
+  applyGetbiletMarkupToSupplierUnit,
   getGetbiletMarkupRuleForRepertoire,
 } from '../services/getbiletMarkupPublic.js';
 import { isTbankEacqConfigured, tbankEacqInit, verifyTbankNotificationToken } from '../services/payment/tbankEacq.js';
@@ -68,14 +69,19 @@ function isDemoCheckoutPayload(repertoireId, offerId) {
   return repertoireId === DEMO_REPERTOIRE_ID && String(offerId).startsWith('tb-demo-');
 }
 
-async function loadDemoOffer(repertoireId, offerId) {
+async function loadCachedOfferRowById(repertoireId, offerId) {
   const r = await ticketPool.query(
     `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
     [repertoireId]
   );
   const payload = r.rows[0]?.payload_json;
   const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
-  return rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === offerId) || null;
+  const id = String(offerId ?? '');
+  return rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id) || null;
+}
+
+async function loadDemoOffer(repertoireId, offerId) {
+  return loadCachedOfferRowById(repertoireId, offerId);
 }
 
 async function prepareTicketReservation({ offerId, repertoireId, seats }) {
@@ -114,9 +120,32 @@ async function prepareTicketReservation({ offerId, repertoireId, seats }) {
   if (!parsed) {
     throw new GetbiletValidationError('Не удалось получить цену предложения');
   }
+
+  let unitRub = parsed.unitRub;
+  const cachedRow = await loadCachedOfferRowById(repertoireId, offerId);
+  if (cachedRow) {
+    const supplier = Number(cachedRow.AgentPrice ?? cachedRow.NominalPrice ?? 0);
+    if (Number.isFinite(supplier) && supplier >= 0) {
+      const fromList = applyGetbiletMarkupToSupplierUnit(supplier, markupRule);
+      if (Number.isFinite(fromList) && fromList > 0) {
+        if (Math.abs(fromList - unitRub) > 0.02) {
+          console.warn(
+            '[bilet/checkout] цена места: витрина/кэш',
+            fromList,
+            '₽, GetOfferById',
+            unitRub,
+            '₽, offer',
+            offerId
+          );
+        }
+        unitRub = fromList;
+      }
+    }
+  }
+
   const makeData = await restV2MakeOrder(offerId, seats);
   return {
-    baseRub: parsed.unitRub * seats.length,
+    baseRub: unitRub * seats.length,
     makeData,
     getbiletOrderId: pickGetbiletOrderId(makeData),
     isDemo: false,
@@ -436,14 +465,18 @@ export async function handleTbankEacqNotification(req, res) {
     }
     const ticketRefs = [];
     const gbm = pm?.getbiletMakeOrder;
-    if (gbm && typeof gbm === 'object') {
-      const rd = gbm.ResultData;
-      const rows = Array.isArray(rd) ? rd : rd ? [rd] : [];
-      for (const r of rows) {
-        if (!r || typeof r !== 'object') continue;
-        const tid = r.TicketId ?? r.Id ?? r.ticketId;
-        if (tid != null) {
-          ticketRefs.push({ externalTicketId: String(tid), metadata: r });
+    if (gbm != null && typeof gbm === 'object') {
+      const chunks = Array.isArray(gbm) ? gbm : [gbm];
+      for (const chunk of chunks) {
+        if (!chunk || typeof chunk !== 'object') continue;
+        const rd = chunk.ResultData;
+        const rows = Array.isArray(rd) ? rd : rd ? [rd] : [];
+        for (const r of rows) {
+          if (!r || typeof r !== 'object') continue;
+          const tid = r.TicketId ?? r.Id ?? r.ticketId;
+          if (tid != null) {
+            ticketRefs.push({ externalTicketId: String(tid), metadata: r });
+          }
         }
       }
     }

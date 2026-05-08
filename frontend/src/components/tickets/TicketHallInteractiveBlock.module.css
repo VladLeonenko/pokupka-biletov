@@ -327,6 +327,14 @@
   aspect-ratio: 1;
 }
 
+.seatDotNonInteractive {
+  pointer-events: none;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .seatDotStadium {
   width: 0.14%;
   height: auto;
