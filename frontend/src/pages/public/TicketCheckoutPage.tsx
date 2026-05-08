@@ -1328,11 +1328,14 @@ export function TicketCheckoutPage() {
             </Accordion>
           )}
 
-          {offerId && seats.length > 0 && !mapDialogOpen && !hallSvg && (
+          {offerId && purchaseSeats.length > 0 && !mapDialogOpen && (
             <Paper className={styles.stickyBar} elevation={3}>
-              <Typography variant="body2">Выбрано мест: {seats.join(', ')}</Typography>
+              <Typography variant="body2">
+                Выбрано мест:{' '}
+                {purchaseSeatLabels?.length ? purchaseSeatLabels.join('; ') : purchaseSeats.join(', ')}
+              </Typography>
               <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
-                Забронировать
+                Забронировать {baseTotalRub > 0 ? `за ${baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
               </Button>
             </Paper>
           )}

@@ -18,6 +18,7 @@ import {
   dedupeBiletEventsByShow,
   fetchBiletEvents,
   fetchBiletVenues,
+  isEventActual,
   normalizeBiletEventsPayload,
   normalizeVenuesPayload,
   filterEventsClient,
@@ -135,7 +136,7 @@ export function EventsSearchPage() {
 
   const allEvents = useMemo(() => {
     if (isError) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
-    return normalizeBiletEventsPayload(raw);
+    return normalizeBiletEventsPayload(raw).filter(isEventActual);
   }, [raw, isError]);
   const apiVenues = useMemo(() => {
     if (!venuesRaw) return [];

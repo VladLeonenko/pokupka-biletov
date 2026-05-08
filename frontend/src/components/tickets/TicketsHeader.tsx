@@ -93,12 +93,26 @@ export function TicketsHeader() {
 
   useEffect(() => {
     if (!ticketsChrome) return undefined;
+    if (window.matchMedia('(max-width: 899px)').matches) {
+      calendarAutoHiddenRef.current = false;
+      setCalendarAutoHidden(false);
+      setCalendarCollapsed(false);
+      return undefined;
+    }
     const updateCalendarVisibility = () => {
       scrollRafRef.current = null;
       const y = window.scrollY || document.documentElement.scrollTop || 0;
-      const scrollingUp = y < lastScrollYRef.current;
-      const shouldShowNearTop = calendarAutoHiddenRef.current && scrollingUp && y <= 48;
-      const hidden = y > 1 && !shouldShowNearTop;
+      const prevY = lastScrollYRef.current;
+      const delta = y - prevY;
+      let hidden = calendarAutoHiddenRef.current;
+      // Гистерезис убирает мигание плашки на мелком скролле.
+      if (y <= 24) {
+        hidden = false;
+      } else if (delta > 2 && y > 120) {
+        hidden = true;
+      } else if (delta < -2) {
+        hidden = false;
+      }
       lastScrollYRef.current = y;
       if (calendarAutoHiddenRef.current !== hidden) {
         calendarAutoHiddenRef.current = hidden;

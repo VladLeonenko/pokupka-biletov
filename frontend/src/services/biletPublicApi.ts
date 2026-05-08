@@ -536,6 +536,48 @@ function eventSortTimeMs(ev: NormalizedBiletEvent): number {
   return Number.MAX_SAFE_INTEGER;
 }
 
+function startOfTodayLocalMs(): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return now.getTime();
+}
+
+function parseRuDateToMs(raw: string): number | null {
+  const m = raw.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\D+(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  const hour = m[4] ? Number(m[4]) : 0;
+  const minute = m[5] ? Number(m[5]) : 0;
+  const dt = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const ms = dt.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function eventDateMs(ev: NormalizedBiletEvent): number | null {
+  const candidates = [ev.isoDate, ev.dateLabel, ev.displayDate]
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean);
+  for (const raw of candidates) {
+    const dIso = parseISO(raw);
+    if (isValid(dIso)) return dIso.getTime();
+    const nativeMs = new Date(raw).getTime();
+    if (Number.isFinite(nativeMs)) return nativeMs;
+    const ruMs = parseRuDateToMs(raw);
+    if (ruMs != null) return ruMs;
+  }
+  return null;
+}
+
+/** Актуально ли событие для публичной афиши (прошедшие отправляем в архив). */
+export function isEventActual(ev: NormalizedBiletEvent): boolean {
+  const parsedMs = eventDateMs(ev);
+  if (parsedMs == null) return true;
+  const todayMs = startOfTodayLocalMs();
+  return parsedMs >= todayMs;
+}
+
 /** Ключ одного спектакля: репертуар API, префикс составного id (`rep::…`) или название. */
 export function biletEventShowKey(ev: NormalizedBiletEvent): string {
   const rep = ev.repertoireId?.trim();

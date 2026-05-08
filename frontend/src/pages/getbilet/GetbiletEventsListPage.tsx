@@ -54,6 +54,7 @@ export function GetbiletEventsListPage() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [publishedFilter, setPublishedFilter] = useState<'all' | '1' | '0'>('all');
+  const [archiveFilter, setArchiveFilter] = useState<'all' | 'active' | 'archive'>('active');
   const [bannerRowId, setBannerRowId] = useState<number | null>(null);
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
@@ -67,11 +68,13 @@ export function GetbiletEventsListPage() {
       'getbilet-events',
       debouncedQ,
       publishedFilter,
+      archiveFilter,
     ] as const,
     queryFn: () =>
       listGetbiletEvents({
         q: debouncedQ || undefined,
         published: publishedFilter === 'all' ? undefined : publishedFilter,
+        archived: archiveFilter === 'all' ? undefined : archiveFilter,
       }),
   });
 
@@ -287,6 +290,16 @@ export function GetbiletEventsListPage() {
           <ToggleButton value="1">В продаже</ToggleButton>
           <ToggleButton value="0">Скрытые</ToggleButton>
         </ToggleButtonGroup>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={archiveFilter}
+          onChange={(_, v) => v != null && setArchiveFilter(v)}
+        >
+          <ToggleButton value="active">Актуальные</ToggleButton>
+          <ToggleButton value="archive">Архив</ToggleButton>
+          <ToggleButton value="all">Все даты</ToggleButton>
+        </ToggleButtonGroup>
         {listBusy && <CircularProgress size={22} sx={{ flexShrink: 0 }} />}
       </Box>
 
@@ -300,7 +313,7 @@ export function GetbiletEventsListPage() {
           <>По запросу ничего не найдено — измените поиск или сбросьте фильтр «статус».</>
         ) : (
           <>
-            Показано {rows.length}{debouncedQ || publishedFilter !== 'all' ? ' (с фильтром)' : ''}. Каталог в БД не
+            Показано {rows.length}{debouncedQ || publishedFilter !== 'all' || archiveFilter !== 'active' ? ' (с фильтром)' : ''}. Каталог в БД не
             затирается при исчезновении спектакля из GetBilet. Метка «не в последнем каталоге» — id не было в ответе при
             последней синхронизации.
           </>
@@ -431,6 +444,9 @@ export function GetbiletEventsListPage() {
                   <TableCell>{r.title_manual || '—'}</TableCell>
                   <TableCell>{r.sort_order}</TableCell>
                   <TableCell>
+                    {r.is_archived ? (
+                      <Chip size="small" label="Архив" color="warning" variant="outlined" sx={{ mr: 0.5 }} />
+                    ) : null}
                     {r.is_published ? (
                       <Chip size="small" label="В продаже" color="success" variant="outlined" />
                     ) : (

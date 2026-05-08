@@ -68,6 +68,7 @@ export interface GetbiletEventRow {
   /** Последнее появление в ответе GetBilet при sync-catalog */
   last_seen_in_catalog_at?: string | null;
   catalog_last_sync_at?: string | null;
+  is_archived?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -77,12 +78,15 @@ export type ListGetbiletEventsParams = {
   q?: string;
   /** 1 = только в продаже, 0 = только скрытые, не передано = все */
   published?: '1' | '0';
+  /** active = только актуальные, archive = только архив, all/undefined = все */
+  archived?: 'active' | 'archive';
 };
 
 export async function listGetbiletEvents(params?: ListGetbiletEventsParams): Promise<GetbiletEventRow[]> {
   const sp = new URLSearchParams();
   if (params?.q) sp.set('q', params.q);
   if (params?.published) sp.set('published', params.published);
+  if (params?.archived) sp.set('archived', params.archived);
   const qs = sp.toString();
   const res = await fetch(
     `${API_BASE}/api/admin/getbilet/events${qs ? `?${qs}` : ''}`,

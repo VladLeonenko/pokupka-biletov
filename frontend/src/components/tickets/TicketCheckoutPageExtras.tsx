@@ -6,6 +6,7 @@ import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import {
   fetchBiletEvents,
+  isEventActual,
   normalizeBiletEventsPayload,
   dedupeBiletEventsByShow,
 } from '@/services/biletPublicApi';
@@ -55,7 +56,7 @@ export function TicketCheckoutPageExtras({
   });
 
   const catalog = useMemo(
-    () => dedupeBiletEventsByShow(normalizeBiletEventsPayload(rawEvents ?? [])),
+    () => dedupeBiletEventsByShow(normalizeBiletEventsPayload(rawEvents ?? []).filter(isEventActual)),
     [rawEvents],
   );
 

@@ -51,12 +51,62 @@ function parseId(param) {
   return Number.isFinite(id) ? id : null;
 }
 
+function parseArchiveDateMs(raw) {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  if (!s) return null;
+  const nativeMs = new Date(s).getTime();
+  if (Number.isFinite(nativeMs)) return nativeMs;
+  const m = s.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\D+(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  const hour = m[4] ? Number(m[4]) : 0;
+  const minute = m[5] ? Number(m[5]) : 0;
+  const dt = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const ms = dt.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function rowIsArchivedByCatalogDate(payloadJson) {
+  if (!payloadJson || typeof payloadJson !== 'object') return false;
+  const p = payloadJson;
+  const candidates = [
+    p.beginDateTimeISO,
+    p.startDateTime,
+    p.BeginDateTime,
+    p.EventDateTime,
+    p.eventDateTime,
+    p.beginDateTime,
+    p.beginDate,
+    p.dateTime,
+    p.date,
+    p.Date,
+    p.startDate,
+    p.eventDate,
+  ];
+  let eventMs = null;
+  for (const candidate of candidates) {
+    const parsed = parseArchiveDateMs(candidate);
+    if (parsed != null) {
+      eventMs = parsed;
+      break;
+    }
+  }
+  if (eventMs == null) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return eventMs < today.getTime();
+}
+
 // --- Events ---
 
 router.get('/events', async (req, res) => {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     const published = req.query.published;
+    const archived = typeof req.query.archived === 'string' ? req.query.archived.trim() : '';
     const params = [];
     const cond = ['TRUE'];
     if (q) {
@@ -82,6 +132,7 @@ router.get('/events', async (req, res) => {
               e.venue_manual, e.venue_address_manual, e.card_subtitle_manual,
               e.poster_url_manual, e.poster_url_web, e.banner_url_manual, e.poster_page_url,
               e.is_published, e.sort_order, e.last_seen_in_catalog_at, e.created_at, e.updated_at,
+              c.payload_json AS catalog_payload_json,
               (SELECT m.last_completed_at FROM getbilet_catalog_sync_meta m WHERE m.singleton = 1) AS catalog_last_sync_at
        FROM getbilet_events e
        LEFT JOIN getbilet_catalog_cache c ON c.repertoire_external_id = e.getbilet_external_id
@@ -89,7 +140,20 @@ router.get('/events', async (req, res) => {
        ORDER BY e.sort_order ASC, e.id ASC`,
       params,
     );
-    res.json(r.rows);
+    const withArchive = r.rows.map((row) => {
+      const isArchived = rowIsArchivedByCatalogDate(row.catalog_payload_json);
+      return {
+        ...row,
+        is_archived: isArchived,
+        catalog_payload_json: undefined,
+      };
+    });
+    const filtered = archived === 'archive'
+      ? withArchive.filter((row) => row.is_archived)
+      : archived === 'active'
+        ? withArchive.filter((row) => !row.is_archived)
+        : withArchive;
+    res.json(filtered);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

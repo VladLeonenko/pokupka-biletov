@@ -15,6 +15,7 @@ import {
   dedupeBiletEventsByShow,
   fetchBiletHome,
   fetchBiletEventsLite,
+  isEventActual,
   normalizeBiletEventsPayload,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
@@ -66,8 +67,14 @@ export function HomePage() {
 
   const vitrine = useMemo(() => mergeTicketsVitrine(vitrineRes?.content), [vitrineRes]);
 
-  const normalized = useMemo(() => normalizeBiletEventsPayload(raw), [raw]);
-  const normalizedSportLite = useMemo(() => normalizeBiletEventsPayload(rawSportLite), [rawSportLite]);
+  const normalized = useMemo(
+    () => normalizeBiletEventsPayload(raw).filter(isEventActual),
+    [raw],
+  );
+  const normalizedSportLite = useMemo(
+    () => normalizeBiletEventsPayload(rawSportLite).filter(isEventActual),
+    [rawSportLite],
+  );
 
   const filtered = useMemo(() => {
     if (!dateFilter) return normalized;
