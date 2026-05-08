@@ -808,9 +808,8 @@ export function TicketCheckoutPage() {
 
   const canonicalTicketPath = useMemo(() => {
     if (!canonicalSlug || canonicalSlug === 'event') return '/events';
-    if (repertoireId) return `/ticket/${encodeURIComponent(repertoireId)}/${canonicalSlug}`;
     return `/ticket/${canonicalSlug}`;
-  }, [canonicalSlug, repertoireId]);
+  }, [canonicalSlug]);
 
   const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
 
@@ -865,12 +864,12 @@ export function TicketCheckoutPage() {
     setShowAllOfferRows(false);
   }, [repertoireId]);
 
-  /** Канонический URL: только /ticket/:slug, без id GetBilet и query-параметров. */
+  /** Канонический URL: только /ticket/:slug, без id GetBilet в пути. */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!routeKey || canonicalSlug === 'event') return;
     const wantSlug = canonicalSlug;
-    const target = repertoireId ? `/ticket/${encodeURIComponent(repertoireId)}/${wantSlug}` : `/ticket/${wantSlug}`;
+    const target = `/ticket/${wantSlug}`;
     const cur = `${window.location.pathname}${window.location.search}`;
     if (cur !== target) {
       navigate(target, { replace: true });
@@ -878,7 +877,6 @@ export function TicketCheckoutPage() {
   }, [
     routeKey,
     canonicalSlug,
-    repertoireId,
     searchStrForCanonical,
     navigate,
   ]);

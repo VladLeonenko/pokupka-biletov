@@ -122,8 +122,7 @@ export function ticketCheckoutHref(
   },
 ): string {
   const pathSlug = slugify(ev.title) || 'event';
-  const repertoireId = ev.repertoireId?.trim() || (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') || ev.id.trim();
-  return repertoireId ? `/ticket/${encodeURIComponent(repertoireId)}/${pathSlug}` : `/ticket/${pathSlug}`;
+  return `/ticket/${pathSlug}`;
 }
 
 export type NormalizedVenue = {

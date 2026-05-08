@@ -29,6 +29,10 @@ const AMBIGUOUS_TICKET_PATHS = new Set([
   '/ticket/meropriyatie',
 ]);
 
+function looksLikeGetbiletId(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || '').trim());
+}
+
 function findIndexHtml() {
   const candidates = [
     path.resolve(__dirname, '../../frontend/dist/index.html'),
@@ -657,10 +661,17 @@ async function generateSeoTags(url) {
     else if (url.startsWith('/ticket/')) {
       const m = url.match(/^\/ticket\/([^/?#]+)(?:\/([^/?#]+))?/);
       if (m) {
-        const repId = decodeURIComponent(m[1]);
-        const ctx = await getRepertoireContext(repId);
-        const slugPart = m[2] ? `/${m[2]}` : '';
-        const canonical = `${base}/ticket/${encodeURIComponent(repId)}${slugPart}`;
+        const firstSeg = decodeURIComponent(m[1]).trim();
+        const secondSeg = m[2] ? decodeURIComponent(m[2]).trim() : '';
+        const repId = looksLikeGetbiletId(firstSeg) ? firstSeg : '';
+        const routeSlug = repId ? secondSeg : firstSeg;
+        const ctx = repId ? await getRepertoireContext(repId) : null;
+        const canonicalPath = routeSlug
+          ? `/ticket/${encodeURIComponent(routeSlug)}`
+          : repId
+            ? `/ticket/${encodeURIComponent(repId)}`
+            : '/events';
+        const canonical = `${base}${canonicalPath}`;
         const displayTitle = (ctx && ctx.title) || 'Мероприятие';
         const title = `Билеты — ${displayTitle}`;
         const rawDesc =
@@ -697,7 +708,7 @@ async function generateSeoTags(url) {
         const breadcrumb = breadcrumbJsonLd(base, [
           { name: 'Главная', path: '/' },
           { name: 'Афиша', path: '/events' },
-          { name: displayTitle, path: `/ticket/${encodeURIComponent(repId)}${slugPart}` },
+          { name: displayTitle, path: canonicalPath },
         ]);
         metaTags = `
     <title>${escapeHtml(title)}</title>
