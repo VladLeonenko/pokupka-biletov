@@ -13,6 +13,10 @@ import {
   getVenueLookupMaps,
   pickPlaceId,
 } from './getbiletVenueLabels.js';
+import {
+  loadLuzhnikiFootballStageMapRow,
+  shouldUseLuzhnikiFootballCanonicalMap,
+} from './luzhnikiFootballStageMap.js';
 
 const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
 
@@ -49,7 +53,7 @@ function pickStringField(obj, keys) {
  * @param {string | null} stageId
  * @returns {Promise<{ venue: string | null; address: string | null }>}
  */
-async function resolvePlaceFromGetbiletMaps(payload, stageId) {
+export async function resolvePlaceFromGetbiletMaps(payload, stageId) {
   try {
     const { byPlaceId, stageIdToParentVenue, stageIdToAddress, placeIdToAddress } = await getVenueLookupMaps();
     const sid = String(stageId || '').trim();
@@ -146,7 +150,7 @@ async function loadMhtChekhovStageMapFallback() {
  *   bannerManual: string | null;
  * }>}
  */
-async function loadRepertoireBase(repertoireId) {
+export async function loadRepertoireBase(repertoireId) {
   let stageId = null;
   /** @type {Record<string, unknown>} */
   let payload = {};
@@ -443,6 +447,37 @@ export async function getRepertoirePublicContext(repertoireId) {
       : null;
   let venueFromCatalogOrMaps = venueFromPayload || placeFromMaps.venue;
   if (manualVenue) venueFromCatalogOrMaps = manualVenue;
+
+  const stageHallLabel = pickFirst(payload, [
+    'StageName',
+    'stageName',
+    'HallName',
+    'hallName',
+    'PlaceName',
+    'placeName',
+  ]);
+
+  try {
+    if (
+      shouldUseLuzhnikiFootballCanonicalMap(
+        {
+          title,
+          descriptionFromPayload,
+          genreFromPayload,
+          venueManual: manualVenue,
+          venueFromPayload,
+        },
+        placeFromMaps.venue,
+        stageHallLabel,
+      )
+    ) {
+      const lzRow = await loadLuzhnikiFootballStageMapRow();
+      if (lzRow) stageMap = lzRow;
+    }
+  } catch {
+    /* таблицы схем может не быть */
+  }
+
   if (
     !stageMap &&
     looksLikeMhtChekhovVenue(

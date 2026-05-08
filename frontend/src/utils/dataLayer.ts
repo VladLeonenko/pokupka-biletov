@@ -6,7 +6,7 @@
  * Идентификатор цели = тот же, что в pushReachGoal / ecommerce action.
  */
 
-const COUNTER_ID = 106795462;
+const COUNTER_ID = 109119282;
 const CURRENCY = 'RUB';
 
 declare global {

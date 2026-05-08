@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 820" role="img" width="1000" height="820">
+  <title>??????? �???????� � ??????</title>
+  <desc>???????? ???? ? ????. ??????? ? ????? (circle place-name) ????????? ?????? seed:luzhniki-football-map.</desc>
+  <defs>
+    <linearGradient id="luz-grass" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#46b578" />
+      <stop offset="100%" stop-color="#2d945c" />
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="820" fill="#eef1f5" />
+  <ellipse cx="500" cy="415" rx="468" ry="368" fill="#dfe6ee" stroke="#b8c4d4" stroke-width="5" />
+  <ellipse cx="500" cy="415" rx="405" ry="318" fill="none" stroke="#c5cedd" stroke-width="36" opacity="0.9" />
+  <ellipse cx="500" cy="415" rx="335" ry="262" fill="none" stroke="#aeb9cb" stroke-width="26" opacity="0.85" />
+  <ellipse cx="500" cy="415" rx="268" ry="208" fill="#f3f5f8" stroke="#98a4b8" stroke-width="3" opacity="0.95" />
+  <ellipse cx="500" cy="415" rx="228" ry="162" fill="url(#luz-grass)" stroke="#1d6b40" stroke-width="3" />
+  <line x1="500" y1="253" x2="500" y2="577" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.5" />
+  <ellipse cx="500" cy="415" rx="58" ry="42" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.2" />
+  <ellipse cx="500" cy="318" rx="95" ry="28" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2" />
+  <ellipse cx="500" cy="512" rx="95" ry="28" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2" />
+  <rect x="472" y="404" width="56" height="22" rx="3" fill="#ffffff" fill-opacity="0.25" stroke="none" />
+  <text
+    x="500"
+    y="38"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-size="24"
+    font-weight="600"
+    fill="#1e293b"
+  >??????? �???????�</text>
+  <text
+    x="500"
+    y="68"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-size="15"
+    fill="#64748b"
+  >?????? � ????????????? ?????</text>
+</svg>

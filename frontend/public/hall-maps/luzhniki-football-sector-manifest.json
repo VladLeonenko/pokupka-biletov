@@ -1,0 +1,12 @@
+{
+  "wedgeCount": 90,
+  "angleOffsetDeg": -92,
+  "rxOut": 448,
+  "ryOut": 352,
+  "rxIn": 252,
+  "ryIn": 198,
+  "defaultRows": 30,
+  "defaultSeatsPerRow": 30,
+  "embedSeatCirclesInSvg": false,
+  "sectors": []
+}

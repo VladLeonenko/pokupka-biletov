@@ -1,22 +1,35 @@
 #!/usr/bin/env node
 /**
- * Мероприятие «Финал Кубка России по футболу 2026» — карточка в каталоге, схема Лужников (pbilet layout 1173),
- * без продажи (офферы пустые). В ленту попадает через mergePinnedCatalogCacheIntoActions (sort_order ≤ -400).
+ * Мероприятие «Финал Кубка России по футболу 2026» — карточка в каталоге, схема Лужников.
+ * Лента: mergePinnedCatalogCacheIntoActions (sort_order ≤ -400).
  *
- * OFFERS_CACHE_ONLY в notes_internal — не дергаем GetBilet по офферам для несуществующего там репертуара.
+ * Про подложку pbilet:
+ * - **1173** (~586×505): схема со строкой «Сцена» — типичный schemeId SSD для страниц Кубка на сайте донора.
+ *   Это не полный «овал» чаши; если нужна большая схема стадиона на CDN pbilet — смотри **1175** (~7570×6417).
+ * - Переключение: `PBILET_LAYOUT_ID=1175` — только вместе с JSON **`…/v2/tickets`**, посчитанным в той же системе координат (или живые PBILET_EVENT_* для этого сеанса).
+ *
+ * Свой чертёж чаши: `LUZHNIKI_PREVIEW_SOURCE=inkscape` и файл SVG (`LUZHNIKI_INKSCAPE_SVG_PATH` или дефолт `frontend/public/maps/luzhniki-go.svg`).
+ *
+ * OFFERS_CACHE_ONLY — не дергаем GetBilet по офферам для несуществующего там репертуара.
  *
  *   npm run seed:luzhniki-cup-final-2026
  *
- * Страница (локально после сидирования и refresh каталога):
- *   /ticket/luzhniki-cup-final-2026
- *   /ticket/luzhniki-cup-final-2026/final-kubka-rossii-po-futbolu-2026
+ * Координаты мест: GET https://api.pbilet.net/public/v2/tickets — `LUZHNIKI_PBILET_TICKETS_JSON=…` или PBILET_EVENT_*.
+ * Синтетика по bbox: `LUZHNIKI_ALLOW_SYNTHETIC_SEATS=1` (не рекомендуется).
+ *
+ * Страница: /ticket/luzhniki-cup-final-2026
  */
 
 import ticketPool from '../ticketDb.js';
-import { buildLuzhnikiFootballStadiumPreview } from '../services/pbiletLuzhnikiFootballPreview.js';
+import {
+  buildLuzhnikiFootballStadiumInkscapePreview,
+  buildLuzhnikiFootballStadiumPreview,
+} from '../services/pbiletLuzhnikiFootballPreview.js';
 
 const REPERTOIRE_ID = process.env.LUZHNIKI_CUP_REP_ID?.trim() || 'luzhniki-cup-final-2026';
 const STAGE_ID = process.env.LUZHNIKI_CUP_STAGE_ID?.trim() || 'luzhniki-cup-final-2026-stage';
+const PREVIEW_SOURCE = process.env.LUZHNIKI_PREVIEW_SOURCE?.trim().toLowerCase() || 'pbilet';
+const PBILET_LAYOUT_ID = process.env.PBILET_LAYOUT_ID?.trim() || '1173';
 
 /** Воскресенье 24 мая 2026, 18:00 МСК (UTC+3) */
 const EVENT_ISO = '2026-05-24T15:00:00.000Z';
@@ -73,17 +86,36 @@ descriptionPack.totalChars = descriptionPack.sections.reduce((sum, section) => {
 }, 0);
 
 async function main() {
-  const preview = await buildLuzhnikiFootballStadiumPreview({
-    layoutId: '1173',
-    eventSourceId: '',
-    eventDateId: '',
-    demoEventIso: EVENT_ISO,
-  });
+  let preview;
+  if (PREVIEW_SOURCE === 'inkscape') {
+    preview = await buildLuzhnikiFootballStadiumInkscapePreview({
+      demoEventIso: EVENT_ISO,
+      svgPath: process.env.LUZHNIKI_INKSCAPE_SVG_PATH?.trim(),
+    });
+  } else {
+    preview = await buildLuzhnikiFootballStadiumPreview({
+      layoutId: PBILET_LAYOUT_ID,
+      eventSourceId: process.env.PBILET_EVENT_SOURCE_ID?.trim() || '',
+      eventDateId: process.env.PBILET_EVENT_DATE_ID?.trim() || '',
+      ticketsSnapshotPath: process.env.LUZHNIKI_PBILET_TICKETS_JSON?.trim() || '',
+      demoEventIso: EVENT_ISO,
+    });
+  }
+
+  console.log(
+    '[seed:luzhniki-cup-final-2026]',
+    PREVIEW_SOURCE === 'inkscape' ? 'inkscape' : `pbilet layout ${PBILET_LAYOUT_ID}`,
+    preview.meta?.mode ?? '',
+    'seats',
+    preview.meta?.seatCount ?? 0,
+  );
 
   const layoutJson = {
     ...preview.layout_json,
     seatSelectionDisabled: true,
   };
+
+  const notesSeed = `seed seed-luzhniki-cup-final-2026-event.js · ${PREVIEW_SOURCE === 'inkscape' ? 'inkscape SVG' : `pbilet layout ${PBILET_LAYOUT_ID}`} · seatSelectionDisabled`;
 
   await ticketPool.query(
     `INSERT INTO getbilet_stage_maps (
@@ -103,7 +135,7 @@ async function main() {
       STAGE_MAP_TITLE,
       preview.svg_markup,
       JSON.stringify(layoutJson),
-      `seed seed-luzhniki-cup-final-2026-event.js · pbilet layout 1173 preview · seatSelectionDisabled`,
+      notesSeed,
       'https://luzhnikikassa.ru/final-kubka-rossii-po-futbolu',
     ],
   );

@@ -30,6 +30,7 @@ import {
   mergePinnedCatalogCacheIntoActions,
 } from '../services/getbiletCatalogSync.js';
 import { getRepertoirePublicContext } from '../services/repertoirePublicContext.js';
+import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import {
   getOfferListByRepertoireIdCached,
   invalidateOffersCache,
@@ -460,10 +461,13 @@ router.get('/preview/luzhniki-football-stadium', async (req, res) => {
 router.get('/stage/:stageId/map', async (req, res) => {
   try {
     const stageId = requireNonEmptyString(req.params.stageId, 'stageId');
+    const repertoireId =
+      typeof req.query.repertoireId === 'string' ? req.query.repertoireId.trim() : '';
+    const lookupKey = await resolveStageMapLookupExternalId(stageId, repertoireId);
     const r = await ticketPool.query(
       `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
        FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-      [stageId]
+      [lookupKey]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'not_found' });
     return res.json(r.rows[0]);

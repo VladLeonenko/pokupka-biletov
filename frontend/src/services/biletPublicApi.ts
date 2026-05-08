@@ -707,11 +707,16 @@ export async function fetchRepertoireContext(repertoireId: string): Promise<Repe
   return res.json() as Promise<RepertoireContext>;
 }
 
-/** Схема зала из БД (админ вставляет SVG). */
-export async function fetchStageMap(stageId: string): Promise<StageMapRow | null> {
+/** Схема зала из БД (админ вставляет SVG). `repertoireId` — для алиасов (напр. Лужники+футбол → канонический ключ схемы). */
+export async function fetchStageMap(
+  stageId: string,
+  repertoireId?: string | null,
+): Promise<StageMapRow | null> {
   const base = getApiBase();
+  const rid = repertoireId?.trim();
+  const q = rid ? `?repertoireId=${encodeURIComponent(rid)}` : '';
   const res = await fetch(
-    `${base}/api/bilet/stage/${encodeURIComponent(stageId)}/map`,
+    `${base}/api/bilet/stage/${encodeURIComponent(stageId)}/map${q}`,
     { headers: { Accept: 'application/json' } },
   );
   if (res.status === 404) return null;

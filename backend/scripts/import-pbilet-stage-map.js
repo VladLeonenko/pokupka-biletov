@@ -83,8 +83,27 @@ function collectLayoutSeats(ticketsPayload, width, height) {
 
   for (const sector of sectors) {
     const sectorLabel = normalizeText(sector?.i);
+    if (!sectorLabel) continue;
     const rows = Array.isArray(sector?.r) ? sector.r : [];
-    if (!sectorLabel || rows.length === 0) continue;
+
+    if (rows.length === 0) {
+      const x = Number(sector?.seat_x);
+      const y = Number(sector?.seat_y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const rowLabel = '—';
+      const seatLabel = '1';
+      const key = seatKey(sectorLabel, rowLabel, seatLabel);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        sector: sectorLabel,
+        row: rowLabel,
+        seat: seatLabel,
+        xPct: (x / width) * 100,
+        yPct: (y / height) * 100,
+      });
+      continue;
+    }
 
     for (const row of rows) {
       const rowLabel = normalizeText(row?.i);
@@ -138,10 +157,17 @@ function collectSectorMeta(ticketsPayload) {
       const path = normalizeText(sector?.o);
       if (!label || !id) return null;
       const rows = Array.isArray(sector?.r) ? sector.r : [];
-      const availableSeats = rows.reduce(
+      let availableSeats = rows.reduce(
         (sum, row) => sum + (Array.isArray(row?.s) ? row.s.length : 0),
         0,
       );
+      if (
+        availableSeats === 0 &&
+        Number.isFinite(Number(sector?.seat_x)) &&
+        Number.isFinite(Number(sector?.seat_y))
+      ) {
+        availableSeats = 1;
+      }
       const prices = [];
       for (const row of rows) {
         for (const seat of Array.isArray(row?.s) ? row.s : []) {
@@ -200,6 +226,7 @@ async function main() {
   const layoutJson = {
     layoutMode: 'svgNative',
     showUnavailableSeats: false,
+    grayHallWhenNoOffers: true,
     seats,
     allSeatCoordinates,
     sectorMode: {

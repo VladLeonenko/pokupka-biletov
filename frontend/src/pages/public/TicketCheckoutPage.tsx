@@ -60,6 +60,7 @@ import {
 } from '@/utils/ticketHeroSubline';
 import { slugify } from '@/utils/slugify';
 import { submitForm } from '@/services/cmsApi';
+import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -270,8 +271,8 @@ export function TicketCheckoutPage() {
   const hasStageMapFromContext = Boolean(ctx?.stageId === stageIdEff && ctx?.stageMap);
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
-    queryKey: ['bilet-stage-map', stageIdEff],
-    queryFn: () => fetchStageMap(stageIdEff!),
+    queryKey: ['bilet-stage-map', stageIdEff, repertoireId ?? ''],
+    queryFn: () => fetchStageMap(stageIdEff!, repertoireId),
     enabled: Boolean(stageIdEff) && !ctxLoading && ctx?.stageId !== stageIdEff && !hasStageMapFromContext,
     staleTime: 120_000,
   });
@@ -461,6 +462,8 @@ export function TicketCheckoutPage() {
   });
   const [ticketRequestStatus, setTicketRequestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [ticketRequestError, setTicketRequestError] = useState<string | null>(null);
+  const viewedGoalKeyRef = useRef<string | null>(null);
+  const addToCartSnapshotRef = useRef<string | null>(null);
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   useEffect(() => {
@@ -529,6 +532,10 @@ export function TicketCheckoutPage() {
         venueAddress: mergedVenueAddress,
         pageUrl: typeof window !== 'undefined' ? window.location.href : '',
         source: 'ticket_empty_offers',
+      });
+      reachMetrikaGoal('no_ticket_submit', {
+        repertoire_id: repertoireId || undefined,
+        event_title: displayTitle,
       });
       setTicketRequestStatus('sent');
       setTicketRequest({ name: '', phone: '', email: '', comment: '' });
@@ -738,6 +745,29 @@ export function TicketCheckoutPage() {
     );
   }, [offers, hallMapSessionKey]);
 
+  const hallSchemeSubtitle = useMemo(() => {
+    if (seatSelectionDisabledUi) {
+      const lj = layoutJsonForStage as Record<string, unknown> | undefined;
+      const pbilet = lj?.pbilet as Record<string, unknown> | undefined;
+      const seatsArr = Array.isArray(lj?.seats) ? lj.seats : [];
+      if (String(pbilet?.previewMode ?? '') === 'coordinates_background_only') {
+        return 'План трибун для ориентира (как у билетного оператора). Отметки отдельных мест появятся после выгрузки координат из билетной системы или сохранения снимка API pbilet.';
+      }
+      if (
+        seatsArr.length >= 2 &&
+        lj?.grayHallWhenNoOffers !== false &&
+        offersForMap.length === 0
+      ) {
+        return 'Все места на схеме показаны серым для ориентира. Когда появятся данные GetBilet, доступность и цены подсветятся на этих же координатах.';
+      }
+      return 'Схема для ориентира: при включённой модели мест — точки могут быть упрощёнными; выбор мест и покупка появятся после запуска продаж.';
+    }
+    if (noOffersAfterFetch) {
+      return 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.';
+    }
+    return 'Кликните по свободному месту на схеме, затем нажмите «Забронировать».';
+  }, [layoutJsonForStage, noOffersAfterFetch, offersForMap.length, seatSelectionDisabledUi]);
+
   useEffect(() => {
     if (!offerId) return;
     const still = offersForMap.some((o) => String(o.Id ?? '') === offerId);
@@ -783,6 +813,30 @@ export function TicketCheckoutPage() {
   }, [canonicalSlug, repertoireId]);
 
   const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
+
+  useEffect(() => {
+    if (!displayTitle) return;
+    const key = `${repertoireId || 'no-rep'}::${displayTitle}`;
+    if (viewedGoalKeyRef.current === key) return;
+    reachMetrikaGoal('view_event_page', {
+      repertoire_id: repertoireId || undefined,
+      event_title: displayTitle,
+    });
+    viewedGoalKeyRef.current = key;
+  }, [repertoireId, displayTitle]);
+
+  useEffect(() => {
+    if (!purchaseOpen || purchaseSeats.length === 0) return;
+    const snapshot = `${repertoireId || 'no-rep'}::${offerId || 'no-offer'}::${purchaseSeats.join(',')}`;
+    if (addToCartSnapshotRef.current === snapshot) return;
+    reachMetrikaGoal('add_to_cart', {
+      repertoire_id: repertoireId || undefined,
+      offer_id: offerId || undefined,
+      items_count: purchaseSeats.length,
+      total_rub: baseTotalRub,
+    });
+    addToCartSnapshotRef.current = snapshot;
+  }, [purchaseOpen, purchaseSeats, repertoireId, offerId, baseTotalRub]);
 
   useEffect(() => {
     document.body.setAttribute('data-page', '/ticket');
@@ -1062,11 +1116,7 @@ export function TicketCheckoutPage() {
                     Схема зала
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {seatSelectionDisabledUi
-                      ? 'Схема для ориентира: точки мест — условная модель с чужого билетного сайта. Выбор мест и покупка появятся после запуска продаж.'
-                      : noOffersAfterFetch
-                        ? 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.'
-                        : 'Кликните по свободному месту на схеме, затем нажмите «Забронировать».'}
+                    {hallSchemeSubtitle}
                   </Typography>
                 </Box>
                 <Button

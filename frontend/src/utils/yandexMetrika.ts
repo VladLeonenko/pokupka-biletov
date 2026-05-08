@@ -7,7 +7,7 @@ const COUNTER_ID = 109119282;
 
 declare global {
   interface Window {
-    ym?: (id: number, action: string, params?: string) => void;
+    ym?: (id: number, action: string, ...args: unknown[]) => void;
   }
 }
 
@@ -15,4 +15,14 @@ declare global {
 export function hitYandexMetrika(url?: string): void {
   if (typeof window === 'undefined' || !window.ym) return;
   window.ym(COUNTER_ID, 'hit', url || location.href);
+}
+
+/** Отправка JS-цели в Метрику (Настройки -> Цели -> JavaScript-событие). */
+export function reachMetrikaGoal(goal: string, params?: Record<string, unknown>): void {
+  if (typeof window === 'undefined' || !window.ym) return;
+  if (params) {
+    window.ym(COUNTER_ID, 'reachGoal', goal, params);
+    return;
+  }
+  window.ym(COUNTER_ID, 'reachGoal', goal);
 }

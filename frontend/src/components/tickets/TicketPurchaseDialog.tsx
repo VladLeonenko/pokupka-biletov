@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress, Dialog, DialogContent, IconButton, TextF
 import CloseIcon from '@mui/icons-material/Close';
 import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
+import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import styles from './TicketPurchaseDialog.module.css';
 
 export type TicketPurchaseDialogProps = {
@@ -108,6 +109,12 @@ export function TicketPurchaseDialog({
       });
     },
     onSuccess: (data) => {
+      reachMetrikaGoal('purchase', {
+        repertoire_id: repertoireId || undefined,
+        offer_id: offerId || undefined,
+        seats_count: seats.length,
+        total_rub: displayFinalRub,
+      });
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
       }
@@ -273,7 +280,15 @@ export function TicketPurchaseDialog({
           variant="contained"
           disableElevation
           disabled={!canSubmit || checkoutMut.isPending}
-          onClick={() => checkoutMut.mutate()}
+          onClick={() => {
+            reachMetrikaGoal('checkout_start', {
+              repertoire_id: repertoireId || undefined,
+              offer_id: offerId || undefined,
+              seats_count: seats.length,
+              total_rub: displayFinalRub,
+            });
+            checkoutMut.mutate();
+          }}
         >
           {checkoutMut.isPending ? (
             <CircularProgress size={22} sx={{ color: '#fff' }} />

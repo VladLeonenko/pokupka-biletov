@@ -80,9 +80,26 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
   if (!layout || typeof layout !== 'object') return [];
   const record = layout as Record<string, unknown>;
   const raw = record.allSeatCoordinates ?? record.backgroundSeats ?? record.coordinates;
-  if (!Array.isArray(raw)) return [];
+  if (Array.isArray(raw) && raw.length > 0) {
+    const out: BackgroundSeatCoordinate[] = [];
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const seat = item as Record<string, unknown>;
+      const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
+      const y = Number(seat.yPct ?? seat.y_percent ?? seat.yPercent ?? seat.top ?? seat.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const xPct = x >= 0 && x <= 1 ? x * 100 : x;
+      const yPct = y >= 0 && y <= 1 ? y * 100 : y;
+      if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) continue;
+      out.push({ xPct, yPct });
+    }
+    return out;
+  }
+  /** Fallback: все места из seats / seatPositions — без дублирования allSeatCoordinates в JSON. */
+  const seatRows = record.seats ?? record.seatPositions;
+  if (!Array.isArray(seatRows)) return [];
   const out: BackgroundSeatCoordinate[] = [];
-  for (const item of raw) {
+  for (const item of seatRows) {
     if (!item || typeof item !== 'object') continue;
     const seat = item as Record<string, unknown>;
     const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
@@ -99,6 +116,15 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
 function parseSeatSelectionDisabled(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   return (layout as Record<string, unknown>).seatSelectionDisabled === true;
+}
+
+/** Пока нет офферов GetBilet — отрисовать все места из layout_json серым (ориентир). */
+function parseGrayHallWhenNoOffers(layout: unknown, seatSelectionDisabled: boolean): boolean {
+  if (!layout || typeof layout !== 'object') return seatSelectionDisabled;
+  const r = layout as Record<string, unknown>;
+  if (r.grayHallWhenNoOffers === false) return false;
+  if (r.grayHallWhenNoOffers === true) return true;
+  return seatSelectionDisabled;
 }
 
 function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMeta[] } {
@@ -162,6 +188,48 @@ function strictSeatKey(sector: unknown, row: unknown, seat: unknown): string {
 
 function selectionSeatKey(offerId: unknown, row: unknown, seat: unknown): string {
   return `${String(offerId ?? '')}|${normalizeRowLabel(row)}|${normalizeSimpleToken(seat)}`;
+}
+
+/** Все места из схемы (pbilet координаты) без продажи — серые точки. */
+function buildGrayHallPreviewPlacements(nativeSeats: SvgNativeSeat[]): SvgNativePlacement[] {
+  const seen = new Set<string>();
+  const out: SvgNativePlacement[] = [];
+  for (const svgSeat of nativeSeats) {
+    const svgKey = seatMapKey(svgSeat.sector, svgSeat.row, svgSeat.seat);
+    if (seen.has(svgKey)) continue;
+    seen.add(svgKey);
+    out.push({
+      svgKey,
+      key: `preview-${svgKey}`,
+      offerId: '',
+      sectorLabel: String(svgSeat.sector ?? ''),
+      seat: String(svgSeat.seat ?? ''),
+      rowLabel: String(svgSeat.row ?? ''),
+      available: [],
+      xPct: svgSeat.xPct,
+      yPct: svgSeat.yPct,
+      title: `${svgSeat.sector}, ${svgSeat.row} ряд, место ${svgSeat.seat} — ориентир (продажа через сайт позже)`,
+      priceKey: '0',
+      previewOnly: true,
+    });
+  }
+  return out;
+}
+
+/** Серые точки для мест из схемы, для которых ещё нет placement (частичные офферы GetBilet). */
+function mergeGrayHallUnmatchedPlacements(
+  placements: SvgNativePlacement[],
+  nativeSeats: SvgNativeSeat[],
+): SvgNativePlacement[] {
+  const keys = new Set(placements.map((p) => p.svgKey));
+  const next = [...placements];
+  for (const extra of buildGrayHallPreviewPlacements(nativeSeats)) {
+    if (!keys.has(extra.svgKey)) {
+      next.push(extra);
+      keys.add(extra.svgKey);
+    }
+  }
+  return next;
 }
 
 function parseSvgViewBox(svg: string): { value: string; width: number; height: number } {
@@ -297,6 +365,10 @@ export function TicketHallInteractiveBlock({
   const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
   const sectorMode = useMemo(() => parseSectorMode(layoutJson), [layoutJson]);
   const seatSelectionDisabled = useMemo(() => parseSeatSelectionDisabled(layoutJson), [layoutJson]);
+  const grayHallWhenNoOffers = useMemo(
+    () => parseGrayHallWhenNoOffers(layoutJson, seatSelectionDisabled),
+    [layoutJson, seatSelectionDisabled],
+  );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
@@ -358,40 +430,34 @@ export function TicketHallInteractiveBlock({
         });
       }
 
-      if (placements.length === 0 && offers.length === 0 && seatSelectionDisabled && nativeSeats.length >= 2) {
-        for (const svgSeat of nativeSeats) {
-          const svgKey = seatMapKey(svgSeat.sector, svgSeat.row, svgSeat.seat);
-          placements.push({
-            svgKey,
-            key: `preview-${svgKey}`,
-            offerId: '',
-            sectorLabel: String(svgSeat.sector ?? ''),
-            seat: String(svgSeat.seat ?? ''),
-            rowLabel: String(svgSeat.row ?? ''),
-            available: [],
-            xPct: svgSeat.xPct,
-            yPct: svgSeat.yPct,
-            title: `${svgSeat.sector}, ${svgSeat.row} ряд, место ${svgSeat.seat} — просмотр`,
-            priceKey: '0',
-            previewOnly: true,
-          });
-        }
-      }
+      const merged =
+        grayHallWhenNoOffers && nativeSeats.length >= 2
+          ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
+          : placements;
 
       return {
-        nativePlacements: placements,
+        nativePlacements: merged,
       };
     }
 
-    const { placements } = buildSvgNativePlacements(
-      nativeSeats,
-      offers,
-      getPriceKey,
-    );
+    let { placements } = buildSvgNativePlacements(nativeSeats, offers, getPriceKey);
+    const mergedNonSector =
+      grayHallWhenNoOffers && nativeSeats.length >= 2
+        ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
+        : placements;
     return {
-      nativePlacements: placements,
+      nativePlacements: mergedNonSector,
     };
-  }, [colorForSeat, getPriceKey, offers, sectorMode.enabled, seatSelectionDisabled, useSvgNative, nativeSeats]);
+  }, [
+    colorForSeat,
+    getPriceKey,
+    grayHallWhenNoOffers,
+    offers,
+    sectorMode.enabled,
+    seatSelectionDisabled,
+    useSvgNative,
+    nativeSeats,
+  ]);
 
   const matchedNativeSeatKeys = useMemo(
     () => new Set(nativePlacements.map((p) => p.svgKey)),
@@ -548,30 +614,57 @@ export function TicketHallInteractiveBlock({
 
   const stadiumCanvasEnabled = sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
 
+  /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
+  const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
+  const useCanvasCompositing = stadiumCanvasEnabled && canvasBackdropReady;
+
   useEffect(() => {
     if (!stadiumCanvasEnabled || !svgHtmlSafe.trim()) {
       canvasImageRef.current = null;
+      setCanvasBackdropReady(false);
       setCanvasImageVersion((v) => v + 1);
       return;
     }
+
+    setCanvasBackdropReady(false);
+    canvasImageRef.current = null;
 
     const blob = new Blob([svgHtmlSafe], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.decoding = 'async';
-    img.onload = () => {
-      canvasImageRef.current = img;
+    let cancelled = false;
+
+    const finalizeBackdrop = () => {
+      if (cancelled) return;
       setCanvasImageVersion((v) => v + 1);
     };
+
+    img.onload = () => {
+      if (cancelled) return;
+      const ok = img.naturalWidth > 0 && img.naturalHeight > 0;
+      if (ok) {
+        canvasImageRef.current = img;
+        setCanvasBackdropReady(true);
+      } else {
+        canvasImageRef.current = null;
+        setCanvasBackdropReady(false);
+      }
+      finalizeBackdrop();
+    };
     img.onerror = () => {
+      if (cancelled) return;
       canvasImageRef.current = null;
-      setCanvasImageVersion((v) => v + 1);
+      setCanvasBackdropReady(false);
+      finalizeBackdrop();
     };
     img.src = url;
 
     return () => {
+      cancelled = true;
       URL.revokeObjectURL(url);
       if (canvasImageRef.current === img) canvasImageRef.current = null;
+      setCanvasBackdropReady(false);
     };
   }, [stadiumCanvasEnabled, svgHtmlSafe]);
 
@@ -590,7 +683,6 @@ export function TicketHallInteractiveBlock({
   }, [hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
 
   useEffect(() => {
-    if (stadiumCanvasEnabled && !canvasImageRef.current) return undefined;
     const timeout = window.setTimeout(() => {
       setMapPreparing(false);
     }, stadiumCanvasEnabled ? 520 : 280);
@@ -846,13 +938,23 @@ export function TicketHallInteractiveBlock({
           && !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
       );
     }
-    return showUnavailableSeats ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seat.key)) : [];
+    return showUnavailableSeats
+      ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
+      : [];
   }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
 
+  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
+
   const visibleBackgroundSeatCoordinates = useMemo(() => {
-    if (!sectorMode.enabled || !mapZoomed || backgroundSeatCoordinates.length === 0) return [];
-    return backgroundSeatCoordinates;
-  }, [backgroundSeatCoordinates, mapZoomed, sectorMode.enabled]);
+    if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
+    if (mapZoomed || denseBackgroundHall) return backgroundSeatCoordinates;
+    return [];
+  }, [
+    backgroundSeatCoordinates,
+    denseBackgroundHall,
+    mapZoomed,
+    sectorMode.enabled,
+  ]);
 
   const layersStyle = useMemo<React.CSSProperties>(() => {
     const style: React.CSSProperties = {
@@ -868,7 +970,7 @@ export function TicketHallInteractiveBlock({
   }, [isMapDragging, pan.x, pan.y, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.width, zoom]);
 
   useEffect(() => {
-    if (!stadiumCanvasEnabled) return;
+    if (!useCanvasCompositing) return;
     const canvas = canvasRef.current;
     const viewport = viewportRef.current;
     if (!canvas || !viewport) return;
@@ -910,18 +1012,41 @@ export function TicketHallInteractiveBlock({
         ctx.restore();
       }
 
-      if (zoom > fitZoom + 0.01 && backgroundSeatCoordinates.length > 0) {
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.74)';
-        ctx.beginPath();
-        const r = Math.max(1.15, Math.min(3.2, (w / svgViewBox.width) * 7));
-        for (const seat of backgroundSeatCoordinates) {
-          const sx = x + (seat.xPct / 100) * w;
-          const sy = y + (seat.yPct / 100) * h;
-          if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
-          ctx.moveTo(sx + r, sy);
-          ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      const bg = backgroundSeatCoordinates;
+      if (
+        bg.length > 0 &&
+        (zoom > fitZoom + 0.01 || bg.length >= 8000)
+      ) {
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
+        const scalePx = w / Math.max(1, svgViewBox.width);
+        const useRects = bg.length >= 2500;
+        if (useRects) {
+          const dense = bg.length >= 8000;
+          const r = dense
+            ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
+            : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+          ctx.beginPath();
+          const limW = width + 14;
+          const limH = height + 14;
+          for (const seat of bg) {
+            const sx = x + (seat.xPct / 100) * w;
+            const sy = y + (seat.yPct / 100) * h;
+            if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
+            ctx.rect(sx - r * 0.5, sy - r * 0.5, r, r);
+          }
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          const r = Math.max(1.15, Math.min(3.2, scalePx * 7));
+          for (const seat of bg) {
+            const sx = x + (seat.xPct / 100) * w;
+            const sy = y + (seat.yPct / 100) * h;
+            if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
+            ctx.moveTo(sx + r, sy);
+            ctx.arc(sx, sy, r, 0, Math.PI * 2);
+          }
+          ctx.fill();
         }
-        ctx.fill();
       }
 
       if (visibleNativePlacements.length > 0) {
@@ -953,7 +1078,7 @@ export function TicketHallInteractiveBlock({
     fitZoom,
     getLayerBase,
     selectedSeatDetails,
-    stadiumCanvasEnabled,
+    useCanvasCompositing,
     svgViewBox.width,
     visibleNativePlacements,
     zoom,
@@ -996,7 +1121,7 @@ export function TicketHallInteractiveBlock({
         onPointerCancel={endPan}
         role="presentation"
       >
-        {stadiumCanvasEnabled ? <canvas ref={canvasRef} className={styles.stadiumCanvas} aria-hidden="true" /> : null}
+        {useCanvasCompositing ? <canvas ref={canvasRef} className={styles.stadiumCanvas} aria-hidden="true" /> : null}
         <div ref={panInnerRef} className={styles.panInner}>
           <div
             ref={layersRef}
@@ -1004,7 +1129,7 @@ export function TicketHallInteractiveBlock({
             style={layersStyle}
           >
             <div
-              className={`${styles.svgLayer} ${stadiumCanvasEnabled ? styles.svgLayerCanvasBacked : ''} ${
+              className={`${styles.svgLayer} ${useCanvasCompositing ? styles.svgLayerCanvasBacked : ''} ${
                 !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
               }`}
               // eslint-disable-next-line react/no-danger
@@ -1062,7 +1187,9 @@ export function TicketHallInteractiveBlock({
               className={styles.seatLayer}
               aria-hidden={useSvgNative ? nativePlacements.length === 0 : sorted.length === 0}
             >
-              {!stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? (
+              {!stadiumCanvasEnabled &&
+              visibleBackgroundSeatCoordinates.length > 0 &&
+              visibleBackgroundSeatCoordinates.length <= 4000 ? (
                 <svg
                   className={styles.backgroundSeatLayer}
                   viewBox={`0 0 ${svgViewBox.width} ${svgViewBox.height}`}
@@ -1133,7 +1260,7 @@ export function TicketHallInteractiveBlock({
                         className={`${styles.seatDot} ${styles.seatDotNative} ${
                           sectorMode.enabled ? styles.seatDotStadium : ''
                         } ${
-                          stadiumCanvasEnabled ? styles.seatDotCanvasHit : ''
+                          useCanvasCompositing ? styles.seatDotCanvasHit : ''
                         } ${
                           sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
                         } ${active ? styles.seatDotOn : ''}`}

@@ -1,7 +1,7 @@
 /**
  * Превью схемы Лужников (футбол) для тестовой страницы: публичные API pbilet (без ключей).
  * Если заданы event_source_id + event_date_id — как production import (реальные координаты мест).
- * Иначе — подложка SVG + сектора из coordinates и синтетические точки мест внутри bbox сектора (демо).
+ * Иначе — подложка SVG (без «решётки» по bbox). Синтетические точки только при LUZHNIKI_ALLOW_SYNTHETIC_SEATS=1.
  *
  * Режим Inkscape (`source=inkscape`): локальный SVG с группами `<g id="C248">` и path — см. buildLuzhnikiFootballStadiumInkscapePreview.
  */
@@ -135,12 +135,25 @@ function collectAllSeatCoordinates(coordinatesPayload, width, height) {
       const x = Number(item?.x);
       const y = Number(item?.y);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      if (x < 0 || y < 0 || x > width || y > height) return null;
       return {
         xPct: (x / width) * 100,
         yPct: (y / height) * 100,
       };
     })
     .filter(Boolean);
+}
+
+/** JSON тела ответа GET api.pbilet.net/public/v2/tickets (с ключом sectors). */
+function loadTicketsSnapshotFromRepo(relPath) {
+  const trimmed = String(relPath || '').trim();
+  if (!trimmed) return null;
+  const abs = resolveFromRepo(trimmed);
+  if (!fs.existsSync(abs)) {
+    throw new Error(`LUZHNIKI_PBILET_TICKETS_JSON / snapshot: файл не найден: ${abs}`);
+  }
+  const raw = fs.readFileSync(abs, 'utf8');
+  return JSON.parse(raw);
 }
 
 /**
@@ -357,6 +370,7 @@ export async function buildLuzhnikiFootballStadiumInkscapePreview(opts = {}) {
  *   currency?: string,
  *   lang?: string,
  *   demoEventIso?: string,
+ *   ticketsSnapshotPath?: string,
  * }} opts
  */
 export async function buildLuzhnikiFootballStadiumPreview(opts = {}) {
@@ -382,13 +396,36 @@ export async function buildLuzhnikiFootballStadiumPreview(opts = {}) {
   let svgMarkup = normalizeHallSvgDataIds(svgMarkupRaw);
   if (!svgMarkup.includes('<svg')) throw new Error('bg не похож на SVG');
 
-  const allSeatCoordinates = collectAllSeatCoordinates(coordinatesPayload, width, height);
+  let allSeatCoordinates = collectAllSeatCoordinates(coordinatesPayload, width, height);
 
   let seats = [];
   let sectors = [];
   let mode = 'coordinates_demo';
 
-  if (eventSourceId && eventDateId) {
+  const snapshotRel =
+    String(opts.ticketsSnapshotPath || process.env.LUZHNIKI_PBILET_TICKETS_JSON || '').trim();
+  let ticketsPayloadFromFile = null;
+  if (snapshotRel) {
+    try {
+      ticketsPayloadFromFile = loadTicketsSnapshotFromRepo(snapshotRel);
+    } catch (e) {
+      console.warn('[pbiletLuzhnikiFootballPreview] snapshot:', e?.message || e);
+      ticketsPayloadFromFile = null;
+    }
+  }
+
+  if (ticketsPayloadFromFile && !ticketsPayloadFromFile?.detail) {
+    seats = collectLayoutSeats(ticketsPayloadFromFile, width, height);
+    sectors = collectSectorMeta(ticketsPayloadFromFile);
+    if (seats.length > 0) {
+      mode = 'pbilet_tickets';
+    } else {
+      seats = [];
+      sectors = [];
+    }
+  }
+
+  if (seats.length === 0 && eventSourceId && eventDateId) {
     const ticketsUrl = `https://api.pbilet.net/public/v2/tickets?currency_code=${encodeURIComponent(currency)}&lang=${encodeURIComponent(lang)}&event_source_id=${encodeURIComponent(eventSourceId)}&event_date_id=${encodeURIComponent(eventDateId)}&source_id=${encodeURIComponent(sourceId)}`;
     try {
       const ticketsPayload = await fetchJson(ticketsUrl);
@@ -397,7 +434,7 @@ export async function buildLuzhnikiFootballStadiumPreview(opts = {}) {
       }
       seats = collectLayoutSeats(ticketsPayload, width, height);
       sectors = collectSectorMeta(ticketsPayload);
-      if (seats.length > 0 && sectors.length > 0) {
+      if (seats.length > 0) {
         mode = 'pbilet_tickets';
       }
     } catch {
@@ -406,23 +443,37 @@ export async function buildLuzhnikiFootballStadiumPreview(opts = {}) {
     }
   }
 
-  if (seats.length === 0) {
+  const allowSynthetic = process.env.LUZHNIKI_ALLOW_SYNTHETIC_SEATS === '1';
+  if (seats.length === 0 && allowSynthetic) {
     sectors = sectorsFromCoordinateCategories(coordinatesPayload);
     seats = syntheticSeatsFromCategories(coordinatesPayload, width, height, 14);
     mode = seats.length > 0 ? 'coordinates_synthetic_seats' : 'coordinates_sectors_only';
   }
 
+  if (seats.length === 0 && !allowSynthetic) {
+    sectors = [];
+    allSeatCoordinates = [];
+    mode = 'coordinates_background_only';
+  }
+
   const demoOffers = offersFromSeatLayout(seats, demoEventIso);
 
   const layoutJson = {
-    layoutMode: 'svgNative',
+    /** Без живых координат из tickets — auto + пустые seats: только подложка SVG, без «решётки» в bbox. */
+    layoutMode: seats.length >= 2 ? 'svgNative' : 'auto',
     /** Как на стадионах в проде (Лукойл и т.п.): только места из офферов, без подложки «все кресла». */
     showUnavailableSeats: false,
+    ...(seats.length >= 2 ? { grayHallWhenNoOffers: true } : {}),
     seats,
     allSeatCoordinates,
     sectorMode: {
       enabled: sectors.length > 0,
-      source: mode === 'pbilet_tickets' ? 'pbilet' : 'pbilet_coordinates_preview',
+      source:
+        mode === 'pbilet_tickets'
+          ? 'pbilet'
+          : mode === 'coordinates_synthetic_seats'
+            ? 'pbilet_coordinates_preview'
+            : 'pbilet_background',
       sectors,
     },
     pbilet: {
@@ -430,13 +481,16 @@ export async function buildLuzhnikiFootballStadiumPreview(opts = {}) {
       previewMode: mode,
       coordinatesUrl,
       bgUrl,
-      ticketsAttempted: Boolean(eventSourceId && eventDateId),
+      ticketsAttempted: Boolean(snapshotRel || (eventSourceId && eventDateId)),
+      ticketsSnapshotPath: snapshotRel || null,
       generatedAt: new Date().toISOString(),
     },
     note:
       mode === 'pbilet_tickets'
         ? 'Данные мест из pbilet tickets (как production import).'
-        : 'Демо: места синтезированы по bbox сектора из coordinates; для боевого режима задайте event_source_id и event_date_id.',
+        : mode === 'coordinates_synthetic_seats'
+          ? 'Демо: синтетические точки по bbox сектора (LUZHNIKI_ALLOW_SYNTHETIC_SEATS=1).'
+          : 'Подложка pbilet без координат мест: сохраните ответ GET …/v2/tickets в JSON и задайте LUZHNIKI_PBILET_TICKETS_JSON, либо PBILET_EVENT_SOURCE_ID + PBILET_EVENT_DATE_ID.',
   };
 
   return {
