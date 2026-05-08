@@ -16,6 +16,8 @@ import styles from './TicketHallInteractiveBlock.module.css';
 const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
 /** Маркер места в DOM при uniformHallSeatAppearance (slate-400 ≈ rgb(148,163,184)). */
 const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
+/** Подложка при zoom — без grayscale, поле остаётся зелёным. */
+const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
 
 export type HallOfferRow = {
   Id?: string;
@@ -1028,7 +1030,7 @@ export function TicketHallInteractiveBlock({
       const img = canvasImageRef.current;
       if (img) {
         ctx.save();
-        ctx.filter = zoom > fitZoom + 0.01 ? 'grayscale(1) contrast(1.05) brightness(1.04)' : 'none';
+        ctx.filter = zoom > fitZoom + 0.01 ? CANVAS_ZOOMED_BACKDROP_FILTER : 'none';
         ctx.drawImage(img, x, y, w, h);
         ctx.restore();
       }

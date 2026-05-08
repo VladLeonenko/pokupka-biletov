@@ -195,7 +195,7 @@
 
 .svgLayerFocused :global(svg) {
   opacity: 1;
-  filter: grayscale(1) contrast(1.05) brightness(1.04);
+  filter: saturate(1.08) contrast(1.03) brightness(1.02);
 }
 
 .svgLayerFocused :global(path) {
