@@ -102,17 +102,8 @@ export function TicketsHeader() {
     const updateCalendarVisibility = () => {
       scrollRafRef.current = null;
       const y = window.scrollY || document.documentElement.scrollTop || 0;
-      const prevY = lastScrollYRef.current;
-      const delta = y - prevY;
-      let hidden = calendarAutoHiddenRef.current;
-      // Гистерезис убирает мигание плашки на мелком скролле.
-      if (y <= 24) {
-        hidden = false;
-      } else if (delta > 2 && y > 120) {
-        hidden = true;
-      } else if (delta < -2) {
-        hidden = false;
-      }
+      // Плашка видна только у самого верха страницы.
+      const hidden = y > 8;
       lastScrollYRef.current = y;
       if (calendarAutoHiddenRef.current !== hidden) {
         calendarAutoHiddenRef.current = hidden;
