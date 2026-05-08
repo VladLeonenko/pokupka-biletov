@@ -3,7 +3,7 @@
  * Счётчик инициализируется в index.html (официальный сниппет).
  */
 
-const COUNTER_ID = 106795462;
+const COUNTER_ID = 109119282;
 
 declare global {
   interface Window {
