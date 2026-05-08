@@ -206,6 +206,13 @@ function eventRepId(ev: NormalizedBiletEvent | null | undefined): string {
   );
 }
 
+function eventStartMs(ev: NormalizedBiletEvent): number {
+  const raw = (ev.isoDate || '').trim();
+  if (!raw) return Number.MAX_SAFE_INTEGER;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : Number.MAX_SAFE_INTEGER;
+}
+
 export function TicketCheckoutPage() {
   const { eventSlug = '', repertoireId: legacyRepertoireId = '', slug: legacySlug } = useParams<{
     eventSlug?: string;
@@ -236,7 +243,13 @@ export function TicketCheckoutPage() {
       if (rid && rid.toLowerCase() === target) return true;
       return false;
     });
-    return matches.length === 1 ? matches[0] : null;
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    // Для повторов одного названия (несколько дат) берем ближайший будущий показ.
+    const now = Date.now();
+    const sorted = [...matches].sort((a, b) => eventStartMs(a) - eventStartMs(b));
+    const nearestFuture = sorted.find((ev) => eventStartMs(ev) >= now);
+    return nearestFuture || sorted[0];
   }, [rawEventsForSlug, routeSlug, routeKeyIsId]);
 
   const repertoireId = useMemo(() => {
@@ -248,7 +261,8 @@ export function TicketCheckoutPage() {
     if (rk === DEMO_REPERTOIRE_ID) return rk;
     const fromSlug = eventRepId(resolvedEventFromSlug);
     if (fromSlug) return fromSlug;
-    if (looksLikeManualTicketRouteKey(rk)) return rk;
+    // Не подставляем slug как id на маршруте /ticket/:eventSlug — это ломает /offers (500).
+    if (leg && looksLikeManualTicketRouteKey(rk)) return rk;
     return '';
   }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);
 
