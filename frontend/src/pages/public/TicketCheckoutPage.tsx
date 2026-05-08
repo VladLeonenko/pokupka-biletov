@@ -199,11 +199,11 @@ const DEMO_REPERTOIRE_ID =
 
 function eventRepId(ev: NormalizedBiletEvent | null | undefined): string {
   if (!ev) return '';
-  return (
-    ev.repertoireId?.trim() ||
-    (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() : '') ||
-    ev.id
-  );
+  const rep = ev.repertoireId?.trim() || '';
+  if (looksLikeGetbiletId(rep)) return rep;
+  const head = ev.id.includes('::') ? ev.id.split('::')[0]?.trim() || '' : '';
+  if (looksLikeGetbiletId(head)) return head;
+  return '';
 }
 
 function eventStartMs(ev: NormalizedBiletEvent): number {

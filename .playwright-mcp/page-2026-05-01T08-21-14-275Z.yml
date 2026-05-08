@@ -1,0 +1,171 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Афиша — билеты на мероприятия" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic "Афиша — билеты на мероприятия" [ref=e7]:
+            - img [ref=e8]
+            - generic [ref=e12]:
+              - generic [ref=e13]: Афиша
+              - generic [ref=e14]: билеты на мероприятия
+        - navigation "Основное меню" [ref=e15]:
+          - link "Афиша" [ref=e16] [cursor=pointer]:
+            - /url: /
+          - link "Мероприятия" [ref=e17] [cursor=pointer]:
+            - /url: /events
+          - link "Календарь" [ref=e18] [cursor=pointer]:
+            - /url: /afisha
+          - link "Контакты" [ref=e19] [cursor=pointer]:
+            - /url: /contacts
+        - generic [ref=e20]:
+          - link "Поиск мероприятий" [ref=e21] [cursor=pointer]:
+            - /url: /events
+            - img [ref=e22]
+          - link "Корзина" [ref=e24] [cursor=pointer]:
+            - /url: /cart
+            - img [ref=e25]
+          - button "Профиль и помощь" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+      - generic "Направления и поиск" [ref=e30]:
+        - generic [ref=e31]: Направления
+        - generic [ref=e32]:
+          - link "Театр" [ref=e33] [cursor=pointer]:
+            - /url: /events?genre=%D0%A2%D0%B5%D0%B0%D1%82%D1%80
+          - link "Спорт" [ref=e34] [cursor=pointer]:
+            - /url: /events?genre=%D0%A1%D0%BF%D0%BE%D1%80%D1%82
+          - link "Цирк" [ref=e35] [cursor=pointer]:
+            - /url: /events?q=%D1%86%D0%B8%D1%80%D0%BA
+          - link "Большой театр" [ref=e36] [cursor=pointer]:
+            - /url: /events?q=%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80
+          - link "Концерты" [ref=e37] [cursor=pointer]:
+            - /url: /events?genre=%D0%9A%D0%BE%D0%BD%D1%86%D0%B5%D1%80%D1%82
+          - link "Детям" [ref=e38] [cursor=pointer]:
+            - /url: /events?genre=%D0%94%D0%B5%D1%82%D1%8F%D0%BC
+        - search [ref=e39]:
+          - searchbox "Поиск по афише…" [ref=e40]
+          - button "Найти" [ref=e41] [cursor=pointer]:
+            - img [ref=e42]
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: Календарь мероприятий
+            - button "Скрыть даты" [ref=e48] [cursor=pointer]
+          - generic "Быстрый выбор месяца" [ref=e49]:
+            - button "Предыдущие три месяца" [disabled] [ref=e50]:
+              - img [ref=e51]
+            - generic [ref=e53]:
+              - button "май" [ref=e54] [cursor=pointer]
+              - button "июнь" [ref=e55] [cursor=pointer]
+              - button "июль" [ref=e56] [cursor=pointer]
+            - button "Следующие три месяца" [ref=e57] [cursor=pointer]:
+              - img [ref=e58]
+        - list [ref=e60]:
+          - listitem "1 мая 2026" [ref=e61] [cursor=pointer]:
+            - generic [ref=e62]: "1"
+            - generic [ref=e63]: птн
+          - listitem "2 мая 2026" [ref=e64] [cursor=pointer]:
+            - generic [ref=e65]: "2"
+            - generic [ref=e66]: суб
+          - listitem "3 мая 2026" [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]: "3"
+            - generic [ref=e69]: вск
+          - listitem "4 мая 2026" [ref=e70] [cursor=pointer]:
+            - generic [ref=e71]: "4"
+            - generic [ref=e72]: пнд
+          - listitem "5 мая 2026" [ref=e73] [cursor=pointer]:
+            - generic [ref=e74]: "5"
+            - generic [ref=e75]: втр
+          - listitem "6 мая 2026" [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]: "6"
+            - generic [ref=e78]: срд
+          - listitem "7 мая 2026" [ref=e79] [cursor=pointer]:
+            - generic [ref=e80]: "7"
+            - generic [ref=e81]: чтв
+          - listitem "8 мая 2026" [ref=e82] [cursor=pointer]:
+            - generic [ref=e83]: "8"
+            - generic [ref=e84]: птн
+          - listitem "9 мая 2026" [ref=e85] [cursor=pointer]:
+            - generic [ref=e86]: "9"
+            - generic [ref=e87]: суб
+          - listitem "10 мая 2026" [ref=e88] [cursor=pointer]:
+            - generic [ref=e89]: "10"
+            - generic [ref=e90]: вск
+          - listitem "11 мая 2026" [ref=e91] [cursor=pointer]:
+            - generic [ref=e92]: "11"
+            - generic [ref=e93]: пнд
+          - listitem "12 мая 2026" [ref=e94] [cursor=pointer]:
+            - generic [ref=e95]: "12"
+            - generic [ref=e96]: втр
+          - listitem "13 мая 2026" [ref=e97] [cursor=pointer]:
+            - generic [ref=e98]: "13"
+            - generic [ref=e99]: срд
+          - listitem "14 мая 2026" [ref=e100] [cursor=pointer]:
+            - generic [ref=e101]: "14"
+            - generic [ref=e102]: чтв
+  - generic [ref=e103]:
+    - generic [ref=e109]:
+      - link "← К афише" [ref=e110] [cursor=pointer]:
+        - /url: /events
+      - heading "Мероприятие" [level=1] [ref=e111]
+    - generic [ref=e112]:
+      - progressbar [ref=e114]:
+        - img [ref=e115]
+      - paragraph [ref=e118]:
+        - text: План зала для этого события временно недоступен в сервисе. Выберите зону и места в списке ниже. Если нужна схема рассадки — уточните у организатора или
+        - link "напишите нам" [ref=e119] [cursor=pointer]:
+          - /url: /contacts
+        - text: .
+    - generic [ref=e120]:
+      - heading "Выберите места" [level=6] [ref=e122]
+      - progressbar [ref=e124]:
+        - img [ref=e125]
+      - generic [ref=e127]:
+        - region "О мероприятии" [ref=e128]:
+          - heading "О мероприятии" [level=2] [ref=e129]
+          - paragraph [ref=e130]: Событие «Мероприятие». Подробности уточняйте у организатора; билеты оформляются онлайн здесь.
+        - region "Отзывы и оценки" [ref=e131]:
+          - heading "Отзывы и оценки" [level=2] [ref=e132]:
+            - img [ref=e133]
+            - text: Отзывы и оценки
+          - paragraph [ref=e136]: После посещения вы сможете оценить событие. Мы собираем обратную связь, чтобы афиша и сервис были удобнее.
+        - region "Площадка" [ref=e137]:
+          - heading "Площадка" [level=2] [ref=e138]:
+            - img [ref=e139]
+            - text: Площадка
+          - paragraph [ref=e141]: Адрес и название площадки подгружаются из каталога GetBilet (при отсутствии данных у агента).
+        - link "Вернуться к афише" [ref=e143] [cursor=pointer]:
+          - /url: /events
+  - contentinfo [ref=e144]:
+    - generic [ref=e145]:
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - generic [ref=e148]: Афиша
+          - paragraph [ref=e149]: Подбор и покупка билетов на концерты, театр и спорт.
+        - generic [ref=e150]:
+          - generic [ref=e151]: Разделы
+          - link "Главная" [ref=e152] [cursor=pointer]:
+            - /url: /
+          - link "Мероприятия" [ref=e153] [cursor=pointer]:
+            - /url: /events
+          - link "Личный кабинет" [ref=e154] [cursor=pointer]:
+            - /url: /account
+        - generic [ref=e155]:
+          - generic [ref=e156]: Информация
+          - link "Контакты" [ref=e157] [cursor=pointer]:
+            - /url: /contacts
+          - link "Частые вопросы" [ref=e158] [cursor=pointer]:
+            - /url: /faq
+          - link "Возврат и обмен" [ref=e159] [cursor=pointer]:
+            - /url: /returns
+          - link "Публичная оферта" [ref=e160] [cursor=pointer]:
+            - /url: /offer
+          - link "Политика конфиденциальности" [ref=e161] [cursor=pointer]:
+            - /url: /politic
+          - link "Политика cookie" [ref=e162] [cursor=pointer]:
+            - /url: /cookies
+          - link "Реквизиты" [ref=e163] [cursor=pointer]:
+            - /url: /requisites
+      - generic [ref=e164]: © 2026 Покупка билетов
+  - button "Открыть чат" [ref=e166] [cursor=pointer]:
+    - img [ref=e167]

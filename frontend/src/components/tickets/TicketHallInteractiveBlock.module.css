@@ -322,9 +322,16 @@
 }
 
 .seatDotNative {
-  width: 1.08%;
+  /* Доля контейнера: как стадионные точки, иначе на svgNative театрах огромные «бублики» поверх SVG */
+  width: 0.34%;
   height: auto;
   aspect-ratio: 1;
+  min-width: 5px;
+  min-height: 5px;
+}
+
+.seatDot.seatDotNative::before {
+  inset: -1px;
 }
 
 .seatDotNonInteractive {
@@ -742,8 +749,10 @@
   }
 
   .seatDotNative {
-    width: 1.18%;
+    width: 0.4%;
     height: auto;
+    min-width: 6px;
+    min-height: 6px;
   }
 
   .seatDotStadium {

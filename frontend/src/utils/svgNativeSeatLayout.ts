@@ -219,6 +219,19 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
 
   if (raw.length < 2) return null;
 
+  /** Минимальное расстояние между центрами разных мест — чтобы r не раздувался до перекрытий (театры с плотной сеткой). */
+  let minCenterDist = Infinity;
+  for (let i = 0; i < raw.length; i++) {
+    for (let j = i + 1; j < raw.length; j++) {
+      const dx = raw[i].x - raw[j].x;
+      const dy = raw[i].y - raw[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1e-4) minCenterDist = Math.min(minCenterDist, d);
+    }
+  }
+  const densityRadiusCap =
+    Number.isFinite(minCenterDist) && minCenterDist < Infinity ? minCenterDist * 0.46 : null;
+
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -263,7 +276,10 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
     .filter((n) => Number.isFinite(n) && n > 0);
   const medianR =
     radii.length > 0 ? [...radii].sort((a, b) => a - b)[Math.floor(radii.length / 2)] : 3.5;
-  const rUniform = Math.min(4.2, Math.max(2.6, medianR));
+  const medianClamped = Math.min(4.2, Math.max(1.35, medianR));
+  let rUniform =
+    densityRadiusCap != null ? Math.min(medianClamped, densityRadiusCap) : medianClamped;
+  rUniform = Math.max(0.26, Math.min(rUniform, 4.2));
 
   for (const c of seatCircles) {
     c.setAttribute('r', String(rUniform));

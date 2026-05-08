@@ -1,0 +1,691 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]:
+        - link "8-800-500-42-62" [ref=e7] [cursor=pointer]:
+          - /url: tel:88005004262
+        - button "Главная" [ref=e8] [cursor=pointer]
+        - text: "|"
+        - button "Москва" [ref=e9] [cursor=pointer]
+      - generic [ref=e10]:
+        - link [ref=e11] [cursor=pointer]:
+          - /url: /msk
+          - img [ref=e12]
+        - generic [ref=e27]:
+          - textbox "События, артисты и группы в Москве" [ref=e28]
+          - button:
+            - img
+        - generic [ref=e29]:
+          - link "Продать билеты" [ref=e30] [cursor=pointer]:
+            - /url: /sell_and_advantages
+            - text: Продать
+            - generic [ref=e31]: билеты
+          - link [ref=e35] [cursor=pointer]:
+            - /url: /login
+            - img [ref=e37]
+          - button [ref=e43]:
+            - img [ref=e44]
+    - navigation [ref=e48]:
+      - list [ref=e49]:
+        - listitem [ref=e50]:
+          - link "Концерты" [ref=e52] [cursor=pointer]:
+            - /url: /msk/kontsert
+        - listitem [ref=e53]:
+          - link "Спорт" [ref=e55] [cursor=pointer]:
+            - /url: /msk/sport
+        - listitem [ref=e56]:
+          - link "Театр" [ref=e58] [cursor=pointer]:
+            - /url: /msk/teatr
+        - listitem [ref=e59]:
+          - link "Детям" [ref=e61] [cursor=pointer]:
+            - /url: /msk/detiam
+        - listitem [ref=e62]:
+          - generic [ref=e64]: Прочее
+        - listitem [ref=e65]:
+          - link "Помощь" [ref=e67] [cursor=pointer]:
+            - /url: /faq
+        - listitem [ref=e68]:
+          - link "Контакты" [ref=e70] [cursor=pointer]:
+            - /url: /contacts
+    - generic [ref=e71]:
+      - img "Матч Спартак - ЦСКА. Финал Кубка России. Путь регионов" [ref=e73]
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - heading "Матч Спартак - ЦСКА. Финал Кубка России. Путь регионов 0+ Лукойл-Арена, 6 мая, ср, 20:00" [level=1] [ref=e78]:
+            - generic [ref=e79]: Матч Спартак - ЦСКА. Финал Кубка России. Путь регионов
+            - generic [ref=e80]: 0+
+            - generic [ref=e81]: Лукойл-Арена, 6 мая, ср, 20:00
+          - list [ref=e83]:
+            - listitem [ref=e84]:
+              - link [ref=e85] [cursor=pointer]:
+                - /url: /
+                - img [ref=e86]
+            - listitem [ref=e88]:
+              - link "Москва" [ref=e89] [cursor=pointer]:
+                - /url: /msk
+                - img [ref=e90]
+                - generic [ref=e92]: Москва
+            - listitem [ref=e93]:
+              - link "Кубок России. Финал. Этап 1 (Путь регионов)" [ref=e94] [cursor=pointer]:
+                - /url: /msk/sport/futbol/final-etap-1-put-regionov
+                - img [ref=e95]
+                - generic [ref=e97]: Кубок России. Финал. Этап 1 (Путь регионов)
+            - listitem [ref=e98]:
+              - generic [ref=e99]:
+                - img [ref=e100]
+                - generic [ref=e102]: Матч Спартак - ЦСКА. Финал Кубка России. Путь регионов
+        - generic [ref=e103]:
+          - paragraph [ref=e104]:
+            - text: Стоимость от
+            - generic [ref=e105]:
+              - generic [ref=e106]: "7"
+              - text: 000 ₽
+          - button "Купить билет" [ref=e107] [cursor=pointer]
+    - generic [ref=e108]:
+      - generic [ref=e110]:
+        - link "6 маяСр 20:00" [ref=e116] [cursor=pointer]:
+          - /url: /msk/match-spartak-cska-final-kubka-rossii-put-regionov
+          - text: 6 маяСр
+          - generic [ref=e117]: 20:00
+        - generic [ref=e121]:
+          - generic [ref=e123]:
+            - button [disabled] [ref=e124]:
+              - img [ref=e125]
+            - list [ref=e128]:
+              - listitem [ref=e129]:
+                - generic [ref=e132] [cursor=pointer]:
+                  - generic [ref=e133]:
+                    - generic [ref=e134]: "7"
+                    - text: "000"
+                  - generic "RUB" [ref=e135]: ₽
+              - listitem [ref=e136]:
+                - generic [ref=e139] [cursor=pointer]:
+                  - generic [ref=e140]:
+                    - generic [ref=e141]: "7"
+                    - text: "700"
+                  - generic "RUB" [ref=e142]: ₽
+              - listitem [ref=e143]:
+                - generic [ref=e146] [cursor=pointer]:
+                  - generic [ref=e147]:
+                    - generic [ref=e148]: "7"
+                    - text: "800"
+                  - generic "RUB" [ref=e149]: ₽
+              - listitem [ref=e150]:
+                - generic [ref=e153] [cursor=pointer]:
+                  - generic [ref=e154]:
+                    - generic [ref=e155]: "8"
+                    - text: "600"
+                  - generic "RUB" [ref=e156]: ₽
+              - listitem [ref=e157]:
+                - generic [ref=e160] [cursor=pointer]:
+                  - generic [ref=e161]:
+                    - generic [ref=e162]: "9"
+                    - text: "000"
+                  - generic "RUB" [ref=e163]: ₽
+              - listitem [ref=e164]:
+                - generic [ref=e167] [cursor=pointer]:
+                  - generic [ref=e168]:
+                    - generic [ref=e169]: "9"
+                    - text: "300"
+                  - generic "RUB" [ref=e170]: ₽
+              - listitem [ref=e171]:
+                - generic [ref=e174] [cursor=pointer]:
+                  - generic [ref=e175]:
+                    - generic [ref=e176]: "10"
+                    - text: "100"
+                  - generic "RUB" [ref=e177]: ₽
+              - listitem [ref=e178]:
+                - generic [ref=e181] [cursor=pointer]:
+                  - generic [ref=e182]:
+                    - generic [ref=e183]: "10"
+                    - text: "900"
+                  - generic "RUB" [ref=e184]: ₽
+              - listitem [ref=e185]:
+                - generic [ref=e188] [cursor=pointer]:
+                  - generic [ref=e189]:
+                    - generic [ref=e190]: "11"
+                    - text: "700"
+                  - generic "RUB" [ref=e191]: ₽
+              - listitem [ref=e192]:
+                - generic [ref=e195] [cursor=pointer]:
+                  - generic [ref=e196]:
+                    - generic [ref=e197]: "12"
+                    - text: "000"
+                  - generic "RUB" [ref=e198]: ₽
+              - listitem [ref=e199]:
+                - generic [ref=e202] [cursor=pointer]:
+                  - generic [ref=e203]:
+                    - generic [ref=e204]: "12"
+                    - text: "400"
+                  - generic "RUB" [ref=e205]: ₽
+              - listitem [ref=e206]:
+                - generic [ref=e209] [cursor=pointer]:
+                  - generic [ref=e210]:
+                    - generic [ref=e211]: "13"
+                    - text: "000"
+                  - generic "RUB" [ref=e212]: ₽
+              - listitem [ref=e213]:
+                - generic [ref=e216] [cursor=pointer]:
+                  - generic [ref=e217]:
+                    - generic [ref=e218]: "13"
+                    - text: "200"
+                  - generic "RUB" [ref=e219]: ₽
+              - listitem [ref=e220]:
+                - generic [ref=e223] [cursor=pointer]:
+                  - generic [ref=e224]:
+                    - generic [ref=e225]: "14"
+                    - text: "000"
+                  - generic "RUB" [ref=e226]: ₽
+              - listitem [ref=e227]:
+                - generic [ref=e230] [cursor=pointer]:
+                  - generic [ref=e231]:
+                    - generic [ref=e232]: "15"
+                    - text: "200"
+                  - generic "RUB" [ref=e233]: ₽
+              - listitem [ref=e234]:
+                - generic [ref=e237] [cursor=pointer]:
+                  - generic [ref=e238]:
+                    - generic [ref=e239]: "15"
+                    - text: "500"
+                  - generic "RUB" [ref=e240]: ₽
+              - listitem [ref=e241]:
+                - generic [ref=e244] [cursor=pointer]:
+                  - generic [ref=e245]:
+                    - generic [ref=e246]: "17"
+                    - text: "100"
+                  - generic "RUB" [ref=e247]: ₽
+              - listitem [ref=e248]:
+                - generic [ref=e251] [cursor=pointer]:
+                  - generic [ref=e252]:
+                    - generic [ref=e253]: "18"
+                    - text: "600"
+                  - generic "RUB" [ref=e254]: ₽
+              - listitem [ref=e255]:
+                - generic [ref=e258] [cursor=pointer]:
+                  - generic [ref=e259]:
+                    - generic [ref=e260]: "20"
+                    - text: "200"
+                  - generic "RUB" [ref=e261]: ₽
+              - listitem [ref=e262]:
+                - generic [ref=e265] [cursor=pointer]:
+                  - generic [ref=e266]:
+                    - generic [ref=e267]: "21"
+                    - text: "700"
+                  - generic "RUB" [ref=e268]: ₽
+              - listitem [ref=e269]:
+                - generic [ref=e272] [cursor=pointer]:
+                  - generic [ref=e273]:
+                    - generic [ref=e274]: "23"
+                    - text: "300"
+                  - generic "RUB" [ref=e275]: ₽
+              - listitem [ref=e276]:
+                - generic [ref=e279] [cursor=pointer]:
+                  - generic [ref=e280]:
+                    - generic [ref=e281]: "24"
+                    - text: "800"
+                  - generic "RUB" [ref=e282]: ₽
+              - listitem [ref=e283]:
+                - generic [ref=e286] [cursor=pointer]:
+                  - generic [ref=e287]:
+                    - generic [ref=e288]: "25"
+                    - text: "600"
+                  - generic "RUB" [ref=e289]: ₽
+              - listitem [ref=e290]:
+                - generic [ref=e293] [cursor=pointer]:
+                  - generic [ref=e294]:
+                    - generic [ref=e295]: "27"
+                    - text: "200"
+                  - generic "RUB" [ref=e296]: ₽
+              - listitem [ref=e297]:
+                - generic [ref=e300] [cursor=pointer]:
+                  - generic [ref=e301]:
+                    - generic [ref=e302]: "27"
+                    - text: "900"
+                  - generic "RUB" [ref=e303]: ₽
+              - listitem [ref=e304]:
+                - generic [ref=e307] [cursor=pointer]:
+                  - generic [ref=e308]:
+                    - generic [ref=e309]: "30"
+                    - text: "000"
+                  - generic "RUB" [ref=e310]: ₽
+              - listitem [ref=e311]:
+                - generic [ref=e314] [cursor=pointer]:
+                  - generic [ref=e315]:
+                    - generic [ref=e316]: "31"
+                    - text: "000"
+                  - generic "RUB" [ref=e317]: ₽
+              - listitem [ref=e318]:
+                - generic [ref=e321] [cursor=pointer]:
+                  - generic [ref=e322]:
+                    - generic [ref=e323]: "34"
+                    - text: "100"
+                  - generic "RUB" [ref=e324]: ₽
+              - listitem [ref=e325]:
+                - generic [ref=e328] [cursor=pointer]:
+                  - generic [ref=e329]:
+                    - generic [ref=e330]: "34"
+                    - text: "900"
+                  - generic "RUB" [ref=e331]: ₽
+              - listitem [ref=e332]:
+                - generic [ref=e335] [cursor=pointer]:
+                  - generic [ref=e336]:
+                    - generic [ref=e337]: "38"
+                    - text: "800"
+                  - text: +
+                  - generic "RUB" [ref=e338]: ₽
+          - img [ref=e345]
+          - generic [ref=e472]:
+            - button [ref=e473]:
+              - img [ref=e475]
+            - button [disabled] [ref=e477]:
+              - img [ref=e479]
+          - button [ref=e482]:
+            - img [ref=e484]
+          - button [ref=e487]:
+            - img [ref=e489]
+        - paragraph [ref=e491]: Время брони - 30 минут
+      - generic [ref=e493]:
+        - generic [ref=e494]:
+          - generic [ref=e495]:
+            - generic [ref=e496]: 6 мая, ср, 20:00
+            - generic [ref=e497]: Осталось 5 дней
+          - generic [ref=e504] [cursor=pointer]:
+            - generic [ref=e505]: Добавить в календарь
+            - combobox [ref=e506]
+        - link "Лукойл-Арена Россия, Москва, Волоколамское шоссе, 69" [ref=e507] [cursor=pointer]:
+          - /url: /msk/playgrounds/otkrytie-bank-arena
+          - generic [ref=e508]: Лукойл-Арена
+          - text: Россия, Москва, Волоколамское шоссе, 69
+    - generic [ref=e509]:
+      - generic [ref=e510]:
+        - heading "Матч Спартак - ЦСКА. Финал Кубка России. Путь регионов" [level=2] [ref=e511]
+        - generic [ref=e512]:
+          - generic [ref=e514]:
+            - heading "Матч главного московского футбольного дерби" [level=3] [ref=e515]
+            - paragraph [ref=e516]: Спортивный комплекс «Лукойл-Арена», г. Москва
+            - paragraph [ref=e517]: ФК Спартак
+            - paragraph [ref=e518]: "Игроки: Роман Зобнин, Наиль Умяров, Александр Макименко и другие"
+            - paragraph [ref=e519]: "Тренер: Хуан Карлос Карседо"
+            - paragraph [ref=e520]: ФК ЦСКА
+            - paragraph [ref=e521]: "Игроки: Игорь Акинфеев, Милан Гайич, Артем Бандикян и другие"
+            - paragraph [ref=e522]: "Тренер: Фабио Челестини"
+          - generic [ref=e523]:
+            - generic [ref=e525]:
+              - paragraph [ref=e526]: Появившись в 1922 году, противостояние «Спартака» и ЦСКА навсегда разделило московских болельщиков футбола на два лагеря. За эти годы команды сыграли больше 200 матчей и один из них, 6 мая 2026 года мы увидим на поле «Лукойл Арены». Статистика побед в главном московском дерби на стороне «красно-белых». У них 80 побед против 75, которые удалось завоевать «армейцам». Ну и ровно 40 игр непримиримые соперники завершили ничьей.
+              - paragraph [ref=e527]: Предыдущий совместный матч команды сыграли в ноябре 2025-го. Тогда с победой с поля ушли спартаковцы, правда, вырвать ее они смогли, забив соперникам всего лишь один гол. Надо ли говорить, насколько футболисты ЦСКА замотивированы на победу, тем более что играть им предстоит на домашнем поле соперников.
+              - paragraph [ref=e528]: Не меньше на результативную и победную игру настроены и хозяева. Они точно не откажутся закрепить прошлый успех и пополнить свою копилку новой победой. Остроты главному московскому дерби придает и тот факт, что играть команды будут не штатную игру сезона, а в финале Пути регионов Кубка России. Так что на трибунах «Лукойл Арены» будет просто невероятная атмосфера, а на поле - игра, которую точно стоит увидеть вживую, а не в формате трансляции.
+              - paragraph [ref=e529]: Эти команды уже дважды играли друг с другом в финале Кубка России, в 1994-м и в 2006-м году. Этом году это будет финальная битва «20 лет спустя». Не пропустите это событие, его стоит увидеть даже тем, кто не считает себя самым преданным футбольным болельщикам. В этот майский вечер трибуны «Лукойл Арены» ждут вас!
+              - heading "Билеты на матч «Спартак» - ЦСКА в Москве" [level=2] [ref=e530]
+              - paragraph [ref=e531]: Онлайн-сервис покупки и продажи билетов Portalbilet поможет вам с посещением самых ожидаемых спортивных событий сезона. С нами вам не придется ехать в кассу стадиона, чтобы достать билеты на игру любимой команды. Это вы сможете сделать у нас на сайте, заказав билет онлайн и оформив его покупку всего за 2-3 минуты.
+              - paragraph [ref=e532]: На нашем сайте вы можете купить билеты на матч «Спартак» - ЦСКА в Москве. Спешите занять места на трибунах стадиона, пока свободные еще есть у нас в наличии!
+              - heading "Полезные ссылки" [level=3] [ref=e533]
+              - paragraph [ref=e534]: "Подробнее о том, как вернуть, сдать или продать билет читайте в разделах:"
+              - list [ref=e535]:
+                - listitem [ref=e536]:
+                  - link "Продать билет" [ref=e537] [cursor=pointer]:
+                    - /url: /sell
+                - listitem [ref=e538]:
+                  - link "Брокерам" [ref=e539] [cursor=pointer]:
+                    - /url: /faq/broker
+                - listitem [ref=e540]:
+                  - link "Организаторам" [ref=e541] [cursor=pointer]:
+                    - /url: /faq/realizaciya-biletov
+            - button "Читать дальше" [ref=e542] [cursor=pointer]
+      - generic [ref=e543]:
+        - generic [ref=e548]:
+          - generic:
+            - generic [ref=e553]:
+              - generic [ref=e555]:
+                - text: © Яндекс
+                - link "Условия использования" [ref=e557] [cursor=pointer]:
+                  - /url: https://yandex.ru/legal/maps_termsofuse/?lang=ru
+              - link [ref=e559] [cursor=pointer]:
+                - /url: ""
+            - generic [ref=e561]:
+              - generic "Как добраться" [ref=e562]:
+                - generic [ref=e566] [cursor=pointer]: Как добраться
+              - generic "Доехать на такси" [ref=e567]:
+                - generic [ref=e571] [cursor=pointer]: Доехать на такси
+              - link "Создать свою карту" [ref=e572] [cursor=pointer]:
+                - /url: "https://tech.yandex.ru/maps/mapsapi/?from=api-maps "
+          - generic [ref=e580]: Москва, Волоколамское шоссе, 69
+        - generic [ref=e582]: Лукойл-Арена
+        - text: Россия, Москва, Волоколамское шоссе, 69
+    - generic [ref=e583]:
+      - generic [ref=e585]:
+        - button "Расписание площадки" [ref=e587] [cursor=pointer]
+        - button "Расписание участников" [ref=e589] [cursor=pointer]
+        - button "Участники" [ref=e591] [cursor=pointer]
+      - generic:
+        - generic:
+          - heading "Участники" [level=2]
+          - generic: "2"
+        - 'link "ФК Спартак Российский профессиональный футбольный клуб из Москвы. Основан 18 апреля 1922 г. 12-кратный чемпион СССР. Лучший в истории Лиги чемпионов. 3-кратный обладатель Кубка России. Стадион «Открытие Банк Арена» вместимостью 45360 человек. Ген. директор: Олег Малышев. Председатель: Александр Матыцын. Главный тренер: Деян Станкович. Капитан: Роман Зобнин Читать дальше"':
+          - /url: /persons/fk-spartak
+          - generic:
+            - heading "ФК Спартак" [level=3]
+            - generic:
+              - generic:
+                - paragraph: "Российский профессиональный футбольный клуб из Москвы. Основан 18 апреля 1922 г. 12-кратный чемпион СССР. Лучший в истории Лиги чемпионов. 3-кратный обладатель Кубка России. Стадион «Открытие Банк Арена» вместимостью 45360 человек. Ген. директор: Олег Малышев. Председатель: Александр Матыцын. Главный тренер: Деян Станкович. Капитан: Роман Зобнин"
+            - text: Читать дальше
+        - 'link "ФК ЦСКА Российский футбольный клуб из Москвы, в прошлом – часть Центрального спортивного клуба Армии. Стадион: «ВЭБ Арена» вместимостью 30457 человек. Владелец: ВЭБ.РФ. Президент: Евгений Гинер. Ген. директор: Роман Бабаев. Главный тренер: Марко Николич. В 2014 г. ЦСКА выиграл чемпионат в пятый раз и, таким образом, стал первым в российской истории клубом, собравшим оригиналы всех трофеев. Читать дальше"':
+          - /url: /persons/fk-tsska
+          - generic:
+            - heading "ФК ЦСКА" [level=3]
+            - generic:
+              - generic:
+                - paragraph: "Российский футбольный клуб из Москвы, в прошлом – часть Центрального спортивного клуба Армии. Стадион: «ВЭБ Арена» вместимостью 30457 человек. Владелец: ВЭБ.РФ. Президент: Евгений Гинер. Ген. директор: Роман Бабаев. Главный тренер: Марко Николич. В 2014 г. ЦСКА выиграл чемпионат в пятый раз и, таким образом, стал первым в российской истории клубом, собравшим оригиналы всех трофеев."
+            - text: Читать дальше
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: "2"
+                - generic: мая
+                - generic: сб, 19:00
+              - generic:
+                - link:
+                  - /url: /msk/match-rossiiskoi-premer-ligi-tsska-zenit
+                - generic:
+                  - link "Матч ЦСКА - Зенит. Российская Премьер Лига":
+                    - /url: /msk/match-rossiiskoi-premer-ligi-tsska-zenit
+                  - generic: ВЭБ Арена
+                  - list:
+                    - listitem: 0+
+                    - listitem: 2 часа
+                    - listitem: Спорт
+                    - listitem: Футбол
+                    - listitem: Российская Премьер Лига
+                - link "Купить":
+                  - /url: /msk/match-rossiiskoi-premer-ligi-tsska-zenit
+          - generic:
+            - generic:
+              - generic:
+                - generic: "11"
+                - generic: мая
+                - generic: пн, 17:30
+              - generic:
+                - link:
+                  - /url: /msk/spartak-rubin
+                - generic:
+                  - link "Матч Спартак - Рубин. Российская Премьер Лига":
+                    - /url: /msk/spartak-rubin
+                  - generic: Лукойл-Арена
+                  - list:
+                    - listitem: 0+
+                    - listitem: 2 часа
+                    - listitem: Спорт
+                    - listitem: Футбол
+                    - listitem: Российская Премьер Лига
+                - link "Купить":
+                  - /url: /msk/spartak-rubin
+        - button "Показать еще"
+      - generic [ref=e592]:
+        - generic [ref=e593]:
+          - generic [ref=e595]:
+            - generic [ref=e596]:
+              - generic [ref=e597]: "11"
+              - generic [ref=e598]: мая
+              - generic [ref=e599]: пн, 17:30
+            - generic [ref=e600]:
+              - link:
+                - /url: /msk/spartak-rubin
+              - generic [ref=e601]:
+                - link "Матч Спартак - Рубин. Российская Премьер Лига" [ref=e602] [cursor=pointer]:
+                  - /url: /msk/spartak-rubin
+                - generic [ref=e603]: Лукойл-Арена
+                - list [ref=e604]:
+                  - listitem [ref=e605]: 0+
+                  - listitem [ref=e606]: 2 часа
+                  - listitem [ref=e607]: Спорт
+                  - listitem [ref=e608]: Футбол
+                  - listitem [ref=e609]: Российская Премьер Лига
+              - link "Купить" [ref=e610] [cursor=pointer]:
+                - /url: /msk/spartak-rubin
+          - generic [ref=e612]:
+            - generic [ref=e613]:
+              - generic [ref=e614]: "6"
+              - generic [ref=e615]: июн.
+              - generic [ref=e616]: сб, 20:00
+            - generic [ref=e617]:
+              - link:
+                - /url: /msk/koncert-xolidayboy-lukojl-arena
+              - generic [ref=e618]:
+                - link "Концерт Xolidayboy" [ref=e619] [cursor=pointer]:
+                  - /url: /msk/koncert-xolidayboy-lukojl-arena
+                - generic [ref=e620]: Лукойл-Арена
+                - list [ref=e621]:
+                  - listitem [ref=e622]: 12+
+                  - listitem [ref=e623]: 2 часа
+                  - listitem [ref=e624]: Концерт
+                  - listitem [ref=e625]: Поп
+              - link "Купить" [ref=e626] [cursor=pointer]:
+                - /url: /msk/koncert-xolidayboy-lukojl-arena
+        - button "Показать еще" [ref=e627] [cursor=pointer]
+    - generic [ref=e628]:
+      - generic [ref=e629]:
+        - heading "Билеты для корпоративных клиентов" [level=2] [ref=e631]:
+          - img [ref=e632]
+          - text: Билеты для корпоративных клиентов
+        - paragraph [ref=e641]: Это мероприятие вы можете посетить большой компанией, совместно с сотрудниками, коллегами или друзьями купив билеты в любом количестве на страницах маркетплейса Portalbilet. У нас актуальная афиша, официальные билеты от организаторов шоу, специальные условия приобретения при бронировании большого количества мест.
+        - paragraph [ref=e642]:
+          - text: В разделе
+          - link "«Корпоративным клиентам»" [ref=e643] [cursor=pointer]:
+            - /url: /corporate-clients
+          - text: вы узнаете подробную информацию об услуге и связавшись с нами, сможете уточнить цену, наличие свободных мест, расположение в зрительном зале, возможность организации трансфера и сделать заказ.
+      - generic [ref=e644]:
+        - heading "VIP-билеты" [level=2] [ref=e646]:
+          - img [ref=e647]
+          - text: VIP-билеты
+        - paragraph [ref=e649]: Это мероприятие вы сможете посетить с максимальным комфортом, купив премиальные билеты на страницах маркетплейса Portalbilet. У нас собраны самые интересные предложения от организаторов мероприятий и билетных брокеров. Вы с легкостью приобретете эксклюзивные билеты на концерты и аншлаговые спектакли, шоу с участием звезд, ожидаемые премьеры, знаковые матчи и состязания, съемки популярных телепередач.
+        - paragraph [ref=e650]:
+          - text: Узнать цены VIP-билетов, а также получить детальную информацию об услугах, которые предполагает покупка элитных мест в ВИП-зоне и другие подробности можно в
+          - link "этом разделе." [ref=e651] [cursor=pointer]:
+            - /url: /vip-tickets
+      - generic [ref=e652]:
+        - heading "Вопросы и ответы" [level=2] [ref=e654]
+        - generic [ref=e655]:
+          - generic [ref=e658] [cursor=pointer]:
+            - text: Как купить билет?
+            - img [ref=e659]
+          - generic [ref=e663] [cursor=pointer]:
+            - text: Как работает электронный билет?
+            - img [ref=e664]
+          - generic [ref=e668] [cursor=pointer]:
+            - text: Как можно оплатить билет?
+            - img [ref=e669]
+          - generic [ref=e673] [cursor=pointer]:
+            - text: Как купить билеты юридическому лицу?
+            - img [ref=e674]
+          - generic [ref=e678] [cursor=pointer]:
+            - text: Какие билеты можно купить на ПБ?
+            - img [ref=e679]
+      - generic [ref=e681]:
+        - heading "Самые интересные события у вас в почте" [level=2] [ref=e682]
+        - paragraph [ref=e683]: Обычно мы присылаем одно письмо в месяц и ещё одно накануне больших праздников
+        - generic [ref=e684]:
+          - textbox "your@mail.com" [ref=e688]
+          - button "Продолжить" [ref=e689] [cursor=pointer]
+    - generic [ref=e690]:
+      - generic [ref=e691]:
+        - heading "Наши преимущества" [level=2] [ref=e692]
+        - paragraph [ref=e693]: Находите, покупайте и продавайте билеты на лучшие события по всей России - быстро, удобно и безопасно
+        - generic [ref=e694]:
+          - link "Продать билет" [ref=e695] [cursor=pointer]:
+            - /url: /sell
+          - button "Купить билет" [ref=e696] [cursor=pointer]
+      - generic [ref=e697]:
+        - generic [ref=e698]:
+          - img [ref=e699]
+          - heading "Удобная покупка билетов онлайн" [level=3] [ref=e701]
+          - paragraph [ref=e702]: Легко находить и приобретать билеты на концерты, спектакли, спортивные матчи и другие события по всей России и миру
+        - generic [ref=e703]:
+          - img [ref=e704]
+          - heading "Безопасность сделок и гарантия возврата" [level=3] [ref=e706]
+          - paragraph [ref=e707]: Все операции защищены договором оферты, а при отмене мероприятия предусмотрен возврат средств
+        - generic [ref=e708]:
+          - img [ref=e709]
+          - heading "15 лет опыта и доверия на билетном рынке" [level=3] [ref=e711]
+          - paragraph [ref=e712]: Мы объединяем зрителей, организаторов и профессиональных продавцов, предлагая эксклюзивные билеты, которых нет на других ресурсах
+    - contentinfo [ref=e713]:
+      - generic [ref=e715]:
+        - generic [ref=e716]:
+          - generic [ref=e717]: Категории
+          - list [ref=e718]:
+            - listitem [ref=e719]:
+              - link "Концерты" [ref=e720] [cursor=pointer]:
+                - /url: /msk/kontsert
+            - listitem [ref=e721]:
+              - link "Спорт" [ref=e722] [cursor=pointer]:
+                - /url: /msk/sport
+            - listitem [ref=e723]:
+              - link "Театр" [ref=e724] [cursor=pointer]:
+                - /url: /msk/teatr
+            - listitem [ref=e725]:
+              - link "Детям" [ref=e726] [cursor=pointer]:
+                - /url: /msk/detiam
+            - listitem [ref=e727]:
+              - link "Все мероприятия" [ref=e728] [cursor=pointer]:
+                - /url: /msk/afisha
+            - listitem [ref=e729]:
+              - link "Все города" [ref=e730] [cursor=pointer]:
+                - /url: /cities
+            - listitem [ref=e731]:
+              - link "Все площадки" [ref=e732] [cursor=pointer]:
+                - /url: /msk/playgrounds
+            - listitem [ref=e733]:
+              - link "Все исполнители" [ref=e734] [cursor=pointer]:
+                - /url: /persons
+          - button "Главная" [ref=e735] [cursor=pointer]
+        - generic [ref=e736]:
+          - generic [ref=e737]: Популярные события
+          - list [ref=e738]:
+            - listitem [ref=e739]:
+              - link "Концерты Надежды Кадышевой" [ref=e740] [cursor=pointer]:
+                - /url: https://portalbilet.ru/persons/nadezhda-kadysheva
+            - listitem [ref=e741]:
+              - link "Концерты Басты" [ref=e742] [cursor=pointer]:
+                - /url: https://portalbilet.ru/persons/basta
+            - listitem [ref=e743]:
+              - link "Концерты «Руки Вверх»" [ref=e744] [cursor=pointer]:
+                - /url: https://portalbilet.ru/persons/ruki-vverkh
+            - listitem [ref=e745]:
+              - link "Концерты GUF" [ref=e746] [cursor=pointer]:
+                - /url: https://portalbilet.ru/persons/guf
+            - listitem [ref=e747]:
+              - link "Сегодня" [ref=e748] [cursor=pointer]:
+                - /url: /msk/segodnya
+            - listitem [ref=e749]:
+              - link "Завтра" [ref=e750] [cursor=pointer]:
+                - /url: /msk/zavtra
+            - listitem [ref=e751]:
+              - link "В выходные" [ref=e752] [cursor=pointer]:
+                - /url: /msk/vykhodniye
+        - generic [ref=e753]:
+          - generic [ref=e754]: Помощь
+          - list [ref=e755]:
+            - listitem [ref=e756]:
+              - link "Оплата и доставка" [ref=e757] [cursor=pointer]:
+                - /url: https://portalbilet.ru/pay-and-delivery
+            - listitem [ref=e758]:
+              - link "Частые вопросы" [ref=e759] [cursor=pointer]:
+                - /url: https://portalbilet.ru/faq
+            - listitem [ref=e760]:
+              - link "Перепродажа билетов" [ref=e761] [cursor=pointer]:
+                - /url: https://portalbilet.ru/faq/broker
+            - listitem [ref=e762]:
+              - link "Организаторам" [ref=e763] [cursor=pointer]:
+                - /url: https://portalbilet.ru/faq/realizaciya-biletov
+            - listitem [ref=e764]:
+              - link "Корпоративным клиентам" [ref=e765] [cursor=pointer]:
+                - /url: https://portalbilet.ru/corporate-clients
+            - listitem [ref=e766]:
+              - link "VIP-билеты" [ref=e767] [cursor=pointer]:
+                - /url: https://portalbilet.ru/vip-tickets
+            - listitem [ref=e768]:
+              - link "Условия использования" [ref=e769] [cursor=pointer]:
+                - /url: https://portalbilet.ru/oferta
+            - listitem [ref=e770]:
+              - link "Персональные данные" [ref=e771] [cursor=pointer]:
+                - /url: https://portalbilet.ru/privacy-policy
+            - listitem [ref=e772]:
+              - link "О компании" [ref=e773] [cursor=pointer]:
+                - /url: https://portalbilet.ru/about
+            - listitem [ref=e774]:
+              - link "Контакты" [ref=e775] [cursor=pointer]:
+                - /url: https://portalbilet.ru/contacts
+            - listitem [ref=e776]:
+              - link "Карта сайта" [ref=e777] [cursor=pointer]:
+                - /url: /sitemap.xml
+        - generic [ref=e778]:
+          - generic [ref=e779]: Следите за новостями
+          - generic [ref=e781]:
+            - link [ref=e782] [cursor=pointer]:
+              - /url: https://t.me/portalbilet
+              - img [ref=e783]
+            - link [ref=e785] [cursor=pointer]:
+              - /url: https://vk.com/portalbilet
+              - img [ref=e786]
+          - generic [ref=e788]:
+            - link "8-800-500-42-62" [ref=e789] [cursor=pointer]:
+              - /url: tel:88005004262
+            - link "8-499-226-15-14" [ref=e790] [cursor=pointer]:
+              - /url: tel:8-499-226-15-14
+            - link "info@portalbilet.ru" [ref=e791] [cursor=pointer]:
+              - /url: mailto:info@portalbilet.ru
+            - generic [ref=e792]:
+              - text: С 10:00 до 21:00,
+              - text: звонок бесплатный
+          - generic [ref=e793]:
+            - generic [ref=e794]: Оплата
+            - generic [ref=e795]:
+              - img [ref=e797]
+              - img [ref=e804]
+              - img [ref=e807]
+      - generic [ref=e815]: © 2020 - 2026 portalbilet.ru Все права защищены
+      - generic [ref=e816] [cursor=pointer]:
+        - text: В начало страницы
+        - img [ref=e817]
+  - generic [ref=e824]:
+    - generic [ref=e825]:
+      - img [ref=e827] [cursor=pointer]
+      - generic [ref=e831]:
+        - generic [ref=e832]: Введите номер телефона и мы перезвоним.
+        - generic [ref=e833]:
+          - textbox [ref=e834]
+          - button [ref=e835] [cursor=pointer]:
+            - img [ref=e836]
+          - button "Закрыть" [ref=e841] [cursor=pointer]
+      - generic [ref=e842]:
+        - generic [ref=e843]:
+          - generic [ref=e844]: Онлайн чат
+          - generic [ref=e845]:
+            - img [ref=e846]
+            - text: Мы здесь с 10:00 до 21:00
+        - img [ref=e854] [cursor=pointer]
+      - generic [ref=e857]:
+        - link "integ" [ref=e858] [cursor=pointer]:
+          - /url: https://t.me/portalbilet_support
+          - img "integ" [ref=e859]
+        - link "integ" [ref=e860] [cursor=pointer]:
+          - /url: https://wa.me/79185650224
+          - img "integ" [ref=e861]
+        - link "integ" [ref=e862] [cursor=pointer]:
+          - /url: https://max.ru/u/f9LHodD0cOLvatxqUSQHAZP7cozoIhtdzQ8E5B1lLnoyoFaIgVNGl7RfaWI
+          - img "integ" [ref=e863]
+      - generic [ref=e864]:
+        - generic [ref=e865]: Сейчас мы не работаем, но вы можете оставить нам сообщение или оставить номер телефона и мы обязательно с вами свяжемся!
+        - img [ref=e867] [cursor=pointer]
+    - generic [ref=e871]:
+      - tablist [ref=e874]
+      - generic [ref=e876]:
+        - img [ref=e878]
+        - generic [ref=e881]: печатает...
+    - generic [ref=e883]:
+      - textbox "Введите сообщение..." [ref=e884]
+      - generic [ref=e885]:
+        - button [ref=e886] [cursor=pointer]:
+          - img [ref=e887]
+        - button [ref=e889] [cursor=pointer]:
+          - img [ref=e890]
