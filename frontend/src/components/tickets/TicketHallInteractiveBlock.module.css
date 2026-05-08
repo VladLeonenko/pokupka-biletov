@@ -356,6 +356,59 @@
   box-shadow: none !important;
 }
 
+/**
+ * Полная чаша на canvas + uniformHallSeatAppearance: точки рисует только canvas.
+ * DOM-хитбоксы оставляем для клика/тач, без «мыльных» кружков поверх растра.
+ */
+.seatDotUniformCanvas {
+  opacity: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+.seatDotUniformCanvas::before {
+  display: none !important;
+}
+
+.seatDotUniformCanvas:hover {
+  opacity: 0 !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+.seatDotUniformCanvas.seatDotOn {
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.seatDotUniformCanvas:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.seatDotUniformCanvas:focus-visible {
+  opacity: 1;
+  outline: 2px solid rgba(37, 99, 235, 0.85);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/** Превью-ориентиры при dense allSeatCoordinates — не дублировать пиксели */
+.seatDotUniformCanvasGhost {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.seatDotUniformCanvasGhost::before {
+  display: none !important;
+}
+
 .seatDotOverview {
   width: 0.11%;
   opacity: 0.78;

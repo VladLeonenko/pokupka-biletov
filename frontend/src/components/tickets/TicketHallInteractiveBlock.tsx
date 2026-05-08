@@ -962,6 +962,9 @@ export function TicketHallInteractiveBlock({
   /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
+  /** Canvas уже отрисовал точки — скрываем DOM-маркеры офферов, остаются только невидимые хитбоксы. */
+  const uniformDomOverlayGhost =
+    uniformHallSeatAppearance && useCanvasCompositing && useSvgNative;
 
   const visibleBackgroundSeatCoordinates = useMemo(() => {
     if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
@@ -1262,7 +1265,9 @@ export function TicketHallInteractiveBlock({
                           key={p.key}
                           className={`${styles.seatDot} ${styles.seatDotNative} ${styles.seatDotNonInteractive} ${
                             sectorMode.enabled ? styles.seatDotStadium : ''
-                          } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''}`}
+                          } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''} ${
+                            uniformDomOverlayGhost ? styles.seatDotUniformCanvasGhost : ''
+                          }`}
                           style={
                             {
                               left: `${p.xPct}%`,
@@ -1286,7 +1291,7 @@ export function TicketHallInteractiveBlock({
                           sectorMode.enabled ? styles.seatDotStadium : ''
                         } ${
                           useCanvasCompositing ? styles.seatDotCanvasHit : ''
-                        } ${
+                        } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''} ${
                           sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
                         } ${active ? styles.seatDotOn : ''}`}
                         style={
@@ -1317,7 +1322,7 @@ export function TicketHallInteractiveBlock({
                           if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
                         }}
                       >
-                        {active ? <span className={styles.seatDotCheck}>✓</span> : null}
+                        {active && !uniformDomOverlayGhost ? <span className={styles.seatDotCheck}>✓</span> : null}
                         <span className={styles.seatDotLabel}>{p.seat}</span>
                       </button>
                     );
