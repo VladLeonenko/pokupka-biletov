@@ -28,6 +28,7 @@ import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballSta
 import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
 import {
   extractPbiletCoordinateCategoriesSectorPaths,
+  extractPbiletCoordinatesSeatDots,
   extractPbiletTicketsSeatGeodesy,
   extractPbiletTicketSectorPaths,
   mergeSectorMetaPreferTickets,
@@ -80,6 +81,8 @@ async function main() {
 
   /** @type {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} */
   let seats = [];
+  /** @type {{ xPct: number; yPct: number }[]} */
+  let allSeatCoordinates = [];
   /** @type {Record<string, unknown>[]} */
   let sectorsMeta = [];
   let width;
@@ -167,6 +170,9 @@ async function main() {
       throw new Error('coordinates JSON: некорректные width/height');
     }
     seats = extractPbiletTicketsSeatGeodesy(ticketsPayload, width, height);
+    if (optionalEnv('LUZHNIKI_SKIP_COORDINATE_DOTS') !== '1') {
+      allSeatCoordinates = extractPbiletCoordinatesSeatDots(coordinatesPayload, width, height);
+    }
     const fromTickets = extractPbiletTicketSectorPaths(ticketsPayload);
     const fromCats = extractPbiletCoordinateCategoriesSectorPaths(coordinatesPayload);
     sectorsMeta = mergeSectorMetaPreferTickets(fromTickets, fromCats);
@@ -204,6 +210,7 @@ async function main() {
     showUnavailableSeats: true,
     grayHallWhenNoOffers: true,
     nativeSeatCount: seats.length,
+    ...(allSeatCoordinates.length > 0 ? { allSeatCoordinates } : {}),
     sectorPathCount: sectorsMeta.length,
     seats,
     sectorMode: {
@@ -217,13 +224,16 @@ async function main() {
       hallHeight: height,
       importedAt: new Date().toISOString(),
       minSeatsExpected: minSeats,
+      ...(allSeatCoordinates.length > 0
+        ? { coordinateDotsFromHallLayout: allSeatCoordinates.length }
+        : {}),
     },
     note:
       'Реальная геодезия из файлового снимка; наличие и цены только из офферов GetBilet.',
   };
 
   const notesInternal =
-    `geodesy seats=${seats.length}; sectors=${sectorsMeta.length}; ${provenance}` +
+    `geodesy seats=${seats.length}; coordinateDots=${allSeatCoordinates.length}; sectors=${sectorsMeta.length}; ${provenance}` +
     (notesExtra ? `. ${notesExtra}` : '');
 
   const result = await ticketPool.query(
@@ -257,6 +267,7 @@ async function main() {
       {
         saved: result.rows[0],
         seats: seats.length,
+        coordinateDots: allSeatCoordinates.length,
         sectors: sectorsMeta.length,
         hall: { width, height },
         provenance,

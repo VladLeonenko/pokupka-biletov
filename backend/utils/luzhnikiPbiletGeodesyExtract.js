@@ -148,6 +148,26 @@ export function extractPbiletCoordinateCategoriesSectorPaths(coordinatesPayload)
     .filter(Boolean);
 }
 
+/**
+ * Точки из `coordinates.coordinates` (pbilet hall-layouts/…/coordinates) без сектор/ряд/место.
+ * На фронте уходит в `layout_json.allSeatCoordinates` — полная чаша серым фоном поверх подложки.
+ */
+export function extractPbiletCoordinatesSeatDots(coordinatesPayload, width, height) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return [];
+  const coordinates = Array.isArray(coordinatesPayload?.coordinates) ? coordinatesPayload.coordinates : [];
+  const out = [];
+  for (const item of coordinates) {
+    const x = Number(item?.x);
+    const y = Number(item?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    out.push({
+      xPct: (x / width) * 100,
+      yPct: (y / height) * 100,
+    });
+  }
+  return out;
+}
+
 /** Объединить сектора по id (приоритет tickets — есть цены/места). */
 export function mergeSectorMetaPreferTickets(ticketSectors, categorySectors) {
   const byId = new Map();
