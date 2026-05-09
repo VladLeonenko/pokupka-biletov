@@ -282,12 +282,18 @@ export function TicketCheckoutPage() {
 
   const stageIdEff =
     searchParams.get('stageId')?.trim() || ctx?.stageId?.trim() || null;
-  const hasStageMapFromContext = Boolean(ctx?.stageId === stageIdEff && ctx?.stageMap);
+  /** Без SVG в контексте всё равно нужна подгрузка из БД (иначе при совпадении stageId запрос не включался — «план недоступен»). */
+  const contextHallSvgTrimmed =
+    ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup?.trim() ?? '' : '';
+  const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
     queryKey: ['bilet-stage-map', stageIdEff, repertoireId ?? ''],
     queryFn: () => fetchStageMap(stageIdEff!, repertoireId),
-    enabled: Boolean(stageIdEff) && !ctxLoading && ctx?.stageId !== stageIdEff && !hasStageMapFromContext,
+    enabled:
+      Boolean(stageIdEff) &&
+      !ctxLoading &&
+      (ctx?.stageId !== stageIdEff || !hasUsableHallSvgFromContext),
     staleTime: 120_000,
   });
 
@@ -738,9 +744,16 @@ export function TicketCheckoutPage() {
     ctx?.externalPlanUrl,
   ]);
 
-  const showHallMissingCard =
-    Boolean(!hallSvg && !externalPlanUrl && (!stageIdEff || stageMapFetched || ctx?.stageId === stageIdEff));
+  /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
+  const hallMapLoadSettled = useMemo(() => {
+    if (ctxLoading) return false;
+    if (!stageIdEff) return true;
+    if (hasUsableHallSvgFromContext) return true;
+    return stageMapFetched;
+  }, [ctxLoading, stageIdEff, hasUsableHallSvgFromContext, stageMapFetched]);
 
+  const showHallMissingCard =
+    Boolean(!hallSvg && !externalPlanUrl && hallMapLoadSettled);
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
   const noOffersAfterFetch = !isLoading && (isSuccess || isError) && offers.length === 0;
 
