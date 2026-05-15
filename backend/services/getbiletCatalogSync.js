@@ -6,8 +6,10 @@
  */
 
 import ticketPool from '../ticketDb.js';
-import { restV2BuildEventsCatalog, expandCatalogActionsWithOfferSessions } from './getbiletRestV2.js';
+import { restV2BuildEventsCatalog, expandCatalogActionsWithOfferSessions, shouldExpandCatalogSessions } from './getbiletRestV2.js';
+import { enrichRestV2CatalogActions } from './getbiletEnrich.js';
 import { extractPosterPageUrlFromRepertoirePayload } from './repertoirePayloadMedia.js';
+import { upsertGetbiletEventFromCatalogSync } from './getbiletCatalogSyncUpsert.js';
 
 /**
  * Тянем каталог из GetBilet, enrich, пишем в getbilet_catalog_cache и создаём строки getbilet_events (если ещё нет).
@@ -36,18 +38,7 @@ export async function syncGetbiletCatalogFromApi() {
         [repId, stageId, JSON.stringify(row)],
       );
       const title = typeof row.Name === 'string' ? row.Name.trim() : typeof row.name === 'string' ? row.name.trim() : '';
-      await client.query(
-        `INSERT INTO getbilet_events (getbilet_external_id, title_manual, is_published, sort_order, updated_at, last_seen_in_catalog_at)
-         VALUES ($1, $2, TRUE, 0, NOW(), NOW())
-         ON CONFLICT (getbilet_external_id) DO UPDATE SET
-           last_seen_in_catalog_at = NOW(),
-           updated_at = NOW(),
-           is_published = CASE
-             WHEN COALESCE(getbilet_events.storefront_hidden, FALSE) THEN getbilet_events.is_published
-             ELSE TRUE
-           END`,
-        [repId, title || null],
-      );
+      await upsertGetbiletEventFromCatalogSync(client, repId, title || null);
 
       const derivedPage = extractPosterPageUrlFromRepertoirePayload(row);
       if (derivedPage) {
@@ -98,8 +89,11 @@ export async function loadCatalogActionsFromDatabase() {
     if (row.stage_id) o.stageId = row.stage_id;
     actions.push(o);
   }
-  const expanded = await expandCatalogActionsWithOfferSessions(actions);
-  return enrichRestV2CatalogActions(expanded);
+  // Кэш уже заполнен развёрнутыми сеансами при sync (restV2BuildEventsCatalog → expand). Повторный expand = N запросов к API и 500 при database.
+  const expandOnDbRead =
+    process.env.GETBILET_DB_CATALOG_EXPAND_SESSIONS === '1' && shouldExpandCatalogSessions();
+  const forEnrich = expandOnDbRead ? await expandCatalogActionsWithOfferSessions(actions) : actions;
+  return enrichRestV2CatalogActions(forEnrich);
 }
 
 /**
@@ -125,10 +119,18 @@ export async function mergePinnedCatalogCacheIntoActions(actionsInput) {
          AND COALESCE(e.sort_order, 0) <= -400`,
     );
   } catch (e) {
-    if (e && typeof e === 'object' && 'code' in e && /** @type {{ code?: string }} */ (e).code === '42P01') {
-      return actions;
+    const code = e && typeof e === 'object' && 'code' in e ? /** @type {{ code?: string }} */ (e).code : '';
+    if (code === '42P01') return actions;
+    if (code === '42703') {
+      r = await ticketPool.query(
+        `SELECT c.payload_json, c.stage_id
+         FROM getbilet_catalog_cache c
+         INNER JOIN getbilet_events e ON e.getbilet_external_id = c.repertoire_external_id
+         WHERE e.is_published = TRUE AND COALESCE(e.sort_order, 0) <= -400`,
+      );
+    } else {
+      throw e;
     }
-    throw e;
   }
 
   for (const row of r.rows) {

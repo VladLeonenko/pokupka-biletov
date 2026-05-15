@@ -29,6 +29,7 @@ import {
   loadCatalogActionsFromDatabase,
   mergePinnedCatalogCacheIntoActions,
 } from '../services/getbiletCatalogSync.js';
+import { filterUpcomingCatalogActions } from '../services/getbiletPublicCatalogFilter.js';
 import { getRepertoirePublicContext } from '../services/repertoirePublicContext.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import {
@@ -78,7 +79,20 @@ function sendGetbiletError(err, res) {
     }
     return res.status(status).json(payload);
   }
-  console.error('[getbilet] unexpected:', err instanceof Error ? err.message : err);
+  const pgCode = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: string }} */ (err).code) : '';
+  if (pgCode === '42P01') {
+    return res.status(503).json({
+      error: 'catalog_cache_missing',
+      message: 'Таблица getbilet_catalog_cache не создана — выполните миграции и POST /api/admin/getbilet/sync-catalog',
+    });
+  }
+  if (pgCode === '42703') {
+    return res.status(503).json({
+      error: 'ticket_schema_outdated',
+      message: 'Схема ticket DB устарела — на сервере: node scripts/apply-ticket-migrations.js && node scripts/ensure-getbilet-storefront-hidden-column.js',
+    });
+  }
+  console.error('[getbilet] unexpected:', err instanceof Error ? err.message : err, pgCode || '');
   return res.status(500).json({ error: 'internal_error' });
 }
 
@@ -242,13 +256,36 @@ function compactActions(actions, limit = 120) {
   for (const action of actions) {
     const item = compactGetbiletAction(action);
     if (!item) continue;
-    const key = item.repertoireId || item.id || item.title;
+    const key =
+      item.id ||
+      `${item.repertoireId || ''}|${item.startDateTime || item.beginDateTime || ''}` ||
+      item.title;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(item);
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/** Публичная витрина: только сегодня и будущее (админка — полный каталог в БД). */
+function finalizePublicStorefrontActions(actions) {
+  return filterUpcomingCatalogActions(Array.isArray(actions) ? actions : []);
+}
+
+async function enrichAndMergePublicCatalog(actionsInput) {
+  let actions = Array.isArray(actionsInput) ? actionsInput : [];
+  try {
+    actions = await enrichRestV2CatalogActions(actions);
+  } catch (e) {
+    console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
+  }
+  try {
+    actions = await mergePinnedCatalogCacheIntoActions(actions);
+  } catch (e) {
+    console.error('[getbilet] merge pinned catalog:', e instanceof Error ? e.message : e);
+  }
+  return finalizePublicStorefrontActions(actions);
 }
 
 /**
@@ -296,48 +333,36 @@ async function loadEventsPayload(req) {
     const mode = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
 
     if (mode === 'database') {
-      const actions = await loadCatalogActionsFromDatabase();
-      return { actions };
+      try {
+        const actions = finalizePublicStorefrontActions(await loadCatalogActionsFromDatabase());
+        return { actions };
+      } catch (e) {
+        console.error('[getbilet] database catalog failed, fallback live:', e instanceof Error ? e.message : e);
+        const data = await restV2BuildEventsCatalog();
+        data.actions = await enrichAndMergePublicCatalog(data.actions);
+        return { ...data, fromDatabaseFallback: true };
+      }
     }
 
     if (mode === 'database_fallback') {
       try {
         const data = await restV2BuildEventsCatalog();
-        let actions = data.actions || [];
-        try {
-          actions = await enrichRestV2CatalogActions(actions);
-        } catch (e) {
-          console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
-        }
-        try {
-          actions = await mergePinnedCatalogCacheIntoActions(actions);
-        } catch (e) {
-          console.error('[getbilet] merge pinned catalog:', e instanceof Error ? e.message : e);
-        }
+        const actions = await enrichAndMergePublicCatalog(data.actions);
         return { ...data, actions };
       } catch (e) {
         console.error('[getbilet] live catalog failed, using DB cache:', e instanceof Error ? e.message : e);
-        const actions = await loadCatalogActionsFromDatabase();
+        const actions = finalizePublicStorefrontActions(await loadCatalogActionsFromDatabase());
         return { actions, fromDatabaseFallback: true };
       }
     }
 
     const data = await restV2BuildEventsCatalog();
-    try {
-      data.actions = await enrichRestV2CatalogActions(data.actions);
-    } catch (e) {
-      console.error('[getbilet] enrich catalog:', e instanceof Error ? e.message : e);
-    }
-    try {
-      data.actions = await mergePinnedCatalogCacheIntoActions(Array.isArray(data.actions) ? data.actions : []);
-    } catch (e) {
-      console.error('[getbilet] merge pinned catalog:', e instanceof Error ? e.message : e);
-    }
+    data.actions = await enrichAndMergePublicCatalog(data.actions);
     if (!Array.isArray(data.actions) || data.actions.length === 0) {
       try {
         const fromDb = await loadCatalogActionsFromDatabase();
         if (Array.isArray(fromDb) && fromDb.length > 0) {
-          data.actions = fromDb;
+          data.actions = finalizePublicStorefrontActions(fromDb);
           data.fromDatabaseBecauseLiveEmpty = true;
         }
       } catch (e) {

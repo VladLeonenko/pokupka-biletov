@@ -118,6 +118,7 @@ const MIGRATION_FILES = [
   '077_ticket_checkout_internal_product.sql',
   '078_getbilet_events_description_pack_json.sql',
   '079_getbilet_events_venue_card_manual.sql',
+  '080_getbilet_events_storefront_hidden.sql',
 ];
 
 async function applyMigration(filename) {
