@@ -127,3 +127,7 @@ body[data-tickets='true'] [role='button'] {
     background 0.2s ease,
     border-color 0.2s ease;
 }
+
+body.ticket-cart-bar-visible[data-tickets='true'] {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}

@@ -25,6 +25,8 @@ import { useCursor } from '@/hooks/useCursor';
 import { usePageAnimations } from '@/hooks/usePageAnimations';
 import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
 import { RouteSeoDefaults } from '@/components/common/RouteSeoDefaults';
+import { TicketCartProvider } from '@/context/TicketCartContext';
+import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
 
 export default function App() {
   const location = useLocation();
@@ -94,6 +96,7 @@ export default function App() {
 
   return (
     <ThemeModeProvider>
+      <TicketCartProvider>
       <ToastProvider>
         <RouteSeoDefaults />
         {/* Глобальное отслеживание уведомлений и обновление фавиконки */}
@@ -127,6 +130,7 @@ export default function App() {
             <GlobalFormValidator />
             <AppRoutes />
             {useTicketsChrome ? <TicketsFooter /> : <Footer />}
+            {useTicketsChrome ? <TicketCartStickyBar /> : null}
             {/* HeaderFooterInjector для legacy HTML страниц (PublicPageView) */}
             <HeaderFooterInjector />
             {/* Виджеты чата — lazy load, не блокируют первый рендер */}
@@ -138,6 +142,7 @@ export default function App() {
           </>
         )}
       </ToastProvider>
+      </TicketCartProvider>
     </ThemeModeProvider>
   );
 }

@@ -1,0 +1,44 @@
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.18);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 599px) {
+  .bar {
+    flex-wrap: wrap;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

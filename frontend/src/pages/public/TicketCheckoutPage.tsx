@@ -8,7 +8,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Accordion,
@@ -65,11 +65,6 @@ const TicketHallInteractiveBlock = lazy(() =>
     default: m.TicketHallInteractiveBlock,
   })),
 );
-const TicketPurchaseDialog = lazy(() =>
-  import('@/components/tickets/TicketPurchaseDialog').then((m) => ({
-    default: m.TicketPurchaseDialog,
-  })),
-);
 const TicketCheckoutPageExtras = lazy(() =>
   import('@/components/tickets/TicketCheckoutPageExtras').then((m) => ({
     default: m.TicketCheckoutPageExtras,
@@ -82,6 +77,7 @@ import {
 import { slugify } from '@/utils/slugify';
 import { submitForm } from '@/services/cmsApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
+import { useTicketCart } from '@/context/TicketCartContext';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -239,7 +235,9 @@ export function TicketCheckoutPage() {
     slug?: string;
   }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const { cart, purchaseOpen, setCart, clearCart, setPurchaseOpen, setBarSuppressed } = useTicketCart();
   const routeKey = legacyRepertoireId || eventSlug;
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
@@ -498,7 +496,6 @@ export function TicketCheckoutPage() {
   const [offerId, setOfferId] = useState<string | null>(null);
   const [seats, setSeats] = useState<string[]>([]);
   const [mapSelectedSeats, setMapSelectedSeats] = useState<HallSelectedSeat[]>([]);
-  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [ticketRequest, setTicketRequest] = useState({
     name: '',
     phone: '',
@@ -515,11 +512,17 @@ export function TicketCheckoutPage() {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
 
+  const prevSessionKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    setOfferId(null);
-    setSeats([]);
-    setMapSelectedSeats([]);
-  }, [selectedSessionKey]);
+    if (selectedSessionKey === null) return;
+    if (prevSessionKeyRef.current !== null && prevSessionKeyRef.current !== selectedSessionKey) {
+      setOfferId(null);
+      setSeats([]);
+      setMapSelectedSeats([]);
+      clearCart();
+    }
+    prevSessionKeyRef.current = selectedSessionKey;
+  }, [selectedSessionKey, clearCart]);
 
   useEffect(() => {
     ensurePublicSessionForCheckout().catch(() => {});
@@ -668,6 +671,73 @@ export function TicketCheckoutPage() {
     () => heroSublineWithoutDuplicateVenue(heroSublineDisplay, mergedVenue),
     [heroSublineDisplay, mergedVenue],
   );
+
+  const ticketHref = `${location.pathname}${location.search}`;
+  const cartRestoreRef = useRef(false);
+
+  useEffect(() => {
+    cartRestoreRef.current = false;
+  }, [repertoireId]);
+
+  useEffect(() => {
+    setBarSuppressed(mapDialogOpen);
+    return () => setBarSuppressed(false);
+  }, [mapDialogOpen, setBarSuppressed]);
+
+  useEffect(() => {
+    if (!repertoireId || cartRestoreRef.current) return;
+    if (cart?.repertoireId === repertoireId && cart.seats.length > 0) {
+      setOfferId(cart.offerId);
+      setSeats(cart.seats);
+      setMapSelectedSeats(cart.mapSelectedSeats ?? []);
+      cartRestoreRef.current = true;
+    }
+  }, [repertoireId, cart]);
+
+  useEffect(() => {
+    if (cart !== null) return;
+    if (!offerId && seats.length === 0 && mapSelectedSeats.length === 0) return;
+    setOfferId(null);
+    setSeats([]);
+    setMapSelectedSeats([]);
+    setPurchaseOpen(false);
+  }, [cart, offerId, seats.length, mapSelectedSeats.length, setPurchaseOpen]);
+
+  useEffect(() => {
+    if (!repertoireId || !offerId || purchaseSeats.length === 0) return;
+    setCart({
+      repertoireId,
+      offerId,
+      seats: purchaseSeats,
+      mapSelectedSeats,
+      eventTitle: displayTitle,
+      baseTotalRub,
+      sessionLabel: purchaseSessionLabel,
+      seatLabels: purchaseSeatLabels,
+      mapOfferSelections: mapOfferSelections.length > 0 ? mapOfferSelections : undefined,
+      descriptionLead:
+        heroLeadDisplay ??
+        (mergedVenue
+          ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
+          : null),
+      ticketHref,
+    });
+  }, [
+    repertoireId,
+    offerId,
+    purchaseSeats,
+    mapSelectedSeats,
+    displayTitle,
+    baseTotalRub,
+    purchaseSessionLabel,
+    purchaseSeatLabels,
+    mapOfferSelections,
+    heroLeadDisplay,
+    mergedVenue,
+    mergedVenueAddress,
+    ticketHref,
+    setCart,
+  ]);
 
   const coverUrl = useMemo(() => {
     return ctx?.bannerUrl || ctx?.posterUrl || bannerQ || posterQ || null;
@@ -845,7 +915,8 @@ export function TicketCheckoutPage() {
     setSeats([]);
     setMapSelectedSeats([]);
     setPurchaseOpen(false);
-  }, []);
+    clearCart();
+  }, [clearCart, setPurchaseOpen]);
 
   const navigateToPlacesList = useCallback(() => {
     setMapDialogOpen(false);
@@ -1482,41 +1553,6 @@ export function TicketCheckoutPage() {
               </AccordionDetails>
             </Accordion>
           )}
-
-          {offerId && purchaseSeats.length > 0 && !mapDialogOpen && (
-            <Paper className={styles.stickyBar} elevation={3}>
-              <Typography variant="body2">
-                Выбрано мест:{' '}
-                {purchaseSeatLabels?.length ? purchaseSeatLabels.join('; ') : purchaseSeats.join(', ')}
-              </Typography>
-              <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
-                Забронировать {baseTotalRub > 0 ? `за ${baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
-              </Button>
-            </Paper>
-          )}
-
-          {purchaseOpen ? (
-            <Suspense fallback={null}>
-              <TicketPurchaseDialog
-                open={purchaseOpen}
-                onClose={() => setPurchaseOpen(false)}
-                repertoireId={repertoireId}
-                offerId={offerId ?? ''}
-                seats={purchaseSeats}
-                offerSelections={mapOfferSelections.length > 0 ? mapOfferSelections : undefined}
-                seatLabels={purchaseSeatLabels}
-                eventTitle={displayTitle}
-                baseTotalRub={baseTotalRub}
-                sessionLabel={purchaseSessionLabel}
-                descriptionLead={
-                  heroLeadDisplay ??
-                  (mergedVenue
-                    ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
-                    : null)
-                }
-              />
-            </Suspense>
-          ) : null}
 
           <Suspense fallback={null}>
             <TicketCheckoutPageExtras
