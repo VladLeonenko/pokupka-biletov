@@ -324,6 +324,17 @@ function normSectorLoose(s: string): string {
   return normToken(s.replace(/\([^)]*\)/g, ' '));
 }
 
+/** Код трибуны из GetBilet: «сектор c140» → c140, «C-235» → c235. */
+export function extractSectorCode(s: string): string | null {
+  let t = normToken(s).replace(/^сектор\s+/, '').replace(/^sector\s+/, '');
+  t = t.replace(/[-_\s]+/g, '');
+  const m = t.match(/^([a-z])(\d{1,4})$/i);
+  if (m) return `${m[1].toLowerCase()}${m[2]}`;
+  const embedded = normToken(s).match(/\b([a-z])\s*[-_]?\s*(\d{2,4})\b/i);
+  if (embedded) return `${embedded[1].toLowerCase()}${embedded[2]}`;
+  return null;
+}
+
 /**
  * Оценка совпадения сектора API со строкой сектора из SVG (обычно длиннее и точнее).
  * Выше = лучше. Старый boolean includes() давал ложные попадания между разными зонами зала.
@@ -332,6 +343,9 @@ export function sectorMatchScore(apiSector: string, svgSector: string): number {
   const a = normToken(apiSector);
   const b = normToken(svgSector);
   if (!a || !b) return 0;
+  const ca = extractSectorCode(apiSector);
+  const cb = extractSectorCode(svgSector);
+  if (ca && cb && ca === cb) return 88;
   if (a === b) return 100;
   const a2 = normSectorLoose(apiSector);
   const b2 = normSectorLoose(svgSector);

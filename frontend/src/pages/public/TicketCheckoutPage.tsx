@@ -50,6 +50,7 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import { getOfferSeatList, isSeatlessOfferRow } from '@/utils/ticketOfferSeats';
 import {
   type OfferFilterState,
   filterOffers,
@@ -103,6 +104,7 @@ type OfferRow = {
   address?: string;
   PlaceAddress?: string;
   placeAddress?: string;
+  Extra?: string[];
 };
 
 function firstVenueFromOffers(rows: OfferRow[]): string | null {
@@ -125,18 +127,6 @@ function firstAddressFromOffers(rows: OfferRow[]): string | null {
   return null;
 }
 
-function normalizeSeatList(row: OfferRow): string[] {
-  const sl = row.SeatList;
-  if (Array.isArray(sl)) return sl.map(String);
-  if (typeof sl === 'string' && sl.trim()) {
-    return sl
-      .split(/[,\s;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
 function parseOffers(raw: unknown): OfferRow[] {
   if (!raw || typeof raw !== 'object') return [];
   const o = raw as Record<string, unknown>;
@@ -145,7 +135,7 @@ function parseOffers(raw: unknown): OfferRow[] {
   return arr.map((row) => {
     if (!row || typeof row !== 'object') return row as OfferRow;
     const r = row as OfferRow;
-    return { ...r, SeatList: normalizeSeatList(r) };
+    return { ...r, SeatList: getOfferSeatList(r) };
   }) as OfferRow[];
 }
 
@@ -1500,7 +1490,8 @@ export function TicketCheckoutPage() {
                         const oid = String(row.Id ?? '');
                         const pk = priceKey(row);
                         const bg = colorForPrice(priceMap, pk);
-                        const seatList = Array.isArray(row.SeatList) ? row.SeatList.map(String) : [];
+                        const seatList = getOfferSeatList(row);
+                        const seatless = isSeatlessOfferRow(row);
                         const active = offerId === oid;
                         return (
                           <div key={oid} className={styles.offerBlock}>
@@ -1513,24 +1504,46 @@ export function TicketCheckoutPage() {
                               </span>
                             </div>
                             <div className={styles.seatRow}>
-                              {seatList.map((seat) => {
-                                const selected = active && seats.includes(seat);
-                                return (
-                                  <button
-                                    key={seat}
-                                    type="button"
-                                    className={`${styles.seatBtn} ${selected ? styles.seatBtnOn : ''}`}
-                                    style={{
-                                      borderColor: bg,
-                                      backgroundColor: selected ? bg : 'rgba(255,255,255,0.9)',
-                                      color: selected ? '#fff' : '#111',
-                                    }}
-                                    onClick={() => toggleSeat(oid, seat, seatList)}
-                                  >
-                                    {seat}
-                                  </button>
-                                );
-                              })}
+                              {seatless ? (
+                                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>
+                                  {row.Extra?.includes('именной билет')
+                                    ? 'Именной билет: в каталоге нет номеров мест — выберите соседние места на схеме зала.'
+                                    : 'Номера мест в выгрузке нет — выберите место на схеме зала.'}
+                                  {hallSvg ? (
+                                    <>
+                                      {' '}
+                                      <Button
+                                        type="button"
+                                        size="small"
+                                        variant="text"
+                                        sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline' }}
+                                        onClick={() => setMapDialogOpen(true)}
+                                      >
+                                        Открыть схему
+                                      </Button>
+                                    </>
+                                  ) : null}
+                                </Typography>
+                              ) : (
+                                seatList.map((seat) => {
+                                  const selected = active && seats.includes(seat);
+                                  return (
+                                    <button
+                                      key={seat}
+                                      type="button"
+                                      className={`${styles.seatBtn} ${selected ? styles.seatBtnOn : ''}`}
+                                      style={{
+                                        borderColor: bg,
+                                        backgroundColor: selected ? bg : 'rgba(255,255,255,0.9)',
+                                        color: selected ? '#fff' : '#111',
+                                      }}
+                                      onClick={() => toggleSeat(oid, seat, seatList)}
+                                    >
+                                      {seat}
+                                    </button>
+                                  );
+                                })
+                              )}
                             </div>
                           </div>
                         );
@@ -1558,9 +1571,8 @@ export function TicketCheckoutPage() {
             <TicketCheckoutPageExtras
               repertoireId={repertoireId}
               displayTitle={displayTitle}
-              descriptionSnippet={ctx?.descriptionSnippet}
-              descriptionSections={ctx?.descriptionSections}
-              venueLabel={mergedVenue}
+            descriptionSnippet={ctx?.descriptionSnippet}
+            venueLabel={mergedVenue}
               venueAddress={mergedVenueAddress}
               hasDescriptionInHero={Boolean(heroLeadDisplay?.trim())}
             />

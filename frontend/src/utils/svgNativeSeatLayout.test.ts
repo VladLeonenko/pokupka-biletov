@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSvgNativePlacements,
+  extractSectorCode,
   matchSvgSeatToOffer,
   parseLayoutSeatPositions,
   parsePreferLayoutSeatPositions,
@@ -12,6 +13,12 @@ describe('svgNativeSeatLayout', () => {
     expect(sectorMatchScore('Партер', 'Партер центральный')).toBeGreaterThan(0);
     expect(sectorMatchScore('Балкон левый', 'Партер центральный')).toBe(0);
     expect(sectorMatchScore('Партер центральный', 'Партер центральный')).toBe(100);
+  });
+
+  it('extractSectorCode and sector c140 vs svg c140', () => {
+    expect(extractSectorCode('сектор c140')).toBe('c140');
+    expect(extractSectorCode('C140')).toBe('c140');
+    expect(sectorMatchScore('сектор c140', 'c140')).toBe(88);
   });
 
   it('matchSvgSeatToOffer picks best sector among row+seat collisions', () => {
