@@ -56,15 +56,25 @@ fi
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""
 echo "📦 Сборка frontend..."
-cd "$PROJECT_ROOT/frontend"
-npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit
-: "${NODE_OPTIONS:=--max-old-space-size=4096}"
-export NODE_OPTIONS
-npm run build
-# Google Search Console (файл не храним в git — dist пересобирается на каждом деплое)
-printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
-chown -R www-data:www-data dist 2>/dev/null || true
-echo "✅ Frontend собран"
+FRONTEND_OK=1
+(
+  cd "$PROJECT_ROOT/frontend"
+  # На VPS часто NODE_ENV=production → npm ci без devDependencies → vite: not found
+  unset NODE_ENV
+  export NPM_CONFIG_PRODUCTION=false
+  npm ci --include=dev --prefer-offline --no-audit 2>/dev/null \
+    || npm install --include=dev --no-audit
+  : "${NODE_OPTIONS:=--max-old-space-size=4096}"
+  export NODE_OPTIONS
+  npm run build
+  printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
+  chown -R www-data:www-data dist 2>/dev/null || true
+) || FRONTEND_OK=0
+if [ "$FRONTEND_OK" = 1 ]; then
+  echo "✅ Frontend собран"
+else
+  echo "⚠️ Frontend не собран (vite/npm) — backend и pm2 всё равно обновим; пересоберите фронт вручную"
+fi
 
 # Backend
 echo ""
@@ -80,6 +90,11 @@ fi
 if [ -f "scripts/ensure-getbilet-stage-maps-columns.js" ]; then
   echo "🎭 Колонки getbilet_stage_maps (если миграция 074 не доехала)..."
   node scripts/ensure-getbilet-stage-maps-columns.js 2>/dev/null || true
+fi
+
+if [ -f "scripts/ensure-getbilet-storefront-hidden-column.js" ]; then
+  echo "🎫 Колонка getbilet_events.storefront_hidden..."
+  node scripts/ensure-getbilet-storefront-hidden-column.js 2>/dev/null || true
 fi
 
 if [ -f "scripts/apply-ticket-migrations.js" ]; then

@@ -342,19 +342,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.stickyBar {
-  position: sticky;
-  bottom: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-top: 24px;
-  border-radius: 12px;
-}
-
 .ticketRequestCard {
   padding: clamp(18px, 3vw, 28px);
   margin: 18px 0 24px;

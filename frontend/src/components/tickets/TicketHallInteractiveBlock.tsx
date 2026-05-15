@@ -329,6 +329,8 @@ type Props = {
   variant?: 'page' | 'dialog';
   /** «К списку мест»: закрыть схему и прокрутить к блоку фильтров */
   onNavigateToList?: () => void;
+  /** Глобальная плашка корзины вместо встроенной selectionBar */
+  hideSelectionBar?: boolean;
 };
 
 /**
@@ -353,6 +355,7 @@ export function TicketHallInteractiveBlock({
   onSelectionChange,
   reservePending = false,
   variant = 'page',
+  hideSelectionBar = false,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -1462,7 +1465,7 @@ export function TicketHallInteractiveBlock({
               </div>
             </div>
           ) : null}
-          {selectedSeatDetails.length > 0 ? (
+          {selectedSeatDetails.length > 0 && !hideSelectionBar ? (
             <div className={styles.selectionBar}>
               {onClearSelection ? (
                 <IconButton

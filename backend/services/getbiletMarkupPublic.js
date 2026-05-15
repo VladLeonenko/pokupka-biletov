@@ -29,6 +29,31 @@ export function applyGetbiletMarkupToSupplierUnit(supplierRub, rule) {
 }
 
 /**
+ * @param {unknown} row
+ * @returns {GetbiletMarkupRule | null}
+ */
+function rowToMarkupRule(row) {
+  if (!row || typeof row !== 'object') return null;
+  const kind = row.markup_kind === 'fixed' ? 'fixed' : 'percent';
+  const val = Number(row.markup_value);
+  if (!Number.isFinite(val) || val < 0) return null;
+  return { markup_kind: kind, markup_value: val };
+}
+
+/**
+ * @returns {Promise<GetbiletMarkupRule | null>}
+ */
+async function getGlobalMarkupRuleOnly() {
+  const r = await ticketPool.query(
+    `SELECT markup_kind::text AS markup_kind, markup_value::numeric AS markup_value
+     FROM getbilet_markup_rules
+     WHERE scope = 'global'
+     LIMIT 1`,
+  );
+  return rowToMarkupRule(r.rows[0]);
+}
+
+/**
  * @param {string} repertoireId
  * @returns {Promise<GetbiletMarkupRule | null>}
  */
@@ -72,15 +97,22 @@ export async function getGetbiletMarkupRuleForRepertoire(repertoireId) {
        LIMIT 1`,
       [rid],
     );
-    const row = r.rows[0];
-    if (!row) return null;
-    const kind = row.markup_kind === 'fixed' ? 'fixed' : 'percent';
-    const val = Number(row.markup_value);
-    if (!Number.isFinite(val) || val < 0) return null;
-    return { markup_kind: kind, markup_value: val };
+    return rowToMarkupRule(r.rows[0]);
   } catch (e) {
     if (e && typeof e === 'object' && 'code' in e && (e.code === '42P01' || e.code === '42703')) {
-      return null;
+      console.warn(
+        '[getbilet] markup: schema incomplete, fallback to global only:',
+        e.code,
+        e instanceof Error ? e.message : e,
+      );
+      try {
+        return await getGlobalMarkupRuleOnly();
+      } catch (e2) {
+        if (e2 && typeof e2 === 'object' && 'code' in e2 && (e2.code === '42P01' || e2.code === '42703')) {
+          return null;
+        }
+        throw e2;
+      }
     }
     throw e;
   }

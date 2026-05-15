@@ -28,9 +28,7 @@ export type TicketCartSnapshot = {
 type TicketCartContextValue = {
   cart: TicketCartSnapshot | null;
   purchaseOpen: boolean;
-  barSuppressed: boolean;
   setPurchaseOpen: (open: boolean) => void;
-  setBarSuppressed: (suppressed: boolean) => void;
   setCart: (next: TicketCartSnapshot | null) => void;
   clearCart: () => void;
 };
@@ -65,7 +63,6 @@ function writeStoredCart(cart: TicketCartSnapshot | null) {
 export function TicketCartProvider({ children }: { children: ReactNode }) {
   const [cart, setCartState] = useState<TicketCartSnapshot | null>(() => readStoredCart());
   const [purchaseOpen, setPurchaseOpen] = useState(false);
-  const [barSuppressed, setBarSuppressed] = useState(false);
 
   useEffect(() => {
     writeStoredCart(cart);
@@ -88,13 +85,11 @@ export function TicketCartProvider({ children }: { children: ReactNode }) {
     () => ({
       cart,
       purchaseOpen,
-      barSuppressed,
       setPurchaseOpen,
-      setBarSuppressed,
       setCart,
       clearCart,
     }),
-    [cart, purchaseOpen, barSuppressed, setCart, clearCart],
+    [cart, purchaseOpen, setCart, clearCart],
   );
 
   return <TicketCartContext.Provider value={value}>{children}</TicketCartContext.Provider>;

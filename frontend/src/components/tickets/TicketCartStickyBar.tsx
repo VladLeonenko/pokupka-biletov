@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Button, IconButton, Paper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -12,9 +13,10 @@ const TicketPurchaseDialog = lazy(() =>
 );
 
 export function TicketCartStickyBar() {
-  const { cart, purchaseOpen, barSuppressed, setPurchaseOpen, clearCart } = useTicketCart();
+  const { cart, purchaseOpen, setPurchaseOpen, clearCart } = useTicketCart();
 
-  if (!cart || cart.seats.length === 0 || barSuppressed) return null;
+  if (!cart || cart.seats.length === 0) return null;
+  if (typeof document === 'undefined') return null;
 
   const seatCount = cart.seats.length;
   const seatsLine =
@@ -22,32 +24,34 @@ export function TicketCartStickyBar() {
       ? cart.seatLabels.join('; ')
       : null;
 
-  return (
+  return createPortal(
     <>
-      <Paper className={styles.bar} elevation={8} component="div" role="region" aria-label="Выбранные места">
-        <div className={styles.main}>
-          <Typography variant="body2" className={styles.title}>
-            Выбрано мест: {seatCount}
-            {seatsLine ? ` · ${seatsLine}` : ''}
-          </Typography>
-          {cart.eventTitle ? (
-            <Typography variant="caption" color="text.secondary" className={styles.title} component="div">
-              <Link to={cart.ticketHref} style={{ color: 'inherit', textDecoration: 'underline' }}>
-                {cart.eventTitle}
-              </Link>
+      {!purchaseOpen ? (
+        <Paper className={styles.bar} elevation={8} component="div" role="region" aria-label="Выбранные места">
+          <div className={styles.main}>
+            <Typography variant="body2" className={styles.title}>
+              Выбрано мест: {seatCount}
+              {seatsLine ? ` · ${seatsLine}` : ''}
             </Typography>
-          ) : null}
-        </div>
-        <div className={styles.actions}>
-          <IconButton size="small" aria-label="Закрыть" onClick={clearCart}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-          <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
-            Забронировать
-            {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
-          </Button>
-        </div>
-      </Paper>
+            {cart.eventTitle ? (
+              <Typography variant="caption" color="text.secondary" className={styles.title} component="div">
+                <Link to={cart.ticketHref} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                  {cart.eventTitle}
+                </Link>
+              </Typography>
+            ) : null}
+          </div>
+          <div className={styles.actions}>
+            <IconButton size="small" aria-label="Закрыть" onClick={clearCart}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+            <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
+              Забронировать
+              {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
+            </Button>
+          </div>
+        </Paper>
+      ) : null}
 
       {purchaseOpen ? (
         <Suspense fallback={null}>
@@ -66,6 +70,7 @@ export function TicketCartStickyBar() {
           />
         </Suspense>
       ) : null}
-    </>
+    </>,
+    document.body,
   );
 }
