@@ -133,7 +133,12 @@ function parseUniformHallSeatAppearance(layout: unknown): boolean {
 }
 
 /** Пока нет офферов GetBilet — отрисовать все места из layout_json серым (ориентир). */
-function parseGrayHallWhenNoOffers(layout: unknown, seatSelectionDisabled: boolean): boolean {
+function parseGrayHallWhenNoOffers(
+  layout: unknown,
+  seatSelectionDisabled: boolean,
+  hasLiveOffers: boolean,
+): boolean {
+  if (hasLiveOffers) return false;
   if (!layout || typeof layout !== 'object') return seatSelectionDisabled;
   const r = layout as Record<string, unknown>;
   if (r.grayHallWhenNoOffers === false) return false;
@@ -171,33 +176,15 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
   return { enabled: record.enabled === true && sectors.length > 0, sectors };
 }
 
-function normalizeSectorLabel(value: unknown): string {
-  return String(value ?? '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/ё/g, 'е')
-    .replace(/Ё/g, 'е')
-    .replace(/^сектор\s+/i, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
+import {
+  normalizeRowLabel,
+  normalizeSeatToken,
+  normalizeSectorLabel,
+  strictSeatKey,
+} from '@/utils/ticketHallSectorNormalize';
 
 function normalizeSimpleToken(value: unknown): string {
-  return String(value ?? '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/ё/g, 'е')
-    .replace(/Ё/g, 'е')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-function normalizeRowLabel(value: unknown): string {
-  return normalizeSimpleToken(String(value ?? '').replace(/ряд/gi, ' '));
-}
-
-function strictSeatKey(sector: unknown, row: unknown, seat: unknown): string {
-  return `${normalizeSectorLabel(sector)}|${normalizeRowLabel(row)}|${normalizeSimpleToken(seat)}`;
+  return normalizeSeatToken(value);
 }
 
 function selectionSeatKey(offerId: unknown, row: unknown, seat: unknown): string {
@@ -379,9 +366,10 @@ export function TicketHallInteractiveBlock({
   const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
   const sectorMode = useMemo(() => parseSectorMode(layoutJson), [layoutJson]);
   const seatSelectionDisabled = useMemo(() => parseSeatSelectionDisabled(layoutJson), [layoutJson]);
+  const hasLiveOffers = offers.length > 0;
   const grayHallWhenNoOffers = useMemo(
-    () => parseGrayHallWhenNoOffers(layoutJson, seatSelectionDisabled),
-    [layoutJson, seatSelectionDisabled],
+    () => parseGrayHallWhenNoOffers(layoutJson, seatSelectionDisabled, hasLiveOffers),
+    [layoutJson, seatSelectionDisabled, hasLiveOffers],
   );
   const uniformHallSeatAppearance = useMemo(
     () => parseUniformHallSeatAppearance(layoutJson),

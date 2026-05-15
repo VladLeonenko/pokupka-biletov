@@ -66,3 +66,28 @@ export async function loadLuzhnikiFootballStageMapRow() {
   );
   return r.rows[0] || null;
 }
+
+/**
+ * Живые офферы GetBilet: не «серый ориентир», а продажа по совпадению сектор/ряд/место.
+ * @param {Record<string, unknown> | null | undefined} row
+ */
+export function adaptLuzhnikiStageMapForLiveOffers(row) {
+  if (!row) return row;
+  let layout = row.layout_json;
+  if (typeof layout === 'string') {
+    try {
+      layout = JSON.parse(layout);
+    } catch {
+      layout = {};
+    }
+  }
+  if (!layout || typeof layout !== 'object') layout = {};
+  return {
+    ...row,
+    layout_json: {
+      ...layout,
+      grayHallWhenNoOffers: false,
+      seatSelectionDisabled: false,
+    },
+  };
+}

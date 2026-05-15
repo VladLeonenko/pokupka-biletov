@@ -14,11 +14,28 @@ import {
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 import {
+  adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
 
 const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
+
+async function hasLiveOffersInCache(repertoireId) {
+  const rid = String(repertoireId || '').trim();
+  if (!rid) return false;
+  try {
+    const r = await ticketPool.query(
+      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [rid],
+    );
+    const payload = r.rows[0]?.payload_json;
+    const rows = payload?.ResultData;
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function expandMediaTemplate(template, repertoireId) {
   if (!template?.trim()) return null;
@@ -472,7 +489,11 @@ export async function getRepertoirePublicContext(repertoireId) {
       )
     ) {
       const lzRow = await loadLuzhnikiFootballStageMapRow();
-      if (lzRow) stageMap = lzRow;
+      if (lzRow) {
+        stageMap = (await hasLiveOffersInCache(repertoireId))
+          ? adaptLuzhnikiStageMapForLiveOffers(lzRow)
+          : lzRow;
+      }
     }
   } catch {
     /* таблицы схем может не быть */
