@@ -1,7 +1,11 @@
 /**
  * Публичное применение наценки getbilet_markup_rules (event > group > global).
  */
+import mainPool from '../db.js';
 import ticketPool from '../ticketDb.js';
+
+/** @type {import('pg').Pool[]} */
+const markupPools = ticketPool === mainPool ? [ticketPool] : [ticketPool, mainPool];
 
 /**
  * @typedef {{ markup_kind: 'percent' | 'fixed'; markup_value: number }} GetbiletMarkupRule
@@ -41,10 +45,20 @@ function rowToMarkupRule(row) {
 }
 
 /**
+ * @param {import('pg').Pool} pool
+ * @param {string} sql
+ * @param {unknown[]} params
+ */
+async function poolQuery(pool, sql, params) {
+  return pool.query(sql, params);
+}
+
+/**
  * @returns {Promise<GetbiletMarkupRule | null>}
  */
-async function getGlobalMarkupRuleOnly() {
-  const r = await ticketPool.query(
+async function getGlobalMarkupRuleOnly(pool = ticketPool) {
+  const r = await poolQuery(
+    pool,
     `SELECT markup_kind::text AS markup_kind, markup_value::numeric AS markup_value
      FROM getbilet_markup_rules
      WHERE scope = 'global'
@@ -54,15 +68,14 @@ async function getGlobalMarkupRuleOnly() {
 }
 
 /**
+ * @param {import('pg').Pool} pool
  * @param {string} repertoireId
  * @returns {Promise<GetbiletMarkupRule | null>}
  */
-export async function getGetbiletMarkupRuleForRepertoire(repertoireId) {
-  const rid = typeof repertoireId === 'string' ? repertoireId.trim() : '';
-  if (!rid) return null;
-  try {
-    const r = await ticketPool.query(
-      `WITH ev AS (
+async function fetchMarkupRuleFromPool(pool, repertoireId) {
+  const r = await poolQuery(
+    pool,
+    `WITH ev AS (
          SELECT e.id AS event_id,
                 (SELECT gm.group_id FROM getbilet_event_group_members gm WHERE gm.event_id = e.id LIMIT 1) AS group_id
          FROM getbilet_events e
@@ -95,27 +108,65 @@ export async function getGetbiletMarkupRuleForRepertoire(repertoireId) {
        ) x
        ORDER BY prio DESC
        LIMIT 1`,
-      [rid],
-    );
-    return rowToMarkupRule(r.rows[0]);
-  } catch (e) {
-    if (e && typeof e === 'object' && 'code' in e && (e.code === '42P01' || e.code === '42703')) {
-      console.warn(
-        '[getbilet] markup: schema incomplete, fallback to global only:',
-        e.code,
-        e instanceof Error ? e.message : e,
-      );
-      try {
-        return await getGlobalMarkupRuleOnly();
-      } catch (e2) {
-        if (e2 && typeof e2 === 'object' && 'code' in e2 && (e2.code === '42P01' || e2.code === '42703')) {
-          return null;
+    [repertoireId],
+  );
+  return rowToMarkupRule(r.rows[0]);
+}
+
+/**
+ * @param {string} repertoireId
+ * @returns {Promise<GetbiletMarkupRule | null>}
+ */
+export async function getGetbiletMarkupRuleForRepertoire(repertoireId) {
+  const rid = typeof repertoireId === 'string' ? repertoireId.trim() : '';
+  if (!rid) return null;
+
+  for (let i = 0; i < markupPools.length; i++) {
+    const pool = markupPools[i];
+    try {
+      const rule = await fetchMarkupRuleFromPool(pool, rid);
+      if (rule) {
+        if (i > 0) {
+          console.warn('[getbilet] markup rule resolved from fallback DB pool');
         }
-        throw e2;
+        return rule;
       }
+    } catch (e) {
+      if (e && typeof e === 'object' && 'code' in e && (e.code === '42P01' || e.code === '42703')) {
+        console.warn(
+          '[getbilet] markup: schema incomplete on pool, try global only:',
+          e.code,
+          e instanceof Error ? e.message : e,
+        );
+        try {
+          const globalOnly = await getGlobalMarkupRuleOnly(pool);
+          if (globalOnly) {
+            if (i > 0) console.warn('[getbilet] markup global rule from fallback DB pool');
+            return globalOnly;
+          }
+        } catch (e2) {
+          if (!(e2 && typeof e2 === 'object' && 'code' in e2 && (e2.code === '42P01' || e2.code === '42703'))) {
+            throw e2;
+          }
+        }
+        continue;
+      }
+      throw e;
     }
-    throw e;
   }
+  return null;
+}
+
+/**
+ * Цена закупа из строки оффера GetBilet (AgentPrice — приоритет).
+ * @param {Record<string, unknown>} row
+ */
+export function resolveOfferSupplierRub(row) {
+  const agent = Number(row.AgentPrice ?? row.agentPrice);
+  const nominal = Number(row.NominalPrice ?? row.nominalPrice);
+  if (Number.isFinite(agent) && agent > 0) return agent;
+  if (Number.isFinite(nominal) && nominal > 0) return nominal;
+  return 0;
 }
 
 /**
@@ -125,7 +176,7 @@ export async function getGetbiletMarkupRuleForRepertoire(repertoireId) {
 function applyMarkupToOfferRow(row, rule) {
   if (!rule || !row || typeof row !== 'object') return row;
   const o = /** @type {Record<string, unknown>} */ ({ ...row });
-  const supplier = Number(o.AgentPrice ?? o.NominalPrice ?? o.agentPrice ?? o.nominalPrice ?? 0);
+  const supplier = resolveOfferSupplierRub(o);
   if (!Number.isFinite(supplier) || supplier < 0) return o;
   const retail = applyGetbiletMarkupToSupplierUnit(supplier, rule);
   const s = String(retail);

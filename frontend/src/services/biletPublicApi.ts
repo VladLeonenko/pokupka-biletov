@@ -640,7 +640,7 @@ export async function fetchRepertoireOffers(repertoireId: string): Promise<unkno
   const base = getApiBase();
   const res = await fetch(
     `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/offers`,
-    { headers: { Accept: 'application/json' } },
+    { headers: { Accept: 'application/json' }, cache: 'no-store' },
   );
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
@@ -749,7 +749,7 @@ export async function fetchRepertoirePageBundle(repertoireId: string): Promise<R
   const base = getApiBase();
   const res = await fetch(
     `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page`,
-    { headers: { Accept: 'application/json' } },
+    { headers: { Accept: 'application/json' }, cache: 'no-store' },
   );
   if (!res.ok) {
     const errText = await res.text().catch(() => '');

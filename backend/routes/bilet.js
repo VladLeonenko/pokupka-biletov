@@ -36,10 +36,8 @@ import {
   resolveRepertoireSlug,
 } from '../services/repertoirePublicContext.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
-import {
-  getOfferListByRepertoireIdCached,
-  invalidateOffersCache,
-} from '../services/getbiletOffersCache.js';
+import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
+import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import {
   applyGetbiletMarkupToOfferPayload,
   getGetbiletMarkupRuleForRepertoire,
@@ -191,12 +189,25 @@ function sendPublicJson(req, res, payload, opts = {}) {
   const maxAge = Number.isFinite(opts.cacheSeconds) ? opts.cacheSeconds : 60;
   const stale = Number.isFinite(opts.staleSeconds) ? opts.staleSeconds : 300;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=${stale}`);
-  res.setHeader('ETag', etag);
-  if (req.headers['if-none-match'] === etag) {
-    return res.status(304).end();
+  if (opts.noCache) {
+    res.setHeader('Cache-Control', 'private, no-store, must-revalidate');
+  } else {
+    res.setHeader('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=${stale}`);
+    res.setHeader('ETag', etag);
+    if (req.headers['if-none-match'] === etag) {
+      return res.status(304).end();
+    }
   }
   return res.send(body);
+}
+
+/** @param {import('express').Response} res @param {{ markup_kind: string; markup_value: number } | null} markupRule */
+function setMarkupResponseHeader(res, markupRule) {
+  if (markupRule) {
+    res.setHeader('X-Getbilet-Markup', `${markupRule.markup_kind}:${markupRule.markup_value}`);
+  } else {
+    res.setHeader('X-Getbilet-Markup', 'none');
+  }
 }
 
 function pickPublicString(row, keys) {
@@ -543,27 +554,27 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
     const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
     const [context, offersResult] = await Promise.all([
       getRepertoirePublicContext(repertoireId, { omitStageSvgMarkup: true, fastPath: true }),
-      getOfferListByRepertoireIdCached(repertoireId, { forceRefresh }).catch((e) => {
+      getPublicOffersForRepertoire(repertoireId, { forceRefresh }).catch((e) => {
         console.error('[getbilet] page offers:', repertoireId, e instanceof Error ? e.message : e);
         return {
-          data: { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] },
+          payload: { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] },
           meta: { cache: 'error' },
+          markupRule: null,
         };
       }),
     ]);
     if (offersResult.meta?.cache) {
       res.setHeader('X-Getbilet-Offers-Cache', offersResult.meta.cache);
     }
-    const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
-    const offers = applyGetbiletMarkupToOfferPayload(offersResult.data, markupRule);
+    setMarkupResponseHeader(res, offersResult.markupRule);
     return sendPublicJson(
       req,
       res,
       {
         context,
-        offers: normalizeGetbiletOfferListPayload(offers),
+        offers: normalizeGetbiletOfferListPayload(offersResult.payload),
       },
-      { cacheSeconds: 60, staleSeconds: 180 },
+      { noCache: true },
     );
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
@@ -618,24 +629,14 @@ router.get('/repertoire/:repertoireId/offers', async (req, res) => {
     }
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
     const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
-    const { data, meta } = await getOfferListByRepertoireIdCached(repertoireId, { forceRefresh });
+    const { payload, meta, markupRule } = await getPublicOffersForRepertoire(repertoireId, {
+      forceRefresh,
+    });
     if (meta.cache) {
       res.setHeader('X-Getbilet-Offers-Cache', meta.cache);
     }
-    const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
-    if (markupRule) {
-      res.setHeader(
-        'X-Getbilet-Markup',
-        `${markupRule.markup_kind}:${markupRule.markup_value}`,
-      );
-    } else {
-      res.setHeader('X-Getbilet-Markup', 'none');
-    }
-    const withMarkup = applyGetbiletMarkupToOfferPayload(data, markupRule);
-    return sendPublicJson(req, res, normalizeGetbiletOfferListPayload(withMarkup), {
-      cacheSeconds: 45,
-      staleSeconds: 120,
-    });
+    setMarkupResponseHeader(res, markupRule);
+    return sendPublicJson(req, res, normalizeGetbiletOfferListPayload(payload), { noCache: true });
   } catch (err) {
     return sendGetbiletError(err, res);
   }
@@ -920,8 +921,9 @@ router.post('/v2/GetOfferListByRepertoireId', async (req, res) => {
   try {
     assertRestV2();
     const rid = requireNonEmptyString(req.body?.RepertoireId ?? req.body?.repertoireId, 'RepertoireId');
-    const data = await restV2GetOfferListByRepertoireId(rid);
-    return res.json(data);
+    const { payload, markupRule } = await getPublicOffersForRepertoire(rid, { forceRefresh: true });
+    setMarkupResponseHeader(res, markupRule);
+    return res.json(payload);
   } catch (err) {
     return sendGetbiletError(err, res);
   }
@@ -943,8 +945,20 @@ router.post('/v2/GetOfferById', async (req, res) => {
   try {
     assertRestV2();
     const oid = requireNonEmptyString(req.body?.OfferId ?? req.body?.offerId, 'OfferId');
+    const repRaw = req.body?.RepertoireId ?? req.body?.repertoireId;
     const data = await restV2GetOfferById(oid);
-    return res.json(data);
+    const repertoireId =
+      typeof repRaw === 'string' && repRaw.trim()
+        ? repRaw.trim()
+        : typeof data?.ResultData === 'object' && data.ResultData && !Array.isArray(data.ResultData)
+          ? String(data.ResultData.RepertoireId ?? data.ResultData.repertoireId ?? '').trim()
+          : Array.isArray(data?.ResultData) && data.ResultData[0]
+            ? String(data.ResultData[0].RepertoireId ?? data.ResultData[0].repertoireId ?? '').trim()
+            : '';
+    const markupRule = repertoireId ? await getGetbiletMarkupRuleForRepertoire(repertoireId) : null;
+    const withMarkup = applyGetbiletMarkupToOfferPayload(data, markupRule);
+    setMarkupResponseHeader(res, markupRule);
+    return res.json(withMarkup);
   } catch (err) {
     return sendGetbiletError(err, res);
   }
