@@ -52,41 +52,11 @@ try {
     .map(tag => tag.match(/href="([^"]+)"/)?.[1])
     .filter(Boolean);
 
-  // Safari-совместимый bootstrap: динамическая загрузка скриптов
-  const preloadScript = preloadHrefs.length > 0
-    ? preloadHrefs.map(href => `    fetch('${href}');`).join('\n')
-    : '';
-
-  const bootstrapScript = `<script>
-(function() {
-  // Предзагружаем чанки
-${preloadScript}
-  // Загружаем основной бандл
-  var s = document.createElement('script');
-  s.type = 'module';
-  s.src = '${mainScriptSrc}';
-  s.onerror = function(e) {
-    console.error('Failed to load:', '${mainScriptSrc}', e);
-  };
-  document.head.appendChild(s);
-})();
-</script>`;
-
-  // Удаляем оригинальные modulepreload и script module теги
-  let newHtml = html
-    .replace(modulepreloadRegex, '')
-    .replace(/<script type="module"[^>]*src="[^"]*"[^>]*><\/script>/g, '');
-
-  // Вставляем bootstrap перед </head>
-  newHtml = newHtml.replace('</head>', `${bootstrapScript}\n</head>`);
-
-  // Убираем пустые строки подряд
-  newHtml = newHtml.replace(/\n{3,}/g, '\n\n');
-
-  fs.writeFileSync(indexPath, newHtml, 'utf-8');
-  console.log('[fix-index-html] ✅ Dynamic bootstrap created');
+  // Оставляем стандартный <script type="module"> из Vite — динамический bootstrap ломал загрузку SPA.
+  fs.writeFileSync(indexPath, html, 'utf-8');
+  console.log('[fix-index-html] ✅ index.html saved (module script preserved)');
   console.log('[fix-index-html] Main bundle:', mainScriptSrc);
-  console.log('[fix-index-html] Preloads:', preloadHrefs.length);
+  console.log('[fix-index-html] Preloads:', modulepreloads.length);
 
 } catch (error) {
   console.error('[fix-index-html] ❌ Error:', error.message);

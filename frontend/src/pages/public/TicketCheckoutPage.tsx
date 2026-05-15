@@ -236,7 +236,7 @@ export function TicketCheckoutPage() {
   const { data: resolvedSlugApi, isFetched: slugResolveFetched } = useQuery({
     queryKey: ['bilet-resolve-slug', routeSlug],
     queryFn: () => fetchBiletResolveSlug(routeSlug),
-    enabled: Boolean(routeSlug && !routeKeyIsId && !routeSlugIsManual),
+    enabled: Boolean(routeSlug && !routeKeyIsId),
     staleTime: 120_000,
     retry: 1,
   });
@@ -263,7 +263,6 @@ export function TicketCheckoutPage() {
     if (rk === DEMO_REPERTOIRE_ID) return rk;
     const fromSlug = eventRepId(resolvedEventFromSlug);
     if (fromSlug) return fromSlug;
-    if (looksLikeManualTicketRouteKey(rk)) return rk;
     return '';
   }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);
 
@@ -291,8 +290,9 @@ export function TicketCheckoutPage() {
     retry: 1,
   });
 
+  const slugResolving = Boolean(routeSlug && !routeKeyIsId && !slugResolveFetched);
   const ctx = pageBundle?.context;
-  const ctxLoading = pageLoading;
+  const ctxLoading = pageLoading || slugResolving;
   const ctxError = pageError;
   const raw = pageBundle?.offers;
   const isLoading = pageLoading;
@@ -959,7 +959,6 @@ export function TicketCheckoutPage() {
     if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
     if (legacyRepertoireId.trim() && legacySlug.trim()) return;
     if (routeSlug === DEMO_REPERTOIRE_ID) return;
-    if (routeSlugIsManual) return;
     if (!resolvedEventFromSlug) {
       navigate('/events', { replace: true });
     }
@@ -968,7 +967,6 @@ export function TicketCheckoutPage() {
     resolvedEventFromSlug,
     routeKeyIsId,
     routeSlug,
-    routeSlugIsManual,
     slugResolveFetched,
     legacyRepertoireId,
     legacySlug,

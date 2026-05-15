@@ -11,6 +11,19 @@ function isDemoRepertoireId(repertoireId) {
   return String(repertoireId || '').trim() === DEMO_REPERTOIRE_ID;
 }
 
+async function isDbManualRepertoireKey(repertoireId) {
+  if (!isManualRepertoireKey(repertoireId)) return false;
+  try {
+    const r = await ticketPool.query(
+      `SELECT 1 FROM getbilet_events WHERE getbilet_external_id = $1 LIMIT 1`,
+      [repertoireId],
+    );
+    return r.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function isOffersCacheOnlyRepertoire(repertoireId) {
   const rid = String(repertoireId || '').trim();
   if (!rid) return false;
@@ -65,6 +78,13 @@ async function upsert(repertoireId, data) {
  * @param {string} repertoireId
  */
 async function fetchUpsert(repertoireId) {
+  if (await isDbManualRepertoireKey(repertoireId)) {
+    const r = await ticketPool.query(
+      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [repertoireId],
+    );
+    return r.rows[0]?.payload_json ?? EMPTY_OFFERS;
+  }
   if (isDemoRepertoireId(repertoireId)) {
     const r = await ticketPool.query(
       `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
@@ -91,17 +111,27 @@ async function fetchUpsert(repertoireId) {
   const k = inflightKey(repertoireId);
   if (inflight.has(k)) return inflight.get(k);
   const p = (async () => {
-    const data = await restV2GetOfferListByRepertoireId(repertoireId);
     try {
-      await upsert(repertoireId, data);
+      const data = await restV2GetOfferListByRepertoireId(repertoireId);
+      try {
+        await upsert(repertoireId, data);
+      } catch (e) {
+        console.error(
+          '[getbilet] offers cache upsert failed (ответ GetBilet отдан без записи в БД):',
+          repertoireId,
+          e instanceof Error ? e.message : e
+        );
+      }
+      return data;
     } catch (e) {
-      console.error(
-        '[getbilet] offers cache upsert failed (ответ GetBilet отдан без записи в БД):',
-        repertoireId,
-        e instanceof Error ? e.message : e
+      console.error('[getbilet] offers live fetch failed:', repertoireId, e instanceof Error ? e.message : e);
+      const r = await ticketPool.query(
+        `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+        [repertoireId],
       );
+      if (r.rows[0]?.payload_json) return r.rows[0].payload_json;
+      return EMPTY_OFFERS;
     }
-    return data;
   })().finally(() => {
     inflight.delete(k);
   });
@@ -110,9 +140,11 @@ async function fetchUpsert(repertoireId) {
 }
 
 function scheduleBackgroundRefresh(repertoireId) {
-  if (isManualRepertoireKey(repertoireId)) return;
-  fetchUpsert(repertoireId).catch((e) => {
-    console.error('[getbilet] offers cache background refresh:', repertoireId, e instanceof Error ? e.message : e);
+  void isDbManualRepertoireKey(repertoireId).then((manual) => {
+    if (manual) return;
+    fetchUpsert(repertoireId).catch((e) => {
+      console.error('[getbilet] offers cache background refresh:', repertoireId, e instanceof Error ? e.message : e);
+    });
   });
 }
 
@@ -149,8 +181,20 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   }
 
   if (!cacheEnabled()) {
-    const data = await restV2GetOfferListByRepertoireId(repertoireId);
-    return { data, meta: { cache: 'bypass' } };
+    if (await isDbManualRepertoireKey(repertoireId)) {
+      const r = await ticketPool.query(
+        `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+        [repertoireId],
+      );
+      return { data: r.rows[0]?.payload_json ?? EMPTY_OFFERS, meta: { cache: 'manual_bypass' } };
+    }
+    try {
+      const data = await restV2GetOfferListByRepertoireId(repertoireId);
+      return { data, meta: { cache: 'bypass' } };
+    } catch (e) {
+      console.error('[getbilet] offers bypass failed:', repertoireId, e instanceof Error ? e.message : e);
+      return { data: EMPTY_OFFERS, meta: { cache: 'bypass_error' } };
+    }
   }
 
   let row;
@@ -169,7 +213,7 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   }
 
   if (forceRefresh) {
-    if (isManualRepertoireKey(repertoireId)) {
+    if (await isDbManualRepertoireKey(repertoireId)) {
       return { data: row?.payload_json ?? EMPTY_OFFERS, meta: { cache: 'manual_force' } };
     }
     const data = await fetchUpsert(repertoireId);
@@ -177,7 +221,7 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   }
 
   if (!row) {
-    if (isManualRepertoireKey(repertoireId)) {
+    if (await isDbManualRepertoireKey(repertoireId)) {
       return { data: EMPTY_OFFERS, meta: { cache: 'manual_miss' } };
     }
     const data = await fetchUpsert(repertoireId);
@@ -189,7 +233,7 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
     return { data: row.payload_json, meta: { cache: 'hit', ageMs } };
   }
 
-  if (isManualRepertoireKey(repertoireId)) {
+  if (await isDbManualRepertoireKey(repertoireId)) {
     return { data: row.payload_json, meta: { cache: 'manual_stale', ageMs } };
   }
 
