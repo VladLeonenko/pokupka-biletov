@@ -19,8 +19,35 @@ import {
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
 import { slugify } from '../utils/eventSlug.js';
+import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
+import {
+  buildProgrammaticHeroLead,
+  formatCatalogHintsSubline,
+  kickerExtraFromTitle,
+} from './eventTitleNarrative.js';
 
 const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
+
+/** @type {Map<string, { body: object, expiresAt: number }>} */
+const fastContextMem = new Map();
+const FAST_CTX_TTL_MS = parseInt(process.env.GETBILET_FAST_CONTEXT_CACHE_SEC || '120', 10) * 1000 || 120_000;
+
+function minimalDescriptionPack(title, manualText, catalogHints, kind, categoryLabel) {
+  const t = String(title || '').trim() || 'Мероприятие';
+  const manual = String(manualText || '').trim();
+  const lead =
+    manual.slice(0, 400) ||
+    buildProgrammaticHeroLead(t, kind, categoryLabel) ||
+    `Билеты на «${t}» — выбор мест и оплата онлайн.`;
+  return {
+    heroKicker: [categoryLabel, kickerExtraFromTitle(t)].filter(Boolean).join(' · ') || null,
+    heroSubline: formatCatalogHintsSubline(catalogHints) || null,
+    heroLead: lead,
+    eventMeta: [],
+    sections: [],
+    totalChars: lead.length,
+  };
+}
 
 async function hasLiveOffersInCache(repertoireId) {
   const rid = String(repertoireId || '').trim();
@@ -402,9 +429,19 @@ export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
  */
 /**
  * @param {string} repertoireId
- * @param {{ omitStageSvgMarkup?: boolean }} [opts] — для /page: SVG схемы отдельным GET /stage/.../map
+ * @param {{ omitStageSvgMarkup?: boolean; fastPath?: boolean; includeDescriptionSections?: boolean }} [opts]
  */
 export async function getRepertoirePublicContext(repertoireId, opts = {}) {
+  const fastPath = opts.fastPath !== false;
+  const includeSections = opts.includeDescriptionSections === true;
+  const cacheKey = `${repertoireId}|svg:${opts.omitStageSvgMarkup ? 1 : 0}|sec:${includeSections ? 1 : 0}`;
+  if (fastPath) {
+    const hit = fastContextMem.get(cacheKey);
+    if (hit && Date.now() < hit.expiresAt) {
+      return hit.body;
+    }
+  }
+
   const base = await loadRepertoireBase(repertoireId);
 
   const {
@@ -460,13 +497,17 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       ? stageMap.title.trim()
       : null;
 
-  const placeFromMaps = await resolvePlaceFromGetbiletMaps(payload, stageId);
   const manualVenue =
     base.venueManual != null && String(base.venueManual).trim() ? String(base.venueManual).trim() : null;
   const manualAddress =
     base.venueAddressManual != null && String(base.venueAddressManual).trim()
       ? String(base.venueAddressManual).trim()
       : null;
+  let placeFromMaps = { venue: null, address: null };
+  if (!fastPath) {
+    placeFromMaps = await resolvePlaceFromGetbiletMaps(payload, stageId);
+  }
+
   let venueFromCatalogOrMaps = venueFromPayload || placeFromMaps.venue;
   if (manualVenue) venueFromCatalogOrMaps = manualVenue;
 
@@ -542,14 +583,23 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
 
   let descPack = descPackFromStoredJson(descriptionPackJson);
   if (!descPack) {
-    descPack = await buildEventDescriptionPackResolved({
-      title,
-      kind,
-      categoryLabel,
-      venueLabel: venueForRichText,
-      manualText: descriptionManual,
-      catalogHints,
-    });
+    if (fastPath) {
+      descPack = minimalDescriptionPack(title, descriptionManual, catalogHints, kind, categoryLabel);
+    } else {
+      descPack = await buildEventDescriptionPackResolved({
+        title,
+        kind,
+        categoryLabel,
+        venueLabel: venueForRichText,
+        manualText: descriptionManual,
+        catalogHints,
+      });
+    }
+  } else if (fastPath && !includeSections) {
+    descPack = {
+      ...descPack,
+      sections: [],
+    };
   }
 
   const leadPlain =
@@ -577,34 +627,56 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       ? { ...stageMap, svg_markup: null, svg_markup_deferred: true }
       : stageMap;
 
-  return {
+  const body = {
     repertoireId,
     stageId,
     title,
-    /** Площадка: каталог, вложенные поля, либо подпись схемы зала из админки. */
     venueLabel: venueResolved ?? null,
-    /** Адрес площадки (GetStageListByPlaceId / GetPlaceList / payload). */
     venueAddress: addressForUi,
     descriptionSnippet,
     heroKicker: descPack.heroKicker ?? null,
     heroSubline,
     heroLead: descPack.heroLead ?? null,
-    // Метаданные не выводим отдельной плашкой: важное (площадка) уже попадает в hero.
     eventMeta: [],
-    descriptionSections: descPack.sections,
-    descriptionTotalChars: descPack.totalChars,
+    descriptionSections: includeSections ? descPack.sections : [],
+    descriptionTotalChars: includeSections ? descPack.totalChars : (descPack.heroLead?.length ?? 0),
     posterUrl,
     bannerUrl,
     stageMap: stageMapForClient,
     externalPlanUrl,
   };
+
+  if (fastPath && FAST_CTX_TTL_MS > 0) {
+    fastContextMem.set(cacheKey, { body, expiresAt: Date.now() + FAST_CTX_TTL_MS });
+  }
+
+  return body;
 }
 
-function isManualTicketRouteKey(s) {
-  const t = String(s || '').trim();
-  if (t.length < 8 || t.length > 130) return false;
-  if (/^[a-f0-9]{24}$/i.test(t)) return false;
-  return /^[a-z0-9][a-z0-9-]*$/i.test(t) && t.includes('-');
+/** Полные секции «О событии» — отдельным запросом после shell. */
+export async function getRepertoireDescriptionSections(repertoireId) {
+  const base = await loadRepertoireBase(repertoireId);
+  const { title, descriptionManual, descriptionPackJson, genreFromPayload, catalogHints } = base;
+  const venueFromPayload = extractParentVenueFromRow(base.payload) ?? null;
+  const { kind, categoryLabel } = classifyEventTitle(title, {
+    subtitle: descriptionManual || '',
+    genre: genreFromPayload || '',
+  });
+  let descPack = descPackFromStoredJson(descriptionPackJson);
+  if (!descPack) {
+    descPack = await buildEventDescriptionPackResolved({
+      title,
+      kind,
+      categoryLabel,
+      venueLabel: venueFromPayload,
+      manualText: descriptionManual,
+      catalogHints,
+    });
+  }
+  return {
+    sections: descPack.sections ?? [],
+    totalChars: descPack.totalChars ?? 0,
+  };
 }
 
 /**
@@ -616,7 +688,7 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
   const target = String(slug || '').trim().toLowerCase();
   if (!target) return null;
 
-  if (isManualTicketRouteKey(target)) {
+  if (isManualRepertoireKey(target)) {
     try {
       const base = await loadRepertoireBase(target);
       if (base.hasCatalogRow || base.eventRowId != null) {

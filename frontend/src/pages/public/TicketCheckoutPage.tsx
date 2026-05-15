@@ -227,7 +227,7 @@ export function TicketCheckoutPage() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, purchaseOpen, setCart, clearCart, setPurchaseOpen, setBarSuppressed } = useTicketCart();
+  const { cart, purchaseOpen, setCart, clearCart, setPurchaseOpen } = useTicketCart();
   const routeKey = legacyRepertoireId || eventSlug;
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
@@ -668,11 +668,6 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     cartRestoreRef.current = false;
   }, [repertoireId]);
-
-  useEffect(() => {
-    setBarSuppressed(mapDialogOpen);
-    return () => setBarSuppressed(false);
-  }, [mapDialogOpen, setBarSuppressed]);
 
   useEffect(() => {
     if (!repertoireId || cartRestoreRef.current) return;
@@ -1267,6 +1262,7 @@ export function TicketCheckoutPage() {
                 onSelectionChange={handleMapSelectionChange}
                 reservePending={false}
                 onNavigateToList={navigateToPlacesList}
+                hideSelectionBar
               />
               </Suspense>
             </Paper>
@@ -1679,6 +1675,7 @@ export function TicketCheckoutPage() {
                     onSelectionChange={handleMapSelectionChange}
                     reservePending={false}
                     onNavigateToList={navigateToPlacesList}
+                    hideSelectionBar
                   />
                 </Suspense>
               </Box>

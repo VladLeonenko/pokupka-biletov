@@ -665,7 +665,10 @@ async function generateSeoTags(url) {
         const secondSeg = m[2] ? decodeURIComponent(m[2]).trim() : '';
         const repId = looksLikeGetbiletId(firstSeg) ? firstSeg : '';
         const routeSlug = repId ? secondSeg : firstSeg;
-        const ctx = repId ? await getRepertoireContext(repId) : null;
+        const ctxKey = repId || routeSlug;
+        const ctx = ctxKey
+          ? await getRepertoireContext(ctxKey, { fastPath: true, omitStageSvgMarkup: true })
+          : null;
         const canonicalPath = routeSlug
           ? `/ticket/${encodeURIComponent(routeSlug)}`
           : repId

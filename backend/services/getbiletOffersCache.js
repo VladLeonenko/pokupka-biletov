@@ -2,6 +2,7 @@
  * Кэш GetOfferListByRepertoireId в PostgreSQL: быстрый ответ с диска + фоновое обновление (SWR).
  */
 import ticketPool from '../ticketDb.js';
+import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
 import { restV2GetOfferListByRepertoireId } from './getbiletRestV2.js';
 
 const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
@@ -109,10 +110,13 @@ async function fetchUpsert(repertoireId) {
 }
 
 function scheduleBackgroundRefresh(repertoireId) {
+  if (isManualRepertoireKey(repertoireId)) return;
   fetchUpsert(repertoireId).catch((e) => {
     console.error('[getbilet] offers cache background refresh:', repertoireId, e instanceof Error ? e.message : e);
   });
 }
+
+const EMPTY_OFFERS = { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] };
 
 /**
  * @param {string} repertoireId
@@ -165,11 +169,17 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   }
 
   if (forceRefresh) {
+    if (isManualRepertoireKey(repertoireId)) {
+      return { data: row?.payload_json ?? EMPTY_OFFERS, meta: { cache: 'manual_force' } };
+    }
     const data = await fetchUpsert(repertoireId);
     return { data, meta: { cache: 'force' } };
   }
 
   if (!row) {
+    if (isManualRepertoireKey(repertoireId)) {
+      return { data: EMPTY_OFFERS, meta: { cache: 'manual_miss' } };
+    }
     const data = await fetchUpsert(repertoireId);
     return { data, meta: { cache: 'miss' } };
   }
@@ -177,6 +187,10 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   const ageMs = Date.now() - new Date(row.fetched_at).getTime();
   if (ageMs < softTtlMs()) {
     return { data: row.payload_json, meta: { cache: 'hit', ageMs } };
+  }
+
+  if (isManualRepertoireKey(repertoireId)) {
+    return { data: row.payload_json, meta: { cache: 'manual_stale', ageMs } };
   }
 
   scheduleBackgroundRefresh(repertoireId);

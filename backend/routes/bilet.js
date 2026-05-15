@@ -32,6 +32,7 @@ import {
 import { filterUpcomingCatalogActions } from '../services/getbiletPublicCatalogFilter.js';
 import {
   getRepertoirePublicContext,
+  getRepertoireDescriptionSections,
   resolveRepertoireSlug,
 } from '../services/repertoirePublicContext.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
@@ -541,8 +542,14 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
     const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
     const [context, offersResult] = await Promise.all([
-      getRepertoirePublicContext(repertoireId, { omitStageSvgMarkup: true }),
-      getOfferListByRepertoireIdCached(repertoireId, { forceRefresh }),
+      getRepertoirePublicContext(repertoireId, { omitStageSvgMarkup: true, fastPath: true }),
+      getOfferListByRepertoireIdCached(repertoireId, { forceRefresh }).catch((e) => {
+        console.error('[getbilet] page offers:', repertoireId, e instanceof Error ? e.message : e);
+        return {
+          data: { Success: true, Method: 'GetOfferListByRepertoireId', ResultData: [] },
+          meta: { cache: 'error' },
+        };
+      }),
     ]);
     if (offersResult.meta?.cache) {
       res.setHeader('X-Getbilet-Offers-Cache', offersResult.meta.cache);
@@ -573,7 +580,12 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
 router.get('/repertoire/:repertoireId/context', async (req, res) => {
   try {
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
-    const ctx = await getRepertoirePublicContext(repertoireId);
+    const full = req.query.full === '1';
+    const ctx = await getRepertoirePublicContext(repertoireId, {
+      fastPath: !full,
+      omitStageSvgMarkup: !full,
+      includeDescriptionSections: full,
+    });
     return sendPublicJson(req, res, ctx, { cacheSeconds: 60, staleSeconds: 180 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
@@ -582,6 +594,17 @@ router.get('/repertoire/:repertoireId/context', async (req, res) => {
         message: 'Таблица getbilet_catalog_cache не создана — выполните миграции и синхронизацию каталога',
       });
     }
+    return sendGetbiletError(err, res);
+  }
+});
+
+/** Длинное описание «О событии» — после быстрого shell (/context или /page). */
+router.get('/repertoire/:repertoireId/description-sections', async (req, res) => {
+  try {
+    const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
+    const payload = await getRepertoireDescriptionSections(repertoireId);
+    return sendPublicJson(req, res, payload, { cacheSeconds: 300, staleSeconds: 600 });
+  } catch (err) {
     return sendGetbiletError(err, res);
   }
 });

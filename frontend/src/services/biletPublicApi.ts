@@ -730,6 +730,21 @@ export type RepertoirePageBundle = {
 };
 
 /** Контекст + офферы одним запросом (страница /ticket). */
+export async function fetchRepertoireDescriptionSections(
+  repertoireId: string,
+): Promise<{ sections: RepertoireDescriptionSection[]; totalChars: number }> {
+  const base = getApiBase();
+  const res = await fetch(
+    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/description-sections`,
+    { headers: { Accept: 'application/json' } },
+  );
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<{ sections: RepertoireDescriptionSection[]; totalChars: number }>;
+}
+
 export async function fetchRepertoirePageBundle(repertoireId: string): Promise<RepertoirePageBundle> {
   const base = getApiBase();
   const res = await fetch(

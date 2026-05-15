@@ -6,11 +6,12 @@ import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import {
   fetchBiletEventsLite,
+  fetchRepertoireDescriptionSections,
   isEventActual,
   normalizeBiletEventsPayload,
   dedupeBiletEventsByShow,
 } from '@/services/biletPublicApi';
-import type { NormalizedBiletEvent, RepertoireDescriptionSection } from '@/services/biletPublicApi';
+import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { useTicketRecentRepertoires } from '@/hooks/useTicketRecentRepertoires';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
@@ -20,7 +21,6 @@ type Props = {
   repertoireId: string;
   displayTitle: string;
   descriptionSnippet: string | null | undefined;
-  descriptionSections?: RepertoireDescriptionSection[] | null;
   venueLabel: string | null;
   /** Адрес площадки (как в GetStageListByPlaceId). */
   venueAddress?: string | null;
@@ -41,7 +41,6 @@ export function TicketCheckoutPageExtras({
   repertoireId,
   displayTitle,
   descriptionSnippet,
-  descriptionSections,
   venueLabel,
   venueAddress,
   hasDescriptionInHero,
@@ -67,6 +66,13 @@ export function TicketCheckoutPageExtras({
     queryKey: ['bilet-events-lite', cityId, 'ticket-extras'],
     queryFn: () => fetchBiletEventsLite(120),
     staleTime: 120_000,
+    enabled: deferCatalog && Boolean(repertoireId),
+  });
+
+  const { data: descSectionsRes } = useQuery({
+    queryKey: ['bilet-description-sections', repertoireId],
+    queryFn: () => fetchRepertoireDescriptionSections(repertoireId),
+    staleTime: 300_000,
     enabled: deferCatalog && Boolean(repertoireId),
   });
 
@@ -102,7 +108,8 @@ export function TicketCheckoutPageExtras({
     );
   })();
 
-  const sections = descriptionSections?.filter((s) => s.title?.trim() && s.paragraphs?.length) ?? [];
+  const sections =
+    descSectionsRes?.sections?.filter((s) => s.title?.trim() && s.paragraphs?.length) ?? [];
 
   return (
     <div className={styles.root}>
