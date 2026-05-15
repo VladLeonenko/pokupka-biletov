@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Paper, Typography } from '@mui/material';
@@ -48,11 +48,26 @@ export function TicketCheckoutPageExtras({
 }: Props) {
   const recentIds = useTicketRecentRepertoires(repertoireId);
   const cityId = useTicketsCityId();
+  const [deferCatalog, setDeferCatalog] = useState(false);
+
+  useEffect(() => {
+    const win = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    const id = win.requestIdleCallback?.(() => setDeferCatalog(true), { timeout: 2500 })
+      ?? window.setTimeout(() => setDeferCatalog(true), 900);
+    return () => {
+      if (typeof id === 'number' && win.requestIdleCallback) {
+        window.cancelIdleCallback?.(id);
+      } else {
+        clearTimeout(id as ReturnType<typeof setTimeout>);
+      }
+    };
+  }, []);
 
   const { data: rawEvents } = useQuery({
-    queryKey: ['bilet-events-public', cityId],
-    queryFn: () => fetchBiletEventsLite(500),
+    queryKey: ['bilet-events-lite', cityId, 'ticket-extras'],
+    queryFn: () => fetchBiletEventsLite(120),
     staleTime: 120_000,
+    enabled: deferCatalog && Boolean(repertoireId),
   });
 
   const catalog = useMemo(

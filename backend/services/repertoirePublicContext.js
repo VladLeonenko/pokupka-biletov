@@ -18,6 +18,7 @@ import {
   loadLuzhnikiFootballStageMapRow,
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
+import { slugify } from '../utils/eventSlug.js';
 
 const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
 
@@ -399,7 +400,11 @@ export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
  *   };
  * }>}
  */
-export async function getRepertoirePublicContext(repertoireId) {
+/**
+ * @param {string} repertoireId
+ * @param {{ omitStageSvgMarkup?: boolean }} [opts] — для /page: SVG схемы отдельным GET /stage/.../map
+ */
+export async function getRepertoirePublicContext(repertoireId, opts = {}) {
   const base = await loadRepertoireBase(repertoireId);
 
   const {
@@ -566,6 +571,12 @@ export async function getRepertoirePublicContext(repertoireId) {
       ? stageMap.external_plan_url.trim()
       : null;
 
+  const omitSvg = opts.omitStageSvgMarkup === true;
+  const stageMapForClient =
+    omitSvg && stageMap && stageMap.svg_markup
+      ? { ...stageMap, svg_markup: null, svg_markup_deferred: true }
+      : stageMap;
+
   return {
     repertoireId,
     stageId,
@@ -584,7 +595,82 @@ export async function getRepertoirePublicContext(repertoireId) {
     descriptionTotalChars: descPack.totalChars,
     posterUrl,
     bannerUrl,
-    stageMap,
+    stageMap: stageMapForClient,
     externalPlanUrl,
+  };
+}
+
+function isManualTicketRouteKey(s) {
+  const t = String(s || '').trim();
+  if (t.length < 8 || t.length > 130) return false;
+  if (/^[a-f0-9]{24}$/i.test(t)) return false;
+  return /^[a-z0-9][a-z0-9-]*$/i.test(t) && t.includes('-');
+}
+
+/**
+ * ЧПУ или manual-key → repertoireId для /ticket/:slug.
+ * @param {string} slug
+ * @param {Record<string, unknown>[]} catalogCompact — из compactActions
+ */
+export async function resolveRepertoireSlug(slug, catalogCompact = []) {
+  const target = String(slug || '').trim().toLowerCase();
+  if (!target) return null;
+
+  if (isManualTicketRouteKey(target)) {
+    try {
+      const base = await loadRepertoireBase(target);
+      if (base.hasCatalogRow || base.eventRowId != null) {
+        const title =
+          (base.titleManual && String(base.titleManual).trim()) ||
+          pickFirst(base.payload, ['Name', 'name', 'actionName', 'title']) ||
+          target;
+        return {
+          repertoireId: target,
+          title,
+          stageId: base.stageId,
+          posterUrl:
+            (base.posterManual && String(base.posterManual).trim()) ||
+            (base.posterWeb && String(base.posterWeb).trim()) ||
+            null,
+          bannerUrl: (base.bannerManual && String(base.bannerManual).trim()) || null,
+          beginDateTime: pickFirst(base.payload, ['EventDateTime', 'beginDateTime', 'startDateTime']),
+        };
+      }
+    } catch {
+      /* нет каталога */
+    }
+  }
+
+  const matches = catalogCompact.filter((item) => {
+    if (!item) return false;
+    const title = String(item.title || '');
+    if (slugify(title) === target) return true;
+    const rep = String(item.repertoireId || '').trim();
+    if (rep && rep.toLowerCase() === target) return true;
+    const cardId = String(item.id || '').trim();
+    if (cardId && cardId.toLowerCase() === target) return true;
+    return false;
+  });
+  if (matches.length === 0) return null;
+  let hit = matches[0];
+  if (matches.length > 1) {
+    const now = Date.now();
+    const sorted = [...matches].sort((a, b) => {
+      const ta = Date.parse(String(a.startDateTime || a.beginDateTime || ''));
+      const tb = Date.parse(String(b.startDateTime || b.beginDateTime || ''));
+      return (Number.isFinite(ta) ? ta : 0) - (Number.isFinite(tb) ? tb : 0);
+    });
+    hit = sorted.find((ev) => {
+      const t = Date.parse(String(ev.startDateTime || ev.beginDateTime || ''));
+      return Number.isFinite(t) && t >= now;
+    }) || sorted[0];
+  }
+  return {
+    repertoireId: hit.repertoireId || hit.id,
+    title: hit.title,
+    stageId: hit.stageId || null,
+    posterUrl: hit.posterUrl || null,
+    bannerUrl: hit.bannerUrl || null,
+    beginDateTime: hit.beginDateTime || hit.startDateTime || null,
   };
 }

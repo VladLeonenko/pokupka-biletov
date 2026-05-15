@@ -30,7 +30,10 @@ import {
   mergePinnedCatalogCacheIntoActions,
 } from '../services/getbiletCatalogSync.js';
 import { filterUpcomingCatalogActions } from '../services/getbiletPublicCatalogFilter.js';
-import { getRepertoirePublicContext } from '../services/repertoirePublicContext.js';
+import {
+  getRepertoirePublicContext,
+  resolveRepertoireSlug,
+} from '../services/repertoirePublicContext.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import {
   getOfferListByRepertoireIdCached,
@@ -519,10 +522,48 @@ router.get('/stage/:stageId/map', async (req, res) => {
       [lookupKey]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'not_found' });
-    return res.json(r.rows[0]);
+    return sendPublicJson(req, res, r.rows[0], { cacheSeconds: 300, staleSeconds: 600 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({ error: 'schema', message: 'Таблица getbilet_stage_maps не создана — выполните миграции' });
+    }
+    return sendGetbiletError(err, res);
+  }
+});
+
+/** Контекст + офферы одним запросом (страница /ticket). SVG схемы — отдельно GET /stage/:id/map. */
+router.get('/repertoire/:repertoireId/page', async (req, res) => {
+  try {
+    const { protocol } = getGetbiletConfig();
+    if (protocol !== 'rest_v2') {
+      return res.status(501).json({ error: 'only_rest_v2', message: 'Нужен GETBILET_PROTOCOL=rest_v2' });
+    }
+    const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
+    const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
+    const [context, offersResult] = await Promise.all([
+      getRepertoirePublicContext(repertoireId, { omitStageSvgMarkup: true }),
+      getOfferListByRepertoireIdCached(repertoireId, { forceRefresh }),
+    ]);
+    if (offersResult.meta?.cache) {
+      res.setHeader('X-Getbilet-Offers-Cache', offersResult.meta.cache);
+    }
+    const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
+    const offers = applyGetbiletMarkupToOfferPayload(offersResult.data, markupRule);
+    return sendPublicJson(
+      req,
+      res,
+      {
+        context,
+        offers: normalizeGetbiletOfferListPayload(offers),
+      },
+      { cacheSeconds: 60, staleSeconds: 180 },
+    );
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Таблица getbilet_catalog_cache не создана — выполните миграции и синхронизацию каталога',
+      });
     }
     return sendGetbiletError(err, res);
   }
@@ -533,7 +574,7 @@ router.get('/repertoire/:repertoireId/context', async (req, res) => {
   try {
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
     const ctx = await getRepertoirePublicContext(repertoireId);
-    return res.json(ctx);
+    return sendPublicJson(req, res, ctx, { cacheSeconds: 60, staleSeconds: 180 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({
@@ -559,8 +600,19 @@ router.get('/repertoire/:repertoireId/offers', async (req, res) => {
       res.setHeader('X-Getbilet-Offers-Cache', meta.cache);
     }
     const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
+    if (markupRule) {
+      res.setHeader(
+        'X-Getbilet-Markup',
+        `${markupRule.markup_kind}:${markupRule.markup_value}`,
+      );
+    } else {
+      res.setHeader('X-Getbilet-Markup', 'none');
+    }
     const withMarkup = applyGetbiletMarkupToOfferPayload(data, markupRule);
-    return res.json(normalizeGetbiletOfferListPayload(withMarkup));
+    return sendPublicJson(req, res, normalizeGetbiletOfferListPayload(withMarkup), {
+      cacheSeconds: 45,
+      staleSeconds: 120,
+    });
   } catch (err) {
     return sendGetbiletError(err, res);
   }
@@ -641,29 +693,11 @@ router.get('/resolve-slug/:slug', async (req, res) => {
     }
     const { data } = await getOrLoadEventsPayloadForPublic(req);
     const actions = compactActions(data?.actions, 500);
-    const matches = actions.filter((item) => compactItemMatchesSlug(item, slug));
-    if (matches.length === 0) {
+    const hit = await resolveRepertoireSlug(slug, actions);
+    if (!hit) {
       return res.status(404).json({ error: 'not_found' });
     }
-    let hit = matches[0];
-    if (matches.length > 1) {
-      const now = Date.now();
-      const sorted = [...matches].sort((a, b) => eventStartMsFromCompact(a) - eventStartMsFromCompact(b));
-      hit = sorted.find((ev) => eventStartMsFromCompact(ev) >= now) || sorted[0];
-    }
-    return sendPublicJson(
-      req,
-      res,
-      {
-        repertoireId: hit.repertoireId || hit.id,
-        title: hit.title,
-        stageId: hit.stageId || null,
-        posterUrl: hit.posterUrl || null,
-        bannerUrl: hit.bannerUrl || null,
-        beginDateTime: hit.beginDateTime || hit.startDateTime || null,
-      },
-      { cacheSeconds: 120, staleSeconds: 600 },
-    );
+    return sendPublicJson(req, res, hit, { cacheSeconds: 120, staleSeconds: 600 });
   } catch (err) {
     return sendGetbiletError(err, res);
   }

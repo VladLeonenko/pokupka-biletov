@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -36,8 +45,7 @@ import { TicketEventPosterImg } from '@/components/tickets/TicketEventPosterImg'
 import {
   ensurePublicSessionForCheckout,
   fetchBiletResolveSlug,
-  fetchRepertoireContext,
-  fetchRepertoireOffers,
+  fetchRepertoirePageBundle,
   fetchStageMap,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
@@ -50,9 +58,23 @@ import {
   type ZoneFilterId,
   type OfferRowLike,
 } from '@/utils/ticketOfferFilters';
-import { TicketHallInteractiveBlock, type HallSelectedSeat } from '@/components/tickets/TicketHallInteractiveBlock';
-import { TicketPurchaseDialog } from '@/components/tickets/TicketPurchaseDialog';
-import { TicketCheckoutPageExtras } from '@/components/tickets/TicketCheckoutPageExtras';
+import type { HallSelectedSeat } from '@/components/tickets/TicketHallInteractiveBlock';
+
+const TicketHallInteractiveBlock = lazy(() =>
+  import('@/components/tickets/TicketHallInteractiveBlock').then((m) => ({
+    default: m.TicketHallInteractiveBlock,
+  })),
+);
+const TicketPurchaseDialog = lazy(() =>
+  import('@/components/tickets/TicketPurchaseDialog').then((m) => ({
+    default: m.TicketPurchaseDialog,
+  })),
+);
+const TicketCheckoutPageExtras = lazy(() =>
+  import('@/components/tickets/TicketCheckoutPageExtras').then((m) => ({
+    default: m.TicketCheckoutPageExtras,
+  })),
+);
 import {
   heroSublineWithoutDuplicateVenue,
   resolveHeroSublineForTicketPage,
@@ -221,11 +243,12 @@ export function TicketCheckoutPage() {
   const routeKey = legacyRepertoireId || eventSlug;
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
+  const routeSlugIsManual = looksLikeManualTicketRouteKey(routeSlug);
 
   const { data: resolvedSlugApi, isFetched: slugResolveFetched } = useQuery({
     queryKey: ['bilet-resolve-slug', routeSlug],
     queryFn: () => fetchBiletResolveSlug(routeSlug),
-    enabled: Boolean(routeSlug && !routeKeyIsId),
+    enabled: Boolean(routeSlug && !routeKeyIsId && !routeSlugIsManual),
     staleTime: 120_000,
     retry: 1,
   });
@@ -252,30 +275,48 @@ export function TicketCheckoutPage() {
     if (rk === DEMO_REPERTOIRE_ID) return rk;
     const fromSlug = eventRepId(resolvedEventFromSlug);
     if (fromSlug) return fromSlug;
-    // /ticket/:repertoireId/:slug — явный ручной ключ в первом сегменте.
-    if (leg && looksLikeManualTicketRouteKey(rk)) return rk;
+    if (looksLikeManualTicketRouteKey(rk)) return rk;
     return '';
   }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);
 
-  const titleHint = searchParams.get('title') ?? resolvedEventFromSlug?.title ?? 'Мероприятие';
+  const titleHint =
+    searchParams.get('title') ??
+    resolvedEventFromSlug?.title ??
+    (routeSlug && !routeSlugIsManual ? routeSlug.replace(/-/g, ' ') : null) ??
+    'Мероприятие';
   const posterQ = searchParams.get('poster')?.trim() || null;
   const bannerQ = searchParams.get('banner')?.trim() || null;
   const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
   const paymentFailed = searchParams.get('payment') === 'failed';
 
-  const { data: ctx, isLoading: ctxLoading, isError: ctxError } = useQuery({
-    queryKey: ['bilet-repertoire-context', repertoireId],
-    queryFn: () => fetchRepertoireContext(repertoireId),
+  const {
+    data: pageBundle,
+    isLoading: pageLoading,
+    isError: pageError,
+    error: pageErrorObj,
+    isSuccess: pageSuccess,
+  } = useQuery({
+    queryKey: ['bilet-repertoire-page', repertoireId],
+    queryFn: () => fetchRepertoirePageBundle(repertoireId),
     enabled: Boolean(repertoireId),
     staleTime: 60_000,
     retry: 1,
   });
 
+  const ctx = pageBundle?.context;
+  const ctxLoading = pageLoading;
+  const ctxError = pageError;
+  const raw = pageBundle?.offers;
+  const isLoading = pageLoading;
+  const isError = pageError;
+  const error = pageErrorObj;
+  const isSuccess = pageSuccess;
+
   const stageIdEff =
     searchParams.get('stageId')?.trim() || ctx?.stageId?.trim() || null;
-  /** Без SVG в контексте всё равно нужна подгрузка из БД (иначе при совпадении stageId запрос не включался — «план недоступен»). */
   const contextHallSvgTrimmed =
     ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup?.trim() ?? '' : '';
+  const svgDeferred = Boolean(ctx?.stageMap?.svg_markup_deferred);
   const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
@@ -284,14 +325,7 @@ export function TicketCheckoutPage() {
     enabled:
       Boolean(stageIdEff) &&
       !ctxLoading &&
-      (ctx?.stageId !== stageIdEff || !hasUsableHallSvgFromContext),
-    staleTime: 120_000,
-  });
-
-  const { data: raw, isLoading, isError, error, isSuccess } = useQuery({
-    queryKey: ['bilet-offers', repertoireId],
-    queryFn: () => fetchRepertoireOffers(repertoireId),
-    enabled: Boolean(repertoireId),
+      (svgDeferred || ctx?.stageId !== stageIdEff || !hasUsableHallSvgFromContext),
     staleTime: 120_000,
   });
 
@@ -869,7 +903,7 @@ export function TicketCheckoutPage() {
     if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
     if (legacyRepertoireId.trim() && legacySlug.trim()) return;
     if (routeSlug === DEMO_REPERTOIRE_ID) return;
-    if (looksLikeManualTicketRouteKey(routeSlug)) return;
+    if (routeSlugIsManual) return;
     if (!resolvedEventFromSlug) {
       navigate('/events', { replace: true });
     }
@@ -878,6 +912,7 @@ export function TicketCheckoutPage() {
     resolvedEventFromSlug,
     routeKeyIsId,
     routeSlug,
+    routeSlugIsManual,
     slugResolveFetched,
     legacyRepertoireId,
     legacySlug,
@@ -1155,6 +1190,7 @@ export function TicketCheckoutPage() {
                   На весь экран
                 </Button>
               </Box>
+              <Suspense fallback={<Box sx={{ minHeight: 280, bgcolor: 'rgba(0,0,0,0.03)' }} />}>
               <TicketHallInteractiveBlock
                 hallSvgHtml={hallSvg}
                 layoutJson={layoutJsonForStage}
@@ -1171,6 +1207,7 @@ export function TicketCheckoutPage() {
                 reservePending={false}
                 onNavigateToList={navigateToPlacesList}
               />
+              </Suspense>
             </Paper>
           ) : null}
 
@@ -1458,34 +1495,40 @@ export function TicketCheckoutPage() {
             </Paper>
           )}
 
-          <TicketPurchaseDialog
-            open={purchaseOpen}
-            onClose={() => setPurchaseOpen(false)}
-            repertoireId={repertoireId}
-            offerId={offerId ?? ''}
-            seats={purchaseSeats}
-            offerSelections={mapOfferSelections.length > 0 ? mapOfferSelections : undefined}
-            seatLabels={purchaseSeatLabels}
-            eventTitle={displayTitle}
-            baseTotalRub={baseTotalRub}
-            sessionLabel={purchaseSessionLabel}
-            descriptionLead={
-              heroLeadDisplay ??
-              (mergedVenue
-                ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
-                : null)
-            }
-          />
+          {purchaseOpen ? (
+            <Suspense fallback={null}>
+              <TicketPurchaseDialog
+                open={purchaseOpen}
+                onClose={() => setPurchaseOpen(false)}
+                repertoireId={repertoireId}
+                offerId={offerId ?? ''}
+                seats={purchaseSeats}
+                offerSelections={mapOfferSelections.length > 0 ? mapOfferSelections : undefined}
+                seatLabels={purchaseSeatLabels}
+                eventTitle={displayTitle}
+                baseTotalRub={baseTotalRub}
+                sessionLabel={purchaseSessionLabel}
+                descriptionLead={
+                  heroLeadDisplay ??
+                  (mergedVenue
+                    ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
+                    : null)
+                }
+              />
+            </Suspense>
+          ) : null}
 
-          <TicketCheckoutPageExtras
-            repertoireId={repertoireId}
-            displayTitle={displayTitle}
-            descriptionSnippet={ctx?.descriptionSnippet}
-            descriptionSections={ctx?.descriptionSections}
-            venueLabel={mergedVenue}
-            venueAddress={mergedVenueAddress}
-            hasDescriptionInHero={Boolean(heroLeadDisplay?.trim())}
-          />
+          <Suspense fallback={null}>
+            <TicketCheckoutPageExtras
+              repertoireId={repertoireId}
+              displayTitle={displayTitle}
+              descriptionSnippet={ctx?.descriptionSnippet}
+              descriptionSections={ctx?.descriptionSections}
+              venueLabel={mergedVenue}
+              venueAddress={mergedVenueAddress}
+              hasDescriptionInHero={Boolean(heroLeadDisplay?.trim())}
+            />
+          </Suspense>
         </Box>
 
         <Dialog
@@ -1571,23 +1614,25 @@ export function TicketCheckoutPage() {
             ) : null}
             {hallSvg && hallMapSessionKey ? (
               <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', px: 0 }}>
-                <TicketHallInteractiveBlock
-                  variant="dialog"
-                  hallSvgHtml={hallSvg}
-                  layoutJson={layoutJsonForStage}
-                  offers={offersForMap}
-                  getPriceKey={(o) => priceKey(o as OfferRow)}
-                  colorForSeat={colorSeat}
-                  activeOfferId={offerId}
-                  selectedSeats={seats}
-                  onToggleSeat={toggleSeat}
-                  selectedOffer={selectedOfferForMap}
-                  onReserveFromMap={() => setPurchaseOpen(true)}
-                  onClearSelection={resetSelectedSeats}
-                  onSelectionChange={handleMapSelectionChange}
-                  reservePending={false}
-                  onNavigateToList={navigateToPlacesList}
-                />
+                <Suspense fallback={<Box sx={{ flex: 1, minHeight: 320 }} />}>
+                  <TicketHallInteractiveBlock
+                    variant="dialog"
+                    hallSvgHtml={hallSvg}
+                    layoutJson={layoutJsonForStage}
+                    offers={offersForMap}
+                    getPriceKey={(o) => priceKey(o as OfferRow)}
+                    colorForSeat={colorSeat}
+                    activeOfferId={offerId}
+                    selectedSeats={seats}
+                    onToggleSeat={toggleSeat}
+                    selectedOffer={selectedOfferForMap}
+                    onReserveFromMap={() => setPurchaseOpen(true)}
+                    onClearSelection={resetSelectedSeats}
+                    onSelectionChange={handleMapSelectionChange}
+                    reservePending={false}
+                    onNavigateToList={navigateToPlacesList}
+                  />
+                </Suspense>
               </Box>
             ) : null}
           </DialogContent>

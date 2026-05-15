@@ -719,10 +719,29 @@ export type RepertoireContext = {
   descriptionTotalChars?: number;
   posterUrl: string | null;
   bannerUrl: string | null;
-  stageMap: (StageMapRow & { external_plan_url?: string | null }) | null;
+  stageMap: (StageMapRow & { external_plan_url?: string | null; svg_markup_deferred?: boolean }) | null;
   /** Ссылка на схемы залов на сайте театра (если задана в админке для сцены). */
   externalPlanUrl?: string | null;
 };
+
+export type RepertoirePageBundle = {
+  context: RepertoireContext;
+  offers: unknown;
+};
+
+/** Контекст + офферы одним запросом (страница /ticket). */
+export async function fetchRepertoirePageBundle(repertoireId: string): Promise<RepertoirePageBundle> {
+  const base = getApiBase();
+  const res = await fetch(
+    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page`,
+    { headers: { Accept: 'application/json' } },
+  );
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<RepertoirePageBundle>;
+}
 
 export async function fetchRepertoireContext(repertoireId: string): Promise<RepertoireContext> {
   const base = getApiBase();
