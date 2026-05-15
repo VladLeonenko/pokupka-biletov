@@ -27,30 +27,39 @@ export function TicketCartStickyBar() {
   return createPortal(
     <>
       {!purchaseOpen ? (
-        <Paper className={styles.bar} elevation={8} component="div" role="region" aria-label="Выбранные места">
-          <div className={styles.main}>
-            <Typography variant="body2" className={styles.title}>
-              Выбрано мест: {seatCount}
-              {seatsLine ? ` · ${seatsLine}` : ''}
-            </Typography>
-            {cart.eventTitle ? (
-              <Typography variant="caption" color="text.secondary" className={styles.title} component="div">
-                <Link to={cart.ticketHref} style={{ color: 'inherit', textDecoration: 'underline' }}>
-                  {cart.eventTitle}
-                </Link>
-              </Typography>
-            ) : null}
+        <div className={styles.shell}>
+          <div className={styles.inner}>
+            <Paper className={styles.bar} elevation={8} component="div" role="region" aria-label="Выбранные места">
+              <IconButton
+                className={styles.closeBtn}
+                aria-label="Закрыть и сбросить выбор"
+                onClick={clearCart}
+                size="medium"
+              >
+                <CloseIcon />
+              </IconButton>
+              <div className={styles.main}>
+                <Typography variant="body2" className={styles.title}>
+                  Выбрано мест: {seatCount}
+                  {seatsLine ? ` · ${seatsLine}` : ''}
+                </Typography>
+                {cart.eventTitle ? (
+                  <Typography variant="caption" color="text.secondary" className={styles.title} component="div">
+                    <Link to={cart.ticketHref} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                      {cart.eventTitle}
+                    </Link>
+                  </Typography>
+                ) : null}
+              </div>
+              <div className={styles.actions}>
+                <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
+                  Забронировать
+                  {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
+                </Button>
+              </div>
+            </Paper>
           </div>
-          <div className={styles.actions}>
-            <IconButton size="small" aria-label="Закрыть" onClick={clearCart}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
-            <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
-              Забронировать
-              {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
-            </Button>
-          </div>
-        </Paper>
+        </div>
       ) : null}
 
       {purchaseOpen ? (
