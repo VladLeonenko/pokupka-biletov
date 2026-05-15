@@ -197,12 +197,17 @@ const demoRepEnv = import.meta.env.VITE_TBANK_DEMO_REPERTOIRE_ID;
 const DEMO_REPERTOIRE_ID =
   typeof demoRepEnv === 'string' && demoRepEnv.trim() ? demoRepEnv.trim() : 'tbank-demo-event';
 
+/** Репертуарный id для API: mongo GetBilet или ручной ключ (seed luzhniki-cup-final-2026 и т.п.). */
 function eventRepId(ev: NormalizedBiletEvent | null | undefined): string {
   if (!ev) return '';
   const rep = ev.repertoireId?.trim() || '';
   if (looksLikeGetbiletId(rep)) return rep;
+  if (rep && looksLikeManualTicketRouteKey(rep)) return rep;
   const head = ev.id.includes('::') ? ev.id.split('::')[0]?.trim() || '' : '';
   if (looksLikeGetbiletId(head)) return head;
+  if (head && looksLikeManualTicketRouteKey(head)) return head;
+  const bareId = ev.id.trim();
+  if (bareId && looksLikeManualTicketRouteKey(bareId)) return bareId;
   return '';
 }
 
@@ -241,6 +246,8 @@ export function TicketCheckoutPage() {
       if (slugify(ev.title) === target) return true;
       const rid = eventRepId(ev).trim();
       if (rid && rid.toLowerCase() === target) return true;
+      const cardId = ev.id.trim();
+      if (cardId && cardId.toLowerCase() === target) return true;
       return false;
     });
     if (matches.length === 0) return null;
@@ -261,7 +268,7 @@ export function TicketCheckoutPage() {
     if (rk === DEMO_REPERTOIRE_ID) return rk;
     const fromSlug = eventRepId(resolvedEventFromSlug);
     if (fromSlug) return fromSlug;
-    // Не подставляем slug как id на маршруте /ticket/:eventSlug — это ломает /offers (500).
+    // /ticket/:repertoireId/:slug — явный ручной ключ в первом сегменте.
     if (leg && looksLikeManualTicketRouteKey(rk)) return rk;
     return '';
   }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);

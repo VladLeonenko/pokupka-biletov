@@ -7,7 +7,6 @@
 
 import ticketPool from '../ticketDb.js';
 import { restV2BuildEventsCatalog, expandCatalogActionsWithOfferSessions } from './getbiletRestV2.js';
-import { enrichRestV2CatalogActions } from './getbiletEnrich.js';
 import { extractPosterPageUrlFromRepertoirePayload } from './repertoirePayloadMedia.js';
 
 /**
@@ -16,8 +15,7 @@ import { extractPosterPageUrlFromRepertoirePayload } from './repertoirePayloadMe
  */
 export async function syncGetbiletCatalogFromApi() {
   const data = await restV2BuildEventsCatalog();
-  let actions = data.actions || [];
-  actions = await enrichRestV2CatalogActions(actions);
+  const actions = data.actions || [];
 
   const repertoireIds = [];
   const client = await ticketPool.connect();
@@ -43,7 +41,11 @@ export async function syncGetbiletCatalogFromApi() {
          VALUES ($1, $2, TRUE, 0, NOW(), NOW())
          ON CONFLICT (getbilet_external_id) DO UPDATE SET
            last_seen_in_catalog_at = NOW(),
-           updated_at = NOW()`,
+           updated_at = NOW(),
+           is_published = CASE
+             WHEN COALESCE(getbilet_events.storefront_hidden, FALSE) THEN getbilet_events.is_published
+             ELSE TRUE
+           END`,
         [repId, title || null],
       );
 
@@ -118,7 +120,9 @@ export async function mergePinnedCatalogCacheIntoActions(actionsInput) {
       `SELECT c.payload_json, c.stage_id
        FROM getbilet_catalog_cache c
        INNER JOIN getbilet_events e ON e.getbilet_external_id = c.repertoire_external_id
-       WHERE e.is_published = TRUE AND COALESCE(e.sort_order, 0) <= -400`,
+       WHERE e.is_published = TRUE
+         AND COALESCE(e.storefront_hidden, FALSE) = FALSE
+         AND COALESCE(e.sort_order, 0) <= -400`,
     );
   } catch (e) {
     if (e && typeof e === 'object' && 'code' in e && /** @type {{ code?: string }} */ (e).code === '42P01') {

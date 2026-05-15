@@ -12,6 +12,7 @@ import {
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
+import { isStorefrontHidden } from './getbiletStorefrontVisibility.js';
 
 /** @type {{ at: number, map: Map<string, string> }} */
 let categoryCache = { at: 0, map: new Map() };
@@ -69,7 +70,7 @@ async function loadStorefrontOverrides() {
     try {
       r = await ticketPool.query(
         `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, description_pack_json,
-                venue_manual, venue_address_manual, card_subtitle_manual, is_published
+                venue_manual, venue_address_manual, card_subtitle_manual, is_published, storefront_hidden
          FROM getbilet_events`,
       );
     } catch (e) {
@@ -139,17 +140,6 @@ export async function enrichRestV2CatalogActions(actions) {
     /* GetCategoryList недоступен */
   }
   const overrides = await loadStorefrontOverrides();
-
-  /** @type {Map<string, boolean>} */
-  let publicationByRep = new Map();
-  try {
-    const pr = await ticketPool.query(`SELECT getbilet_external_id, is_published FROM getbilet_events`);
-    for (const row of pr.rows) {
-      publicationByRep.set(row.getbilet_external_id, row.is_published === true);
-    }
-  } catch {
-    publicationByRep = new Map();
-  }
 
   const posterTpl = process.env.GETBILET_POSTER_URL_TEMPLATE?.trim();
   const bannerTpl = process.env.GETBILET_BANNER_URL_TEMPLATE?.trim();
@@ -286,7 +276,7 @@ export async function enrichRestV2CatalogActions(actions) {
   return mapped.filter((row) => {
     const repId = String(row.Id ?? row.id ?? '');
     if (!repId) return false;
-    if (!publicationByRep.has(repId)) return true;
-    return publicationByRep.get(repId) === true;
+    const o = overrides.get(repId);
+    return !isStorefrontHidden(o);
   });
 }

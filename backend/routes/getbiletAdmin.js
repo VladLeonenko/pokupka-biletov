@@ -3,6 +3,7 @@ import ticketPool from '../ticketDb.js';
 import { probePosterImages } from '../services/posterPageProbe.js';
 import { syncGetbiletCatalogFromApi } from '../services/getbiletCatalogSync.js';
 import { invalidateGetbiletEventsHttpCache } from '../services/getbiletEventsHttpCache.js';
+import { storefrontHiddenFromPublished } from '../services/getbiletStorefrontVisibility.js';
 import {
   isPosterSearchConfigured,
   isWebPosterSearchConfigured,
@@ -199,13 +200,16 @@ router.post('/events', async (req, res) => {
   } = req.body || {};
   const ext = (getbilet_external_id || '').trim();
   if (!ext) return res.status(400).json({ error: 'Укажите внешний id GetBilet' });
+  const published = is_published !== false;
+  const hidden = storefrontHiddenFromPublished(published);
   try {
     const r = await ticketPool.query(
       `INSERT INTO getbilet_events (
         getbilet_external_id, title_manual, description_manual, notes_internal,
         venue_manual, venue_address_manual, card_subtitle_manual,
-        poster_url_manual, poster_url_web, banner_url_manual, poster_page_url, is_published, sort_order, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, TRUE), COALESCE($13, 0), NOW())
+        poster_url_manual, poster_url_web, banner_url_manual, poster_page_url,
+        is_published, storefront_hidden, sort_order, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, COALESCE($14, 0), NOW())
       RETURNING *`,
       [
         ext,
@@ -219,7 +223,8 @@ router.post('/events', async (req, res) => {
         poster_url_web?.trim() || null,
         banner_url_manual?.trim() || null,
         poster_page_url?.trim() || null,
-        is_published,
+        published,
+        hidden,
         sort_order,
       ]
     );
@@ -284,6 +289,13 @@ router.put('/events/:id', async (req, res) => {
       }
     }
 
+    const published =
+      is_published !== undefined ? Boolean(is_published) : c.is_published === true;
+    const hidden =
+      is_published !== undefined
+        ? storefrontHiddenFromPublished(published)
+        : c.storefront_hidden === true;
+
     await ticketPool.query(
       `UPDATE getbilet_events SET
         getbilet_external_id = $2,
@@ -295,11 +307,12 @@ router.put('/events/:id', async (req, res) => {
         banner_url_manual = $8,
         poster_page_url = $9,
         is_published = $10,
-        sort_order = $11,
-        description_pack_json = $12,
-        venue_manual = $13,
-        venue_address_manual = $14,
-        card_subtitle_manual = $15,
+        storefront_hidden = $11,
+        sort_order = $12,
+        description_pack_json = $13,
+        venue_manual = $14,
+        venue_address_manual = $15,
+        card_subtitle_manual = $16,
         updated_at = NOW()
       WHERE id = $1`,
       [
@@ -312,7 +325,8 @@ router.put('/events/:id', async (req, res) => {
         poster_url_web !== undefined ? poster_url_web?.trim() || null : c.poster_url_web,
         banner_url_manual !== undefined ? banner_url_manual?.trim() || null : c.banner_url_manual,
         poster_page_url !== undefined ? poster_page_url?.trim() || null : c.poster_page_url,
-        is_published !== undefined ? Boolean(is_published) : c.is_published,
+        published,
+        hidden,
         so,
         description_pack_json !== undefined ? packJson : c.description_pack_json,
         venue_manual !== undefined ? venue_manual?.trim() || null : c.venue_manual,
