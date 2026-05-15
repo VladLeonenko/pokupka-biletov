@@ -5,7 +5,7 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import {
-  fetchBiletEvents,
+  fetchBiletEventsLite,
   isEventActual,
   normalizeBiletEventsPayload,
   dedupeBiletEventsByShow,
@@ -51,7 +51,7 @@ export function TicketCheckoutPageExtras({
 
   const { data: rawEvents } = useQuery({
     queryKey: ['bilet-events-public', cityId],
-    queryFn: () => fetchBiletEvents(),
+    queryFn: () => fetchBiletEventsLite(500),
     staleTime: 120_000,
   });
 

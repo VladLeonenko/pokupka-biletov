@@ -91,6 +91,20 @@ export default defineConfig(({ mode }) => {
     // Ручной vendor/react-vendor split давал циклические чанки и ReferenceError в production.
     rollupOptions: {
       output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('@mui') || id.includes('@emotion')) return 'mui';
+          if (
+            id.includes('react-dom') ||
+            id.includes('react-router') ||
+            id.includes('/react/')
+          ) {
+            return 'react-vendor';
+          }
+          if (id.includes('@tanstack/react-query')) return 'query';
+          if (id.includes('date-fns')) return 'date-fns';
+          return 'vendor';
+        },
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',

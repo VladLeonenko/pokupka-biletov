@@ -501,6 +501,37 @@ export async function fetchBiletEventsLite(limit = 200): Promise<unknown> {
   return res.json();
 }
 
+export type BiletResolvedSlug = {
+  repertoireId: string;
+  title?: string;
+  stageId?: string | null;
+  posterUrl?: string | null;
+  bannerUrl?: string | null;
+  beginDateTime?: string | null;
+};
+
+/** ЧПУ → repertoireId без полного каталога на клиенте. */
+export async function fetchBiletResolveSlug(slug: string): Promise<BiletResolvedSlug | null> {
+  const s = slug.trim();
+  if (!s) return null;
+  const base = getApiBase();
+  const meta = await resolveBiletMetaForFetch();
+  const params = new URLSearchParams();
+  if (meta.cityIdRequired) {
+    params.set('cityId', cityId());
+  }
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${base}/api/bilet/resolve-slug/${encodeURIComponent(s)}${q}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return (await res.json()) as BiletResolvedSlug;
+}
+
 /** Площадки (GET_VENUES / REST / rest_v2 GetPlaceList). */
 export async function fetchBiletVenues(): Promise<unknown> {
   const base = getApiBase();

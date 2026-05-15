@@ -21,7 +21,9 @@ const PromotionEditorPage = lazy(() => import('@/pages/promotions/PromotionEdito
 const FormsManagementPage = lazy(() => import('@/pages/forms/FormsManagementPage').then(m => ({ default: m.FormsManagementPage })));
 const FunnelsListPage = lazy(() => import('@/pages/funnels/FunnelsListPage').then(m => ({ default: m.FunnelsListPage })));
 const FunnelViewPage = lazy(() => import('@/pages/funnels/FunnelViewPage').then(m => ({ default: m.FunnelViewPage })));
-import { HomePage } from '@/pages/public/HomePage';
+const HomePage = lazy(() =>
+  import('@/pages/public/HomePage').then((m) => ({ default: m.HomePage }))
+);
 const EventsSearchPage = lazy(() =>
   import('@/pages/public/EventsSearchPage').then((m) => ({ default: m.EventsSearchPage }))
 );

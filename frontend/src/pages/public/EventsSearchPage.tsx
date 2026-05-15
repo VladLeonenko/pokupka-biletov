@@ -16,7 +16,7 @@ import { NEGLINKA_DEMO_EVENTS } from '@/components/tickets/neglinkaDemoData';
 import {
   attachInferredEventFields,
   dedupeBiletEventsByShow,
-  fetchBiletEvents,
+  fetchBiletEventsLite,
   fetchBiletVenues,
   isEventActual,
   normalizeBiletEventsPayload,
@@ -116,7 +116,7 @@ export function EventsSearchPage() {
 
   const { data: raw, isLoading, isError } = useQuery({
     queryKey: ['bilet-events-public', cityId],
-    queryFn: () => fetchBiletEvents(),
+    queryFn: () => fetchBiletEventsLite(500),
     staleTime: 60_000,
     retry: 1,
   });

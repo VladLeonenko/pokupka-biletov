@@ -13,6 +13,7 @@ import {
 } from './getbiletVenueLabels.js';
 import { descPackFromStoredJson } from './eventDescriptionPackStored.js';
 import { isStorefrontHidden } from './getbiletStorefrontVisibility.js';
+import { applyCatalogCardDescription } from './catalogDescriptionFields.js';
 
 /** @type {{ at: number, map: Map<string, string> }} */
 let categoryCache = { at: 0, map: new Map() };
@@ -82,10 +83,21 @@ async function loadStorefrontOverrides() {
           );
         } catch (e2) {
           if (e2 && typeof e2 === 'object' && 'code' in e2 && e2.code === '42703') {
-            r = await ticketPool.query(
-              `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, is_published
-               FROM getbilet_events`,
-            );
+            try {
+              r = await ticketPool.query(
+                `SELECT getbilet_external_id, title_manual, poster_url_manual, poster_url_web, banner_url_manual, description_manual, is_published
+                 FROM getbilet_events`,
+              );
+            } catch (e3) {
+              if (e3 && typeof e3 === 'object' && 'code' in e3 && e3.code === '42703') {
+                r = await ticketPool.query(
+                  `SELECT getbilet_external_id, title_manual, poster_url_manual, banner_url_manual, description_manual, is_published
+                   FROM getbilet_events`,
+                );
+              } else {
+                throw e3;
+              }
+            }
           } else {
             throw e2;
           }
@@ -211,25 +223,18 @@ export async function enrichRestV2CatalogActions(actions) {
       if (u) out.BannerUrl = u;
     }
     if (o?.card_subtitle_manual?.trim() && o.is_published === true) {
-      const short = catalogCardDescription(o.card_subtitle_manual.trim());
-      out.shortDescription = short;
-      out.description = short;
-      out.Description = short;
+      applyCatalogCardDescription(out, catalogCardDescription(o.card_subtitle_manual.trim()));
     } else if (o?.description_manual?.trim() && o.is_published === true) {
-      const d = o.description_manual.trim();
-      const short = catalogCardDescription(d);
-      out.shortDescription = short;
-      out.description = short;
-      out.Description = short;
+      applyCatalogCardDescription(out, catalogCardDescription(o.description_manual.trim()));
     }
     const firstPackParagraph = firstDescriptionParagraphFromPack(o?.description_pack_json);
     if (firstPackParagraph) {
-      out.HeroDescription = catalogCardDescription(firstPackParagraph);
-      out.heroDescription = out.HeroDescription;
+      const hero = catalogCardDescription(firstPackParagraph);
       if (!String(out.shortDescription ?? '').trim()) {
-        out.shortDescription = out.HeroDescription;
-        out.description = out.HeroDescription;
-        out.Description = out.HeroDescription;
+        applyCatalogCardDescription(out, hero, { asHero: true });
+      } else {
+        out.HeroDescription = hero;
+        delete out.heroDescription;
       }
     }
     if (!String(out.shortDescription ?? '').trim() && titleForHeur) {
@@ -244,18 +249,13 @@ export async function enrichRestV2CatalogActions(actions) {
         .map((x) => (x != null ? String(x).trim() : ''))
         .find((s) => s.length > 3);
       if (apiDesc) {
-        const short = catalogCardDescription(apiDesc);
-        out.shortDescription = short;
-        out.description = short;
-        out.Description = short;
+        applyCatalogCardDescription(out, catalogCardDescription(apiDesc));
       }
     }
     const venueForCard = String(out.PlaceName ?? out.placeName ?? '').trim();
     if (!String(out.shortDescription ?? '').trim() && titleForHeur && !venueForCard) {
       const { descriptionBlurb } = classifyEventTitle(titleForHeur);
-      out.shortDescription = descriptionBlurb;
-      out.description = descriptionBlurb;
-      out.Description = descriptionBlurb;
+      applyCatalogCardDescription(out, descriptionBlurb);
     }
     const cat = row.Category;
     if (cat != null && /^[a-f0-9]{24}$/i.test(String(cat).trim())) {

@@ -44,6 +44,7 @@ import {
   getGetbiletEventsHttpCache,
   setGetbiletEventsHttpCache,
 } from '../services/getbiletEventsHttpCache.js';
+import { slugify } from '../utils/eventSlug.js';
 import ticketPool from '../ticketDb.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { registerBiletTicketCheckoutRoutes } from './biletTicketCheckout.js';
@@ -173,7 +174,7 @@ function sendJsonWithEventsCache(req, res, payload) {
   } else {
     res.setHeader('X-Getbilet-Events-Cache', 'bypass');
   }
-  return sendPublicJson(req, res, payload, { cacheSeconds: 60, staleSeconds: 300 });
+  return sendPublicJson(req, res, payload, { cacheSeconds: 120, staleSeconds: 600 });
 }
 
 function publicJsonEtag(body) {
@@ -268,6 +269,39 @@ function compactActions(actions, limit = 120) {
   return out;
 }
 
+/** @param {unknown} data */
+function buildCompactEventsPayload(data, limit = 500) {
+  const all = Array.isArray(/** @type {{ actions?: unknown[] }} */ (data)?.actions)
+    ? /** @type {{ actions: unknown[] }} */ (data).actions
+    : [];
+  const actions = compactActions(all, limit);
+  return {
+    actions,
+    total: all.length,
+    compact: true,
+  };
+}
+
+function eventStartMsFromCompact(item) {
+  const raw = item.startDateTime || item.beginDateTime;
+  if (!raw) return 0;
+  const t = Date.parse(String(raw));
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** @param {ReturnType<typeof compactGetbiletAction>} item @param {string} slug */
+function compactItemMatchesSlug(item, slug) {
+  if (!item || !slug) return false;
+  const target = slug.toLowerCase();
+  const title = String(item.title || '');
+  if (slugify(title) === target) return true;
+  const rep = String(item.repertoireId || '').trim();
+  if (rep && rep.toLowerCase() === target) return true;
+  const cardId = String(item.id || '').trim();
+  if (cardId && cardId.toLowerCase() === target) return true;
+  return false;
+}
+
 /** Публичная витрина: только сегодня и будущее (админка — полный каталог в БД). */
 function finalizePublicStorefrontActions(actions) {
   return filterUpcomingCatalogActions(Array.isArray(actions) ? actions : []);
@@ -300,16 +334,6 @@ async function getOrLoadEventsPayloadForPublic(req, opts = {}) {
   const bypass =
     opts.bypass === true || req.query.refresh === '1' || req.query.fresh === '1';
   const cacheKey = getbiletEventsCacheKey(req);
-  if (!bypass) {
-    const hit = getGetbiletEventsHttpCache(cacheKey);
-    if (hit) {
-      try {
-        return { data: JSON.parse(hit), fromCache: true };
-      } catch {
-        /* битый слот — пересобираем */
-      }
-    }
-  }
   if (bypass) {
     const data = await loadEventsPayload(req);
     return { data, fromCache: false };
@@ -573,10 +597,7 @@ router.post('/reserve', async (req, res) => {
 router.get('/home', async (req, res) => {
   try {
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
-    const { data, fromCache } = await getOrLoadEventsPayloadForPublic(req, { bypass });
-    if (!bypass && !fromCache) {
-      setGetbiletEventsHttpCache(getbiletEventsCacheKey(req), data);
-    }
+    const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
     const actions = compactActions(data?.actions, Number(process.env.GETBILET_HOME_EVENTS_LIMIT || 120));
     return sendPublicJson(req, res, {
       actions,
@@ -599,10 +620,7 @@ router.get('/events-lite', async (req, res) => {
   try {
     const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
-    const { data, fromCache } = await getOrLoadEventsPayloadForPublic(req, { bypass });
-    if (!bypass && !fromCache) {
-      setGetbiletEventsHttpCache(getbiletEventsCacheKey(req), data);
-    }
+    const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
     const actions = compactActions(data?.actions, limit);
     return sendPublicJson(req, res, {
       actions,
@@ -614,9 +632,47 @@ router.get('/events-lite', async (req, res) => {
   }
 });
 
-/** Список мероприятий: BIL24 GET_ACTIONS_V2 | REST | rest_v2 репертуары по сценам */
+/** Разрешение ЧПУ /ticket/:slug без загрузки полного каталога на клиент. */
+router.get('/resolve-slug/:slug', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '').trim().toLowerCase();
+    if (!slug) {
+      return res.status(400).json({ error: 'slug_required' });
+    }
+    const { data } = await getOrLoadEventsPayloadForPublic(req);
+    const actions = compactActions(data?.actions, 500);
+    const matches = actions.filter((item) => compactItemMatchesSlug(item, slug));
+    if (matches.length === 0) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+    let hit = matches[0];
+    if (matches.length > 1) {
+      const now = Date.now();
+      const sorted = [...matches].sort((a, b) => eventStartMsFromCompact(a) - eventStartMsFromCompact(b));
+      hit = sorted.find((ev) => eventStartMsFromCompact(ev) >= now) || sorted[0];
+    }
+    return sendPublicJson(
+      req,
+      res,
+      {
+        repertoireId: hit.repertoireId || hit.id,
+        title: hit.title,
+        stageId: hit.stageId || null,
+        posterUrl: hit.posterUrl || null,
+        bannerUrl: hit.bannerUrl || null,
+        beginDateTime: hit.beginDateTime || hit.startDateTime || null,
+      },
+      { cacheSeconds: 120, staleSeconds: 600 },
+    );
+  } catch (err) {
+    return sendGetbiletError(err, res);
+  }
+});
+
+/** Список мероприятий: compact JSON (как events-lite, до 500 строк). */
 router.get('/events', async (req, res) => {
   try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '500'), 10) || 500, 1), 500);
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
     if (!bypass) {
       const hit = getGetbiletEventsHttpCache(getbiletEventsCacheKey(req));
@@ -624,7 +680,7 @@ router.get('/events', async (req, res) => {
         const etag = publicJsonEtag(hit);
         res.setHeader('X-Getbilet-Events-Cache', 'hit');
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
         res.setHeader('ETag', etag);
         if (req.headers['if-none-match'] === etag) {
           return res.status(304).end();
@@ -633,7 +689,8 @@ router.get('/events', async (req, res) => {
       }
     }
     const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
-    return sendJsonWithEventsCache(req, res, data);
+    const payload = buildCompactEventsPayload(data, limit);
+    return sendJsonWithEventsCache(req, res, payload);
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({

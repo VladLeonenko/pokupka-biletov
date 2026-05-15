@@ -20,7 +20,7 @@ export function getGetbiletEventsHttpCache(key) {
  * @param {unknown} payload — сериализуется в JSON (копия объекта)
  */
 export function setGetbiletEventsHttpCache(key, payload) {
-  const ttlSec = parseInt(process.env.GETBILET_EVENTS_HTTP_CACHE_SEC ?? '60', 10);
+  const ttlSec = parseInt(process.env.GETBILET_EVENTS_HTTP_CACHE_SEC ?? '300', 10);
   if (!Number.isFinite(ttlSec) || ttlSec <= 0) {
     slot = null;
     return;

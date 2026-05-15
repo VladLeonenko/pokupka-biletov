@@ -35,11 +35,10 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { TicketEventPosterImg } from '@/components/tickets/TicketEventPosterImg';
 import {
   ensurePublicSessionForCheckout,
-  fetchBiletEvents,
+  fetchBiletResolveSlug,
   fetchRepertoireContext,
   fetchRepertoireOffers,
   fetchStageMap,
-  normalizeBiletEventsPayload,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
@@ -211,13 +210,6 @@ function eventRepId(ev: NormalizedBiletEvent | null | undefined): string {
   return '';
 }
 
-function eventStartMs(ev: NormalizedBiletEvent): number {
-  const raw = (ev.isoDate || '').trim();
-  if (!raw) return Number.MAX_SAFE_INTEGER;
-  const ms = new Date(raw).getTime();
-  return Number.isFinite(ms) ? ms : Number.MAX_SAFE_INTEGER;
-}
-
 export function TicketCheckoutPage() {
   const { eventSlug = '', repertoireId: legacyRepertoireId = '', slug: legacySlug } = useParams<{
     eventSlug?: string;
@@ -230,34 +222,26 @@ export function TicketCheckoutPage() {
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
 
-  const { data: rawEventsForSlug, isFetched: slugResolveFetched } = useQuery({
-    queryKey: ['bilet-events-public', 'ticket-slug-resolve'],
-    queryFn: () => fetchBiletEvents(),
-    enabled: Boolean(routeKey && !routeKeyIsId),
-    staleTime: 60_000,
+  const { data: resolvedSlugApi, isFetched: slugResolveFetched } = useQuery({
+    queryKey: ['bilet-resolve-slug', routeSlug],
+    queryFn: () => fetchBiletResolveSlug(routeSlug),
+    enabled: Boolean(routeSlug && !routeKeyIsId),
+    staleTime: 120_000,
     retry: 1,
   });
 
-  const resolvedEventFromSlug = useMemo(() => {
-    if (!routeSlug || routeKeyIsId) return null;
-    const target = routeSlug.toLowerCase();
-    const list = normalizeBiletEventsPayload(rawEventsForSlug);
-    const matches = list.filter((ev) => {
-      if (slugify(ev.title) === target) return true;
-      const rid = eventRepId(ev).trim();
-      if (rid && rid.toLowerCase() === target) return true;
-      const cardId = ev.id.trim();
-      if (cardId && cardId.toLowerCase() === target) return true;
-      return false;
-    });
-    if (matches.length === 0) return null;
-    if (matches.length === 1) return matches[0];
-    // Для повторов одного названия (несколько дат) берем ближайший будущий показ.
-    const now = Date.now();
-    const sorted = [...matches].sort((a, b) => eventStartMs(a) - eventStartMs(b));
-    const nearestFuture = sorted.find((ev) => eventStartMs(ev) >= now);
-    return nearestFuture || sorted[0];
-  }, [rawEventsForSlug, routeSlug, routeKeyIsId]);
+  const resolvedEventFromSlug = useMemo((): NormalizedBiletEvent | null => {
+    if (!resolvedSlugApi?.repertoireId) return null;
+    return {
+      id: resolvedSlugApi.repertoireId,
+      repertoireId: resolvedSlugApi.repertoireId,
+      title: resolvedSlugApi.title ?? 'Мероприятие',
+      stageId: resolvedSlugApi.stageId ?? undefined,
+      imageUrl: resolvedSlugApi.posterUrl ?? undefined,
+      bannerUrl: resolvedSlugApi.bannerUrl ?? undefined,
+      isoDate: resolvedSlugApi.beginDateTime ?? undefined,
+    };
+  }, [resolvedSlugApi]);
 
   const repertoireId = useMemo(() => {
     const rk = routeKey.trim();
