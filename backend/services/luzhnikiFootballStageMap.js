@@ -118,8 +118,8 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       );
     nextLayout.sellableSeats = seats;
     nextLayout.preferLayoutSeatPositions = true;
-    /** Полная чаша (~77k) — серый фон; sellableSeats — цветные кликабельные места поверх. */
-    nextLayout.omitClientSeatCoordinateCloud = false;
+    /** На чекауте не рисуем ~77k серых точек — только SVG + sellableSeats после выбора сектора. */
+    nextLayout.omitClientSeatCoordinateCloud = true;
     nextLayout.offerSeatGeodesy = {
       matched,
       totalSellable,

@@ -1209,11 +1209,13 @@ export function TicketHallInteractiveBlock({
     const bg = backgroundSeatCoordinates;
     const dragging = isMapDraggingRef.current;
     const skipDenseBgWhileDragging = dragging && bg.length >= 8000;
-    if (
-      !skipDenseBgWhileDragging &&
+    /** Luzhniki ~77k: серую чашу не рисуем на canvas (только SVG + sellable после выбора сектора). */
+    const drawBackgroundDots =
       bg.length > 0 &&
-      (liveZoom > fitZoom + 0.01 || bg.length >= 8000)
-    ) {
+      bg.length < 8000 &&
+      (!sectorMode.enabled || Boolean(selectedSector)) &&
+      (liveZoom > fitZoom + 0.01 || bg.length < 2500);
+    if (!skipDenseBgWhileDragging && drawBackgroundDots) {
       ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
       const scalePx = w / Math.max(1, svgViewBox.width);
       const useRects = bg.length >= 2500;
@@ -1283,6 +1285,8 @@ export function TicketHallInteractiveBlock({
     fitZoom,
     getLayerBase,
     selectedSeatDetails,
+    selectedSector,
+    sectorMode.enabled,
     skipDuplicateInteractiveDotsOnCanvas,
     svgViewBox.width,
     useCanvasCompositing,
