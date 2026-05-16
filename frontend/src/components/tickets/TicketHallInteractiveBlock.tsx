@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  buildSellableGeodesyPlacements,
   buildSvgNativePlacements,
+  parseLayoutBaseSeatPositions,
   parseLayoutSeatPositions,
   parseLayoutMode,
   parsePreferLayoutSeatPositions,
+  parseSellableSeatPositions,
   processHallSvgForNative,
   seatMapKey,
   type SvgNativePlacement,
@@ -396,6 +399,13 @@ export function TicketHallInteractiveBlock({
   );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
+  const layoutBaseSeats = useMemo(() => parseLayoutBaseSeatPositions(layoutJson), [layoutJson]);
+  const sellableGeodesySeats = useMemo(() => parseSellableSeatPositions(layoutJson), [layoutJson]);
+  const useSellableGeodesyPlacements = useMemo(() => {
+    if (!parsePreferLayoutSeatPositions(layoutJson)) return false;
+    if (sellableGeodesySeats.length < 1) return false;
+    return parseDisablePositionalSeatZip(layoutJson);
+  }, [layoutJson, sellableGeodesySeats.length]);
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
@@ -403,12 +413,19 @@ export function TicketHallInteractiveBlock({
     [layoutJson],
   );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (useSellableGeodesyPlacements && layoutBaseSeats.length >= 2) return layoutBaseSeats;
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  }, [
+    useSellableGeodesyPlacements,
+    layoutBaseSeats,
+    preferLayoutSeatPositions,
+    layoutSeats,
+    nativeProcessed,
+  ]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
     if (preferLayoutSeatPositions) return false;
@@ -430,6 +447,11 @@ export function TicketHallInteractiveBlock({
       return {
         nativePlacements: [] as SvgNativePlacement[],
       };
+    }
+
+    if (useSellableGeodesyPlacements) {
+      const { placements } = buildSellableGeodesyPlacements(sellableGeodesySeats, offers, getPriceKey);
+      return { nativePlacements: placements };
     }
 
     if (sectorMode.enabled) {
@@ -470,6 +492,8 @@ export function TicketHallInteractiveBlock({
     svgViewBox.width,
     useSvgNative,
     nativeSeats,
+    sellableGeodesySeats,
+    useSellableGeodesyPlacements,
   ]);
 
   const matchedNativeSeatKeys = useMemo(

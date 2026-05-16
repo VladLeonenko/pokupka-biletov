@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildSellableGeodesyPlacements,
   buildSvgNativePlacements,
   extractSectorCode,
   matchSvgSeatToOffer,
@@ -79,6 +80,24 @@ describe('svgNativeSeatLayout', () => {
     const s2 = seats.find((s) => s.seat === '2');
     expect(s1?.xPct).toBe(10);
     expect(s2?.xPct).toBe(99);
+  });
+
+  it('buildSellableGeodesyPlacements uses server coords without reordering', () => {
+    const sellable = [
+      { sector: 'Сектор C 243', row: '31', seat: '7', xPct: 47.7, yPct: 1.99 },
+      { sector: 'Сектор D 227', row: '30', seat: '14', xPct: 96.95, yPct: 40.1 },
+    ];
+    const result = buildSellableGeodesyPlacements(
+      sellable,
+      [
+        { Id: 'o1', Sector: 'сектор c243', Row: '31', SeatList: ['7'], AgentPrice: '1000' },
+        { Id: 'o2', Sector: 'сектор d227', Row: '30', SeatList: ['14'], AgentPrice: '2000' },
+      ],
+      (o) => String(o.AgentPrice ?? ''),
+    );
+    expect(result.placements).toHaveLength(2);
+    expect(result.placements.find((p) => p.seat === '7')).toMatchObject({ xPct: 47.7, yPct: 1.99 });
+    expect(result.placements.find((p) => p.seat === '14')).toMatchObject({ xPct: 96.95, yPct: 40.1 });
   });
 
   it('seatMapKey aligns сектор b145 with Сектор B 145 for exact match', () => {

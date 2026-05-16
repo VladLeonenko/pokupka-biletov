@@ -512,6 +512,80 @@ export type BuildSvgNativePlacementsOptions = {
   disablePositionalSeatZip?: boolean;
 };
 
+/** Все места из layout_json.seats (без sellableSeats-оверлея). */
+export function parseLayoutBaseSeatPositions(layout: unknown): SvgNativeSeat[] {
+  const base = layoutBaseSeatRows(layout);
+  if (base.length === 0) return [];
+  return parseLayoutSeatPositions({ seats: base });
+}
+
+/** Координаты из layout_json.sellableSeats (серверная геодезия) — без повторного zip/fuzzy. */
+export function parseSellableSeatPositions(layout: unknown): SvgNativeSeat[] {
+  const root = asRecord(layout);
+  if (!root) return [];
+  const sellable = root.sellableSeats;
+  if (!Array.isArray(sellable)) return [];
+  return parseLayoutSeatPositions({ sellableSeats: sellable });
+}
+
+/**
+ * Кликабельные места строго по sellableSeats: сектор/ряд/место → xPct/yPct с бэкенда.
+ */
+export function buildSellableGeodesyPlacements(
+  sellableSeats: SvgNativeSeat[],
+  offers: OfferLike[],
+  getPriceKey: (o: OfferLike) => string,
+): {
+  placements: SvgNativePlacement[];
+  unmatchedSvgCount: number;
+  diagnostics: HallLayoutDiagnostics;
+} {
+  const coordByKey = new Map<string, SvgNativeSeat>();
+  for (const s of sellableSeats) {
+    const k = seatMapKey(s.sector, s.row, s.seat);
+    if (!coordByKey.has(k)) coordByKey.set(k, s);
+  }
+
+  const idx = buildOfferSeatIndex(offers);
+  const placedOfferKeys = new Set<string>();
+  const out: SvgNativePlacement[] = [];
+
+  for (const [key, coords] of coordByKey) {
+    const hits = idx.get(key);
+    if (!hits?.length) continue;
+    const { offer, seat } = hits[0];
+    const oid = String(offer.Id ?? '');
+    if (!oid) continue;
+    placedOfferKeys.add(offerPlacementKey(oid, String(offer.Row ?? ''), seat));
+    placedOfferKeys.add(seatMapKey(String(offer.Sector ?? ''), String(offer.Row ?? ''), seat));
+    const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    out.push({
+      key: `${oid}-${seat}-${coords.xPct.toFixed(3)}-${coords.yPct.toFixed(3)}-geo`,
+      svgKey: key,
+      offerId: oid,
+      sectorLabel: String(offer.Sector ?? coords.sector ?? '').trim(),
+      seat,
+      rowLabel: String(offer.Row ?? coords.row ?? '').trim(),
+      available,
+      xPct: coords.xPct,
+      yPct: coords.yPct,
+      title: `${coords.sector} · ряд ${offer.Row ?? coords.row} · место ${seat} · ${getPriceKey(offer)} ₽`,
+      priceKey: getPriceKey(offer),
+    });
+  }
+
+  return {
+    placements: out,
+    unmatchedSvgCount: Math.max(0, coordByKey.size - out.length),
+    diagnostics: {
+      totalSvgSeats: coordByKey.size,
+      matchedSeats: out.length,
+      unmatchedSvgCount: Math.max(0, coordByKey.size - out.length),
+      unmatchedOfferSeats: Math.max(0, countOfferSeats(offers) - placedOfferKeys.size),
+    },
+  };
+}
+
 export function buildSvgNativePlacements(
   svgSeats: SvgNativeSeat[],
   offers: OfferLike[],
