@@ -47,7 +47,7 @@ export function HomePage() {
     initialDataUpdatedAt: sessionEvents?.updatedAt,
   });
 
-  const { data: rawSportLite } = useQuery({
+  const { data: rawSportLite, isPending: sportEventsPending } = useQuery({
     queryKey: ['bilet-events-lite-public', cityId, 'sport-home'],
     queryFn: () => fetchBiletEventsLite(500),
     staleTime: 120_000,
@@ -129,14 +129,20 @@ export function HomePage() {
     return dedupeBiletEventsByShow(source);
   }, [dateFilter, normalizedSportLite]);
 
-  const heroSlides = useMemo(
-    () => buildHeroSlides(vitrine.heroSlides, eventsForUi),
-    [vitrine.heroSlides, eventsForUi]
+  const eventsForHero = useMemo(
+    () => dedupeBiletEventsByShow([...eventsForUi, ...sportEventsForUi]),
+    [eventsForUi, sportEventsForUi],
   );
 
-  /** Пока грузится витрина — не решаем, есть ли CMS hero; затем hero либо из CMS, либо ждём афишу. */
+  const heroSlides = useMemo(
+    () => buildHeroSlides(vitrine.heroSlides, eventsForHero),
+    [vitrine.heroSlides, eventsForHero],
+  );
+
+  /** Пока грузится витрина — не решаем, есть ли CMS hero; затем hero либо из CMS, либо ждём афишу (+ lite для спорта). */
   const heroLoading =
-    vitrinePending || ((vitrine.heroSlides?.length ?? 0) === 0 && eventsPending);
+    vitrinePending ||
+    ((vitrine.heroSlides?.length ?? 0) === 0 && (eventsPending || sportEventsPending));
   const listLoading = eventsPending;
 
   return (

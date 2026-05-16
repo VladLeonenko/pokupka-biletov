@@ -1,6 +1,14 @@
 import { format, isValid, parseISO } from 'date-fns';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import type { CmsHeroSlide, HeroSlideView, HeroVisualShape } from '@/types/ticketsVitrine';
+import {
+  FEATURED_HERO_HREF,
+  FEATURED_HERO_REPERTOIRE_ID,
+  FEATURED_HERO_SLUG,
+  isFeaturedHeroHref,
+  isFeaturedHeroSlideId,
+} from '@/utils/heroFeaturedEvent';
+import { slugify } from '@/utils/slugify';
 import { venueFromApiOnly } from '@/utils/venueHint';
 
 /** В герое — рамка-постер (без круга), фон — полноэкранное фото */
@@ -120,13 +128,69 @@ function padSlides(slides: HeroSlideView[]): HeroSlideView[] {
   return [...slides, ...slides, ...slides].slice(0, 3);
 }
 
+function findFeaturedEvent(events: NormalizedBiletEvent[]): NormalizedBiletEvent | undefined {
+  return events.find((ev) => {
+    const rep = String(ev.repertoireId ?? '').trim().toLowerCase();
+    if (rep === FEATURED_HERO_REPERTOIRE_ID) return true;
+    if (String(ev.id).toLowerCase().includes(FEATURED_HERO_REPERTOIRE_ID)) return true;
+    if (slugify(ev.title) === FEATURED_HERO_SLUG) return true;
+    return false;
+  });
+}
+
+function isDuplicateFeatured(slide: HeroSlideView, featuredId: string): boolean {
+  if (slide.id === featuredId) return true;
+  if (isFeaturedHeroSlideId(slide.id)) return true;
+  if (isFeaturedHeroHref(slide.ticketHref)) return true;
+  return false;
+}
+
+/** Суперфинал — всегда первый слайд, если событие есть в каталоге. */
+function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent[]): HeroSlideView[] {
+  if (slides.length === 0) return slides;
+
+  const featuredEv = findFeaturedEvent(events);
+  const featuredFromEv = featuredEv
+    ? { ...eventToSlide(featuredEv, 0), ticketHref: FEATURED_HERO_HREF }
+    : null;
+
+  const pinnedIdx = slides.findIndex(
+    (s) => isFeaturedHeroSlideId(s.id) || isFeaturedHeroHref(s.ticketHref),
+  );
+  const pinned = pinnedIdx >= 0 ? { ...slides[pinnedIdx], ticketHref: FEATURED_HERO_HREF } : null;
+  const featured = featuredFromEv ?? pinned;
+  if (!featured) {
+    const fallback: HeroSlideView = {
+      id: FEATURED_HERO_REPERTOIRE_ID,
+      title: 'СУПЕРФИНАЛ ФОНБЕТ КУБКА РОССИИ — СПАРТАК / КРАСНОДАР',
+      imageUrl: null,
+      tags: 'ВС · 24.05.2026 · 18:00 · СПОРТ',
+      venueLabel: 'ЛУЖНИКИ',
+      venueAddress: null,
+      lineLeft: '24',
+      lineRight: '05.2026',
+      visualShape: 'shard',
+      ticketHref: FEATURED_HERO_HREF,
+      ctaLabel: 'КУПИТЬ БИЛЕТ',
+    };
+    const rest = slides.filter((s) => !isDuplicateFeatured(s, fallback.id));
+    return padSlides([fallback, ...rest]);
+  }
+
+  const rest = slides.filter((s, i) => i !== pinnedIdx && !isDuplicateFeatured(s, featured.id));
+  return padSlides([featured, ...rest]);
+}
+
 /** Слайды hero: при непустом heroSlides в CMS — они; иначе из событий API */
 export function buildHeroSlides(
   cmsSlides: CmsHeroSlide[] | undefined,
   events: NormalizedBiletEvent[],
 ): HeroSlideView[] {
+  let slides: HeroSlideView[];
   if (cmsSlides && cmsSlides.length > 0) {
-    return padSlides(cmsSlides.map((c, i) => cmsToSlide(c, i, events)));
+    slides = padSlides(cmsSlides.map((c, i) => cmsToSlide(c, i, events)));
+  } else {
+    slides = padSlides(events.slice(0, 5).map((ev, i) => eventToSlide(ev, i)));
   }
-  return padSlides(events.slice(0, 5).map((ev, i) => eventToSlide(ev, i)));
+  return withFeaturedFirst(slides, events);
 }
