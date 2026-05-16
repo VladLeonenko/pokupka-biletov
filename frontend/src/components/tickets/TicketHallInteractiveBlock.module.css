@@ -203,7 +203,6 @@
   max-width: min(100%, 1600px);
   margin: 0 auto;
   touch-action: none;
-  will-change: transform;
   transition: transform 180ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 
@@ -225,6 +224,8 @@
   background-color: #fff;
   border-radius: 4px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
 }
 
 .svgLayerCanvasBacked {
@@ -269,6 +270,31 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+.sellableSeatSvgLayer {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sellableSeatDot {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+
+.sellableSeatDot:hover {
+  filter: saturate(1.15) brightness(1.05);
+}
+
+.sellableSeatDotOn {
+  filter: saturate(1.2) brightness(1.08);
+  stroke-width: 3;
 }
 
 .backgroundSeatDot {
@@ -413,18 +439,18 @@
   background-color: var(--seat-accent, #2f80ed);
 }
 
-/** Клик по сектору + зум: места должны быть видимы (не 0.14% обзора). */
+/** Fallback (canvas): доля слоя, не px — иначе при CSS-zoom кружки раздуваются. */
 .seatDotStadium.seatDotSectorFocus {
-  width: clamp(11px, 0.72vw, 18px);
-  min-width: 11px;
-  min-height: 11px;
+  width: 0.42%;
+  min-width: 0;
+  min-height: 0;
   aspect-ratio: 1;
-  border: 1.5px solid #fff;
+  border: 1px solid #fff;
   background-color: var(--seat-accent, #2f80ed);
   opacity: 1;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.2),
-    0 1px 4px rgba(0, 0, 0, 0.28);
+    0 1px 3px rgba(0, 0, 0, 0.22);
 }
 
 .seatDotStadium.seatDotSectorFocus .seatDotLabel {
@@ -866,9 +892,7 @@
   }
 
   .seatDotStadium.seatDotSectorFocus {
-    width: clamp(12px, 2.8vw, 20px);
-    min-width: 12px;
-    min-height: 12px;
+    width: 0.48%;
   }
 
   .seatDotOverview {

@@ -1185,17 +1185,20 @@ export function TicketHallInteractiveBlock({
   ]);
 
   const layersStyle = useMemo<React.CSSProperties>(() => {
-    const style: React.CSSProperties = {
+    return {
       transform: `matrix(${zoom}, 0, 0, ${zoom}, ${pan.x}, ${pan.y})`,
       transformOrigin: '0 0',
       transition: isMapDragging || stadiumCanvasEnabled ? 'none' : undefined,
     };
-    if (sectorMode.enabled && svgViewBox.width > 100) {
-      style.width = `${Math.round(svgViewBox.width)}px`;
-      style.maxWidth = 'none';
-    }
-    return style;
-  }, [isMapDragging, pan.x, pan.y, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.width, zoom]);
+  }, [isMapDragging, pan.x, pan.y, stadiumCanvasEnabled, zoom]);
+
+  /** Круги в единицах viewBox — масштабируются вместе со схемой, без «огромных» px поверх zoom. */
+  const stadiumSellableDotR = useMemo(
+    () => Math.max(16, Math.min(38, svgViewBox.width * 0.0024)),
+    [svgViewBox.width],
+  );
+  const useStadiumSvgSellableDots =
+    sectorSeatFocusView && useSvgNative && !useCanvasCompositing;
 
   const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
@@ -1389,8 +1392,7 @@ export function TicketHallInteractiveBlock({
           >
             <div
               className={`${styles.svgLayer} ${useCanvasCompositing ? styles.svgLayerCanvasBacked : ''} ${
-                !stadiumCanvasEnabled &&
-                (visibleBackgroundSeatCoordinates.length > 0 || sectorSeatFocusView)
+                !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0
                   ? styles.svgLayerFocused
                   : ''
               }`}
@@ -1484,7 +1486,56 @@ export function TicketHallInteractiveBlock({
                       />
                     ))
                 : null}
-              {useSvgNative && !useDelegatedSeatHits
+              {useStadiumSvgSellableDots ? (
+                <svg
+                  className={styles.sellableSeatSvgLayer}
+                  viewBox={svgViewBox.value}
+                  preserveAspectRatio="xMidYMid meet"
+                  aria-label="Доступные места"
+                >
+                  {visibleNativePlacements.map((p) => {
+                    const visualKey = p.key;
+                    const active = selectedSeatDetails.some((d) => d.key === visualKey);
+                    const fill = colorForSeat(p.priceKey);
+                    const seatInfo = {
+                      key: visualKey,
+                      offerId: p.offerId,
+                      sector: p.sectorLabel,
+                      row: p.rowLabel,
+                      seat: p.seat,
+                      priceKey: p.priceKey,
+                    };
+                    const cx = (p.xPct / 100) * svgViewBox.width;
+                    const cy = (p.yPct / 100) * svgViewBox.height;
+                    return (
+                      <circle
+                        key={p.key}
+                        role="button"
+                        tabIndex={0}
+                        data-seat-dot="true"
+                        className={`${styles.sellableSeatDot} ${active ? styles.sellableSeatDotOn : ''}`}
+                        cx={cx}
+                        cy={cy}
+                        r={stadiumSellableDotR}
+                        fill={fill}
+                        stroke="#fff"
+                        strokeWidth={Math.max(2, stadiumSellableDotR * 0.14)}
+                        aria-label={p.title}
+                        onPointerDown={(ev) => {
+                          ev.stopPropagation();
+                        }}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          if (suppressMapClickRef.current) return;
+                          updateSelectedDetails(seatInfo, p.available);
+                          if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
+                        }}
+                      />
+                    );
+                  })}
+                </svg>
+              ) : null}
+              {useSvgNative && !useDelegatedSeatHits && !useStadiumSvgSellableDots
                 ? visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);
