@@ -134,7 +134,16 @@ function parseSeatSelectionDisabled(layout: unknown): boolean {
 /** Места из офферов выглядят как остальная чаша (без цвета цены поверх фона). */
 function parseUniformHallSeatAppearance(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
-  return (layout as Record<string, unknown>).uniformHallSeatAppearance === true;
+  const r = layout as Record<string, unknown>;
+  if (r.omitClientSeatCoordinateCloud === true) return false;
+  return r.uniformHallSeatAppearance === true;
+}
+
+/** Luzhniki: DOM-SVG вместо canvas — иначе секторы не кликаются, точки уезжают на газон. */
+function parseDisableStadiumCanvas(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  const r = layout as Record<string, unknown>;
+  return r.disableStadiumCanvas === true || r.omitClientSeatCoordinateCloud === true;
 }
 
 function parseDisablePositionalSeatZip(layout: unknown): boolean {
@@ -397,6 +406,7 @@ export function TicketHallInteractiveBlock({
     () => parseUniformHallSeatAppearance(layoutJson),
     [layoutJson],
   );
+  const disableStadiumCanvas = useMemo(() => parseDisableStadiumCanvas(layoutJson), [layoutJson]);
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
   const layoutBaseSeats = useMemo(() => parseLayoutBaseSeatPositions(layoutJson), [layoutJson]);
@@ -690,7 +700,8 @@ export function TicketHallInteractiveBlock({
     panRef.current = pan;
   }, [pan]);
 
-  const stadiumCanvasEnabled = sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
+  const stadiumCanvasEnabled =
+    !disableStadiumCanvas && sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
 
   /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
@@ -1361,7 +1372,9 @@ export function TicketHallInteractiveBlock({
             />
             {sectorMode.enabled ? (
               <svg
-                className={`${styles.sectorLayer} ${selectedSectorSummary || mapZoomed ? styles.sectorLayerFocused : ''}`}
+                className={`${styles.sectorLayer} ${selectedSectorSummary ? styles.sectorLayerFocused : ''} ${
+                  mapZoomed && !selectedSectorSummary ? styles.sectorLayerOverviewZoomed : ''
+                }`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
                 aria-label="Секторы стадиона"

@@ -118,8 +118,10 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       );
     nextLayout.sellableSeats = seats;
     nextLayout.preferLayoutSeatPositions = true;
-    /** На чекауте не рисуем ~77k серых точек — только SVG + sellableSeats после выбора сектора. */
+    /** На чекауте: DOM-SVG (не canvas), без серого облака, цветные sellable после выбора сектора. */
     nextLayout.omitClientSeatCoordinateCloud = true;
+    nextLayout.disableStadiumCanvas = true;
+    nextLayout.uniformHallSeatAppearance = false;
     nextLayout.offerSeatGeodesy = {
       matched,
       totalSellable,
