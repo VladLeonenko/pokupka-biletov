@@ -6,7 +6,7 @@ const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
 ]);
 
-/** GetBilet иногда пишет «именной билет» в Extra, но на витрине продажи нет — не показываем этот UX. */
+/** На этих мероприятиях нет продажи без номера места в SeatList — скрываем такие офферы из списка. */
 const NAMED_TICKET_UX_DISABLED_REPERTOIRE_IDS = new Set([
   '6a05d17b46a4d000309ecf4e',
 ]);

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildSectorBBoxFallbackPlacements,
   buildSvgNativePlacements,
   extractSectorCode,
   matchSvgSeatToOffer,
@@ -57,24 +56,12 @@ describe('svgNativeSeatLayout', () => {
     ]);
   });
 
-  it('buildSectorBBoxFallbackPlacements lays out offer seats in sector path bbox', () => {
-    const placed = new Set<string>();
-    const placements = buildSectorBBoxFallbackPlacements(
-      [{ Id: 'o1', Sector: 'сектор a101', Row: '11', SeatList: ['6', '7'] }],
-      [
-        {
-          label: 'Сектор A 101',
-          path: 'M0,0 L100,0 L100,80 L0,80 Z',
-        },
-      ],
-      placed,
-      (o) => String(o.AgentPrice ?? '1000'),
-      100,
-      100,
-    );
-    expect(placements).toHaveLength(2);
-    expect(placements[0].xPct).toBeGreaterThan(0);
-    expect(placements[0].priceKey).toBeTruthy();
+  it('reads sellableSeats before seats in layout_json', () => {
+    const seats = parseLayoutSeatPositions({
+      seats: [{ sector: 'A', row: '1', seat: '1', xPct: 1, yPct: 2 }],
+      sellableSeats: [{ sector: 'B', row: '2', seat: '3', xPct: 10, yPct: 20 }],
+    });
+    expect(seats).toEqual([{ sector: 'B', row: '2', seat: '3', xPct: 10, yPct: 20 }]);
   });
 
   it('matches layout seats with GetBilet offers and reports gaps', () => {

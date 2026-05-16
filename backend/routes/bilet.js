@@ -37,11 +37,16 @@ import {
   resolveRepertoireSlug,
 } from '../services/repertoirePublicContext.js';
 import {
+  isBlockedRepertoireId,
   isBlockedRepertoireSlug,
   RepertoireNotAvailableError,
 } from '../services/repertoireStorefrontAccess.js';
 import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
+import {
+  adaptLuzhnikiStageMapForLiveOffers,
+  LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+} from '../services/luzhnikiFootballStageMap.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import {
@@ -331,8 +336,15 @@ function finalizePublicStorefrontActions(actions) {
   return filterUpcomingCatalogActions(Array.isArray(actions) ? actions : []);
 }
 
+function stripBlockedRepertoireFromCatalog(actions) {
+  return (Array.isArray(actions) ? actions : []).filter((a) => {
+    const repId = String(a?.repertoireId ?? a?.Id ?? a?.id ?? '').trim();
+    return !isBlockedRepertoireId(repId);
+  });
+}
+
 async function enrichAndMergePublicCatalog(actionsInput) {
-  let actions = Array.isArray(actionsInput) ? actionsInput : [];
+  let actions = stripBlockedRepertoireFromCatalog(actionsInput);
   try {
     actions = await enrichRestV2CatalogActions(actions);
   } catch (e) {
@@ -343,7 +355,7 @@ async function enrichAndMergePublicCatalog(actionsInput) {
   } catch (e) {
     console.error('[getbilet] merge pinned catalog:', e instanceof Error ? e.message : e);
   }
-  return finalizePublicStorefrontActions(actions);
+  return finalizePublicStorefrontActions(stripBlockedRepertoireFromCatalog(actions));
 }
 
 /**
@@ -543,7 +555,19 @@ router.get('/stage/:stageId/map', async (req, res) => {
       [lookupKey]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'not_found' });
-    return sendPublicJson(req, res, r.rows[0], { cacheSeconds: 300, staleSeconds: 600 });
+    let row = r.rows[0];
+    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
+      try {
+        const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: false });
+        const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        if (offerRows.length > 0) {
+          row = adaptLuzhnikiStageMapForLiveOffers(row, offerRows);
+        }
+      } catch (e) {
+        console.warn('[bilet] stage map luzhniki enrich:', e instanceof Error ? e.message : e);
+      }
+    }
+    return sendPublicJson(req, res, row, { cacheSeconds: 60, staleSeconds: 120 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({ error: 'schema', message: 'Таблица getbilet_stage_maps не создана — выполните миграции' });

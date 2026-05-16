@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
-  buildSectorBBoxFallbackPlacements,
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
   parseLayoutMode,
@@ -134,6 +133,11 @@ function parseUniformHallSeatAppearance(layout: unknown): boolean {
   return (layout as Record<string, unknown>).uniformHallSeatAppearance === true;
 }
 
+function parseDisablePositionalSeatZip(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).disablePositionalSeatZip === true;
+}
+
 /** Пока нет офферов GetBilet — отрисовать все места из layout_json серым (ориентир). */
 function parseGrayHallWhenNoOffers(
   layout: unknown,
@@ -183,6 +187,12 @@ import {
   normalizeSeatToken,
   normalizeSectorLabel,
 } from '@/utils/ticketHallSectorNormalize';
+import {
+  HALL_MAP_DELEGATED_HIT_MIN,
+  hallMapCanvasDevicePixelRatio,
+  isCoarsePointerDevice,
+  pickPlacementAtLayerPoint,
+} from '@/utils/ticketHallMapInteraction';
 
 function normalizeSimpleToken(value: unknown): string {
   return normalizeSeatToken(value);
@@ -421,20 +431,10 @@ export function TicketHallInteractiveBlock({
     }
 
     if (sectorMode.enabled) {
-      let { placements } = buildSvgNativePlacements(nativeSeats, offers, getPriceKey);
-      const placedOfferSeatKeys = new Set<string>();
-      for (const p of placements) {
-        placedOfferSeatKeys.add(`${p.offerId}|${normalizeRowLabel(p.rowLabel)}|${normalizeSimpleToken(p.seat)}`);
-      }
-      const bboxPlacements = buildSectorBBoxFallbackPlacements(
-        offers,
-        sectorMode.sectors.map((s) => ({ label: s.label, path: s.path })),
-        placedOfferSeatKeys,
-        getPriceKey,
-        svgViewBox.width,
-        svgViewBox.height,
-      );
-      placements = [...placements, ...bboxPlacements];
+      const disablePositionalSeatZip = parseDisablePositionalSeatZip(layoutJson);
+      let { placements } = buildSvgNativePlacements(nativeSeats, offers, getPriceKey, {
+        disablePositionalSeatZip,
+      });
 
       const merged =
         grayHallWhenNoOffers && nativeSeats.length >= 2
@@ -446,7 +446,9 @@ export function TicketHallInteractiveBlock({
       };
     }
 
-    let { placements } = buildSvgNativePlacements(nativeSeats, offers, getPriceKey);
+    let { placements } = buildSvgNativePlacements(nativeSeats, offers, getPriceKey, {
+      disablePositionalSeatZip: parseDisablePositionalSeatZip(layoutJson),
+    });
     const mergedNonSector =
       grayHallWhenNoOffers && nativeSeats.length >= 2
         ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
@@ -555,6 +557,10 @@ export function TicketHallInteractiveBlock({
   const dragRef = useRef<{ active: boolean; moved: boolean; id: number; sx: number; sy: number; ox: number; oy: number } | null>(
     null,
   );
+  const canvasPaintRafRef = useRef<number | null>(null);
+  const isMapDraggingRef = useRef(false);
+  const mapReadyOnceRef = useRef(false);
+  const paintHallCanvasRef = useRef<(() => void) | null>(null);
 
   const getLayerBase = useCallback(() => {
     const vp = viewportRef.current;
@@ -571,17 +577,54 @@ export function TicketHallInteractiveBlock({
     };
   }, []);
 
-  const applyCamera = useCallback((nextZoom: number, nextPan: Point) => {
-    zoomRef.current = nextZoom;
-    panRef.current = nextPan;
-    setZoom(nextZoom);
-    setPan(nextPan);
+  const syncLayersTransform = useCallback((nextZoom: number, nextPan: Point) => {
+    const layers = layersRef.current;
+    if (layers) {
+      layers.style.transform = `matrix(${nextZoom}, 0, 0, ${nextZoom}, ${nextPan.x}, ${nextPan.y})`;
+    }
   }, []);
 
-  const applyPan = useCallback((nextPan: Point) => {
-    panRef.current = nextPan;
-    setPan(nextPan);
+  const scheduleCanvasPaint = useCallback(() => {
+    if (canvasPaintRafRef.current != null) return;
+    canvasPaintRafRef.current = requestAnimationFrame(() => {
+      canvasPaintRafRef.current = null;
+      paintHallCanvasRef.current?.();
+    });
   }, []);
+
+  const applyCameraLive = useCallback(
+    (nextZoom: number, nextPan: Point, commit: boolean) => {
+      zoomRef.current = nextZoom;
+      panRef.current = nextPan;
+      syncLayersTransform(nextZoom, nextPan);
+      scheduleCanvasPaint();
+      if (commit) {
+        setZoom(nextZoom);
+        setPan({ ...nextPan });
+      }
+    },
+    [scheduleCanvasPaint, syncLayersTransform],
+  );
+
+  const applyCamera = useCallback(
+    (nextZoom: number, nextPan: Point) => {
+      applyCameraLive(nextZoom, nextPan, true);
+    },
+    [applyCameraLive],
+  );
+
+  const applyPan = useCallback(
+    (nextPan: Point, live = false) => {
+      if (live) {
+        applyCameraLive(zoomRef.current, nextPan, false);
+        return;
+      }
+      panRef.current = nextPan;
+      setPan(nextPan);
+      scheduleCanvasPaint();
+    },
+    [applyCameraLive, scheduleCanvasPaint],
+  );
 
   const getCenteredPan = useCallback((targetZoom: number) => {
     const vp = viewportRef.current;
@@ -688,15 +731,27 @@ export function TicketHallInteractiveBlock({
   }, [selectedSector]);
 
   useEffect(() => {
-    setMapPreparing(true);
+    if (!mapReadyOnceRef.current) setMapPreparing(true);
   }, [hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
 
   useEffect(() => {
+    const coarse = isCoarsePointerDevice();
+    const delay =
+      mapReadyOnceRef.current && stadiumCanvasEnabled
+        ? 80
+        : stadiumCanvasEnabled
+          ? coarse
+            ? 200
+            : 420
+          : coarse
+            ? 120
+            : 260;
     const timeout = window.setTimeout(() => {
       setMapPreparing(false);
-    }, stadiumCanvasEnabled ? 520 : 280);
+      mapReadyOnceRef.current = true;
+    }, delay);
     return () => window.clearTimeout(timeout);
-  }, [canvasImageVersion, hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
+  }, [canvasBackdropReady, canvasImageVersion, hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
 
   const applyFit = useCallback((resetPan: boolean) => {
     const vp = viewportRef.current;
@@ -750,6 +805,7 @@ export function TicketHallInteractiveBlock({
       oy: panRef.current.y,
     };
     setIsMapDragging(true);
+    isMapDraggingRef.current = true;
     if (pointersRef.current.size >= 2) startPinchIfReady();
   }, [hideSeatInfo, hideSectorInfo, startPinchIfReady]);
 
@@ -761,10 +817,37 @@ export function TicketHallInteractiveBlock({
       const points = [...pointersRef.current.values()];
       const [a, b] = points;
       const middle = pointMiddle(a, b);
-      applyPan({
-        x: pinchRef.current.startPan.x + (middle.x - pinchRef.current.startMiddle.x),
-        y: pinchRef.current.startPan.y + (middle.y - pinchRef.current.startMiddle.y),
-      });
+      const dist = Math.max(1, pointDistance(a, b));
+      const scale = dist / pinchRef.current.startDistance;
+      const nextZoom = clampZoom(pinchRef.current.startZoom * scale);
+      const vp = viewportRef.current;
+      const base = getLayerBase();
+      if (vp && base) {
+        const vpRect = vp.getBoundingClientRect();
+        const startZoom = Math.max(0.001, pinchRef.current.startZoom);
+        const layerX =
+          (pinchRef.current.startMiddle.x - vpRect.left - base.x - pinchRef.current.startPan.x) / startZoom;
+        const layerY =
+          (pinchRef.current.startMiddle.y - vpRect.top - base.y - pinchRef.current.startPan.y) / startZoom;
+        applyCameraLive(
+          nextZoom,
+          {
+            x: middle.x - vpRect.left - base.x - layerX * nextZoom,
+            y: middle.y - vpRect.top - base.y - layerY * nextZoom,
+          },
+          false,
+        );
+      } else {
+        applyPan(
+          {
+            x: pinchRef.current.startPan.x + (middle.x - pinchRef.current.startMiddle.x),
+            y: pinchRef.current.startPan.y + (middle.y - pinchRef.current.startMiddle.y),
+          },
+          true,
+        );
+      }
+      if (dragRef.current) dragRef.current.moved = true;
+      suppressMapClickRef.current = true;
       return;
     }
     const d = dragRef.current;
@@ -774,11 +857,14 @@ export function TicketHallInteractiveBlock({
     if (!d.moved && Math.hypot(dx, dy) < 4) return;
     d.moved = true;
     suppressMapClickRef.current = true;
-    applyPan({
-      x: d.ox + dx,
-      y: d.oy + dy,
-    });
-  }, [applyPan]);
+    applyPan(
+      {
+        x: d.ox + dx,
+        y: d.oy + dy,
+      },
+      true,
+    );
+  }, [applyCameraLive, applyPan, clampZoom, getLayerBase]);
 
   const focusLayerPoint = useCallback((layerX: number, layerY: number, targetZoom: number, sectorLabel?: string) => {
     const vp = viewportRef.current;
@@ -807,34 +893,6 @@ export function TicketHallInteractiveBlock({
     setSelectedSector(null);
     focusLayerPoint(layerX, layerY, nextZoom);
   }, [focusLayerPoint, getLayerBase, getNextZoomLevel]);
-
-  const endPan = useCallback((e: React.PointerEvent) => {
-    pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size < 2) pinchRef.current = null;
-    const d = dragRef.current;
-    const clicked = d && e.pointerId === d.id && !d.moved;
-    const moved = Boolean(d && e.pointerId === d.id && d.moved);
-    if (d && e.pointerId === d.id) dragRef.current = null;
-    if (moved) {
-      window.setTimeout(() => {
-        suppressMapClickRef.current = false;
-      }, 0);
-    }
-    if (pointersRef.current.size === 0) setIsMapDragging(false);
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* */
-    }
-    if (
-      clicked
-      && !(e.target as HTMLElement).closest('button')
-      && !(e.target as HTMLElement).closest('[data-seat-dot="true"]')
-      && !(e.target as HTMLElement).closest('[data-sector-path="true"]')
-    ) {
-      focusClickPoint(e.clientX, e.clientY);
-    }
-  }, [focusClickPoint]);
 
   useEffect(() => {
     applyFit(true);
@@ -960,6 +1018,95 @@ export function TicketHallInteractiveBlock({
   const uniformDomOverlayGhost =
     uniformHallSeatAppearance && useCanvasCompositing && useSvgNative;
 
+  const interactivePlacementCount = useMemo(
+    () => visibleNativePlacements.filter((p) => !p.previewOnly).length,
+    [visibleNativePlacements],
+  );
+  const useDelegatedSeatHits =
+    isCoarsePointerDevice() &&
+    uniformDomOverlayGhost &&
+    interactivePlacementCount >= HALL_MAP_DELEGATED_HIT_MIN;
+
+  const pickPlacementAtClient = useCallback(
+    (clientX: number, clientY: number) => {
+      const base = getLayerBase();
+      const vp = viewportRef.current;
+      if (!base || !vp) return null;
+      const vpRect = vp.getBoundingClientRect();
+      const z = Math.max(0.001, zoomRef.current);
+      const layerX = (clientX - vpRect.left - base.x - panRef.current.x) / z;
+      const layerY = (clientY - vpRect.top - base.y - panRef.current.y) / z;
+      return pickPlacementAtLayerPoint(
+        visibleNativePlacements,
+        layerX,
+        layerY,
+        base.width,
+        base.height,
+        svgViewBox.width,
+      );
+    },
+    [getLayerBase, svgViewBox.width, visibleNativePlacements],
+  );
+
+  const activatePlacement = useCallback(
+    (p: SvgNativePlacement, anchor: HTMLElement) => {
+      const seatInfo: HallSelectedSeat = {
+        key: p.key,
+        offerId: p.offerId,
+        sector: p.sectorLabel,
+        row: p.rowLabel,
+        seat: p.seat,
+        priceKey: p.priceKey,
+      };
+      showSeatInfo(anchor, seatInfo);
+      updateSelectedDetails(seatInfo, p.available);
+      if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
+    },
+    [onSelectionChange, onToggleSeat, showSeatInfo, updateSelectedDetails],
+  );
+
+  const endPan = useCallback(
+    (e: React.PointerEvent) => {
+      pointersRef.current.delete(e.pointerId);
+      if (pointersRef.current.size < 2) pinchRef.current = null;
+      const d = dragRef.current;
+      const clicked = d && e.pointerId === d.id && !d.moved;
+      const moved = Boolean(d && e.pointerId === d.id && d.moved);
+      if (d && e.pointerId === d.id) dragRef.current = null;
+      if (moved) {
+        window.setTimeout(() => {
+          suppressMapClickRef.current = false;
+        }, 0);
+      }
+      if (pointersRef.current.size === 0) {
+        setIsMapDragging(false);
+        isMapDraggingRef.current = false;
+        applyCameraLive(zoomRef.current, panRef.current, true);
+      }
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        /* */
+      }
+      if (
+        clicked
+        && !(e.target as HTMLElement).closest('button')
+        && !(e.target as HTMLElement).closest('[data-seat-dot="true"]')
+        && !(e.target as HTMLElement).closest('[data-sector-path="true"]')
+      ) {
+        if (useDelegatedSeatHits) {
+          const picked = pickPlacementAtClient(e.clientX, e.clientY);
+          if (picked) {
+            activatePlacement(picked, viewportRef.current ?? (e.currentTarget as HTMLElement));
+            return;
+          }
+        }
+        focusClickPoint(e.clientX, e.clientY);
+      }
+    },
+    [activatePlacement, applyCameraLive, focusClickPoint, pickPlacementAtClient, useDelegatedSeatHits],
+  );
+
   const visibleBackgroundSeatCoordinates = useMemo(() => {
     if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
     if (mapZoomed || denseBackgroundHall) return backgroundSeatCoordinates;
@@ -984,121 +1131,134 @@ export function TicketHallInteractiveBlock({
     return style;
   }, [isMapDragging, pan.x, pan.y, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.width, zoom]);
 
-  useEffect(() => {
+  const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
     const canvas = canvasRef.current;
     const viewport = viewportRef.current;
     if (!canvas || !viewport) return;
 
-    let frame = requestAnimationFrame(() => {
-      const base = getLayerBase();
-      if (!base) return;
-      const width = viewport.clientWidth;
-      const height = viewport.clientHeight;
-      if (width <= 0 || height <= 0) return;
+    const base = getLayerBase();
+    if (!base) return;
+    const width = viewport.clientWidth;
+    const height = viewport.clientHeight;
+    if (width <= 0 || height <= 0) return;
 
-      const dpr = Math.min(3, window.devicePixelRatio || 1);
-      const pixelWidth = Math.max(1, Math.round(width * dpr));
-      const pixelHeight = Math.max(1, Math.round(height * dpr));
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-        canvas.width = pixelWidth;
-        canvas.height = pixelHeight;
-      }
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+    const liveZoom = zoomRef.current;
+    const livePan = panRef.current;
+    const dpr = hallMapCanvasDevicePixelRatio();
+    const pixelWidth = Math.max(1, Math.round(width * dpr));
+    const pixelHeight = Math.max(1, Math.round(height * dpr));
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, width, height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
 
-      const x = base.x + pan.x;
-      const y = base.y + pan.y;
-      const w = base.width * zoom;
-      const h = base.height * zoom;
+    const x = base.x + livePan.x;
+    const y = base.y + livePan.y;
+    const w = base.width * liveZoom;
+    const h = base.height * liveZoom;
 
-      const img = canvasImageRef.current;
-      if (img) {
-        ctx.save();
-        ctx.filter = zoom > fitZoom + 0.01 ? CANVAS_ZOOMED_BACKDROP_FILTER : 'none';
-        ctx.drawImage(img, x, y, w, h);
-        ctx.restore();
-      }
+    const img = canvasImageRef.current;
+    if (img) {
+      ctx.save();
+      ctx.filter = liveZoom > fitZoom + 0.01 ? CANVAS_ZOOMED_BACKDROP_FILTER : 'none';
+      ctx.drawImage(img, x, y, w, h);
+      ctx.restore();
+    }
 
-      const bg = backgroundSeatCoordinates;
-      if (
-        bg.length > 0 &&
-        (zoom > fitZoom + 0.01 || bg.length >= 8000)
-      ) {
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
-        const scalePx = w / Math.max(1, svgViewBox.width);
-        const useRects = bg.length >= 2500;
-        if (useRects) {
-          const dense = bg.length >= 8000;
-          const r = dense
-            ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
-            : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
-          ctx.beginPath();
-          const limW = width + 14;
-          const limH = height + 14;
-          for (const seat of bg) {
-            const sx = x + (seat.xPct / 100) * w;
-            const sy = y + (seat.yPct / 100) * h;
-            if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-            ctx.rect(sx - r * 0.5, sy - r * 0.5, r, r);
-          }
-          ctx.fill();
-        } else {
-          ctx.beginPath();
-          const r = Math.max(1.15, Math.min(3.2, scalePx * 7));
-          for (const seat of bg) {
-            const sx = x + (seat.xPct / 100) * w;
-            const sy = y + (seat.yPct / 100) * h;
-            if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
-            ctx.moveTo(sx + r, sy);
-            ctx.arc(sx, sy, r, 0, Math.PI * 2);
-          }
-          ctx.fill();
-        }
-      }
-
-      if (visibleNativePlacements.length > 0) {
-        const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
-        for (const seat of visibleNativePlacements) {
-          const active = activeKeys.has(seat.key);
-          /** Серые «лишние» точки без оффера совпадают с фоном allSeatCoordinates — не дублировать. Офферы GetBilet всегда цветом цены. */
-          if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
-
+    const bg = backgroundSeatCoordinates;
+    const dragging = isMapDraggingRef.current;
+    const skipDenseBgWhileDragging = dragging && bg.length >= 8000;
+    if (
+      !skipDenseBgWhileDragging &&
+      bg.length > 0 &&
+      (liveZoom > fitZoom + 0.01 || bg.length >= 8000)
+    ) {
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
+      const scalePx = w / Math.max(1, svgViewBox.width);
+      const useRects = bg.length >= 2500;
+      if (useRects) {
+        const dense = bg.length >= 8000;
+        const r = dense
+          ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
+          : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+        ctx.beginPath();
+        const limW = width + 14;
+        const limH = height + 14;
+        for (const seat of bg) {
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
-          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-          const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
-          ctx.beginPath();
-          ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
+          if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
+          ctx.rect(sx - r * 0.5, sy - r * 0.5, r, r);
+        }
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        const r = Math.max(1.15, Math.min(3.2, scalePx * 7));
+        for (const seat of bg) {
+          const sx = x + (seat.xPct / 100) * w;
+          const sy = y + (seat.yPct / 100) * h;
+          if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
+          ctx.moveTo(sx + r, sy);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
-          ctx.fill();
-          if (active && !seat.previewOnly) {
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#fff';
-            ctx.stroke();
-          }
+        }
+        ctx.fill();
+      }
+    }
+
+    if (!dragging && visibleNativePlacements.length > 0) {
+      const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
+      for (const seat of visibleNativePlacements) {
+        const active = activeKeys.has(seat.key);
+        if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
+
+        const sx = x + (seat.xPct / 100) * w;
+        const sy = y + (seat.yPct / 100) * h;
+        if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
+        const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
+        ctx.beginPath();
+        ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+        if (active && !seat.previewOnly) {
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#fff';
+          ctx.stroke();
         }
       }
-    });
-
-    return () => cancelAnimationFrame(frame);
+    }
   }, [
     backgroundSeatCoordinates,
-    canvasImageVersion,
     colorForSeat,
     fitZoom,
     getLayerBase,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
-    uniformHallSeatAppearance,
     svgViewBox.width,
+    useCanvasCompositing,
+    visibleNativePlacements,
+  ]);
+
+  useEffect(() => {
+    paintHallCanvasRef.current = paintHallCanvas;
+  }, [paintHallCanvas]);
+
+  useEffect(() => {
+    scheduleCanvasPaint();
+  }, [
+    paintHallCanvas,
+    canvasImageVersion,
+    scheduleCanvasPaint,
+    selectedSeatDetails,
     visibleNativePlacements,
     zoom,
     pan.x,
@@ -1239,7 +1399,7 @@ export function TicketHallInteractiveBlock({
                       />
                     ))
                 : null}
-              {useSvgNative
+              {useSvgNative && !useDelegatedSeatHits
                 ? visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);

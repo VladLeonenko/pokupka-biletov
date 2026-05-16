@@ -59,9 +59,9 @@ function minimalDescriptionPack(title, manualText, catalogHints, kind, categoryL
   };
 }
 
-async function hasLiveOffersInCache(repertoireId) {
+async function loadCachedOfferRows(repertoireId) {
   const rid = String(repertoireId || '').trim();
-  if (!rid) return false;
+  if (!rid) return [];
   try {
     const r = await ticketPool.query(
       `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
@@ -69,10 +69,15 @@ async function hasLiveOffersInCache(repertoireId) {
     );
     const payload = r.rows[0]?.payload_json;
     const rows = payload?.ResultData;
-    return Array.isArray(rows) && rows.length > 0;
+    return Array.isArray(rows) ? rows : [];
   } catch {
-    return false;
+    return [];
   }
+}
+
+async function hasLiveOffersInCache(repertoireId) {
+  const rows = await loadCachedOfferRows(repertoireId);
+  return rows.length > 0;
 }
 
 function expandMediaTemplate(template, repertoireId) {
@@ -564,9 +569,11 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       } else {
         const lzRow = await loadLuzhnikiFootballStageMapRow();
         if (lzRow) {
-          stageMap = (await hasLiveOffersInCache(repertoireId))
-            ? adaptLuzhnikiStageMapForLiveOffers(lzRow)
-            : lzRow;
+          const offerRows = await loadCachedOfferRows(repertoireId);
+          stageMap =
+            offerRows.length > 0
+              ? adaptLuzhnikiStageMapForLiveOffers(lzRow, offerRows)
+              : lzRow;
         }
       }
     }

@@ -4,6 +4,7 @@
  */
 
 import ticketPool from '../ticketDb.js';
+import { buildSellableSeatGeodesyWithDots } from '../utils/hallSeatGeodesyFromDots.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
@@ -67,12 +68,8 @@ export async function loadLuzhnikiFootballStageMapRow() {
   return r.rows[0] || null;
 }
 
-/**
- * Живые офферы GetBilet: не «серый ориентир», а продажа по совпадению сектор/ряд/место.
- * @param {Record<string, unknown> | null | undefined} row
- */
-export function adaptLuzhnikiStageMapForLiveOffers(row) {
-  if (!row) return row;
+function parseLayoutJson(row) {
+  if (!row) return {};
   let layout = row.layout_json;
   if (typeof layout === 'string') {
     try {
@@ -81,13 +78,59 @@ export function adaptLuzhnikiStageMapForLiveOffers(row) {
       layout = {};
     }
   }
-  if (!layout || typeof layout !== 'object') layout = {};
+  return layout && typeof layout === 'object' ? layout : {};
+}
+
+/**
+ * Живые офферы GetBilet: координаты только там, где сектор/ряд/место есть в геодезии pbilet.
+ * @param {Record<string, unknown> | null | undefined} row
+ * @param {unknown[] | null | undefined} [offerRows] ResultData из GetOfferListByRepertoireId
+ */
+export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
+  if (!row) return row;
+  const layout = parseLayoutJson(row);
+  const baseSeats = Array.isArray(layout.seats) ? layout.seats : [];
+  const allSeatCoordinates = Array.isArray(layout.allSeatCoordinates)
+    ? layout.allSeatCoordinates
+    : [];
+  const sectorPaths = Array.isArray(layout.sectorMode?.sectors)
+    ? layout.sectorMode.sectors
+    : [];
+  const hallWidth = Number(layout.geodesy?.hallWidth);
+  const hallHeight = Number(layout.geodesy?.hallHeight);
+
+  /** @type {Record<string, unknown>} */
+  const nextLayout = {
+    ...layout,
+    grayHallWhenNoOffers: false,
+    seatSelectionDisabled: false,
+    disablePositionalSeatZip: true,
+    preferExactOfferSeatMatch: true,
+  };
+
+  if (Array.isArray(offerRows) && offerRows.length > 0 && baseSeats.length > 0) {
+    const { seats, matched, totalSellable, unmatchedSamples, dotMatched } =
+      buildSellableSeatGeodesyWithDots(
+        baseSeats,
+        allSeatCoordinates,
+        sectorPaths,
+        hallWidth,
+        hallHeight,
+        offerRows,
+      );
+    nextLayout.sellableSeats = seats;
+    nextLayout.offerSeatGeodesy = {
+      matched,
+      totalSellable,
+      unmatched: Math.max(0, totalSellable - matched),
+      dotMatched: dotMatched ?? 0,
+      unmatchedSamples,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   return {
     ...row,
-    layout_json: {
-      ...layout,
-      grayHallWhenNoOffers: false,
-      seatSelectionDisabled: false,
-    },
+    layout_json: nextLayout,
   };
 }

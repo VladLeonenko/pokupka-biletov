@@ -29,6 +29,8 @@
     "seed:vakhtangov-stage-map": "STAGE_MAP_NORMALIZE_DATA_IDS=1 STAGE_MAP_STAGE_ID=5f3dedaa08192a003157dc6d STAGE_MAP_TITLE=\"Театр им. Вахтангова — основная сцена\" STAGE_MAP_SVG_PATH=frontend/public/hall-maps/vakhtangov-main-hall.svg STAGE_MAP_EXTERNAL_PLAN_URL=https://vakhtangovtheatre.ru/events/37886 node scripts/seed-stage-map.js",
     "seed:luzhniki-football-map": "node scripts/seed-luzhniki-football-geodesy.js",
     "seed:luzhniki-football-map-partial": "LUZHNIKI_GEODESY_MIN_SEATS=4000 node scripts/seed-luzhniki-football-geodesy.js",
+    "verify:offer-seat-geodesy": "node scripts/verify-offer-seat-geodesy.js",
+    "reseed:luzhniki-from-repo": "node scripts/reseed-luzhniki-geodesy-from-repo.js",
     "seed:luzhniki-football-synthetic": "node scripts/seed-luzhniki-football-native-map.js",
     "ensure:stage-maps-columns": "node scripts/ensure-getbilet-stage-maps-columns.js",
     "test": "node --test tests/*.test.js",
