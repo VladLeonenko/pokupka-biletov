@@ -549,12 +549,27 @@ router.get('/stage/:stageId/map', async (req, res) => {
     const repertoireId =
       typeof req.query.repertoireId === 'string' ? req.query.repertoireId.trim() : '';
     const lookupKey = await resolveStageMapLookupExternalId(stageId, repertoireId);
-    const r = await ticketPool.query(
+    let r = await ticketPool.query(
       `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
        FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-      [lookupKey]
+      [lookupKey],
     );
-    if (!r.rows.length) return res.status(404).json({ error: 'not_found' });
+    if (!r.rows.length && lookupKey !== stageId) {
+      r = await ticketPool.query(
+        `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
+         FROM getbilet_stage_maps WHERE stage_external_id = $1`,
+        [stageId],
+      );
+    }
+    if (!r.rows.length && lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) {
+      return res.status(503).json({
+        error: 'stage_map_not_seeded',
+        message:
+          'Схема Лужников (luzhniki-football) не загружена в БД. На сервере: cd backend && node scripts/ensure-luzhniki-football-stage-map.js',
+        lookupKey,
+      });
+    }
+    if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
     let row = r.rows[0];
     if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
       try {

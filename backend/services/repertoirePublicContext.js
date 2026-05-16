@@ -559,13 +559,16 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       )
     ) {
       if (deferStageHeavyFields) {
-        stageMap = {
-          stage_external_id: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
-          title: 'Стадион «Лужники»',
-          svg_markup: null,
-          layout_json: null,
-          svg_markup_deferred: true,
-        };
+        const lzPeek = await loadLuzhnikiFootballStageMapRow();
+        if (lzPeek?.svg_markup) {
+          stageMap = {
+            stage_external_id: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+            title: lzPeek.title || 'Стадион «Лужники»',
+            svg_markup: null,
+            layout_json: null,
+            svg_markup_deferred: true,
+          };
+        }
       } else {
         const lzRow = await loadLuzhnikiFootballStageMapRow();
         if (lzRow) {

@@ -31,6 +31,7 @@
     "seed:luzhniki-football-map-partial": "LUZHNIKI_GEODESY_MIN_SEATS=4000 node scripts/seed-luzhniki-football-geodesy.js",
     "verify:offer-seat-geodesy": "node scripts/verify-offer-seat-geodesy.js",
     "reseed:luzhniki-from-repo": "node scripts/reseed-luzhniki-geodesy-from-repo.js",
+    "ensure:luzhniki-football-map": "node scripts/ensure-luzhniki-football-stage-map.js",
     "seed:luzhniki-football-synthetic": "node scripts/seed-luzhniki-football-native-map.js",
     "ensure:stage-maps-columns": "node scripts/ensure-getbilet-stage-maps-columns.js",
     "test": "node --test tests/*.test.js",
