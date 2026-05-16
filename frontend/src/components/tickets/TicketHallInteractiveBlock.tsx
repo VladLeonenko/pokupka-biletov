@@ -135,7 +135,17 @@ function parseUniformHallSeatAppearance(layout: unknown): boolean {
 
 function parseDisablePositionalSeatZip(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
-  return (layout as Record<string, unknown>).disablePositionalSeatZip === true;
+  const r = layout as Record<string, unknown>;
+  return r.disablePositionalSeatZip === true || r.preferExactOfferSeatMatch === true;
+}
+
+function parseSellableSeatsOnlyLayout(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  const r = layout as Record<string, unknown>;
+  return (
+    r.sellableSeatsStrictOnly === true ||
+    (Array.isArray(r.sellableSeats) && r.sellableSeats.length > 0)
+  );
 }
 
 /** Пока нет офферов GetBilet — отрисовать все места из layout_json серым (ориентир). */
@@ -991,10 +1001,24 @@ export function TicketHallInteractiveBlock({
     () => selectedSectorOffers.filter((offer) => Array.isArray(offer.SeatList) && offer.SeatList.length > 0),
     [selectedSectorOffers],
   );
+  const sellableSeatsOnlyLayout = useMemo(
+    () => parseSellableSeatsOnlyLayout(layoutJson),
+    [layoutJson],
+  );
+
   const visibleNativePlacements = useMemo(() => {
-    if (!sectorMode.enabled) return nativePlacements;
-    return nativePlacements;
-  }, [nativePlacements, sectorMode.enabled]);
+    if (!sectorMode.enabled) {
+      return nativePlacements.filter((p) => !p.previewOnly);
+    }
+    if (!selectedSector) {
+      if (sellableSeatsOnlyLayout) return [];
+      return nativePlacements;
+    }
+    return nativePlacements.filter(
+      (p) =>
+        !p.previewOnly && normalizeSectorLabel(p.sectorLabel) === selectedSector,
+    );
+  }, [nativePlacements, sectorMode.enabled, selectedSector, sellableSeatsOnlyLayout]);
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
@@ -1230,11 +1254,7 @@ export function TicketHallInteractiveBlock({
         const sx = x + (seat.xPct / 100) * w;
         const sy = y + (seat.yPct / 100) * h;
         if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-        const r = active
-          ? Math.max(bgDotR * 1.35, 4)
-          : overview
-            ? bgDotR
-            : Math.max(bgDotR, Math.min(5, scalePx * 8));
+        const r = active ? Math.max(bgDotR * 1.25, 2.5) : bgDotR;
         ctx.beginPath();
         ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
