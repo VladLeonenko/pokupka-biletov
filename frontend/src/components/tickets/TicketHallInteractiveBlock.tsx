@@ -1020,6 +1020,8 @@ export function TicketHallInteractiveBlock({
 
   const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
   const mapZoomed = zoom > fitZoom + 0.01;
+  /** Выбран сектор — прячем заливку полигонов, показываем крупные места. */
+  const sectorSeatFocusView = Boolean(sectorMode.enabled && selectedSectorSummary);
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -1365,7 +1367,10 @@ export function TicketHallInteractiveBlock({
           >
             <div
               className={`${styles.svgLayer} ${useCanvasCompositing ? styles.svgLayerCanvasBacked : ''} ${
-                !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
+                !stadiumCanvasEnabled &&
+                (visibleBackgroundSeatCoordinates.length > 0 || sectorSeatFocusView)
+                  ? styles.svgLayerFocused
+                  : ''
               }`}
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
@@ -1373,8 +1378,8 @@ export function TicketHallInteractiveBlock({
             {sectorMode.enabled ? (
               <svg
                 className={`${styles.sectorLayer} ${selectedSectorSummary ? styles.sectorLayerFocused : ''} ${
-                  mapZoomed && !selectedSectorSummary ? styles.sectorLayerOverviewZoomed : ''
-                }`}
+                  sectorSeatFocusView ? styles.sectorLayerSeatView : ''
+                } ${mapZoomed && !selectedSectorSummary ? styles.sectorLayerOverviewZoomed : ''}`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
                 aria-label="Секторы стадиона"
@@ -1476,9 +1481,9 @@ export function TicketHallInteractiveBlock({
                           key={p.key}
                           className={`${styles.seatDot} ${styles.seatDotNative} ${styles.seatDotNonInteractive} ${
                             sectorMode.enabled ? styles.seatDotStadium : ''
-                          } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''} ${
-                            uniformDomOverlayGhost ? styles.seatDotUniformCanvasGhost : ''
-                          }`}
+                          } ${sectorSeatFocusView ? styles.seatDotSectorFocus : ''} ${
+                            sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
+                          } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvasGhost : ''}`}
                           style={
                             {
                               left: `${p.xPct}%`,
@@ -1500,7 +1505,7 @@ export function TicketHallInteractiveBlock({
                         data-seat-dot="true"
                         className={`${styles.seatDot} ${styles.seatDotNative} ${
                           sectorMode.enabled ? styles.seatDotStadium : ''
-                        } ${
+                        } ${sectorSeatFocusView ? styles.seatDotSectorFocus : ''} ${
                           useCanvasCompositing ? styles.seatDotCanvasHit : ''
                         } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''} ${
                           sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
