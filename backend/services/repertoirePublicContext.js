@@ -13,6 +13,7 @@ import {
   getVenueLookupMaps,
   pickPlaceId,
 } from './getbiletVenueLabels.js';
+import { isLuzhnikiFootballRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
@@ -546,6 +547,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
 
   try {
     if (
+      isLuzhnikiFootballRepertoire(repertoireId) ||
       shouldUseLuzhnikiFootballCanonicalMap(
         {
           title,

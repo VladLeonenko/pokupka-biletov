@@ -47,6 +47,7 @@ import {
   adaptLuzhnikiStageMapForLiveOffers,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
 } from '../services/luzhnikiFootballStageMap.js';
+import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import {
@@ -548,7 +549,9 @@ router.get('/stage/:stageId/map', async (req, res) => {
     const stageId = requireNonEmptyString(req.params.stageId, 'stageId');
     const repertoireId =
       typeof req.query.repertoireId === 'string' ? req.query.repertoireId.trim() : '';
-    const lookupKey = await resolveStageMapLookupExternalId(stageId, repertoireId);
+    const forcedMapKey = luzhnikiFootballStageMapKeyForRepertoire(repertoireId);
+    const lookupKey =
+      forcedMapKey || (await resolveStageMapLookupExternalId(stageId, repertoireId));
     let r = await ticketPool.query(
       `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
        FROM getbilet_stage_maps WHERE stage_external_id = $1`,

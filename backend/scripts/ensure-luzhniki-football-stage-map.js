@@ -36,6 +36,8 @@ const existing = await ticketPool.query(
   [LUZHNIKI_FOOTBALL_STAGE_MAP_KEY],
 );
 
+const dbName = await ticketPool.query('SELECT current_database() AS name');
+
 if (existing.rows[0]?.svg_len > 1000) {
   console.log(
     JSON.stringify({
@@ -43,6 +45,7 @@ if (existing.rows[0]?.svg_len > 1000) {
       skipped: true,
       stage: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
       svgLen: Number(existing.rows[0].svg_len),
+      database: dbName.rows[0]?.name ?? null,
     }),
   );
   process.exit(0);

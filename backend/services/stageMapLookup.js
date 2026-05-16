@@ -6,6 +6,7 @@ import {
   loadRepertoireBase,
   resolvePlaceFromGetbiletMaps,
 } from './repertoirePublicContext.js';
+import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import {
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   shouldUseLuzhnikiFootballCanonicalMap,
@@ -28,6 +29,10 @@ function pickHallLabelFromPayload(payload) {
 export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
   const sid = String(stageId || '').trim();
   const rid = String(repertoireId || '').trim();
+
+  const forced = luzhnikiFootballStageMapKeyForRepertoire(rid);
+  if (forced) return forced;
+
   if (!rid || !sid) return sid;
 
   try {
