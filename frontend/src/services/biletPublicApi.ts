@@ -6,6 +6,10 @@ import {
   classifyEventTitle,
   type EventTitleKind,
 } from '@/utils/eventTitleHeuristics';
+import {
+  isBlockedTicketSlug,
+  repertoireIdForTicketSlug,
+} from '@/utils/fanIdRequiredEvents';
 import { slugify } from '@/utils/slugify';
 
 export type BiletMeta = {
@@ -510,21 +514,62 @@ export type BiletResolvedSlug = {
   beginDateTime?: string | null;
 };
 
-/** ЧПУ → repertoireId без полного каталога на клиенте. */
+function compactActionToResolvedSlug(row: Record<string, unknown>, target: string): BiletResolvedSlug | null {
+  const title = String(row.title || '').trim();
+  const rep = String(row.repertoireId || row.id || '').trim();
+  if (!rep) return null;
+  const t = target.toLowerCase();
+  if (slugify(title) !== t && rep.toLowerCase() !== t) return null;
+  return {
+    repertoireId: rep,
+    title: title || undefined,
+    stageId: row.stageId != null ? String(row.stageId) : null,
+    posterUrl: row.posterUrl != null ? String(row.posterUrl) : null,
+    bannerUrl: row.bannerUrl != null ? String(row.bannerUrl) : null,
+    beginDateTime:
+      row.beginDateTime != null
+        ? String(row.beginDateTime)
+        : row.startDateTime != null
+          ? String(row.startDateTime)
+          : null,
+  };
+}
+
+async function resolveSlugFromEventsLite(target: string): Promise<BiletResolvedSlug | null> {
+  const raw = await fetchBiletEventsLite(500);
+  const actions = extractArray(raw);
+  for (const item of actions) {
+    if (!item || typeof item !== 'object') continue;
+    const hit = compactActionToResolvedSlug(item as Record<string, unknown>, target);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** ЧПУ → repertoireId: алиас → API → fallback по events-lite. */
 export async function fetchBiletResolveSlug(slug: string): Promise<BiletResolvedSlug | null> {
   const s = slug.trim();
   if (!s) return null;
+  if (isBlockedTicketSlug(s)) return null;
+
+  const aliasRep = repertoireIdForTicketSlug(s);
+  if (aliasRep) {
+    return { repertoireId: aliasRep, title: s.replace(/-/g, ' ') };
+  }
+
   const base = getApiBase();
-  /** Только slug в path; город не нужен — резолв по алиасу/БД/кэшу, не по BIL24 cityId. */
   const res = await fetch(`${base}/api/bilet/resolve-slug/${encodeURIComponent(s)}`, {
     headers: { Accept: 'application/json' },
   });
-  if (res.status === 404) return null;
-  if (!res.ok) {
+  if (res.ok) {
+    return (await res.json()) as BiletResolvedSlug;
+  }
+  if (res.status !== 404) {
     const errText = await res.text().catch(() => '');
     throw new Error(errText || `HTTP ${res.status}`);
   }
-  return (await res.json()) as BiletResolvedSlug;
+
+  return resolveSlugFromEventsLite(s);
 }
 
 /** Площадки (GET_VENUES / REST / rest_v2 GetPlaceList). */

@@ -80,8 +80,10 @@ import { submitForm } from '@/services/cmsApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import {
   FAN_ID_NOTICE,
+  isBlockedTicketSlug,
   isFanIdRequiredForRepertoire,
   isFanIdRequiredForSlug,
+  repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
 import { useTicketCart } from '@/context/TicketCartContext';
 import styles from './TicketCheckoutPage.module.css';
@@ -237,6 +239,7 @@ export function TicketCheckoutPage() {
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
   const routeSlugIsManual = looksLikeManualTicketRouteKey(routeSlug);
+  const slugAliasRep = useMemo(() => repertoireIdForTicketSlug(routeSlug), [routeSlug]);
 
   const { data: resolvedSlugApi, isFetched: slugResolveFetched } = useQuery({
     queryKey: ['bilet-resolve-slug', routeSlug],
@@ -247,17 +250,26 @@ export function TicketCheckoutPage() {
   });
 
   const resolvedEventFromSlug = useMemo((): NormalizedBiletEvent | null => {
-    if (!resolvedSlugApi?.repertoireId) return null;
-    return {
-      id: resolvedSlugApi.repertoireId,
-      repertoireId: resolvedSlugApi.repertoireId,
-      title: resolvedSlugApi.title ?? 'Мероприятие',
-      stageId: resolvedSlugApi.stageId ?? undefined,
-      imageUrl: resolvedSlugApi.posterUrl ?? undefined,
-      bannerUrl: resolvedSlugApi.bannerUrl ?? undefined,
-      isoDate: resolvedSlugApi.beginDateTime ?? undefined,
-    };
-  }, [resolvedSlugApi]);
+    if (resolvedSlugApi?.repertoireId) {
+      return {
+        id: resolvedSlugApi.repertoireId,
+        repertoireId: resolvedSlugApi.repertoireId,
+        title: resolvedSlugApi.title ?? 'Мероприятие',
+        stageId: resolvedSlugApi.stageId ?? undefined,
+        imageUrl: resolvedSlugApi.posterUrl ?? undefined,
+        bannerUrl: resolvedSlugApi.bannerUrl ?? undefined,
+        isoDate: resolvedSlugApi.beginDateTime ?? undefined,
+      };
+    }
+    if (slugAliasRep) {
+      return {
+        id: slugAliasRep,
+        repertoireId: slugAliasRep,
+        title: routeSlug.replace(/-/g, ' '),
+      };
+    }
+    return null;
+  }, [resolvedSlugApi, slugAliasRep, routeSlug]);
 
   const repertoireId = useMemo(() => {
     const rk = routeKey.trim();
@@ -266,10 +278,11 @@ export function TicketCheckoutPage() {
     const leg = legacyRepertoireId.trim();
     if (leg) return leg;
     if (rk === DEMO_REPERTOIRE_ID) return rk;
+    if (slugAliasRep) return slugAliasRep;
     const fromSlug = eventRepId(resolvedEventFromSlug);
     if (fromSlug) return fromSlug;
     return '';
-  }, [routeKey, legacyRepertoireId, resolvedEventFromSlug]);
+  }, [routeKey, legacyRepertoireId, resolvedEventFromSlug, slugAliasRep]);
 
   const titleHint =
     searchParams.get('title') ??
@@ -976,12 +989,18 @@ export function TicketCheckoutPage() {
     if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
     if (legacyRepertoireId.trim() && legacySlug.trim()) return;
     if (routeSlug === DEMO_REPERTOIRE_ID) return;
+    if (repertoireId) return;
+    if (isBlockedTicketSlug(routeSlug)) {
+      navigate('/events', { replace: true });
+      return;
+    }
     if (!resolvedEventFromSlug) {
       navigate('/events', { replace: true });
     }
   }, [
     navigate,
     resolvedEventFromSlug,
+    repertoireId,
     routeKeyIsId,
     routeSlug,
     slugResolveFetched,
@@ -997,7 +1016,7 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!routeKey || !canonicalSourceTitle || canonicalSlug === 'event') return;
-    if (!routeKeyIsId && !resolvedEventFromSlug) return;
+    if (!routeKeyIsId && !resolvedEventFromSlug && !repertoireId) return;
     if (routeKeyIsId && !ctx?.title?.trim()) return;
     const wantSlug = canonicalSlug;
     const target = `/ticket/${wantSlug}`;

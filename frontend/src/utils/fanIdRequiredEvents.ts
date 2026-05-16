@@ -6,6 +6,30 @@ const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
 ]);
 
+const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
+  'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
+};
+
+const BLOCKED_TICKET_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);
+
+export function isBlockedTicketSlug(slug: string | null | undefined): boolean {
+  return BLOCKED_TICKET_SLUGS.has(String(slug || '').trim().toLowerCase());
+}
+
+/** Маркетинговый ЧПУ → repertoire id (если resolve-slug на бэке ещё старый). */
+export function repertoireIdForTicketSlug(slug: string | null | undefined): string | null {
+  const s = String(slug || '').trim().toLowerCase();
+  if (!s) return null;
+  if (TICKET_SLUG_TO_REPERTOIRE[s]) return TICKET_SLUG_TO_REPERTOIRE[s];
+  const raw = import.meta.env.VITE_TICKET_SLUG_ALIASES?.trim();
+  if (!raw) return null;
+  for (const part of raw.split(/[,;]/)) {
+    const [slugPart, repPart] = part.split(':').map((x) => x.trim().toLowerCase());
+    if (slugPart && repPart && slugPart === s) return repPart;
+  }
+  return null;
+}
+
 function parseEnvIds(): Set<string> {
   const raw = import.meta.env.VITE_FAN_ID_REPERTOIRE_IDS?.trim();
   if (!raw) return new Set();
