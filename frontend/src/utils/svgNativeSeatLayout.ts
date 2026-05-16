@@ -60,14 +60,59 @@ function layoutSeatArray(layout: unknown): unknown[] {
   return [];
 }
 
+function layoutBaseSeatRows(layout: unknown): unknown[] {
+  const root = asRecord(layout);
+  if (!root) return [];
+  for (const key of ['seats', 'seatPositions', 'places', 'points']) {
+    const value = root[key];
+    if (Array.isArray(value) && value.length > 0) return value;
+  }
+  return [];
+}
+
+function seatRowsToParse(layout: unknown): unknown[] {
+  const root = asRecord(layout);
+  if (!root) return layoutSeatArray(layout);
+  const sellable = root.sellableSeats;
+  const sellableArr = Array.isArray(sellable) ? sellable : [];
+  const baseArr = layoutBaseSeatRows(layout);
+  if (
+    sellableArr.length > 0 &&
+    baseArr.length > sellableArr.length &&
+    root.preferLayoutSeatPositions === true
+  ) {
+    const merged = new Map<string, unknown>();
+    for (const item of baseArr) {
+      const row = asRecord(item);
+      if (!row) continue;
+      const sector = cleanString(
+        row.sector ?? row.Sector ?? row.placeName ?? row.place_name ?? row['place-name'],
+      );
+      const rowLabel = cleanString(row.row ?? row.Row ?? row.r);
+      const seat = cleanString(row.seat ?? row.Seat ?? row.place ?? row.Place ?? row.number ?? row.n);
+      if (!sector || !rowLabel || !seat) continue;
+      merged.set(seatMapKey(sector, rowLabel, seat), item);
+    }
+    for (const item of sellableArr) {
+      const row = asRecord(item);
+      if (!row) continue;
+      const sector = cleanString(
+        row.sector ?? row.Sector ?? row.placeName ?? row.place_name ?? row['place-name'],
+      );
+      const rowLabel = cleanString(row.row ?? row.Row ?? row.r);
+      const seat = cleanString(row.seat ?? row.Seat ?? row.place ?? row.Place ?? row.number ?? row.n);
+      if (!sector || !rowLabel || !seat) continue;
+      merged.set(seatMapKey(sector, rowLabel, seat), item);
+    }
+    return [...merged.values()];
+  }
+  if (sellableArr.length > 0) return sellableArr;
+  return baseArr;
+}
+
 /** Явные координаты мест из layout_json: seats / seatPositions [{ sector,row,seat,xPct,yPct }]. */
 export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
-  const root = asRecord(layout);
-  const preferSellable =
-    Array.isArray(root?.sellableSeats) && (root.sellableSeats as unknown[]).length > 0;
-  const rawSeats = preferSellable
-    ? (root!.sellableSeats as unknown[])
-    : layoutSeatArray(layout);
+  const rawSeats = seatRowsToParse(layout);
   const seats: SvgNativeSeat[] = [];
   const seen = new Set<string>();
 

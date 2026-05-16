@@ -56,12 +56,29 @@ describe('svgNativeSeatLayout', () => {
     ]);
   });
 
-  it('reads sellableSeats before seats in layout_json', () => {
+  it('reads sellableSeats alone when no full seats snapshot', () => {
     const seats = parseLayoutSeatPositions({
-      seats: [{ sector: 'A', row: '1', seat: '1', xPct: 1, yPct: 2 }],
       sellableSeats: [{ sector: 'B', row: '2', seat: '3', xPct: 10, yPct: 20 }],
     });
     expect(seats).toEqual([{ sector: 'B', row: '2', seat: '3', xPct: 10, yPct: 20 }]);
+  });
+
+  it('merges seats snapshot with sellableSeats overlay for luzhniki', () => {
+    const seats = parseLayoutSeatPositions({
+      preferLayoutSeatPositions: true,
+      seats: [
+        { sector: 'Сектор B 145', row: '26', seat: '1', xPct: 10, yPct: 21.4 },
+        { sector: 'Сектор B 145', row: '26', seat: '2', xPct: 12, yPct: 21.4 },
+      ],
+      sellableSeats: [
+        { sector: 'сектор b145', row: '26', seat: '2', xPct: 99, yPct: 88 },
+      ],
+    });
+    expect(seats).toHaveLength(2);
+    const s1 = seats.find((s) => s.seat === '1');
+    const s2 = seats.find((s) => s.seat === '2');
+    expect(s1?.xPct).toBe(10);
+    expect(s2?.xPct).toBe(99);
   });
 
   it('seatMapKey aligns сектор b145 with Сектор B 145 for exact match', () => {

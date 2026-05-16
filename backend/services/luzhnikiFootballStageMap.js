@@ -118,6 +118,9 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       );
     nextLayout.sellableSeats = seats;
     nextLayout.preferLayoutSeatPositions = true;
+    /** 77k точек — только для dot-matcher на сервере; на клиенте дают «столбики» по полю. */
+    nextLayout.allSeatCoordinates = [];
+    nextLayout.omitClientSeatCoordinateCloud = true;
     nextLayout.offerSeatGeodesy = {
       matched,
       totalSellable,

@@ -220,7 +220,9 @@ export function buildSellableSeatGeodesyWithDots(
     const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
     const dots = dotsBySector.get(norm);
     const anchors = anchorsBySector.get(norm) ?? [];
-    if (!dots?.length || anchors.length < 3) continue;
+    if (!dots?.length || anchors.length < 2) continue;
+    const anchorRows = new Set(anchors.map((a) => parseNum(a.row)).filter((r) => r != null));
+    if (anchorRows.size < 2) continue;
 
     const rowNum = parseNum(row);
     if (rowNum == null) continue;

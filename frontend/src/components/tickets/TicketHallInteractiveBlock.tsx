@@ -88,6 +88,7 @@ function shouldShowUnavailableSeats(layout: unknown): boolean {
 function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordinate[] {
   if (!layout || typeof layout !== 'object') return [];
   const record = layout as Record<string, unknown>;
+  if (record.omitClientSeatCoordinateCloud === true) return [];
   const raw = record.allSeatCoordinates ?? record.backgroundSeats ?? record.coordinates;
   if (Array.isArray(raw) && raw.length > 0) {
     const out: BackgroundSeatCoordinate[] = [];
