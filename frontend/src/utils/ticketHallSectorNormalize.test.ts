@@ -7,6 +7,11 @@ describe('normalizeSectorLabel', () => {
     expect(normalizeSectorLabel('Сектор D 227')).toBe('d227');
     expect(normalizeSectorLabel('vip c138')).toBe('vipc138');
   });
+
+  it('matches cyrillic and latin sector letters (А101 vs a101)', () => {
+    expect(normalizeSectorLabel('Сектор А 101')).toBe('a101');
+    expect(normalizeSectorLabel('сектор a101')).toBe('a101');
+  });
 });
 
 describe('strictSeatKey', () => {

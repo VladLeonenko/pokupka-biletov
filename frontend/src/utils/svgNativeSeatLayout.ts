@@ -1,8 +1,15 @@
+import { normalizeSectorLabel } from '@/utils/ticketHallSectorNormalize';
+
 export type OfferLike = {
   Id?: string;
   Sector?: string;
   Row?: string;
   SeatList?: string[];
+};
+
+export type SectorPathMeta = {
+  label: string;
+  path: string;
 };
 
 export type SvgNativeSeat = {
@@ -445,6 +452,130 @@ function rowGroupKey(sector: string, row: string): string {
   return `${normSectorLoose(sector)}|${normRow(row)}`;
 }
 
+function pathBBoxFromD(path: string): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const nums = path.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)?.map(Number) ?? [];
+  if (nums.length < 2) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = nums[i];
+    const y = nums[i + 1];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function offerPlacementKey(offerId: string, row: string, seat: string): string {
+  return `${offerId}|${normRow(row)}|${normToken(seat)}`;
+}
+
+/**
+ * Офферы GetBilet есть, а в layout_json.seats координат нет — раскладываем места в bbox сектора на схеме.
+ */
+export function buildSectorBBoxFallbackPlacements(
+  offers: OfferLike[],
+  sectors: SectorPathMeta[],
+  placedOfferSeatKeys: Set<string>,
+  getPriceKey: (o: OfferLike) => string,
+  viewBoxWidth: number,
+  viewBoxHeight: number,
+): SvgNativePlacement[] {
+  if (!sectors.length || viewBoxWidth <= 0 || viewBoxHeight <= 0) return [];
+
+  const offersBySector = new Map<string, OfferLike[]>();
+  for (const offer of offers) {
+    const key = normalizeSectorLabel(offer.Sector);
+    if (!key) continue;
+    const arr = offersBySector.get(key) ?? [];
+    arr.push(offer);
+    offersBySector.set(key, arr);
+  }
+
+  const out: SvgNativePlacement[] = [];
+
+  for (const meta of sectors) {
+    const sectorKey = normalizeSectorLabel(meta.label);
+    const sectorOffers = offersBySector.get(sectorKey) ?? [];
+    if (sectorOffers.length === 0) continue;
+
+    const bbox = pathBBoxFromD(meta.path);
+    if (!bbox) continue;
+
+    const padX = Math.max(8, (bbox.maxX - bbox.minX) * 0.08);
+    const padY = Math.max(8, (bbox.maxY - bbox.minY) * 0.12);
+    const innerMinX = bbox.minX + padX;
+    const innerMaxX = bbox.maxX - padX;
+    const innerMinY = bbox.minY + padY;
+    const innerMaxY = bbox.maxY - padY;
+    const innerW = innerMaxX - innerMinX;
+    const innerH = innerMaxY - innerMinY;
+    if (!(innerW > 0 && innerH > 0)) continue;
+
+    type SeatCell = { offer: OfferLike; seat: string; row: string };
+    const cells: SeatCell[] = [];
+    for (const offer of sectorOffers) {
+      const oid = String(offer.Id ?? '');
+      if (!oid) continue;
+      const row = String(offer.Row ?? '');
+      const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+      for (const seat of list) {
+        const pk = offerPlacementKey(oid, row, seat);
+        if (placedOfferSeatKeys.has(pk)) continue;
+        cells.push({ offer, seat, row });
+      }
+    }
+    if (cells.length === 0) continue;
+
+    cells.sort((a, b) => {
+      const ra = normRow(a.row);
+      const rb = normRow(b.row);
+      if (ra !== rb) return ra.localeCompare(rb, 'ru', { numeric: true });
+      return sortSeatTokens(a.seat, b.seat);
+    });
+
+    const cols = Math.ceil(Math.sqrt(cells.length));
+    const rows = Math.ceil(cells.length / cols);
+
+    for (let i = 0; i < cells.length; i++) {
+      const col = i % cols;
+      const rowIdx = Math.floor(i / cols);
+      const cell = cells[i];
+      const oid = String(cell.offer.Id ?? '');
+      const xPct = ((innerMinX + ((col + 0.5) / cols) * innerW) / viewBoxWidth) * 100;
+      const yPct = ((innerMinY + ((rowIdx + 0.5) / rows) * innerH) / viewBoxHeight) * 100;
+      const svgKey = `bbox|${sectorKey}|${normRow(cell.row)}|${normToken(cell.seat)}`;
+      const available = Array.isArray(cell.offer.SeatList) ? cell.offer.SeatList.map(String) : [];
+      const priceKey = getPriceKey(cell.offer);
+      const sectorLabel = String(cell.offer.Sector ?? meta.label);
+      placedOfferSeatKeys.add(offerPlacementKey(oid, cell.row, cell.seat));
+      out.push({
+        key: `${oid}-${cell.seat}-${xPct.toFixed(3)}-${yPct.toFixed(3)}-bbox`,
+        svgKey,
+        offerId: oid,
+        sectorLabel,
+        seat: cell.seat,
+        rowLabel: cell.row,
+        available,
+        xPct,
+        yPct,
+        title: `${sectorLabel}, ${cell.row} ряд, место ${cell.seat}, цена ${priceKey} ₽`,
+        priceKey,
+      });
+    }
+  }
+
+  return out;
+}
+
 /**
  * Строит кликабельные точки: точное совпадение сектор/ряд/место, затем сопоставление по порядку
  * слева направо в ряду, если в GetBilet другая нумерация мест (глобальные id vs номер в SVG).
@@ -598,6 +729,7 @@ export function buildSvgNativePlacements(
   for (const p of out) {
     const offer = offers.find((o) => String(o.Id ?? '') === p.offerId);
     if (!offer) continue;
+    matchedOfferSeatKeys.add(offerPlacementKey(String(offer.Id ?? ''), String(offer.Row ?? ''), p.seat));
     matchedOfferSeatKeys.add(seatMapKey(String(offer.Sector ?? ''), String(offer.Row ?? ''), p.seat));
   }
   const unmatchedSvgCount = uniqueSvg.size - placedSvg.size;

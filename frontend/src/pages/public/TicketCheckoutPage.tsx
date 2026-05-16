@@ -50,7 +50,7 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { getOfferSeatList, isSeatlessOfferRow } from '@/utils/ticketOfferSeats';
+import { getOfferSeatList, isSeatlessOfferRow, offerExtraLabels } from '@/utils/ticketOfferSeats';
 import {
   type OfferFilterState,
   filterOffers,
@@ -1529,6 +1529,7 @@ export function TicketCheckoutPage() {
                         const bg = colorForPrice(priceMap, pk);
                         const seatList = getOfferSeatList(row);
                         const seatless = isSeatlessOfferRow(row);
+                        const namedTicket = offerExtraLabels(row).some((e) => /именной/i.test(e));
                         const active = offerId === oid;
                         return (
                           <div key={oid} className={styles.offerBlock}>
@@ -1543,9 +1544,9 @@ export function TicketCheckoutPage() {
                             <div className={styles.seatRow}>
                               {seatless ? (
                                 <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>
-                                  {row.Extra?.includes('именной билет')
+                                  {namedTicket
                                     ? 'Именной билет: в каталоге нет номеров мест — выберите соседние места на схеме зала.'
-                                    : 'Номера мест в выгрузке нет — выберите место на схеме зала.'}
+                                    : 'Номера мест в выгрузке нет — выберите место на схеме зала или укажите ряд в комментарии при оплате.'}
                                   {hallSvg ? (
                                     <>
                                       {' '}

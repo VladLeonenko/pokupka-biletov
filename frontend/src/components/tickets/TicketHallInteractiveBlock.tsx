@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  buildSectorBBoxFallbackPlacements,
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
   parseLayoutMode,
@@ -181,7 +182,6 @@ import {
   normalizeRowLabel,
   normalizeSeatToken,
   normalizeSectorLabel,
-  strictSeatKey,
 } from '@/utils/ticketHallSectorNormalize';
 
 function normalizeSimpleToken(value: unknown): string {
@@ -421,39 +421,20 @@ export function TicketHallInteractiveBlock({
     }
 
     if (sectorMode.enabled) {
-      const exactOffers = new Map<string, { offer: HallOfferRow; seat: string }>();
-      for (const offer of offers) {
-        if (!Array.isArray(offer.SeatList)) continue;
-        for (const seat of offer.SeatList) {
-          exactOffers.set(strictSeatKey(offer.Sector, offer.Row, seat), { offer, seat: String(seat) });
-        }
+      let { placements } = buildSvgNativePlacements(nativeSeats, offers, getPriceKey);
+      const placedOfferSeatKeys = new Set<string>();
+      for (const p of placements) {
+        placedOfferSeatKeys.add(`${p.offerId}|${normalizeRowLabel(p.rowLabel)}|${normalizeSimpleToken(p.seat)}`);
       }
-
-      const placements: SvgNativePlacement[] = [];
-      for (const svgSeat of nativeSeats) {
-        const match = exactOffers.get(strictSeatKey(svgSeat.sector, svgSeat.row, svgSeat.seat));
-        if (!match) continue;
-
-        const svgKey = seatMapKey(svgSeat.sector, svgSeat.row, svgSeat.seat);
-        const priceKey = getPriceKey(match.offer);
-        const offerId = String(match.offer.Id ?? '');
-        const available = Array.isArray(match.offer.SeatList) ? match.offer.SeatList.map(String) : [];
-        const rowLabel = String(match.offer.Row ?? svgSeat.row);
-        const sectorLabel = String(match.offer.Sector ?? svgSeat.sector);
-        placements.push({
-          svgKey,
-          key: selectionSeatKey(offerId, rowLabel, match.seat),
-          offerId,
-          sectorLabel,
-          seat: match.seat,
-          rowLabel,
-          available,
-          xPct: svgSeat.xPct,
-          yPct: svgSeat.yPct,
-          title: `${sectorLabel}, ${rowLabel} ряд, место ${match.seat}, цена ${formatRub(Number(priceKey))}`,
-          priceKey,
-        });
-      }
+      const bboxPlacements = buildSectorBBoxFallbackPlacements(
+        offers,
+        sectorMode.sectors.map((s) => ({ label: s.label, path: s.path })),
+        placedOfferSeatKeys,
+        getPriceKey,
+        svgViewBox.width,
+        svgViewBox.height,
+      );
+      placements = [...placements, ...bboxPlacements];
 
       const merged =
         grayHallWhenNoOffers && nativeSeats.length >= 2
@@ -479,7 +460,10 @@ export function TicketHallInteractiveBlock({
     grayHallWhenNoOffers,
     offers,
     sectorMode.enabled,
+    sectorMode.sectors,
     seatSelectionDisabled,
+    svgViewBox.height,
+    svgViewBox.width,
     useSvgNative,
     nativeSeats,
   ]);
@@ -510,8 +494,8 @@ export function TicketHallInteractiveBlock({
         meta,
         offers: sectorOffers,
         seatCount,
-        minPrice: prices.length ? Math.min(...prices) : sectorOffers.length > 0 ? meta.minPrice ?? null : null,
-        maxPrice: prices.length ? Math.max(...prices) : sectorOffers.length > 0 ? meta.maxPrice ?? null : null,
+        minPrice: prices.length > 0 ? Math.min(...prices) : null,
+        maxPrice: prices.length > 0 ? Math.max(...prices) : null,
       };
     });
   }, [getPriceKey, offers, sectorMode.sectors]);
@@ -1463,7 +1447,9 @@ export function TicketHallInteractiveBlock({
                   );
                 }) : (
                   <div className={styles.sectorOfferEmpty}>
-                    Сейчас в этом секторе нет доступных мест для бронирования.
+                    {selectedSectorOffers.length > 0
+                      ? 'В каталоге нет номеров мест для этого сектора — выберите билет в списке ниже или оформите именной билет по инструкции.'
+                      : 'Сейчас в этом секторе нет доступных мест для бронирования.'}
                   </div>
                 )}
               </div>
