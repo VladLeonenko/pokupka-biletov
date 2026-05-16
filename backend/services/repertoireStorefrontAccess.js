@@ -18,6 +18,10 @@ export function isBlockedRepertoireSlug(slug) {
   return BLOCKED_SLUGS.has(String(slug || '').trim().toLowerCase());
 }
 
+export function isBlockedRepertoireId(repertoireId) {
+  return BLOCKED_REPERTOIRE_IDS.has(String(repertoireId || '').trim().toLowerCase());
+}
+
 export class RepertoireNotAvailableError extends Error {
   constructor(message = 'Мероприятие недоступно') {
     super(message);
