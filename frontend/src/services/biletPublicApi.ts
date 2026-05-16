@@ -515,13 +515,8 @@ export async function fetchBiletResolveSlug(slug: string): Promise<BiletResolved
   const s = slug.trim();
   if (!s) return null;
   const base = getApiBase();
-  const meta = await resolveBiletMetaForFetch();
-  const params = new URLSearchParams();
-  if (meta.cityIdRequired) {
-    params.set('cityId', cityId());
-  }
-  const q = params.toString() ? `?${params.toString()}` : '';
-  const res = await fetch(`${base}/api/bilet/resolve-slug/${encodeURIComponent(s)}${q}`, {
+  /** Только slug в path; город не нужен — резолв по алиасу/БД/кэшу, не по BIL24 cityId. */
+  const res = await fetch(`${base}/api/bilet/resolve-slug/${encodeURIComponent(s)}`, {
     headers: { Accept: 'application/json' },
   });
   if (res.status === 404) return null;

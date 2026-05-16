@@ -20,11 +20,15 @@ import {
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
 import { slugify } from '../utils/eventSlug.js';
-import { isFanIdRequiredForRepertoire } from '../utils/fanIdRequiredEvents.js';
+import {
+  isFanIdRequiredForRepertoire,
+  repertoireIdForTicketSlug,
+} from '../utils/fanIdRequiredEvents.js';
 import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
 import {
   assertRepertoireStorefrontAccess,
   getRepertoireStorefrontAccess,
+  isBlockedRepertoireSlug,
 } from './repertoireStorefrontAccess.js';
 import {
   buildProgrammaticHeroLead,
@@ -707,6 +711,30 @@ export async function getRepertoireDescriptionSections(repertoireId) {
 }
 
 /**
+ * @param {string} repertoireId
+ */
+export async function buildResolveHitFromRepertoireId(repertoireId) {
+  const access = await getRepertoireStorefrontAccess(repertoireId);
+  if (!access.allowed) return null;
+  const base = await loadRepertoireBase(repertoireId);
+  const title =
+    (base.titleManual && String(base.titleManual).trim()) ||
+    pickFirst(base.payload, ['Name', 'name', 'actionName', 'title']) ||
+    repertoireId;
+  return {
+    repertoireId,
+    title,
+    stageId: base.stageId,
+    posterUrl:
+      (base.posterManual && String(base.posterManual).trim()) ||
+      (base.posterWeb && String(base.posterWeb).trim()) ||
+      null,
+    bannerUrl: (base.bannerManual && String(base.bannerManual).trim()) || null,
+    beginDateTime: pickFirst(base.payload, ['EventDateTime', 'beginDateTime', 'startDateTime']),
+  };
+}
+
+/**
  * ЧПУ или manual-key → repertoireId для /ticket/:slug.
  * @param {string} slug
  * @param {Record<string, unknown>[]} catalogCompact — из compactActions
@@ -714,13 +742,21 @@ export async function getRepertoireDescriptionSections(repertoireId) {
 export async function resolveRepertoireSlug(slug, catalogCompact = []) {
   const target = String(slug || '').trim().toLowerCase();
   if (!target) return null;
+  if (isBlockedRepertoireSlug(target)) return null;
 
+  const aliasRep = repertoireIdForTicketSlug(target);
+  if (aliasRep) {
+    const aliasHit = await buildResolveHitFromRepertoireId(aliasRep);
+    if (aliasHit) return aliasHit;
+  }
+
+  /** Только если slug совпадает с реальным manual repertoire id (seed), не с ЧПУ из названия. */
   if (isManualRepertoireKey(target)) {
     try {
-      const access = await getRepertoireStorefrontAccess(target);
-      if (!access.allowed) return null;
       const base = await loadRepertoireBase(target);
       if (base.hasCatalogRow || base.eventRowId != null) {
+        const access = await getRepertoireStorefrontAccess(target);
+        if (!access.allowed) return null;
         const title =
           (base.titleManual && String(base.titleManual).trim()) ||
           pickFirst(base.payload, ['Name', 'name', 'actionName', 'title']) ||

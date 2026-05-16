@@ -6,6 +6,18 @@ import ticketPool from '../ticketDb.js';
 import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
 import { isStorefrontHidden } from './getbiletStorefrontVisibility.js';
 
+/** Снятые с витрины тестовые/seed-ключи (даже если slug совпал с live-каталогом). */
+const BLOCKED_REPERTOIRE_IDS = new Set([
+  'luzhniki-cup-final-2026',
+  'final-kubka-rossii-po-futbolu-2026',
+]);
+
+const BLOCKED_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);
+
+export function isBlockedRepertoireSlug(slug) {
+  return BLOCKED_SLUGS.has(String(slug || '').trim().toLowerCase());
+}
+
 export class RepertoireNotAvailableError extends Error {
   constructor(message = 'Мероприятие недоступно') {
     super(message);
@@ -46,6 +58,9 @@ async function loadEventVisibilityRow(repertoireId) {
 export async function getRepertoireStorefrontAccess(repertoireId) {
   const rid = String(repertoireId || '').trim();
   if (!rid) return { allowed: false, reason: 'empty' };
+  if (BLOCKED_REPERTOIRE_IDS.has(rid.toLowerCase())) {
+    return { allowed: false, reason: 'blocked' };
+  }
 
   const row = await loadEventVisibilityRow(rid);
 

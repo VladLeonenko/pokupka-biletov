@@ -31,11 +31,16 @@ import {
 } from '../services/getbiletCatalogSync.js';
 import { filterUpcomingCatalogActions } from '../services/getbiletPublicCatalogFilter.js';
 import {
+  buildResolveHitFromRepertoireId,
   getRepertoirePublicContext,
   getRepertoireDescriptionSections,
   resolveRepertoireSlug,
 } from '../services/repertoirePublicContext.js';
-import { RepertoireNotAvailableError } from '../services/repertoireStorefrontAccess.js';
+import {
+  isBlockedRepertoireSlug,
+  RepertoireNotAvailableError,
+} from '../services/repertoireStorefrontAccess.js';
+import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
@@ -719,6 +724,18 @@ router.get('/resolve-slug/:slug', async (req, res) => {
     if (!slug) {
       return res.status(400).json({ error: 'slug_required' });
     }
+    if (isBlockedRepertoireSlug(slug)) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+
+    const aliasRep = repertoireIdForTicketSlug(slug);
+    if (aliasRep) {
+      const aliasHit = await buildResolveHitFromRepertoireId(aliasRep);
+      if (aliasHit) {
+        return sendPublicJson(req, res, aliasHit, { cacheSeconds: 120, staleSeconds: 600 });
+      }
+    }
+
     const { data } = await getOrLoadEventsPayloadForPublic(req);
     const actions = compactActions(data?.actions, 500);
     const hit = await resolveRepertoireSlug(slug, actions);

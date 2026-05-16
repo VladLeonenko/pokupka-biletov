@@ -11,6 +11,25 @@ const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
 ]);
 
+/** Маркетинговые ЧПУ → repertoire id (РК, Директ), если slug не в compact /events. */
+const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
+  'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
+});
+
+/** @param {string | null | undefined} slug */
+export function repertoireIdForTicketSlug(slug) {
+  const s = String(slug || '').trim().toLowerCase();
+  if (!s) return null;
+  if (TICKET_SLUG_TO_REPERTOIRE[s]) return TICKET_SLUG_TO_REPERTOIRE[s];
+  const raw = process.env.GETBILET_TICKET_SLUG_ALIASES?.trim();
+  if (!raw) return null;
+  for (const part of raw.split(/[,;]/)) {
+    const [slugPart, repPart] = part.split(':').map((x) => x.trim().toLowerCase());
+    if (slugPart && repPart && slugPart === s) return repPart;
+  }
+  return null;
+}
+
 function parseEnvIds() {
   const raw = process.env.GETBILET_FAN_ID_REPERTOIRE_IDS?.trim();
   if (!raw) return new Set();
