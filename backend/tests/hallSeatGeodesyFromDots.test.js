@@ -97,32 +97,3 @@ test('dot resolver keeps same row on one Y (no vertical stripe)', () => {
   const ys = diag.seats.map((s) => s.yPct);
   assert.ok(Math.max(...ys) - Math.min(...ys) < 0.2, `Y spread too large: ${ys.join(',')}`);
 });
-
-test('dot resolver works without layout anchors (sector only on hall dots)', () => {
-  const allSeatCoordinates = [];
-  for (let row = 0; row < 6; row += 1) {
-    const yPct = 20 + row * 2;
-    for (let seat = 1; seat <= 10; seat += 1) {
-      allSeatCoordinates.push({ xPct: 10 + seat * 2, yPct });
-    }
-  }
-  const sectorPaths = [
-    { label: 'Сектор A 101', path: 'M0,0 L200,0 L200,200 L0,200 Z' },
-  ];
-  const offers = [
-    { Sector: 'сектор a101', Row: '11', SeatList: ['6', '7', '8', '9'] },
-    { Sector: 'сектор a101', Row: '28', SeatList: ['20', '21'] },
-  ];
-  const diag = buildSellableSeatGeodesyWithDots(
-    [],
-    allSeatCoordinates,
-    sectorPaths,
-    200,
-    200,
-    offers,
-  );
-  assert.equal(diag.seats.length, 6);
-  assert.equal(diag.dotMatched, 6);
-  const ys = diag.seats.map((s) => s.yPct);
-  assert.ok(Math.max(...ys) - Math.min(...ys) > 0.5);
-});

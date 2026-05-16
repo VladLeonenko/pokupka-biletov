@@ -1019,7 +1019,9 @@ export function TicketHallInteractiveBlock({
   );
   const visibleNativePlacements = useMemo(() => {
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
-    if (!sectorMode.enabled || !selectedSector) return interactive;
+    /** На обзоре стадиона не рисуем сотни точек — только после выбора сектора. */
+    if (sectorMode.enabled && !selectedSector) return [];
+    if (!sectorMode.enabled) return interactive;
     return interactive.filter(
       (p) => normalizeSectorLabel(p.sectorLabel) === selectedSector,
     );
