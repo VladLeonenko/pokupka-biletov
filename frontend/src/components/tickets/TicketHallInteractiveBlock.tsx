@@ -1217,6 +1217,12 @@ export function TicketHallInteractiveBlock({
 
     if (!dragging && visibleNativePlacements.length > 0) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
+      const overview = liveZoom <= fitZoom + 0.01;
+      const scalePx = w / Math.max(1, svgViewBox.width);
+      const bgDotR =
+        backgroundSeatCoordinates.length >= 8000
+          ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
+          : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
       for (const seat of visibleNativePlacements) {
         const active = activeKeys.has(seat.key);
         if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
@@ -1224,7 +1230,11 @@ export function TicketHallInteractiveBlock({
         const sx = x + (seat.xPct / 100) * w;
         const sy = y + (seat.yPct / 100) * h;
         if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-        const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
+        const r = active
+          ? Math.max(bgDotR * 1.35, 4)
+          : overview
+            ? bgDotR
+            : Math.max(bgDotR, Math.min(5, scalePx * 8));
         ctx.beginPath();
         ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
         ctx.arc(sx, sy, r, 0, Math.PI * 2);

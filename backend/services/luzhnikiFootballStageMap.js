@@ -119,6 +119,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
         offerRows,
       );
     nextLayout.sellableSeats = seats;
+    nextLayout.preferLayoutSeatPositions = true;
     nextLayout.offerSeatGeodesy = {
       matched,
       totalSellable,

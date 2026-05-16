@@ -64,6 +64,23 @@ describe('svgNativeSeatLayout', () => {
     expect(seats).toEqual([{ sector: 'B', row: '2', seat: '3', xPct: 10, yPct: 20 }]);
   });
 
+  it('seatMapKey aligns сектор b145 with Сектор B 145 for exact match', () => {
+    const seats = parseLayoutSeatPositions({
+      sellableSeats: [
+        { sector: 'Сектор B 145', row: '26', seat: '1', xPct: 10, yPct: 21.4 },
+        { sector: 'Сектор B 145', row: '26', seat: '2', xPct: 12, yPct: 21.4 },
+      ],
+    });
+    const result = buildSvgNativePlacements(
+      seats,
+      [{ Id: 'o1', Sector: 'сектор b145', Row: '26', SeatList: ['1', '2'], AgentPrice: '1000' }],
+      (o) => String(o.AgentPrice ?? ''),
+      { disablePositionalSeatZip: true },
+    );
+    expect(result.placements).toHaveLength(2);
+    expect(result.placements.every((p) => Math.abs(p.yPct - 21.4) < 0.01)).toBe(true);
+  });
+
   it('matches layout seats with GetBilet offers and reports gaps', () => {
     const seats = parseLayoutSeatPositions({
       seats: [

@@ -1,3 +1,5 @@
+import { strictSeatKey } from '@/utils/ticketHallSectorNormalize';
+
 export type OfferLike = {
   Id?: string;
   Sector?: string;
@@ -60,7 +62,12 @@ function layoutSeatArray(layout: unknown): unknown[] {
 
 /** Явные координаты мест из layout_json: seats / seatPositions [{ sector,row,seat,xPct,yPct }]. */
 export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
-  const rawSeats = layoutSeatArray(layout);
+  const root = asRecord(layout);
+  const preferSellable =
+    Array.isArray(root?.sellableSeats) && (root.sellableSeats as unknown[]).length > 0;
+  const rawSeats = preferSellable
+    ? (root!.sellableSeats as unknown[])
+    : layoutSeatArray(layout);
   const seats: SvgNativeSeat[] = [];
   const seen = new Set<string>();
 
@@ -114,7 +121,7 @@ function normRow(s: string): string {
 
 /** Ключ для сопоставления схемы и GetBilet (сектор / ряд / место). */
 export function seatMapKey(sector: string, row: string, seat: string): string {
-  return `${normToken(sector)}|${normToken(row)}|${normToken(seat)}`;
+  return strictSeatKey(sector, row, seat);
 }
 
 function parseMatrix(transform: string | null): [number, number, number, number, number, number] | null {
@@ -515,6 +522,8 @@ export function buildSvgNativePlacements(
     byRow.set(gk, arr);
   }
 
+  const exactOnly = disablePositionalSeatZip;
+
   if (!disablePositionalSeatZip) for (const [, svgList] of byRow) {
     if (svgList.length === 0) continue;
     const first = svgList[0];
@@ -582,7 +591,7 @@ export function buildSvgNativePlacements(
     }
   }
 
-  for (const s of uniqueSvg.values()) {
+  if (!exactOnly) for (const s of uniqueSvg.values()) {
     const k = seatMapKey(s.sector, s.row, s.seat);
     if (placedSvg.has(k)) continue;
     const hit = matchSvgSeatToOffer(s, offers);

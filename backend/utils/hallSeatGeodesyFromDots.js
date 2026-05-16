@@ -48,6 +48,10 @@ function pointInBBox(xPct, yPct, b, marginPct = 0.15) {
   );
 }
 
+function collectDotsInRowBand(dots, targetY, halfBandPct = 0.32) {
+  return dots.filter((d) => Math.abs(d.yPct - targetY) <= halfBandPct);
+}
+
 function clusterByY(dots, tolerancePct) {
   const sorted = [...dots].sort((a, b) => a.yPct - b.yPct || a.xPct - b.xPct);
   const clusters = [];
@@ -242,30 +246,12 @@ export function buildSellableSeatGeodesyWithDots(
     const rowNum = parseNum(row);
     if (rowNum == null) continue;
 
-    const clusters = clusterByY(dots, 0.12);
-    if (clusters.length === 0) continue;
-
     const rowCal = fitRowYCalibration(anchors);
-    let rowCluster = null;
+    if (!rowCal) continue;
 
-    if (rowCal) {
-      const targetY = rowCal.predict(rowNum);
-      rowCluster = clusters[0];
-      let bestRowDist = Math.abs(clusters[0].meanY - targetY);
-      for (const c of clusters) {
-        const d = Math.abs(c.meanY - targetY);
-        if (d < bestRowDist) {
-          bestRowDist = d;
-          rowCluster = c;
-        }
-      }
-      if (bestRowDist > 2.8) continue;
-    } else {
-      const sortedClusters = [...clusters].sort((a, b) => a.meanY - b.meanY);
-      const idx = rowNum - 1;
-      if (idx < 0 || idx >= sortedClusters.length) continue;
-      rowCluster = sortedClusters[idx];
-    }
+    const targetY = rowCal.predict(rowNum);
+    const rowDots = collectDotsInRowBand(dots, targetY, 0.32);
+    if (rowDots.length === 0) continue;
 
     const rowAnchors = anchors.filter(
       (a) => normalizeRowLabel(a.row) === normalizeRowLabel(row),
@@ -277,7 +263,7 @@ export function buildSellableSeatGeodesyWithDots(
       if (seen.has(key)) continue;
 
       const seatNum = parseNum(seat);
-      const dot = pickDotBySeatX(rowCluster.dots, seatNum, rowAnchors);
+      const dot = pickDotBySeatX(rowDots, seatNum, rowAnchors);
       if (!dot) continue;
 
       seen.add(key);
