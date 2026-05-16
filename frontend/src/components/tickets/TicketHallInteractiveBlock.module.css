@@ -407,6 +407,12 @@
   box-shadow: none;
 }
 
+/** Продаваемые места — цвет по цене (не серый ориентир / unavailable). */
+.seatDotSellable {
+  z-index: 4;
+  background-color: var(--seat-accent, #2f80ed);
+}
+
 /** Клик по сектору + зум: места должны быть видимы (не 0.14% обзора). */
 .seatDotStadium.seatDotSectorFocus {
   width: clamp(11px, 0.72vw, 18px);
@@ -414,6 +420,7 @@
   min-height: 11px;
   aspect-ratio: 1;
   border: 1.5px solid #fff;
+  background-color: var(--seat-accent, #2f80ed);
   opacity: 1;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.2),

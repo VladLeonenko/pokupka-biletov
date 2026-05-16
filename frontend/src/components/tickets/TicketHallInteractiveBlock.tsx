@@ -88,6 +88,11 @@ function shouldShowUnavailableSeats(layout: unknown): boolean {
   return (layout as Record<string, unknown>).showUnavailableSeats !== false;
 }
 
+function parseOmitClientSeatCoordinateCloud(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).omitClientSeatCoordinateCloud === true;
+}
+
 function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordinate[] {
   if (!layout || typeof layout !== 'object') return [];
   const record = layout as Record<string, unknown>;
@@ -471,7 +476,9 @@ export function TicketHallInteractiveBlock({
       });
 
       const merged =
-        grayHallWhenNoOffers && nativeSeats.length >= 2
+        grayHallWhenNoOffers &&
+        !useSellableGeodesyPlacements &&
+        nativeSeats.length >= 2
           ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
           : placements;
 
@@ -484,7 +491,9 @@ export function TicketHallInteractiveBlock({
       disablePositionalSeatZip: parseDisablePositionalSeatZip(layoutJson),
     });
     const mergedNonSector =
-      grayHallWhenNoOffers && nativeSeats.length >= 2
+      grayHallWhenNoOffers &&
+      !useSellableGeodesyPlacements &&
+      nativeSeats.length >= 2
         ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
         : placements;
     return {
@@ -1041,6 +1050,8 @@ export function TicketHallInteractiveBlock({
   }, [nativePlacements, sectorMode.enabled, selectedSector]);
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
+    /** sellableSeats + omit cloud: на карте только цветные офферы, без серой чаши layout.seats. */
+    if (useSellableGeodesyPlacements || parseOmitClientSeatCoordinateCloud(layoutJson)) return [];
     if (sectorMode.enabled) {
       if (backgroundSeatCoordinates.length > 0) return [];
       if (!selectedSectorSummary) return [];
@@ -1052,7 +1063,18 @@ export function TicketHallInteractiveBlock({
     return showUnavailableSeats
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
-  }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
+  }, [
+    backgroundSeatCoordinates.length,
+    layoutJson,
+    matchedNativeSeatKeys,
+    nativeSeats,
+    sectorMode.enabled,
+    selectedSector,
+    selectedSectorSummary,
+    showUnavailableSeats,
+    useSellableGeodesyPlacements,
+    useSvgNative,
+  ]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
   /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */
@@ -1505,11 +1527,13 @@ export function TicketHallInteractiveBlock({
                         data-seat-dot="true"
                         className={`${styles.seatDot} ${styles.seatDotNative} ${
                           sectorMode.enabled ? styles.seatDotStadium : ''
-                        } ${sectorSeatFocusView ? styles.seatDotSectorFocus : ''} ${
-                          useCanvasCompositing ? styles.seatDotCanvasHit : ''
-                        } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''} ${
-                          sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
-                        } ${active ? styles.seatDotOn : ''}`}
+                        } ${sectorMode.enabled ? styles.seatDotSellable : ''} ${
+                          sectorSeatFocusView ? styles.seatDotSectorFocus : ''
+                        } ${useCanvasCompositing ? styles.seatDotCanvasHit : ''} ${
+                          uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''
+                        } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''} ${
+                          active ? styles.seatDotOn : ''
+                        }`}
                         style={
                           {
                             left: `${p.xPct}%`,
