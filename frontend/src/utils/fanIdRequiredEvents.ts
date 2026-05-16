@@ -6,6 +6,15 @@ const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
 ]);
 
+/** GetBilet иногда пишет «именной билет» в Extra, но на витрине продажи нет — не показываем этот UX. */
+const NAMED_TICKET_UX_DISABLED_REPERTOIRE_IDS = new Set([
+  '6a05d17b46a4d000309ecf4e',
+]);
+
+const NAMED_TICKET_UX_DISABLED_SLUGS = new Set([
+  'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
+]);
+
 const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
 };
@@ -53,6 +62,19 @@ export function isFanIdRequiredForSlug(slug: string | null | undefined): boolean
   if (!s) return false;
   if (DEFAULT_FAN_ID_SLUGS.has(s)) return true;
   return isFanIdRequiredForRepertoire(s);
+}
+
+export function isNamedTicketUxEnabledForRepertoire(repertoireId: string | null | undefined): boolean {
+  const id = String(repertoireId || '').trim().toLowerCase();
+  if (!id) return true;
+  return !NAMED_TICKET_UX_DISABLED_REPERTOIRE_IDS.has(id);
+}
+
+export function isNamedTicketUxEnabledForSlug(slug: string | null | undefined): boolean {
+  const s = String(slug || '').trim().toLowerCase();
+  if (!s) return true;
+  if (NAMED_TICKET_UX_DISABLED_SLUGS.has(s)) return false;
+  return isNamedTicketUxEnabledForRepertoire(repertoireIdForTicketSlug(s));
 }
 
 export function normalizeFanId(raw: string): string {

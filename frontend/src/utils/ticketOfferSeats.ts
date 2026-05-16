@@ -14,15 +14,31 @@ export function getOfferSeatList(row: {
   return [];
 }
 
-/** GetBilet отдаёт ряд/сектор без номеров мест (часто «именной билет»). */
+/** GetBilet отдаёт ряд/сектор без номеров мест (иногда с пометкой «именной билет» в Extra). */
 export function isSeatlessOfferRow(row: {
   SeatList?: string[] | string;
   seatList?: string[] | string;
-  Extra?: string[];
 }): boolean {
   return getOfferSeatList(row).length === 0;
 }
 
 export function offerExtraLabels(row: { Extra?: string[] }): string[] {
   return Array.isArray(row.Extra) ? row.Extra.map(String) : [];
+}
+
+export function isNamedTicketOfferRow(row: { Extra?: string[] }): boolean {
+  return offerExtraLabels(row).some((e) => /именной/i.test(e));
+}
+
+/** Оффер без SeatList нельзя положить в корзину — скрываем, если именные билеты на событии не продаём. */
+export function isOfferListedOnCheckout(
+  row: {
+    SeatList?: string[] | string;
+    seatList?: string[] | string;
+    Extra?: string[];
+  },
+  namedTicketUxEnabled: boolean,
+): boolean {
+  if (!isSeatlessOfferRow(row)) return true;
+  return namedTicketUxEnabled;
 }

@@ -50,7 +50,12 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { getOfferSeatList, isSeatlessOfferRow, offerExtraLabels } from '@/utils/ticketOfferSeats';
+import {
+  getOfferSeatList,
+  isNamedTicketOfferRow,
+  isOfferListedOnCheckout,
+  isSeatlessOfferRow,
+} from '@/utils/ticketOfferSeats';
 import {
   type OfferFilterState,
   filterOffers,
@@ -83,6 +88,8 @@ import {
   isBlockedTicketSlug,
   isFanIdRequiredForRepertoire,
   isFanIdRequiredForSlug,
+  isNamedTicketUxEnabledForRepertoire,
+  isNamedTicketUxEnabledForSlug,
   repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
 import { useTicketCart } from '@/context/TicketCartContext';
@@ -339,7 +346,17 @@ export function TicketCheckoutPage() {
   });
 
   const offers = useMemo(() => parseOffers(raw), [raw]);
-  const pb = useMemo(() => priceBounds(offers as OfferRowLike[]), [offers]);
+  const namedTicketUxEnabled = useMemo(
+    () =>
+      isNamedTicketUxEnabledForRepertoire(repertoireId) &&
+      isNamedTicketUxEnabledForSlug(routeSlug),
+    [repertoireId, routeSlug],
+  );
+  const listableOffers = useMemo(
+    () => offers.filter((row) => isOfferListedOnCheckout(row, namedTicketUxEnabled)),
+    [offers, namedTicketUxEnabled],
+  );
+  const pb = useMemo(() => priceBounds(listableOffers as OfferRowLike[]), [listableOffers]);
 
   /** Площадка: офферы GetBilet → контекст репертуара → строка из афиши (slug), чтобы герой не был пустым. */
   const venueFromCatalog = useMemo(
@@ -373,13 +390,12 @@ export function TicketCheckoutPage() {
   /** Все сеансы по полному каталогу (расписание не зависит от фильтра цены/зоны). */
   const allSessionsSorted = useMemo(() => {
     const m = new Map<string, OfferRow[]>();
-    for (const o of offers as OfferRow[]) {
+    for (const o of listableOffers as OfferRow[]) {
       const k = o.EventDateTime ?? '_';
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(o);
     }
     const entries = Array.from(m.entries());
-    const norm = (s: string) => s.replace(/\s+/g, '').trim();
     entries.sort((a, b) => {
       if (a[0] === '_') return 1;
       if (b[0] === '_') return -1;
@@ -396,7 +412,7 @@ export function TicketCheckoutPage() {
       }
     }
     return entries;
-  }, [offers, sessionHint]);
+  }, [listableOffers, sessionHint]);
 
   const [filterState, setFilterState] = useState<OfferFilterState>({
     zone: 'all',
@@ -413,7 +429,7 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (!isSuccess || !repertoireId) return;
-    if (offers.length === 0) {
+    if (listableOffers.length === 0) {
       setFilterState({
         zone: 'all',
         priceRange: [0, 1],
@@ -430,21 +446,21 @@ export function TicketCheckoutPage() {
       adjacent: 0,
       hidePassage: false,
     });
-  }, [repertoireId, isSuccess, offers.length, pb.min, pb.max]);
+  }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
   const filteredOffers = useMemo(
-    () => filterOffers(offers as OfferRowLike[], filterState),
-    [offers, filterState],
+    () => filterOffers(listableOffers as OfferRowLike[], filterState),
+    [listableOffers, filterState],
   );
 
   const priceMap = useMemo(() => {
-    const sorted = Array.from(new Set(offers.map(priceKey))).sort(
+    const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
       (a, b) => Number(a) - Number(b),
     );
     const m = new Map<string, number>();
     sorted.forEach((p, i) => m.set(p, i));
     return m;
-  }, [offers]);
+  }, [listableOffers]);
 
   const bySession = useMemo(() => {
     const m = new Map<string, OfferRow[]>();
@@ -781,7 +797,7 @@ export function TicketCheckoutPage() {
   }, [allSessionsSorted.length]);
 
   const minPriceHero =
-    offers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
+    listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
 
   const hallSvg = useMemo(() => {
     if (!stageIdEff) return ctx?.stageMap?.svg_markup ?? null;
@@ -877,10 +893,10 @@ export function TicketCheckoutPage() {
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
     if (!hallMapSessionKey) return [];
-    return (offers as OfferRow[]).filter(
+    return (listableOffers as OfferRow[]).filter(
       (o) => (o.EventDateTime ?? '_') === hallMapSessionKey,
     );
-  }, [offers, hallMapSessionKey]);
+  }, [listableOffers, hallMapSessionKey]);
 
   const hallSchemeSubtitle = useMemo(() => {
     if (seatSelectionDisabledUi) {
@@ -1309,7 +1325,7 @@ export function TicketCheckoutPage() {
             </Paper>
           ) : null}
 
-          {!isLoading && !isError && offers.length > 0 && (
+          {!isLoading && !isError && listableOffers.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
                 Фильтр
@@ -1401,9 +1417,9 @@ export function TicketCheckoutPage() {
                   sx={{ ml: 0 }}
                 />
               </Box>
-              {filteredOffers.length < offers.length ? (
+              {filteredOffers.length < listableOffers.length ? (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-                  Показано {filteredOffers.length} из {offers.length} предложений
+                  Показано {filteredOffers.length} из {listableOffers.length} предложений
                 </Typography>
               ) : null}
               {filteredOffers.length === 0 ? (
@@ -1529,7 +1545,7 @@ export function TicketCheckoutPage() {
                         const bg = colorForPrice(priceMap, pk);
                         const seatList = getOfferSeatList(row);
                         const seatless = isSeatlessOfferRow(row);
-                        const namedTicket = offerExtraLabels(row).some((e) => /именной/i.test(e));
+                        const namedTicket = namedTicketUxEnabled && isNamedTicketOfferRow(row);
                         const active = offerId === oid;
                         return (
                           <div key={oid} className={styles.offerBlock}>
