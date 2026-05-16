@@ -4,7 +4,7 @@
  */
 
 import ticketPool from '../ticketDb.js';
-import { buildSellableSeatGeodesy } from '../utils/hallSeatGeodesyMatch.js';
+import { buildSellableSeatGeodesyWithDots } from '../utils/hallSeatGeodesyFromDots.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
@@ -90,6 +90,12 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
   if (!row) return row;
   const layout = parseLayoutJson(row);
   const baseSeats = Array.isArray(layout.seats) ? layout.seats : [];
+  const allSeatCoordinates = Array.isArray(layout.allSeatCoordinates)
+    ? layout.allSeatCoordinates
+    : [];
+  const sectorPaths = Array.isArray(layout.sectorMode?.sectors)
+    ? layout.sectorMode.sectors
+    : [];
 
   /** @type {Record<string, unknown>} */
   const nextLayout = {
@@ -98,21 +104,25 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     seatSelectionDisabled: false,
     disablePositionalSeatZip: true,
     preferExactOfferSeatMatch: true,
-    /** Только точные координаты из pbilet tickets — без угадывания по 77k точкам. */
-    sellableSeatsStrictOnly: true,
   };
 
   if (Array.isArray(offerRows) && offerRows.length > 0 && baseSeats.length > 0) {
-    const { seats, matched, totalSellable, unmatchedSamples } = buildSellableSeatGeodesy(
-      baseSeats,
-      offerRows,
-    );
+    const { seats, matched, totalSellable, unmatchedSamples, dotMatched } =
+      buildSellableSeatGeodesyWithDots(
+        baseSeats,
+        allSeatCoordinates,
+        sectorPaths,
+        Number(layout.geodesy?.hallWidth),
+        Number(layout.geodesy?.hallHeight),
+        offerRows,
+      );
     nextLayout.sellableSeats = seats;
     nextLayout.preferLayoutSeatPositions = true;
     nextLayout.offerSeatGeodesy = {
       matched,
       totalSellable,
       unmatched: Math.max(0, totalSellable - matched),
+      dotMatched: dotMatched ?? 0,
       unmatchedSamples,
       updatedAt: new Date().toISOString(),
     };

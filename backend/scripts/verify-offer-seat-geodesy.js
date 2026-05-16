@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { loadLuzhnikiFootballStageMapRow } from '../services/luzhnikiFootballStageMap.js';
-import { buildSellableSeatGeodesy } from '../utils/hallSeatGeodesyMatch.js';
+import { buildSellableSeatGeodesyWithDots } from '../utils/hallSeatGeodesyFromDots.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -20,7 +20,18 @@ const offers = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
 const row = await loadLuzhnikiFootballStageMapRow();
 const layout = row?.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
 const baseSeats = Array.isArray(layout.seats) ? layout.seats : [];
-const diag = buildSellableSeatGeodesy(baseSeats, offers);
+const allSeatCoordinates = Array.isArray(layout.allSeatCoordinates)
+  ? layout.allSeatCoordinates
+  : [];
+const sectorPaths = Array.isArray(layout.sectorMode?.sectors) ? layout.sectorMode.sectors : [];
+const diag = buildSellableSeatGeodesyWithDots(
+  baseSeats,
+  allSeatCoordinates,
+  sectorPaths,
+  Number(layout.geodesy?.hallWidth),
+  Number(layout.geodesy?.hallHeight),
+  offers,
+);
 
 console.log(
   JSON.stringify(
@@ -35,6 +46,7 @@ console.log(
         diag.totalSellable > 0
           ? Math.round((diag.matched / diag.totalSellable) * 1000) / 10
           : 0,
+      dotMatched: diag.dotMatched ?? 0,
       unmatchedSamples: diag.unmatchedSamples,
     },
     null,

@@ -50,4 +50,50 @@ test('dot resolver places offer seat using anchors and hall dots', () => {
   assert.equal(diag.matched, 1);
   assert.equal(diag.seats.length, 1);
   assert.equal(diag.seats[0].seat, '3');
+  assert.equal(diag.dotMatched, 1);
+});
+
+test('dot resolver keeps same row on one Y (no vertical stripe)', () => {
+  const layoutSeats = [];
+  for (let seat = 1; seat <= 5; seat += 1) {
+    layoutSeats.push({
+      sector: 'Сектор B 145',
+      row: '20',
+      seat: String(seat),
+      xPct: 10 + seat * 2,
+      yPct: 30,
+    });
+  }
+  for (let seat = 1; seat <= 5; seat += 1) {
+    layoutSeats.push({
+      sector: 'Сектор B 145',
+      row: '22',
+      seat: String(seat),
+      xPct: 10 + seat * 2,
+      yPct: 32,
+    });
+  }
+  const allSeatCoordinates = [];
+  for (let rowY of [30, 32]) {
+    for (let seat = 1; seat <= 8; seat += 1) {
+      allSeatCoordinates.push({ xPct: 8 + seat * 2, yPct: rowY });
+    }
+  }
+  const sectorPaths = [
+    { label: 'Сектор B 145', path: 'M0,0 L200,0 L200,200 L0,200 Z' },
+  ];
+  const offers = [
+    { Sector: 'сектор b145', Row: '26', SeatList: ['1', '2', '3'] },
+  ];
+  const diag = buildSellableSeatGeodesyWithDots(
+    layoutSeats,
+    allSeatCoordinates,
+    sectorPaths,
+    200,
+    200,
+    offers,
+  );
+  assert.equal(diag.seats.length, 3);
+  const ys = diag.seats.map((s) => s.yPct);
+  assert.ok(Math.max(...ys) - Math.min(...ys) < 0.2, `Y spread too large: ${ys.join(',')}`);
 });
