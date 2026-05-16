@@ -76,6 +76,7 @@ export function TicketCartStickyBar() {
             baseTotalRub={cart.baseTotalRub}
             sessionLabel={cart.sessionLabel}
             descriptionLead={cart.descriptionLead}
+            requiresFanId={cart.requiresFanId}
           />
         </Suspense>
       ) : null}

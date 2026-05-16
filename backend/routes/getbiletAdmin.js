@@ -363,9 +363,30 @@ router.delete('/events/:id', async (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Некорректный id' });
   try {
+    const prev = await ticketPool.query(
+      `SELECT getbilet_external_id FROM getbilet_events WHERE id = $1`,
+      [id],
+    );
+    if (!prev.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    const repertoireId = String(prev.rows[0].getbilet_external_id || '').trim();
+
+    await ticketPool.query(`DELETE FROM getbilet_event_group_members WHERE event_id = $1`, [id]);
     const r = await ticketPool.query(`DELETE FROM getbilet_events WHERE id = $1 RETURNING id`, [id]);
     if (!r.rows.length) return res.status(404).json({ error: 'Не найдено' });
-    res.json({ success: true });
+
+    if (repertoireId) {
+      await ticketPool.query(
+        `DELETE FROM getbilet_catalog_cache WHERE repertoire_external_id = $1`,
+        [repertoireId],
+      );
+      await ticketPool.query(
+        `DELETE FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+        [repertoireId],
+      ).catch(() => {});
+    }
+
+    invalidateGetbiletEventsHttpCache();
+    res.json({ success: true, repertoireId: repertoireId || null });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

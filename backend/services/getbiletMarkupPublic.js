@@ -158,15 +158,17 @@ export async function getGetbiletMarkupRuleForRepertoire(repertoireId) {
 }
 
 /**
- * Цена закупа из строки оффера GetBilet (AgentPrice — приоритет).
+ * База для наценки: max(AgentPrice, NominalPrice).
+ * GetBilet часто отдаёт AgentPrice=закуп, NominalPrice=номинал витрины (выше) — наценка % должна
+ * считаться от номинала, иначе на сайте остаётся «голый» номинал без нашей наценки (d230: 5950 вместо 10115).
  * @param {Record<string, unknown>} row
  */
 export function resolveOfferSupplierRub(row) {
   const agent = Number(row.AgentPrice ?? row.agentPrice);
   const nominal = Number(row.NominalPrice ?? row.nominalPrice);
-  if (Number.isFinite(agent) && agent > 0) return agent;
-  if (Number.isFinite(nominal) && nominal > 0) return nominal;
-  return 0;
+  const candidates = [agent, nominal].filter((n) => Number.isFinite(n) && n > 0);
+  if (candidates.length === 0) return 0;
+  return Math.max(...candidates);
 }
 
 /**
@@ -180,6 +182,7 @@ function applyMarkupToOfferRow(row, rule) {
   if (!Number.isFinite(supplier) || supplier < 0) return o;
   const retail = applyGetbiletMarkupToSupplierUnit(supplier, rule);
   const s = String(retail);
+  o.SupplierPrice = String(supplier);
   o.AgentPrice = s;
   o.NominalPrice = s;
   if ('agentPrice' in o) o.agentPrice = s;

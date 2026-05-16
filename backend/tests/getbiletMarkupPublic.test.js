@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   applyGetbiletMarkupToOfferPayload,
   applyGetbiletMarkupToSupplierUnit,
+  resolveOfferSupplierRub,
 } from '../services/getbiletMarkupPublic.js';
 
 describe('getbiletMarkupPublic', () => {
@@ -33,5 +34,26 @@ describe('getbiletMarkupPublic', () => {
     const out = applyGetbiletMarkupToOfferPayload(data, { markup_kind: 'fixed', markup_value: 25 });
     assert.equal(out.ResultData.AgentPrice, '225');
     assert.equal(out.ResultData.NominalPrice, '225');
+  });
+
+  it('markup base is max(agent, nominal) — номинал выше закупа', () => {
+    const row = { AgentPrice: '3500', NominalPrice: '5950' };
+    assert.equal(resolveOfferSupplierRub(row), 5950);
+    const out = applyGetbiletMarkupToOfferPayload(
+      { ResultData: [row] },
+      { markup_kind: 'percent', markup_value: 70 },
+    );
+    assert.equal(out.ResultData[0].SupplierPrice, '5950');
+    assert.equal(out.ResultData[0].NominalPrice, '10115');
+  });
+
+  it('markup base max when agent is wholesale only', () => {
+    const row = { AgentPrice: '17500', NominalPrice: '5000' };
+    assert.equal(resolveOfferSupplierRub(row), 17500);
+    const out = applyGetbiletMarkupToOfferPayload(
+      { ResultData: [row] },
+      { markup_kind: 'percent', markup_value: 70 },
+    );
+    assert.equal(out.ResultData[0].NominalPrice, '29750');
   });
 });

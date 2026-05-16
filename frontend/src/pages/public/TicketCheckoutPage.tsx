@@ -78,6 +78,11 @@ import {
 import { slugify } from '@/utils/slugify';
 import { submitForm } from '@/services/cmsApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
+import {
+  FAN_ID_NOTICE,
+  isFanIdRequiredForRepertoire,
+  isFanIdRequiredForSlug,
+} from '@/utils/fanIdRequiredEvents';
 import { useTicketCart } from '@/context/TicketCartContext';
 import styles from './TicketCheckoutPage.module.css';
 
@@ -283,10 +288,13 @@ export function TicketCheckoutPage() {
     error: pageErrorObj,
     isSuccess: pageSuccess,
   } = useQuery({
-    queryKey: ['bilet-repertoire-page', repertoireId],
+    queryKey: ['bilet-repertoire-page', repertoireId, 'markup-v2'],
     queryFn: () => fetchRepertoirePageBundle(repertoireId),
     enabled: Boolean(repertoireId),
-    staleTime: 60_000,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 
@@ -663,6 +671,13 @@ export function TicketCheckoutPage() {
   );
 
   const ticketHref = `${location.pathname}${location.search}`;
+  const requiresFanId = useMemo(
+    () =>
+      ctx?.requiresFanId === true ||
+      isFanIdRequiredForRepertoire(repertoireId) ||
+      isFanIdRequiredForSlug(routeSlug),
+    [ctx?.requiresFanId, repertoireId, routeSlug],
+  );
   const cartRestoreRef = useRef(false);
 
   useEffect(() => {
@@ -706,6 +721,7 @@ export function TicketCheckoutPage() {
           ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
           : null),
       ticketHref,
+      requiresFanId,
     });
   }, [
     repertoireId,
@@ -721,6 +737,7 @@ export function TicketCheckoutPage() {
     mergedVenue,
     mergedVenueAddress,
     ticketHref,
+    requiresFanId,
     setCart,
   ]);
 
@@ -1103,6 +1120,12 @@ export function TicketCheckoutPage() {
             </Alert>
           ) : null}
 
+          {requiresFanId ? (
+            <Alert severity="info" sx={{ mb: 2 }} icon={false}>
+              <strong>FAN ID обязателен.</strong> {FAN_ID_NOTICE}
+            </Alert>
+          ) : null}
+
           {ctxLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
               <CircularProgress size={28} />
@@ -1261,6 +1284,7 @@ export function TicketCheckoutPage() {
                 reservePending={false}
                 onNavigateToList={navigateToPlacesList}
                 hideSelectionBar
+                showFanIdNotice={requiresFanId}
               />
               </Suspense>
             </Paper>
@@ -1674,6 +1698,7 @@ export function TicketCheckoutPage() {
                     reservePending={false}
                     onNavigateToList={navigateToPlacesList}
                     hideSelectionBar
+                    showFanIdNotice={requiresFanId}
                   />
                 </Suspense>
               </Box>

@@ -35,6 +35,7 @@ import {
   getRepertoireDescriptionSections,
   resolveRepertoireSlug,
 } from '../services/repertoirePublicContext.js';
+import { RepertoireNotAvailableError } from '../services/repertoireStorefrontAccess.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
@@ -62,6 +63,9 @@ const router = express.Router();
  * @param {import('express').Response} res
  */
 function sendGetbiletError(err, res) {
+  if (err instanceof RepertoireNotAvailableError) {
+    return res.status(404).json({ error: 'not_found', message: err.message });
+  }
   if (err instanceof GetbiletForbiddenError) {
     return res.status(403).json({ error: 'forbidden', message: err.message });
   }

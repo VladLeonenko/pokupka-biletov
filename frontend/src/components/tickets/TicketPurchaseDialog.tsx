@@ -4,6 +4,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
+import { FAN_ID_NOTICE, isValidFanId, normalizeFanId } from '@/utils/fanIdRequiredEvents';
 import styles from './TicketPurchaseDialog.module.css';
 
 export type TicketPurchaseDialogProps = {
@@ -21,6 +22,7 @@ export type TicketPurchaseDialogProps = {
   sessionLabel?: string | null;
   /** Краткий тизер описания (как на странице события) */
   descriptionLead?: string | null;
+  requiresFanId?: boolean;
 };
 
 const fieldSx = {
@@ -40,10 +42,12 @@ export function TicketPurchaseDialog({
   baseTotalRub,
   sessionLabel,
   descriptionLead,
+  requiresFanId = false,
 }: TicketPurchaseDialogProps) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [fanId, setFanId] = useState('');
   const [promo, setPromo] = useState('');
   const [promoHint, setPromoHint] = useState<{ ok: boolean; text: string } | null>(null);
   const [promoFinalRub, setPromoFinalRub] = useState<number | null>(null);
@@ -106,6 +110,7 @@ export function TicketPurchaseDialog({
         customerPhone: phone.trim(),
         customerEmail: email.trim(),
         promoCode: promo.trim() || undefined,
+        fanId: requiresFanId ? normalizeFanId(fanId) : undefined,
       });
     },
     onSuccess: (data) => {
@@ -125,7 +130,8 @@ export function TicketPurchaseDialog({
     fullName.trim().length > 2 &&
     phone.replace(/\D/g, '').length >= 10 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
-    seats.length > 0;
+    seats.length > 0 &&
+    (!requiresFanId || isValidFanId(fanId));
 
   const handleClose = useCallback(() => {
     if (checkoutMut.isPending) return;
@@ -179,8 +185,29 @@ export function TicketPurchaseDialog({
           </div>
         </div>
 
+        {requiresFanId ? (
+          <div className={styles.fanIdBlock} role="note">
+            <p className={styles.fanIdBlockTitle}>FAN ID обязателен</p>
+            <p className={styles.fanIdBlockHint}>{FAN_ID_NOTICE}</p>
+          </div>
+        ) : null}
+
         <p className={styles.sectionLabel}>Контакты</p>
         <div className={styles.formGrid}>
+          {requiresFanId ? (
+            <TextField
+              required
+              label="Номер FAN ID"
+              value={fanId}
+              onChange={(e) => setFanId(e.target.value.toUpperCase())}
+              fullWidth
+              size="medium"
+              placeholder="Карта болельщика"
+              helperText="8–20 символов, латиница и цифры"
+              className={styles.field}
+              sx={fieldSx}
+            />
+          ) : null}
           <TextField
             required
             label="ФИО"

@@ -11,6 +11,7 @@ import {
   type SvgNativePlacement,
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
+import { FAN_ID_NOTICE } from '@/utils/fanIdRequiredEvents';
 import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
@@ -331,6 +332,8 @@ type Props = {
   onNavigateToList?: () => void;
   /** Глобальная плашка корзины вместо встроенной selectionBar */
   hideSelectionBar?: boolean;
+  /** Плашка «нужен FAN ID» над схемой зала */
+  showFanIdNotice?: boolean;
 };
 
 /**
@@ -356,6 +359,7 @@ export function TicketHallInteractiveBlock({
   reservePending = false,
   variant = 'page',
   hideSelectionBar = false,
+  showFanIdNotice = false,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -1120,7 +1124,7 @@ export function TicketHallInteractiveBlock({
   const rootClass =
     variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
 
-  return (
+  const hallMap = (
     <div className={rootClass}>
       <div className={styles.toolbar}>
         <div className={styles.zoomBtns}>
@@ -1554,6 +1558,18 @@ export function TicketHallInteractiveBlock({
           </Paper>
         )}
       </Popper>
+    </div>
+  );
+
+  if (!showFanIdNotice) return hallMap;
+
+  return (
+    <div className={styles.fanIdWrap}>
+      <div className={styles.fanIdNotice} role="note">
+        <span className={styles.fanIdNoticeBadge}>FAN ID</span>
+        <p className={styles.fanIdNoticeText}>{FAN_ID_NOTICE}</p>
+      </div>
+      {hallMap}
     </div>
   );
 }

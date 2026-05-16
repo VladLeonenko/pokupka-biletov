@@ -16,10 +16,16 @@ import {
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
+  LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
 import { slugify } from '../utils/eventSlug.js';
+import { isFanIdRequiredForRepertoire } from '../utils/fanIdRequiredEvents.js';
 import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
+import {
+  assertRepertoireStorefrontAccess,
+  getRepertoireStorefrontAccess,
+} from './repertoireStorefrontAccess.js';
 import {
   buildProgrammaticHeroLead,
   formatCatalogHintsSubline,
@@ -432,6 +438,8 @@ export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
  * @param {{ omitStageSvgMarkup?: boolean; fastPath?: boolean; includeDescriptionSections?: boolean }} [opts]
  */
 export async function getRepertoirePublicContext(repertoireId, opts = {}) {
+  await assertRepertoireStorefrontAccess(repertoireId);
+
   const fastPath = opts.fastPath !== false;
   const includeSections = opts.includeDescriptionSections === true;
   const cacheKey = `${repertoireId}|svg:${opts.omitStageSvgMarkup ? 1 : 0}|sec:${includeSections ? 1 : 0}`;
@@ -478,15 +486,22 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
     bannerFromPayload ||
     null;
 
+  const deferStageHeavyFields = opts.omitStageSvgMarkup === true;
   let stageMap = null;
   if (stageId) {
     try {
+      const cols = deferStageHeavyFields
+        ? 'stage_external_id, place_external_id, title, external_plan_url'
+        : 'stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url';
       const mr = await ticketPool.query(
-        `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url
-         FROM getbilet_stage_maps WHERE stage_external_id = $1`,
+        `SELECT ${cols} FROM getbilet_stage_maps WHERE stage_external_id = $1`,
         [stageId],
       );
-      if (mr.rows[0]) stageMap = mr.rows[0];
+      if (mr.rows[0]) {
+        stageMap = deferStageHeavyFields
+          ? { ...mr.rows[0], svg_markup: null, layout_json: null, svg_markup_deferred: true }
+          : mr.rows[0];
+      }
     } catch {
       /* нет таблицы карт */
     }
@@ -534,11 +549,21 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         stageHallLabel,
       )
     ) {
-      const lzRow = await loadLuzhnikiFootballStageMapRow();
-      if (lzRow) {
-        stageMap = (await hasLiveOffersInCache(repertoireId))
-          ? adaptLuzhnikiStageMapForLiveOffers(lzRow)
-          : lzRow;
+      if (deferStageHeavyFields) {
+        stageMap = {
+          stage_external_id: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+          title: 'Стадион «Лужники»',
+          svg_markup: null,
+          layout_json: null,
+          svg_markup_deferred: true,
+        };
+      } else {
+        const lzRow = await loadLuzhnikiFootballStageMapRow();
+        if (lzRow) {
+          stageMap = (await hasLiveOffersInCache(repertoireId))
+            ? adaptLuzhnikiStageMapForLiveOffers(lzRow)
+            : lzRow;
+        }
       }
     }
   } catch {
@@ -547,6 +572,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
 
   if (
     !stageMap &&
+    !deferStageHeavyFields &&
     looksLikeMhtChekhovVenue(
       manualVenue,
       venueFromPayload,
@@ -644,6 +670,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
     bannerUrl,
     stageMap: stageMapForClient,
     externalPlanUrl,
+    requiresFanId: isFanIdRequiredForRepertoire(repertoireId),
   };
 
   if (fastPath && FAST_CTX_TTL_MS > 0) {
@@ -690,6 +717,8 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
 
   if (isManualRepertoireKey(target)) {
     try {
+      const access = await getRepertoireStorefrontAccess(target);
+      if (!access.allowed) return null;
       const base = await loadRepertoireBase(target);
       if (base.hasCatalogRow || base.eventRowId != null) {
         const title =
@@ -737,8 +766,11 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
       return Number.isFinite(t) && t >= now;
     }) || sorted[0];
   }
+  const resolvedRepId = String(hit.repertoireId || hit.id || '').trim();
+  const access = await getRepertoireStorefrontAccess(resolvedRepId);
+  if (!access.allowed) return null;
   return {
-    repertoireId: hit.repertoireId || hit.id,
+    repertoireId: resolvedRepId,
     title: hit.title,
     stageId: hit.stageId || null,
     posterUrl: hit.posterUrl || null,

@@ -722,6 +722,8 @@ export type RepertoireContext = {
   stageMap: (StageMapRow & { external_plan_url?: string | null; svg_markup_deferred?: boolean }) | null;
   /** Ссылка на схемы залов на сайте театра (если задана в админке для сцены). */
   externalPlanUrl?: string | null;
+  /** Продажа только с FAN ID (карта болельщика). */
+  requiresFanId?: boolean;
 };
 
 export type RepertoirePageBundle = {
@@ -749,7 +751,14 @@ export async function fetchRepertoirePageBundle(repertoireId: string): Promise<R
   const base = getApiBase();
   const res = await fetch(
     `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page`,
-    { headers: { Accept: 'application/json' }, cache: 'no-store' },
+    {
+      headers: {
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+      cache: 'no-store',
+    },
   );
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
@@ -1030,6 +1039,7 @@ export type BiletCheckoutPayload = {
   customerPhone: string;
   customerEmail: string;
   promoCode?: string;
+  fanId?: string;
 };
 
 export async function checkoutBiletTickets(payload: BiletCheckoutPayload): Promise<{

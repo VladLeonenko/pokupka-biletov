@@ -23,6 +23,7 @@ export type TicketCartSnapshot = {
   mapOfferSelections?: Array<{ offerId: string; seats: string[] }>;
   descriptionLead?: string | null;
   ticketHref: string;
+  requiresFanId?: boolean;
 };
 
 type TicketCartContextValue = {

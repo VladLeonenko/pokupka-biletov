@@ -1,3 +1,41 @@
+.fanIdWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.fanIdNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fff8f0 0%, #fff3e6 100%);
+  border: 1px solid rgba(255, 78, 24, 0.35);
+  box-shadow: 0 4px 16px rgba(255, 78, 24, 0.08);
+}
+
+.fanIdNoticeBadge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, var(--neg-orange, #ff4e18), #e63d0f);
+}
+
+.fanIdNoticeText {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #3d2a1a;
+  font-weight: 600;
+}
+
 .root {
   position: relative;
   display: flex;

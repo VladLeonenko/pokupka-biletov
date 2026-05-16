@@ -15,6 +15,14 @@ import {
 } from '../services/getbiletMarkupPublic.js';
 import { isTbankEacqConfigured, tbankEacqInit, verifyTbankNotificationToken } from '../services/payment/tbankEacq.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
+import {
+  isFanIdRequiredForRepertoire,
+  requireValidFanId,
+} from '../utils/fanIdRequiredEvents.js';
+import {
+  assertRepertoireStorefrontAccess,
+  RepertoireNotAvailableError,
+} from '../services/repertoireStorefrontAccess.js';
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -255,6 +263,8 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       }
 
       const repertoireId = requireNonEmptyString(req.body?.repertoireId, 'repertoireId');
+      await assertRepertoireStorefrontAccess(repertoireId);
+
       const eventTitle =
         typeof req.body?.eventTitle === 'string' && req.body.eventTitle.trim()
           ? req.body.eventTitle.trim().slice(0, 300)
@@ -276,6 +286,11 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       }
 
       const promoCode = typeof req.body?.promoCode === 'string' ? req.body.promoCode.trim() : '';
+
+      let fanId = null;
+      if (isFanIdRequiredForRepertoire(repertoireId)) {
+        fanId = requireValidFanId(req.body?.fanId ?? req.body?.fan_id);
+      }
 
       const userId = req.user?.id ?? null;
       const sessionId = userId ? null : getSessionId(req);
@@ -317,6 +332,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         offerSelections,
         repertoireId,
         promoId,
+        fanId: fanId || undefined,
         getbiletMakeOrder: makeData,
         getbiletOrderId: getbiletOrderIdsToCancel[0] ?? null,
         getbiletOrderIds: getbiletOrderIdsToCancel,
@@ -342,7 +358,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
           customerPhone,
           'online',
           'pending',
-          `Билеты: ${eventTitle}`.slice(0, 2000),
+          (`Билеты: ${eventTitle}${fanId ? ` · FAN ID ${fanId}` : ''}`).slice(0, 2000),
           'tbank',
           paymentMeta,
         ]
@@ -401,6 +417,12 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         }
       }
       if (err instanceof GetbiletValidationError) {
+        return res.status(400).json({ error: 'validation', message: err.message });
+      }
+      if (err instanceof RepertoireNotAvailableError) {
+        return res.status(404).json({ error: 'not_found', message: err.message });
+      }
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'FanIdValidationError') {
         return res.status(400).json({ error: 'validation', message: err.message });
       }
       if (err instanceof GetbiletUpstreamError) {
