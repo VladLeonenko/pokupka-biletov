@@ -822,15 +822,16 @@ export function TicketCheckoutPage() {
 
   const layoutJsonForStage = useMemo(() => {
     if (!stageIdEff) return ctx?.stageMap?.layout_json;
-    if (ctx?.stageId === stageIdEff && ctx?.stageMap) {
+    /** deferred: в контексте layout_json=null, но stageMap есть — не блокировать fetch /map */
+    if (ctx?.stageId === stageIdEff && ctx?.stageMap?.layout_json) {
       return ctx.stageMap.layout_json;
     }
     if (!stageMapFetched) {
-      return ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json : null;
+      return ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json ?? null : null;
     }
     return (
       mapByStageId?.layout_json ??
-      (ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json : null)
+      (ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json ?? null : null)
     );
   }, [
     stageIdEff,
