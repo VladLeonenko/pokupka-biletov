@@ -201,6 +201,7 @@ export function AppRoutes() {
       <Route path="/cookies" element={<CookiesPolicyPage />} />
       <Route path="/requisites" element={<RequisitesPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/auth/login" element={<LoginPage />} />
       <Route path="/auth/magic" element={<MagicLinkPage />} />
       <Route path="/auth/request-link" element={<RequestMagicLinkPage />} />
       <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />

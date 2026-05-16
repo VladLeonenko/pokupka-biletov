@@ -4,6 +4,7 @@ import ticketPool from '../ticketDb.js';
 import { createLoginToken, PURPOSE_MAGIC_LINK } from './loginTokens.js';
 import { sendMagicLinkEmail } from './mail/authMail.js';
 import { createDealForClient } from '../utils/funnelHelper.js';
+import { generateInitialPassword } from '../utils/generateInitialPassword.js';
 
 async function storeTicketRefs(orderRow, provider, ticketRefs) {
   if (!ticketRefs?.length) return;
@@ -30,21 +31,30 @@ async function storeTicketRefs(orderRow, provider, ticketRefs) {
   }
 }
 
-/** Создаёт пользователя по email заказа (если ещё нет), привязывает заказ, шлёт magic link для входа в ЛК. */
+/** Создаёт пользователя по email заказа (если ещё нет), привязывает заказ. */
 export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
   const deferMagicLink = Boolean(options.deferMagicLink);
+  /** Билетный чекаут: пароль в письме, без magic link */
+  const authViaPassword = Boolean(options.authViaPassword);
   const email = (orderRow.customer_email || '').trim().toLowerCase();
-  if (!email) return { userId: null, magicLinkSent: false, isNew: false, rawMagicToken: null };
+  if (!email) {
+    return { userId: null, magicLinkSent: false, isNew: false, rawMagicToken: null, initialPassword: null };
+  }
 
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
   let userId;
   let isNew = false;
+  let initialPassword = null;
 
   if (existing.rows.length) {
     userId = existing.rows[0].id;
   } else {
-    const randomHash = await bcrypt.hash(
-      `${Date.now()}_${Math.random().toString(36)}_${process.env.JWT_SECRET?.slice(0, 8) || 'x'}`,
+    if (authViaPassword) {
+      initialPassword = generateInitialPassword();
+    }
+    const passwordHash = await bcrypt.hash(
+      initialPassword ||
+        `${Date.now()}_${Math.random().toString(36)}_${process.env.JWT_SECRET?.slice(0, 8) || 'x'}`,
       12
     );
     const name = orderRow.customer_name || null;
@@ -55,7 +65,7 @@ export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
         `INSERT INTO users (email, password_hash, name, phone, role, email_verified, oauth_provider, created_at, updated_at)
          VALUES ($1, $2, $3, $4, 'user', TRUE, NULL, NOW(), NOW())
          RETURNING id`,
-        [email, randomHash, name, phone]
+        [email, passwordHash, name, phone]
       );
     } catch (e) {
       if (e?.code !== '23505' || !String(e?.constraint || '').includes('phone')) throw e;
@@ -63,7 +73,7 @@ export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
         `INSERT INTO users (email, password_hash, name, phone, role, email_verified, oauth_provider, created_at, updated_at)
          VALUES ($1, $2, $3, NULL, 'user', TRUE, NULL, NOW(), NOW())
          RETURNING id`,
-        [email, randomHash, name]
+        [email, passwordHash, name]
       );
     }
     userId = ins.rows[0].id;
@@ -82,8 +92,10 @@ export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
   const sendMagic =
     String(process.env.SEND_MAGIC_LINK_AFTER_PAYMENT || 'true').toLowerCase() === 'true';
   const shouldSendMagic =
-    sendMagic && (isNew || String(process.env.MAGIC_LINK_AFTER_PAYMENT_ALWAYS || '').toLowerCase() === 'true');
-  if (shouldSendMagic || deferMagicLink) {
+    !authViaPassword &&
+    sendMagic &&
+    (isNew || String(process.env.MAGIC_LINK_AFTER_PAYMENT_ALWAYS || '').toLowerCase() === 'true');
+  if (!authViaPassword && (shouldSendMagic || deferMagicLink)) {
     try {
       const ttl = Number(process.env.MAGIC_LINK_EXPIRES_MINUTES) || 15;
       const { raw } = await createLoginToken({
@@ -103,7 +115,7 @@ export async function ensureUserAndNotifyAfterPayment(orderRow, options = {}) {
     }
   }
 
-  return { userId, magicLinkSent, isNew, rawMagicToken };
+  return { userId, magicLinkSent, isNew, rawMagicToken, initialPassword };
 }
 
 /**
@@ -204,8 +216,9 @@ export async function finalizePaidOrder(orderRow, { ticketRefs = [], runPaidHook
   const pm = parsePaymentMeta(orderRow);
   const ticketCheckout = Boolean(pm && pm.ticketCheckout === true);
 
-  const { userId, isNew, rawMagicToken } = await ensureUserAndNotifyAfterPayment(orderRow, {
+  const { userId, isNew, initialPassword } = await ensureUserAndNotifyAfterPayment(orderRow, {
     deferMagicLink: ticketCheckout,
+    authViaPassword: ticketCheckout,
   });
 
   if (ticketCheckout) {
@@ -213,7 +226,7 @@ export async function finalizePaidOrder(orderRow, { ticketRefs = [], runPaidHook
       const { sendTicketOrderPaidEmails } = await import('./mail/ticketOrderMail.js');
       await sendTicketOrderPaidEmails(
         { ...orderRow, user_id: userId || orderRow.user_id },
-        { isNew, rawMagicToken }
+        { isNew, initialPassword, customerEmail: (orderRow.customer_email || '').trim() }
       );
     } catch (e) {
       console.warn('[orderPaymentFinalize] ticket order emails failed:', e.message);

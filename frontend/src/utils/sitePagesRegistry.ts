@@ -26,6 +26,7 @@ export const PUBLIC_SITE_ROUTES: readonly PublicRouteDef[] = [
   { path: '/cookies', title: 'Политика cookie' },
   { path: '/requisites', title: 'Реквизиты' },
   { path: '/register', title: 'Регистрация' },
+  { path: '/auth/login', title: 'Вход в личный кабинет' },
   { path: '/auth/magic', title: 'Вход по ссылке' },
   { path: '/auth/request-link', title: 'Запрос ссылки для входа' },
   { path: '/auth/forgot-password', title: 'Восстановление пароля' },

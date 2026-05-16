@@ -60,10 +60,6 @@ export function LoginPage() {
         </form>
         <Box sx={{ mt: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            <MuiLink component={Link} to="/auth/request-link" style={{ textDecoration: 'none' }}>
-              Войти по ссылке на email
-            </MuiLink>
-            {' · '}
             <MuiLink component={Link} to="/auth/forgot-password" style={{ textDecoration: 'none' }}>
               Забыли пароль
             </MuiLink>
