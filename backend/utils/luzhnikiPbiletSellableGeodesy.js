@@ -74,6 +74,11 @@ function canonicalSectorLabel(pbilet, lookupNorms, offerSector) {
   return offerSector || lookupNorms[0] || '';
 }
 
+function useFieldGridSellableSnap() {
+  const v = String(process.env.LUZHNIKI_USE_FIELDGRID_SELLABLE ?? '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
 /**
  * @param {unknown} ticketsPayload
  * @param {unknown[]} offers
@@ -184,11 +189,13 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
         }
 
         const lookupRow = mode === 'layout-anchors' ? layoutAnchorLookupRow(norm, row) : row;
-        const gridHit =
-          snapFieldGridSeat(fieldGridSnapIndex, sector, row, seat) ||
-          (lookupRow !== row
-            ? snapFieldGridSeat(fieldGridSnapIndex, sector, lookupRow, seat)
-            : null);
+        // fieldGrid 80k — не истина для sellable (см. LUZHNIKI_NEXT_AGENT_HANDOFF §2, §9.3)
+        const gridHit = useFieldGridSellableSnap()
+          ? snapFieldGridSeat(fieldGridSnapIndex, sector, row, seat) ||
+            (lookupRow !== row
+              ? snapFieldGridSeat(fieldGridSnapIndex, sector, lookupRow, seat)
+              : null)
+          : null;
         const hit = gridHit || interpolatePbiletSeatGeodesy(anchors, label, lookupRow, seat, null);
         if (!hit) {
           if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
