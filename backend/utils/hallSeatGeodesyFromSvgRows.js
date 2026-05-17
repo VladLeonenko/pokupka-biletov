@@ -3,7 +3,12 @@
  * Для секторов без r[] в tickets.json — target Y ряда с подписи на схеме.
  */
 
-import { clusterDotsByRow, pickDotNearRowSeat, pathBBox } from './hallSeatGeodesyFromDots.js';
+import {
+  clusterDotsByRow,
+  pickDotNearRowSeat,
+  pathBBox,
+  resolveOfferSeatSnapInSector,
+} from './hallSeatGeodesyFromDots.js';
 
 const TSPAN_RE =
   /<tspan\s+[^>]*\bx=["']([\d.]+)["'][^>]*\by=["']([\d.]+)["'][^>]*>([^<]*)<\/tspan>/gi;
@@ -172,19 +177,28 @@ export function resolveOfferSeatFromSvgRowLabels(
   }
 
   let rowDots = [...bestBand.dots].sort((a, b) => a.xPct - b.xPct);
-  if (rowDots.length < 2) return null;
 
   const seatMax = Math.max(seatRangeInRow?.max ?? seatNum ?? 1, rowDots.length, 1);
   const seatMin = 1;
   let targetX;
-  if (seatNum != null) {
+  if (seatNum != null && rowDots.length >= 1) {
     const st = (seatNum - seatMin) / Math.max(1, seatMax - seatMin);
     const seatIdx = Math.round(st * (rowDots.length - 1));
     targetX = rowDots[Math.min(Math.max(seatIdx, 0), rowDots.length - 1)].xPct;
   } else {
-    targetX = rowDots[Math.floor(rowDots.length / 2)].xPct;
+    targetX = rowDots[Math.floor(rowDots.length / 2)]?.xPct ?? 50;
   }
 
-  const hit = pickDotNearRowSeat(rowDots, bestBand.yPct, targetX, 0.65);
-  return hit ? { xPct: hit.xPct, yPct: hit.yPct } : null;
+  if (rowDots.length >= 2) {
+    const hit = pickDotNearRowSeat(rowDots, bestBand.yPct, targetX, 0.75);
+    if (hit) return { xPct: hit.xPct, yPct: hit.yPct };
+  }
+
+  return resolveOfferSeatSnapInSector(
+    sectorDots,
+    targetYPct,
+    seatNum,
+    seatRangeInRow,
+    0.9,
+  );
 }

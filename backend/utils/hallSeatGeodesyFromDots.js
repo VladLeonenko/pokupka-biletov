@@ -4,7 +4,11 @@
  */
 
 import { buildSellableSeatGeodesy } from './hallSeatGeodesyMatch.js';
-import { parseSvgHallRowLabels, resolveOfferSeatFromSvgRowLabels } from './hallSeatGeodesyFromSvgRows.js';
+import {
+  parseSvgHallRowLabels,
+  resolveOfferSeatFromSvgRowLabels,
+  resolveRowYPctFromSvgLabels,
+} from './hallSeatGeodesyFromSvgRows.js';
 import {
   normalizeRowLabel,
   normalizeSectorLabel,
@@ -412,7 +416,7 @@ export function resolveOfferSeatFromCalibratedCloud(
   layoutAnchors = [],
 ) {
   const bands = clusterDotsByRow(sectorDots);
-  if (bands.length < 3 || !rowRange) return null;
+  if (bands.length < 2 || !rowRange) return null;
 
   const fullRowRange = inferCloudSectorRowRange(rowRange, bands.length, layoutAnchors);
   const span = Math.max(1, fullRowRange.max - fullRowRange.min);
@@ -425,22 +429,47 @@ export function resolveOfferSeatFromCalibratedCloud(
 
   let rowDots = [...band.dots].sort((a, b) => a.xPct - b.xPct);
   if (orientation?.seatXPctIncreases === -1) rowDots = rowDots.reverse();
-  if (rowDots.length < 2) return null;
-
   const cloudSeatRange = inferCloudSeatRangeInRow(seatRangeInRow, seatNum, rowDots);
 
   let targetX;
-  if (seatNum != null) {
+  if (seatNum != null && rowDots.length >= 1) {
     const seatSpan = Math.max(1, cloudSeatRange.max - cloudSeatRange.min);
     const st = (seatNum - cloudSeatRange.min) / seatSpan;
     const seatIdx = Math.round(st * (rowDots.length - 1));
     targetX = rowDots[Math.min(Math.max(seatIdx, 0), rowDots.length - 1)].xPct;
   } else {
-    targetX = rowDots[Math.floor(rowDots.length / 2)].xPct;
+    targetX = rowDots[Math.floor(rowDots.length / 2)]?.xPct ?? 50;
   }
 
-  const hit = pickDotNearRowSeat(rowDots, band.yPct, targetX, 0.55);
-  return hit ? { xPct: hit.xPct, yPct: hit.yPct } : null;
+  if (rowDots.length >= 2) {
+    const hit = pickDotNearRowSeat(rowDots, band.yPct, targetX, 0.65);
+    if (hit) return { xPct: hit.xPct, yPct: hit.yPct };
+  }
+
+  const yFromBand = band?.yPct ?? null;
+  return resolveOfferSeatSnapInSector(sectorDots, yFromBand, seatNum, seatRangeInRow);
+}
+
+/**
+ * Последний fallback: ближайшая точка чаши в секторе к (y ряда с SVG или cloud, x по месту).
+ */
+export function resolveOfferSeatSnapInSector(
+  sectorDots,
+  targetYPct,
+  seatNum,
+  seatRangeInRow,
+  maxYDist = 0.85,
+) {
+  if (!sectorDots?.length || targetYPct == null) return null;
+  let pool = sectorDots.filter((d) => Math.abs(d.yPct - targetYPct) <= maxYDist);
+  if (pool.length < 2) pool = [...sectorDots];
+  pool.sort((a, b) => a.xPct - b.xPct);
+  const seatMax = Math.max(seatRangeInRow?.max ?? seatNum ?? 1, pool.length, 1);
+  const st =
+    seatNum != null ? (seatNum - 1) / Math.max(1, seatMax - 1) : 0.5;
+  const seatIdx = Math.round(st * (pool.length - 1));
+  const pick = pool[Math.min(Math.max(seatIdx, 0), pool.length - 1)];
+  return pick ? { xPct: pick.xPct, yPct: pick.yPct } : null;
 }
 
 /** @deprecated Старая линейная привязка без ориентации — давала один Y для разных рядов. */
@@ -495,7 +524,7 @@ export function inferCloudSeatRangeInRow(seatRangeInRow, seatNum, dotsInRow) {
   return { min: 1, max };
 }
 
-function buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, hallHeight) {
+export function buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, hallHeight) {
   const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
   const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
   const sectorBoxes = (sectorPaths || [])
@@ -524,13 +553,47 @@ function buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, hallHei
     if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
     let best = null;
     for (const sb of sectorBoxes) {
-      if (!pointInBBox(xPct, yPct, sb.bbox, 0.2)) continue;
+      if (!pointInBBox(xPct, yPct, sb.bbox, 0.38)) continue;
       if (!best || sb.area < best.area) best = sb;
     }
     if (!best) continue;
     const arr = dotsBySector.get(best.norm) ?? [];
     arr.push({ xPct, yPct });
     dotsBySector.set(best.norm, arr);
+  }
+  return dotsBySector;
+}
+
+/** Сектора без точек после «самый мелкий bbox» — добираем точки из чаши по расширенному bbox. */
+export function fillMissingSectorDotsFromCloud(
+  dotsBySector,
+  sectorPaths,
+  allSeatCoordinates,
+  hallWidth,
+  hallHeight,
+) {
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
+  for (const sp of sectorPaths || []) {
+    const norm = normalizeSectorLabel(sp.label);
+    if ((dotsBySector.get(norm)?.length ?? 0) >= 4) continue;
+    const b = pathBBox(sp.path);
+    if (!b) continue;
+    const bbox = {
+      minX: (b.minX / w) * 100,
+      minY: (b.minY / h) * 100,
+      maxX: (b.maxX / w) * 100,
+      maxY: (b.maxY / h) * 100,
+    };
+    const arr = [];
+    for (const dot of allSeatCoordinates || []) {
+      const xPct = Number(dot.xPct);
+      const yPct = Number(dot.yPct);
+      if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
+      if (!pointInBBox(xPct, yPct, bbox, 0.55)) continue;
+      arr.push({ xPct, yPct });
+    }
+    if (arr.length >= 4) dotsBySector.set(norm, arr);
   }
   return dotsBySector;
 }
@@ -557,6 +620,7 @@ export function buildSellableSeatGeodesyWithDots(
   let anchorInterpolated = 0;
   let cloudMatched = 0;
   let svgRowMatched = 0;
+  let cloudSnapMatched = 0;
   let dotMatched = 0;
 
   const svgRowLabels =
@@ -578,10 +642,19 @@ export function buildSellableSeatGeodesyWithDots(
     anchorsBySector.set(norm, arr);
   }
 
-  const dotsBySector =
+  let dotsBySector =
     Array.isArray(allSeatCoordinates) && allSeatCoordinates.length >= 6
       ? buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, hallHeight)
       : new Map();
+  if (allSeatCoordinates?.length >= 100) {
+    dotsBySector = fillMissingSectorDotsFromCloud(
+      dotsBySector,
+      sectorPaths,
+      allSeatCoordinates,
+      hallWidth,
+      hallHeight,
+    );
+  }
   const rowRanges = buildSectorOfferRowRanges(offers);
   const seatRangesByRow = buildSectorOfferSeatRangesByRow(offers);
   const orientationIndex = buildLabeledSectorOrientationIndex(
@@ -606,14 +679,12 @@ export function buildSellableSeatGeodesyWithDots(
       allowAnchor && anchors.length >= 2 && anchorRows.size >= 2;
     const canDotGrid =
       sectorDots && sectorDots.length >= 12 && anchors.length >= 2 && anchorRows.size >= 2;
-    const canCloud =
-      sectorDots &&
-      sectorDots.length >= 24 &&
-      anchors.length < 2 &&
-      rowRanges.has(norm);
+    const canPlace =
+      sectorDots && sectorDots.length >= 4 && rowRanges.has(norm);
     const sectorPath = sectorPathByNorm.get(norm);
     const canSvgRow =
-      canCloud && svgRowLabels.length >= 50 && sectorPath && sectorPath.length > 8;
+      canPlace && svgRowLabels.length >= 50 && sectorPath && sectorPath.length > 8;
+    const canCloud = canPlace;
     const sectorOrientation = pickNearestSectorOrientation(norm, orientationIndex);
     const seatByRow = seatRangesByRow.get(norm);
 
@@ -673,12 +744,49 @@ export function buildSellableSeatGeodesyWithDots(
         );
         if (resolved) mode = 'dotOnly';
       }
+      if (!resolved && canPlace) {
+        let targetY = null;
+        if (canSvgRow && sectorPath) {
+          targetY = resolveRowYPctFromSvgLabels(
+            rowNum,
+            sectorPath,
+            svgRowLabels,
+            hallWidth,
+            hallHeight,
+            50,
+          );
+        }
+        if (targetY == null && canCloud) {
+          const bands = clusterDotsByRow(sectorDots);
+          if (bands.length >= 1) {
+            const fullRowRange = inferCloudSectorRowRange(
+              rowRanges.get(norm),
+              bands.length,
+              anchors,
+            );
+            const span = Math.max(1, fullRowRange.max - fullRowRange.min);
+            const t = (rowNum - fullRowRange.min) / span;
+            let idx = Math.round(t * (bands.length - 1));
+            const orient = sectorOrientation;
+            if (orient?.rowYPctIncreases === -1) idx = bands.length - 1 - idx;
+            targetY = bands[Math.min(Math.max(idx, 0), bands.length - 1)]?.yPct;
+          }
+        }
+        resolved = resolveOfferSeatSnapInSector(
+          sectorDots,
+          targetY,
+          seatNum,
+          seatByRow?.get(rowNum) ?? null,
+        );
+        if (resolved) mode = 'cloudSnap';
+      }
       if (!resolved) continue;
 
       seen.add(key);
       if (mode === 'anchor') anchorInterpolated += 1;
       else if (mode === 'svgRow') svgRowMatched += 1;
       else if (mode === 'cloud') cloudMatched += 1;
+      else if (mode === 'cloudSnap') cloudSnapMatched += 1;
       else dotMatched += 1;
       extra.push({
         sector,
@@ -693,13 +801,20 @@ export function buildSellableSeatGeodesyWithDots(
 
   return {
     seats: [...strict.seats, ...extra],
-    matched: strict.matched + anchorInterpolated + svgRowMatched + cloudMatched + dotMatched,
+    matched:
+      strict.matched +
+      anchorInterpolated +
+      svgRowMatched +
+      cloudMatched +
+      cloudSnapMatched +
+      dotMatched,
     totalSellable: strict.totalSellable,
     unmatchedSamples: strict.unmatchedSamples,
     strictMatched: strict.matched,
     anchorInterpolated,
     svgRowMatched,
     cloudMatched,
+    cloudSnapMatched,
     dotMatched,
   };
 }

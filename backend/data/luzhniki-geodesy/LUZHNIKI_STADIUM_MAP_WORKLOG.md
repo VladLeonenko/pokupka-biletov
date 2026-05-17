@@ -10,6 +10,35 @@
 
 **Файлы:** `hallSeatGeodesyFromDots.js`, `svgNativeSeatLayout.ts` (`buildLuzhnikiMapSellablePlacements`), `TicketHallInteractiveBlock.tsx`. После деплоя — **пересид** `seed:luzhniki-football-map`.
 
+### Май 2026 — точность svgRow + покрытие всех sellable
+
+**Симптом 1:** ряд 11 на подписи «ряд 1» (A 101 и др.).  
+**Причина:** cloud мапил `rowMin` из минимального ряда в офферах, а не с 1.  
+**Фикс:** `inferCloudSectorRowRange` — шкала **1 … max(офферы, полосы)**.
+
+**Симптом 2:** после svgRow на карте только часть sellable.  
+**Причины:**
+- `canCloud`/`canSvgRow` требовали `anchors.length < 2` → сектора с частичным `tickets.json` (D227 и др.) не получали svgRow/cloud.
+- Порог `sectorDots >= 24` отсекал мелкие сектора.
+- Провал `pickDotNearRowSeat` отбрасывал место целиком.
+
+**Фикс (покрытие без потери точности):**
+| Шаг | `geodesySource` | Когда |
+|-----|-----------------|--------|
+| 1 | `strict` | есть в `tickets.json` |
+| 2 | `dot` | частичные якоря + облако |
+| 3 | `svgRow` | подпись ряда на SVG pbilet + точка чаши |
+| 4 | `cloud` | калибровка без подписи |
+| 5 | `cloudSnap` | snap к чаше по Y (svg/cloud), если 3–4 не дали hit |
+
+Дополнительно: `fillMissingSectorDotsFromCloud` (расширенный bbox), margin bbox 0.38, svgRow/cloud **разрешены при частичных якорях**.
+
+**Pbilet full tickets:** повторный fetch — API без `event_source_id`/`event_date_id` по-прежнему ~6k мест; полный JSON недоступен.
+
+**Деплой:** `git pull` + `pm2 restart` (+ `frontend build` для `cloudSnap` в trusted). Пересид не обязателен.
+
+**Файлы:** `hallSeatGeodesyFromDots.js`, `hallSeatGeodesyFromSvgRows.js`, `luzhnikiFootballStageMap.js`, `svgNativeSeatLayout.ts`.
+
 ---
 
 Страница: [Суперфинал Кубка России — Спартак / Краснодар](https://biletvsem.com/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar)  
