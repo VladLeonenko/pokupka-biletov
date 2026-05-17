@@ -71,6 +71,7 @@ pbilet SVG подложка (GetBilet / seed)     — художественна
 
 1. **strict** из `tickets.json` — приоритет.
 2. **интерполяция** `interpolatePbiletSeatGeodesy` между рядами tickets / layout-якорями (+ `layoutAnchorLookupRow` +4 на левой трибуне).
+2b. **axisGrid** — если ряда нет в layout (прорезь 16…27): `luzhnikiSectorAxisGridPlacement.js`, см. [LUZHNIKI_SECTOR_AXIS_GRID.md](./LUZHNIKI_SECTOR_AXIS_GRID.md).
 3. **НЕ** использовать координаты fieldGrid 80k как «истину» для sellable.
 4. **НЕ** применять `luzhnikiSeatWarp` / tribune affine к sellable (разъезжает).
 
@@ -97,6 +98,7 @@ pbilet SVG подложка (GetBilet / seed)     — художественна
 **Код sellable (актуальный):**
 
 - `backend/utils/luzhnikiPbiletSellableGeodesy.js` — `buildSellableSeatGeodesyPbiletAccurate`
+- **`backend/utils/luzhnikiSectorAxisGridPlacement.js`** — **axisGrid** (прорезь рядов, B154 р.17); гайд: [LUZHNIKI_SECTOR_AXIS_GRID.md](./LUZHNIKI_SECTOR_AXIS_GRID.md)
 - `backend/services/luzhnikiFootballStageMap.js` — `adaptLuzhnikiStageMapForLiveOffers` + `slimLuzhnikiStageMapForClient`
 - `backend/utils/luzhnikiPilotSeatSvg.js` — разметка circle, strip тяжёлого слоя с клиента
 
