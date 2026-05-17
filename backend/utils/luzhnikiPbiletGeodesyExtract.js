@@ -3,6 +3,8 @@
  * Офферы GetBilet могут содержать только доступные места — координаты всего чаша задаём здесь.
  */
 
+import { normalizeSectorLabel } from './ticketHallSectorNormalize.js';
+
 function normalizeText(value) {
   return String(value ?? '')
     .replace(/\u00a0/g, ' ')
@@ -78,6 +80,103 @@ export function extractPbiletTicketsSeatGeodesy(ticketsPayload, width, height) {
   }
 
   return out;
+}
+
+function parseRowNum(value) {
+  const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseSeatNum(value) {
+  const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function seatAtRow(pbiletSeats, rowNum, seatNum) {
+  const rowSeats = pbiletSeats.filter((s) => parseRowNum(s.row) === rowNum);
+  if (rowSeats.length < 1) return null;
+  const exact = rowSeats.find((s) => parseSeatNum(s.seat) === seatNum);
+  if (exact) return exact;
+  return rowSeats.reduce((best, s) => {
+    const sn = parseSeatNum(s.seat);
+    if (sn == null) return best;
+    if (!best) return s;
+    const bn = parseSeatNum(best.seat);
+    if (bn == null) return s;
+    return Math.abs(sn - seatNum) < Math.abs(bn - seatNum) ? s : best;
+  }, null);
+}
+
+function lerpSeat(a, b, t, row, seat, sector) {
+  return {
+    sector: sector || a.sector,
+    row: String(row),
+    seat: String(seat),
+    xPct: a.xPct + t * (b.xPct - a.xPct),
+    yPct: a.yPct + t * (b.yPct - a.yPct),
+  };
+}
+
+/**
+ * Координаты места по tickets.json: точное совпадение или линейная интер-/экстраполяция по рядам.
+ * layout.seats (fieldGrid) для Лужников даёт сдвиг рядов — не использовать для офферов.
+ */
+export function interpolatePbiletSeatGeodesy(pbiletSeats, sectorLabel, row, seat) {
+  const norm = normalizeSectorLabel(sectorLabel);
+  const targetRow = parseRowNum(row);
+  const seatNum = parseSeatNum(seat);
+  if (targetRow == null || seatNum == null) return null;
+
+  const sectorSeats = pbiletSeats.filter((s) => normalizeSectorLabel(s.sector) === norm);
+  if (sectorSeats.length < 1) return null;
+
+  const exact = seatAtRow(sectorSeats, targetRow, seatNum);
+  if (exact) return { ...exact, row: String(row), seat: String(seat) };
+
+  const rowNums = [...new Set(sectorSeats.map((s) => parseRowNum(s.row)).filter((n) => n != null))].sort(
+    (a, b) => a - b,
+  );
+  if (rowNums.length < 2) return null;
+
+  let lower = null;
+  let upper = null;
+  for (const r of rowNums) {
+    if (r <= targetRow) lower = r;
+    if (r >= targetRow && upper == null) upper = r;
+  }
+
+  if (lower != null && upper != null && lower !== upper) {
+    const p0 = seatAtRow(sectorSeats, lower, seatNum);
+    const p1 = seatAtRow(sectorSeats, upper, seatNum);
+    if (p0 && p1) {
+      const t = (targetRow - lower) / (upper - lower);
+      return lerpSeat(p0, p1, t, row, seat, sectorLabel);
+    }
+  }
+
+  if (targetRow < rowNums[0]) {
+    const r0 = rowNums[0];
+    const r1 = rowNums[1];
+    const p0 = seatAtRow(sectorSeats, r0, seatNum);
+    const p1 = seatAtRow(sectorSeats, r1, seatNum);
+    if (p0 && p1) {
+      const t = (targetRow - r0) / (r1 - r0);
+      return lerpSeat(p0, p1, t, row, seat, sectorLabel);
+    }
+  }
+
+  if (targetRow > rowNums[rowNums.length - 1]) {
+    const r0 = rowNums[rowNums.length - 2];
+    const r1 = rowNums[rowNums.length - 1];
+    const p0 = seatAtRow(sectorSeats, r0, seatNum);
+    const p1 = seatAtRow(sectorSeats, r1, seatNum);
+    if (p0 && p1) {
+      const t = (targetRow - r1) / (r1 - r0);
+      return lerpSeat(p0, p1, t, row, seat, sectorLabel);
+    }
+  }
+
+  return null;
 }
 
 /**

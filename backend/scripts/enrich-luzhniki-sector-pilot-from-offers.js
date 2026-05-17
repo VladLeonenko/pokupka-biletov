@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Добавить в пилотный SVG круги для живых офферов GetBilet (координаты из layout.seats).
+ * Добавить в пилотный SVG круги для живых офферов GetBilet (координаты из tickets.json, интерполяция рядов).
  *
  * tickets.json для D230 — только ряды 26–32; офферы часто 24, 22… — без кругов цвет не появится.
  *
@@ -18,8 +18,11 @@ import { fileURLToPath } from 'url';
 import cheerio from 'cheerio';
 import dotenv from 'dotenv';
 
-import ticketPool from '../ticketDb.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
+import {
+  extractPbiletTicketsSeatGeodesy,
+  interpolatePbiletSeatGeodesy,
+} from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
 import {
   buildLabeledSeatIndex,
@@ -31,7 +34,6 @@ import {
   pilotSeatCircleMarkup,
 } from '../utils/luzhnikiPilotSeatSvg.js';
 import { normalizeSectorLabel, strictSeatKey } from '../utils/ticketHallSectorNormalize.js';
-import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -51,21 +53,13 @@ function requiredFile(relOrAbs) {
   return abs;
 }
 
-function parseLayoutSeats(layout) {
-  const raw = layout?.seats;
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const sector = String(item.sector ?? item.Sector ?? '').trim();
-      const row = String(item.row ?? item.Row ?? '').trim();
-      const seat = String(item.seat ?? item.Seat ?? item.place ?? '').trim();
-      const xPct = Number(item.xPct ?? item.x_pct);
-      const yPct = Number(item.yPct ?? item.y_pct);
-      if (!sector || !row || !seat || !Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
-      return { sector, row, seat, xPct, yPct };
-    })
-    .filter(Boolean);
+function loadPbiletSeats(w, h) {
+  const ticketsPath = path.join(repoRoot, 'tickets.json');
+  if (!fs.existsSync(ticketsPath)) {
+    throw new Error(`Нет ${ticketsPath} — нужен снимок pbilet tickets.json`);
+  }
+  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  return extractPbiletTicketsSeatGeodesy(tickets, w, h);
 }
 
 function buildBundleSeatIndex(bundle, hallWidth, hallHeight) {
@@ -94,10 +88,10 @@ function buildBundleSeatIndex(bundle, hallWidth, hallHeight) {
   return buildLabeledSeatIndex(labeled);
 }
 
-function lookupSeatCoords(layoutIndex, bundleIndex, sector, row, seat) {
+function lookupSeatCoords(pbiletSeats, bundleIndex, canonicalSector, row, seat) {
   return (
-    lookupLabeledSeat(layoutIndex, sector, row, seat) ||
-    lookupLabeledSeat(bundleIndex, sector, row, seat)
+    interpolatePbiletSeatGeodesy(pbiletSeats, canonicalSector, row, seat) ||
+    lookupLabeledSeat(bundleIndex, canonicalSector, row, seat)
   );
 }
 
@@ -114,15 +108,9 @@ async function main() {
   const h = Number(bundle.hallHeight) || 9676;
   let svgMarkup = String(bundle.svgMarkup ?? '').trim();
 
-  const mapRow = await ticketPool.query(
-    `SELECT layout_json FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-    [LUZHNIKI_FOOTBALL_STAGE_MAP_KEY],
-  );
-  const layout = mapRow.rows[0]?.layout_json ?? {};
   const canonicalSector =
     bundle.sectors?.[0]?.label || bundle.seats?.[0]?.sector || 'Сектор D 230';
-  const layoutSeats = parseLayoutSeats(layout);
-  const layoutIndex = buildLabeledSeatIndex(layoutSeats);
+  const pbiletSeats = loadPbiletSeats(w, h);
   const bundleIndex = buildBundleSeatIndex(bundle, w, h);
 
   const existing = parseSvgNativeSeatCircles(svgMarkup, w, h);
@@ -142,7 +130,7 @@ async function main() {
       if (!seat.trim()) continue;
       const key = strictSeatKey(canonicalSector, row, seat);
       if (existingKeys.has(key)) continue;
-      const hit = lookupSeatCoords(layoutIndex, bundleIndex, sector, row, seat);
+      const hit = lookupSeatCoords(pbiletSeats, bundleIndex, canonicalSector, row, seat);
       if (!hit) {
         if (skippedNoCoords.length < 12) skippedNoCoords.push({ row, seat });
         continue;
@@ -163,7 +151,7 @@ async function main() {
         {
           ok: true,
           added: 0,
-          message: 'Новых кругов не нужно или нет координат (layout.seats / bundle.seats)',
+          message: 'Новых кругов не нужно или нет координат в tickets.json (интерполяция)',
           existingCircles: existing.length,
           skippedNoCoords,
         },
