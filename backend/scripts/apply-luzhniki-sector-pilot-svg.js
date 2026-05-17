@@ -1,20 +1,25 @@
 #!/usr/bin/env node
 /**
- * Подмешать пилотный SVG (круги сектора) в getbilet_stage_maps.luzhniki-football.
- * layout_json (чаша 77k) не трогаем — только svg_markup.
+ * Подмешать пилотные geodesy-круги (#luzhniki-pilot-seats) в svg_markup, не заменяя всю схему.
  *
  *   cd backend && node scripts/apply-luzhniki-sector-pilot-svg.js \
- *     --bundle data/luzhniki-geodesy/hand/bundle-sector-sektor-d-230-pilot.json
+ *     --bundle data/luzhniki-geodesy/hand/bundle-sector-d-230-pilot.json
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 
+import cheerio from 'cheerio';
 import dotenv from 'dotenv';
 
 import ticketPool from '../ticketDb.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 import { countSvgNativeSeatCircles } from '../utils/hallSeatGeodesyFromSvgCircles.js';
+import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
+import {
+  LUZHNIKI_PILOT_SEATS_LAYER_ID,
+  LUZHNIKI_PILOT_SECTOR_LAYER_ID,
+} from '../utils/luzhnikiPilotSeatSvg.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -34,6 +39,22 @@ function requiredFile(relOrAbs) {
   return abs;
 }
 
+function mergePilotSeatsIntoSvg(baseSvg, pilotSvg) {
+  const $base = cheerio.load(String(baseSvg ?? '').trim(), { xml: true });
+  const svg = $base('svg').first();
+  if (!svg.length) throw new Error('Текущий svg_markup без <svg>');
+
+  $base(`#${LUZHNIKI_PILOT_SECTOR_LAYER_ID}`).remove();
+  $base(`#${LUZHNIKI_PILOT_SEATS_LAYER_ID}`).remove();
+
+  const $pilot = cheerio.load(String(pilotSvg ?? '').trim(), { xml: true });
+  const pilotG = $pilot(`#${LUZHNIKI_PILOT_SEATS_LAYER_ID}`).first();
+  if (!pilotG.length) throw new Error('bundle: нет #luzhniki-pilot-seats');
+
+  svg.append($base(pilotG.clone()).toString());
+  return normalizeHallSvgDataIds($base.xml ? $base.xml() : $base.html());
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const bundleIdx = args.indexOf('--bundle');
@@ -42,11 +63,22 @@ async function main() {
   }
   const bundlePath = requiredFile(args[bundleIdx + 1]);
   const bundle = JSON.parse(fs.readFileSync(bundlePath, 'utf8'));
-  const svgMarkup = String(bundle.svgMarkup ?? '').trim();
-  if (!svgMarkup.includes('<svg')) throw new Error('bundle: пустой svgMarkup');
+  const pilotSvg = String(bundle.svgMarkup ?? '').trim();
+  if (!pilotSvg.includes('<svg')) throw new Error('bundle: пустой svgMarkup');
 
-  const circles = countSvgNativeSeatCircles(svgMarkup);
   const stageId = process.env.STAGE_MAP_STAGE_ID?.trim() || LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+
+  const current = await ticketPool.query(
+    `SELECT svg_markup FROM getbilet_stage_maps WHERE stage_external_id = $1`,
+    [stageId],
+  );
+  const baseSvg = String(current.rows[0]?.svg_markup ?? '').trim();
+  if (!baseSvg.includes('<svg')) {
+    throw new Error(`Пустой svg_markup для ${stageId} — сначала reseed схемы`);
+  }
+
+  const merged = mergePilotSeatsIntoSvg(baseSvg, pilotSvg);
+  const circles = countSvgNativeSeatCircles(merged);
 
   const r = await ticketPool.query(
     `UPDATE getbilet_stage_maps
@@ -57,8 +89,8 @@ async function main() {
      RETURNING id, stage_external_id, length(svg_markup::text) AS svg_len`,
     [
       stageId,
-      svgMarkup,
-      ` | pilot-svg ${new Date().toISOString()} circles=${circles} from ${path.basename(bundlePath)}`,
+      merged,
+      ` | pilot-merge ${new Date().toISOString()} circles=${circles} from ${path.basename(bundlePath)}`,
     ],
   );
 
@@ -73,6 +105,7 @@ async function main() {
         stage: stageId,
         svgLen: Number(r.rows[0].svg_len),
         svgCircleCount: circles,
+        mergeMode: 'pilot-seats-layer-only',
         bundle: bundlePath,
       },
       null,

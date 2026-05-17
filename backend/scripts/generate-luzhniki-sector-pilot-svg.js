@@ -15,6 +15,10 @@ import cheerio from 'cheerio';
 
 import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
 import {
+  LUZHNIKI_PILOT_SEATS_LAYER_ID,
+  pilotSeatCircleMarkup,
+} from '../utils/luzhnikiPilotSeatSvg.js';
+import {
   extractPbiletTicketsSeatGeodesy,
   extractPbiletTicketSectorPaths,
 } from '../utils/luzhnikiPbiletGeodesyExtract.js';
@@ -48,12 +52,11 @@ async function fetchText(url) {
 }
 
 function buildSeatCirclesXml(seats, w, h) {
-  const rDot = Math.max(6, Math.min(w, h) * 0.00055);
   return seats
     .map((s) => {
-      const cx = ((s.xPct / 100) * w).toFixed(2);
-      const cy = ((s.yPct / 100) * h).toFixed(2);
-      return `<circle cx="${cx}" cy="${cy}" r="${rDot.toFixed(2)}" place-name="${escAttr(s.sector)}" row="${escAttr(s.row)}" place="${escAttr(s.seat)}"/>`;
+      const cx = (s.xPct / 100) * w;
+      const cy = (s.yPct / 100) * h;
+      return pilotSeatCircleMarkup(s.sector, s.row, s.seat, cx, cy, w, h);
     })
     .join('\n    ');
 }
@@ -67,16 +70,9 @@ function appendPilotLayers(svgMarkup, sectorMeta, seats, w, h) {
   svg.attr('width', String(w));
   svg.attr('height', String(h));
 
-  $('#luzhniki-pilot-sector').remove();
-  $('#luzhniki-pilot-seats').remove();
+  $(`#${LUZHNIKI_PILOT_SEATS_LAYER_ID}`).remove();
 
-  const gSector = $(
-    `<g id="luzhniki-pilot-sector" fill="rgba(37,99,235,0.12)" stroke="#2563eb" stroke-width="18" pointer-events="none"/>`,
-  );
-  gSector.append(`<path d="${sectorMeta.path}"/>`);
-  svg.append(gSector);
-
-  const gSeats = $(`<g id="luzhniki-pilot-seats" fill="#94a3b8" stroke="#334155" stroke-width="1.5"/>`);
+  const gSeats = $(`<g id="${LUZHNIKI_PILOT_SEATS_LAYER_ID}" fill="none"/>`);
   gSeats.append(buildSeatCirclesXml(seats, w, h));
   svg.append(gSeats);
 
@@ -87,10 +83,7 @@ function buildMinimalSvg(sectorMeta, seats, w, h) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
   <rect width="100%" height="100%" fill="#f8fafc"/>
-  <g id="luzhniki-pilot-sector" fill="rgba(37,99,235,0.15)" stroke="#2563eb" stroke-width="20">
-    <path d="${sectorMeta.path}"/>
-  </g>
-  <g id="luzhniki-pilot-seats" fill="#94a3b8" stroke="#334155" stroke-width="2">
+  <g id="${LUZHNIKI_PILOT_SEATS_LAYER_ID}" fill="none">
     ${buildSeatCirclesXml(seats, w, h)}
   </g>
 </svg>`;

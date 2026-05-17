@@ -26,6 +26,10 @@ import {
   lookupLabeledSeat,
 } from '../utils/hallSeatGeodesyMatch.js';
 import { parseSvgNativeSeatCircles } from '../utils/hallSeatGeodesyFromSvgCircles.js';
+import {
+  LUZHNIKI_PILOT_SEATS_LAYER_ID,
+  pilotSeatCircleMarkup,
+} from '../utils/luzhnikiPilotSeatSvg.js';
 import { normalizeSectorLabel, strictSeatKey } from '../utils/ticketHallSectorNormalize.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 
@@ -33,14 +37,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
-
-function escAttr(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 function requiredFile(relOrAbs) {
   const candidates = path.isAbsolute(relOrAbs)
@@ -72,6 +68,39 @@ function parseLayoutSeats(layout) {
     .filter(Boolean);
 }
 
+function buildBundleSeatIndex(bundle, hallWidth, hallHeight) {
+  const canonicalSector = bundle.sectors?.[0]?.label || bundle.seats?.[0]?.sector || 'Сектор D 230';
+  const w = Number(hallWidth) || 11413;
+  const h = Number(hallHeight) || 9676;
+  const raw = Array.isArray(bundle.seats) ? bundle.seats : [];
+  const labeled = raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = String(item.row ?? '').trim();
+      const seat = String(item.seat ?? item.place ?? '').trim();
+      let xPct;
+      let yPct;
+      if (item.xPct != null && item.yPct != null) {
+        xPct = Number(item.xPct);
+        yPct = Number(item.yPct);
+      } else if (item.x != null && item.y != null) {
+        xPct = (Number(item.x) / w) * 100;
+        yPct = (Number(item.y) / h) * 100;
+      }
+      if (!row || !seat || !Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
+      return { sector: canonicalSector, row, seat, xPct, yPct };
+    })
+    .filter(Boolean);
+  return buildLabeledSeatIndex(labeled);
+}
+
+function lookupSeatCoords(layoutIndex, bundleIndex, sector, row, seat) {
+  return (
+    lookupLabeledSeat(layoutIndex, sector, row, seat) ||
+    lookupLabeledSeat(bundleIndex, sector, row, seat)
+  );
+}
+
 async function main() {
   const repertoireId = process.env.REPERTOIRE_ID?.trim();
   if (!repertoireId) throw new Error('REPERTOIRE_ID обязателен');
@@ -90,8 +119,11 @@ async function main() {
     [LUZHNIKI_FOOTBALL_STAGE_MAP_KEY],
   );
   const layout = mapRow.rows[0]?.layout_json ?? {};
+  const canonicalSector =
+    bundle.sectors?.[0]?.label || bundle.seats?.[0]?.sector || 'Сектор D 230';
   const layoutSeats = parseLayoutSeats(layout);
   const layoutIndex = buildLabeledSeatIndex(layoutSeats);
+  const bundleIndex = buildBundleSeatIndex(bundle, w, h);
 
   const existing = parseSvgNativeSeatCircles(svgMarkup, w, h);
   const existingKeys = new Set(existing.map((s) => strictSeatKey(s.sector, s.row, s.seat)));
@@ -99,6 +131,7 @@ async function main() {
   const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: true });
   const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
 
+  const skippedNoCoords = [];
   const toAdd = [];
   for (const offer of offerRows) {
     const sector = String(offer.Sector ?? '');
@@ -107,13 +140,15 @@ async function main() {
     const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
     for (const seat of list) {
       if (!seat.trim()) continue;
-      const key = strictSeatKey(sector, row, seat);
+      const key = strictSeatKey(canonicalSector, row, seat);
       if (existingKeys.has(key)) continue;
-      const hit = lookupLabeledSeat(layoutIndex, sector, row, seat);
-      if (!hit) continue;
+      const hit = lookupSeatCoords(layoutIndex, bundleIndex, sector, row, seat);
+      if (!hit) {
+        if (skippedNoCoords.length < 12) skippedNoCoords.push({ row, seat });
+        continue;
+      }
       existingKeys.add(key);
       toAdd.push({
-        sector,
         row,
         seat,
         xPct: hit.xPct,
@@ -128,8 +163,9 @@ async function main() {
         {
           ok: true,
           added: 0,
-          message: 'Новых кругов не нужно или нет координат в layout.seats',
+          message: 'Новых кругов не нужно или нет координат (layout.seats / bundle.seats)',
           existingCircles: existing.length,
+          skippedNoCoords,
         },
         null,
         2,
@@ -140,18 +176,18 @@ async function main() {
 
   const $ = cheerio.load(svgMarkup, { xml: true });
   const svg = $('svg').first();
-  let g = $('#luzhniki-pilot-seats');
+  $(`#luzhniki-pilot-sector`).remove();
+  let g = $(`#${LUZHNIKI_PILOT_SEATS_LAYER_ID}`);
   if (!g.length) {
-    g = $('<g id="luzhniki-pilot-seats" fill="#94a3b8" stroke="#334155" stroke-width="1.5"/>');
+    g = $(`<g id="${LUZHNIKI_PILOT_SEATS_LAYER_ID}" fill="none"/>`);
     svg.append(g);
   }
 
-  const rDot = Math.max(6, Math.min(w, h) * 0.00055);
   for (const s of toAdd) {
-    const cx = ((s.xPct / 100) * w).toFixed(2);
-    const cy = ((s.yPct / 100) * h).toFixed(2);
+    const cx = (s.xPct / 100) * w;
+    const cy = (s.yPct / 100) * h;
     g.append(
-      `<circle cx="${cx}" cy="${cy}" r="${rDot.toFixed(2)}" place-name="${escAttr(s.sector)}" row="${escAttr(s.row)}" place="${escAttr(s.seat)}" data-source="live-offer"/>`,
+      pilotSeatCircleMarkup(canonicalSector, s.row, s.seat, cx, cy, w, h, 'data-source="live-offer"'),
     );
   }
 
