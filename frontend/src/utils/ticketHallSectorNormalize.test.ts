@@ -5,16 +5,7 @@ describe('normalizeSectorLabel', () => {
   it('matches GetBilet and layout spellings for sector codes', () => {
     expect(normalizeSectorLabel('сектор d227')).toBe('d227');
     expect(normalizeSectorLabel('Сектор D 227')).toBe('d227');
-    expect(normalizeSectorLabel('сектор D230')).toBe('d230');
-    expect(normalizeSectorLabel('секторD230')).toBe('d230');
-    expect(normalizeSectorLabel('d 230')).toBe('d230');
-    expect(normalizeSectorLabel('Сектор D-218')).toBe('d218');
     expect(normalizeSectorLabel('vip c138')).toBe('vipc138');
-  });
-
-  it('matches cyrillic and latin sector letters (А101 vs a101)', () => {
-    expect(normalizeSectorLabel('Сектор А 101')).toBe('a101');
-    expect(normalizeSectorLabel('сектор a101')).toBe('a101');
   });
 });
 

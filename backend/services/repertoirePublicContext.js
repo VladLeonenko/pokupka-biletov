@@ -574,11 +574,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       } else {
         const lzRow = await loadLuzhnikiFootballStageMapRow();
         if (lzRow) {
-          const offerRows = await loadCachedOfferRows(repertoireId);
-          stageMap =
-            offerRows.length > 0
-              ? adaptLuzhnikiStageMapForLiveOffers(lzRow, offerRows)
-              : lzRow;
+          stageMap = adaptLuzhnikiStageMapForLiveOffers(lzRow);
         }
       }
     }

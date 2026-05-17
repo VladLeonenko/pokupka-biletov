@@ -1,5 +1,3 @@
-import { strictSeatKey } from '@/utils/ticketHallSectorNormalize';
-
 export type OfferLike = {
   Id?: string;
   Sector?: string;
@@ -7,27 +5,12 @@ export type OfferLike = {
   SeatList?: string[];
 };
 
-export type SeatGeodesySource =
-  | 'strict'
-  | 'svgCircle'
-  | 'sectorGrid'
-  | 'fieldGrid'
-  | 'grid'
-  | 'anchor'
-  | 'dot'
-  | 'dotOnly'
-  | 'cloud'
-  | 'svgRow'
-  | 'cloudSnap';
-
 export type SvgNativeSeat = {
   sector: string;
   row: string;
   seat: string;
   xPct: number;
   yPct: number;
-  /** Откуда взяты координаты (сид Лужники / sellableSeats). */
-  geodesySource?: SeatGeodesySource;
 };
 
 export type HallLayoutDiagnostics = {
@@ -60,8 +43,6 @@ function parsePct(value: unknown): number | null {
 function layoutSeatArray(layout: unknown): unknown[] {
   const root = asRecord(layout);
   if (!root) return [];
-  const sellable = root.sellableSeats;
-  if (Array.isArray(sellable) && sellable.length > 0) return sellable;
   for (const key of ['seats', 'seatPositions', 'places', 'points']) {
     const value = root[key];
     if (Array.isArray(value)) return value;
@@ -75,59 +56,9 @@ function layoutSeatArray(layout: unknown): unknown[] {
   return [];
 }
 
-function layoutBaseSeatRows(layout: unknown): unknown[] {
-  const root = asRecord(layout);
-  if (!root) return [];
-  for (const key of ['seats', 'seatPositions', 'places', 'points']) {
-    const value = root[key];
-    if (Array.isArray(value) && value.length > 0) return value;
-  }
-  return [];
-}
-
-function seatRowsToParse(layout: unknown): unknown[] {
-  const root = asRecord(layout);
-  if (!root) return layoutSeatArray(layout);
-  const sellable = root.sellableSeats;
-  const sellableArr = Array.isArray(sellable) ? sellable : [];
-  const baseArr = layoutBaseSeatRows(layout);
-  if (
-    sellableArr.length > 0 &&
-    baseArr.length > sellableArr.length &&
-    root.preferLayoutSeatPositions === true
-  ) {
-    const merged = new Map<string, unknown>();
-    for (const item of baseArr) {
-      const row = asRecord(item);
-      if (!row) continue;
-      const sector = cleanString(
-        row.sector ?? row.Sector ?? row.placeName ?? row.place_name ?? row['place-name'],
-      );
-      const rowLabel = cleanString(row.row ?? row.Row ?? row.r);
-      const seat = cleanString(row.seat ?? row.Seat ?? row.place ?? row.Place ?? row.number ?? row.n);
-      if (!sector || !rowLabel || !seat) continue;
-      merged.set(seatMapKey(sector, rowLabel, seat), item);
-    }
-    for (const item of sellableArr) {
-      const row = asRecord(item);
-      if (!row) continue;
-      const sector = cleanString(
-        row.sector ?? row.Sector ?? row.placeName ?? row.place_name ?? row['place-name'],
-      );
-      const rowLabel = cleanString(row.row ?? row.Row ?? row.r);
-      const seat = cleanString(row.seat ?? row.Seat ?? row.place ?? row.Place ?? row.number ?? row.n);
-      if (!sector || !rowLabel || !seat) continue;
-      merged.set(seatMapKey(sector, rowLabel, seat), item);
-    }
-    return [...merged.values()];
-  }
-  if (sellableArr.length > 0) return sellableArr;
-  return baseArr;
-}
-
 /** Явные координаты мест из layout_json: seats / seatPositions [{ sector,row,seat,xPct,yPct }]. */
 export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
-  const rawSeats = seatRowsToParse(layout);
+  const rawSeats = layoutSeatArray(layout);
   const seats: SvgNativeSeat[] = [];
   const seen = new Set<string>();
 
@@ -147,21 +78,7 @@ export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
     const key = seatMapKey(sector, rowLabel, seat);
     if (seen.has(key)) continue;
     seen.add(key);
-    const geodesyRaw = cleanString(row.geodesySource ?? row.geodesy_source);
-    const geodesySource =
-      geodesyRaw === 'strict' ||
-      geodesyRaw === 'svgCircle' ||
-      geodesyRaw === 'sectorGrid' ||
-      geodesyRaw === 'grid' ||
-      geodesyRaw === 'anchor' ||
-      geodesyRaw === 'dot' ||
-      geodesyRaw === 'dotOnly' ||
-      geodesyRaw === 'cloud' ||
-      geodesyRaw === 'svgRow' ||
-      geodesyRaw === 'cloudSnap'
-        ? (geodesyRaw as SeatGeodesySource)
-        : undefined;
-    seats.push({ sector, row: rowLabel, seat, xPct, yPct, geodesySource });
+    seats.push({ sector, row: rowLabel, seat, xPct, yPct });
   }
 
   return seats;
@@ -195,7 +112,7 @@ function normRow(s: string): string {
 
 /** Ключ для сопоставления схемы и GetBilet (сектор / ряд / место). */
 export function seatMapKey(sector: string, row: string, seat: string): string {
-  return strictSeatKey(sector, row, seat);
+  return `${normToken(sector)}|${normToken(row)}|${normToken(seat)}`;
 }
 
 function parseMatrix(transform: string | null): [number, number, number, number, number, number] | null {
@@ -528,190 +445,19 @@ function rowGroupKey(sector: string, row: string): string {
   return `${normSectorLoose(sector)}|${normRow(row)}`;
 }
 
-function offerPlacementKey(offerId: string, row: string, seat: string): string {
-  return `${offerId}|${normRow(row)}|${normToken(seat)}`;
-}
-
 /**
  * Строит кликабельные точки: точное совпадение сектор/ряд/место, затем сопоставление по порядку
  * слева направо в ряду, если в GetBilet другая нумерация мест (глобальные id vs номер в SVG).
  */
-export type BuildSvgNativePlacementsOptions = {
-  /** Не сопоставлять места «по порядку в ряду» — только точный ключ и fuzzy sector+row+seat. */
-  disablePositionalSeatZip?: boolean;
-};
-
-/** Все места из layout_json.seats (без sellableSeats-оверлея). */
-export function parseLayoutBaseSeatPositions(layout: unknown): SvgNativeSeat[] {
-  const base = layoutBaseSeatRows(layout);
-  if (base.length === 0) return [];
-  return parseLayoutSeatPositions({ seats: base });
-}
-
-/** Координаты из layout_json.sellableSeats (серверная геодезия) — без повторного zip/fuzzy. */
-export function parseSellableSeatPositions(layout: unknown): SvgNativeSeat[] {
-  const root = asRecord(layout);
-  if (!root) return [];
-  const sellable = root.sellableSeats;
-  if (!Array.isArray(sellable)) return [];
-  return parseLayoutSeatPositions({ sellableSeats: sellable });
-}
-
-/**
- * Кликабельные места строго по sellableSeats: сектор/ряд/место → xPct/yPct с бэкенда.
- */
-export function buildSellableGeodesyPlacements(
-  sellableSeats: SvgNativeSeat[],
-  offers: OfferLike[],
-  getPriceKey: (o: OfferLike) => string,
-): {
-  placements: SvgNativePlacement[];
-  unmatchedSvgCount: number;
-  diagnostics: HallLayoutDiagnostics;
-} {
-  const coordByKey = new Map<string, SvgNativeSeat>();
-  for (const s of sellableSeats) {
-    const k = seatMapKey(s.sector, s.row, s.seat);
-    if (!coordByKey.has(k)) coordByKey.set(k, s);
-  }
-
-  const idx = buildOfferSeatIndex(offers);
-  const placedOfferKeys = new Set<string>();
-  const out: SvgNativePlacement[] = [];
-
-  for (const [key, coords] of coordByKey) {
-    const hits = idx.get(key);
-    if (!hits?.length) continue;
-    const { offer, seat } = hits[0];
-    const oid = String(offer.Id ?? '');
-    if (!oid) continue;
-    placedOfferKeys.add(offerPlacementKey(oid, String(offer.Row ?? ''), seat));
-    placedOfferKeys.add(seatMapKey(String(offer.Sector ?? ''), String(offer.Row ?? ''), seat));
-    const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
-    out.push({
-      key: `${oid}-${seat}-${coords.xPct.toFixed(3)}-${coords.yPct.toFixed(3)}-geo`,
-      svgKey: key,
-      offerId: oid,
-      sectorLabel: String(offer.Sector ?? coords.sector ?? '').trim(),
-      seat,
-      rowLabel: String(offer.Row ?? coords.row ?? '').trim(),
-      available,
-      xPct: coords.xPct,
-      yPct: coords.yPct,
-      title: `${coords.sector} · ряд ${offer.Row ?? coords.row} · место ${seat} · ${getPriceKey(offer)} ₽`,
-      priceKey: getPriceKey(offer),
-    });
-  }
-
-  return {
-    placements: out,
-    unmatchedSvgCount: Math.max(0, coordByKey.size - out.length),
-    diagnostics: {
-      totalSvgSeats: coordByKey.size,
-      matchedSeats: out.length,
-      unmatchedSvgCount: Math.max(0, coordByKey.size - out.length),
-      unmatchedOfferSeats: Math.max(0, countOfferSeats(offers) - placedOfferKeys.size),
-    },
-  };
-}
-
-/** B2: только точные и field-based источники; svgRow/cloud/dot — не рисуем. */
-const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>([
-  'strict',
-  'svgCircle',
-  'sectorGrid',
-  'fieldGrid',
-  'grid',
-  'anchor',
-]);
-
-/** Sellable с бэкенда: strict + привязка к облаку (cloud/dot). Без anchor/dotOnly/без метки. */
-function filterTrustedServerSellable(seats: SvgNativeSeat[]): SvgNativeSeat[] {
-  return seats.filter((s) => s.geodesySource && TRUSTED_SERVER_GEODESY.has(s.geodesySource));
-}
-
-/**
- * Лужники: layout.seats (tickets.json) + sellableSeats (strict/cloud на реальных точках чаши).
- * Серая чаша (allSeatCoordinates) не трогаем.
- */
-export function buildLuzhnikiMapSellablePlacements(
-  layoutLabeledSeats: SvgNativeSeat[],
-  serverSellableSeats: SvgNativeSeat[],
-  offers: OfferLike[],
-  getPriceKey: (o: OfferLike) => string,
-): {
-  placements: SvgNativePlacement[];
-  unmatchedSvgCount: number;
-  diagnostics: HallLayoutDiagnostics;
-} {
-  /** Live sellable с adaptLuzhnikiStageMapForLiveOffers — приоритет над статическим layout.seats из сида. */
-  const trustedServer = filterTrustedServerSellable(serverSellableSeats);
-  const serverResult = buildSellableGeodesyPlacements(trustedServer, offers, getPriceKey);
-  const placedKeys = new Set(
-    serverResult.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
-  );
-
-  const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
-  const extra: SvgNativePlacement[] = [];
-  for (const p of layoutResult.placements) {
-    const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
-    if (placedKeys.has(pk)) continue;
-    placedKeys.add(pk);
-    extra.push(p);
-  }
-
-  const placements = [...serverResult.placements, ...extra];
-  const offerSeatTotal = countOfferSeats(offers);
-  return {
-    placements,
-    unmatchedSvgCount: layoutResult.unmatchedSvgCount + serverResult.unmatchedSvgCount,
-    diagnostics: {
-      totalSvgSeats: layoutLabeledSeats.length + trustedServer.length,
-      matchedSeats: placements.length,
-      unmatchedSvgCount: Math.max(
-        0,
-        layoutLabeledSeats.length + trustedServer.length - placements.length,
-      ),
-      unmatchedOfferSeats: Math.max(0, offerSeatTotal - placedKeys.size),
-    },
-  };
-}
-
-/** @deprecated Используйте buildLuzhnikiMapSellablePlacements — grid отключён. */
-export function buildSellableGeodesyPlacementsWithSectorGridFallback(
-  sellableSeats: SvgNativeSeat[],
-  offers: OfferLike[],
-  getPriceKey: (o: OfferLike) => string,
-  _sectors?: { label: string; path: string }[] | null,
-  _viewBoxWidth?: number,
-  _viewBoxHeight?: number,
-  layoutLabeledSeats: SvgNativeSeat[] = [],
-): {
-  placements: SvgNativePlacement[];
-  unmatchedSvgCount: number;
-  diagnostics: HallLayoutDiagnostics;
-  gridFallbackCount: number;
-} {
-  const result = buildLuzhnikiMapSellablePlacements(
-    layoutLabeledSeats,
-    sellableSeats,
-    offers,
-    getPriceKey,
-  );
-  return { ...result, gridFallbackCount: 0 };
-}
-
 export function buildSvgNativePlacements(
   svgSeats: SvgNativeSeat[],
   offers: OfferLike[],
   getPriceKey: (o: OfferLike) => string,
-  options: BuildSvgNativePlacementsOptions = {},
 ): {
   placements: SvgNativePlacement[];
   unmatchedSvgCount: number;
   diagnostics: HallLayoutDiagnostics;
 } {
-  const disablePositionalSeatZip = options.disablePositionalSeatZip === true;
   const idx = buildOfferSeatIndex(offers);
   const uniqueSvg = new Map<string, SvgNativeSeat>();
   for (const s of svgSeats) {
@@ -756,9 +502,7 @@ export function buildSvgNativePlacements(
     byRow.set(gk, arr);
   }
 
-  const exactOnly = disablePositionalSeatZip;
-
-  if (!disablePositionalSeatZip) for (const [, svgList] of byRow) {
+  for (const [, svgList] of byRow) {
     if (svgList.length === 0) continue;
     const first = svgList[0];
     const scored = offers
@@ -825,7 +569,7 @@ export function buildSvgNativePlacements(
     }
   }
 
-  if (!exactOnly) for (const s of uniqueSvg.values()) {
+  for (const s of uniqueSvg.values()) {
     const k = seatMapKey(s.sector, s.row, s.seat);
     if (placedSvg.has(k)) continue;
     const hit = matchSvgSeatToOffer(s, offers);
@@ -854,7 +598,6 @@ export function buildSvgNativePlacements(
   for (const p of out) {
     const offer = offers.find((o) => String(o.Id ?? '') === p.offerId);
     if (!offer) continue;
-    matchedOfferSeatKeys.add(offerPlacementKey(String(offer.Id ?? ''), String(offer.Row ?? ''), p.seat));
     matchedOfferSeatKeys.add(seatMapKey(String(offer.Sector ?? ''), String(offer.Row ?? ''), p.seat));
   }
   const unmatchedSvgCount = uniqueSvg.size - placedSvg.size;
