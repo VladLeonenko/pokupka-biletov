@@ -477,17 +477,17 @@ export function TicketHallInteractiveBlock({
     }
 
     if (useSellableGeodesyPlacements) {
-      const { placements } = luzhnikiCheckout
+      const geodesy = luzhnikiCheckout
         ? buildSellableGeodesyPlacementsWithSectorGridFallback(
             sellableGeodesySeats,
             offers,
             getPriceKey,
-            sectorMode.sectors,
+            sectorMode.sectors ?? [],
             svgViewBox.width,
             svgViewBox.height,
           )
         : buildSellableGeodesyPlacements(sellableGeodesySeats, offers, getPriceKey);
-      return { nativePlacements: placements.placements };
+      return { nativePlacements: geodesy.placements };
     }
 
     if (sectorMode.enabled) {

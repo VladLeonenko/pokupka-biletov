@@ -606,7 +606,7 @@ export function buildSellableGeodesyPlacementsWithSectorGridFallback(
   sellableSeats: SvgNativeSeat[],
   offers: OfferLike[],
   getPriceKey: (o: OfferLike) => string,
-  sectors: SectorPathForGrid[],
+  sectors: SectorPathForGrid[] | null | undefined,
   viewBoxWidth: number,
   viewBoxHeight: number,
 ): {
@@ -621,7 +621,7 @@ export function buildSellableGeodesyPlacementsWithSectorGridFallback(
   );
 
   const sectorByNorm = new Map<string, SectorPathForGrid>();
-  for (const s of sectors) {
+  for (const s of sectors ?? []) {
     const norm = normalizeSectorLabel(s.label);
     if (norm && s.path) sectorByNorm.set(norm, s);
   }
