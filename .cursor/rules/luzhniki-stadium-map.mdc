@@ -36,6 +36,16 @@ globs:
 - `adaptLuzhnikiStageMapForLiveOffers` — флаги через `luzhnikiStadiumCheckoutLayoutFlags` / `stadiumMapKey: luzhniki-football`.
 - Полная геодезия: `backend/data/luzhniki-geodesy/README.md`, сид `seed:luzhniki-football-map`.
 
+## Координаты sellable
+
+- Только `layout.seats` (strict + `resolveOfferSeatFromAnchors`) — **не** привязывать оффер к ближайшей точке из `allSeatCoordinates` (даёт ряд 32 на полосе 29).
+- Экстраполяция ряда — не дальше ±4 рядов от известных якорей сектора.
+
+## Секторы на обзоре (100%)
+
+- Заливка полигонов **только** при `zoom ≈ fitZoom` и `:hover` / `:focus-visible` (`sectorLayerFitOverview`).
+- Иначе на карте только серая чаша + цветные sellable.
+
 ## Не делать
 
 - Прячь все места до выбора сектора на обзоре стадиона.

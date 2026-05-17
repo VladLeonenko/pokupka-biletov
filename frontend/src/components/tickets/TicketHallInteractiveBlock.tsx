@@ -1054,6 +1054,13 @@ export function TicketHallInteractiveBlock({
 
   const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
   const mapZoomed = zoom > fitZoom + 0.01;
+  const atFitZoom = zoom <= fitZoom + 0.01;
+  /** Лужники / portalbilet: цвет зоны только на 100% и hover, иначе только точки мест. */
+  const sectorHoverColorOnly =
+    isLuzhnikiStadiumCheckoutLayout(layoutJson) &&
+    sectorMode.enabled &&
+    atFitZoom &&
+    !selectedSectorSummary;
   /** Выбран сектор — прячем заливку полигонов, показываем крупные места. */
   const sectorSeatFocusView = Boolean(sectorMode.enabled && selectedSectorSummary);
   const selectedSectorOffers = useMemo(
@@ -1436,7 +1443,11 @@ export function TicketHallInteractiveBlock({
               <svg
                 className={`${styles.sectorLayer} ${selectedSectorSummary ? styles.sectorLayerFocused : ''} ${
                   sectorSeatFocusView ? styles.sectorLayerSeatView : ''
-                } ${mapZoomed && !selectedSectorSummary ? styles.sectorLayerOverviewZoomed : ''}`}
+                } ${sectorHoverColorOnly ? styles.sectorLayerFitOverview : ''} ${
+                  mapZoomed && !selectedSectorSummary && !sectorHoverColorOnly
+                    ? styles.sectorLayerOverviewZoomed
+                    : ''
+                }`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
                 aria-label="Секторы стадиона"
@@ -1451,8 +1462,12 @@ export function TicketHallInteractiveBlock({
                       d={sector.meta.path}
                       data-sector-path="true"
                       className={`${styles.sectorPath} ${styles.sectorPathInteractive} ${
-                        available ? styles.sectorPathAvailable : styles.sectorPathUnavailable
-                      } ${
+                        sectorHoverColorOnly
+                          ? styles.sectorPathFitMuted
+                          : available
+                            ? styles.sectorPathAvailable
+                            : styles.sectorPathUnavailable
+                      } ${sectorHoverColorOnly && available ? styles.sectorPathFitHoverable : ''} ${
                         active ? styles.sectorPathActive : ''
                       }`}
                       style={

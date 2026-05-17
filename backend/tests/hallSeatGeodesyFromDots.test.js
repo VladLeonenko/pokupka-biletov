@@ -96,4 +96,19 @@ test('dot resolver keeps same row on one Y (no vertical stripe)', () => {
   assert.equal(diag.seats.length, 3);
   const ys = diag.seats.map((s) => s.yPct);
   assert.ok(Math.max(...ys) - Math.min(...ys) < 0.2, `Y spread too large: ${ys.join(',')}`);
+  assert.ok(ys[0] > 32, `row 26 Y should interpolate above row 22 (y=32), got ${ys[0]}`);
+});
+
+test('anchor resolver uses exact layout seat for row 32 seat 21', () => {
+  const layoutSeats = [
+    { sector: 'Сектор A 206', row: '32', seat: '21', xPct: 55, yPct: 40 },
+    { sector: 'Сектор A 206', row: '32', seat: '20', xPct: 53, yPct: 40 },
+    { sector: 'Сектор A 206', row: '30', seat: '1', xPct: 10, yPct: 36 },
+    { sector: 'Сектор A 206', row: '28', seat: '1', xPct: 10, yPct: 34 },
+  ];
+  const offers = [{ Sector: 'сектор a206', Row: '32', SeatList: ['21'] }];
+  const diag = buildSellableSeatGeodesyWithDots(layoutSeats, [], [], 100, 100, offers);
+  assert.equal(diag.matched, 1);
+  assert.equal(diag.seats[0].yPct, 40);
+  assert.equal(diag.seats[0].xPct, 55);
 });

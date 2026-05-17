@@ -340,6 +340,27 @@
   opacity: 0.72;
 }
 
+/** Лужники на 100%: без заливки зон, только hover (как portalbilet). */
+.sectorLayerFitOverview .sectorPathFitMuted {
+  fill: transparent !important;
+  stroke: transparent !important;
+  opacity: 0;
+}
+
+.sectorLayerFitOverview .sectorPathFitHoverable:hover,
+.sectorLayerFitOverview .sectorPathFitHoverable:focus-visible {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 28%, transparent) !important;
+  stroke: var(--sector-accent, #2f80ed) !important;
+  opacity: 1 !important;
+}
+
+.sectorLayerFitOverview .sectorPathUnavailable:hover,
+.sectorLayerFitOverview .sectorPathUnavailable:focus-visible {
+  fill: rgba(100, 116, 139, 0.22) !important;
+  stroke: rgba(71, 85, 105, 0.65) !important;
+  opacity: 1 !important;
+}
+
 .sectorPath {
   fill: rgba(148, 163, 184, 0.16);
   stroke: rgba(148, 163, 184, 0.46);

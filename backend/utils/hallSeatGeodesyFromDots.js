@@ -1,6 +1,7 @@
 /**
- * Дополнение strict-геодезии: места из офферов без снимка tickets подбираются к точкам pbilet
- * по кластерам рядов в allSeatCoordinates (не по интерполяции только из разреженных якорей).
+ * Дополнение strict-геодезии: офферы без точного hit в layout.seats —
+ * координаты только из якорей layout.seats (ряд/место), без привязки к облаку allSeatCoordinates
+ * (иначе ряд 32 рисуется на полосе 29).
  */
 
 import { buildSellableSeatGeodesy } from './hallSeatGeodesyMatch.js';
@@ -60,8 +61,18 @@ function interpolateByRowNumber(rowNum, anchors, pick) {
   }
   if (pts.length < 2) return null;
   pts.sort((a, b) => a.r - b.r);
-  if (rowNum <= pts[0].r) return pts[0].v;
-  if (rowNum >= pts[pts.length - 1].r) return pts[pts.length - 1].v;
+  if (rowNum <= pts[0].r) {
+    const lo = pts[0];
+    const hi = pts[1];
+    const t = (rowNum - lo.r) / (hi.r - lo.r);
+    return lo.v + t * (hi.v - lo.v);
+  }
+  if (rowNum >= pts[pts.length - 1].r) {
+    const hi = pts[pts.length - 1];
+    const lo = pts[pts.length - 2];
+    const t = (rowNum - hi.r) / (hi.r - lo.r);
+    return hi.v + t * (hi.v - lo.v);
+  }
   for (let i = 0; i < pts.length - 1; i++) {
     const lo = pts[i];
     const hi = pts[i + 1];
@@ -173,58 +184,87 @@ export function resolveRowYPctFromDotGrid(rowNum, layoutAnchors, rowBands) {
   return interpolateByRowNumber(rowNum, rowCal, (a) => a.yPct);
 }
 
-function pickDotNearRowSeat(rowDots, targetY, targetX, maxDist = 0.42) {
-  let best = null;
-  let bestD = Infinity;
-  for (const d of rowDots) {
-    const dist = Math.hypot(d.xPct - targetX, d.yPct - targetY);
-    if (dist < bestD) {
-      bestD = dist;
-      best = d;
-    }
+const MAX_ROW_EXTRAPOLATION = 4;
+
+function rowAnchorGroups(layoutAnchors) {
+  const byRow = new Map();
+  for (const a of layoutAnchors) {
+    const r = parseNum(a.row);
+    if (r == null || !Number.isFinite(a.yPct)) continue;
+    const arr = byRow.get(r) ?? [];
+    arr.push(a);
+    byRow.set(r, arr);
   }
-  if (!best || bestD > maxDist) return null;
-  return best;
+  return [...byRow.entries()]
+    .map(([row, seats]) => ({
+      row,
+      yPct: seats.reduce((s, a) => s + a.yPct, 0) / seats.length,
+      seats,
+    }))
+    .sort((a, b) => a.row - b.row);
 }
 
 /**
- * Место оффера на сетке точек сектора: ряд → полоса Y, место → X (калибровка якорями).
+ * Координаты оффера по якорям layout.seats: точное совпадение ряд+место, иначе калибровка внутри ряда
+ * или интерполяция Y между известными рядами (без сетки 77k точек).
  * @returns {{ xPct: number, yPct: number } | null}
  */
-export function resolveOfferSeatOnDotGrid({
-  rowNum,
-  seatNum,
-  layoutAnchors,
-  sectorDots,
-}) {
-  const rowBands = clusterDotsByRow(sectorDots);
-  if (rowBands.length < 2) return null;
+export function resolveOfferSeatFromAnchors(rowNum, seatNum, layoutAnchors) {
+  if (!Array.isArray(layoutAnchors) || layoutAnchors.length < 1) return null;
+  const rowNorm = normalizeRowLabel(String(rowNum));
 
-  const targetY = resolveRowYPctFromDotGrid(rowNum, layoutAnchors, rowBands);
-  if (targetY == null) return null;
-
-  const rowDots = sectorDots.filter((d) => Math.abs(d.yPct - targetY) <= 0.22);
-  if (rowDots.length < 2) return null;
-
-  let targetX = predictSeatXPct(rowNum, seatNum, layoutAnchors);
-  if (targetX == null) {
-    const sorted = [...rowDots].sort((a, b) => a.xPct - b.xPct);
-    const idx =
-      seatNum != null
-        ? Math.min(Math.max(seatNum - 1, 0), sorted.length - 1)
-        : Math.floor(sorted.length / 2);
-    targetX = sorted[idx].xPct;
+  const sameRow = layoutAnchors.filter((a) => normalizeRowLabel(a.row) === rowNorm);
+  if (sameRow.length > 0) {
+    const exact = sameRow.find((a) => parseNum(a.seat) === seatNum);
+    if (exact && Number.isFinite(exact.xPct) && Number.isFinite(exact.yPct)) {
+      return { xPct: exact.xPct, yPct: exact.yPct };
+    }
+    const yPct = sameRow.reduce((s, a) => s + a.yPct, 0) / sameRow.length;
+    const cal = fitSeatXCalibration(sameRow);
+    if (cal && seatNum != null) {
+      const xPct = cal.predict(seatNum);
+      if (Number.isFinite(xPct)) return { xPct, yPct };
+    }
+    return null;
   }
 
-  return pickDotNearRowSeat(rowDots, targetY, targetX);
+  const rowPts = rowAnchorGroups(layoutAnchors);
+  if (rowPts.length < 2) return null;
+  const minR = rowPts[0].row;
+  const maxR = rowPts[rowPts.length - 1].row;
+  if (rowNum < minR - MAX_ROW_EXTRAPOLATION || rowNum > maxR + MAX_ROW_EXTRAPOLATION) {
+    return null;
+  }
+
+  const yPct = interpolateByRowNumber(
+    rowNum,
+    rowPts.map((p) => ({ row: String(p.row), yPct: p.yPct })),
+    (a) => a.yPct,
+  );
+  if (yPct == null) return null;
+
+  let nearest = rowPts[0];
+  let bestGap = Math.abs(rowPts[0].row - rowNum);
+  for (const p of rowPts) {
+    const g = Math.abs(p.row - rowNum);
+    if (g < bestGap) {
+      bestGap = g;
+      nearest = p;
+    }
+  }
+  const cal = fitSeatXCalibration(nearest.seats);
+  if (!cal || seatNum == null) return null;
+  const xPct = cal.predict(seatNum);
+  if (!Number.isFinite(xPct)) return null;
+  return { xPct, yPct };
 }
 
 export function buildSellableSeatGeodesyWithDots(
   layoutSeats,
-  allSeatCoordinates,
-  sectorPaths,
-  hallWidth,
-  hallHeight,
+  _allSeatCoordinates,
+  _sectorPaths,
+  _hallWidth,
+  _hallHeight,
   offers,
 ) {
   const strict = buildSellableSeatGeodesy(layoutSeats, offers);
@@ -232,49 +272,8 @@ export function buildSellableSeatGeodesyWithDots(
     strict.seats.map((s) => strictSeatKey(s.sector, s.row, s.seat)),
   );
 
-  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
-  const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
-
-  if (!Array.isArray(allSeatCoordinates) || allSeatCoordinates.length < 6) {
+  if (!Array.isArray(layoutSeats) || layoutSeats.length < 2) {
     return strict;
-  }
-  if (!Array.isArray(sectorPaths) || sectorPaths.length === 0) {
-    return strict;
-  }
-
-  const sectorBoxes = sectorPaths
-    .map((s) => {
-      const label = String(s.label ?? '').trim();
-      const path = String(s.path ?? '').trim();
-      const b = pathBBox(path);
-      if (!label || !b) return null;
-      return {
-        norm: normalizeSectorLabel(label),
-        bbox: {
-          minX: (b.minX / w) * 100,
-          minY: (b.minY / h) * 100,
-          maxX: (b.maxX / w) * 100,
-          maxY: (b.maxY / h) * 100,
-        },
-        area: bboxArea(b),
-      };
-    })
-    .filter(Boolean);
-
-  const dotsBySector = new Map();
-  for (const dot of allSeatCoordinates) {
-    const xPct = Number(dot.xPct);
-    const yPct = Number(dot.yPct);
-    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
-    let best = null;
-    for (const sb of sectorBoxes) {
-      if (!pointInBBox(xPct, yPct, sb.bbox, 0.2)) continue;
-      if (!best || sb.area < best.area) best = sb;
-    }
-    if (!best) continue;
-    const arr = dotsBySector.get(best.norm) ?? [];
-    arr.push({ xPct, yPct });
-    dotsBySector.set(best.norm, arr);
   }
 
   const anchorsBySector = new Map();
@@ -286,24 +285,6 @@ export function buildSellableSeatGeodesyWithDots(
   }
 
   /** GetBilet «сектор D230» / «d 230» ≠ подпись полигона «Категория 2» — точки чаши по якорям layout.seats. */
-  const dotsByTribuneSector = new Map();
-  for (const s of layoutSeats) {
-    const norm = normalizeSectorLabel(s.sector);
-    const xPct = Number(s.xPct);
-    const yPct = Number(s.yPct);
-    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
-    let bestBox = null;
-    for (const sb of sectorBoxes) {
-      if (!pointInBBox(xPct, yPct, sb.bbox, 0.2)) continue;
-      if (!bestBox || sb.area < bestBox.area) bestBox = sb;
-    }
-    if (!bestBox) continue;
-    const polyDots = dotsBySector.get(bestBox.norm);
-    if (!polyDots?.length) continue;
-    const cur = dotsByTribuneSector.get(norm);
-    if (!cur || cur.length < polyDots.length) dotsByTribuneSector.set(norm, polyDots);
-  }
-
   const extra = [];
   const seen = new Set(strictKeys);
   let dotMatched = 0;
@@ -313,9 +294,8 @@ export function buildSellableSeatGeodesyWithDots(
     const row = String(offer.Row ?? '');
     const norm = normalizeSectorLabel(sector);
     const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
-    const sectorDots = dotsByTribuneSector.get(norm) ?? dotsBySector.get(norm);
     const anchors = anchorsBySector.get(norm) ?? [];
-    if (!sectorDots?.length || anchors.length < 2) continue;
+    if (anchors.length < 2) continue;
 
     const anchorRows = new Set(anchors.map((a) => parseNum(a.row)).filter((r) => r != null));
     if (anchorRows.size < 2) continue;
@@ -329,17 +309,12 @@ export function buildSellableSeatGeodesyWithDots(
       if (seen.has(key)) continue;
 
       const seatNum = parseNum(seat);
-      const dot = resolveOfferSeatOnDotGrid({
-        rowNum,
-        seatNum,
-        layoutAnchors: anchors,
-        sectorDots,
-      });
-      if (!dot) continue;
+      const resolved = resolveOfferSeatFromAnchors(rowNum, seatNum, anchors);
+      if (!resolved) continue;
 
       seen.add(key);
       dotMatched += 1;
-      extra.push({ sector, row, seat, xPct: dot.xPct, yPct: dot.yPct });
+      extra.push({ sector, row, seat, xPct: resolved.xPct, yPct: resolved.yPct });
     }
   }
 
