@@ -3,6 +3,8 @@
  * На карте точки рисует canvas из sellableSeats, не эти круги.
  */
 
+import cheerio from 'cheerio';
+
 /** Как luzhnikiFootballNativeGenerator: min(W,H) * 0.0029 */
 export const LUZHNIKI_PILOT_SEATS_LAYER_ID = 'luzhniki-pilot-seats';
 export const LUZHNIKI_PILOT_SECTOR_LAYER_ID = 'luzhniki-pilot-sector';
@@ -19,6 +21,36 @@ export function escSvgAttr(value) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/**
+ * Убрать тяжёлый слой geodesy-кругов из svg_markup перед отдачей клиенту.
+ * Координаты sellable берутся из layout_json.seats / sellableSeats, не из DOM.
+ */
+const PILOT_LAYER_STUB = `<g id="${LUZHNIKI_PILOT_SEATS_LAYER_ID}" data-geodesy="layout-seats-only" pointer-events="none"></g>`;
+
+/** Быстро вырезать 80k circle из слоя пилота (без cheerio на мегабайтах). */
+export function stripLuzhnikiPilotSeatsLayerFromSvg(svgMarkup) {
+  const trimmed = String(svgMarkup ?? '').trim();
+  if (!trimmed.includes(LUZHNIKI_PILOT_SEATS_LAYER_ID)) return trimmed;
+
+  const circleCount = (trimmed.match(/<circle\b[^>]*\bplace-name=/gi) || []).length;
+  if (circleCount > 6000) {
+    const replaced = trimmed.replace(
+      new RegExp(
+        `<g[^>]*id=["']${LUZHNIKI_PILOT_SEATS_LAYER_ID}["'][^>]*>[\\s\\S]*?</g>`,
+        'i',
+      ),
+      PILOT_LAYER_STUB,
+    );
+    if (replaced !== trimmed) return replaced;
+  }
+
+  const $ = cheerio.load(trimmed, { xml: true });
+  $(`#${LUZHNIKI_PILOT_SEATS_LAYER_ID}`).remove();
+  const svg = $('svg').first();
+  if (svg.length) svg.append(PILOT_LAYER_STUB);
+  return $.xml ? $.xml() : $.html();
 }
 
 /** Невидимые круги: не портят подложку и processHallSvgForNative. */

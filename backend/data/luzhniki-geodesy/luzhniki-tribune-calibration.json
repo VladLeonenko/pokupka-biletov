@@ -1,0 +1,38 @@
+{
+  "_comment": "Коэффициенты блоков трибун: scale/skew/rotate вокруг pivotPct (% viewBox). Тюнинг: env LUZHNIKI_TRIBUNE_* или правка файла + rebuild.",
+  "A": {
+    "scaleX": 1,
+    "scaleY": 1,
+    "skewX": 0,
+    "rotateDeg": 0,
+    "pivotPct": { "x": 18, "y": 52 }
+  },
+  "B": {
+    "scaleX": 1,
+    "scaleY": 1,
+    "skewX": 0,
+    "rotateDeg": 0,
+    "pivotPct": { "x": 12, "y": 48 }
+  },
+  "C": {
+    "scaleX": 1,
+    "scaleY": 1,
+    "skewX": 0,
+    "rotateDeg": 0,
+    "pivotPct": { "x": 88, "y": 50 }
+  },
+  "D": {
+    "scaleX": 1,
+    "scaleY": 1,
+    "skewX": 0,
+    "rotateDeg": 0,
+    "pivotPct": { "x": 82, "y": 52 }
+  },
+  "VIP": {
+    "scaleX": 1,
+    "scaleY": 1,
+    "skewX": 0,
+    "rotateDeg": 0,
+    "pivotPct": { "x": 50, "y": 14 }
+  }
+}

@@ -5,11 +5,16 @@
 
 import ticketPool from '../ticketDb.js';
 import { buildSellableSeatGeodesyLuzhniki } from '../utils/hallSeatGeodesyLuzhnikiGrid.js';
+import { transformLayoutSeatToSvg } from '../utils/luzhnikiSeatWarp.js';
 import {
   buildSellableSeatGeodesyFromSvgCircles,
   countSvgNativeSeatCircles,
 } from '../utils/hallSeatGeodesyFromSvgCircles.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
+import { stripLuzhnikiPilotSeatsLayerFromSvg } from '../utils/luzhnikiPilotSeatSvg.js';
+
+/** Не отдавать клиенту десятки тысяч pilot-circle в svg_markup. */
+const LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS = Number(process.env.LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) || 8000;
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
   process.env.GETBILET_LUZHNIKI_FOOTBALL_STAGE_MAP_KEY?.trim() || 'luzhniki-football';
@@ -122,9 +127,14 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     const hallWidth = Number(layout.geodesy?.hallWidth) || 11413;
     const hallHeight = Number(layout.geodesy?.hallHeight) || 9676;
 
-    const svgCircleCount = countSvgNativeSeatCircles(svgMarkup);
+    const layoutPilotActive = layout.luzhnikiPilotGeodesyActive === true;
+    const svgCircleCount =
+      Number(layout.luzhnikiPilotCircleCount) > 0
+        ? Number(layout.luzhnikiPilotCircleCount)
+        : countSvgNativeSeatCircles(svgMarkup);
     const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
-    const pilotSvgLayer = String(svgMarkup).includes('id="luzhniki-pilot-seats"');
+    const pilotSvgLayer =
+      layoutPilotActive || String(svgMarkup).includes('id="luzhniki-pilot-seats"');
     const fullPilotStadium =
       layout.luzhnikiPilotFullStadium === true ||
       Number(layout.luzhnikiPilotCircleCount) >= 8000 ||
@@ -158,12 +168,16 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
             svgMarkup,
           });
 
-    nextLayout.sellableSeats = geodesy.seats;
+    const calibrateSellable = process.env.LUZHNIKI_SKIP_SEAT_CALIBRATION !== '1';
+    nextLayout.sellableSeats = calibrateSellable
+      ? geodesy.seats.map((s) => transformLayoutSeatToSvg(s))
+      : geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
     nextLayout.sellableSeatsLabeledOnly = false;
     nextLayout.sellableGeodesyMode = pilotSvgLayer ? 'luzhnikiSvgPilot' : 'luzhnikiGrid';
     /** Фронт: не дополнять sellable из layout.seats (fieldGrid ломает ряды). */
     nextLayout.luzhnikiPilotGeodesyActive = pilotSvgLayer && svgCircleCount >= minSvgCircles;
+    nextLayout.luzhnikiSeatCalibrationActive = calibrateSellable;
     nextLayout.luzhnikiPilotFullStadium = fullPilotStadium;
     nextLayout.luzhnikiPilotCircleCount = svgCircleCount;
     nextLayout.omitLayoutSeatSellableFallback = nextLayout.luzhnikiPilotGeodesyActive === true;
@@ -188,6 +202,44 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
 
   return {
     ...row,
+    layout_json: nextLayout,
+  };
+}
+
+/**
+ * Облегчённый ответ GET /stage/.../map для браузера: без 80k pilot-circle в SVG и без layout.seats.
+ * @param {Record<string, unknown>} row
+ */
+export function slimLuzhnikiStageMapForClient(row) {
+  if (!row) return row;
+  const layout = parseLayoutJson(row);
+  const fullPilot =
+    layout.luzhnikiPilotFullStadium === true ||
+    Number(layout.luzhnikiPilotCircleCount) >= 8000 ||
+    layout.luzhnikiPilotUseLayoutSeatsForLookup === true;
+
+  if (!fullPilot && !layout.luzhnikiPilotGeodesyActive) {
+    return row;
+  }
+
+  let svg_markup = typeof row.svg_markup === 'string' ? row.svg_markup : '';
+  if (svg_markup.includes('luzhniki-pilot-seats')) {
+    svg_markup = stripLuzhnikiPilotSeatsLayerFromSvg(svg_markup);
+  }
+
+  const seats = Array.isArray(layout.seats) ? layout.seats : [];
+  const nextLayout = { ...layout };
+  if (seats.length > LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) {
+    delete nextLayout.seats;
+    delete nextLayout.nativeSeatCount;
+    delete nextLayout.layoutSeatsFromGrid;
+    nextLayout.layoutSeatsOmittedForClient = true;
+    nextLayout.layoutSeatsCount = seats.length;
+  }
+
+  return {
+    ...row,
+    svg_markup,
     layout_json: nextLayout,
   };
 }

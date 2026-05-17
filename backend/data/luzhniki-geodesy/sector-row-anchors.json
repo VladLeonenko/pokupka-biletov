@@ -1,1 +1,6339 @@
-{}
+{
+  "_comment": "Автоген из tickets.json (канон sector.i) + layout grid. Ключ = normalizeSectorLabel. Перегенерация: npm run generate:luzhniki-sector-anchors",
+  "лoжa40": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 86.024588,
+        "yPct": 17.352212,
+        "role": "nearLeft"
+      },
+      {
+        "row": "5",
+        "seat": "1",
+        "xPct": 87.70688,
+        "yPct": 14.799504,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "5",
+        "xPct": 87.198688,
+        "yPct": 15.150889,
+        "role": "nearRight"
+      },
+      {
+        "row": "2",
+        "seat": "5",
+        "xPct": 87.198688,
+        "yPct": 15.150889,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 40"
+  },
+  "лoжa35": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 28.575858
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 35"
+  },
+  "лoжa74": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 46.292952
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 74"
+  },
+  "лoжa93": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 21.748035,
+      "yPct": 89.758154
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 93"
+  },
+  "лoжa45": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 76.167408,
+      "yPct": 10.117817
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 45"
+  },
+  "лoжa48i": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 52.764271,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48I"
+  },
+  "лoжa43": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 80.530853,
+      "yPct": 11.244316
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 43"
+  },
+  "a211": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "25",
+        "seat": "1",
+        "xPct": 68.290425,
+        "yPct": 96.868541,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 68.115187,
+        "yPct": 98.005374,
+        "role": "farLeft"
+      },
+      {
+        "row": "25",
+        "seat": "25",
+        "xPct": 63.734217,
+        "yPct": 96.868541,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "26",
+        "xPct": 63.558979,
+        "yPct": 98.005374,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 211"
+  },
+  "c234": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 82.519813,
+        "yPct": 10.903266,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 87.444022,
+        "yPct": 6.707317,
+        "role": "farLeft"
+      },
+      {
+        "row": "11",
+        "seat": "35",
+        "xPct": 83.212006,
+        "yPct": 8.267879,
+        "role": "nearRight"
+      },
+      {
+        "row": "24",
+        "seat": "39",
+        "xPct": 83.18572,
+        "yPct": 4.764365,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 234"
+  },
+  "лoжa13": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 87.189926,
+        "yPct": 85.097148,
+        "role": "nearLeft"
+      },
+      {
+        "row": "4",
+        "seat": "1",
+        "xPct": 87.592975,
+        "yPct": 85.59322,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 87.654308,
+        "yPct": 84.456387,
+        "role": "nearRight"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 87.654308,
+        "yPct": 84.456387,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 13"
+  },
+  "лoжa48k": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 48.87397,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48K"
+  },
+  "лoжa7": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 72.750252,
+      "yPct": 90.150889
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 7"
+  },
+  "лoжa11": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 82.668766,
+        "yPct": 89.241422,
+        "role": "nearLeft"
+      },
+      {
+        "row": "6",
+        "seat": "1",
+        "xPct": 83.518674,
+        "yPct": 89.200083,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "6",
+        "xPct": 83.448578,
+        "yPct": 88.72468,
+        "role": "nearRight"
+      },
+      {
+        "row": "2",
+        "seat": "6",
+        "xPct": 83.448578,
+        "yPct": 88.72468,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 11"
+  },
+  "c240": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "3",
+        "xPct": 58.336864,
+        "yPct": 3.586193,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 58.161625,
+        "yPct": 2.221993,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "16",
+        "xPct": 60.614967,
+        "yPct": 3.131459,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "16",
+        "xPct": 60.614967,
+        "yPct": 2.221993,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 240"
+  },
+  "лoжa4": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 63.550217,
+      "yPct": 90.150889
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 4"
+  },
+  "лoжa24": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 56.459281
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 24"
+  },
+  "лoжa20": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 66.587433
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 20"
+  },
+  "лoжa37": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 89.757173,
+      "yPct": 23.201736
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 37"
+  },
+  "лoжa48d": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 62.498784,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48D"
+  },
+  "лoжa22": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 61.523357
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 22"
+  },
+  "лoжa28": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 46.300124
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 28"
+  },
+  "лoжa32": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 36.171972
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 32"
+  },
+  "лoжa48h": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 54.718183,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48H"
+  },
+  "лoжa18": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.300414,
+      "yPct": 71.641174
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 18"
+  },
+  "c130": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "7",
+        "seat": "4",
+        "xPct": 74.931974,
+        "yPct": 19.295163,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "3",
+        "xPct": 74.485116,
+        "yPct": 12.928896,
+        "role": "farLeft"
+      },
+      {
+        "row": "7",
+        "seat": "4",
+        "xPct": 74.931974,
+        "yPct": 19.295163,
+        "role": "nearRight"
+      },
+      {
+        "row": "35",
+        "seat": "20",
+        "xPct": 77.49046,
+        "yPct": 13.300951,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 130"
+  },
+  "лoжa38": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 88.372787,
+        "yPct": 22.188921,
+        "role": "nearLeft"
+      },
+      {
+        "row": "9",
+        "seat": "1",
+        "xPct": 90.028793,
+        "yPct": 19.264159,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "3",
+        "xPct": 87.952214,
+        "yPct": 21.54816,
+        "role": "nearRight"
+      },
+      {
+        "row": "7",
+        "seat": "6",
+        "xPct": 89.397934,
+        "yPct": 18.809425,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 38"
+  },
+  "a112": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "4",
+        "seat": "2",
+        "xPct": 64.452696,
+        "yPct": 80.250103,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 63.92698,
+        "yPct": 86.61637,
+        "role": "farLeft"
+      },
+      {
+        "row": "4",
+        "seat": "16",
+        "xPct": 61.999354,
+        "yPct": 80.250103,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "14",
+        "xPct": 61.648876,
+        "yPct": 86.61637,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 112"
+  },
+  "лoжa30": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 41.236048
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 30"
+  },
+  "лoжa16": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 89.757173,
+      "yPct": 77.02563
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 16"
+  },
+  "vipa107": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "3",
+        "seat": "1",
+        "xPct": 45.79853,
+        "yPct": 80.15709,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "2",
+        "xPct": 45.623291,
+        "yPct": 87.877222,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "17",
+        "xPct": 42.99471,
+        "yPct": 80.15709,
+        "role": "nearRight"
+      },
+      {
+        "row": "29",
+        "seat": "17",
+        "xPct": 42.99471,
+        "yPct": 87.877222,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 107 VIP"
+  },
+  "лoжa15": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 90.002508,
+        "yPct": 80.012402,
+        "role": "nearLeft"
+      },
+      {
+        "row": "7",
+        "seat": "1",
+        "xPct": 89.906126,
+        "yPct": 81.324928,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "2",
+        "xPct": 90.063841,
+        "yPct": 79.826375,
+        "role": "nearRight"
+      },
+      {
+        "row": "4",
+        "seat": "5",
+        "xPct": 90.037555,
+        "yPct": 80.467135,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 15"
+  },
+  "лoжa25": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 53.927243
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 25"
+  },
+  "лoжa42": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.529714,
+        "yPct": 13.642001,
+        "role": "nearLeft"
+      },
+      {
+        "row": "6",
+        "seat": "1",
+        "xPct": 83.676389,
+        "yPct": 11.140967,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "5",
+        "xPct": 82.677528,
+        "yPct": 11.006614,
+        "role": "nearRight"
+      },
+      {
+        "row": "5",
+        "seat": "4",
+        "xPct": 83.089339,
+        "yPct": 11.006614,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 42"
+  },
+  "лoжa14": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 88.311454,
+        "yPct": 83.464241,
+        "role": "nearLeft"
+      },
+      {
+        "row": "5",
+        "seat": "1",
+        "xPct": 88.828408,
+        "yPct": 83.774287,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "4",
+        "xPct": 88.60936,
+        "yPct": 82.947499,
+        "role": "nearRight"
+      },
+      {
+        "row": "4",
+        "seat": "4",
+        "xPct": 88.951075,
+        "yPct": 83.174866,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 14"
+  },
+  "лoжa39": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 86.795639,
+        "yPct": 19.419181,
+        "role": "nearLeft"
+      },
+      {
+        "row": "8",
+        "seat": "1",
+        "xPct": 89.021171,
+        "yPct": 16.783795,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "2",
+        "xPct": 86.708019,
+        "yPct": 19.253824,
+        "role": "nearRight"
+      },
+      {
+        "row": "7",
+        "seat": "5",
+        "xPct": 88.556788,
+        "yPct": 16.401406,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 39"
+  },
+  "лoжa48f": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 58.608484,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48F"
+  },
+  "лoжa5": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 66.616895,
+      "yPct": 90.150889
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 5"
+  },
+  "лoжa48b": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 66.397847,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48B"
+  },
+  "лoжa48j": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 50.819121,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48J"
+  },
+  "лoжa48o": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 41.172227,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48O"
+  },
+  "лoжa19": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 69.119471
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 19"
+  },
+  "лoжa17": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.212794,
+      "yPct": 74.255891
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 17"
+  },
+  "лoжa48n": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 43.029758,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48N"
+  },
+  "лoжa47": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 72.242059,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 47"
+  },
+  "лoжa41": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 83.77277,
+        "yPct": 15.357586,
+        "role": "nearLeft"
+      },
+      {
+        "row": "5",
+        "seat": "1",
+        "xPct": 85.963255,
+        "yPct": 12.794543,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "7",
+        "xPct": 85.122108,
+        "yPct": 12.866887,
+        "role": "nearRight"
+      },
+      {
+        "row": "3",
+        "seat": "8",
+        "xPct": 85.052013,
+        "yPct": 12.515502,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 41"
+  },
+  "лoжa23": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 58.991319
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 23"
+  },
+  "лoжa48m": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 44.974908,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48M"
+  },
+  "лoжa6": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 69.683573,
+      "yPct": 90.150889
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 6"
+  },
+  "лoжa44": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 78.243987,
+      "yPct": 10.458867
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 44"
+  },
+  "лoжa29": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 43.768086
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 29"
+  },
+  "лoжa26": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 51.38487
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 26"
+  },
+  "лoжa48": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 70.288147,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48"
+  },
+  "лoжa12": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 85.113347,
+        "yPct": 87.381149,
+        "role": "nearLeft"
+      },
+      {
+        "row": "5",
+        "seat": "1",
+        "xPct": 85.682873,
+        "yPct": 87.711864,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "7",
+        "xPct": 85.936969,
+        "yPct": 86.575031,
+        "role": "nearRight"
+      },
+      {
+        "row": "2",
+        "seat": "8",
+        "xPct": 85.972016,
+        "yPct": 86.843737,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 12"
+  },
+  "лoжa21": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 64.055395
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 21"
+  },
+  "лoжa3": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 60.483538,
+      "yPct": 90.150889
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 3"
+  },
+  "лoжa10": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 80.530853,
+      "yPct": 88.983051
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 10"
+  },
+  "лoжa48e": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 60.553634,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48E"
+  },
+  "vipa110": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "3",
+        "seat": "2",
+        "xPct": 56.786001,
+        "yPct": 80.15709,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "1",
+        "xPct": 56.961239,
+        "yPct": 87.877222,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "17",
+        "xPct": 54.157419,
+        "yPct": 80.15709,
+        "role": "nearRight"
+      },
+      {
+        "row": "29",
+        "seat": "17",
+        "xPct": 54.157419,
+        "yPct": 87.877222,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 110 VIP"
+  },
+  "лoжa31": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 38.70401
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 31"
+  },
+  "лoжa48c": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 64.452696,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48C"
+  },
+  "лoжa48l": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 46.92882,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48L"
+  },
+  "лoжa48g": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 56.663333,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48G"
+  },
+  "лoжa33": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 33.639934
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 33"
+  },
+  "лoжa27": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 48.832162
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 27"
+  },
+  "лoжa48a": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 68.342997,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 48A"
+  },
+  "b253": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 12.244809,
+        "yPct": 15.894998,
+        "role": "nearLeft"
+      },
+      {
+        "row": "18",
+        "seat": "1",
+        "xPct": 8.529747,
+        "yPct": 10.531211,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "6",
+        "xPct": 11.710331,
+        "yPct": 16.329062,
+        "role": "nearRight"
+      },
+      {
+        "row": "16",
+        "seat": "15",
+        "xPct": 6.348024,
+        "yPct": 13.476643,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 253"
+  },
+  "лoжa34": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.291652,
+      "yPct": 31.107896
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 34"
+  },
+  "лoжa36": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 90.212794,
+      "yPct": 25.971476
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 36"
+  },
+  "лoжa46": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 74.18721,
+      "yPct": 10.076478
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 46"
+  },
+  "лoжa72": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 41.228876
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 72"
+  },
+  "лoжa86": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 10.234848,
+      "yPct": 77.015285
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 86"
+  },
+  "лoжa84": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.691608,
+      "yPct": 71.634002
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 84"
+  },
+  "лoжa56": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 25.804812,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 56"
+  },
+  "лoжa92": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 19.461169,
+      "yPct": 88.972705
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 92"
+  },
+  "лoжa76": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 51.377697
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 76"
+  },
+  "лoжa64": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 10.001753,
+        "yPct": 20.173625,
+        "role": "nearLeft"
+      },
+      {
+        "row": "6",
+        "seat": "1",
+        "xPct": 10.019276,
+        "yPct": 19.057462,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "5",
+        "xPct": 9.896609,
+        "yPct": 19.904919,
+        "role": "nearRight"
+      },
+      {
+        "row": "3",
+        "seat": "5",
+        "xPct": 9.896609,
+        "yPct": 19.904919,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 64"
+  },
+  "лoжa60": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 17.349542,
+      "yPct": 12.456656
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 60"
+  },
+  "лoжa57": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 23.824614,
+      "yPct": 10.110645
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 57"
+  },
+  "лoжa70": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 36.1648
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 70"
+  },
+  "лoжa100": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 35.539326,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 100"
+  },
+  "лoжa49": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 39.420864,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 49"
+  },
+  "лoжa77": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 53.92007
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 77"
+  },
+  "лoжa83": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 69.112298
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 83"
+  },
+  "лoжa90": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 16.625778,
+        "yPct": 84.942125,
+        "role": "nearLeft"
+      },
+      {
+        "row": "6",
+        "seat": "1",
+        "xPct": 13.997196,
+        "yPct": 87.391484,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "8",
+        "xPct": 14.978533,
+        "yPct": 87.443158,
+        "role": "nearRight"
+      },
+      {
+        "row": "4",
+        "seat": "8",
+        "xPct": 14.908438,
+        "yPct": 87.670525,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 90"
+  },
+  "лoжa67": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 28.568685
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 67"
+  },
+  "лoжa81": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 64.048222
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 81"
+  },
+  "лoжa97": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 29.703875,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 97"
+  },
+  "лoжa58": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 21.748035,
+      "yPct": 10.451695
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 58"
+  },
+  "лoжa91": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.448261,
+        "yPct": 86.564696,
+        "role": "nearLeft"
+      },
+      {
+        "row": "5",
+        "seat": "1",
+        "xPct": 16.284062,
+        "yPct": 89.06573,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "4",
+        "xPct": 16.976255,
+        "yPct": 89.003721,
+        "role": "nearRight"
+      },
+      {
+        "row": "4",
+        "seat": "4",
+        "xPct": 16.871112,
+        "yPct": 89.200083,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 91"
+  },
+  "лoжa63": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 11.701569,
+        "yPct": 16.732121,
+        "role": "nearLeft"
+      },
+      {
+        "row": "4",
+        "seat": "1",
+        "xPct": 11.184614,
+        "yPct": 16.422075,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "4",
+        "xPct": 11.403663,
+        "yPct": 17.248863,
+        "role": "nearRight"
+      },
+      {
+        "row": "2",
+        "seat": "5",
+        "xPct": 11.237186,
+        "yPct": 17.124845,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 63"
+  },
+  "лoжa78": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 56.452108
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 78"
+  },
+  "лoжa80": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 61.516184
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 80"
+  },
+  "лoжa99": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 33.594175,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 99"
+  },
+  "лoжa62": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 12.823097,
+        "yPct": 15.099215,
+        "role": "nearLeft"
+      },
+      {
+        "row": "4",
+        "seat": "1",
+        "xPct": 12.420048,
+        "yPct": 14.603142,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 12.358714,
+        "yPct": 15.739975,
+        "role": "nearRight"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 12.358714,
+        "yPct": 15.739975,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 62"
+  },
+  "лoжa75": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 48.82499
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 75"
+  },
+  "лoжa68": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 31.100723
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 68"
+  },
+  "лoжa101": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 37.493238,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 101"
+  },
+  "лoжa66": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.779228,
+      "yPct": 25.964303
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 66"
+  },
+  "лoжa59": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 19.461169,
+      "yPct": 11.237143
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 59"
+  },
+  "лoжa71": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 38.696838
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 71"
+  },
+  "лoжa55": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 27.749963,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 55"
+  },
+  "лoжa61": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 14.899676,
+        "yPct": 12.825548,
+        "role": "nearLeft"
+      },
+      {
+        "row": "4",
+        "seat": "1",
+        "xPct": 14.33015,
+        "yPct": 12.494833,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "8",
+        "xPct": 13.944625,
+        "yPct": 13.776354,
+        "role": "nearRight"
+      },
+      {
+        "row": "2",
+        "seat": "8",
+        "xPct": 14.041006,
+        "yPct": 13.36296,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 61"
+  },
+  "лoжa65": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 10.234848,
+      "yPct": 23.194564
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 65"
+  },
+  "лoжa52": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 33.594175,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 52"
+  },
+  "лoжa79": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 58.984146
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 79"
+  },
+  "лoжa69": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 33.632761
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 69"
+  },
+  "лoжa102": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 39.438388,
+      "yPct": 90.140554
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 102"
+  },
+  "лoжa73": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 43.760914
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 73"
+  },
+  "лoжa87": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 11.666521,
+        "yPct": 78.214138,
+        "role": "nearLeft"
+      },
+      {
+        "row": "10",
+        "seat": "1",
+        "xPct": 9.949181,
+        "yPct": 80.911534,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "2",
+        "xPct": 12.02576,
+        "yPct": 78.658537,
+        "role": "nearRight"
+      },
+      {
+        "row": "7",
+        "seat": "5",
+        "xPct": 10.492421,
+        "yPct": 81.18024,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 87"
+  },
+  "лoжa53": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 31.649025,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 53"
+  },
+  "лoжa96": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 27.749963,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 96"
+  },
+  "лoжa51": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 35.539326,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 51"
+  },
+  "лoжa50": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 37.493238,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 50"
+  },
+  "лoжa94": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 23.824614,
+      "yPct": 90.099204
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 94"
+  },
+  "лoжa95": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 25.804812,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 95"
+  },
+  "лoжa88": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 13.182336,
+        "yPct": 80.787516,
+        "role": "nearLeft"
+      },
+      {
+        "row": "9",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 83.391897,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "4",
+        "xPct": 13.278717,
+        "yPct": 81.376602,
+        "role": "nearRight"
+      },
+      {
+        "row": "8",
+        "seat": "4",
+        "xPct": 11.316043,
+        "yPct": 83.608929,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 88"
+  },
+  "лoжa54": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 29.703875,
+      "yPct": 10.069305
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 54"
+  },
+  "лoжa89": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 12.306142,
+        "yPct": 84.394378,
+        "role": "nearLeft"
+      },
+      {
+        "row": "3",
+        "seat": "1",
+        "xPct": 12.385,
+        "yPct": 85.200496,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 12.770525,
+        "yPct": 85.024804,
+        "role": "nearRight"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 12.770525,
+        "yPct": 85.024804,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 89"
+  },
+  "лoжa82": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.70037,
+      "yPct": 66.58026
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 82"
+  },
+  "лoжa85": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 9.779228,
+      "yPct": 74.245545
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 85"
+  },
+  "лoжa98": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 31.649025,
+      "yPct": 90.140543
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 98"
+  },
+  "лoжa9": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 78.200298,
+      "yPct": 89.654816
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "Ложа 9"
+  },
+  "old-loge8_notuse": {
+    "mode": "polarGrid",
+    "origin": {
+      "xPct": 75.685501,
+      "yPct": 90.171558
+    },
+    "rowDirectionDeg": 90,
+    "seatDirectionDeg": 180,
+    "rowSpacingPct": 0.2,
+    "seatSpacingPct": 0.15,
+    "rowCurve": 0.2,
+    "maxRow": 1,
+    "maxSeat": 1,
+    "sectorLabel": "OLD-Loge8_notuse"
+  },
+  "лoжa8": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 75.265049,
+        "yPct": 90.171634,
+        "role": "nearLeft"
+      },
+      {
+        "row": "40",
+        "seat": "1",
+        "xPct": 75.790765,
+        "yPct": 90.378331,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "2",
+        "xPct": 75.615526,
+        "yPct": 89.964937,
+        "role": "nearRight"
+      },
+      {
+        "row": "40",
+        "seat": "2",
+        "xPct": 76.141242,
+        "yPct": 90.171634,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Ложа 8"
+  },
+  "a115": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "7",
+        "seat": "1",
+        "xPct": 75.352547,
+        "yPct": 80.921869,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "2",
+        "xPct": 77.341507,
+        "yPct": 86.99876,
+        "role": "farLeft"
+      },
+      {
+        "row": "7",
+        "seat": "4",
+        "xPct": 74.721688,
+        "yPct": 80.963208,
+        "role": "nearRight"
+      },
+      {
+        "row": "35",
+        "seat": "16",
+        "xPct": 74.914451,
+        "yPct": 87.31914,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 115"
+  },
+  "a213": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 74.125876,
+        "yPct": 91.649442,
+        "role": "nearLeft"
+      },
+      {
+        "row": "34",
+        "seat": "1",
+        "xPct": 77.648175,
+        "yPct": 98.077718,
+        "role": "farLeft"
+      },
+      {
+        "row": "10",
+        "seat": "32",
+        "xPct": 78.296559,
+        "yPct": 91.75279,
+        "role": "nearRight"
+      },
+      {
+        "row": "26",
+        "seat": "35",
+        "xPct": 77.429127,
+        "yPct": 96.506821,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 213"
+  },
+  "a214": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 78.410464,
+        "yPct": 91.256718,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "1",
+        "xPct": 81.985335,
+        "yPct": 96.723853,
+        "role": "farLeft"
+      },
+      {
+        "row": "9",
+        "seat": "36",
+        "xPct": 83.089339,
+        "yPct": 90.264572,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "40",
+        "xPct": 83.063053,
+        "yPct": 93.799091,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 214"
+  },
+  "a215": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 82.037906,
+        "yPct": 89.613477,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 85.910683,
+        "yPct": 94.667218,
+        "role": "farLeft"
+      },
+      {
+        "row": "11",
+        "seat": "31",
+        "xPct": 87.514118,
+        "yPct": 87.970236,
+        "role": "nearRight"
+      },
+      {
+        "row": "26",
+        "seat": "35",
+        "xPct": 87.487832,
+        "yPct": 92.403886,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 215"
+  },
+  "a216": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 86.068398,
+        "yPct": 86.430343,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "1",
+        "xPct": 89.021171,
+        "yPct": 92.424556,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "13",
+        "xPct": 88.057357,
+        "yPct": 85.314179,
+        "role": "nearRight"
+      },
+      {
+        "row": "29",
+        "seat": "36",
+        "xPct": 91.378132,
+        "yPct": 89.479124,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 216"
+  },
+  "a116": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 78.07751,
+        "yPct": 78.710211,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "1",
+        "xPct": 81.801334,
+        "yPct": 85.624225,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "3",
+        "xPct": 78.366654,
+        "yPct": 78.513849,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "12",
+        "xPct": 83.431054,
+        "yPct": 84.301364,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 116"
+  },
+  "d224": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "21",
+        "seat": "2",
+        "xPct": 95.215861,
+        "yPct": 50.888797,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "1",
+        "xPct": 97.914538,
+        "yPct": 50.6821,
+        "role": "farLeft"
+      },
+      {
+        "row": "19",
+        "seat": "11",
+        "xPct": 94.830336,
+        "yPct": 52.74907,
+        "role": "nearRight"
+      },
+      {
+        "row": "35",
+        "seat": "17",
+        "xPct": 97.914538,
+        "yPct": 53.989252,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 224"
+  },
+  "d217": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 87.768213,
+        "yPct": 84.301364,
+        "role": "nearLeft"
+      },
+      {
+        "row": "20",
+        "seat": "1",
+        "xPct": 91.483275,
+        "yPct": 89.665151,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "5",
+        "xPct": 88.302692,
+        "yPct": 83.867301,
+        "role": "nearRight"
+      },
+      {
+        "row": "18",
+        "seat": "13",
+        "xPct": 93.568616,
+        "yPct": 86.895411,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 217"
+  },
+  "d226": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "19",
+        "seat": "3",
+        "xPct": 94.830336,
+        "yPct": 42.352212,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "1",
+        "xPct": 97.914538,
+        "yPct": 41.938818,
+        "role": "farLeft"
+      },
+      {
+        "row": "19",
+        "seat": "12",
+        "xPct": 94.830336,
+        "yPct": 44.212484,
+        "role": "nearRight"
+      },
+      {
+        "row": "35",
+        "seat": "17",
+        "xPct": 97.914538,
+        "yPct": 45.245969,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 226"
+  },
+  "d229": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 91.562133,
+        "yPct": 29.733361,
+        "role": "nearLeft"
+      },
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 97.888252,
+        "yPct": 26.3642,
+        "role": "farLeft"
+      },
+      {
+        "row": "7",
+        "seat": "36",
+        "xPct": 91.378132,
+        "yPct": 25.041339,
+        "role": "nearRight"
+      },
+      {
+        "row": "19",
+        "seat": "42",
+        "xPct": 95.741577,
+        "yPct": 26.064489,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 229"
+  },
+  "d230": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "26",
+        "seat": "2",
+        "xPct": 95.285956,
+        "yPct": 20.731707,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 96.311103,
+        "yPct": 20.039272,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "22",
+        "xPct": 96.039483,
+        "yPct": 24.958661,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "23",
+        "xPct": 97.169773,
+        "yPct": 24.669285,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 230"
+  },
+  "c129": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 78.568179,
+        "yPct": 21.858206,
+        "role": "nearLeft"
+      },
+      {
+        "row": "25",
+        "seat": "1",
+        "xPct": 84.333534,
+        "yPct": 15.905333,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "4",
+        "xPct": 78.130082,
+        "yPct": 21.54816,
+        "role": "nearRight"
+      },
+      {
+        "row": "23",
+        "seat": "15",
+        "xPct": 81.888953,
+        "yPct": 13.869368,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 129"
+  },
+  "c238": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 65.477843,
+        "yPct": 3.586193,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 65.653082,
+        "yPct": 2.221993,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "17",
+        "xPct": 68.281663,
+        "yPct": 3.586193,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "16",
+        "xPct": 68.106425,
+        "yPct": 2.221993,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 238"
+  },
+  "c140": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "3",
+        "seat": "1",
+        "xPct": 35.113467,
+        "yPct": 20.194295,
+        "role": "nearLeft"
+      },
+      {
+        "row": "15",
+        "seat": "1",
+        "xPct": 35.113467,
+        "yPct": 17.465895,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "18",
+        "xPct": 38.092526,
+        "yPct": 19.739562,
+        "role": "nearRight"
+      },
+      {
+        "row": "15",
+        "seat": "16",
+        "xPct": 37.742049,
+        "yPct": 17.465895,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 140"
+  },
+  "c141": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 34.438798,
+        "yPct": 20.421662,
+        "role": "nearLeft"
+      },
+      {
+        "row": "40",
+        "seat": "1",
+        "xPct": 31.985455,
+        "yPct": 11.554361,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "23",
+        "xPct": 31.459739,
+        "yPct": 20.649029,
+        "role": "nearRight"
+      },
+      {
+        "row": "33",
+        "seat": "18",
+        "xPct": 31.459739,
+        "yPct": 13.373295,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 141"
+  },
+  "c249": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 25.887147,
+        "yPct": 8.577925,
+        "role": "nearLeft"
+      },
+      {
+        "row": "34",
+        "seat": "1",
+        "xPct": 22.364847,
+        "yPct": 2.149649,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "30",
+        "xPct": 21.760273,
+        "yPct": 9.156676,
+        "role": "nearRight"
+      },
+      {
+        "row": "27",
+        "seat": "35",
+        "xPct": 22.583896,
+        "yPct": 3.720546,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 249"
+  },
+  "b147": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.658547,
+        "yPct": 35.748243,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 32.441091,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "38",
+        "xPct": 16.730921,
+        "yPct": 36.368334,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "38",
+        "xPct": 11.52633,
+        "yPct": 36.368334,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 147"
+  },
+  "b258": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "36",
+        "seat": "1",
+        "xPct": 1.879436,
+        "yPct": 40.646962,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "2",
+        "xPct": 1.686673,
+        "yPct": 40.440265,
+        "role": "farLeft"
+      },
+      {
+        "row": "35",
+        "seat": "17",
+        "xPct": 2.072198,
+        "yPct": 37.33981,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "17",
+        "xPct": 1.686673,
+        "yPct": 37.33981,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 258"
+  },
+  "b259": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 3.807062,
+        "yPct": 45.173625,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 2.650486,
+        "yPct": 45.173625,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "17",
+        "xPct": 3.807062,
+        "yPct": 41.866474,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "18",
+        "xPct": 2.650486,
+        "yPct": 41.659777,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 259"
+  },
+  "b263": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 4.192588,
+        "yPct": 62.763539,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 3.036012,
+        "yPct": 62.556842,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "17",
+        "xPct": 4.192588,
+        "yPct": 59.456387,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "16",
+        "xPct": 3.036012,
+        "yPct": 59.663084,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 263"
+  },
+  "a104": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 34.062035,
+        "yPct": 79.557668,
+        "role": "nearLeft"
+      },
+      {
+        "row": "40",
+        "seat": "1",
+        "xPct": 31.959169,
+        "yPct": 88.652336,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "24",
+        "xPct": 34.938228,
+        "yPct": 81.149235,
+        "role": "nearRight"
+      },
+      {
+        "row": "34",
+        "seat": "18",
+        "xPct": 34.237273,
+        "yPct": 88.197602,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 104"
+  },
+  "d218": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "19",
+        "seat": "4",
+        "xPct": 93.393378,
+        "yPct": 81.056222,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "1",
+        "xPct": 96.179674,
+        "yPct": 81.366267,
+        "role": "farLeft"
+      },
+      {
+        "row": "29",
+        "seat": "23",
+        "xPct": 93.778903,
+        "yPct": 85.283175,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "24",
+        "xPct": 94.085571,
+        "yPct": 85.531211,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 218"
+  },
+  "d219": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 91.088988,
+        "yPct": 75.795783,
+        "role": "nearLeft"
+      },
+      {
+        "row": "25",
+        "seat": "1",
+        "xPct": 95.759101,
+        "yPct": 81.397272,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "42",
+        "xPct": 93.664998,
+        "yPct": 75.568417,
+        "role": "nearRight"
+      },
+      {
+        "row": "19",
+        "seat": "43",
+        "xPct": 97.765585,
+        "yPct": 75.403059,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 219"
+  },
+  "d118": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.345713,
+        "yPct": 70.711038,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 88.416597,
+        "yPct": 74.183547,
+        "role": "farLeft"
+      },
+      {
+        "row": "9",
+        "seat": "21",
+        "xPct": 84.622678,
+        "yPct": 70.132286,
+        "role": "nearRight"
+      },
+      {
+        "row": "21",
+        "seat": "33",
+        "xPct": 88.863456,
+        "yPct": 69.780901,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 118"
+  },
+  "d222": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 95.794149,
+        "yPct": 59.528731,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 96.950725,
+        "yPct": 59.735428,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "17",
+        "xPct": 95.794149,
+        "yPct": 62.835883,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "16",
+        "xPct": 96.950725,
+        "yPct": 62.629186,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 222"
+  },
+  "d223": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 91.360608,
+        "yPct": 56.655643,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "1",
+        "xPct": 99.263876,
+        "yPct": 58.515916,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "24",
+        "xPct": 92.131659,
+        "yPct": 55.002067,
+        "role": "nearRight"
+      },
+      {
+        "row": "28",
+        "seat": "25",
+        "xPct": 99.263876,
+        "yPct": 55.002067,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 223"
+  },
+  "d121": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.336951,
+        "yPct": 56.655643,
+        "role": "nearLeft"
+      },
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 89.047456,
+        "yPct": 58.102522,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "27",
+        "xPct": 82.300764,
+        "yPct": 55.208764,
+        "role": "nearRight"
+      },
+      {
+        "row": "20",
+        "seat": "28",
+        "xPct": 87.890881,
+        "yPct": 55.208764,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 121"
+  },
+  "d122": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "10",
+        "seat": "2",
+        "xPct": 83.063053,
+        "yPct": 51.715585,
+        "role": "nearLeft"
+      },
+      {
+        "row": "38",
+        "seat": "1",
+        "xPct": 88.460407,
+        "yPct": 50.475403,
+        "role": "farLeft"
+      },
+      {
+        "row": "12",
+        "seat": "18",
+        "xPct": 83.448578,
+        "yPct": 53.989252,
+        "role": "nearRight"
+      },
+      {
+        "row": "38",
+        "seat": "18",
+        "xPct": 88.460407,
+        "yPct": 53.989252,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 122"
+  },
+  "d124": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "7",
+        "seat": "1",
+        "xPct": 82.493527,
+        "yPct": 41.732121,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "2",
+        "xPct": 88.276406,
+        "yPct": 41.938818,
+        "role": "farLeft"
+      },
+      {
+        "row": "7",
+        "seat": "17",
+        "xPct": 82.493527,
+        "yPct": 45.039272,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "18",
+        "xPct": 88.276406,
+        "yPct": 45.245969,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 124"
+  },
+  "d232": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 86.602876,
+        "yPct": 18.251344,
+        "role": "nearLeft"
+      },
+      {
+        "row": "19",
+        "seat": "1",
+        "xPct": 93.060424,
+        "yPct": 12.484498,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "3",
+        "xPct": 86.375066,
+        "yPct": 17.879289,
+        "role": "nearRight"
+      },
+      {
+        "row": "17",
+        "seat": "15",
+        "xPct": 91.59718,
+        "yPct": 11.068623,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 232"
+  },
+  "c132": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "2",
+        "xPct": 65.477843,
+        "yPct": 19.067797,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 66.003559,
+        "yPct": 13.610996,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "18",
+        "xPct": 68.281663,
+        "yPct": 19.52253,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "14",
+        "xPct": 68.281663,
+        "yPct": 13.610996,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 132"
+  },
+  "c133": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "4",
+        "seat": "2",
+        "xPct": 61.824115,
+        "yPct": 19.977263,
+        "role": "nearLeft"
+      },
+      {
+        "row": "20",
+        "seat": "2",
+        "xPct": 62.700309,
+        "yPct": 16.339396,
+        "role": "farLeft"
+      },
+      {
+        "row": "4",
+        "seat": "18",
+        "xPct": 64.627935,
+        "yPct": 19.977263,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "13",
+        "xPct": 64.627935,
+        "yPct": 15.884663,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 133"
+  },
+  "c142": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "2",
+        "xPct": 27.096294,
+        "yPct": 19.057462,
+        "role": "nearLeft"
+      },
+      {
+        "row": "39",
+        "seat": "2",
+        "xPct": 27.096294,
+        "yPct": 12.009095,
+        "role": "farLeft"
+      },
+      {
+        "row": "12",
+        "seat": "20",
+        "xPct": 30.250591,
+        "yPct": 18.147995,
+        "role": "nearRight"
+      },
+      {
+        "row": "39",
+        "seat": "22",
+        "xPct": 30.601069,
+        "yPct": 12.009095,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 142"
+  },
+  "c252": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 10.39604,
+        "yPct": 10.541546,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 9.677561,
+        "yPct": 9.456387,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "20",
+        "xPct": 12.989573,
+        "yPct": 7.988838,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "20",
+        "xPct": 12.420047,
+        "yPct": 6.800331,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 252"
+  },
+  "b150": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.658547,
+        "yPct": 46.22778,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 47.054568,
+        "role": "farLeft"
+      },
+      {
+        "row": "12",
+        "seat": "34",
+        "xPct": 16.152633,
+        "yPct": 49.741629,
+        "role": "nearRight"
+      },
+      {
+        "row": "26",
+        "seat": "34",
+        "xPct": 11.52633,
+        "yPct": 49.741629,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 150"
+  },
+  "b260": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "23",
+        "seat": "3",
+        "xPct": 4.38535,
+        "yPct": 49.080198,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "1",
+        "xPct": 2.072198,
+        "yPct": 49.493592,
+        "role": "farLeft"
+      },
+      {
+        "row": "19",
+        "seat": "12",
+        "xPct": 5.156401,
+        "yPct": 47.219926,
+        "role": "nearRight"
+      },
+      {
+        "row": "35",
+        "seat": "17",
+        "xPct": 2.072198,
+        "yPct": 46.186441,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 260"
+  },
+  "a208": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 49.23321,
+        "yPct": 96.682513,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 49.23321,
+        "yPct": 97.59198,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "21",
+        "xPct": 45.202718,
+        "yPct": 96.682513,
+        "role": "nearRight"
+      },
+      {
+        "row": "28",
+        "seat": "21",
+        "xPct": 45.202718,
+        "yPct": 97.59198,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 208"
+  },
+  "d117": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "19",
+        "seat": "3",
+        "xPct": 83.877913,
+        "yPct": 77.139314,
+        "role": "nearLeft"
+      },
+      {
+        "row": "36",
+        "seat": "2",
+        "xPct": 87.671832,
+        "yPct": 76.198842,
+        "role": "farLeft"
+      },
+      {
+        "row": "34",
+        "seat": "29",
+        "xPct": 85.087061,
+        "yPct": 81.355932,
+        "role": "nearRight"
+      },
+      {
+        "row": "36",
+        "seat": "31",
+        "xPct": 85.341157,
+        "yPct": 81.707317,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 117"
+  },
+  "d220": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "22",
+        "seat": "2",
+        "xPct": 95.426147,
+        "yPct": 69.956594,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 97.353774,
+        "yPct": 69.346838,
+        "role": "farLeft"
+      },
+      {
+        "row": "28",
+        "seat": "22",
+        "xPct": 96.538914,
+        "yPct": 73.883836,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "22",
+        "xPct": 97.309964,
+        "yPct": 73.801158,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 220"
+  },
+  "d221": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 91.360608,
+        "yPct": 64.675486,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "1",
+        "xPct": 98.492826,
+        "yPct": 67.982637,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "35",
+        "xPct": 93.095472,
+        "yPct": 63.848698,
+        "role": "nearRight"
+      },
+      {
+        "row": "24",
+        "seat": "35",
+        "xPct": 98.685588,
+        "yPct": 63.848698,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 221"
+  },
+  "d119": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.336951,
+        "yPct": 64.262092,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 89.047456,
+        "yPct": 67.77594,
+        "role": "farLeft"
+      },
+      {
+        "row": "7",
+        "seat": "40",
+        "xPct": 83.45734,
+        "yPct": 63.848698,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "40",
+        "xPct": 88.083643,
+        "yPct": 63.848698,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 119"
+  },
+  "d120": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "1",
+        "xPct": 82.68629,
+        "yPct": 59.528731,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "2",
+        "xPct": 87.312593,
+        "yPct": 59.735428,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "16",
+        "xPct": 82.68629,
+        "yPct": 62.629186,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "16",
+        "xPct": 87.312593,
+        "yPct": 62.629186,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 120"
+  },
+  "d225": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "34",
+        "seat": "1",
+        "xPct": 97.721775,
+        "yPct": 46.155436,
+        "role": "nearLeft"
+      },
+      {
+        "row": "36",
+        "seat": "1",
+        "xPct": 98.1073,
+        "yPct": 46.155436,
+        "role": "farLeft"
+      },
+      {
+        "row": "34",
+        "seat": "17",
+        "xPct": 97.721775,
+        "yPct": 49.462588,
+        "role": "nearRight"
+      },
+      {
+        "row": "36",
+        "seat": "17",
+        "xPct": 98.1073,
+        "yPct": 49.462588,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 225"
+  },
+  "d123": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.336951,
+        "yPct": 48.625465,
+        "role": "nearLeft"
+      },
+      {
+        "row": "34",
+        "seat": "1",
+        "xPct": 89.047456,
+        "yPct": 48.832162,
+        "role": "farLeft"
+      },
+      {
+        "row": "11",
+        "seat": "25",
+        "xPct": 83.264578,
+        "yPct": 46.145101,
+        "role": "nearRight"
+      },
+      {
+        "row": "33",
+        "seat": "18",
+        "xPct": 88.661931,
+        "yPct": 46.145101,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 123"
+  },
+  "d227": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "26",
+        "seat": "3",
+        "xPct": 96.179674,
+        "yPct": 37.825548,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 97.33625,
+        "yPct": 37.412154,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "17",
+        "xPct": 96.179674,
+        "yPct": 40.719305,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "18",
+        "xPct": 97.33625,
+        "yPct": 40.926002,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 227"
+  },
+  "d125": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.529714,
+        "yPct": 40.915668,
+        "role": "nearLeft"
+      },
+      {
+        "row": "27",
+        "seat": "1",
+        "xPct": 89.047456,
+        "yPct": 38.228607,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "28",
+        "xPct": 81.336951,
+        "yPct": 37.401819,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "31",
+        "xPct": 87.312593,
+        "yPct": 37.401819,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 125"
+  },
+  "d228": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "34",
+        "seat": "1",
+        "xPct": 97.721775,
+        "yPct": 32.265399,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "2",
+        "xPct": 98.300063,
+        "yPct": 32.472096,
+        "role": "farLeft"
+      },
+      {
+        "row": "34",
+        "seat": "21",
+        "xPct": 97.721775,
+        "yPct": 36.399339,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "20",
+        "xPct": 98.300063,
+        "yPct": 36.192642,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 228"
+  },
+  "d126": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "2",
+        "xPct": 82.68629,
+        "yPct": 32.265399,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "2",
+        "xPct": 88.276406,
+        "yPct": 32.265399,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "19",
+        "xPct": 82.68629,
+        "yPct": 35.779248,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "19",
+        "xPct": 88.276406,
+        "yPct": 35.779248,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 126"
+  },
+  "d127": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 81.722476,
+        "yPct": 29.950393,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 88.583074,
+        "yPct": 26.147168,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "20",
+        "xPct": 80.907616,
+        "yPct": 24.689955,
+        "role": "nearRight"
+      },
+      {
+        "row": "20",
+        "seat": "32",
+        "xPct": 86.357542,
+        "yPct": 26.932617,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 127"
+  },
+  "d128": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "3",
+        "xPct": 81.485904,
+        "yPct": 23.139727,
+        "role": "nearLeft"
+      },
+      {
+        "row": "36",
+        "seat": "5",
+        "xPct": 85.568967,
+        "yPct": 18.892104,
+        "role": "farLeft"
+      },
+      {
+        "row": "10",
+        "seat": "10",
+        "xPct": 82.397146,
+        "yPct": 24.152542,
+        "role": "nearRight"
+      },
+      {
+        "row": "36",
+        "seat": "31",
+        "xPct": 87.628022,
+        "yPct": 23.842497,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 128"
+  },
+  "d231": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "12",
+        "seat": "5",
+        "xPct": 91.430704,
+        "yPct": 17.982637,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "1",
+        "xPct": 95.382338,
+        "yPct": 16.639107,
+        "role": "farLeft"
+      },
+      {
+        "row": "12",
+        "seat": "10",
+        "xPct": 91.824991,
+        "yPct": 18.933444,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "25",
+        "xPct": 95.899292,
+        "yPct": 19.315833,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор D 231"
+  },
+  "c233": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 86.927068,
+        "yPct": 7.389417,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 87.303831,
+        "yPct": 6.593634,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "22",
+        "xPct": 89.616982,
+        "yPct": 10.572551,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "21",
+        "xPct": 90.344223,
+        "yPct": 9.497726,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 233"
+  },
+  "c131": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "3",
+        "xPct": 69.490811,
+        "yPct": 19.067797,
+        "role": "nearLeft"
+      },
+      {
+        "row": "39",
+        "seat": "2",
+        "xPct": 69.315572,
+        "yPct": 12.01943,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "22",
+        "xPct": 72.820347,
+        "yPct": 19.067797,
+        "role": "nearRight"
+      },
+      {
+        "row": "39",
+        "seat": "22",
+        "xPct": 72.820347,
+        "yPct": 12.01943,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 131"
+  },
+  "c235": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "2",
+        "xPct": 79.409325,
+        "yPct": 4.340637,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 78.340368,
+        "yPct": 2.7284,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "22",
+        "xPct": 81.959049,
+        "yPct": 4.702356,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "24",
+        "xPct": 82.256955,
+        "yPct": 3.865234,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 235"
+  },
+  "c241": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "14",
+        "seat": "2",
+        "xPct": 54.332658,
+        "yPct": 5.859859,
+        "role": "nearLeft"
+      },
+      {
+        "row": "14",
+        "seat": "2",
+        "xPct": 54.332658,
+        "yPct": 5.859859,
+        "role": "farLeft"
+      },
+      {
+        "row": "14",
+        "seat": "17",
+        "xPct": 56.961239,
+        "yPct": 5.859859,
+        "role": "nearRight"
+      },
+      {
+        "row": "14",
+        "seat": "17",
+        "xPct": 56.961239,
+        "yPct": 5.859859,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 241"
+  },
+  "c243": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "27",
+        "seat": "1",
+        "xPct": 46.6572,
+        "yPct": 2.904093,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "1",
+        "xPct": 46.6572,
+        "yPct": 1.994626,
+        "role": "farLeft"
+      },
+      {
+        "row": "25",
+        "seat": "16",
+        "xPct": 49.285781,
+        "yPct": 3.358826,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "17",
+        "xPct": 49.46102,
+        "yPct": 1.994626,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 243"
+  },
+  "c250": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 17.99264,
+        "yPct": 4.47499,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 17.685972,
+        "yPct": 3.637867,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "22",
+        "xPct": 21.541225,
+        "yPct": 3.43117,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "22",
+        "xPct": 21.304653,
+        "yPct": 2.552708,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 250"
+  },
+  "b255": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "21",
+        "seat": "2",
+        "xPct": 5.086305,
+        "yPct": 23.677139,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "1",
+        "xPct": 2.615439,
+        "yPct": 24.803638,
+        "role": "farLeft"
+      },
+      {
+        "row": "29",
+        "seat": "25",
+        "xPct": 4.280207,
+        "yPct": 20.008268,
+        "role": "nearRight"
+      },
+      {
+        "row": "33",
+        "seat": "25",
+        "xPct": 3.509156,
+        "yPct": 19.88425,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 255"
+  },
+  "b145": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 19.07912,
+        "yPct": 24.214551,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "1",
+        "xPct": 16.433015,
+        "yPct": 16.039686,
+        "role": "farLeft"
+      },
+      {
+        "row": "19",
+        "seat": "47",
+        "xPct": 13.243669,
+        "yPct": 24.3179,
+        "role": "nearRight"
+      },
+      {
+        "row": "20",
+        "seat": "47",
+        "xPct": 13.050907,
+        "yPct": 24.286895,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 145"
+  },
+  "b261": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "34",
+        "seat": "1",
+        "xPct": 2.264961,
+        "yPct": 54.020256,
+        "role": "nearLeft"
+      },
+      {
+        "row": "36",
+        "seat": "1",
+        "xPct": 1.879436,
+        "yPct": 54.020256,
+        "role": "farLeft"
+      },
+      {
+        "row": "34",
+        "seat": "17",
+        "xPct": 2.264961,
+        "yPct": 50.713105,
+        "role": "nearRight"
+      },
+      {
+        "row": "36",
+        "seat": "17",
+        "xPct": 1.879436,
+        "yPct": 50.713105,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 261"
+  },
+  "b155": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.273022,
+        "yPct": 70.266639,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 11.412424,
+        "yPct": 74.069864,
+        "role": "farLeft"
+      },
+      {
+        "row": "20",
+        "seat": "34",
+        "xPct": 13.637957,
+        "yPct": 73.284415,
+        "role": "nearRight"
+      },
+      {
+        "row": "20",
+        "seat": "34",
+        "xPct": 13.637957,
+        "yPct": 73.284415,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 155"
+  },
+  "a201": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "10",
+        "seat": "2",
+        "xPct": 14.409007,
+        "yPct": 89.489458,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 12.516429,
+        "yPct": 93.47871,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "16",
+        "xPct": 12.630334,
+        "yPct": 87.164117,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "20",
+        "xPct": 9.747656,
+        "yPct": 90.832989,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 201"
+  },
+  "a202": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 15.407868,
+        "yPct": 87.825548,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 12.516429,
+        "yPct": 93.47871,
+        "role": "farLeft"
+      },
+      {
+        "row": "11",
+        "seat": "28",
+        "xPct": 16.67835,
+        "yPct": 91.391071,
+        "role": "nearRight"
+      },
+      {
+        "row": "28",
+        "seat": "34",
+        "xPct": 16.765969,
+        "yPct": 96.165771,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 202"
+  },
+  "a203": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "10",
+        "seat": "2",
+        "xPct": 21.74275,
+        "yPct": 93.13766,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "2",
+        "xPct": 21.444844,
+        "yPct": 97.457627,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "16",
+        "xPct": 19.447122,
+        "yPct": 92.000827,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "20",
+        "xPct": 18.369403,
+        "yPct": 96.610169,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 203"
+  },
+  "a205": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "11",
+        "seat": "1",
+        "xPct": 30.837641,
+        "yPct": 93.675072,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "2",
+        "xPct": 30.662403,
+        "yPct": 97.540306,
+        "role": "farLeft"
+      },
+      {
+        "row": "9",
+        "seat": "20",
+        "xPct": 27.508105,
+        "yPct": 93.220339,
+        "role": "nearRight"
+      },
+      {
+        "row": "28",
+        "seat": "20",
+        "xPct": 27.508105,
+        "yPct": 97.540306,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 205"
+  },
+  "a106": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 39.340982,
+        "yPct": 79.568003,
+        "role": "nearLeft"
+      },
+      {
+        "row": "40",
+        "seat": "1",
+        "xPct": 39.165743,
+        "yPct": 88.662671,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "5",
+        "xPct": 40.041937,
+        "yPct": 79.568003,
+        "role": "nearRight"
+      },
+      {
+        "row": "39",
+        "seat": "6",
+        "xPct": 40.041937,
+        "yPct": 88.207937,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 106"
+  },
+  "c236": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 74.68664,
+        "yPct": 8.825961,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "1",
+        "xPct": 78.366654,
+        "yPct": 2.501033,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "30",
+        "xPct": 73.854256,
+        "yPct": 6.324928,
+        "role": "nearRight"
+      },
+      {
+        "row": "26",
+        "seat": "33",
+        "xPct": 73.258444,
+        "yPct": 1.550227,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 236"
+  },
+  "c237": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "14",
+        "seat": "7",
+        "xPct": 70.191766,
+        "yPct": 5.870194,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "2",
+        "xPct": 69.315572,
+        "yPct": 1.777594,
+        "role": "farLeft"
+      },
+      {
+        "row": "14",
+        "seat": "20",
+        "xPct": 72.46987,
+        "yPct": 5.870194,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "20",
+        "xPct": 72.46987,
+        "yPct": 1.777594,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 237"
+  },
+  "c239": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 62.516308,
+        "yPct": 8.815626,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "1",
+        "xPct": 64.619173,
+        "yPct": 0.857792,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "20",
+        "xPct": 61.640114,
+        "yPct": 8.133526,
+        "role": "nearRight"
+      },
+      {
+        "row": "33",
+        "seat": "22",
+        "xPct": 61.640114,
+        "yPct": 0.857792,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 239"
+  },
+  "c144": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 21.917988,
+        "yPct": 21.496486,
+        "role": "nearLeft"
+      },
+      {
+        "row": "19",
+        "seat": "1",
+        "xPct": 18.03645,
+        "yPct": 14.696155,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "3",
+        "xPct": 21.628844,
+        "yPct": 21.692848,
+        "role": "nearRight"
+      },
+      {
+        "row": "19",
+        "seat": "11",
+        "xPct": 16.564444,
+        "yPct": 15.905333,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 144"
+  },
+  "b254": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 10.685184,
+        "yPct": 18.540719,
+        "role": "nearLeft"
+      },
+      {
+        "row": "23",
+        "seat": "1",
+        "xPct": 6.251643,
+        "yPct": 13.652336,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "43",
+        "xPct": 7.881364,
+        "yPct": 18.540719,
+        "role": "nearRight"
+      },
+      {
+        "row": "18",
+        "seat": "36",
+        "xPct": 4.06992,
+        "yPct": 18.706077,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 254"
+  },
+  "b262": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "21",
+        "seat": "2",
+        "xPct": 4.770876,
+        "yPct": 58.030178,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "1",
+        "xPct": 2.072199,
+        "yPct": 58.236875,
+        "role": "farLeft"
+      },
+      {
+        "row": "21",
+        "seat": "12",
+        "xPct": 4.770876,
+        "yPct": 55.963208,
+        "role": "nearRight"
+      },
+      {
+        "row": "35",
+        "seat": "17",
+        "xPct": 2.072199,
+        "yPct": 54.929723,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 262"
+  },
+  "b152": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.465785,
+        "yPct": 54.981397,
+        "role": "nearLeft"
+      },
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 57.668458,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "29",
+        "xPct": 18.658547,
+        "yPct": 58.495246,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "30",
+        "xPct": 12.29738,
+        "yPct": 58.495246,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 152"
+  },
+  "b156": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 19.341978,
+        "yPct": 75.620091,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "1",
+        "xPct": 13.716814,
+        "yPct": 82.5031,
+        "role": "farLeft"
+      },
+      {
+        "row": "17",
+        "seat": "62",
+        "xPct": 20.191887,
+        "yPct": 84.042993,
+        "role": "nearRight"
+      },
+      {
+        "row": "17",
+        "seat": "62",
+        "xPct": 20.191887,
+        "yPct": 84.042993,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 156"
+  },
+  "a103": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "2",
+        "xPct": 30.925261,
+        "yPct": 81.149235,
+        "role": "nearLeft"
+      },
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 30.224306,
+        "yPct": 84.787102,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "22",
+        "xPct": 27.420485,
+        "yPct": 80.694502,
+        "role": "nearRight"
+      },
+      {
+        "row": "24",
+        "seat": "17",
+        "xPct": 27.420485,
+        "yPct": 84.787102,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 103"
+  },
+  "a105": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "6",
+        "seat": "2",
+        "xPct": 38.478051,
+        "yPct": 80.694502,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "2",
+        "xPct": 38.478051,
+        "yPct": 86.606036,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "18",
+        "xPct": 35.674231,
+        "yPct": 80.694502,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "14",
+        "xPct": 36.375186,
+        "yPct": 86.606036,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 105"
+  },
+  "c134": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "8",
+        "seat": "2",
+        "xPct": 57.986386,
+        "yPct": 19.067797,
+        "role": "nearLeft"
+      },
+      {
+        "row": "38",
+        "seat": "1",
+        "xPct": 58.512102,
+        "yPct": 12.246796,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "18",
+        "xPct": 60.790206,
+        "yPct": 19.067797,
+        "role": "nearRight"
+      },
+      {
+        "row": "38",
+        "seat": "14",
+        "xPct": 60.790206,
+        "yPct": 12.246796,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 134"
+  },
+  "c135": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "3",
+        "seat": "2",
+        "xPct": 54.332658,
+        "yPct": 20.20463,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "2",
+        "xPct": 54.332658,
+        "yPct": 13.838363,
+        "role": "farLeft"
+      },
+      {
+        "row": "3",
+        "seat": "18",
+        "xPct": 57.136478,
+        "yPct": 20.20463,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "14",
+        "xPct": 56.435523,
+        "yPct": 13.838363,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 135"
+  },
+  "c242": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "24",
+        "seat": "2",
+        "xPct": 50.494929,
+        "yPct": 3.586193,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 50.31969,
+        "yPct": 2.221993,
+        "role": "farLeft"
+      },
+      {
+        "row": "24",
+        "seat": "18",
+        "xPct": 53.298749,
+        "yPct": 3.586193,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "17",
+        "xPct": 53.12351,
+        "yPct": 2.221993,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 242"
+  },
+  "c139": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 42.144802,
+        "yPct": 20.431997,
+        "role": "nearLeft"
+      },
+      {
+        "row": "41",
+        "seat": "1",
+        "xPct": 40.041937,
+        "yPct": 11.564696,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "20",
+        "xPct": 39.340982,
+        "yPct": 20.659363,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "16",
+        "xPct": 39.165743,
+        "yPct": 12.928896,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 139"
+  },
+  "c247": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "14",
+        "seat": "1",
+        "xPct": 31.55612,
+        "yPct": 5.849525,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 31.55612,
+        "yPct": 2.211658,
+        "role": "farLeft"
+      },
+      {
+        "row": "14",
+        "seat": "13",
+        "xPct": 33.658985,
+        "yPct": 5.849525,
+        "role": "nearRight"
+      },
+      {
+        "row": "30",
+        "seat": "17",
+        "xPct": 34.35994,
+        "yPct": 2.211658,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 247"
+  },
+  "c143": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 25.668098,
+        "yPct": 20.173625,
+        "role": "nearLeft"
+      },
+      {
+        "row": "40",
+        "seat": "1",
+        "xPct": 22.329799,
+        "yPct": 12.143448,
+        "role": "farLeft"
+      },
+      {
+        "row": "10",
+        "seat": "24",
+        "xPct": 20.980461,
+        "yPct": 21.114097,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "20",
+        "xPct": 21.059318,
+        "yPct": 15.223233,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 143"
+  },
+  "c251": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 17.975116,
+        "yPct": 10.59322,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 13.637957,
+        "yPct": 5.859859,
+        "role": "farLeft"
+      },
+      {
+        "row": "9",
+        "seat": "27",
+        "xPct": 12.65662,
+        "yPct": 12.391484,
+        "role": "nearRight"
+      },
+      {
+        "row": "26",
+        "seat": "35",
+        "xPct": 12.525191,
+        "yPct": 7.802811,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 251"
+  },
+  "b264": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 8.433366,
+        "yPct": 63.776354,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "1",
+        "xPct": 1.301148,
+        "yPct": 67.290203,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "33",
+        "xPct": 8.626129,
+        "yPct": 67.910294,
+        "role": "nearRight"
+      },
+      {
+        "row": "25",
+        "seat": "33",
+        "xPct": 2.650487,
+        "yPct": 67.910294,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 264"
+  },
+  "b154": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.465785,
+        "yPct": 63.817693,
+        "role": "nearLeft"
+      },
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 67.951633,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "44",
+        "xPct": 18.658547,
+        "yPct": 68.15833,
+        "role": "nearRight"
+      },
+      {
+        "row": "19",
+        "seat": "44",
+        "xPct": 13.646719,
+        "yPct": 68.15833,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 154"
+  },
+  "a114": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "6",
+        "seat": "1",
+        "xPct": 72.820347,
+        "yPct": 80.704837,
+        "role": "nearLeft"
+      },
+      {
+        "row": "24",
+        "seat": "1",
+        "xPct": 72.820347,
+        "yPct": 84.797437,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "22",
+        "xPct": 69.140333,
+        "yPct": 81.15957,
+        "role": "nearRight"
+      },
+      {
+        "row": "24",
+        "seat": "15",
+        "xPct": 70.367005,
+        "yPct": 84.797437,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 114"
+  },
+  "vipc136": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "6",
+        "seat": "3",
+        "xPct": 50.670168,
+        "yPct": 19.52253,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 51.020645,
+        "yPct": 13.610996,
+        "role": "farLeft"
+      },
+      {
+        "row": "6",
+        "seat": "18",
+        "xPct": 53.298749,
+        "yPct": 19.52253,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "14",
+        "xPct": 53.298749,
+        "yPct": 13.610996,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 136 VIP"
+  },
+  "c244": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "14",
+        "seat": "2",
+        "xPct": 43.169949,
+        "yPct": 5.859859,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 42.99471,
+        "yPct": 2.676726,
+        "role": "farLeft"
+      },
+      {
+        "row": "14",
+        "seat": "11",
+        "xPct": 44.747098,
+        "yPct": 5.859859,
+        "role": "nearRight"
+      },
+      {
+        "row": "28",
+        "seat": "17",
+        "xPct": 45.79853,
+        "yPct": 2.676726,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 244"
+  },
+  "c246": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 38.206431,
+        "yPct": 8.577925,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "1",
+        "xPct": 35.402611,
+        "yPct": 0.847458,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "20",
+        "xPct": 35.57785,
+        "yPct": 8.805291,
+        "role": "nearRight"
+      },
+      {
+        "row": "33",
+        "seat": "21",
+        "xPct": 35.227372,
+        "yPct": 1.756924,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 246"
+  },
+  "b146": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.649785,
+        "yPct": 29.195949,
+        "role": "nearLeft"
+      },
+      {
+        "row": "27",
+        "seat": "1",
+        "xPct": 11.578901,
+        "yPct": 26.033485,
+        "role": "farLeft"
+      },
+      {
+        "row": "19",
+        "seat": "33",
+        "xPct": 11.517568,
+        "yPct": 30.405126,
+        "role": "nearRight"
+      },
+      {
+        "row": "20",
+        "seat": "33",
+        "xPct": 11.132042,
+        "yPct": 30.436131,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 146"
+  },
+  "b148": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.658547,
+        "yPct": 39.861513,
+        "role": "nearLeft"
+      },
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 37.174452,
+        "role": "farLeft"
+      },
+      {
+        "row": "4",
+        "seat": "32",
+        "xPct": 17.309209,
+        "yPct": 41.494419,
+        "role": "nearRight"
+      },
+      {
+        "row": "21",
+        "seat": "31",
+        "xPct": 11.719092,
+        "yPct": 41.494419,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 148"
+  },
+  "b149": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.658547,
+        "yPct": 42.941298,
+        "role": "nearLeft"
+      },
+      {
+        "row": "26",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 41.701116,
+        "role": "farLeft"
+      },
+      {
+        "row": "2",
+        "seat": "25",
+        "xPct": 18.080259,
+        "yPct": 45.008268,
+        "role": "nearRight"
+      },
+      {
+        "row": "23",
+        "seat": "26",
+        "xPct": 11.333567,
+        "yPct": 45.008268,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 149"
+  },
+  "a111": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "7",
+        "seat": "2",
+        "xPct": 60.623729,
+        "yPct": 80.932203,
+        "role": "nearLeft"
+      },
+      {
+        "row": "39",
+        "seat": "1",
+        "xPct": 60.798968,
+        "yPct": 88.207937,
+        "role": "farLeft"
+      },
+      {
+        "row": "7",
+        "seat": "9",
+        "xPct": 59.397058,
+        "yPct": 80.932203,
+        "role": "nearRight"
+      },
+      {
+        "row": "39",
+        "seat": "8",
+        "xPct": 59.572297,
+        "yPct": 88.207937,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 111"
+  },
+  "a210": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 56.593238,
+        "yPct": 91.639107,
+        "role": "nearLeft"
+      },
+      {
+        "row": "37",
+        "seat": "1",
+        "xPct": 61.149446,
+        "yPct": 99.596941,
+        "role": "farLeft"
+      },
+      {
+        "row": "4",
+        "seat": "47",
+        "xPct": 62.200878,
+        "yPct": 91.41174,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "48",
+        "xPct": 62.200878,
+        "yPct": 98.005374,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 210"
+  },
+  "c245": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "25",
+        "seat": "1",
+        "xPct": 39.165743,
+        "yPct": 3.358826,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "2",
+        "xPct": 39.340982,
+        "yPct": 1.994626,
+        "role": "farLeft"
+      },
+      {
+        "row": "27",
+        "seat": "18",
+        "xPct": 42.144802,
+        "yPct": 2.904093,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "18",
+        "xPct": 42.144802,
+        "yPct": 1.994626,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 245"
+  },
+  "c248": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "20",
+        "seat": "2",
+        "xPct": 27.543153,
+        "yPct": 4.485325,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "2",
+        "xPct": 27.543153,
+        "yPct": 1.756924,
+        "role": "farLeft"
+      },
+      {
+        "row": "28",
+        "seat": "20",
+        "xPct": 30.69745,
+        "yPct": 2.666391,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "20",
+        "xPct": 30.69745,
+        "yPct": 1.756924,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 248"
+  },
+  "b256": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "28",
+        "seat": "1",
+        "xPct": 3.404013,
+        "yPct": 30.684167,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 2.632962,
+        "yPct": 30.828855,
+        "role": "farLeft"
+      },
+      {
+        "row": "26",
+        "seat": "22",
+        "xPct": 3.84211,
+        "yPct": 26.157503,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "23",
+        "xPct": 2.685534,
+        "yPct": 26.167838,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 256"
+  },
+  "b257": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 8.626128,
+        "yPct": 35.500207,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "1",
+        "xPct": 1.301148,
+        "yPct": 32.193055,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "36",
+        "xPct": 7.084027,
+        "yPct": 36.326995,
+        "role": "nearRight"
+      },
+      {
+        "row": "23",
+        "seat": "36",
+        "xPct": 1.49391,
+        "yPct": 36.326995,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 257"
+  },
+  "a102": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 25.36143,
+        "yPct": 79.552691,
+        "role": "nearLeft"
+      },
+      {
+        "row": "40",
+        "seat": "1",
+        "xPct": 22.101989,
+        "yPct": 87.985928,
+        "role": "farLeft"
+      },
+      {
+        "row": "12",
+        "seat": "27",
+        "xPct": 25.729431,
+        "yPct": 82.963192,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "29",
+        "xPct": 25.887146,
+        "yPct": 88.419992,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 102"
+  },
+  "b151": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.465785,
+        "yPct": 51.591567,
+        "role": "nearLeft"
+      },
+      {
+        "row": "30",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 53.865234,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "17",
+        "xPct": 18.658547,
+        "yPct": 54.071931,
+        "role": "nearRight"
+      },
+      {
+        "row": "24",
+        "seat": "24",
+        "xPct": 12.29738,
+        "yPct": 54.071931,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 151"
+  },
+  "b153": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 18.465785,
+        "yPct": 59.301364,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "1",
+        "xPct": 10.948042,
+        "yPct": 62.608516,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "30",
+        "xPct": 18.465785,
+        "yPct": 62.815213,
+        "role": "nearRight"
+      },
+      {
+        "row": "22",
+        "seat": "30",
+        "xPct": 12.875668,
+        "yPct": 62.815213,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 153"
+  },
+  "b267": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "12",
+        "seat": "7",
+        "xPct": 8.389556,
+        "yPct": 81.810666,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "1",
+        "xPct": 4.595637,
+        "yPct": 83.536585,
+        "role": "farLeft"
+      },
+      {
+        "row": "12",
+        "seat": "15",
+        "xPct": 7.802506,
+        "yPct": 80.260438,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "25",
+        "xPct": 4.078682,
+        "yPct": 80.859859,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 267"
+  },
+  "b268": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 13.541575,
+        "yPct": 81.831335,
+        "role": "nearLeft"
+      },
+      {
+        "row": "22",
+        "seat": "1",
+        "xPct": 7.013932,
+        "yPct": 87.856552,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "2",
+        "xPct": 13.629195,
+        "yPct": 81.986358,
+        "role": "nearRight"
+      },
+      {
+        "row": "20",
+        "seat": "13",
+        "xPct": 8.372032,
+        "yPct": 89.107069,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 268"
+  },
+  "a204": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 25.273811,
+        "yPct": 91.391071,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "1",
+        "xPct": 21.593797,
+        "yPct": 97.715998,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "29",
+        "xPct": 26.106195,
+        "yPct": 93.892104,
+        "role": "nearRight"
+      },
+      {
+        "row": "26",
+        "seat": "35",
+        "xPct": 26.702007,
+        "yPct": 98.666804,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 204"
+  },
+  "a212": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 69.140333,
+        "yPct": 91.649442,
+        "role": "nearLeft"
+      },
+      {
+        "row": "35",
+        "seat": "1",
+        "xPct": 72.119392,
+        "yPct": 98.925176,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "30",
+        "xPct": 72.645109,
+        "yPct": 91.422075,
+        "role": "nearRight"
+      },
+      {
+        "row": "29",
+        "seat": "29",
+        "xPct": 72.645109,
+        "yPct": 97.333609,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 212"
+  },
+  "b265": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "20",
+        "seat": "1",
+        "xPct": 4.963638,
+        "yPct": 72.922695,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 2.71182,
+        "yPct": 74.369574,
+        "role": "farLeft"
+      },
+      {
+        "row": "28",
+        "seat": "22",
+        "xPct": 3.412775,
+        "yPct": 69.832575,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "22",
+        "xPct": 2.641724,
+        "yPct": 69.904919,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 265"
+  },
+  "b266": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 8.63489,
+        "yPct": 75.34105,
+        "role": "nearLeft"
+      },
+      {
+        "row": "25",
+        "seat": "1",
+        "xPct": 3.500394,
+        "yPct": 80.229434,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "40",
+        "xPct": 9.773942,
+        "yPct": 81.025217,
+        "role": "nearRight"
+      },
+      {
+        "row": "18",
+        "seat": "40",
+        "xPct": 6.435644,
+        "yPct": 81.149235,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор B 266"
+  },
+  "a101": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 21.409796,
+        "yPct": 78.348491,
+        "role": "nearLeft"
+      },
+      {
+        "row": "42",
+        "seat": "1",
+        "xPct": 15.644441,
+        "yPct": 84.301364,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "4",
+        "xPct": 21.847893,
+        "yPct": 78.658537,
+        "role": "nearRight"
+      },
+      {
+        "row": "37",
+        "seat": "16",
+        "xPct": 19.613599,
+        "yPct": 87.226126,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 101"
+  },
+  "a209": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "10",
+        "seat": "1",
+        "xPct": 54.981041,
+        "yPct": 93.468375,
+        "role": "nearLeft"
+      },
+      {
+        "row": "14",
+        "seat": "1",
+        "xPct": 54.981041,
+        "yPct": 94.377842,
+        "role": "farLeft"
+      },
+      {
+        "row": "10",
+        "seat": "21",
+        "xPct": 50.95055,
+        "yPct": 93.468375,
+        "role": "nearRight"
+      },
+      {
+        "row": "14",
+        "seat": "23",
+        "xPct": 50.600072,
+        "yPct": 94.377842,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 209"
+  },
+  "a113": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "2",
+        "xPct": 68.115187,
+        "yPct": 79.568003,
+        "role": "nearLeft"
+      },
+      {
+        "row": "39",
+        "seat": "1",
+        "xPct": 68.290425,
+        "yPct": 88.207937,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "17",
+        "xPct": 65.486605,
+        "yPct": 79.568003,
+        "role": "nearRight"
+      },
+      {
+        "row": "39",
+        "seat": "14",
+        "xPct": 66.012321,
+        "yPct": 88.207937,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 113"
+  },
+  "a206": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "25",
+        "seat": "2",
+        "xPct": 36.427758,
+        "yPct": 96.858206,
+        "role": "nearLeft"
+      },
+      {
+        "row": "29",
+        "seat": "2",
+        "xPct": 36.427758,
+        "yPct": 97.767673,
+        "role": "farLeft"
+      },
+      {
+        "row": "25",
+        "seat": "26",
+        "xPct": 31.87155,
+        "yPct": 96.858206,
+        "role": "nearRight"
+      },
+      {
+        "row": "27",
+        "seat": "25",
+        "xPct": 32.046789,
+        "yPct": 97.312939,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 206"
+  },
+  "a207": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "25",
+        "seat": "1",
+        "xPct": 43.870904,
+        "yPct": 96.868541,
+        "role": "nearLeft"
+      },
+      {
+        "row": "31",
+        "seat": "2",
+        "xPct": 43.695665,
+        "yPct": 98.232741,
+        "role": "farLeft"
+      },
+      {
+        "row": "25",
+        "seat": "31",
+        "xPct": 38.263263,
+        "yPct": 96.868541,
+        "role": "nearRight"
+      },
+      {
+        "row": "31",
+        "seat": "30",
+        "xPct": 38.438502,
+        "yPct": 98.232741,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 207"
+  },
+  "vipc137": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 49.46102,
+        "yPct": 20.431997,
+        "role": "nearLeft"
+      },
+      {
+        "row": "41",
+        "seat": "1",
+        "xPct": 47.533394,
+        "yPct": 11.564696,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "20",
+        "xPct": 46.6572,
+        "yPct": 20.659363,
+        "role": "nearRight"
+      },
+      {
+        "row": "38",
+        "seat": "16",
+        "xPct": 46.6572,
+        "yPct": 12.246796,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 137 VIP"
+  },
+  "c138": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "5",
+        "seat": "2",
+        "xPct": 42.99471,
+        "yPct": 19.749897,
+        "role": "nearLeft"
+      },
+      {
+        "row": "33",
+        "seat": "2",
+        "xPct": 43.695665,
+        "yPct": 13.38363,
+        "role": "farLeft"
+      },
+      {
+        "row": "5",
+        "seat": "18",
+        "xPct": 45.79853,
+        "yPct": 19.749897,
+        "role": "nearRight"
+      },
+      {
+        "row": "33",
+        "seat": "14",
+        "xPct": 45.79853,
+        "yPct": 13.38363,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор C 138"
+  },
+  "vipa108": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "1",
+        "seat": "1",
+        "xPct": 46.832439,
+        "yPct": 79.568003,
+        "role": "nearLeft"
+      },
+      {
+        "row": "32",
+        "seat": "1",
+        "xPct": 46.832439,
+        "yPct": 88.466308,
+        "role": "farLeft"
+      },
+      {
+        "row": "1",
+        "seat": "6",
+        "xPct": 47.708633,
+        "yPct": 79.568003,
+        "role": "nearRight"
+      },
+      {
+        "row": "32",
+        "seat": "10",
+        "xPct": 49.110543,
+        "yPct": 88.466308,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 108 VIP"
+  },
+  "vipa109": {
+    "rowCurve": 0.32,
+    "anchors": [
+      {
+        "row": "4",
+        "seat": "2",
+        "xPct": 52.93951,
+        "yPct": 80.4568,
+        "role": "nearLeft"
+      },
+      {
+        "row": "27",
+        "seat": "2",
+        "xPct": 52.93951,
+        "yPct": 87.277801,
+        "role": "farLeft"
+      },
+      {
+        "row": "8",
+        "seat": "14",
+        "xPct": 50.836645,
+        "yPct": 81.645308,
+        "role": "nearRight"
+      },
+      {
+        "row": "27",
+        "seat": "14",
+        "xPct": 50.836645,
+        "yPct": 87.277801,
+        "role": "farRight"
+      }
+    ],
+    "sectorLabel": "Сектор A 109 VIP"
+  }
+}

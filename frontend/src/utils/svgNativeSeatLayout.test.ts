@@ -8,6 +8,7 @@ import {
   parseLayoutSeatPositions,
   parsePreferLayoutSeatPositions,
   sectorMatchScore,
+  shouldSkipSvgNativeSeatCircleParse,
 } from './svgNativeSeatLayout';
 
 describe('svgNativeSeatLayout', () => {
@@ -30,6 +31,17 @@ describe('svgNativeSeatLayout', () => {
       { Id: 'mid', Sector: 'Партер центральный', Row: '5', SeatList: ['10'], AgentPrice: '2000' },
     ];
     expect(matchSvgSeatToOffer(svg, offers)?.offer.Id).toBe('mid');
+  });
+
+  it('shouldSkipSvgNativeSeatCircleParse for luzhniki pilot', () => {
+    expect(
+      shouldSkipSvgNativeSeatCircleParse(
+        { stadiumMapKey: 'luzhniki-football', preferLayoutSeatPositions: true },
+        '<svg><circle place-name="A" row="1" place="1"/></svg>',
+      ),
+    ).toBe(true);
+    const many = `<svg><g id="luzhniki-pilot-seats">${'<circle place-name="s" row="1" place="1"/>'.repeat(5001)}</g></svg>`;
+    expect(shouldSkipSvgNativeSeatCircleParse({}, many)).toBe(true);
   });
 
   it('preferLayoutSeatPositions opt-in', () => {

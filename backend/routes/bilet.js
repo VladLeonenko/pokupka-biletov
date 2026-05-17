@@ -45,6 +45,7 @@ import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
+  slimLuzhnikiStageMapForClient,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
 } from '../services/luzhnikiFootballStageMap.js';
 import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
@@ -574,13 +575,16 @@ router.get('/stage/:stageId/map', async (req, res) => {
     }
     if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
     let row = r.rows[0];
-    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
+    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) {
       try {
-        const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: false });
-        const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
-        if (offerRows.length > 0) {
-          row = adaptLuzhnikiStageMapForLiveOffers(row, offerRows);
+        if (repertoireId) {
+          const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: false });
+          const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+          if (offerRows.length > 0) {
+            row = adaptLuzhnikiStageMapForLiveOffers(row, offerRows);
+          }
         }
+        row = slimLuzhnikiStageMapForClient(row);
       } catch (e) {
         console.warn('[bilet] stage map luzhniki enrich:', e instanceof Error ? e.message : e);
       }

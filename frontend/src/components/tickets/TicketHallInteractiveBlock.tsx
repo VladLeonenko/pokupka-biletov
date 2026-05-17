@@ -12,6 +12,7 @@ import {
   parseOmitLayoutSeatSellableFallback,
   parseSellableSeatPositions,
   processHallSvgForNative,
+  shouldSkipSvgNativeSeatCircleParse,
   seatMapKey,
   type SvgNativePlacement,
   type SvgNativeSeat,
@@ -438,7 +439,15 @@ export function TicketHallInteractiveBlock({
     () => parseHallBackgroundFromLabeledSeats(layoutJson),
     [layoutJson],
   );
-  const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
+  const skipSvgNativeCircleParse = useMemo(
+    () => shouldSkipSvgNativeSeatCircleParse(layoutJson, hallSvgHtml),
+    [layoutJson, hallSvgHtml],
+  );
+  const nativeProcessed = useMemo(
+    () =>
+      skipSvgNativeCircleParse ? null : processHallSvgForNative(hallSvgHtml, { layout: layoutJson }),
+    [hallSvgHtml, layoutJson, skipSvgNativeCircleParse],
+  );
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],

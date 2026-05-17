@@ -3,6 +3,7 @@
  * Офферы GetBilet могут содержать только доступные места — координаты всего чаша задаём здесь.
  */
 
+import { resolveCalibratedSeatPosition } from './luzhnikiSeatWarp.js';
 import { luzhnikiSectorLookupNorms, normalizeSectorLabel } from './ticketHallSectorNormalize.js';
 
 function normalizeText(value) {
@@ -161,6 +162,17 @@ export function interpolatePbiletSeatGeodesy(pbiletSeats, sectorLabel, row, seat
   const targetRow = parseRowNum(row);
   const seatNum = parseSeatNum(seat);
   if (targetRow == null || seatNum == null) return null;
+
+  const calibrated = resolveCalibratedSeatPosition(sectorLabel, row, seat);
+  if (calibrated) {
+    return {
+      sector: sectorLabel,
+      row: String(row),
+      seat: String(seat),
+      xPct: calibrated.xPct,
+      yPct: calibrated.yPct,
+    };
+  }
 
   const sectorSeats = pbiletSeats.filter((s) => lookupNorms.has(normalizeSectorLabel(s.sector)));
   if (sectorSeats.length < 1) return null;

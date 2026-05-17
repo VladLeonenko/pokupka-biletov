@@ -19,7 +19,11 @@ import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
 import {
   LUZHNIKI_PILOT_SEATS_LAYER_ID,
   LUZHNIKI_PILOT_SECTOR_LAYER_ID,
+  stripLuzhnikiPilotSeatsLayerFromSvg,
 } from '../utils/luzhnikiPilotSeatSvg.js';
+
+/** Не вшивать 80k circle в svg_markup — геодезия через layout_json.seats. */
+const MAX_PILOT_CIRCLES_TO_MERGE_IN_SVG = Number(process.env.LUZHNIKI_MAX_PILOT_CIRCLES_IN_SVG) || 6000;
 import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -78,9 +82,23 @@ async function main() {
     throw new Error(`Пустой svg_markup для ${stageId} — сначала reseed схемы`);
   }
 
-  const merged = mergePilotSeatsIntoSvg(baseSvg, pilotSvg);
-  const circles = countSvgNativeSeatCircles(merged);
+  const bundleCircles = countSvgNativeSeatCircles(pilotSvg);
   const fullStadium = bundle.mode === 'full' || bundle.luzhnikiPilotFullStadium === true;
+  const mergeCirclesInSvg =
+    bundleCircles > 0 && bundleCircles <= MAX_PILOT_CIRCLES_TO_MERGE_IN_SVG;
+
+  let merged;
+  if (mergeCirclesInSvg) {
+    merged = mergePilotSeatsIntoSvg(baseSvg, pilotSvg);
+  } else {
+    merged = stripLuzhnikiPilotSeatsLayerFromSvg(baseSvg);
+    console.warn(
+      `[apply-luzhniki-sector-pilot] skip SVG merge: ${bundleCircles} circles — only layout_json.seats`,
+    );
+  }
+  const circles = mergeCirclesInSvg
+    ? countSvgNativeSeatCircles(merged)
+    : bundleCircles || Number(bundle.circleCount) || 0;
 
   const layoutPatch = {
     luzhnikiPilotFullStadium: fullStadium,
