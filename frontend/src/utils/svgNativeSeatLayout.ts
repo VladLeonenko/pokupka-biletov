@@ -7,7 +7,7 @@ export type OfferLike = {
   SeatList?: string[];
 };
 
-export type SeatGeodesySource = 'strict' | 'anchor' | 'dot' | 'dotOnly' | 'cloud';
+export type SeatGeodesySource = 'strict' | 'anchor' | 'dot' | 'dotOnly' | 'cloud' | 'svgRow';
 
 export type SvgNativeSeat = {
   sector: string;
@@ -142,7 +142,8 @@ export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
       geodesyRaw === 'anchor' ||
       geodesyRaw === 'dot' ||
       geodesyRaw === 'dotOnly' ||
-      geodesyRaw === 'cloud'
+      geodesyRaw === 'cloud' ||
+      geodesyRaw === 'svgRow'
         ? (geodesyRaw as SeatGeodesySource)
         : undefined;
     seats.push({ sector, row: rowLabel, seat, xPct, yPct, geodesySource });
@@ -599,7 +600,7 @@ export function buildSellableGeodesyPlacements(
   };
 }
 
-const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>(['strict', 'cloud', 'dot']);
+const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>(['strict', 'cloud', 'svgRow', 'dot']);
 
 /** Sellable с бэкенда: strict + привязка к облаку (cloud/dot). Без anchor/dotOnly/без метки. */
 function filterTrustedServerSellable(seats: SvgNativeSeat[]): SvgNativeSeat[] {

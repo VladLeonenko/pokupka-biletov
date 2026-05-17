@@ -27,6 +27,7 @@ import {
   extractPbiletCoordinatesSeatDots,
   extractPbiletTicketsSeatGeodesy,
 } from '../utils/luzhnikiPbiletGeodesyExtract.js';
+import { parseSvgHallRowLabels } from '../utils/hallSeatGeodesyFromSvgRows.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -219,6 +220,21 @@ async function main() {
     console.log('Saved coordinates:', outCoords);
   }
 
+  let svgRowLabels = 0;
+  const bgUrl = String(coordinatesPayload?.bg ?? '').trim();
+  if (bgUrl) {
+    try {
+      const svg = await (
+        await fetch(bgUrl, {
+          headers: { accept: 'image/svg+xml', 'user-agent': 'biletvsem-fetch-pbilet-luzhniki/1.0' },
+        })
+      ).text();
+      svgRowLabels = parseSvgHallRowLabels(svg, width, height).length;
+    } catch (e) {
+      console.warn('SVG row labels:', e?.message || e);
+    }
+  }
+
   const report = {
     layoutId,
     coordinates: {
@@ -226,6 +242,7 @@ async function main() {
       width,
       height,
       coordinateDots: coordinateDots.length,
+      svgRowLabels,
       categories: Array.isArray(coordinatesPayload?.categories)
         ? coordinatesPayload.categories.length
         : 0,
@@ -286,6 +303,11 @@ async function main() {
   if (coordinateDots.length >= 70000 && (!live || live.skipped || !live.isFullStadium)) {
     console.log(
       `\nСерая чаша (${coordinateDots.length} точек) есть в coordinates. Подписанные места — только из tickets (~${live?.geodesySeats ?? local?.geodesySeats ?? '?'}).`,
+    );
+  }
+  if (svgRowLabels >= 1000) {
+    console.log(
+      `\n✓ Подложка SVG: ${svgRowLabels} подписей рядов (<tspan>) — sellable для секторов без r[] идёт через svgRow + облако (без полного tickets.json).`,
     );
   }
 }

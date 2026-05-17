@@ -113,7 +113,8 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     hallBackgroundFromLabeledSeats: true,
   };
 
-  if (Array.isArray(offerRows) && offerRows.length > 0 && baseSeats.length > 0) {
+  if (Array.isArray(offerRows) && offerRows.length > 0) {
+    const svgMarkup = typeof row.svg_markup === 'string' ? row.svg_markup : '';
     const geodesy = buildSellableSeatGeodesyWithDots(
       baseSeats,
       allSeatCoordinates,
@@ -121,6 +122,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       Number(layout.geodesy?.hallWidth),
       Number(layout.geodesy?.hallHeight),
       offerRows,
+      svgMarkup,
     );
     nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
@@ -132,6 +134,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       unmatched: Math.max(0, geodesy.totalSellable - geodesy.matched),
       dotMatched: geodesy.dotMatched ?? 0,
       cloudMatched: geodesy.cloudMatched ?? 0,
+      svgRowMatched: geodesy.svgRowMatched ?? 0,
       anchorInterpolated: geodesy.anchorInterpolated ?? 0,
       unmatchedSamples: geodesy.unmatchedSamples,
       updatedAt: new Date().toISOString(),

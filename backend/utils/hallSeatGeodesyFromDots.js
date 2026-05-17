@@ -4,6 +4,7 @@
  */
 
 import { buildSellableSeatGeodesy } from './hallSeatGeodesyMatch.js';
+import { parseSvgHallRowLabels, resolveOfferSeatFromSvgRowLabels } from './hallSeatGeodesyFromSvgRows.js';
 import {
   normalizeRowLabel,
   normalizeSectorLabel,
@@ -257,7 +258,7 @@ export function resolveOfferSeatFromAnchors(rowNum, seatNum, layoutAnchors) {
   return { xPct, yPct };
 }
 
-function pickDotNearRowSeat(rowDots, targetY, targetX, maxDist = 0.42) {
+export function pickDotNearRowSeat(rowDots, targetY, targetX, maxDist = 0.42) {
   let best = null;
   let bestD = Infinity;
   for (const d of rowDots) {
@@ -541,6 +542,7 @@ export function buildSellableSeatGeodesyWithDots(
   hallWidth,
   hallHeight,
   offers,
+  svgMarkup = '',
 ) {
   const strict = buildSellableSeatGeodesy(layoutSeats, offers);
   const allowAnchor = process.env.LUZHNIKI_ENABLE_ANCHOR_GEODESY === '1';
@@ -554,7 +556,19 @@ export function buildSellableSeatGeodesyWithDots(
   const seen = new Set(strictKeys);
   let anchorInterpolated = 0;
   let cloudMatched = 0;
+  let svgRowMatched = 0;
   let dotMatched = 0;
+
+  const svgRowLabels =
+    typeof svgMarkup === 'string' && svgMarkup.includes('<tspan')
+      ? parseSvgHallRowLabels(svgMarkup, hallWidth, hallHeight)
+      : [];
+  const sectorPathByNorm = new Map();
+  for (const sp of sectorPaths || []) {
+    const norm = normalizeSectorLabel(sp.label);
+    const path = String(sp.path ?? '').trim();
+    if (norm && path) sectorPathByNorm.set(norm, path);
+  }
 
   const anchorsBySector = new Map();
   for (const s of layoutSeats || []) {
@@ -597,6 +611,9 @@ export function buildSellableSeatGeodesyWithDots(
       sectorDots.length >= 24 &&
       anchors.length < 2 &&
       rowRanges.has(norm);
+    const sectorPath = sectorPathByNorm.get(norm);
+    const canSvgRow =
+      canCloud && svgRowLabels.length >= 50 && sectorPath && sectorPath.length > 8;
     const sectorOrientation = pickNearestSectorOrientation(norm, orientationIndex);
     const seatByRow = seatRangesByRow.get(norm);
 
@@ -621,6 +638,19 @@ export function buildSellableSeatGeodesyWithDots(
           sectorDots,
         });
         if (resolved) mode = 'dot';
+      }
+      if (!resolved && canSvgRow) {
+        resolved = resolveOfferSeatFromSvgRowLabels(
+          rowNum,
+          seatNum,
+          sectorDots,
+          sectorPath,
+          svgRowLabels,
+          hallWidth,
+          hallHeight,
+          seatByRow?.get(rowNum) ?? null,
+        );
+        if (resolved) mode = 'svgRow';
       }
       if (!resolved && canCloud) {
         resolved = resolveOfferSeatFromCalibratedCloud(
@@ -647,6 +677,7 @@ export function buildSellableSeatGeodesyWithDots(
 
       seen.add(key);
       if (mode === 'anchor') anchorInterpolated += 1;
+      else if (mode === 'svgRow') svgRowMatched += 1;
       else if (mode === 'cloud') cloudMatched += 1;
       else dotMatched += 1;
       extra.push({
@@ -662,11 +693,12 @@ export function buildSellableSeatGeodesyWithDots(
 
   return {
     seats: [...strict.seats, ...extra],
-    matched: strict.matched + anchorInterpolated + cloudMatched + dotMatched,
+    matched: strict.matched + anchorInterpolated + svgRowMatched + cloudMatched + dotMatched,
     totalSellable: strict.totalSellable,
     unmatchedSamples: strict.unmatchedSamples,
     strictMatched: strict.matched,
     anchorInterpolated,
+    svgRowMatched,
     cloudMatched,
     dotMatched,
   };
