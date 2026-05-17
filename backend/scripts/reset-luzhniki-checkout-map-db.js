@@ -60,8 +60,18 @@ const LAYOUT_PATCH = {
 };
 
 async function main() {
+  const useMain =
+    process.env.GETBILET_USE_MAIN_DATABASE === '1' || process.env.TICKET_USE_MAIN_PG === '1';
   const dbName = await ticketPool.query('SELECT current_database() AS name');
-  console.log(JSON.stringify({ step: 'database', name: dbName.rows[0]?.name }));
+  console.log(
+    JSON.stringify({
+      step: 'database',
+      name: dbName.rows[0]?.name,
+      useMainTicketPool: useMain,
+      PGDATABASE: process.env.PGDATABASE ?? null,
+      TICKET_PGDATABASE: process.env.TICKET_PGDATABASE ?? null,
+    }),
+  );
 
   if (RESEED) {
     console.log(JSON.stringify({ step: 'reseed', message: 'tickets.json + luzhniki.txt → DB' }));
