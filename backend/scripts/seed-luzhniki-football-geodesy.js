@@ -42,9 +42,19 @@ function optionalEnv(name) {
 }
 
 function requiredFile(relOrAbs, label) {
-  const abs = path.isAbsolute(relOrAbs) ? relOrAbs : path.resolve(repoRoot, relOrAbs);
-  if (!fs.existsSync(abs)) {
-    throw new Error(`${label}: файл не найден: ${abs}`);
+  const candidates = path.isAbsolute(relOrAbs)
+    ? [relOrAbs]
+    : [
+        path.resolve(repoRoot, relOrAbs),
+        path.resolve(process.cwd(), relOrAbs),
+        path.resolve(repoRoot, 'backend', relOrAbs),
+      ];
+  const abs = candidates.find((p) => fs.existsSync(p));
+  if (!abs) {
+    throw new Error(
+      `${label}: файл не найден. Пробовали:\n${candidates.map((p) => `  - ${p}`).join('\n')}\n` +
+        `На сервере: LUZHNIKI_PBILET_TICKETS_JSON=/var/pokupka-biletov/tickets.json (не ../tickets.json)`,
+    );
   }
   return abs;
 }

@@ -97,11 +97,18 @@ const app = express();
 // Доверяем только первому прокси (Nginx на localhost)
 app.set('trust proxy', 1);
 
-app.use(cors({ 
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3000'], 
+const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean) ?? [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'https://biletvsem.com',
+  'https://www.biletvsem.com',
+];
+app.use(cors({
+  origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret'],
 }));
 
 // Compression middleware - сжимаем все ответы (gzip/brotli)
