@@ -66,6 +66,11 @@ import {
   type OfferRowLike,
 } from '@/utils/ticketOfferFilters';
 import type { HallSelectedSeat } from '@/components/tickets/TicketHallInteractiveBlock';
+import {
+  TicketPriceFilterCarousel,
+  type PriceFilterChip,
+} from '@/components/tickets/TicketPriceFilterCarousel';
+import { buildPriceColorMap, colorForPriceIndex } from '@/utils/ticketPriceColors';
 
 const TicketHallInteractiveBlock = lazy(() =>
   import('@/components/tickets/TicketHallInteractiveBlock').then((m) => ({
@@ -99,7 +104,6 @@ import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
 
-const PRICE_COLORS = ['#1a237e', '#2e7d32', '#f9a825', '#0277bd', '#e65100', '#6a1b9a', '#37474f'];
 
 type OfferRow = {
   Id?: string;
@@ -187,11 +191,6 @@ function formatSessionCard(dt: string): { time: string; dateLine: string } {
       .toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })
       .replace(/\.$/, ''),
   };
-}
-
-function colorForPrice(priceMap: Map<string, number>, p: string): string {
-  const idx = priceMap.get(p) ?? 0;
-  return PRICE_COLORS[idx % PRICE_COLORS.length];
 }
 
 function absoluteUrl(origin: string, pathOrUrl: string | null | undefined): string | undefined {
@@ -429,6 +428,8 @@ export function TicketCheckoutPage() {
     adjacent: 0,
     hidePassage: false,
   });
+  /** Фильтр ценовой группы на схеме (карусель над картой, как portalbilet). */
+  const [mapSelectedPriceKey, setMapSelectedPriceKey] = useState<string | null>(null);
   const [showAllOfferRows, setShowAllOfferRows] = useState(false);
 
   const filterInitRepRef = useRef<string | null>(null);
@@ -462,13 +463,11 @@ export function TicketCheckoutPage() {
     [listableOffers, filterState],
   );
 
-  const priceMap = useMemo(() => {
+  const priceColorMap = useMemo(() => {
     const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
       (a, b) => Number(a) - Number(b),
     );
-    const m = new Map<string, number>();
-    sorted.forEach((p, i) => m.set(p, i));
-    return m;
+    return buildPriceColorMap(sorted);
   }, [listableOffers]);
 
   const bySession = useMemo(() => {
@@ -922,6 +921,57 @@ export function TicketCheckoutPage() {
     );
   }, [listableOffers, hallMapSessionKey]);
 
+  useEffect(() => {
+    setMapSelectedPriceKey(null);
+  }, [hallMapSessionKey]);
+
+  const priceChipsForMap = useMemo((): PriceFilterChip[] => {
+    const keys = Array.from(new Set(offersForMap.map(priceKey)))
+      .filter((pk) => Number.isFinite(Number(pk)) && Number(pk) > 0)
+      .sort((a, b) => Number(a) - Number(b));
+    return keys.map((pk, i) => ({
+      priceKey: pk,
+      price: Number(pk),
+      color: priceColorMap.get(pk) ?? colorForPriceIndex(i),
+      showPlus: i === keys.length - 1 && keys.length > 1,
+    }));
+  }, [offersForMap, priceColorMap]);
+
+  const offersForMapDisplay = useMemo(() => {
+    if (!mapSelectedPriceKey) return offersForMap;
+    return offersForMap.filter((o) => priceKey(o) === mapSelectedPriceKey);
+  }, [offersForMap, mapSelectedPriceKey]);
+
+  const handleMapPriceSelect = useCallback(
+    (pk: string) => {
+      if (mapSelectedPriceKey === pk) {
+        setMapSelectedPriceKey(null);
+        setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
+        return;
+      }
+      const n = Number(pk);
+      setMapSelectedPriceKey(pk);
+      if (Number.isFinite(n)) {
+        setFilterState((s) => ({ ...s, priceRange: [n, n] }));
+      }
+    },
+    [mapSelectedPriceKey, pb.min, pb.max],
+  );
+
+  const handleMapPriceReset = useCallback(() => {
+    setMapSelectedPriceKey(null);
+    setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
+  }, [pb.min, pb.max]);
+
+  useEffect(() => {
+    if (mapSelectedPriceKey == null) return;
+    const [lo, hi] = filterState.priceRange;
+    const n = Number(mapSelectedPriceKey);
+    if (!Number.isFinite(n) || lo !== hi || lo !== n) {
+      setMapSelectedPriceKey(null);
+    }
+  }, [filterState.priceRange, mapSelectedPriceKey]);
+
   const hallSchemeSubtitle = useMemo(() => {
     if (seatSelectionDisabledUi) {
       const lj = layoutJsonForStage as Record<string, unknown> | undefined;
@@ -947,22 +997,22 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (!offerId) return;
-    const still = offersForMap.some((o) => String(o.Id ?? '') === offerId);
+    const still = offersForMapDisplay.some((o) => String(o.Id ?? '') === offerId);
     if (!still) {
       setOfferId(null);
       setSeats([]);
       setMapSelectedSeats([]);
     }
-  }, [offersForMap, offerId]);
+  }, [offersForMapDisplay, offerId]);
 
   const colorSeat = useCallback(
-    (p: string) => colorForPrice(priceMap, p),
-    [priceMap],
+    (p: string) => priceColorMap.get(p) ?? colorForPriceIndex(0),
+    [priceColorMap],
   );
 
   const selectedOfferForMap = useMemo(
-    () => (offerId ? (offersForMap.find((o) => String(o.Id ?? '') === offerId) ?? null) : null),
-    [offerId, offersForMap],
+    () => (offerId ? (offersForMapDisplay.find((o) => String(o.Id ?? '') === offerId) ?? null) : null),
+    [offerId, offersForMapDisplay],
   );
 
   const resetSelectedSeats = useCallback(() => {
@@ -1326,11 +1376,19 @@ export function TicketCheckoutPage() {
                   На весь экран
                 </Button>
               </Box>
+              {priceChipsForMap.length > 0 ? (
+                <TicketPriceFilterCarousel
+                  chips={priceChipsForMap}
+                  selectedPriceKey={mapSelectedPriceKey}
+                  onSelect={handleMapPriceSelect}
+                  onReset={handleMapPriceReset}
+                />
+              ) : null}
               <Suspense fallback={<Box sx={{ minHeight: 280, bgcolor: 'rgba(0,0,0,0.03)' }} />}>
               <TicketHallInteractiveBlock
                 hallSvgHtml={hallSvg}
                 layoutJson={layoutJsonForStage}
-                offers={offersForMap}
+                offers={offersForMapDisplay}
                 getPriceKey={(o) => priceKey(o as OfferRow)}
                 colorForSeat={colorSeat}
                 activeOfferId={offerId}
@@ -1566,7 +1624,7 @@ export function TicketCheckoutPage() {
                       {rows.map((row) => {
                         const oid = String(row.Id ?? '');
                         const pk = priceKey(row);
-                        const bg = colorForPrice(priceMap, pk);
+                        const bg = priceColorMap.get(pk) ?? colorForPriceIndex(0);
                         const seatList = getOfferSeatList(row);
                         const seatless = isSeatlessOfferRow(row);
                         const namedTicket = namedTicketUxEnabled && isNamedTicketOfferRow(row);
@@ -1740,12 +1798,20 @@ export function TicketCheckoutPage() {
             ) : null}
             {hallSvg && hallMapSessionKey ? (
               <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', px: 0 }}>
+                {priceChipsForMap.length > 0 ? (
+                  <TicketPriceFilterCarousel
+                    chips={priceChipsForMap}
+                    selectedPriceKey={mapSelectedPriceKey}
+                    onSelect={handleMapPriceSelect}
+                    onReset={handleMapPriceReset}
+                  />
+                ) : null}
                 <Suspense fallback={<Box sx={{ flex: 1, minHeight: 320 }} />}>
                   <TicketHallInteractiveBlock
                     variant="dialog"
                     hallSvgHtml={hallSvg}
                     layoutJson={layoutJsonForStage}
-                    offers={offersForMap}
+                    offers={offersForMapDisplay}
                     getPriceKey={(o) => priceKey(o as OfferRow)}
                     colorForSeat={colorSeat}
                     activeOfferId={offerId}
