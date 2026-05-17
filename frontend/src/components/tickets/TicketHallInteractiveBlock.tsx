@@ -1120,17 +1120,10 @@ export function TicketHallInteractiveBlock({
     /** Лужники: цветные точки только в выбранном секторе (на обзоре — только серая чаша). */
     if (luzhnikiCheckout) {
       if (!selectedSectorSummary) return [];
-      const byLabel = interactive.filter(
+      /** Только метка сектора из оффера — не bbox path (соседи с layout-grid coords попадают в polygon). */
+      return interactive.filter(
         (p) => normalizeSectorLabel(p.sectorLabel) === selectedSector,
       );
-      const path = selectedSectorSummary.meta.path;
-      if (path && svgViewBox.width > 0 && svgViewBox.height > 0) {
-        const byBbox = filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
-        const merged = new Map<string, SvgNativePlacement>();
-        for (const p of [...byLabel, ...byBbox]) merged.set(p.key, p);
-        return [...merged.values()];
-      }
-      return byLabel;
     }
     /** portalbilet-стиль: на обзоре все sellable; при выборе зоны — фильтр по bbox полигона. */
     if (!sectorMode.enabled || !selectedSectorSummary) return interactive;

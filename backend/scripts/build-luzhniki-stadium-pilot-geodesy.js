@@ -12,13 +12,7 @@ import { fileURLToPath } from 'url';
 
 import dotenv from 'dotenv';
 
-import ticketPool from '../ticketDb.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
-import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
-import {
-  buildLabeledSeatIndex,
-  lookupLabeledSeat,
-} from '../utils/hallSeatGeodesyMatch.js';
 import {
   extractPbiletTicketsSeatGeodesy,
   interpolatePbiletSeatGeodesy,
@@ -41,35 +35,6 @@ function canonicalSectorLabel(pbiletSeats, norm, offerSector) {
   return fromPb || offerSector || norm;
 }
 
-function parseLayoutSeats(layout) {
-  const raw = layout?.seats;
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const sector = String(item.sector ?? item.Sector ?? '').trim();
-      const row = String(item.row ?? item.Row ?? '').trim();
-      const seat = String(item.seat ?? item.Seat ?? item.place ?? '').trim();
-      const xPct = Number(item.xPct ?? item.x_pct);
-      const yPct = Number(item.yPct ?? item.y_pct);
-      if (!sector || !row || !seat || !Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
-      return { sector, row, seat, xPct, yPct };
-    })
-    .filter(Boolean);
-}
-
-async function loadLayoutSeatIndex() {
-  try {
-    const r = await ticketPool.query(
-      `SELECT layout_json FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-      [LUZHNIKI_FOOTBALL_STAGE_MAP_KEY],
-    );
-    return buildLabeledSeatIndex(parseLayoutSeats(r.rows[0]?.layout_json ?? {}));
-  } catch {
-    return buildLabeledSeatIndex([]);
-  }
-}
-
 async function main() {
   const repertoireId = process.env.REPERTOIRE_ID?.trim();
   if (!repertoireId) throw new Error('REPERTOIRE_ID обязателен');
@@ -84,7 +49,6 @@ async function main() {
   const h = Number(coords.height) || 9676;
 
   const pbilet = extractPbiletTicketsSeatGeodesy(tickets, w, h);
-  const layoutIndex = await loadLayoutSeatIndex();
   const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: true });
   const offers = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
 
@@ -106,34 +70,8 @@ async function main() {
     const keys = new Set();
     let fromTickets = 0;
     let fromOffers = 0;
-    let fromLayout = 0;
-
     if (sectorPb.length < 2) {
-      for (const o of sectorOffers) {
-        const row = String(o.Row ?? '');
-        const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
-        for (const seat of list) {
-          if (!seat.trim()) continue;
-          const key = strictSeatKey(label, row, seat);
-          if (keys.has(key)) continue;
-          const hit = lookupLabeledSeat(layoutIndex, o.Sector ?? label, row, seat);
-          if (!hit) continue;
-          keys.add(key);
-          fromLayout += 1;
-          circles.push({
-            sector: label,
-            row,
-            seat,
-            xPct: hit.xPct,
-            yPct: hit.yPct,
-            source: 'layout-grid',
-          });
-        }
-      }
-      if (fromLayout > 0) {
-        sectorStats.push({ norm, label, fromTickets: 0, fromOffers: 0, fromLayout, total: fromLayout });
-        continue;
-      }
+      /** layout.seats даёт сдвиг рядов — не добавляем в SVG (офферы останутся в списке без точки). */
       skipped.push({
         norm,
         reason: 'no-tickets-rows',
@@ -184,7 +122,6 @@ async function main() {
       label,
       fromTickets,
       fromOffers,
-      fromLayout: 0,
       total: fromTickets + fromOffers,
     });
   }
@@ -195,12 +132,7 @@ async function main() {
     .map((s) => {
       const cx = (s.xPct / 100) * w;
       const cy = (s.yPct / 100) * h;
-      const extra =
-        s.source === 'live-offer'
-          ? 'data-source="live-offer"'
-          : s.source === 'layout-grid'
-            ? 'data-source="layout-grid"'
-            : '';
+      const extra = s.source === 'live-offer' ? 'data-source="live-offer"' : '';
       return pilotSeatCircleMarkup(s.sector, s.row, s.seat, cx, cy, w, h, extra);
     })
     .join('');
