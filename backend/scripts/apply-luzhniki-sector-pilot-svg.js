@@ -20,6 +20,7 @@ import {
   LUZHNIKI_PILOT_SEATS_LAYER_ID,
   LUZHNIKI_PILOT_SECTOR_LAYER_ID,
 } from '../utils/luzhnikiPilotSeatSvg.js';
+import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -79,10 +80,55 @@ async function main() {
 
   const merged = mergePilotSeatsIntoSvg(baseSvg, pilotSvg);
   const circles = countSvgNativeSeatCircles(merged);
+  const fullStadium = bundle.mode === 'full' || bundle.luzhnikiPilotFullStadium === true;
+
+  const layoutPatch = {
+    luzhnikiPilotFullStadium: fullStadium,
+    luzhnikiPilotCircleCount: circles,
+    luzhnikiPilotGeodesyActive: circles >= 12,
+    luzhnikiPilotUseLayoutSeatsForLookup: true,
+    luzhnikiPilotMergedAt: new Date().toISOString(),
+  };
+
+  let pilotSeats = Array.isArray(bundle.seats) ? bundle.seats : null;
+  if (fullStadium && (!pilotSeats || pilotSeats.length === 0)) {
+    const sidecar = path.join(path.dirname(bundlePath), 'bundle-luzhniki-stadium-pilot-seats.json');
+    if (fs.existsSync(sidecar)) {
+      pilotSeats = JSON.parse(fs.readFileSync(sidecar, 'utf8'));
+    } else {
+      const tickets = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'tickets.json'), 'utf8'),
+      );
+      const coords = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'luzhniki.txt'), 'utf8'),
+      );
+      const { seats } = buildFullStadiumLabeledSeats({
+        ticketsPayload: tickets,
+        coordinatesPayload: coords,
+        svgMarkup: baseSvg,
+      });
+      pilotSeats = seats.map((s) => ({
+        sector: s.sector,
+        row: s.row,
+        seat: s.seat,
+        xPct: s.xPct,
+        yPct: s.yPct,
+        geodesySource: s.geodesySource === 'strict' ? 'strict' : 'fieldGrid',
+      }));
+    }
+  }
+  if (fullStadium && pilotSeats?.length > 0) {
+    layoutPatch.seats = pilotSeats;
+    layoutPatch.nativeSeatCount = pilotSeats.length;
+    layoutPatch.layoutSeatsFromGrid = true;
+    layoutPatch.note =
+      'layout.seats = full pilot (#luzhniki-pilot-seats): tickets strict + fieldGrid + offer enrich';
+  }
 
   const r = await ticketPool.query(
     `UPDATE getbilet_stage_maps
      SET svg_markup = $2,
+         layout_json = COALESCE(layout_json, '{}'::jsonb) || $4::jsonb,
          updated_at = NOW(),
          notes_internal = COALESCE(notes_internal, '') || $3
      WHERE stage_external_id = $1
@@ -90,7 +136,8 @@ async function main() {
     [
       stageId,
       merged,
-      ` | pilot-merge ${new Date().toISOString()} circles=${circles} from ${path.basename(bundlePath)}`,
+      ` | pilot-merge ${new Date().toISOString()} mode=${bundle.mode || '?'} circles=${circles} seats=${pilotSeats?.length ?? 0} from ${path.basename(bundlePath)}`,
+      JSON.stringify(layoutPatch),
     ],
   );
 
@@ -105,6 +152,8 @@ async function main() {
         stage: stageId,
         svgLen: Number(r.rows[0].svg_len),
         svgCircleCount: circles,
+        fullStadium,
+        layoutSeatsSynced: pilotSeats?.length ?? 0,
         mergeMode: 'pilot-seats-layer-only',
         bundle: bundlePath,
       },

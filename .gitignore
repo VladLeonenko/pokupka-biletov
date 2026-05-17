@@ -18,6 +18,9 @@ yarn-error.log*
 logs/
 backend/logs/
 
+# Luzhniki full pilot seats sidecar (генерится build:luzhniki-stadium-pilot)
+backend/data/luzhniki-geodesy/hand/bundle-luzhniki-stadium-pilot-seats.json
+
 # Build outputs
 dist/
 build/

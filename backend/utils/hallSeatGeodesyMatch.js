@@ -4,6 +4,7 @@
  */
 
 import {
+  luzhnikiSectorLookupNorms,
   normalizeRowLabel,
   normalizeSeatToken,
   normalizeSectorLabel,
@@ -22,17 +23,26 @@ function normalizeRowNumber(value) {
   return Number.isFinite(n) ? String(n) : raw;
 }
 
-/** Ключи для поиска: strict + числовые варианты места/ряда («08» = «8»). */
+function seatKeysForSectorNorm(sectorNorm, row, seat) {
+  const keys = new Set();
+  const r = normalizeRowLabel(row);
+  const st = normalizeSeatToken(seat);
+  keys.add(`${sectorNorm}|${r}|${st}`);
+  keys.add(`${sectorNorm}|${normalizeRowNumber(row)}|${normalizeSeatNumber(seat)}`);
+  keys.add(`${sectorNorm}|${r}|${normalizeSeatNumber(seat)}`);
+  keys.add(`${sectorNorm}|${normalizeRowNumber(row)}|${st}`);
+  return keys;
+}
+
+/** Ключи для поиска: strict + числовые варианты + алиасы Лужников (vipc138 ↔ c138). */
 export function labeledSeatLookupKeys(sector, row, seat) {
   const keys = new Set();
-  const sk = strictSeatKey(sector, row, seat);
-  keys.add(sk);
-  const parts = sk.split('|');
-  if (parts.length === 3) {
-    const [sec, r, st] = parts;
-    keys.add(`${sec}|${normalizeRowNumber(row)}|${normalizeSeatNumber(seat)}`);
-    keys.add(`${sec}|${r}|${normalizeSeatNumber(seat)}`);
-    keys.add(`${sec}|${normalizeRowNumber(row)}|${st}`);
+  const norms = new Set([
+    normalizeSectorLabel(sector),
+    ...luzhnikiSectorLookupNorms(sector),
+  ]);
+  for (const norm of norms) {
+    for (const k of seatKeysForSectorNorm(norm, row, seat)) keys.add(k);
   }
   return keys;
 }

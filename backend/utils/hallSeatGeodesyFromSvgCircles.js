@@ -163,8 +163,26 @@ export function buildSellableSeatGeodesyFromSvgCircles(
   hallHeight,
   options = {},
 ) {
-  const { svgOnlyMatched = false, layoutHintsOnly = true } = options;
-  const fromSvg = parseSvgNativeSeatCircles(svgMarkup, hallWidth, hallHeight);
+  const { svgOnlyMatched = false, layoutHintsOnly = true, labeledSeatsAsCircles = null } = options;
+  const fromSvg =
+    Array.isArray(labeledSeatsAsCircles) && labeledSeatsAsCircles.length > 0
+      ? labeledSeatsAsCircles
+          .filter(
+            (s) =>
+              s?.sector &&
+              s?.row &&
+              s?.seat &&
+              Number.isFinite(Number(s.xPct)) &&
+              Number.isFinite(Number(s.yPct)),
+          )
+          .map((s) => ({
+            sector: String(s.sector),
+            row: String(s.row),
+            seat: String(s.seat),
+            xPct: Number(s.xPct),
+            yPct: Number(s.yPct),
+          }))
+      : parseSvgNativeSeatCircles(svgMarkup, hallWidth, hallHeight);
   const byKey = svgOnlyMatched
     ? new Map()
     : buildLabeledSeatIndex(layoutHintsOnly ? layoutSeats || [] : []);

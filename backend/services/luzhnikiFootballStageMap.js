@@ -125,6 +125,15 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     const svgCircleCount = countSvgNativeSeatCircles(svgMarkup);
     const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
     const pilotSvgLayer = String(svgMarkup).includes('id="luzhniki-pilot-seats"');
+    const fullPilotStadium =
+      layout.luzhnikiPilotFullStadium === true ||
+      Number(layout.luzhnikiPilotCircleCount) >= 8000 ||
+      svgCircleCount >= 8000;
+    const useLayoutAsPilotCircles =
+      pilotSvgLayer &&
+      fullPilotStadium &&
+      baseSeats.length >= minSvgCircles &&
+      layout.luzhnikiPilotUseLayoutSeatsForLookup !== false;
     const geodesy =
       svgCircleCount >= minSvgCircles
         ? buildSellableSeatGeodesyFromSvgCircles(
@@ -135,7 +144,8 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
             hallHeight,
             {
               svgOnlyMatched: pilotSvgLayer,
-              layoutHintsOnly: true,
+              layoutHintsOnly: !useLayoutAsPilotCircles,
+              labeledSeatsAsCircles: useLayoutAsPilotCircles ? baseSeats : null,
             },
           )
         : buildSellableSeatGeodesyLuzhniki({
@@ -154,6 +164,8 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     nextLayout.sellableGeodesyMode = pilotSvgLayer ? 'luzhnikiSvgPilot' : 'luzhnikiGrid';
     /** Фронт: не дополнять sellable из layout.seats (fieldGrid ломает ряды). */
     nextLayout.luzhnikiPilotGeodesyActive = pilotSvgLayer && svgCircleCount >= minSvgCircles;
+    nextLayout.luzhnikiPilotFullStadium = fullPilotStadium;
+    nextLayout.luzhnikiPilotCircleCount = svgCircleCount;
     nextLayout.omitLayoutSeatSellableFallback = nextLayout.luzhnikiPilotGeodesyActive === true;
     nextLayout.offerSeatGeodesy = {
       matched: geodesy.matched,
