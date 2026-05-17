@@ -6,6 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  extractPbiletCoordinateCategoriesSectorPaths,
+  extractPbiletTicketSectorPaths,
+  mergeSectorMetaPreferTickets,
+} from '../utils/luzhnikiPbiletGeodesyExtract.js';
+import { buildSeatRowColumnGrid } from '../utils/luzhnikiSeatGridLines.js';
+import { analyzeSeatGridQuality } from '../utils/luzhnikiSeatRowColumnGrid.js';
 import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
 import { extractPbiletTicketsSeatGeodesy } from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
@@ -116,6 +123,40 @@ export function buildLuzhnikiSeatGridDiagnosticPayload(options = {}) {
     a.localeCompare(b, 'ru'),
   );
 
+  const coords = loadRepoJson('luzhniki.txt');
+  const sectorPaths = mergeSectorMetaPreferTickets(
+    extractPbiletTicketSectorPaths(tickets),
+    extractPbiletCoordinateCategoriesSectorPaths(coords),
+  );
+
+  const seatsForLines = sectorFilter
+    ? seats.filter((s) => sectorMatches(s.sector, sectorFilter))
+    : seats;
+  const gridBuilt = buildSeatRowColumnGrid(seatsForLines, {
+    sector: sectorFilter,
+    hallWidth,
+    hallHeight,
+    sectorPaths,
+    preferAnchorMesh: true,
+  });
+  const mostlyAnchors = gridBuilt.anchorSectorCount >= gridBuilt.spatialSectorCount;
+  const gridQuality = analyzeSeatGridQuality(gridBuilt.rowLines, gridBuilt.columnLines, {
+    anchorMesh: mostlyAnchors,
+    curvedRows: !mostlyAnchors,
+  });
+
+  const strictGrid = buildSeatRowColumnGrid(strict, {
+    sector: sectorFilter,
+    hallWidth,
+    hallHeight,
+    sectorPaths,
+    preferAnchorMesh: true,
+  });
+  const strictQuality = analyzeSeatGridQuality(strictGrid.rowLines, strictGrid.columnLines, {
+    anchorMesh: true,
+    curvedRows: false,
+  });
+
   return {
     hallWidth,
     hallHeight,
@@ -125,6 +166,18 @@ export function buildLuzhnikiSeatGridDiagnosticPayload(options = {}) {
     strict,
     fieldGrid: grid,
     compare: compareStrictToFieldGrid(strict, grid),
-    referenceSectors: ['Сектор D 230', 'Сектор A 103', 'Сектор C 131'],
+    referenceSectors: ['Сектор D 230', 'Сектор A 103', 'Сектор C 131', 'Сектор A 108 VIP'],
+    gridOverlay: {
+      rowLines: gridBuilt.rowLines,
+      columnLines: gridBuilt.columnLines,
+      quality: gridQuality,
+      anchorSectorCount: gridBuilt.anchorSectorCount,
+      spatialSectorCount: gridBuilt.spatialSectorCount,
+    },
+    strictGridOverlay: {
+      rowLines: strictGrid.rowLines,
+      columnLines: strictGrid.columnLines,
+      quality: strictQuality,
+    },
   };
 }

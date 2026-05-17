@@ -19,6 +19,31 @@ export type FieldGridCompareReport = {
   }[];
 };
 
+export type GridLinePayload = {
+  kind: 'row' | 'column';
+  label: string;
+  sector: string;
+  points: { x: number; y: number }[];
+  source?: string;
+};
+
+export type GridOverlayPayload = {
+  rowLines: GridLinePayload[];
+  columnLines: GridLinePayload[];
+  quality: {
+    verdict: string;
+    verdictHint: string;
+    rowLineCount: number;
+    columnLineCount: number;
+    maxRowChordDeviationPct: number;
+    maxColumnChordDeviationPct: number;
+    rowLineCrossings: number;
+    columnLineCrossings: number;
+  };
+  anchorSectorCount?: number;
+  spatialSectorCount?: number;
+};
+
 export type LuzhnikiSeatGridDiagnosticPayload = {
   hallWidth: number;
   hallHeight: number;
@@ -29,6 +54,8 @@ export type LuzhnikiSeatGridDiagnosticPayload = {
   compare: FieldGridCompareReport;
   referenceSectors: string[];
   stats?: Record<string, number>;
+  gridOverlay?: GridOverlayPayload;
+  strictGridOverlay?: GridOverlayPayload;
 };
 
 export function seatsToGridSeats(

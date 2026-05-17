@@ -124,17 +124,35 @@ export function LuzhnikiSeatGridDiagnosticPage() {
     [diag?.sectors, seatsForGrid],
   );
 
-  const { rowLines, columnLines } = useMemo(
-    () =>
-      buildSeatRowColumnGrid(seatsForGrid, {
-        sector: dataMode === 'compare' ? undefined : sectorDraft,
-        hallWidth,
-        hallHeight,
-      }),
-    [seatsForGrid, sectorDraft, dataMode, hallWidth, hallHeight],
-  );
+  const { rowLines, columnLines } = useMemo(() => {
+    if (dataMode === 'strict' && diag?.strictGridOverlay) {
+      return {
+        rowLines: diag.strictGridOverlay.rowLines,
+        columnLines: diag.strictGridOverlay.columnLines,
+      };
+    }
+    if (dataMode === 'fieldGrid' && diag?.gridOverlay) {
+      return {
+        rowLines: diag.gridOverlay.rowLines,
+        columnLines: diag.gridOverlay.columnLines,
+      };
+    }
+    return buildSeatRowColumnGrid(seatsForGrid, {
+      sector: dataMode === 'compare' ? undefined : sectorDraft,
+      hallWidth,
+      hallHeight,
+    });
+  }, [dataMode, diag, seatsForGrid, sectorDraft, hallWidth, hallHeight]);
 
-  const quality = useMemo(() => analyzeSeatGridQuality(rowLines, columnLines), [rowLines, columnLines]);
+  const quality = useMemo(() => {
+    if (dataMode === 'strict' && diag?.strictGridOverlay?.quality) {
+      return diag.strictGridOverlay.quality;
+    }
+    if (dataMode === 'fieldGrid' && diag?.gridOverlay?.quality) {
+      return diag.gridOverlay.quality;
+    }
+    return analyzeSeatGridQuality(rowLines, columnLines);
+  }, [dataMode, diag, rowLines, columnLines]);
 
   const overlaySvg = useMemo(
     () => gridLinesToSvgMarkup(rowLines, columnLines, hallWidth, hallHeight),

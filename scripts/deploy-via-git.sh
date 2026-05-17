@@ -76,6 +76,14 @@ FRONTEND_OK=1
 ) || FRONTEND_OK=0
 if [ "$FRONTEND_OK" = 1 ]; then
   echo "✅ Frontend собран"
+  if [ -f "$PROJECT_ROOT/luzhniki.txt" ] && [ -f "$PROJECT_ROOT/tickets.json" ]; then
+    echo "🗺️  Диагностика Лужников → frontend/dist/tools/..."
+    (
+      cd "$PROJECT_ROOT/backend"
+      npm run render:luzhniki-seat-grid
+    ) || echo "⚠️ render:luzhniki-seat-grid — пропуск"
+    chown -R www-data:www-data "$PROJECT_ROOT/frontend/dist/tools" 2>/dev/null || true
+  fi
 else
   echo "⚠️ Frontend не собран (vite/npm) — backend и pm2 всё равно обновим; пересоберите фронт вручную"
 fi

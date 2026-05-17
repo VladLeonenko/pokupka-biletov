@@ -423,6 +423,25 @@ app.get('/robots.txt', (req, res) => {
   res.status(404).type('text/plain').send('Not found');
 });
 
+const LUZHNIKI_GRID_DIAG_HTML = [
+  'luzhniki-grid-diagnostic.html',
+  'luzhniki-grid-diagnostic-d230.html',
+  'luzhniki-grid-diagnostic-cloud.html',
+];
+for (const name of LUZHNIKI_GRID_DIAG_HTML) {
+  app.get(`/tools/${name}`, (req, res) => {
+    const ok = sendDistRootFile(res, `tools/${name}`, (r) => {
+      r.setHeader('Content-Type', 'text/html; charset=utf-8');
+      r.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+      r.setHeader('Cache-Control', 'private, no-store');
+    });
+    if (ok) return;
+    res.status(404).type('text/html').send(
+      `<!DOCTYPE html><html><body><p>Файл не найден. На сервере: <code>cd backend && npm run render:luzhniki-seat-grid</code></p></body></html>`,
+    );
+  });
+}
+
 if (existingDistRoots.length) {
   const staticOpts = {
     maxAge: '1y',
