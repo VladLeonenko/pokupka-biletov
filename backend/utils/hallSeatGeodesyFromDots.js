@@ -536,7 +536,7 @@ function resolveOfferSeatFromSectorDotsOnly(rowNum, seatNum, sectorDots, rowRang
   });
 }
 
-function buildSectorOfferRowRanges(offers) {
+export function buildSectorOfferRowRanges(offers) {
   const bySector = new Map();
   for (const offer of offers) {
     const norm = normalizeSectorLabel(offer.Sector);

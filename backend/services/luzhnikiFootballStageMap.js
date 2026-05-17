@@ -104,8 +104,13 @@ export async function loadLuzhnikiFootballStageMapRow() {
 export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   if (!row) return row;
   const layout = parseLayoutJson(row);
+  const {
+    sellableSeats: _seedSellable,
+    offerSeatGeodesy: _seedMeta,
+    ...layoutForGeodesy
+  } = layout;
   const base = {
-    ...layout,
+    ...layoutForGeodesy,
     stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
     luzhnikiStadiumCheckout: true,
     grayHallWhenNoOffers: false,
@@ -114,7 +119,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
 
   const offers = Array.isArray(offerRows) ? offerRows : [];
   if (offers.length < 1) {
-    return { ...row, layout_json: base };
+    return { ...row, layout_json: { ...base, sellableSeats: [], sellableSeatsFromLiveOffers: true } };
   }
 
   const ticketsPayload = loadTicketsPayload();
@@ -122,9 +127,12 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     return { ...row, layout_json: base };
   }
 
-  const geodesy = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layout);
-  const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
-  const { patched } = mergeSellableSeatsIntoLayout(layoutSeats, geodesy.seats);
+  const geodesy = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layoutForGeodesy, {
+    svgMarkup: String(row.svg_markup ?? ''),
+  });
+  const layoutSeats = Array.isArray(layoutForGeodesy.seats) ? layoutForGeodesy.seats : [];
+  const mergeResult = mergeSellableSeatsIntoLayout(layoutSeats, geodesy.seats);
+  const patched = mergeResult?.patched ?? 0;
 
   return {
     ...row,
@@ -132,11 +140,14 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
       ...base,
       seats: layoutSeats,
       sellableSeats: geodesy.seats,
+      sellableSeatsFromLiveOffers: true,
       sellableGeodesyMode: geodesy.geodesyMode,
       offerSeatGeodesy: {
         matched: geodesy.matched,
         totalSellable: geodesy.totalSellable,
         strictMatched: geodesy.strictMatched,
+        sectorNativeMatched: geodesy.sectorNativeMatched ?? 0,
+        fieldGridMatched: geodesy.fieldGridMatched ?? 0,
         anchorInterpolated: geodesy.anchorInterpolated,
         layoutSeatsPatched: patched,
         unmatchedSamples: geodesy.unmatchedSamples,

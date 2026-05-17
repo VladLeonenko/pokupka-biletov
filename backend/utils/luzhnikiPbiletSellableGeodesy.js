@@ -1,8 +1,7 @@
 /**
- * Точная sellable-геодезия:
- * 1) strict из tickets.json (x,y pbilet)
- * 2) интерполяция по якорям tickets / layout (как пилот до warp)
- * Без lookup в fieldGrid 80k и без bilinear/tribune warp.
+ * Sellable-геодезия для Лужников:
+ * strict (tickets) → fieldGrid по оффер-ряду → sector-native (облако) → polarGrid → pbilet-интерполяция.
+ * Координаты считаются на каждый GET /map, не из сида.
  */
 
 import { buildLabeledSeatIndex, lookupLabeledSeat } from './hallSeatGeodesyMatch.js';
@@ -13,9 +12,19 @@ import { fileURLToPath } from 'node:url';
 
 import { getManualSectorRowAnchors } from './hallSeatGeodesySectorRowAnchors.js';
 import {
+  buildSectorDotIndex,
+  buildSectorOfferRowRanges,
+} from './hallSeatGeodesyFromDots.js';
+import { parseSvgHallRowLabels } from './hallSeatGeodesyFromSvgRows.js';
+import {
+  computeFieldCenterPct,
+  resolveOfferSeatSectorNativeLayout,
+} from './hallSeatGeodesySectorNative.js';
+import {
   collectLayoutSectorPbiletSeats,
   countPbiletRowAnchors,
   extractPbiletTicketsSeatGeodesy,
+  extractPbiletTicketSectorPaths,
   interpolatePbiletSeatGeodesy,
   snapFieldGridSeat,
 } from './luzhnikiPbiletGeodesyExtract.js';
@@ -29,6 +38,7 @@ import {
 import {
   applyLeftTribuneScale,
   layoutAnchorLookupRow,
+  layoutAnchorRowShift,
   sectorAnchorPivot,
 } from './luzhnikiPilotLayoutCalibrate.js';
 import { loadSeatsArrayFromLayout } from './luzhnikiSeatIndexCache.js';
@@ -40,6 +50,11 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
+
+function parseRowNum(value) {
+  const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : null;
+}
 
 function loadCoordinatesPayload() {
   const p =
@@ -103,14 +118,100 @@ function finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h) {
   };
 }
 
+function snapFieldGridOfferRow(fieldGridIndex, sector, label, row, seat) {
+  if (!fieldGridIndex?.size) return null;
+  return (
+    snapFieldGridSeat(fieldGridIndex, sector, row, seat) ||
+    snapFieldGridSeat(fieldGridIndex, label, row, seat) ||
+    null
+  );
+}
+
+/**
+ * @param {unknown} layout
+ * @param {unknown} ticketsPayload
+ * @param {unknown[]} offers
+ * @param {string} svgMarkup
+ * @param {number} w
+ * @param {number} h
+ */
+function buildSectorNativeLookup(layout, ticketsPayload, offers, svgMarkup, w, h) {
+  const allSeatCoordinates = Array.isArray(layout?.allSeatCoordinates)
+    ? layout.allSeatCoordinates
+    : [];
+  if (allSeatCoordinates.length < 100) return null;
+
+  const sectorPathByNorm = new Map();
+  for (const sp of extractPbiletTicketSectorPaths(ticketsPayload)) {
+    const norm = normalizeSectorLabel(sp.label);
+    if (norm && sp.path) sectorPathByNorm.set(norm, sp.path);
+  }
+  for (const sp of Array.isArray(layout?.sectorMode?.sectors) ? layout.sectorMode.sectors : []) {
+    const norm = normalizeSectorLabel(sp.label);
+    const path = String(sp.path ?? '').trim();
+    if (norm && path) sectorPathByNorm.set(norm, path);
+  }
+
+  const sectorPaths = [...sectorPathByNorm.entries()].map(([label, path]) => ({ label, path }));
+  const dotsBySector = buildSectorDotIndex(allSeatCoordinates, sectorPaths, w, h);
+  const svgRowLabels =
+    typeof svgMarkup === 'string' && svgMarkup.includes('<tspan')
+      ? parseSvgHallRowLabels(svgMarkup, w, h)
+      : [];
+  const fieldCenterPct = computeFieldCenterPct(allSeatCoordinates);
+  const rowRanges = buildSectorOfferRowRanges(offers);
+
+  return { sectorPathByNorm, dotsBySector, svgRowLabels, fieldCenterPct, rowRanges };
+}
+
+function trySectorNative(nativeCtx, norm, row, seat, w, h) {
+  if (!nativeCtx) return null;
+  const rowNum = parseRowNum(row);
+  const seatNum = parseRowNum(seat);
+  if (rowNum == null || seatNum == null) return null;
+
+  const sectorDots = nativeCtx.dotsBySector.get(norm);
+  const sectorPath = nativeCtx.sectorPathByNorm.get(norm);
+  if (!sectorDots?.length || !sectorPath || nativeCtx.svgRowLabels.length < 50) return null;
+
+  const sectorRowMax = nativeCtx.rowRanges.get(norm)?.max ?? null;
+  const pt = resolveOfferSeatSectorNativeLayout(
+    rowNum,
+    seatNum,
+    sectorDots,
+    sectorPath,
+    nativeCtx.svgRowLabels,
+    w,
+    h,
+    nativeCtx.fieldCenterPct,
+    sectorRowMax,
+  );
+  if (!pt) return null;
+  return {
+    sector: norm,
+    row: String(row),
+    seat: String(seat),
+    xPct: pt.xPct,
+    yPct: pt.yPct,
+    geodesySource: 'svgRow',
+  };
+}
+
 /**
  * @param {unknown} ticketsPayload
  * @param {unknown[]} offers
  * @param {Record<string, unknown>} layout
+ * @param {{ svgMarkup?: string }} [options]
  */
-export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layout = {}) {
+export function buildSellableSeatGeodesyPbiletAccurate(
+  ticketsPayload,
+  offers,
+  layout = {},
+  options = {},
+) {
   const w = Number(layout?.geodesy?.hallWidth) || 11413;
   const h = Number(layout?.geodesy?.hallHeight) || 9676;
+  const svgMarkup = String(options.svgMarkup ?? layout?.svg_markup ?? '');
 
   const fromTickets = extractPbiletTicketsSeatGeodesy(ticketsPayload, w, h);
   const strictIndex = buildLabeledSeatIndex(fromTickets);
@@ -120,17 +221,10 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
     layout,
     String(layout?.luzhnikiPilotMergedAt ?? ''),
   );
-  const lmrOnlyIndex = (() => {
-    if (!pilotFieldGridIndex?.size) return null;
-    const lmr = new Map();
-    for (const [k, v] of pilotFieldGridIndex) {
-      if (v?.geodesySource === 'lmrSnap' || v?.geodesySource === 'fieldGrid') {
-        lmr.set(k, v);
-      }
-    }
-    return lmr.size > 1000 ? lmr : pilotFieldGridIndex;
-  })();
-  const fieldGridSnapIndex = lmrOnlyIndex?.size > 1000 ? lmrOnlyIndex : null;
+  const fieldGridSnapIndex =
+    pilotFieldGridIndex?.size > 1000 ? pilotFieldGridIndex : layoutIndex;
+
+  const nativeCtx = buildSectorNativeLookup(layout, ticketsPayload, offers, svgMarkup, w, h);
 
   const cloudMasterIndex = (() => {
     if (!useCloudMasterMap()) return null;
@@ -156,6 +250,8 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
   const seats = [];
   let strictMatched = 0;
   let cloudMasterMatched = 0;
+  let fieldGridMatched = 0;
+  let sectorNativeMatched = 0;
   let interpolated = 0;
   let totalSellable = 0;
   const unmatchedSamples = [];
@@ -170,6 +266,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
       label,
     );
     const pivot = sectorAnchorPivot(anchors);
+    const rowShift = layoutAnchorRowShift(norm);
 
     for (const o of sectorOffers) {
       const sector = String(o.Sector ?? '');
@@ -186,7 +283,17 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
         if (direct) {
           seen.add(dedupe);
           strictMatched += 1;
-          seats.push(finalizeSellableCoords(sector, row, seat, { ...direct, geodesySource: 'strict' }, ticketsPayload, w, h));
+          seats.push(
+            finalizeSellableCoords(
+              sector,
+              row,
+              seat,
+              { ...direct, geodesySource: 'strict' },
+              ticketsPayload,
+              w,
+              h,
+            ),
+          );
           continue;
         }
 
@@ -201,32 +308,53 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
         }
 
         if (mode === 'none') {
+          const nativeOnly = trySectorNative(nativeCtx, norm, row, seat, w, h);
+          if (nativeOnly) {
+            seen.add(dedupe);
+            sectorNativeMatched += 1;
+            seats.push(
+              finalizeSellableCoords(sector, row, seat, nativeOnly, ticketsPayload, w, h),
+            );
+            continue;
+          }
           if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
           continue;
         }
 
-        const lookupRow = mode === 'layout-anchors' ? layoutAnchorLookupRow(norm, row) : row;
-
         let hit = null;
 
-        if (mode === 'layout-anchors' || mode === 'sector-anchors') {
-          hit =
-            (fieldGridSnapIndex &&
-              (snapFieldGridSeat(fieldGridSnapIndex, sector, row, seat) ||
-                snapFieldGridSeat(fieldGridSnapIndex, label, row, seat))) ||
-            null;
+        if (mode === 'tickets') {
+          hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, null);
+        } else {
+          hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
+          if (hit) {
+            seen.add(dedupe);
+            fieldGridMatched += 1;
+            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
+            continue;
+          }
         }
 
         if (!hit) {
-          hit = interpolatePbiletSeatGeodesy(anchors, label, lookupRow, seat, null);
+          hit = trySectorNative(nativeCtx, norm, row, seat, w, h);
+          if (hit) {
+            seen.add(dedupe);
+            sectorNativeMatched += 1;
+            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
+            continue;
+          }
         }
 
         if (!hit && mode === 'sector-anchors') {
           hit = resolvePolarGridSeatFromAnchors(norm, row, seat);
         }
 
-        if (!hit && mode === 'layout-anchors' && fieldGridSnapIndex) {
-          hit = snapFieldGridSeat(fieldGridSnapIndex, sector, lookupRow, seat);
+        if (!hit && mode === 'layout-anchors') {
+          const interpRow = rowShift > 0 ? layoutAnchorLookupRow(norm, row) : row;
+          hit = interpolatePbiletSeatGeodesy(anchors, label, interpRow, seat, fieldGridSnapIndex);
+          if (!hit && rowShift > 0) {
+            hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, fieldGridSnapIndex);
+          }
         }
 
         if (!hit) {
@@ -242,7 +370,12 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
             sector,
             row,
             seat,
-            { ...hit, xPct: scaled.xPct, yPct: scaled.yPct },
+            {
+              ...hit,
+              xPct: scaled.xPct,
+              yPct: scaled.yPct,
+              geodesySource: hit.geodesySource || 'pbiletInterp',
+            },
             ticketsPayload,
             w,
             h,
@@ -257,17 +390,19 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
     matched: seats.length,
     totalSellable,
     strictMatched,
+    fieldGridMatched,
+    sectorNativeMatched,
     svgCircleCount: fromTickets.length,
-    svgCircleMatched: strictMatched + interpolated,
-    sectorGridMatched: 0,
+    svgCircleMatched: strictMatched + fieldGridMatched + sectorNativeMatched + interpolated,
+    sectorGridMatched: sectorNativeMatched,
     layoutSeatCount: fromTickets.length,
     dotMatched: 0,
     cloudMatched: cloudMasterMatched,
-    svgRowMatched: 0,
+    svgRowMatched: sectorNativeMatched,
     cloudSnapMatched: cloudMasterMatched,
     anchorInterpolated: interpolated,
     cloudMasterMatched,
     unmatchedSamples,
-    geodesyMode: cloudMasterIndex ? 'pbilet-strict+cloudMaster' : 'pbilet-strict',
+    geodesyMode: cloudMasterIndex ? 'pbilet-strict+sectorNative' : 'pbilet-strict+sectorNative',
   };
 }

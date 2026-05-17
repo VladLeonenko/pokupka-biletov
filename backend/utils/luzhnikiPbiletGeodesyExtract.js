@@ -150,6 +150,7 @@ function lerpSeat(a, b, t, row, seat, sector) {
     seat: String(seat),
     xPct: a.xPct + t * (b.xPct - a.xPct),
     yPct: a.yPct + t * (b.yPct - a.yPct),
+    geodesySource: 'pbiletLerp',
   };
 }
 

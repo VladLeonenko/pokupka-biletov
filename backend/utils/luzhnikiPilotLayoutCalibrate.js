@@ -1,6 +1,6 @@
 /**
- * Калибровка layout-якорей (сектора без r[] в tickets) для левой трибуны.
- * layout.seats подписывает ряд ~на 4 выше физического ряда (как D230: оффер 24 → grid «24» ≈ pbilet 28).
+ * Калибровка layout-якорей (сектора без r[] в tickets).
+ * Сдвиг ряда — только для явно откалиброванных секторов (см. layoutAnchorRowShift).
  */
 
 import { normalizeSectorLabel } from './ticketHallSectorNormalize.js';
@@ -10,9 +10,24 @@ function parseRowNum(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Сектора, где layout.seats и оффер GetBilet расходятся по номеру ряда (ручная калибровка). */
+const DEFAULT_LAYOUT_ROW_SHIFT_NORMS = new Set(['d230', 'd231']);
+
+function layoutRowShiftAllowlist() {
+  const raw = process.env.LUZHNIKI_LAYOUT_ROW_SHIFT_NORMS?.trim();
+  if (raw) {
+    return new Set(
+      raw
+        .split(/[,;\s]+/)
+        .map((s) => normalizeSectorLabel(s))
+        .filter(Boolean),
+    );
+  }
+  return DEFAULT_LAYOUT_ROW_SHIFT_NORMS;
+}
+
 /**
- * Нижняя/средняя левая трибуна (xPct ≲ 35): сдвиг layout-ряда +4 только здесь.
- * Верхнее кольцо A201–A216, C243 и т.п. — не трогать (fieldGrid ряд = оффер).
+ * Левая трибуна — для масштаба pivot (applyLeftTribuneScale), не для сдвига ряда.
  */
 export function isLeftTribuneSector(norm) {
   const n = normalizeSectorLabel(norm);
@@ -23,9 +38,10 @@ export function isLeftTribuneSector(norm) {
   return false;
 }
 
-/** Сдвиг номера ряда при lookup в layout.seats (оффер R → якоря R+shift). */
+/** Сдвиг номера ряда при lookup в layout.seats (только allowlist + env). */
 export function layoutAnchorRowShift(norm) {
-  if (!isLeftTribuneSector(norm)) return 0;
+  const n = normalizeSectorLabel(norm);
+  if (!layoutRowShiftAllowlist().has(n)) return 0;
   const fromEnv = process.env.LUZHNIKI_LEFT_LAYOUT_ROW_SHIFT;
   if (fromEnv != null && fromEnv !== '') {
     const v = Number(fromEnv);

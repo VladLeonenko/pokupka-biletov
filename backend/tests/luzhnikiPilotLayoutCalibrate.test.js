@@ -16,9 +16,11 @@ test('left tribune sectors', () => {
   assert.equal(isLeftTribuneSector('d230'), false);
 });
 
-test('layout row shift +4 for B145', () => {
-  assert.equal(layoutAnchorRowShift('b145'), 4);
-  assert.equal(layoutAnchorLookupRow('b145', '26'), '30');
+test('layout row shift only on calibrated sectors (d230)', () => {
+  assert.equal(layoutAnchorRowShift('b145'), 0);
+  assert.equal(layoutAnchorLookupRow('b145', '26'), '26');
+  assert.equal(layoutAnchorRowShift('d230'), 4);
+  assert.equal(layoutAnchorLookupRow('d230', '24'), '28');
 });
 
 test('scale around pivot', () => {
