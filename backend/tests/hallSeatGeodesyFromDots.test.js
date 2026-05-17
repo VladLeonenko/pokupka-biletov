@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { buildSellableSeatGeodesy } from '../utils/hallSeatGeodesyMatch.js';
 import { buildSellableSeatGeodesyWithDots, pathBBox } from '../utils/hallSeatGeodesyFromDots.js';
 
 test('pathBBox extracts bounds from SVG path', () => {
@@ -11,104 +12,44 @@ test('pathBBox extracts bounds from SVG path', () => {
   assert.equal(b.maxY, 40);
 });
 
-test('dot resolver places offer seat using anchors and hall dots', () => {
+test('labeled lookup places offer seat using exact layout row+seat', () => {
   const layoutSeats = [
     { sector: 'Сектор A 1', row: '1', seat: '1', xPct: 10, yPct: 20 },
     { sector: 'Сектор A 1', row: '1', seat: '2', xPct: 12, yPct: 20 },
     { sector: 'Сектор A 1', row: '2', seat: '1', xPct: 10, yPct: 22 },
     { sector: 'Сектор A 1', row: '2', seat: '2', xPct: 12, yPct: 22 },
   ];
-  const allSeatCoordinates = [
-    { xPct: 10, yPct: 20 },
-    { xPct: 12, yPct: 20 },
-    { xPct: 14, yPct: 20 },
-    { xPct: 10, yPct: 22 },
-    { xPct: 12, yPct: 22 },
-    { xPct: 14, yPct: 22 },
-  ];
-  const sectorPaths = [
-    {
-      label: 'Сектор A 1',
-      path: 'M0,0 L100,0 L100,100 L0,100 Z',
-    },
-  ];
-  const offers = [
-    {
-      Sector: 'сектор a1',
-      Row: '1',
-      SeatList: ['3'],
-    },
-  ];
-  const diag = buildSellableSeatGeodesyWithDots(
-    layoutSeats,
-    allSeatCoordinates,
-    sectorPaths,
-    100,
-    100,
-    offers,
-  );
+  const offers = [{ Sector: 'сектор a1', Row: '1', SeatList: ['2'] }];
+  const diag = buildSellableSeatGeodesy(layoutSeats, offers);
   assert.equal(diag.matched, 1);
-  assert.equal(diag.seats.length, 1);
-  assert.equal(diag.seats[0].seat, '3');
-  assert.equal(diag.dotMatched, 1);
+  assert.equal(diag.seats[0].xPct, 12);
+  assert.equal(diag.seats[0].yPct, 20);
 });
 
-test('dot resolver keeps same row on one Y (no vertical stripe)', () => {
-  const layoutSeats = [];
-  for (let seat = 1; seat <= 5; seat += 1) {
-    layoutSeats.push({
-      sector: 'Сектор B 145',
-      row: '20',
-      seat: String(seat),
-      xPct: 10 + seat * 2,
-      yPct: 30,
-    });
-  }
-  for (let seat = 1; seat <= 5; seat += 1) {
-    layoutSeats.push({
-      sector: 'Сектор B 145',
-      row: '22',
-      seat: String(seat),
-      xPct: 10 + seat * 2,
-      yPct: 32,
-    });
-  }
-  const allSeatCoordinates = [];
-  for (let rowY of [30, 32]) {
-    for (let seat = 1; seat <= 8; seat += 1) {
-      allSeatCoordinates.push({ xPct: 8 + seat * 2, yPct: rowY });
-    }
-  }
-  const sectorPaths = [
-    { label: 'Сектор B 145', path: 'M0,0 L200,0 L200,200 L0,200 Z' },
-  ];
-  const offers = [
-    { Sector: 'сектор b145', Row: '26', SeatList: ['1', '2', '3'] },
-  ];
-  const diag = buildSellableSeatGeodesyWithDots(
-    layoutSeats,
-    allSeatCoordinates,
-    sectorPaths,
-    200,
-    200,
-    offers,
-  );
-  assert.equal(diag.seats.length, 3);
-  const ys = diag.seats.map((s) => s.yPct);
-  assert.ok(Math.max(...ys) - Math.min(...ys) < 0.2, `Y spread too large: ${ys.join(',')}`);
-  assert.ok(ys[0] > 32, `row 26 Y should interpolate above row 22 (y=32), got ${ys[0]}`);
-});
-
-test('anchor resolver uses exact layout seat for row 32 seat 21', () => {
+test('seat number 08 matches layout seat 8', () => {
   const layoutSeats = [
-    { sector: 'Сектор A 206', row: '32', seat: '21', xPct: 55, yPct: 40 },
-    { sector: 'Сектор A 206', row: '32', seat: '20', xPct: 53, yPct: 40 },
-    { sector: 'Сектор A 206', row: '30', seat: '1', xPct: 10, yPct: 36 },
-    { sector: 'Сектор A 206', row: '28', seat: '1', xPct: 10, yPct: 34 },
+    { sector: 'Сектор D 218', row: '21', seat: '8', xPct: 50, yPct: 60 },
   ];
-  const offers = [{ Sector: 'сектор a206', Row: '32', SeatList: ['21'] }];
-  const diag = buildSellableSeatGeodesyWithDots(layoutSeats, [], [], 100, 100, offers);
+  const offers = [{ Sector: 'сектор d218', Row: '21', SeatList: ['08'] }];
+  const diag = buildSellableSeatGeodesy(layoutSeats, offers);
   assert.equal(diag.matched, 1);
-  assert.equal(diag.seats[0].yPct, 40);
-  assert.equal(diag.seats[0].xPct, 55);
+  assert.equal(diag.seats[0].xPct, 50);
+});
+
+test('withDots wrapper does not invent coordinates for unknown row', () => {
+  const layoutSeats = [
+    { sector: 'Сектор B 145', row: '20', seat: '1', xPct: 10, yPct: 30 },
+    { sector: 'Сектор B 145', row: '22', seat: '1', xPct: 10, yPct: 32 },
+  ];
+  const offers = [{ Sector: 'сектор b145', Row: '26', SeatList: ['1'] }];
+  const diag = buildSellableSeatGeodesyWithDots(layoutSeats, [], [], 200, 200, offers);
+  assert.equal(diag.matched, 0);
+  assert.equal(diag.dotMatched, 0);
+});
+
+test('D-218 sector alias matches layout', () => {
+  const layoutSeats = [{ sector: 'Сектор D-218', row: '21', seat: '10', xPct: 93.3, yPct: 82.3 }];
+  const offers = [{ Sector: 'сектор d218', Row: '21', SeatList: ['10'] }];
+  const diag = buildSellableSeatGeodesy(layoutSeats, offers);
+  assert.equal(diag.matched, 1);
 });

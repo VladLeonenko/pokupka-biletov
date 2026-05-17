@@ -93,31 +93,10 @@ function parseOmitClientSeatCoordinateCloud(layout: unknown): boolean {
   return (layout as Record<string, unknown>).omitClientSeatCoordinateCloud === true;
 }
 
-function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordinate[] {
-  if (!layout || typeof layout !== 'object') return [];
-  const record = layout as Record<string, unknown>;
-  if (record.omitClientSeatCoordinateCloud === true) return [];
-  const raw = record.allSeatCoordinates ?? record.backgroundSeats ?? record.coordinates;
-  if (Array.isArray(raw) && raw.length > 0) {
-    const out: BackgroundSeatCoordinate[] = [];
-    for (const item of raw) {
-      if (!item || typeof item !== 'object') continue;
-      const seat = item as Record<string, unknown>;
-      const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
-      const y = Number(seat.yPct ?? seat.y_percent ?? seat.yPercent ?? seat.top ?? seat.y);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      const xPct = x >= 0 && x <= 1 ? x * 100 : x;
-      const yPct = y >= 0 && y <= 1 ? y * 100 : y;
-      if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) continue;
-      out.push({ xPct, yPct });
-    }
-    return out;
-  }
-  /** Fallback: все места из seats / seatPositions — без дублирования allSeatCoordinates в JSON. */
-  const seatRows = record.seats ?? record.seatPositions;
-  if (!Array.isArray(seatRows)) return [];
+function coordinatesFromSeatRows(raw: unknown): BackgroundSeatCoordinate[] {
+  if (!Array.isArray(raw)) return [];
   const out: BackgroundSeatCoordinate[] = [];
-  for (const item of seatRows) {
+  for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const seat = item as Record<string, unknown>;
     const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
@@ -129,6 +108,24 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
     out.push({ xPct, yPct });
   }
   return out;
+}
+
+function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordinate[] {
+  if (!layout || typeof layout !== 'object') return [];
+  const record = layout as Record<string, unknown>;
+  if (record.omitClientSeatCoordinateCloud === true) return [];
+
+  /** Лужники: каждая серая точка = место из tickets.json (layout.seats), не безымянная координата. */
+  if (parseHallBackgroundFromLabeledSeats(layout)) {
+    const labeled = coordinatesFromSeatRows(record.seats ?? record.seatPositions);
+    if (labeled.length > 0) return labeled;
+  }
+
+  const raw = record.allSeatCoordinates ?? record.backgroundSeats ?? record.coordinates;
+  const fromCloud = coordinatesFromSeatRows(raw);
+  if (fromCloud.length > 0) return fromCloud;
+
+  return coordinatesFromSeatRows(record.seats ?? record.seatPositions);
 }
 
 function parseSeatSelectionDisabled(layout: unknown): boolean {
@@ -206,7 +203,10 @@ import {
   normalizeSeatToken,
   normalizeSectorLabel,
 } from '@/utils/ticketHallSectorNormalize';
-import { isLuzhnikiStadiumCheckoutLayout } from '@/utils/luzhnikiStadiumMap';
+import {
+  isLuzhnikiStadiumCheckoutLayout,
+  parseHallBackgroundFromLabeledSeats,
+} from '@/utils/luzhnikiStadiumMap';
 import {
   filterPlacementsInSectorPath,
   filterSeatsInSectorPath,
@@ -425,6 +425,10 @@ export function TicketHallInteractiveBlock({
     return parseDisablePositionalSeatZip(layoutJson);
   }, [layoutJson, sellableGeodesySeats.length]);
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
+  const hallBackgroundFromLabeledSeats = useMemo(
+    () => parseHallBackgroundFromLabeledSeats(layoutJson),
+    [layoutJson],
+  );
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
@@ -1120,7 +1124,8 @@ export function TicketHallInteractiveBlock({
     useSvgNative,
   ]);
 
-  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
+  const denseBackgroundHall =
+    backgroundSeatCoordinates.length >= 8000 || hallBackgroundFromLabeledSeats;
   /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
@@ -1292,7 +1297,8 @@ export function TicketHallInteractiveBlock({
     const dragging = isMapDraggingRef.current;
     const skipDenseBgWhileDragging = dragging && bg.length >= 8000;
     const drawBackgroundDots =
-      bg.length > 0 && (liveZoom > fitZoom + 0.01 || bg.length >= 8000);
+      bg.length > 0 &&
+      (liveZoom > fitZoom + 0.01 || bg.length >= 8000 || hallBackgroundFromLabeledSeats);
     if (!skipDenseBgWhileDragging && drawBackgroundDots) {
       ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
       const scalePx = w / Math.max(1, svgViewBox.width);
@@ -1362,6 +1368,7 @@ export function TicketHallInteractiveBlock({
     colorForSeat,
     fitZoom,
     getLayerBase,
+    hallBackgroundFromLabeledSeats,
     selectedSeatDetails,
     selectedSector,
     sectorMode.enabled,

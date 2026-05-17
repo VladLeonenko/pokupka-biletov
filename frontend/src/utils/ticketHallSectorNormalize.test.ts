@@ -8,6 +8,7 @@ describe('normalizeSectorLabel', () => {
     expect(normalizeSectorLabel('сектор D230')).toBe('d230');
     expect(normalizeSectorLabel('секторD230')).toBe('d230');
     expect(normalizeSectorLabel('d 230')).toBe('d230');
+    expect(normalizeSectorLabel('Сектор D-218')).toBe('d218');
     expect(normalizeSectorLabel('vip c138')).toBe('vipc138');
   });
 

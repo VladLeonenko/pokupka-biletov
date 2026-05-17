@@ -1,6 +1,6 @@
 /**
- * Сопоставление офферов GetBilet с координатами мест из pbilet (layout_json.seats).
- * Только точные совпадения сектор+ряд+место — без «сетки в bbox» и без zip по порядку в ряду.
+ * Сопоставление офферов GetBilet с координатами из layout_json.seats (pbilet tickets).
+ * Только подписанные сектор+ряд+место — без интерполяции по облаку точек (овал ломает боковые сектора).
  */
 
 import {
@@ -10,22 +10,64 @@ import {
   strictSeatKey,
 } from './ticketHallSectorNormalize.js';
 
+function normalizeSeatNumber(value) {
+  const raw = normalizeSeatToken(value);
+  const n = Number.parseInt(raw.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? String(n) : raw;
+}
+
+function normalizeRowNumber(value) {
+  const raw = normalizeRowLabel(value);
+  const n = Number.parseInt(raw.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? String(n) : raw;
+}
+
+/** Ключи для поиска: strict + числовые варианты места/ряда («08» = «8»). */
+export function labeledSeatLookupKeys(sector, row, seat) {
+  const keys = new Set();
+  const sk = strictSeatKey(sector, row, seat);
+  keys.add(sk);
+  const parts = sk.split('|');
+  if (parts.length === 3) {
+    const [sec, r, st] = parts;
+    keys.add(`${sec}|${normalizeRowNumber(row)}|${normalizeSeatNumber(seat)}`);
+    keys.add(`${sec}|${r}|${normalizeSeatNumber(seat)}`);
+    keys.add(`${sec}|${normalizeRowNumber(row)}|${st}`);
+  }
+  return keys;
+}
+
+/**
+ * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
+ */
+export function buildLabeledSeatIndex(layoutSeats) {
+  const byKey = new Map();
+  for (const s of layoutSeats) {
+    if (!Number.isFinite(s.xPct) || !Number.isFinite(s.yPct)) continue;
+    for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
+      if (!byKey.has(key)) byKey.set(key, s);
+    }
+  }
+  return byKey;
+}
+
+/**
+ * @param {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }>} index
+ */
+export function lookupLabeledSeat(index, sector, row, seat) {
+  for (const key of labeledSeatLookupKeys(sector, row, seat)) {
+    const hit = index.get(key);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 /**
  * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
  * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} offers
- * @returns {{
- *   seats: { sector: string, row: string, seat: string, xPct: number, yPct: number }[],
- *   matched: number,
- *   totalSellable: number,
- *   unmatchedSamples: { sector: string, row: string, seat: string }[],
- * }}
  */
 export function buildSellableSeatGeodesy(layoutSeats, offers) {
-  const index = new Map();
-  for (const s of layoutSeats) {
-    const key = strictSeatKey(s.sector, s.row, s.seat);
-    if (!index.has(key)) index.set(key, s);
-  }
+  const index = buildLabeledSeatIndex(layoutSeats);
 
   const seen = new Set();
   const seats = [];
@@ -40,15 +82,14 @@ export function buildSellableSeatGeodesy(layoutSeats, offers) {
     for (const seat of list) {
       if (!seat.trim()) continue;
       totalSellable += 1;
-      const key = strictSeatKey(sector, row, seat);
-      const hit = index.get(key);
+      const hit = lookupLabeledSeat(index, sector, row, seat);
       if (!hit) {
-        if (unmatchedSamples.length < 12) {
+        if (unmatchedSamples.length < 24) {
           unmatchedSamples.push({ sector, row, seat });
         }
         continue;
       }
-      const dedupe = `${key}|${hit.xPct.toFixed(4)}|${hit.yPct.toFixed(4)}`;
+      const dedupe = `${strictSeatKey(sector, row, seat)}|${hit.xPct.toFixed(4)}|${hit.yPct.toFixed(4)}`;
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);
       matched += 1;
@@ -65,11 +106,6 @@ export function buildSellableSeatGeodesy(layoutSeats, offers) {
   return { seats, matched, totalSellable, unmatchedSamples };
 }
 
-/**
- * Диагностика без изменения layout.
- * @param {unknown} layoutJson
- * @param {unknown[]} offers
- */
 export function diagnoseOfferSeatGeodesy(layoutJson, offers) {
   const layout = layoutJson && typeof layoutJson === 'object' ? layoutJson : {};
   const baseSeats = Array.isArray(layout.seats) ? layout.seats : [];

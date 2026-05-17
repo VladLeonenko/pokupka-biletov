@@ -49,6 +49,7 @@ export function normalizeSectorLabel(value: unknown): string {
     raw
       .replace(/^сектор\s*/i, '')
       .replace(/\bvip\b/gi, ' ')
+      .replace(/([a-z])\s*-\s*(\d)/gi, '$1 $2')
       .replace(/\s+/g, ' ')
       .trim(),
   );
@@ -64,7 +65,7 @@ export function normalizeSectorLabel(value: unknown): string {
 }
 
 export function normalizeRowLabel(value: unknown): string {
-  return String(value ?? '')
+  const raw = String(value ?? '')
     .replace(/\u00a0/g, ' ')
     .replace(/ё/g, 'е')
     .replace(/Ё/g, 'е')
@@ -72,16 +73,20 @@ export function normalizeRowLabel(value: unknown): string {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+  const n = Number.parseInt(raw.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? String(n) : raw;
 }
 
 export function normalizeSeatToken(value: unknown): string {
-  return String(value ?? '')
+  const raw = String(value ?? '')
     .replace(/\u00a0/g, ' ')
     .replace(/ё/g, 'е')
     .replace(/Ё/g, 'е')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+  const n = Number.parseInt(raw.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? String(n) : raw;
 }
 
 export function strictSeatKey(sector: unknown, row: unknown, seat: unknown): string {

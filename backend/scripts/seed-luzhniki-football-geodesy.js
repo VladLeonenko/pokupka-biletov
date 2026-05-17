@@ -213,10 +213,10 @@ async function main() {
     ...(allSeatCoordinates.length > 0
       ? {
           allSeatCoordinates,
-          /** На чекауте места из оффера не подсвечивать цветом цены — как общий фон чаши. */
           uniformHallSeatAppearance: true,
+          hallBackgroundFromLabeledSeats: true,
         }
-      : {}),
+      : { hallBackgroundFromLabeledSeats: true }),
     sectorPathCount: sectorsMeta.length,
     seats,
     sectorMode: {

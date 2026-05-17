@@ -13,8 +13,9 @@ globs:
 
 ## Визуал (эталон — portalbilet, был в коммите ~5d746070)
 
-- **Не отключать** `allSeatCoordinates` (~77k) и **canvas** на чекауте.
-- `uniformHallSeatAppearance: true` — вся чаша **мелкими серыми** точками, **без зума** (`bg.length >= 8000` рисуется сразу).
+- **Canvas** на чекауте; `uniformHallSeatAppearance: true`.
+- **Серая чаша** = `layout.seats` (`hallBackgroundFromLabeledSeats: true`) — каждая точка как в **tickets.json**, не безымянное облако `allSeatCoordinates`.
+- Фон виден **без зума** (`hallBackgroundFromLabeledSeats` или `bg.length >= 8000`).
 - `sellableSeats` поверх — **цвет по цене** (`colorForSeat`).
 - **Не** ставить `omitClientSeatCoordinateCloud: true` / `disableStadiumCanvas: true` для живых офферов — это убирает чашу и ломает UX.
 - Слой секторов (`sectorLayer`) остаётся **поверх** canvas (`pointer-events: auto`); canvas — `pointer-events: none`.
@@ -38,8 +39,9 @@ globs:
 
 ## Координаты sellable
 
-- Только `layout.seats` (strict + `resolveOfferSeatFromAnchors`) — **не** привязывать оффер к ближайшей точке из `allSeatCoordinates` (даёт ряд 32 на полосе 29).
-- Экстраполяция ряда — не дальше ±4 рядов от известных якорей сектора.
+- **Только** `layout.seats` с подписью сектор+ряд+место (`buildSellableSeatGeodesy`, `sellableSeatsLabeledOnly`).
+- **Запрещено** интерполировать X/Y по `allSeatCoordinates` или «ближайшей» серой точке — на овале боковые сектора уезжают.
+- Если ряда нет в pbilet-снимке (напр. D218 ряды 15/27/28) — место **не рисуем** на карте (в списке остаётся). Нужен полный `tickets.json` в сиде: `npm run seed:luzhniki-football-map`.
 
 ## Секторы на обзоре (100%)
 
