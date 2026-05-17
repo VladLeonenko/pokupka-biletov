@@ -3,11 +3,40 @@
  * одна строка в getbilet_stage_maps (паттерн как у лукойл/МХТ-сидов), без pbilet API.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
+import { mergeSellableSeatsIntoLayout } from '../utils/luzhnikiLayoutSeatPatch.js';
+import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '../..');
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
   process.env.GETBILET_LUZHNIKI_FOOTBALL_STAGE_MAP_KEY?.trim() || 'luzhniki-football';
+
+function loadTicketsPayload() {
+  const p =
+    process.env.LUZHNIKI_TICKETS_JSON?.trim() || path.join(repoRoot, 'tickets.json');
+  if (!fs.existsSync(p)) return null;
+  return JSON.parse(fs.readFileSync(p, 'utf8'));
+}
+
+function parseLayoutJson(row) {
+  let layout = row.layout_json;
+  if (typeof layout === 'string') {
+    try {
+      layout = JSON.parse(layout);
+    } catch {
+      layout = {};
+    }
+  }
+  if (!layout || typeof layout !== 'object') return {};
+  return layout;
+}
 
 function normVenueText(value) {
   return String(value || '')
@@ -68,26 +97,50 @@ export async function loadLuzhnikiFootballStageMapRow() {
 }
 
 /**
- * Живые офферы GetBilet: не «серый ориентир», а продажа по совпадению сектор/ряд/место.
+ * Живые офферы GetBilet: sellableSeats (pbilet strict + интерполяция) и патч layout.seats.
  * @param {Record<string, unknown> | null | undefined} row
+ * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} [offerRows]
  */
-export function adaptLuzhnikiStageMapForLiveOffers(row) {
+export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   if (!row) return row;
-  let layout = row.layout_json;
-  if (typeof layout === 'string') {
-    try {
-      layout = JSON.parse(layout);
-    } catch {
-      layout = {};
-    }
+  const layout = parseLayoutJson(row);
+  const base = {
+    ...layout,
+    stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+    luzhnikiStadiumCheckout: true,
+    grayHallWhenNoOffers: false,
+    seatSelectionDisabled: false,
+  };
+
+  const offers = Array.isArray(offerRows) ? offerRows : [];
+  if (offers.length < 1) {
+    return { ...row, layout_json: base };
   }
-  if (!layout || typeof layout !== 'object') layout = {};
+
+  const ticketsPayload = loadTicketsPayload();
+  if (!ticketsPayload) {
+    return { ...row, layout_json: base };
+  }
+
+  const geodesy = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layout);
+  const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
+  const { patched } = mergeSellableSeatsIntoLayout(layoutSeats, geodesy.seats);
+
   return {
     ...row,
     layout_json: {
-      ...layout,
-      grayHallWhenNoOffers: false,
-      seatSelectionDisabled: false,
+      ...base,
+      seats: layoutSeats,
+      sellableSeats: geodesy.seats,
+      sellableGeodesyMode: geodesy.geodesyMode,
+      offerSeatGeodesy: {
+        matched: geodesy.matched,
+        totalSellable: geodesy.totalSellable,
+        strictMatched: geodesy.strictMatched,
+        anchorInterpolated: geodesy.anchorInterpolated,
+        layoutSeatsPatched: patched,
+        unmatchedSamples: geodesy.unmatchedSamples,
+      },
     },
   };
 }

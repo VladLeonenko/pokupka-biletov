@@ -47,6 +47,7 @@
     "build:luzhniki-stadium-pilot": "node scripts/build-luzhniki-stadium-pilot-geodesy.js",
     "print:luzhniki-sector-anchors": "node scripts/print-luzhniki-sector-anchors.js",
     "generate:luzhniki-sector-anchors": "node scripts/generate-luzhniki-all-sector-anchors.js --write",
+    "audit:luzhniki-sector-normalize": "node scripts/audit-luzhniki-sector-normalize.js",
     "strip:luzhniki-layout-seats-db": "node scripts/strip-luzhniki-layout-seats-from-db.js",
     "export:luzhniki-pbilet-geodesy-svg": "node scripts/export-luzhniki-pbilet-geodesy-svg.js",
     "export:luzhniki-full-stadium-geodesy-svg": "node scripts/export-luzhniki-full-stadium-geodesy-svg.js --rebuild",

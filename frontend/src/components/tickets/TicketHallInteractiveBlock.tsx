@@ -207,10 +207,15 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
 }
 
 import {
+  buildLabeledSeatIndex,
+  labeledSeatLookupKeys,
+  lookupLabeledSeat,
+} from '@/utils/hallSeatSeatLookup';
+import {
   normalizeRowLabel,
   normalizeSeatToken,
   normalizeSectorLabel,
-  strictSeatKey,
+  sectorNormsMatch,
 } from '@/utils/ticketHallSectorNormalize';
 
 function normalizeSimpleToken(value: unknown): string {
@@ -447,38 +452,52 @@ export function TicketHallInteractiveBlock({
     }
 
     if (sectorMode.enabled) {
-      const exactOffers = new Map<string, { offer: HallOfferRow; seat: string }>();
-      for (const offer of offers) {
-        if (!Array.isArray(offer.SeatList)) continue;
-        for (const seat of offer.SeatList) {
-          exactOffers.set(strictSeatKey(offer.Sector, offer.Row, seat), { offer, seat: String(seat) });
+      const layoutIndex = buildLabeledSeatIndex(nativeSeats);
+      const sellableFromApi = parseLayoutSeatPositions(
+        layoutJson && typeof layoutJson === 'object'
+          ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
+          : null,
+      );
+      for (const s of sellableFromApi) {
+        for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
+          layoutIndex.set(key, s);
         }
       }
-
       const placements: SvgNativePlacement[] = [];
-      for (const svgSeat of nativeSeats) {
-        const match = exactOffers.get(strictSeatKey(svgSeat.sector, svgSeat.row, svgSeat.seat));
-        if (!match) continue;
+      const placedKeys = new Set<string>();
 
-        const svgKey = seatMapKey(svgSeat.sector, svgSeat.row, svgSeat.seat);
-        const priceKey = getPriceKey(match.offer);
-        const offerId = String(match.offer.Id ?? '');
-        const available = Array.isArray(match.offer.SeatList) ? match.offer.SeatList.map(String) : [];
-        const rowLabel = String(match.offer.Row ?? svgSeat.row);
-        const sectorLabel = String(match.offer.Sector ?? svgSeat.sector);
-        placements.push({
-          svgKey,
-          key: selectionSeatKey(offerId, rowLabel, match.seat),
-          offerId,
-          sectorLabel,
-          seat: match.seat,
-          rowLabel,
-          available,
-          xPct: svgSeat.xPct,
-          yPct: svgSeat.yPct,
-          title: `${sectorLabel}, ${rowLabel} ряд, место ${match.seat}, цена ${formatRub(Number(priceKey))}`,
-          priceKey,
-        });
+      for (const offer of offers) {
+        const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+        if (list.length === 0) continue;
+        const oid = String(offer.Id ?? '');
+        if (!oid) continue;
+
+        for (const seat of list) {
+          if (!seat.trim()) continue;
+          const hit = lookupLabeledSeat(layoutIndex, offer.Sector, offer.Row, seat);
+          if (!hit) continue;
+
+          const svgKey = seatMapKey(hit.sector, hit.row, hit.seat);
+          if (placedKeys.has(svgKey)) continue;
+          placedKeys.add(svgKey);
+
+          const rowLabel = String(offer.Row ?? hit.row);
+          const sectorLabel = String(offer.Sector ?? hit.sector);
+          const priceKey = getPriceKey(offer);
+          placements.push({
+            svgKey,
+            key: selectionSeatKey(oid, rowLabel, seat),
+            offerId: oid,
+            sectorLabel,
+            seat,
+            rowLabel,
+            available: list,
+            xPct: hit.xPct,
+            yPct: hit.yPct,
+            title: `${sectorLabel}, ${rowLabel} ряд, место ${seat}, цена ${formatRub(Number(priceKey))}`,
+            priceKey,
+          });
+        }
       }
 
       const merged =
@@ -506,6 +525,7 @@ export function TicketHallInteractiveBlock({
     offers,
     sectorMode.enabled,
     seatSelectionDisabled,
+    layoutJson,
     useSvgNative,
     nativeSeats,
   ]);
@@ -518,7 +538,14 @@ export function TicketHallInteractiveBlock({
   const sectorSummaries = useMemo(() => {
     const offersBySector = new Map<string, HallOfferRow[]>();
     for (const offer of offers) {
-      const key = normalizeSectorLabel(offer.Sector);
+      let key: string | null = null;
+      for (const meta of sectorMode.sectors) {
+        if (sectorNormsMatch(offer.Sector, meta.label)) {
+          key = normalizeSectorLabel(meta.label);
+          break;
+        }
+      }
+      if (!key) key = normalizeSectorLabel(offer.Sector);
       if (!key) continue;
       const arr = offersBySector.get(key) ?? [];
       arr.push(offer);
@@ -977,15 +1004,17 @@ export function TicketHallInteractiveBlock({
   );
   const visibleNativePlacements = useMemo(() => {
     if (!sectorMode.enabled) return nativePlacements;
-    return nativePlacements;
-  }, [nativePlacements, sectorMode.enabled]);
+    if (!selectedSector) return nativePlacements;
+    return nativePlacements.filter((p) => sectorNormsMatch(p.sectorLabel, selectedSector));
+  }, [nativePlacements, sectorMode.enabled, selectedSector]);
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
       if (backgroundSeatCoordinates.length > 0) return [];
       if (!selectedSectorSummary) return [];
       return nativeSeats.filter(
-        (seat) => normalizeSectorLabel(seat.sector) === selectedSector
+        (seat) =>
+          sectorNormsMatch(seat.sector, selectedSector)
           && !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
       );
     }

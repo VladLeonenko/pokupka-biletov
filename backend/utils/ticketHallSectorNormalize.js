@@ -2,6 +2,11 @@
  * Сопоставление секторов GetBilet с подписями pbilet / SVG (дублирует frontend/utils/ticketHallSectorNormalize.ts).
  */
 
+import {
+  LUZHNIKI_SECTOR_ALIAS_PAIRS,
+  LUZHNIKI_VIP_TRIBUNE_CODES,
+} from './luzhnikiSectorAliases.js';
+
 const CYRILLIC_SECTOR_HOMOGLYPHS = {
   '\u0430': 'a',
   '\u0410': 'a',
@@ -29,6 +34,8 @@ const CYRILLIC_SECTOR_HOMOGLYPHS = {
   '\u041d': 'n',
   '\u0434': 'd',
   '\u0414': 'd',
+  '\u0431': 'b',
+  '\u0411': 'b',
 };
 
 export function latinizeSectorHomoglyphs(value) {
@@ -63,12 +70,31 @@ export function normalizeSectorLabel(value) {
   return stripped.replace(/\s+/g, '');
 }
 
-/** GetBilet «vip c138» → tickets/layout «Сектор C 138» (c138). */
+/** Все нормализованные ключи сектора для lookup в layout.seats (алиасы VIP, c138, …). */
 export function luzhnikiSectorLookupNorms(norm) {
   const n = normalizeSectorLabel(norm);
-  if (n === 'vipc138') return ['vipc138', 'c138'];
-  if (n === 'c138') return ['c138', 'vipc138'];
-  return [n];
+  const out = new Set([n]);
+
+  const vipBase = n.match(/^vip([a-d]\d{2,4})$/i);
+  if (vipBase) out.add(vipBase[1]);
+
+  const tribuneBase = n.match(/^([a-d]\d{2,4})$/i);
+  if (tribuneBase) {
+    const vipCode = `vip${tribuneBase[1]}`;
+    if (LUZHNIKI_VIP_TRIBUNE_CODES.has(vipCode)) out.add(vipCode);
+  }
+
+  for (const [a, b] of LUZHNIKI_SECTOR_ALIAS_PAIRS) {
+    if (n === a) out.add(b);
+    if (n === b) out.add(a);
+  }
+
+  return [...out];
+}
+
+export function sectorNormsMatch(a, b) {
+  const normsA = new Set(luzhnikiSectorLookupNorms(a));
+  return luzhnikiSectorLookupNorms(b).some((x) => normsA.has(x));
 }
 
 export function normalizeRowLabel(value) {

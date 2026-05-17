@@ -43,7 +43,10 @@ import {
 } from '../services/repertoireStorefrontAccess.js';
 import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
-import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
+import {
+  adaptLuzhnikiStageMapForLiveOffers,
+  LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+} from '../services/luzhnikiFootballStageMap.js';
 import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
@@ -570,7 +573,19 @@ router.get('/stage/:stageId/map', async (req, res) => {
       });
     }
     if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
-    return sendPublicJson(req, res, r.rows[0], { cacheSeconds: 300, staleSeconds: 600 });
+
+    let stageRow = r.rows[0];
+    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
+      try {
+        const { payload } = await getPublicOffersForRepertoire(repertoireId);
+        const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        stageRow = adaptLuzhnikiStageMapForLiveOffers(stageRow, offerRows);
+      } catch (err) {
+        console.warn('[bilet] stage map sellable geodesy', repertoireId, err?.message || err);
+      }
+    }
+
+    return sendPublicJson(req, res, stageRow, { cacheSeconds: 60, staleSeconds: 120 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({ error: 'schema', message: 'Таблица getbilet_stage_maps не создана — выполните миграции' });

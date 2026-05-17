@@ -4,6 +4,10 @@ globs:
   - frontend/src/components/tickets/TicketHallInteractiveBlock.*
   - frontend/src/utils/luzhnikiStadiumMap.ts
   - frontend/src/utils/ticketHallSectorNormalize.ts
+  - frontend/src/utils/luzhnikiSectorAliases.ts
+  - frontend/src/utils/hallSeatSeatLookup.ts
+  - backend/utils/ticketHallSectorNormalize.js
+  - backend/utils/luzhnikiSectorAliases.js
   - backend/services/luzhnikiFootballStageMap.js
   - backend/utils/hallSeatGeodesyFromDots.js
   - backend/data/luzhniki-geodesy/**
@@ -22,13 +26,22 @@ globs:
 
 ## Имена секторов GetBilet ↔ сайт ↔ геодезия
 
-| GetBilet | Наш UI / layout.seats | Ключ `normalizeSectorLabel` |
-|----------|------------------------|-----------------------------|
-| `сектор D230`, `секторD230` | `Сектор D 230`, `d 230` | `d230` |
-| `сектор d227` | `Сектор D 227` | `d227` |
-| `vip c138` | `VIP C 138` | `vipc138` |
+**Код:** `ticketHallSectorNormalize` (фронт) = `backend/utils/ticketHallSectorNormalize.js` + `luzhnikiSectorAliases.js`.
 
-- Нормализация: `ticketHallSectorNormalize` (фронт и `backend/utils/ticketHallSectorNormalize.js`).
+**Правила `normalizeSectorLabel`:**
+- `сектор` / `Сектор` снимается; пробелы схлопываются; `ё→е`.
+- Трибуна `X NNN` → ключ `xnnn` (латиница): `Сектор A 101` → `a101`, `сектор d230` → `d230`.
+- Кириллица-буквы в коде латинизируются: `а→a`, `б→b`, `с→c`, `д→d` (`сектор а101` = `сектор a101` = layout).
+- Слово `vip` в строке → префикс `vip`: `Сектор A 107 VIP` → `vipa107`.
+- `vip c138` ↔ layout `Сектор C 138` — пара `c138` / `vipc138` (`LUZHNIKI_SECTOR_ALIAS_PAIRS`).
+- **VIP-трибуны** (на схеме только «… VIP», в оффере часто без vip): `a107↔vipa107`, `a108↔vipa108`, `a109↔vipa109`, `a110↔vipa110`, `c136↔vipc136`, `c137↔vipc137` — см. `LUZHNIKI_VIP_TRIBUNE_CODES`.
+- **Ложа N / Ложа 48I** — отдельные ключи (`ложа48i`), **не** сливать с `Сектор A …` / `a101`.
+- Ряд/место: числовая нормализация (`ряд 11` → `11`); lookup — `labeledSeatLookupKeys` / `hallSeatSeatLookup.ts` (как `hallSeatGeodesyMatch.js`).
+
+**Проверка всех 240 секторов:** `cd backend && npm run audit:luzhniki-sector-normalize` (варианты GetBilet из `getbiletSectorVariants`).
+
+**Чекаут (stadium `sectorMode`):** sellable = оффер → `lookupLabeledSeat(layout.seats)`, не один `strictSeatKey`; счётчик мест в панели сектора — `sectorNormsMatch`.
+
 - Полигоны схемы (`Категория 1`, `SILVER`) **≠** код трибуны в оффере — фильтр мест при клике по зоне только по **bbox path**, не по строке label.
 - Dot-геодезия: `dotsByTribuneSector` в `hallSeatGeodesyFromDots.js` — точки чаши привязываются к коду трибуны через якоря `layout.seats`.
 
