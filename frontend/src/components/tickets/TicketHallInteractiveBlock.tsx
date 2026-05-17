@@ -153,10 +153,6 @@ function parseUniformHallSeatAppearance(layout: unknown): boolean {
 
 function parseDisableStadiumCanvas(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
-  if (isLuzhnikiStadiumCheckoutLayout(layout)) {
-    if (isCoarsePointerDevice()) return true;
-    return (layout as Record<string, unknown>).disableStadiumCanvas === true;
-  }
   return (layout as Record<string, unknown>).disableStadiumCanvas === true;
 }
 
@@ -1130,13 +1126,7 @@ export function TicketHallInteractiveBlock({
     const byLabel = interactive.filter((p) => normalizeSectorLabel(p.sectorLabel) === selectedSector);
     const path = selectedSectorSummary.meta.path;
     if (path && svgViewBox.width > 0 && svgViewBox.height > 0) {
-      const byBbox = filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
-      if (luzhnikiCheckout) {
-        const merged = new Map<string, SvgNativePlacement>();
-        for (const p of [...byLabel, ...byBbox]) merged.set(p.key, p);
-        return [...merged.values()];
-      }
-      return byBbox;
+      return filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
     }
     return byLabel;
   }, [
@@ -1309,7 +1299,7 @@ export function TicketHallInteractiveBlock({
     return (12 / vb) * 100;
   }, [luzhnikiCheckout, uniformHallSeatAppearance, svgViewBox.width]);
   const useStadiumSvgSellableDots =
-    sectorSeatFocusView && useSvgNative && !useCanvasCompositing;
+    sectorSeatFocusView && useSvgNative && !useCanvasCompositing && !luzhnikiCheckout;
 
   const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
@@ -1398,7 +1388,7 @@ export function TicketHallInteractiveBlock({
       visibleNativePlacements.length > 0 &&
       !(luzhnikiCheckout && !selectedSectorSummary);
 
-    if (!dragging && drawSellableDots) {
+    if (drawSellableDots) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
       const overview = liveZoom <= fitZoom + 0.01;
       const scalePx = w / Math.max(1, svgViewBox.width);
@@ -1406,6 +1396,7 @@ export function TicketHallInteractiveBlock({
         backgroundSeatCoordinates.length >= 8000
           ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
           : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+      const overviewSellableR = Math.max(3.25, bgDotR * 2.1, scalePx * 5.5);
       for (const seat of visibleNativePlacements) {
         const active = activeKeys.has(seat.key);
         if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
@@ -1416,8 +1407,8 @@ export function TicketHallInteractiveBlock({
         const r = active
           ? Math.max(bgDotR * 1.35, 3.5)
           : overview
-            ? bgDotR
-            : Math.max(bgDotR, Math.min(4.5, scalePx * 6));
+            ? overviewSellableR
+            : Math.max(bgDotR * 1.15, Math.min(5.5, scalePx * 7));
         ctx.beginPath();
         ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -1435,7 +1426,9 @@ export function TicketHallInteractiveBlock({
     fitZoom,
     getLayerBase,
     hallBackgroundFromLabeledSeats,
+    luzhnikiCheckout,
     selectedSeatDetails,
+    selectedSectorSummary,
     selectedSector,
     sectorMode.enabled,
     skipDuplicateInteractiveDotsOnCanvas,

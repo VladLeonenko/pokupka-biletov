@@ -9,6 +9,10 @@ import {
   buildSellableSeatGeodesyFromSvgCircles,
   countSvgNativeSeatCircles,
 } from '../utils/hallSeatGeodesyFromSvgCircles.js';
+import {
+  buildSellableSeatGeodesy,
+  labeledSeatLookupKeys,
+} from '../utils/hallSeatGeodesyMatch.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
@@ -125,7 +129,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     const svgCircleCount = countSvgNativeSeatCircles(svgMarkup);
     const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
     const pilotSvgLayer = String(svgMarkup).includes('id="luzhniki-pilot-seats"');
-    const geodesy =
+    let geodesy =
       svgCircleCount >= minSvgCircles
         ? buildSellableSeatGeodesyFromSvgCircles(
             svgMarkup,
@@ -148,6 +152,34 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
             offers: offerRows,
             svgMarkup,
           });
+
+    /**
+     * Сектора без рядов в tickets.json (B145: r[]) — без круга в bundle, но подпись есть в layout.seats.
+     * Только места оффера без svgCircle; D230 и др. с кругами не трогаем.
+     */
+    if (pilotSvgLayer && svgCircleCount >= minSvgCircles && baseSeats.length > 0) {
+      const fromLayout = buildSellableSeatGeodesy(baseSeats, offerRows);
+      const svgKeys = new Set();
+      for (const s of geodesy.seats) {
+        for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
+          svgKeys.add(key);
+        }
+      }
+      const layoutFallback = [];
+      for (const s of fromLayout.seats) {
+        const keys = labeledSeatLookupKeys(s.sector, s.row, s.seat);
+        if ([...keys].some((k) => svgKeys.has(k))) continue;
+        layoutFallback.push({ ...s, geodesySource: 'fieldGrid' });
+        for (const key of keys) svgKeys.add(key);
+      }
+      if (layoutFallback.length > 0) {
+        geodesy = {
+          ...geodesy,
+          seats: [...geodesy.seats, ...layoutFallback],
+          matched: geodesy.seats.length + layoutFallback.length,
+        };
+      }
+    }
 
     nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
