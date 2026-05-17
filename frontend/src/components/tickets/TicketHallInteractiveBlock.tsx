@@ -9,6 +9,7 @@ import {
   parseLayoutSeatPositions,
   parseLayoutMode,
   parsePreferLayoutSeatPositions,
+  parseOmitLayoutSeatSellableFallback,
   parseSellableSeatPositions,
   processHallSvgForNative,
   seatMapKey,
@@ -446,6 +447,10 @@ export function TicketHallInteractiveBlock({
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],
   );
+  const omitLayoutSeatSellableFallback = useMemo(
+    () => parseOmitLayoutSeatSellableFallback(layoutJson),
+    [layoutJson],
+  );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
     if (useSellableGeodesyPlacements && layoutBaseSeats.length >= 2) return layoutBaseSeats;
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
@@ -490,6 +495,7 @@ export function TicketHallInteractiveBlock({
             sellableGeodesySeats,
             offers,
             getPriceKey,
+            { omitLayoutFallback: omitLayoutSeatSellableFallback },
           )
         : buildSellableGeodesyPlacements(sellableGeodesySeats, offers, getPriceKey);
       return { nativePlacements: geodesy.placements };
@@ -540,6 +546,7 @@ export function TicketHallInteractiveBlock({
     sellableGeodesySeats,
     useSellableGeodesyPlacements,
     luzhnikiCheckout,
+    omitLayoutSeatSellableFallback,
   ]);
 
   const matchedNativeSeatKeys = useMemo(

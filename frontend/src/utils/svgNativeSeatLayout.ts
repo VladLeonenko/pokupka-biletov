@@ -177,6 +177,12 @@ export function parsePreferLayoutSeatPositions(layout: unknown): boolean {
   return r?.preferLayoutSeatPositions === true;
 }
 
+/** Лужники svg-pilot: sellable только из sellableSeats (svgCircle), без layout.seats fallback. */
+export function parseOmitLayoutSeatSellableFallback(layout: unknown): boolean {
+  const r = asRecord(layout);
+  return r?.omitLayoutSeatSellableFallback === true || r?.luzhnikiPilotGeodesyActive === true;
+}
+
 function normToken(s: string): string {
   return s
     .replace(/\u00a0/g, ' ')
@@ -639,6 +645,7 @@ export function buildLuzhnikiMapSellablePlacements(
   serverSellableSeats: SvgNativeSeat[],
   offers: OfferLike[],
   getPriceKey: (o: OfferLike) => string,
+  options: { omitLayoutFallback?: boolean } = {},
 ): {
   placements: SvgNativePlacement[];
   unmatchedSvgCount: number;
@@ -651,20 +658,24 @@ export function buildLuzhnikiMapSellablePlacements(
     serverResult.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
   );
 
-  const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
   const extra: SvgNativePlacement[] = [];
-  for (const p of layoutResult.placements) {
-    const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
-    if (placedKeys.has(pk)) continue;
-    placedKeys.add(pk);
-    extra.push(p);
+  let layoutUnmatched = 0;
+  if (!options.omitLayoutFallback) {
+    const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
+    layoutUnmatched = layoutResult.unmatchedSvgCount;
+    for (const p of layoutResult.placements) {
+      const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
+      if (placedKeys.has(pk)) continue;
+      placedKeys.add(pk);
+      extra.push(p);
+    }
   }
 
   const placements = [...serverResult.placements, ...extra];
   const offerSeatTotal = countOfferSeats(offers);
   return {
     placements,
-    unmatchedSvgCount: layoutResult.unmatchedSvgCount + serverResult.unmatchedSvgCount,
+    unmatchedSvgCount: layoutUnmatched + serverResult.unmatchedSvgCount,
     diagnostics: {
       totalSvgSeats: layoutLabeledSeats.length + trustedServer.length,
       matchedSeats: placements.length,

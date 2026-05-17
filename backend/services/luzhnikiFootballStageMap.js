@@ -152,7 +152,10 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
     nextLayout.sellableSeatsLabeledOnly = false;
-    nextLayout.sellableGeodesyMode = 'luzhnikiGrid';
+    nextLayout.sellableGeodesyMode = pilotSvgLayer ? 'luzhnikiSvgPilot' : 'luzhnikiGrid';
+    /** Фронт: не дополнять sellable из layout.seats (fieldGrid ломает ряды). */
+    nextLayout.luzhnikiPilotGeodesyActive = pilotSvgLayer && svgCircleCount >= minSvgCircles;
+    nextLayout.omitLayoutSeatSellableFallback = nextLayout.luzhnikiPilotGeodesyActive === true;
     nextLayout.offerSeatGeodesy = {
       matched: geodesy.matched,
       strictMatched: geodesy.strictMatched ?? 0,

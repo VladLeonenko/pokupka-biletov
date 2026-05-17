@@ -83,6 +83,34 @@ describe('svgNativeSeatLayout', () => {
     expect(s2?.xPct).toBe(99);
   });
 
+  it('buildLuzhnikiMapSellablePlacements skips layout fallback when omitLayoutFallback', () => {
+    const layoutSeats = [
+      { sector: 'Сектор A 101', row: '11', seat: '6', xPct: 10, yPct: 88 },
+      { sector: 'Сектор A 101', row: '11', seat: '7', xPct: 11, yPct: 89 },
+    ];
+    const serverSellable = [
+      {
+        sector: 'Сектор A 101',
+        row: '11',
+        seat: '6',
+        xPct: 23.4,
+        yPct: 79.7,
+        geodesySource: 'svgCircle' as const,
+      },
+    ];
+    const result = buildLuzhnikiMapSellablePlacements(
+      layoutSeats,
+      serverSellable,
+      [
+        { Id: 'o1', Sector: 'сектор a101', Row: '11', SeatList: ['6', '7'], AgentPrice: '1000' },
+      ],
+      (o) => String(o.AgentPrice ?? ''),
+      { omitLayoutFallback: true },
+    );
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0].seat).toBe('6');
+  });
+
   it('buildLuzhnikiMapSellablePlacements prefers live sellable over layout.seats', () => {
     const layoutSeats = [
       { sector: 'Сектор A 101', row: '11', seat: '6', xPct: 10, yPct: 88 },
