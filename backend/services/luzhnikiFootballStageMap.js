@@ -131,6 +131,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       totalSellable: geodesy.totalSellable,
       unmatched: Math.max(0, geodesy.totalSellable - geodesy.matched),
       dotMatched: geodesy.dotMatched ?? 0,
+      cloudMatched: geodesy.cloudMatched ?? 0,
       anchorInterpolated: geodesy.anchorInterpolated ?? 0,
       unmatchedSamples: geodesy.unmatchedSamples,
       updatedAt: new Date().toISOString(),

@@ -1,35 +1,82 @@
 # Лужники — продажа через схему (без полного pbilet tickets)
 
-Цель: **все sellable GetBilet кликабельны на карте**, удобно с **мобилки**. Визуал: **`luzhniki.txt`** (77k серая чаша) + **`tickets.json`** (геодезия sellable + сектора).
+Цель: **sellable GetBilet на карте в правильных местах**, удобно с **мобилки**. Визуал: **`luzhniki.txt`** (77k серая чаша) + **`tickets.json`** (геодезия).
 
 ## Данные
 
 | Файл | Роль |
 |------|------|
-| `luzhniki.txt` | `coordinates` → `layout_json.allSeatCoordinates` (~77415 точек) |
-| `tickets.json` | `sectors` + частичные `r[].s[]` (~6132) → seed `layout.seats` |
-| GetBilet live | `sellableSeats` на API карты (~90% strict+якоря+dot, остальное — grid на фронте) |
+| `luzhniki.txt` | `coordinates` → `layout_json.allSeatCoordinates` (~77415 точек, серая чаша) |
+| `tickets.json` | `sectors` + частичные `r[].s[]` (~6132) → seed `layout.seats` (эталонные x/y) |
+| GetBilet live | `sellableSeats` на API карты после сида |
 
-Полный `tickets.json` на 81k pbilet **не отдаёт** для сеанса — это лимит API, не баг сида.
+Полный `tickets.json` на 81k pbilet **не отдаёт** для сеанса — лимит API.
 
-## Три слоя sellable на карте
+## Визуал (зафиксировано, май 2026)
 
-1. **Strict** — сектор+ряд+место есть в `layout.seats` / `sellableSeats`.
-2. **Бэкенд** — якорная интерполяция + точки в bbox сектора (`hallSeatGeodesyFromDots.js`).
-3. **Фронт** — `buildSellableGeodesyPlacementsWithSectorGridFallback`: офферы без координат → сетка **внутри bbox** полигона сектора (все места на схеме, не только в списке).
+- Canvas: **`allSeatCoordinates`** из luzhniki.txt — полная серая чаша.
+- Цветные точки: только офферы GetBilet с **доверенной** геодезией.
+- Мобилка: bottom sheet, крупные touch-targets, зум с учётом панели.
 
-## Визуал чаши
+## Проблема: цветные точки «уезжали»
 
-- Canvas: **`allSeatCoordinates`** (luzhniki.txt), не только 6k из tickets.
-- Цветные точки: только места с оффером GetBilet.
+Причины (все давали координаты «куда-то в сектор», не на место):
 
-## Мобилка
+1. **Экстраполяция рядов** за пределы известных якорей в `hallSeatGeodesyFromDots.js`.
+2. **dot / dotOnly** — привязка к облаку 77k точек овала без подписи места.
+3. **Grid на фронте** — `buildSellableGeodesyPlacementsWithSectorGridFallback`: сетка в bbox полигона сектора.
+4. **anchor** между разреженными рядами в `tickets.json` — X/Y «между» якорями, но не совпадают с реальной геометрией ряда.
+5. **Секторы с `r: []` в tickets.json** (пример: **Сектор B 147**, 814 мест в `all`, 0 подписанных рядов) — единственный источник координат был **dotOnly**: ряды мапились на полосы облака **линейно по min/max ряда из офферов**, часто с **одинаковым Y** для разных рядов (ряд 11 и ряд 3 в одной полосе → «ряд 11 место 6» визуально на «ряд 3 место 1»).
+6. **Старые `sellableSeats` без `geodesySource`** на фронте считались доверенными и тянули dot/anchor с прошлого сида.
 
-- Нижний **bottom sheet** с рядами/местами (не `display: none`).
-- Крупнее touch-targets на точках и кнопках мест.
-- Зум к сектору с учётом нижней панели (`focusLayerPoint`).
+Визуал чаши при этом был верным — ломались только sellable-маркеры.
 
-## Сид на VPS
+### Диагностика B 147 (май 2026)
+
+```bash
+cd backend
+node -e "
+import fs from 'fs';
+import { extractPbiletTicketsSeatGeodesy } from './utils/luzhnikiPbiletGeodesyExtract.js';
+const t=JSON.parse(fs.readFileSync('../tickets.json','utf8'));
+const seats=extractPbiletTicketsSeatGeodesy(t,11413,9676);
+console.log('B147 labeled seats:', seats.filter(s=>/b147/i.test(s.sector)).length);
+const sec=t.sectors.find(s=>s.i==='Сектор B 147');
+console.log('B147 r[] length:', sec?.r?.length ?? 0, 'all:', sec?.all);
+"
+# B147 labeled seats: 0 , r[] length: 0
+```
+
+Strict-координаты для секторов **с** `r[].s[]` совпадают с облаком `luzhniki.txt` (расстояние до ближайшей точки ≈ 0). Проблема не в двух системах координат, а в **отсутствии подписи** + эвристиках.
+
+## Политика координат (текущая, май 2026)
+
+**Серая чаша не меняется:** `allSeatCoordinates` из `luzhniki.txt` — как сейчас на UI.
+
+| Слой | Источник | На карте |
+|------|----------|----------|
+| 1 | `layout.seats` / `layoutBaseSeats` (tickets.json) | Да, приоритет |
+| 2 | `geodesySource: strict` | Да |
+| 3 | `geodesySource: cloud` | Да — точка **на реальной серой точке** в bbox сектора |
+| 4 | `geodesySource: dot` | Да — якоря сектора + облако (`resolveOfferSeatOnDotGrid`) |
+| 5 | `geodesySource: anchor` | **Нет** (только `LUZHNIKI_ENABLE_ANCHOR_GEODESY=1`) |
+| 6 | `dotOnly` / без `geodesySource` | **Нет** |
+| 7 | Grid в bbox | **Нет** |
+
+### `cloud` — привязка без r[] в tickets.json (B 147 и ~18 секторов B)
+
+1. Точки сектора из `allSeatCoordinates` (то же облако, что серая чаша).
+2. Кластер в полосы рядов (`clusterDotsByRow`).
+3. **Ориентация** ряд↑Y и место↑X — от **ближайшего подписанного сектора той же трибуны** (`buildLabeledSectorOrientationIndex`, для B 147 — обычно B 258).
+4. Номер ряда → полоса по **min/max ряда из всех офферов** сектора (не из одного оффера).
+5. Номер места → позиция в полосе по **min/max мест в этом ряду** из офферов.
+6. Финал: `pickDotNearRowSeat` — координаты строго на точке чаши.
+
+Проверка B 147 (3 оффера ряды 3/11/20): ΔY(11 vs 3) ≈ **2.07%** (раньше dotOnly давал **0**).
+
+**Фронт:** `strict` + `cloud` + `dot` в `buildLuzhnikiMapSellablePlacements`.
+
+## Сид на VPS (обязателен после смены политики)
 
 ```bash
 cd /var/pokupka-biletov/backend
@@ -39,20 +86,22 @@ npm run seed:luzhniki-football-map
 pm2 restart all --update-env
 ```
 
+Убедиться, что **не** выставлены `LUZHNIKI_ENABLE_DOT_GEODESY=1` / `LUZHNIKI_ENABLE_ANCHOR_GEODESY=1` в pm2/env.
+
 ## Проверка геодезии
 
 ```bash
 cd backend
 node scripts/verify-offer-seat-geodesy.js 6a05d17b46a4d000309ecf4e
-# matched ~400+ из ~470 (бэкенд); на фронте после grid — ближе к 100% офферов
 ```
+
+Ожидание: `strictMatched` + `cloudMatched`; `anchorInterpolated: 0` без env.
 
 ## Проверка pbilet API
 
 ```bash
 cd backend
 PBILET_LAYOUT_ID=2564 npm run fetch:pbilet-luzhniki
-# + PBILET_TICKETS_URL='https://api.pbilet.net/public/v2/tickets?...' из Network
 ```
 
 ## Деплой
@@ -60,11 +109,10 @@ PBILET_LAYOUT_ID=2564 npm run fetch:pbilet-luzhniki
 ```bash
 # локально
 git add -A && git status
-git commit -m "feat(luzhniki): полная чаша + все sellable на карте и мобилка"
+git commit -m "fix(luzhniki): sellable только strict, без dot/anchor на карте"
 git push origin main
 
 # VPS
-ssh root@YOUR_SERVER
 cd /var/pokupka-biletov && git pull
 cd backend && npm ci
 LUZHNIKI_PBILET_TICKETS_JSON=/var/pokupka-biletov/tickets.json \
@@ -76,8 +124,23 @@ pm2 restart all --update-env
 
 ## Ключевые файлы
 
-- `backend/utils/hallSeatGeodesyFromDots.js`
-- `backend/services/luzhnikiFootballStageMap.js`
-- `frontend/src/utils/svgNativeSeatLayout.ts` — grid fallback
+- `backend/utils/hallSeatGeodesyFromDots.js` — strict-only по умолчанию; anchor/dot за env
+- `backend/utils/hallSeatGeodesyMatch.js` — `geodesySource: strict`
+- `backend/services/luzhnikiFootballStageMap.js` — `adaptLuzhnikiStageMapForLiveOffers`
+- `frontend/src/utils/svgNativeSeatLayout.ts` — `buildLuzhnikiMapSellablePlacements`
 - `frontend/src/components/tickets/TicketHallInteractiveBlock.tsx` + `.module.css`
 - `backend/scripts/fetch-pbilet-luzhniki-tickets.js`
+
+## Долгосрочно
+
+1. Полный pbilet tickets URL из Network → `fetch:pbilet-luzhniki` — если появится >6k подписанных мест (в т.ч. `r[]` для B 147), strict-покрытие вырастет без эвристик.
+2. Не включать dot/anchor на проде без отдельной калибровки по секторам с пустым `r: []`.
+
+## Журнал важных решений
+
+| Дата | Что сделали | Зачем |
+|------|-------------|--------|
+| май 2026 | Серая чаша = `allSeatCoordinates`, sellable = tickets strict | Визуал portalbilet + точные подписи |
+| май 2026 | Убрали grid/dot на фронте | Точки не «уезжали» в bbox |
+| май 2026 | **`cloud`** — sellable на точках чаши с калибровкой ориентации от соседнего сектора | B 147 и др. с `r:[]` снова на карте; серая чаша без изменений |
+| май 2026 | ~~strict-only~~ — откатили: убирал цветные точки, визуал трогать нельзя | — |

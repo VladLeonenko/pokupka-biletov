@@ -2,6 +2,16 @@
 
 **Продажа через схему (без 81k pbilet):** см. [LUZHNIKI_MAP_SELL_VIA_SCHEME.md](./LUZHNIKI_MAP_SELL_VIA_SCHEME.md)
 
+### Май 2026 — sellable «уезжали» при идеальной чаше
+
+**Симптом:** серая чаша 77k ок, цветные точки офферов не на местах.
+
+**Фикс:** layout-first (`tickets.json` → `layoutBaseSeats`), на карте только `strict` + `anchor`; dot/dotOnly и grid bbox отключены. Anchor только внутри `[minRow..maxRow]` сектора. Детали — в scheme doc выше.
+
+**Файлы:** `hallSeatGeodesyFromDots.js`, `svgNativeSeatLayout.ts` (`buildLuzhnikiMapSellablePlacements`), `TicketHallInteractiveBlock.tsx`. После деплоя — **пересид** `seed:luzhniki-football-map`.
+
+---
+
 Страница: [Суперфинал Кубка России — Спартак / Краснодар](https://biletvsem.com/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar)  
 Эталон UX: [portalbilet — финал Кубка России](https://portalbilet.ru/msk/final-kubka-rossii-po-futbolu)
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSellableGeodesyPlacements,
-  buildSellableGeodesyPlacementsWithSectorGridFallback,
+  buildLuzhnikiMapSellablePlacements,
   buildSvgNativePlacements,
   extractSectorCode,
   matchSvgSeatToOffer,
@@ -143,23 +143,27 @@ describe('svgNativeSeatLayout', () => {
     });
   });
 
-  it('grid fallback places unmatched offer inside sector bbox', () => {
-    const path = 'M10,10 L90,10 L90,40 L10,40 Z';
-    const result = buildSellableGeodesyPlacementsWithSectorGridFallback(
-      [],
-      [{ Id: 'o1', Sector: 'сектор a1', Row: '5', SeatList: ['3', '4'], AgentPrice: '5000' }],
+  it('luzhniki map prefers layout coords and ignores dot/anchor server coords', () => {
+    const layout = [
+      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 11, yPct: 22, geodesySource: 'strict' as const },
+      { sector: 'Сектор A1', row: '5', seat: '4', xPct: 13, yPct: 24 },
+    ];
+    const server = [
+      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 80, yPct: 80, geodesySource: 'dot' as const },
+      { sector: 'Сектор A1', row: '5', seat: '4', xPct: 99, yPct: 99, geodesySource: 'cloud' as const },
+    ];
+    const result = buildLuzhnikiMapSellablePlacements(
+      layout,
+      server,
+      [{ Id: 'o1', Sector: 'Сектор A1', Row: '5', SeatList: ['3', '4'], AgentPrice: '5000' }],
       (o) => String(o.AgentPrice ?? ''),
-      [{ label: 'Сектор A 1', path }],
-      100,
-      100,
     );
     expect(result.placements).toHaveLength(2);
-    expect(result.gridFallbackCount).toBe(2);
-    for (const p of result.placements) {
-      expect(p.xPct).toBeGreaterThan(10);
-      expect(p.xPct).toBeLessThan(90);
-      expect(p.yPct).toBeGreaterThan(10);
-      expect(p.yPct).toBeLessThan(40);
-    }
+    const seat3 = result.placements.find((p) => p.seat === '3');
+    const seat4 = result.placements.find((p) => p.seat === '4');
+    expect(seat3?.xPct).toBe(11);
+    expect(seat3?.yPct).toBe(22);
+    expect(seat4?.xPct).toBe(13);
+    expect(seat4?.yPct).toBe(24);
   });
 });

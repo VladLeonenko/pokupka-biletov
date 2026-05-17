@@ -99,6 +99,7 @@ export function buildSellableSeatGeodesy(layoutSeats, offers) {
         seat,
         xPct: hit.xPct,
         yPct: hit.yPct,
+        geodesySource: 'strict',
       });
     }
   }

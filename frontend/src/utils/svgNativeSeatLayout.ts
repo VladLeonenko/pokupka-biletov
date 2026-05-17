@@ -1,5 +1,4 @@
-import { normalizeSectorLabel, strictSeatKey } from '@/utils/ticketHallSectorNormalize';
-import { parseHallSectorPathBBox } from '@/utils/ticketHallMapInteraction';
+import { strictSeatKey } from '@/utils/ticketHallSectorNormalize';
 
 export type OfferLike = {
   Id?: string;
@@ -8,12 +7,16 @@ export type OfferLike = {
   SeatList?: string[];
 };
 
+export type SeatGeodesySource = 'strict' | 'anchor' | 'dot' | 'dotOnly' | 'cloud';
+
 export type SvgNativeSeat = {
   sector: string;
   row: string;
   seat: string;
   xPct: number;
   yPct: number;
+  /** Откуда взяты координаты (сид Лужники / sellableSeats). */
+  geodesySource?: SeatGeodesySource;
 };
 
 export type HallLayoutDiagnostics = {
@@ -133,7 +136,16 @@ export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
     const key = seatMapKey(sector, rowLabel, seat);
     if (seen.has(key)) continue;
     seen.add(key);
-    seats.push({ sector, row: rowLabel, seat, xPct, yPct });
+    const geodesyRaw = cleanString(row.geodesySource ?? row.geodesy_source);
+    const geodesySource =
+      geodesyRaw === 'strict' ||
+      geodesyRaw === 'anchor' ||
+      geodesyRaw === 'dot' ||
+      geodesyRaw === 'dotOnly' ||
+      geodesyRaw === 'cloud'
+        ? (geodesyRaw as SeatGeodesySource)
+        : undefined;
+    seats.push({ sector, row: rowLabel, seat, xPct, yPct, geodesySource });
   }
 
   return seats;
@@ -587,146 +599,81 @@ export function buildSellableGeodesyPlacements(
   };
 }
 
-export type SectorPathForGrid = { label: string; path: string };
+const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>(['strict', 'cloud', 'dot']);
 
-function parseRowNum(row: string): number | null {
-  const n = Number.parseInt(String(row ?? '').replace(/\D/g, ''), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseSeatNum(seat: string): number | null {
-  const n = Number.parseInt(String(seat ?? '').replace(/\D/g, ''), 10);
-  return Number.isFinite(n) ? n : null;
+/** Sellable с бэкенда: strict + привязка к облаку (cloud/dot). Без anchor/dotOnly/без метки. */
+function filterTrustedServerSellable(seats: SvgNativeSeat[]): SvgNativeSeat[] {
+  return seats.filter((s) => s.geodesySource && TRUSTED_SERVER_GEODESY.has(s.geodesySource));
 }
 
 /**
- * Офферы без hit в sellableSeats — сетка внутри bbox сектора (все места на карте, не в боковом списке).
+ * Лужники: layout.seats (tickets.json) + sellableSeats (strict/cloud на реальных точках чаши).
+ * Серая чаша (allSeatCoordinates) не трогаем.
  */
+export function buildLuzhnikiMapSellablePlacements(
+  layoutLabeledSeats: SvgNativeSeat[],
+  serverSellableSeats: SvgNativeSeat[],
+  offers: OfferLike[],
+  getPriceKey: (o: OfferLike) => string,
+): {
+  placements: SvgNativePlacement[];
+  unmatchedSvgCount: number;
+  diagnostics: HallLayoutDiagnostics;
+} {
+  const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
+  const placedKeys = new Set(
+    layoutResult.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
+  );
+
+  const trustedServer = filterTrustedServerSellable(serverSellableSeats);
+  const serverResult = buildSellableGeodesyPlacements(trustedServer, offers, getPriceKey);
+  const extra: SvgNativePlacement[] = [];
+  for (const p of serverResult.placements) {
+    const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
+    if (placedKeys.has(pk)) continue;
+    placedKeys.add(pk);
+    extra.push(p);
+  }
+
+  const placements = [...layoutResult.placements, ...extra];
+  const offerSeatTotal = countOfferSeats(offers);
+  return {
+    placements,
+    unmatchedSvgCount: layoutResult.unmatchedSvgCount + serverResult.unmatchedSvgCount,
+    diagnostics: {
+      totalSvgSeats: layoutLabeledSeats.length + trustedServer.length,
+      matchedSeats: placements.length,
+      unmatchedSvgCount: Math.max(
+        0,
+        layoutLabeledSeats.length + trustedServer.length - placements.length,
+      ),
+      unmatchedOfferSeats: Math.max(0, offerSeatTotal - placedKeys.size),
+    },
+  };
+}
+
+/** @deprecated Используйте buildLuzhnikiMapSellablePlacements — grid отключён. */
 export function buildSellableGeodesyPlacementsWithSectorGridFallback(
   sellableSeats: SvgNativeSeat[],
   offers: OfferLike[],
   getPriceKey: (o: OfferLike) => string,
-  sectors: SectorPathForGrid[] | null | undefined,
-  viewBoxWidth: number,
-  viewBoxHeight: number,
+  _sectors?: { label: string; path: string }[] | null,
+  _viewBoxWidth?: number,
+  _viewBoxHeight?: number,
+  layoutLabeledSeats: SvgNativeSeat[] = [],
 ): {
   placements: SvgNativePlacement[];
   unmatchedSvgCount: number;
   diagnostics: HallLayoutDiagnostics;
   gridFallbackCount: number;
 } {
-  const base = buildSellableGeodesyPlacements(sellableSeats, offers, getPriceKey);
-  const placedOfferKeys = new Set(
-    base.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
+  const result = buildLuzhnikiMapSellablePlacements(
+    layoutLabeledSeats,
+    sellableSeats,
+    offers,
+    getPriceKey,
   );
-
-  const sectorByNorm = new Map<string, SectorPathForGrid>();
-  for (const s of sectors ?? []) {
-    const norm = normalizeSectorLabel(s.label);
-    if (norm && s.path) sectorByNorm.set(norm, s);
-  }
-
-  const w = Math.max(1, viewBoxWidth);
-  const h = Math.max(1, viewBoxHeight);
-  const extra: SvgNativePlacement[] = [];
-  let gridFallbackCount = 0;
-
-  /** sectorNorm → rowNum → seats[] */
-  const pending = new Map<string, Map<number, { offer: OfferLike; seat: string }[]>>();
-
-  for (const offer of offers) {
-    const oid = String(offer.Id ?? '').trim();
-    if (!oid) continue;
-    const sectorNorm = normalizeSectorLabel(offer.Sector);
-    const rowNum = parseRowNum(String(offer.Row ?? ''));
-    if (!sectorNorm || rowNum == null) continue;
-    const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
-    for (const seat of list) {
-      if (!seat.trim()) continue;
-      const pk = offerPlacementKey(oid, String(offer.Row ?? ''), seat);
-      if (placedOfferKeys.has(pk)) continue;
-      const byRow = pending.get(sectorNorm) ?? new Map();
-      const arr = byRow.get(rowNum) ?? [];
-      arr.push({ offer, seat });
-      byRow.set(rowNum, arr);
-      pending.set(sectorNorm, byRow);
-    }
-  }
-
-  for (const [sectorNorm, rowsMap] of pending) {
-    const meta = sectorByNorm.get(sectorNorm);
-    if (!meta?.path) continue;
-    const bbox = parseHallSectorPathBBox(meta.path);
-    if (!bbox) continue;
-
-    const padX = Math.max(2, (bbox.maxX - bbox.minX) * 0.06);
-    const padY = Math.max(2, (bbox.maxY - bbox.minY) * 0.06);
-    const innerMinX = bbox.minX + padX;
-    const innerMaxX = bbox.maxX - padX;
-    const innerMinY = bbox.minY + padY;
-    const innerMaxY = bbox.maxY - padY;
-    if (innerMaxX <= innerMinX || innerMaxY <= innerMinY) continue;
-
-    const minXPct = (innerMinX / w) * 100;
-    const maxXPct = (innerMaxX / w) * 100;
-    const minYPct = (innerMinY / h) * 100;
-    const maxYPct = (innerMaxY / h) * 100;
-
-    const rowNums = [...rowsMap.keys()].sort((a, b) => a - b);
-    const rowCount = rowNums.length;
-    if (rowCount < 1) continue;
-
-    for (let ri = 0; ri < rowNums.length; ri++) {
-      const rowNum = rowNums[ri];
-      const entries = rowsMap.get(rowNum) ?? [];
-      entries.sort((a, b) => {
-        const na = parseSeatNum(a.seat) ?? 0;
-        const nb = parseSeatNum(b.seat) ?? 0;
-        return na - nb || String(a.seat).localeCompare(String(b.seat), 'ru', { numeric: true });
-      });
-      const seatCount = entries.length;
-      const yPct = minYPct + ((ri + 0.5) / rowCount) * (maxYPct - minYPct);
-
-      for (let si = 0; si < entries.length; si++) {
-        const { offer, seat } = entries[si];
-        const oid = String(offer.Id ?? '');
-        const xPct = minXPct + ((si + 0.5) / Math.max(1, seatCount)) * (maxXPct - minXPct);
-        const rowLabel = String(offer.Row ?? '');
-        const sectorLabel = String(offer.Sector ?? meta.label);
-        const pk = offerPlacementKey(oid, rowLabel, seat);
-        if (placedOfferKeys.has(pk)) continue;
-        placedOfferKeys.add(pk);
-        gridFallbackCount += 1;
-        const svgKey = seatMapKey(sectorLabel, rowLabel, seat);
-        const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
-        extra.push({
-          key: `${oid}-${seat}-${xPct.toFixed(3)}-${yPct.toFixed(3)}-grid`,
-          svgKey,
-          offerId: oid,
-          sectorLabel,
-          seat,
-          rowLabel,
-          available,
-          xPct,
-          yPct,
-          title: `${sectorLabel} · ряд ${rowLabel} · место ${seat} · ${getPriceKey(offer)} ₽`,
-          priceKey: getPriceKey(offer),
-        });
-      }
-    }
-  }
-
-  const placements = [...base.placements, ...extra];
-  return {
-    placements,
-    unmatchedSvgCount: base.unmatchedSvgCount,
-    gridFallbackCount,
-    diagnostics: {
-      ...base.diagnostics,
-      matchedSeats: placements.length,
-      unmatchedOfferSeats: Math.max(0, countOfferSeats(offers) - placedOfferKeys.size),
-    },
-  };
+  return { ...result, gridFallbackCount: 0 };
 }
 
 export function buildSvgNativePlacements(

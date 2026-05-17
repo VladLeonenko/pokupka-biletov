@@ -183,7 +183,6 @@ export function resolveRowYPctFromDotGrid(rowNum, layoutAnchors, rowBands) {
   return interpolateByRowNumber(rowNum, rowCal, (a) => a.yPct);
 }
 
-const MAX_ROW_EXTRAPOLATION = 4;
 
 function rowAnchorGroups(layoutAnchors) {
   const byRow = new Map();
@@ -231,7 +230,7 @@ export function resolveOfferSeatFromAnchors(rowNum, seatNum, layoutAnchors) {
   if (rowPts.length < 2) return null;
   const minR = rowPts[0].row;
   const maxR = rowPts[rowPts.length - 1].row;
-  if (rowNum < minR - MAX_ROW_EXTRAPOLATION || rowNum > maxR + MAX_ROW_EXTRAPOLATION) {
+  if (rowNum < minR || rowNum > maxR) {
     return null;
   }
 
@@ -298,23 +297,156 @@ export function resolveOfferSeatOnDotGrid({ rowNum, seatNum, layoutAnchors, sect
   return pickDotNearRowSeat(rowDots, targetY, targetX);
 }
 
-/** Сектор без подписанных мест в tickets.json (r: []) — ряд/место по полосам точек в bbox. */
-function resolveOfferSeatFromSectorDotsOnly(rowNum, seatNum, sectorDots, rowRange) {
+/**
+ * Ориентация ряд/место по подписанным секторам (для секторов с r:[] в tickets.json).
+ * rowYPctIncreases: +1 — с ростом номера ряда Y растёт; -1 — Y падает.
+ */
+export function buildLabeledSectorOrientationIndex(layoutSeats, sectorPaths, hallWidth, hallHeight) {
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
+  const centroids = new Map();
+  for (const sp of sectorPaths || []) {
+    const norm = normalizeSectorLabel(sp.label);
+    const b = pathBBox(sp.path);
+    if (!norm || !b) continue;
+    centroids.set(norm, {
+      x: ((b.minX + b.maxX) / 2 / w) * 100,
+      y: ((b.minY + b.maxY) / 2 / h) * 100,
+    });
+  }
+
+  const anchorsBySector = new Map();
+  for (const s of layoutSeats || []) {
+    const norm = normalizeSectorLabel(s.sector);
+    const arr = anchorsBySector.get(norm) ?? [];
+    arr.push(s);
+    anchorsBySector.set(norm, arr);
+  }
+
+  const orientations = [];
+  for (const [norm, anchors] of anchorsBySector) {
+    const rowPts = rowAnchorGroups(anchors);
+    if (rowPts.length < 2) continue;
+    const c = centroids.get(norm);
+    if (!c) continue;
+    const dY = rowPts[rowPts.length - 1].yPct - rowPts[0].yPct;
+    const dR = rowPts[rowPts.length - 1].row - rowPts[0].row;
+    const rowYPctIncreases = dR === 0 ? 1 : Math.sign(dY / dR) || 1;
+
+    const mid = rowPts[Math.floor(rowPts.length / 2)];
+    const cal = fitSeatXCalibration(mid.seats);
+    let seatXPctIncreases = 1;
+    if (cal) {
+      const s0 = parseNum(mid.seats[0]?.seat);
+      const s1 = parseNum(mid.seats[mid.seats.length - 1]?.seat);
+      if (s0 != null && s1 != null && s1 > s0) {
+        const x0 = cal.predict(s0);
+        const x1 = cal.predict(s1);
+        if (Number.isFinite(x0) && Number.isFinite(x1)) {
+          seatXPctIncreases = x1 >= x0 ? 1 : -1;
+        }
+      }
+    }
+
+    const tribune = norm.match(/^([a-z]+)/)?.[1] ?? '';
+    orientations.push({ norm, tribune, ...c, rowYPctIncreases, seatXPctIncreases });
+  }
+
+  return { centroids, orientations };
+}
+
+export function pickNearestSectorOrientation(targetNorm, orientationIndex) {
+  const c = orientationIndex?.centroids?.get(targetNorm);
+  const list = orientationIndex?.orientations ?? [];
+  if (!c || list.length < 1) return null;
+
+  const tribune = targetNorm.match(/^([a-z]+)/)?.[1] ?? '';
+  let best = null;
+  let bestScore = Infinity;
+  for (const o of list) {
+    const dist = Math.hypot(o.x - c.x, o.y - c.y);
+    const score = dist - (o.tribune === tribune ? 8 : 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = o;
+    }
+  }
+  return best;
+}
+
+function buildSectorOfferSeatRangesByRow(offers) {
+  /** norm → rowNum → { min, max } */
+  const bySector = new Map();
+  for (const offer of offers) {
+    const norm = normalizeSectorLabel(offer.Sector);
+    const rowNum = parseNum(offer.Row);
+    if (rowNum == null) continue;
+    const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    const byRow = bySector.get(norm) ?? new Map();
+    for (const seat of list) {
+      const sn = parseNum(seat);
+      if (sn == null) continue;
+      const prev = byRow.get(rowNum) ?? { min: sn, max: sn };
+      byRow.set(rowNum, {
+        min: Math.min(prev.min, sn),
+        max: Math.max(prev.max, sn),
+      });
+    }
+    if (byRow.size > 0) bySector.set(norm, byRow);
+  }
+  return bySector;
+}
+
+/**
+ * Сектор без r[] в tickets (B 147 и др.): ряд/место на реальной точке облака luzhniki.txt,
+ * ориентация рядов — от ближайшего подписанного сектора той же трибуны.
+ */
+export function resolveOfferSeatFromCalibratedCloud(
+  rowNum,
+  seatNum,
+  sectorDots,
+  rowRange,
+  seatRangeInRow,
+  orientation,
+) {
   const bands = clusterDotsByRow(sectorDots);
   if (bands.length < 3 || !rowRange) return null;
+
   const span = Math.max(1, rowRange.max - rowRange.min);
   const t = (rowNum - rowRange.min) / span;
-  const idx = Math.round(t * (bands.length - 1));
+  let idx = Math.round(t * (bands.length - 1));
+  if (orientation?.rowYPctIncreases === -1) {
+    idx = bands.length - 1 - idx;
+  }
   const band = bands[Math.min(Math.max(idx, 0), bands.length - 1)];
-  const rowDots = [...band.dots].sort((a, b) => a.xPct - b.xPct);
+
+  let rowDots = [...band.dots].sort((a, b) => a.xPct - b.xPct);
+  if (orientation?.seatXPctIncreases === -1) rowDots = rowDots.reverse();
   if (rowDots.length < 2) return null;
-  const seatIdx =
-    seatNum != null
-      ? Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1)
-      : Math.floor(rowDots.length / 2);
-  const targetX = rowDots[seatIdx].xPct;
+
+  let targetX;
+  if (seatNum != null && seatRangeInRow) {
+    const seatSpan = Math.max(1, seatRangeInRow.max - seatRangeInRow.min);
+    const st = (seatNum - seatRangeInRow.min) / seatSpan;
+    const seatIdx = Math.round(st * (rowDots.length - 1));
+    targetX = rowDots[Math.min(Math.max(seatIdx, 0), rowDots.length - 1)].xPct;
+  } else if (seatNum != null) {
+    const seatIdx = Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1);
+    targetX = rowDots[seatIdx].xPct;
+  } else {
+    targetX = rowDots[Math.floor(rowDots.length / 2)].xPct;
+  }
+
   const hit = pickDotNearRowSeat(rowDots, band.yPct, targetX, 0.55);
   return hit ? { xPct: hit.xPct, yPct: hit.yPct } : null;
+}
+
+/** @deprecated Старая линейная привязка без ориентации — давала один Y для разных рядов. */
+function resolveOfferSeatFromSectorDotsOnly(rowNum, seatNum, sectorDots, rowRange) {
+  return resolveOfferSeatFromCalibratedCloud(rowNum, seatNum, sectorDots, rowRange, null, {
+    rowYPctIncreases: 1,
+    seatXPctIncreases: 1,
+  });
 }
 
 function buildSectorOfferRowRanges(offers) {
@@ -381,6 +513,9 @@ export function buildSellableSeatGeodesyWithDots(
   offers,
 ) {
   const strict = buildSellableSeatGeodesy(layoutSeats, offers);
+  const allowAnchor = process.env.LUZHNIKI_ENABLE_ANCHOR_GEODESY === '1';
+  const allowLegacyDotOnly = process.env.LUZHNIKI_ENABLE_DOT_GEODESY === '1';
+
   const strictKeys = new Set(
     strict.seats.map((s) => strictSeatKey(s.sector, s.row, s.seat)),
   );
@@ -388,6 +523,7 @@ export function buildSellableSeatGeodesyWithDots(
   const extra = [];
   const seen = new Set(strictKeys);
   let anchorInterpolated = 0;
+  let cloudMatched = 0;
   let dotMatched = 0;
 
   const anchorsBySector = new Map();
@@ -403,6 +539,13 @@ export function buildSellableSeatGeodesyWithDots(
       ? buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, hallHeight)
       : new Map();
   const rowRanges = buildSectorOfferRowRanges(offers);
+  const seatRangesByRow = buildSectorOfferSeatRangesByRow(offers);
+  const orientationIndex = buildLabeledSectorOrientationIndex(
+    layoutSeats,
+    sectorPaths,
+    hallWidth,
+    hallHeight,
+  );
 
   for (const offer of offers) {
     const sector = String(offer.Sector ?? '');
@@ -415,11 +558,17 @@ export function buildSellableSeatGeodesyWithDots(
     if (rowNum == null) continue;
 
     const anchorRows = new Set(anchors.map((a) => parseNum(a.row)).filter((r) => r != null));
-    const canAnchor = anchors.length >= 2 && anchorRows.size >= 2;
+    const canAnchor =
+      allowAnchor && anchors.length >= 2 && anchorRows.size >= 2;
     const canDotGrid =
       sectorDots && sectorDots.length >= 12 && anchors.length >= 2 && anchorRows.size >= 2;
-    const canDotOnly =
-      sectorDots && sectorDots.length >= 24 && anchors.length < 2 && rowRanges.has(norm);
+    const canCloud =
+      sectorDots &&
+      sectorDots.length >= 24 &&
+      anchors.length < 2 &&
+      rowRanges.has(norm);
+    const sectorOrientation = pickNearestSectorOrientation(norm, orientationIndex);
+    const seatByRow = seatRangesByRow.get(norm);
 
     for (const seat of list) {
       if (!seat.trim()) continue;
@@ -443,7 +592,18 @@ export function buildSellableSeatGeodesyWithDots(
         });
         if (resolved) mode = 'dot';
       }
-      if (!resolved && canDotOnly) {
+      if (!resolved && canCloud) {
+        resolved = resolveOfferSeatFromCalibratedCloud(
+          rowNum,
+          seatNum,
+          sectorDots,
+          rowRanges.get(norm),
+          seatByRow?.get(rowNum) ?? null,
+          sectorOrientation,
+        );
+        if (resolved) mode = 'cloud';
+      }
+      if (!resolved && allowLegacyDotOnly && canCloud) {
         resolved = resolveOfferSeatFromSectorDotsOnly(
           rowNum,
           seatNum,
@@ -456,18 +616,27 @@ export function buildSellableSeatGeodesyWithDots(
 
       seen.add(key);
       if (mode === 'anchor') anchorInterpolated += 1;
+      else if (mode === 'cloud') cloudMatched += 1;
       else dotMatched += 1;
-      extra.push({ sector, row, seat, xPct: resolved.xPct, yPct: resolved.yPct });
+      extra.push({
+        sector,
+        row,
+        seat,
+        xPct: resolved.xPct,
+        yPct: resolved.yPct,
+        geodesySource: mode,
+      });
     }
   }
 
   return {
     seats: [...strict.seats, ...extra],
-    matched: strict.matched + anchorInterpolated + dotMatched,
+    matched: strict.matched + anchorInterpolated + cloudMatched + dotMatched,
     totalSellable: strict.totalSellable,
     unmatchedSamples: strict.unmatchedSamples,
     strictMatched: strict.matched,
     anchorInterpolated,
+    cloudMatched,
     dotMatched,
   };
 }

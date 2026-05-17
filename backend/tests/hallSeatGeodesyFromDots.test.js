@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSellableSeatGeodesy } from '../utils/hallSeatGeodesyMatch.js';
-import { buildSellableSeatGeodesyWithDots, pathBBox } from '../utils/hallSeatGeodesyFromDots.js';
+import {
+  buildSellableSeatGeodesyWithDots,
+  pathBBox,
+  resolveOfferSeatFromCalibratedCloud,
+  buildLabeledSectorOrientationIndex,
+  pickNearestSectorOrientation,
+} from '../utils/hallSeatGeodesyFromDots.js';
 
 test('pathBBox extracts bounds from SVG path', () => {
   const b = pathBBox('M10,20 L30,40 L50,20 Z');
@@ -45,6 +51,49 @@ test('withDots wrapper does not invent coordinates for unknown row', () => {
   const diag = buildSellableSeatGeodesyWithDots(layoutSeats, [], [], 200, 200, offers);
   assert.equal(diag.matched, 0);
   assert.equal(diag.dotMatched, 0);
+});
+
+test('calibrated cloud separates row 3 and row 11 on different Y', () => {
+  const sectorPath =
+    'M2155.5,3580 L1181.5,3580 C1174.87256,3580 1169.5,3574.62742 1169.5,3568 L1169.5,3051 C1169.5,3044.37256 1174.87256,3039 1181.5,3039 L2155.5,3039 C2162.12741,3039 2167.5,3044.37256 2167.5,3051 L2167.5,3568 C2167.5,3574.62742 2162.12741,3580 2155.5,3580 Z';
+  const dots = [];
+  for (let band = 0; band < 12; band += 1) {
+    for (let s = 0; s < 18; s += 1) {
+      dots.push({ xPct: 11 + s * 0.35, yPct: 30 + band * 0.65 });
+    }
+  }
+  const rowRange = { min: 3, max: 20 };
+  const orientation = { rowYPctIncreases: 1, seatXPctIncreases: 1 };
+  const r3 = resolveOfferSeatFromCalibratedCloud(3, 1, dots, rowRange, { min: 1, max: 8 }, orientation);
+  const r11 = resolveOfferSeatFromCalibratedCloud(
+    11,
+    6,
+    dots,
+    rowRange,
+    { min: 1, max: 12 },
+    orientation,
+  );
+  assert.ok(r3 && r11);
+  assert.ok(Math.abs(r11.yPct - r3.yPct) > 0.4, 'rows must not share same band Y');
+});
+
+test('B147 cloud geodesy uses nearest tribune orientation', () => {
+  const layoutSeats = [
+    { sector: 'Сектор B 258', row: '35', seat: '1', xPct: 10, yPct: 40 },
+    { sector: 'Сектор B 258', row: '37', seat: '1', xPct: 10, yPct: 38 },
+  ];
+  const sectorPathB147 =
+    'M2155.5,3580 L1181.5,3580 C1174.87256,3580 1169.5,3574.62742 1169.5,3568 L1169.5,3051 C1169.5,3044.37256 1174.87256,3039 1181.5,3039 L2155.5,3039 C2162.12741,3039 2167.5,3044.37256 2167.5,3051 L2167.5,3568 C2167.5,3574.62742 2162.12741,3580 2155.5,3580 Z';
+  const sectorPathB258 =
+    'M100,3900 L200,3900 L200,3800 L100,3800 Z';
+  const paths = [
+    { label: 'Сектор B 147', path: sectorPathB147 },
+    { label: 'Сектор B 258', path: sectorPathB258 },
+  ];
+  const idx = buildLabeledSectorOrientationIndex(layoutSeats, paths, 11413, 9676);
+  const o = pickNearestSectorOrientation('b147', idx);
+  assert.ok(o);
+  assert.equal(o.norm, 'b258');
 });
 
 test('D-218 sector alias matches layout', () => {
