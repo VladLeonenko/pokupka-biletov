@@ -165,6 +165,133 @@ export function interpolateSvgRowYPct(rowNum, calibration) {
   return null;
 }
 
+function labelsInsideSectorBBox(sectorPath, allLabels, margin = 80) {
+  const b = pathBBox(sectorPath);
+  if (!b || !allLabels?.length) return [];
+  return allLabels.filter((l) => pointInSectorBBox(l.x, l.y, b, margin));
+}
+
+/**
+ * В секторе несколько колонок подписей рядов (x). Берём ту, где номера рядов
+ * монотонно растут по Y — это «настоящая» шкала рядов на схеме.
+ * @returns {{ centerX: number, rowY: Map<number, number> } | null}
+ */
+export function pickSectorRowLabelAisle(sectorPath, allLabels, hallWidth, hallHeight) {
+  const inside = labelsInsideSectorBBox(sectorPath, allLabels);
+  if (inside.length < 5) return null;
+
+  const groups = [];
+  for (const l of inside) {
+    let g = groups.find((gr) => Math.abs(gr.centerX - l.x) < 220);
+    if (!g) {
+      g = { centerX: l.x, items: [] };
+      groups.push(g);
+    }
+    g.items.push(l);
+    g.centerX = g.items.reduce((s, it) => s + it.x, 0) / g.items.length;
+  }
+
+  let best = null;
+  let bestScore = -1;
+  for (const g of groups) {
+    const byRow = new Map();
+    for (const l of g.items) {
+      const arr = byRow.get(l.row) ?? [];
+      arr.push(l.yPct);
+      byRow.set(l.row, arr);
+    }
+    const rows = [...byRow.entries()]
+      .map(([row, ys]) => {
+        ys.sort((a, b) => a - b);
+        return { row, yPct: ys[Math.floor(ys.length / 2)] };
+      })
+      .sort((a, b) => a.row - b.row);
+    if (rows.length < 5) continue;
+    let mono = 0;
+    for (let i = 1; i < rows.length; i += 1) {
+      if (rows[i].yPct > rows[i - 1].yPct) mono += 1;
+    }
+    const score = mono / Math.max(1, rows.length - 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = {
+        centerX: g.centerX,
+        rowY: new Map(rows.map((r) => [r.row, r.yPct])),
+      };
+    }
+  }
+  return best;
+}
+
+/** Y% подписи ряда N в правильной колонке цифр сектора. */
+export function getRowLabelYPctInSector(rowNum, sectorPath, allLabels, hallWidth, hallHeight) {
+  const aisle = pickSectorRowLabelAisle(sectorPath, allLabels, hallWidth, hallHeight);
+  if (!aisle?.rowY?.size) return null;
+  const exact = aisle.rowY.get(rowNum);
+  if (exact != null) return exact;
+  const cal = [...aisle.rowY.entries()].map(([row, yPct]) => ({ row, yPct }));
+  cal.sort((a, b) => a.row - b.row);
+  return interpolateSvgRowYPct(rowNum, cal);
+}
+
+function pickRowLabelAtAisle(rowNum, labelsInSector, aisleCenterX, maxDx = 280) {
+  const candidates = labelsInSector.filter(
+    (l) => l.row === rowNum && Math.abs(l.x - aisleCenterX) < maxDx,
+  );
+  if (!candidates.length) return null;
+  if (candidates.length === 1) return candidates[0];
+  return candidates.reduce((best, l) =>
+    Math.abs(l.x - aisleCenterX) < Math.abs(best.x - aisleCenterX) ? l : best,
+  );
+}
+
+/**
+ * Места в ряду: направление от подписи ряда R к R+1 (или R−1), место 1 у подписи ряда.
+ * @param {{ xPct: number, yPct: number }[]} dots
+ */
+export function sortDotsInSectorRow(rowNum, dots, sectorPath, allLabels, hallWidth, hallHeight) {
+  if (!dots?.length) return [];
+  const inside = labelsInsideSectorBBox(sectorPath, allLabels);
+  const aisle = pickSectorRowLabelAisle(sectorPath, allLabels, hallWidth, hallHeight);
+  const labR =
+    aisle != null
+      ? pickRowLabelAtAisle(rowNum, inside, aisle.centerX)
+      : inside.find((l) => l.row === rowNum) ?? null;
+
+  if (!labR) return [...dots];
+
+  const labR2 =
+    pickRowLabelAtAisle(rowNum + 1, inside, aisle?.centerX ?? labR.x) ??
+    pickRowLabelAtAisle(rowNum - 1, inside, aisle?.centerX ?? labR.x);
+
+  let seatDirX = 1;
+  let seatDirY = 0;
+  if (labR2) {
+    let rdx = labR2.xPct - labR.xPct;
+    let rdy = labR2.yPct - labR.yPct;
+    const rlen = Math.hypot(rdx, rdy) || 1;
+    rdx /= rlen;
+    rdy /= rlen;
+    seatDirX = -rdy;
+    seatDirY = rdx;
+    let sum = 0;
+    for (const d of dots) {
+      sum += (d.xPct - labR.xPct) * seatDirX + (d.yPct - labR.yPct) * seatDirY;
+    }
+    if (sum / dots.length < 0) {
+      seatDirX = -seatDirX;
+      seatDirY = -seatDirY;
+    }
+  }
+
+  return [...dots].sort((a, b) => {
+    const pa = (a.xPct - labR.xPct) * seatDirX + (a.yPct - labR.yPct) * seatDirY;
+    const pb = (b.xPct - labR.xPct) * seatDirX + (b.yPct - labR.yPct) * seatDirY;
+    if (Math.abs(pa - pb) > 1e-6) return pa - pb;
+    return Math.hypot(a.xPct - labR.xPct, a.yPct - labR.yPct) - Math.hypot(b.xPct - labR.xPct, b.yPct - labR.yPct);
+  });
+}
+
 /** Индекс полосы точек с Y, ближайшим к подписи ряда на SVG. */
 export function findBandIndexNearestY(bands, targetYPct) {
   if (!bands?.length || targetYPct == null) return 0;

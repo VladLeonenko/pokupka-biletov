@@ -1103,8 +1103,21 @@ export function TicketHallInteractiveBlock({
   );
   const visibleNativePlacements = useMemo(() => {
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
-    /** Лужники: все sellable на карте при зуме/пане; панель сектора — только список офферов. */
-    if (luzhnikiCheckout) return interactive;
+    /** Лужники: цветные точки только в выбранном секторе (на обзоре — только серая чаша). */
+    if (luzhnikiCheckout) {
+      if (!selectedSectorSummary) return [];
+      const byLabel = interactive.filter(
+        (p) => normalizeSectorLabel(p.sectorLabel) === selectedSector,
+      );
+      const path = selectedSectorSummary.meta.path;
+      if (path && svgViewBox.width > 0 && svgViewBox.height > 0) {
+        const byBbox = filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
+        const merged = new Map<string, SvgNativePlacement>();
+        for (const p of [...byLabel, ...byBbox]) merged.set(p.key, p);
+        return [...merged.values()];
+      }
+      return byLabel;
+    }
     /** portalbilet-стиль: на обзоре все sellable; при выборе зоны — фильтр по bbox полигона. */
     if (!sectorMode.enabled || !selectedSectorSummary) return interactive;
     const byLabel = interactive.filter((p) => normalizeSectorLabel(p.sectorLabel) === selectedSector);
@@ -1374,7 +1387,11 @@ export function TicketHallInteractiveBlock({
       }
     }
 
-    if (!dragging && visibleNativePlacements.length > 0) {
+    const drawSellableDots =
+      visibleNativePlacements.length > 0 &&
+      !(luzhnikiCheckout && !selectedSectorSummary);
+
+    if (!dragging && drawSellableDots) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
       const overview = liveZoom <= fitZoom + 0.01;
       const scalePx = w / Math.max(1, svgViewBox.width);

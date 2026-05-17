@@ -1,7 +1,8 @@
 /**
- * Нативная геометрия сектора для sellable:
- * — ряд 1 у зелёного поля (ближайшая полоса точек), далее 2, 3… от поля;
- * — места слева→направо, взгляд с поля (центр арены).
+ * Нативная геометрия сектора для sellable (своя система координат на сектор):
+ * — ряд N = полоса точек у подписи «N» на SVG (<tspan>) внутри сектора;
+ * — место 1 = первая точка слева в ряду (взгляд с поля);
+ * — полосы рядов кластеризуются вдоль оси «поле → сектор», не по глобальной Y.
  */
 
 import { pathBBox, clusterDotsByRow, clusterDotsByRowAlongAxis } from './hallSeatGeodesyFromDots.js';
@@ -9,8 +10,11 @@ import {
   buildSectorRowYPctCalibration,
   buildSectorSvgRowAisles,
   findBandIndexNearestY,
+  getRowLabelYPctInSector,
   interpolateSvgRowYPct,
   parseSvgHallRowLabels,
+  pickSectorRowLabelAisle,
+  sortDotsInSectorRow,
 } from './hallSeatGeodesyFromSvgRows.js';
 
 export function computeFieldCenterPct(allSeatCoordinates) {
@@ -54,6 +58,21 @@ function seatSortKey(dot, axis) {
   return dot.xPct * axis.x + dot.yPct * axis.y;
 }
 
+function pointInSectorBBox(x, y, bbox, margin = 120) {
+  return (
+    x >= bbox.minX - margin &&
+    x <= bbox.maxX + margin &&
+    y >= bbox.minY - margin &&
+    y <= bbox.maxY + margin
+  );
+}
+
+function rowLabelsInsideSector(sectorPath, svgRowLabels, margin = 120) {
+  const b = pathBBox(sectorPath);
+  if (!b || !svgRowLabels?.length) return [];
+  return svgRowLabels.filter((l) => pointInSectorBBox(l.x, l.y, b, margin));
+}
+
 function sectorCenterPct(sectorPath, hallWidth, hallHeight) {
   const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
   const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
@@ -68,7 +87,12 @@ function sectorCenterPct(sectorPath, hallWidth, hallHeight) {
 /** Полосы точек сектора, отсортированные от поля (ряд 1) к дальнему краю. */
 export function sortSectorRowBandsFromField(sectorDots, sectorPath, fieldCenterPct, hallWidth, hallHeight) {
   const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
-  let bands = clusterDotsByRowAlongAxis(sectorDots, rowAxis);
+  let bands = sectorPrefersSvgRowLabels(rowAxis)
+    ? clusterDotsByRow(sectorDots)
+    : clusterDotsByRowAlongAxis(sectorDots, rowAxis);
+  if (bands.length < 2) {
+    bands = clusterDotsByRowAlongAxis(sectorDots, rowAxis);
+  }
   if (bands.length < 2) {
     bands = clusterDotsByRow(sectorDots);
   }
@@ -91,6 +115,125 @@ export function sortSectorRowBandsFromField(sectorDots, sectorPath, fieldCenterP
   });
   scored.sort((a, b) => b.fieldScore - a.fieldScore);
   return { bands: scored, maxRow: scored.length };
+}
+
+/**
+ * Номер ряда каждой полосе: по ближайшей подписи на схеме сектора (цифра «1» = ряд 1).
+ * @returns {({ dots: object[], rowNum: number, yPct?: number, rowCoord?: number })[]}
+ */
+export function labelSectorBandsWithSvgRowNumbers(
+  bands,
+  sectorPath,
+  svgRowLabels,
+  fieldCenterPct,
+  hallWidth,
+  hallHeight,
+) {
+  if (!bands?.length) return [];
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
+  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, w, h);
+  const labels = rowLabelsInsideSector(sectorPath, svgRowLabels);
+
+  const centroids = bands.map((band) => {
+    let sx = 0;
+    let sy = 0;
+    for (const d of band.dots) {
+      sx += d.xPct;
+      sy += d.yPct;
+    }
+    const n = Math.max(1, band.dots.length);
+    const cx = sx / n;
+    const cy = sy / n;
+    const rowCoord = band.rowCoord ?? cx * rowAxis.x + cy * rowAxis.y;
+    return { band, cx, cy, rowCoord };
+  });
+
+  if (labels.length >= 2) {
+    const usedRows = new Set();
+    const horizontal = sectorPrefersSvgRowLabels(rowAxis);
+    const sorted = [...centroids].sort((a, b) =>
+      horizontal ? a.cy - b.cy : a.rowCoord - b.rowCoord,
+    );
+    const labelsSorted = [...labels].sort((a, b) =>
+      horizontal
+        ? a.yPct - b.yPct
+        : a.xPct * rowAxis.x + a.yPct * rowAxis.y - (b.xPct * rowAxis.x + b.yPct * rowAxis.y),
+    );
+
+    return sorted.map(({ band, cx, cy, rowCoord }) => {
+      let bestRow = null;
+      let bestD = Infinity;
+      for (const lab of labelsSorted) {
+        if (usedRows.has(lab.row)) continue;
+        const d = horizontal
+          ? Math.abs(cy - lab.yPct)
+          : Math.abs(rowCoord - (lab.xPct * rowAxis.x + lab.yPct * rowAxis.y));
+        if (d < bestD) {
+          bestD = d;
+          bestRow = lab.row;
+        }
+      }
+      if (bestRow == null) {
+        let nearest = labels[0];
+        let nd = Infinity;
+        for (const lab of labels) {
+          const d = Math.hypot(cx - lab.xPct, cy - lab.yPct);
+          if (d < nd) {
+            nd = d;
+            nearest = lab;
+          }
+        }
+        bestRow = nearest.row;
+      } else {
+        usedRows.add(bestRow);
+      }
+      return { ...band, rowNum: bestRow };
+    });
+  }
+
+  const { scx, scy } = sectorCenterPct(sectorPath, w, h);
+  const fx = fieldCenterPct.xPct - scx;
+  const fy = fieldCenterPct.yPct - scy;
+  const scored = centroids.map(({ band, rowCoord }) => {
+    let fs = 0;
+    for (const d of band.dots) {
+      fs += (d.xPct - scx) * fx + (d.yPct - scy) * fy;
+    }
+    return { band, rowCoord, fieldScore: fs / Math.max(1, band.dots.length) };
+  });
+  scored.sort((a, b) => b.fieldScore - a.fieldScore);
+  return scored.map((s, i) => ({ ...s.band, rowNum: i + 1 }));
+}
+
+function findBandIndexForRowNum(rowNum, labeledBands) {
+  const exact = [];
+  for (let i = 0; i < labeledBands.length; i += 1) {
+    if (labeledBands[i].rowNum === rowNum) exact.push(i);
+  }
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) {
+    let best = exact[0];
+    let bestDots = labeledBands[0].dots?.length ?? 0;
+    for (const i of exact) {
+      const n = labeledBands[i].dots?.length ?? 0;
+      if (n > bestDots) {
+        bestDots = n;
+        best = i;
+      }
+    }
+    return best;
+  }
+  let bestIdx = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < labeledBands.length; i += 1) {
+    const d = Math.abs(labeledBands[i].rowNum - rowNum);
+    if (d < bestD) {
+      bestD = d;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
 }
 
 export function maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight) {
@@ -130,10 +273,12 @@ function sectorRowCalibration(sectorPath, svgRowLabels, hallWidth, hallHeight) {
   return buildSectorRowYPctCalibration(sectorPath, svgRowLabels, hintXAbs, hallWidth, hallHeight);
 }
 
-/** Нижние/верхние трибуны: ряды ≈ горизонтальны на SVG. Боковые — своя ось, без Y-подписей. */
-function sectorPrefersSvgRowLabels(rowAxis) {
+/** Нижние/верхние трибуны: ряды ≈ горизонтальны на SVG. Боковые — своя ось. */
+export function sectorPrefersSvgRowLabels(rowAxis) {
   return Math.abs(rowAxis.y) >= 0.72;
 }
+
+export { rowLabelsInsideSector };
 
 /** Единый maxRow сектора: SVG-подписи, офферы, число полос — не номер текущего ряда. */
 export function resolveSectorNativeMaxRow(
@@ -168,11 +313,16 @@ function resolveRowBandIndex(
   hallHeight,
   fieldCenterPct = { xPct: 50, yPct: 50 },
 ) {
-  const calibration = sectorRowCalibration(sectorPath, svgRowLabels, hallWidth, hallHeight);
-  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
-  if (calibration.length >= 2 && calibrationHasDistinctY(calibration) && sectorPrefersSvgRowLabels(rowAxis)) {
-    const targetY = interpolateSvgRowYPct(rowNum, calibration);
-    if (targetY != null) return findBandIndexNearestY(bands, targetY);
+  const labeled = labelSectorBandsWithSvgRowNumbers(
+    bands,
+    sectorPath,
+    svgRowLabels,
+    fieldCenterPct,
+    hallWidth,
+    hallHeight,
+  );
+  if (labeled.length > 0) {
+    return findBandIndexForRowNum(rowNum, labeled);
   }
   return rowNumToBandIndex(rowNum, maxRow, bands.length);
 }
@@ -244,31 +394,44 @@ export function resolveOfferSeatSectorNativeLayout(
   );
   if (bands.length < 1) return null;
 
-  const maxRow = resolveSectorNativeMaxRow(
-    sectorPath,
-    svgRowLabels,
-    bands.length,
-    sectorRowMax,
-    hallWidth,
-    hallHeight,
-    fieldCenterPct,
-  );
-
-  const rowIdx = resolveRowBandIndex(
-    rowNum,
-    bands,
-    sectorPath,
-    svgRowLabels,
-    maxRow,
-    hallWidth,
-    hallHeight,
-    fieldCenterPct,
-  );
-  const band = bands[Math.min(Math.max(rowIdx, 0), bands.length - 1)];
+  let band = null;
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, w, hallHeight);
+  if (sectorPrefersSvgRowLabels(rowAxis)) {
+    const targetY = getRowLabelYPctInSector(
+      rowNum,
+      sectorPath,
+      svgRowLabels,
+      hallWidth,
+      hallHeight,
+    );
+    if (targetY != null) {
+      const bi = findBandIndexNearestY(bands, targetY);
+      band = bands[Math.min(Math.max(bi, 0), bands.length - 1)];
+    }
+  }
+  if (!band?.dots?.length) {
+    const labeled = labelSectorBandsWithSvgRowNumbers(
+      bands,
+      sectorPath,
+      svgRowLabels,
+      fieldCenterPct,
+      hallWidth,
+      hallHeight,
+    );
+    const rowIdx = findBandIndexForRowNum(rowNum, labeled);
+    band = labeled[Math.min(Math.max(rowIdx, 0), labeled.length - 1)];
+  }
   if (!band?.dots?.length) return null;
 
-  const axis = seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
-  const rowDots = [...band.dots].sort((a, b) => seatSortKey(a, axis) - seatSortKey(b, axis));
+  const rowDots = sortDotsInSectorRow(
+    rowNum,
+    band.dots,
+    sectorPath,
+    svgRowLabels,
+    hallWidth,
+    hallHeight,
+  );
   const pick = rowDots[Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1)];
   return pick ? { xPct: pick.xPct, yPct: pick.yPct } : null;
 }

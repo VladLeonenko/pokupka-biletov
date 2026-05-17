@@ -4,45 +4,41 @@
 
 ---
 
-## 17.05.2026 — grid по оси сектора (не глобальная Y)
+## 17.05.2026 — ось сектора + подписи рядов на SVG + мобильный оверлей
 
-### Симптом
-После сида `layout.seats` ~133k sellable «летают»: цветные кнопки не на серых точках, ряды выстроены одной горизонтальной гребёнкой (глобальная Y), хотя стадион овальный.
+### Симптомы
+1. **Мобильная версия:** на обзоре стадиона цветные точки колоннами через всё поле (все sellable сразу).
+2. **Сектор:** кружки не на серых точках; ряд 11 визуально у подписи 25–30 (A101); логика «ряд 1 = у поля» не совпадает с цифрой **1** на схеме (D121).
 
-### Причина
-`clusterDotsByRow` группировал точки по **yPct** для всех секторов одинаково. На боковых (B147, D121) ряды идут вдоль радиуса от поля, не по горизонтали.
+### Правило заказчика (канон)
+У **каждого сектора своя** система координат:
+- **Ряд N** — полоса точек у подписи «N» на схеме (не «ряд 1 у поля» и не интерполяция 22 полос → 40 подписей).
+- В секторе несколько колонок цифр на SVG — берём колонку, где номера рядов **монотонно** идут по Y (`pickSectorRowLabelAisle`).
+- **Место 1** — у подписи ряда; **место 2, 3…** — вдоль ряда в направлении от подписи ряда R к R+1 (или R−1), не всегда «слева».
+- Горизонтальные трибуны (A101): полосы по Y; боковые (D121, B147): полосы вдоль оси поле→сектор.
 
 ### Исправление (код)
 | Модуль | Что сделано |
 |--------|-------------|
-| `hallSeatGeodesyFromDots.js` | `clusterDotsByRowAlongAxis(dots, rowAxis)` — полосы вдоль оси «поле → сектор» |
-| `hallSeatGeodesySectorNative.js` | `rowAxisFromSector`, `sortSectorRowBandsFromField` через ось сектора; боковые (`|rowAxis.y| < 0.72`) — `maxRow = число полос`, без ложных 40 `<tspan>` в bbox; верх/низ — Y с SVG |
-| `hallSeatGeodesyLuzhnikiGrid.js` | `buildStadiumLayoutSeatsFromDotGrid` — те же правила + lookup sellable |
-| `TicketHallInteractiveBlock` | hitbox sellable = диаметр точки canvas (`12/svgWidth * 100%`) |
+| `hallSeatGeodesyFromDots.js` | `clusterDotsByRowAlongAxis` — полосы вдоль оси «поле → сектор» |
+| `hallSeatGeodesySectorNative.js` | `labelSectorBandsWithSvgRowNumbers` — полоса ↔ номер ряда с подписи SVG; `findBandIndexForRowNum`; места слева направо |
+| `hallSeatGeodesyLuzhnikiGrid.js` | grid `layout.seats` с теми же номерами рядов/мест |
+| `hallSeatGeodesyFromSvgRows.js` | `pickSectorRowLabelAisle`, `getRowLabelYPctInSector`, `sortDotsInSectorRow` |
+| `TicketHallInteractiveBlock.tsx` | sellable **только в выбранном секторе** (DOM + canvas на обзоре пусто) |
+| CSS / hitbox | диаметр клика ≈ точка на canvas |
 
-### Правило (каждый сектор отдельно)
-1. Ось рядов: центр поля → центр сектора.
-2. Ось мест: перпендикуляр (взгляд с поля), место 1 — слева.
-3. Ряд N → полоса `rowNumToBandIndex(N, maxRow, bandCount)`; на боковых `maxRow = bandCount`.
-4. Место M → M-я точка в полосе по оси мест.
-
-### Деплой на VPS (`/var/pokupka-biletov`, не `/var/www/...`)
+### Деплой VPS (`/var/pokupka-biletov`)
 
 ```bash
-cd /var/pokupka-biletov
-git pull origin main
-
+cd /var/pokupka-biletov && git pull origin main
 cd backend
 LUZHNIKI_PBILET_TICKETS_JSON=/var/pokupka-biletov/tickets.json \
 LUZHNIKI_PBILET_COORDINATES_JSON=/var/pokupka-biletov/luzhniki.txt \
 npm run seed:luzhniki-football-map
-
-cd ..
-./scripts/deploy-via-git.sh main
-# deploy уже собирает frontend + pm2; seed — обязателен после pull с grid-фиксом
+cd .. && ./scripts/deploy-via-git.sh main
 ```
 
-Проверка API (суперфинал / map): `offerSeatGeodesy.sectorGridMatched > 0`, `cloudMatched: 0`.
+Проверка: обзор без сектора — **нет** цветных точек на поле; клик сектор → ряд/место на серых точках у цифр рядов.
 
 ---
 

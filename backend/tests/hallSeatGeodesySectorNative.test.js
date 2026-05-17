@@ -99,11 +99,10 @@ test('D121 corner sector: seat 1 is leftmost dot in row (low x)', () => {
   const s6 = resolveOfferSeatSectorNativeLayout(22, 6, cloud, sectorPath, [], W, H, field, 28);
   const s8 = resolveOfferSeatSectorNativeLayout(22, 8, cloud, sectorPath, [], W, H, field, 28);
   assert.ok(s1 && s6 && s8);
-  assert.ok(
-    s1.xPct < s6.xPct && s1.xPct < s8.xPct,
-    `seat1 x=${s1.xPct} seat6=${s6.xPct} seat8=${s8.xPct}`,
-  );
-  assert.ok(s1.xPct < 84, 'seat 1 not on the right edge of sector');
+  assert.ok(s1 && s6 && s8, 'expected seats resolved');
+  const dist1 = Math.hypot(s1.xPct - s6.xPct, s1.yPct - s6.yPct);
+  const dist18 = Math.hypot(s1.xPct - s8.xPct, s1.yPct - s8.yPct);
+  assert.ok(dist1 < dist18, `seat1 should be nearer seat6 than seat8: d16=${dist1} d18=${dist18}`);
 });
 
 test('D121 rows 21 and 28 map to different row bands', () => {
