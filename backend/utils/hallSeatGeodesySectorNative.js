@@ -1,20 +1,15 @@
 /**
- * Нативная геометрия сектора для sellable (своя система координат на сектор):
- * — ряд N = полоса точек у подписи «N» на SVG (<tspan>) внутри сектора;
- * — место 1 = первая точка слева в ряду (взгляд с поля);
- * — полосы рядов кластеризуются вдоль оси «поле → сектор», не по глобальной Y.
+ * Нативная геометрия сектора для sellable (взгляд с поля на сектор):
+ * — API ряд N = N-я полоса от поля (index 0 у газона), не цифра на SVG;
+ * — место 1…N вдоль seatLeftAxisFromSector (не жёстко «слева» на экране);
+ * — полосы кластеризуются вдоль оси «поле → сектор»; точки в центральном проходе отбрасываются.
  */
 
-import { pathBBox, clusterDotsByRow, clusterDotsByRowAlongAxis } from './hallSeatGeodesyFromDots.js';
+import { pathBBox, clusterDotsByRowAlongAxis } from './hallSeatGeodesyFromDots.js';
 import {
   buildSectorRowYPctCalibration,
   buildSectorSvgRowAisles,
-  findBandIndexNearestY,
-  getRowLabelYPctInSector,
-  interpolateSvgRowYPct,
   parseSvgHallRowLabels,
-  pickSectorRowLabelAisle,
-  sortDotsInSectorRow,
 } from './hallSeatGeodesyFromSvgRows.js';
 
 export function computeFieldCenterPct(allSeatCoordinates) {
@@ -67,6 +62,18 @@ function pointInSectorBBox(x, y, bbox, margin = 120) {
   );
 }
 
+/** Убрать точки в вертикальном проходе между блоками (ложный «ряд» на одной Y). */
+function filterCentralAisleDots(sectorDots, sectorPath, hallWidth) {
+  const b = pathBBox(sectorPath);
+  if (!b || !sectorDots?.length) return sectorDots;
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const midPct = ((b.minX + b.maxX) / 2 / w) * 100;
+  const widthPct = ((b.maxX - b.minX) / w) * 100;
+  const gap = Math.max(0.35, widthPct * 0.055);
+  const filtered = sectorDots.filter((d) => Math.abs(d.xPct - midPct) > gap);
+  return filtered.length >= 12 ? filtered : sectorDots;
+}
+
 function rowLabelsInsideSector(sectorPath, svgRowLabels, margin = 120) {
   const b = pathBBox(sectorPath);
   if (!b || !svgRowLabels?.length) return [];
@@ -85,16 +92,26 @@ function sectorCenterPct(sectorPath, hallWidth, hallHeight) {
 }
 
 /** Полосы точек сектора, отсортированные от поля (ряд 1) к дальнему краю. */
-export function sortSectorRowBandsFromField(sectorDots, sectorPath, fieldCenterPct, hallWidth, hallHeight) {
+export function sortSectorRowBandsFromField(
+  sectorDots,
+  sectorPath,
+  fieldCenterPct,
+  hallWidth,
+  hallHeight,
+  rowHint = 24,
+) {
   const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
-  let bands = sectorPrefersSvgRowLabels(rowAxis)
-    ? clusterDotsByRow(sectorDots)
-    : clusterDotsByRowAlongAxis(sectorDots, rowAxis);
-  if (bands.length < 2) {
-    bands = clusterDotsByRowAlongAxis(sectorDots, rowAxis);
+  const coreDots = filterCentralAisleDots(sectorDots, sectorPath, hallWidth);
+  const targetBands = Math.min(Math.max(10, Math.round(rowHint * 0.65)), 48);
+  let eps = 0.18;
+  let bands = [];
+  for (let pass = 0; pass < 7; pass += 1) {
+    bands = clusterDotsByRowAlongAxis(coreDots, rowAxis, eps);
+    if (bands.length >= targetBands || eps <= 0.085) break;
+    eps *= 0.84;
   }
   if (bands.length < 2) {
-    bands = clusterDotsByRow(sectorDots);
+    bands = clusterDotsByRowAlongAxis(sectorDots, rowAxis, 0.12);
   }
   if (bands.length < 1) return { bands: [], maxRow: 1 };
 
@@ -303,27 +320,7 @@ export function resolveSectorNativeMaxRow(
   return Math.max(bandCount, 1);
 }
 
-function resolveRowBandIndex(
-  rowNum,
-  bands,
-  sectorPath,
-  svgRowLabels,
-  maxRow,
-  hallWidth,
-  hallHeight,
-  fieldCenterPct = { xPct: 50, yPct: 50 },
-) {
-  const labeled = labelSectorBandsWithSvgRowNumbers(
-    bands,
-    sectorPath,
-    svgRowLabels,
-    fieldCenterPct,
-    hallWidth,
-    hallHeight,
-  );
-  if (labeled.length > 0) {
-    return findBandIndexForRowNum(rowNum, labeled);
-  }
+function resolveRowBandIndex(rowNum, bands, maxRow) {
   return rowNumToBandIndex(rowNum, maxRow, bands.length);
 }
 
@@ -338,12 +335,18 @@ export function resolveRowYPctSectorNative(
   fieldCenterPct,
   sectorRowMax = null,
 ) {
+  const rowHint = Math.max(
+    maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight),
+    sectorRowMax ?? 0,
+    12,
+  );
   const { bands } = sortSectorRowBandsFromField(
     sectorDots,
     sectorPath,
     fieldCenterPct,
     hallWidth,
     hallHeight,
+    rowHint,
   );
   if (bands.length < 1) return null;
   const maxRow = resolveSectorNativeMaxRow(
@@ -355,16 +358,7 @@ export function resolveRowYPctSectorNative(
     hallHeight,
     fieldCenterPct,
   );
-  const idx = resolveRowBandIndex(
-    rowNum,
-    bands,
-    sectorPath,
-    svgRowLabels,
-    maxRow,
-    hallWidth,
-    hallHeight,
-    fieldCenterPct,
-  );
+  const idx = resolveRowBandIndex(rowNum, bands, maxRow);
   return bands[Math.min(Math.max(idx, 0), bands.length - 1)]?.yPct ?? null;
 }
 
@@ -385,53 +379,36 @@ export function resolveOfferSeatSectorNativeLayout(
 ) {
   if (!sectorDots?.length || !sectorPath || seatNum == null || seatNum < 1) return null;
 
+  const rowHint = Math.max(
+    maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight),
+    sectorRowMax ?? 0,
+    12,
+  );
   const { bands } = sortSectorRowBandsFromField(
     sectorDots,
     sectorPath,
     fieldCenterPct,
     hallWidth,
     hallHeight,
+    rowHint,
   );
   if (bands.length < 1) return null;
 
-  let band = null;
-  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
-  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, w, hallHeight);
-  if (sectorPrefersSvgRowLabels(rowAxis)) {
-    const targetY = getRowLabelYPctInSector(
-      rowNum,
-      sectorPath,
-      svgRowLabels,
-      hallWidth,
-      hallHeight,
-    );
-    if (targetY != null) {
-      const bi = findBandIndexNearestY(bands, targetY);
-      band = bands[Math.min(Math.max(bi, 0), bands.length - 1)];
-    }
-  }
-  if (!band?.dots?.length) {
-    const labeled = labelSectorBandsWithSvgRowNumbers(
-      bands,
-      sectorPath,
-      svgRowLabels,
-      fieldCenterPct,
-      hallWidth,
-      hallHeight,
-    );
-    const rowIdx = findBandIndexForRowNum(rowNum, labeled);
-    band = labeled[Math.min(Math.max(rowIdx, 0), labeled.length - 1)];
-  }
-  if (!band?.dots?.length) return null;
-
-  const rowDots = sortDotsInSectorRow(
-    rowNum,
-    band.dots,
+  const maxRow = resolveSectorNativeMaxRow(
     sectorPath,
     svgRowLabels,
+    bands.length,
+    sectorRowMax,
     hallWidth,
     hallHeight,
+    fieldCenterPct,
   );
+  const rowIdx = resolveRowBandIndex(rowNum, bands, maxRow);
+  const band = bands[Math.min(Math.max(rowIdx, 0), bands.length - 1)];
+  if (!band?.dots?.length) return null;
+
+  const axis = seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
+  const rowDots = [...band.dots].sort((a, b) => seatSortKey(a, axis) - seatSortKey(b, axis));
   const pick = rowDots[Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1)];
   return pick ? { xPct: pick.xPct, yPct: pick.yPct } : null;
 }

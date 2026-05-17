@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractPbiletCoordinatesSeatDots } from '../utils/luzhnikiPbiletGeodesyExtract.js';
+import {
+  extractPbiletCoordinatesSeatDots,
+  extractPbiletTicketSectorPaths,
+} from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import { pathBBox } from '../utils/hallSeatGeodesyFromDots.js';
 import { computeFieldCenterPct } from '../utils/hallSeatGeodesySectorNative.js';
 import { buildSellableSeatGeodesyWithDots } from '../utils/hallSeatGeodesyFromDots.js';
@@ -57,6 +60,7 @@ test('buildSellableSeatGeodesyWithDots uses svgRow for A101', async () => {
   const coords = JSON.parse(fs.readFileSync(coordsPath, 'utf8'));
   const svg = await (await fetch(coords.bg)).text();
   const cloud = extractPbiletCoordinatesSeatDots(l, 11413, 9676);
+  const sectorPaths = extractPbiletTicketSectorPaths(t);
   const offers = [
     { Sector: 'сектор a101', Row: '11', SeatList: ['6'] },
     { Sector: 'сектор a101', Row: '1', SeatList: ['1'] },
@@ -64,7 +68,7 @@ test('buildSellableSeatGeodesyWithDots uses svgRow for A101', async () => {
   const g = buildSellableSeatGeodesyWithDots(
     [],
     cloud,
-    [{ label: sec.i, path: sec.o }],
+    sectorPaths,
     11413,
     9676,
     offers,
@@ -73,5 +77,6 @@ test('buildSellableSeatGeodesyWithDots uses svgRow for A101', async () => {
   const r11 = g.seats.find((s) => s.row === '11' && s.seat === '6');
   const r1 = g.seats.find((s) => s.row === '1' && s.seat === '1');
   assert.equal(r11?.geodesySource, 'svgRow');
-  assert.ok(r11 && r1 && Math.abs(r11.yPct - r1.yPct) > 1.5);
+  assert.ok(r11 && r1);
+  assert.ok(r11.yPct > r1.yPct + 0.8, `row11 y=${r11.yPct} row1 y=${r1.yPct}`);
 });

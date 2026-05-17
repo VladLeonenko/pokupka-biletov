@@ -1,7 +1,7 @@
 /**
  * Лужники: координаты sellable по правилу заказчика.
  * 1) strict / svgCircle — если есть сектор+ряд+место в tickets или circle в SVG.
- * 2) grid — каждой точке: ряд = подпись на SVG сектора, место 1…N слева в полосе.
+ * 2) grid — ряд N = N-я полоса от поля, место 1…N вдоль оси ряда (взгляд с поля).
  * Без cloud / svgRow / интерполяции по min-max офферов.
  */
 
@@ -20,18 +20,12 @@ import {
 } from './hallSeatGeodesyFromSvgCircles.js';
 import { parseSvgHallRowLabels } from './hallSeatGeodesyFromSvgRows.js';
 import {
-  findBandIndexNearestY,
-  getRowLabelYPctInSector,
-  pickSectorRowLabelAisle,
-  sortDotsInSectorRow,
-} from './hallSeatGeodesyFromSvgRows.js';
-import {
   computeFieldCenterPct,
-  labelSectorBandsWithSvgRowNumbers,
   maxRowInSectorFromSvg,
   resolveOfferSeatSectorNativeLayout,
-  rowAxisFromSector,
-  sectorPrefersSvgRowLabels,
+  resolveSectorNativeMaxRow,
+  rowNumToBandIndex,
+  seatLeftAxisFromSector,
   sortSectorRowBandsFromField,
 } from './hallSeatGeodesySectorNative.js';
 
@@ -41,7 +35,7 @@ function parseNum(value) {
 }
 
 /**
- * Прописать каждой точке чаши в секторе: sector + row (по подписи SVG) + seat (1…N слева направо) + xPct/yPct.
+ * Прописать sellable-ключи sector+row+seat на облаке точек (ряд от поля, не с подписи SVG).
  * @returns {{ sector: string, row: string, seat: string, xPct: number, yPct: number, geodesySource: 'grid' }[]}
  */
 export function buildStadiumLayoutSeatsFromDotGrid({
@@ -73,32 +67,34 @@ export function buildStadiumLayoutSeatsFromDotGrid({
     const sectorDots = dotsBySector.get(norm);
     if (!sectorDots || sectorDots.length < minDotsPerSector) continue;
 
+    const rowHint = Math.max(maxRowInSectorFromSvg(sectorPath, svgRowLabels, w, h), 12);
     const { bands: sortedBands } = sortSectorRowBandsFromField(
       sectorDots,
       sectorPath,
       fieldCenterPct,
       w,
       h,
+      rowHint,
+    );
+    const maxRow = resolveSectorNativeMaxRow(
+      sectorPath,
+      svgRowLabels,
+      sortedBands.length,
+      null,
+      w,
+      h,
+      fieldCenterPct,
     );
     if (sortedBands.length < 1) continue;
+    const seatAxis = seatLeftAxisFromSector(sectorPath, fieldCenterPct, w, h);
 
-    const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, w, h);
-    const aisle = sectorPrefersSvgRowLabels(rowAxis)
-      ? pickSectorRowLabelAisle(sectorPath, svgRowLabels, w, h)
-      : null;
-    const maxRow = aisle?.rowY?.size
-      ? Math.max(...aisle.rowY.keys())
-      : maxRowInSectorFromSvg(sectorPath, svgRowLabels, w, h);
-
-    const emitBand = (band, rowLabel, rowNum) => {
+    const emitBand = (band, rowLabel) => {
       if (!band?.dots?.length) return;
-      const sorted = sortDotsInSectorRow(
-        Number(rowNum),
-        band.dots,
-        sectorPath,
-        svgRowLabels,
-        w,
-        h,
+      const sorted = [...band.dots].sort(
+        (a, b) =>
+          a.xPct * seatAxis.x +
+          a.yPct * seatAxis.y -
+          (b.xPct * seatAxis.x + b.yPct * seatAxis.y),
       );
       for (let i = 0; i < sorted.length; i += 1) {
         const seatLabel = String(i + 1);
@@ -117,26 +113,9 @@ export function buildStadiumLayoutSeatsFromDotGrid({
       }
     };
 
-    if (aisle?.rowY?.size) {
-      for (let rowNum = 1; rowNum <= maxRow; rowNum += 1) {
-        const targetY = getRowLabelYPctInSector(rowNum, sectorPath, svgRowLabels, w, h);
-        if (targetY == null) continue;
-        const bi = findBandIndexNearestY(sortedBands, targetY);
-        emitBand(sortedBands[bi], String(rowNum), rowNum);
-      }
-    } else {
-      const labeledBands = labelSectorBandsWithSvgRowNumbers(
-        sortedBands,
-        sectorPath,
-        svgRowLabels,
-        fieldCenterPct,
-        w,
-        h,
-      );
-      for (const band of labeledBands) {
-        if (band.rowNum == null) continue;
-        emitBand(band, String(band.rowNum), band.rowNum);
-      }
+    for (let rowNum = 1; rowNum <= maxRow; rowNum += 1) {
+      const bi = rowNumToBandIndex(rowNum, maxRow, sortedBands.length);
+      emitBand(sortedBands[bi], String(rowNum));
     }
   }
 

@@ -609,7 +609,7 @@ export function buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, 
     if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
     let best = null;
     for (const sb of sectorBoxes) {
-      if (!pointInBBox(xPct, yPct, sb.bbox, 0.38)) continue;
+      if (!pointInBBox(xPct, yPct, sb.bbox, 0.24)) continue;
       if (!best || sb.area < best.area) best = sb;
     }
     if (!best) continue;
