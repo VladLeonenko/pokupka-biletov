@@ -5,6 +5,10 @@
 
 import ticketPool from '../ticketDb.js';
 import { buildSellableSeatGeodesyLuzhniki } from '../utils/hallSeatGeodesyLuzhnikiGrid.js';
+import {
+  buildSellableSeatGeodesyFromSvgCircles,
+  countSvgNativeSeatCircles,
+} from '../utils/hallSeatGeodesyFromSvgCircles.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
@@ -118,15 +122,26 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     const hallWidth = Number(layout.geodesy?.hallWidth) || 11413;
     const hallHeight = Number(layout.geodesy?.hallHeight) || 9676;
 
-    const geodesy = buildSellableSeatGeodesyLuzhniki({
-      layoutSeats: baseSeats,
-      allSeatCoordinates,
-      sectorPaths,
-      hallWidth,
-      hallHeight,
-      offers: offerRows,
-      svgMarkup,
-    });
+    const svgCircleCount = countSvgNativeSeatCircles(svgMarkup);
+    const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
+    const geodesy =
+      svgCircleCount >= minSvgCircles
+        ? buildSellableSeatGeodesyFromSvgCircles(
+            svgMarkup,
+            baseSeats,
+            offerRows,
+            hallWidth,
+            hallHeight,
+          )
+        : buildSellableSeatGeodesyLuzhniki({
+            layoutSeats: baseSeats,
+            allSeatCoordinates,
+            sectorPaths,
+            hallWidth,
+            hallHeight,
+            offers: offerRows,
+            svgMarkup,
+          });
 
     nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;

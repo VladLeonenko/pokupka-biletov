@@ -38,11 +38,15 @@ if [ -f "$BACKEND_ENV" ]; then
   echo "✅ .env сохранён"
 fi
 
-# Git pull
-echo "📥 git pull origin $BRANCH"
+# Git pull (жёстко на origin/$BRANCH — иначе после экспериментов остаётся старый код)
+echo "📥 git fetch + checkout $BRANCH"
 git fetch origin
-git checkout "$BRANCH" 2>/dev/null || true
+if ! git checkout -f "$BRANCH"; then
+  echo "❌ git checkout $BRANCH failed"
+  exit 1
+fi
 git pull origin "$BRANCH" || { echo "❌ git pull failed"; exit 1; }
+git reset --hard "origin/$BRANCH" || { echo "❌ git reset --hard origin/$BRANCH failed"; exit 1; }
 
 # Восстановить .env
 if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
