@@ -240,7 +240,9 @@ async function main() {
     );
   }
 
-  const embedCircles = optionalEnv('LUZHNIKI_EMBED_TICKET_CIRCLES_IN_SVG') !== '0';
+  const embedCircles =
+    optionalEnv('LUZHNIKI_EMBED_TICKET_CIRCLES_IN_SVG') !== '0' &&
+    allSeatCoordinates.length < 5000;
   if (embedCircles && svgMarkup.includes('<svg') && seats.length > 0) {
     const before = countSvgNativeSeatCircles(svgMarkup);
     const injected = injectPbiletSeatsIntoSvg(svgMarkup, seats, width, height, {

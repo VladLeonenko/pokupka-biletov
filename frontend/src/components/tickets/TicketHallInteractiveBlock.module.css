@@ -230,9 +230,6 @@
 
 .svgLayerCanvasBacked {
   opacity: 0;
-  visibility: hidden;
-  height: 0;
-  overflow: hidden;
   pointer-events: none;
 }
 

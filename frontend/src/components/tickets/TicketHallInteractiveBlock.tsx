@@ -116,12 +116,16 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
   const record = layout as Record<string, unknown>;
   if (record.omitClientSeatCoordinateCloud === true) return [];
 
-  /** Лужники: серая чаша = luzhniki.txt (allSeatCoordinates), подписи sellable = tickets.json. */
-  if (parseHallBackgroundFromLabeledSeats(layout)) {
+  /** Лужники: только allSeatCoordinates (~77k), никогда grid layout.seats для серой чаши. */
+  if (isLuzhnikiStadiumCheckoutLayout(layout)) {
     const cloud = coordinatesFromSeatRows(record.allSeatCoordinates);
-    if (isLuzhnikiStadiumCheckoutLayout(layout) && cloud.length >= 5000) return cloud;
+    if (cloud.length >= 5000) return cloud;
+  }
+
+  if (parseHallBackgroundFromLabeledSeats(layout)) {
     const labeled = coordinatesFromSeatRows(record.seats ?? record.seatPositions);
     if (labeled.length > 0) return labeled;
+    const cloud = coordinatesFromSeatRows(record.allSeatCoordinates);
     if (cloud.length > 0) return cloud;
   }
 

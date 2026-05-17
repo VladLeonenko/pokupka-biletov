@@ -1,7 +1,7 @@
 /**
  * Правила схемы стадиона «Лужники» (luzhniki-football) на чекауте.
- * Серая чаша = layout.seats (как tickets.json: сектор/ряд/место + xPct/yPct).
- * Цветные точки = sellable из GetBilet с тем же ключом места.
+ * Серая чаша = allSeatCoordinates (luzhniki.txt ~77k).
+ * Цветные точки = sellable (strict / fieldGrid / anchor).
  */
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY = 'luzhniki-football';
@@ -29,16 +29,15 @@ export function luzhnikiStadiumCheckoutLayoutFlags(
     grayHallWhenNoOffers: false,
     disablePositionalSeatZip: true,
     preferExactOfferSeatMatch: true,
-    /** Фон чаши — подписанные места из tickets (layout.seats), не безымянное облако coordinates. */
-    hallBackgroundFromLabeledSeats: true,
+    /** Фон чаши — облако luzhniki.txt, не grid layout.seats (~80k). */
+    hallBackgroundFromLabeledSeats: false,
   };
 }
 
 export function parseHallBackgroundFromLabeledSeats(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   const r = layout as Record<string, unknown>;
-  return (
-    r.hallBackgroundFromLabeledSeats === true ||
-    isLuzhnikiStadiumCheckoutLayout(layout)
-  );
+  if (r.hallBackgroundFromLabeledSeats === false) return false;
+  if (r.hallBackgroundFromLabeledSeats === true) return true;
+  return false;
 }
