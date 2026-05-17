@@ -408,12 +408,14 @@ export function resolveOfferSeatFromCalibratedCloud(
   rowRange,
   seatRangeInRow,
   orientation,
+  layoutAnchors = [],
 ) {
   const bands = clusterDotsByRow(sectorDots);
   if (bands.length < 3 || !rowRange) return null;
 
-  const span = Math.max(1, rowRange.max - rowRange.min);
-  const t = (rowNum - rowRange.min) / span;
+  const fullRowRange = inferCloudSectorRowRange(rowRange, bands.length, layoutAnchors);
+  const span = Math.max(1, fullRowRange.max - fullRowRange.min);
+  const t = (rowNum - fullRowRange.min) / span;
   let idx = Math.round(t * (bands.length - 1));
   if (orientation?.rowYPctIncreases === -1) {
     idx = bands.length - 1 - idx;
@@ -424,15 +426,14 @@ export function resolveOfferSeatFromCalibratedCloud(
   if (orientation?.seatXPctIncreases === -1) rowDots = rowDots.reverse();
   if (rowDots.length < 2) return null;
 
+  const cloudSeatRange = inferCloudSeatRangeInRow(seatRangeInRow, seatNum, rowDots);
+
   let targetX;
-  if (seatNum != null && seatRangeInRow) {
-    const seatSpan = Math.max(1, seatRangeInRow.max - seatRangeInRow.min);
-    const st = (seatNum - seatRangeInRow.min) / seatSpan;
+  if (seatNum != null) {
+    const seatSpan = Math.max(1, cloudSeatRange.max - cloudSeatRange.min);
+    const st = (seatNum - cloudSeatRange.min) / seatSpan;
     const seatIdx = Math.round(st * (rowDots.length - 1));
     targetX = rowDots[Math.min(Math.max(seatIdx, 0), rowDots.length - 1)].xPct;
-  } else if (seatNum != null) {
-    const seatIdx = Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1);
-    targetX = rowDots[seatIdx].xPct;
   } else {
     targetX = rowDots[Math.floor(rowDots.length / 2)].xPct;
   }
@@ -462,6 +463,35 @@ function buildSectorOfferRowRanges(offers) {
     });
   }
   return bySector;
+}
+
+/**
+ * Диапазон номеров рядов для cloud: не только min/max из офферов.
+ * Иначе при офферах с ряда 11 первая полоса чаши = «ряд 1» на подписанной схеме.
+ */
+export function inferCloudSectorRowRange(offerRowRange, bandCount, layoutAnchors = []) {
+  const anchorRows = [];
+  for (const a of layoutAnchors || []) {
+    const r = parseNum(a.row);
+    if (r != null) anchorRows.push(r);
+  }
+  if (anchorRows.length >= 2) {
+    return {
+      min: Math.min(...anchorRows, offerRowRange?.min ?? 1),
+      max: Math.max(...anchorRows, offerRowRange?.max ?? bandCount),
+    };
+  }
+  const offerMax = offerRowRange?.max ?? bandCount;
+  const max = Math.max(offerMax, bandCount, 1);
+  return { min: 1, max };
+}
+
+/** Места в ряду: нумерация с 1, max — по офферу и числу точек в полосе. */
+export function inferCloudSeatRangeInRow(seatRangeInRow, seatNum, dotsInRow) {
+  const dotN = dotsInRow?.length ?? 0;
+  const offerMax = seatRangeInRow?.max ?? seatNum ?? 1;
+  const max = Math.max(offerMax, dotN, seatNum ?? 1);
+  return { min: 1, max };
 }
 
 function buildSectorDotIndex(allSeatCoordinates, sectorPaths, hallWidth, hallHeight) {
@@ -600,6 +630,7 @@ export function buildSellableSeatGeodesyWithDots(
           rowRanges.get(norm),
           seatByRow?.get(rowNum) ?? null,
           sectorOrientation,
+          anchors,
         );
         if (resolved) mode = 'cloud';
       }

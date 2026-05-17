@@ -7,6 +7,7 @@ import {
   resolveOfferSeatFromCalibratedCloud,
   buildLabeledSectorOrientationIndex,
   pickNearestSectorOrientation,
+  inferCloudSectorRowRange,
 } from '../utils/hallSeatGeodesyFromDots.js';
 
 test('pathBBox extracts bounds from SVG path', () => {
@@ -51,6 +52,41 @@ test('withDots wrapper does not invent coordinates for unknown row', () => {
   const diag = buildSellableSeatGeodesyWithDots(layoutSeats, [], [], 200, 200, offers);
   assert.equal(diag.matched, 0);
   assert.equal(diag.dotMatched, 0);
+});
+
+test('inferCloudSectorRowRange uses row 1..N not offer min row', () => {
+  const span = inferCloudSectorRowRange({ min: 11, max: 32 }, 35, []);
+  assert.equal(span.min, 1);
+  assert.equal(span.max, 35);
+});
+
+test('calibrated cloud: offer row 11 is not on band 0 when min offer row is 11', () => {
+  const dots = [];
+  for (let band = 0; band < 35; band += 1) {
+    for (let s = 0; s < 16; s += 1) {
+      dots.push({ xPct: 20 + s * 0.3, yPct: 75 + band * 0.4 });
+    }
+  }
+  const r11 = resolveOfferSeatFromCalibratedCloud(
+    11,
+    6,
+    dots,
+    { min: 11, max: 32 },
+    { min: 6, max: 9 },
+    { rowYPctIncreases: 1, seatXPctIncreases: 1 },
+    [],
+  );
+  const r1 = resolveOfferSeatFromCalibratedCloud(
+    1,
+    6,
+    dots,
+    { min: 11, max: 32 },
+    { min: 6, max: 9 },
+    { rowYPctIncreases: 1, seatXPctIncreases: 1 },
+    [],
+  );
+  assert.ok(r11 && r1);
+  assert.ok(Math.abs(r11.yPct - r1.yPct) > 1.5);
 });
 
 test('calibrated cloud separates row 3 and row 11 on different Y', () => {
