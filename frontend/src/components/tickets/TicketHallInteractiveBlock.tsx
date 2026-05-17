@@ -799,7 +799,30 @@ export function TicketHallInteractiveBlock({
       startPan: panRef.current,
       startMiddle: pointMiddle(a, b),
     };
+    dragRef.current = null;
   }, []);
+
+  const applyPinchGesture = useCallback(() => {
+    const pinch = pinchRef.current;
+    if (!pinch) return;
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) return;
+    const points = [...pointersRef.current.values()];
+    if (points.length < 2) return;
+    const [a, b] = points;
+    const dist = Math.max(1, pointDistance(a, b));
+    const middle = pointMiddle(a, b);
+    const vpRect = vp.getBoundingClientRect();
+    const startZoom = Math.max(0.001, pinch.startZoom);
+    const nextZoom = clampZoom(pinch.startZoom * (dist / pinch.startDistance));
+    const layerX = (pinch.startMiddle.x - vpRect.left - base.x - pinch.startPan.x) / startZoom;
+    const layerY = (pinch.startMiddle.y - vpRect.top - base.y - pinch.startPan.y) / startZoom;
+    applyCamera(nextZoom, {
+      x: middle.x - vpRect.left - base.x - layerX * nextZoom,
+      y: middle.y - vpRect.top - base.y - layerY * nextZoom,
+    });
+  }, [applyCamera, clampZoom, getLayerBase]);
 
   const onPointerDownPan = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -827,13 +850,8 @@ export function TicketHallInteractiveBlock({
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
     if (pointersRef.current.size >= 2 && pinchRef.current) {
-      const points = [...pointersRef.current.values()];
-      const [a, b] = points;
-      const middle = pointMiddle(a, b);
-      applyPan({
-        x: pinchRef.current.startPan.x + (middle.x - pinchRef.current.startMiddle.x),
-        y: pinchRef.current.startPan.y + (middle.y - pinchRef.current.startMiddle.y),
-      });
+      suppressMapClickRef.current = true;
+      applyPinchGesture();
       return;
     }
     const d = dragRef.current;
@@ -847,7 +865,7 @@ export function TicketHallInteractiveBlock({
       x: d.ox + dx,
       y: d.oy + dy,
     });
-  }, [applyPan]);
+  }, [applyPan, applyPinchGesture]);
 
   const focusLayerPoint = useCallback((layerX: number, layerY: number, targetZoom: number, sectorLabel?: string) => {
     const vp = viewportRef.current;
@@ -878,8 +896,25 @@ export function TicketHallInteractiveBlock({
   }, [focusLayerPoint, getLayerBase, getNextZoomLevel]);
 
   const endPan = useCallback((e: React.PointerEvent) => {
+    const wasPinching = pointersRef.current.size >= 2;
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (wasPinching && pointersRef.current.size === 1) {
+      const [id, pt] = [...pointersRef.current.entries()][0];
+      dragRef.current = {
+        active: true,
+        moved: true,
+        id,
+        sx: pt.x,
+        sy: pt.y,
+        ox: panRef.current.x,
+        oy: panRef.current.y,
+      };
+      suppressMapClickRef.current = true;
+      window.setTimeout(() => {
+        suppressMapClickRef.current = false;
+      }, 0);
+    }
     const d = dragRef.current;
     const clicked = d && e.pointerId === d.id && !d.moved;
     const moved = Boolean(d && e.pointerId === d.id && d.moved);
