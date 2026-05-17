@@ -50,6 +50,7 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
   isNamedTicketOfferRow,
@@ -334,6 +335,7 @@ export function TicketCheckoutPage() {
     ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup?.trim() ?? '' : '';
   const svgDeferred = Boolean(ctx?.stageMap?.svg_markup_deferred);
   const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
+  const isLuzhnikiFootballStage = stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
     queryKey: ['bilet-stage-map', stageIdEff, repertoireId ?? ''],
@@ -341,8 +343,11 @@ export function TicketCheckoutPage() {
     enabled:
       Boolean(stageIdEff) &&
       !ctxLoading &&
-      (svgDeferred || ctx?.stageId !== stageIdEff || !hasUsableHallSvgFromContext),
-    staleTime: 120_000,
+      (svgDeferred ||
+        ctx?.stageId !== stageIdEff ||
+        !hasUsableHallSvgFromContext ||
+        (isLuzhnikiFootballStage && Boolean(repertoireId?.trim()))),
+    staleTime: isLuzhnikiFootballStage ? 30_000 : 120_000,
   });
 
   const offers = useMemo(() => parseOffers(raw), [raw]);
@@ -822,20 +827,34 @@ export function TicketCheckoutPage() {
 
   const layoutJsonForStage = useMemo(() => {
     if (!stageIdEff) return ctx?.stageMap?.layout_json;
-    /** deferred: в контексте layout_json=null, но stageMap есть — не блокировать fetch /map */
-    if (ctx?.stageId === stageIdEff && ctx?.stageMap?.layout_json) {
-      return ctx.stageMap.layout_json;
+    const ctxLayout =
+      ctx?.stageId === stageIdEff ? (ctx?.stageMap?.layout_json as Record<string, unknown> | null) : null;
+    const mapLayout = mapByStageId?.layout_json as Record<string, unknown> | undefined;
+
+    /** Лужники: sellableSeats с GET /map (adaptLuzhniki + live offers), тяжёлое — из контекста. */
+    if (isLuzhnikiFootballStage && mapLayout && stageMapFetched) {
+      const sellable = mapLayout.sellableSeats;
+      if (Array.isArray(sellable) && sellable.length > 0) {
+        return {
+          ...(ctxLayout ?? mapLayout),
+          ...mapLayout,
+          allSeatCoordinates: ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates,
+          seats: ctxLayout?.seats ?? mapLayout.seats,
+          sectorMode: ctxLayout?.sectorMode ?? mapLayout.sectorMode,
+          svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,
+        };
+      }
     }
+
+    if (ctxLayout) return ctxLayout;
     if (!stageMapFetched) {
       return ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json ?? null : null;
     }
-    return (
-      mapByStageId?.layout_json ??
-      (ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json ?? null : null)
-    );
+    return mapLayout ?? (ctx?.stageId === stageIdEff ? ctx?.stageMap?.layout_json ?? null : null);
   }, [
     stageIdEff,
     stageMapFetched,
+    isLuzhnikiFootballStage,
     mapByStageId?.layout_json,
     ctx?.stageId,
     ctx?.stageMap,

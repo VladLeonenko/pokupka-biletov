@@ -635,22 +635,23 @@ export function buildLuzhnikiMapSellablePlacements(
   unmatchedSvgCount: number;
   diagnostics: HallLayoutDiagnostics;
 } {
-  const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
-  const placedKeys = new Set(
-    layoutResult.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
-  );
-
+  /** Live sellable с adaptLuzhnikiStageMapForLiveOffers — приоритет над статическим layout.seats из сида. */
   const trustedServer = filterTrustedServerSellable(serverSellableSeats);
   const serverResult = buildSellableGeodesyPlacements(trustedServer, offers, getPriceKey);
+  const placedKeys = new Set(
+    serverResult.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
+  );
+
+  const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
   const extra: SvgNativePlacement[] = [];
-  for (const p of serverResult.placements) {
+  for (const p of layoutResult.placements) {
     const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
     if (placedKeys.has(pk)) continue;
     placedKeys.add(pk);
     extra.push(p);
   }
 
-  const placements = [...layoutResult.placements, ...extra];
+  const placements = [...serverResult.placements, ...extra];
   const offerSeatTotal = countOfferSeats(offers);
   return {
     placements,

@@ -53,7 +53,19 @@
 
 **Код:** `hallSeatGeodesySectorNative.js` — `svgRow` / `cloudSnap` с той же осью мест.
 
-**Деплой:** `git pull` → `pm2 restart` (backend). Frontend без смены trusted sources.
+**Деплой:** backend `pm2 restart` + **frontend build** (иначе старые координаты из `layout.seats`).
+
+### Май 2026 — фронт: sellable при пане + приоритет /map
+
+**Симптом 1:** зум в сектор → панорамирование → пропали точки других секторов.  
+**Фикс:** `luzhnikiCheckout` → `visibleNativePlacements` без фильтра по `selectedSector`.
+
+**Симптом 2:** backend sector-native задеплоен, на сайте старые Y.  
+**Причины:** (1) не был `npm run build` фронта; (2) `layoutJsonForStage` брал контекст без `sellableSeats` с `/map`; (3) `buildLuzhnikiMapSellablePlacements` ставил `layout.seats` **выше** live `sellableSeats`.  
+**Фикс:** всегда fetch `/map` для `luzhniki-football`; merge sellable из map; server-first в placements.
+
+**Симптом 3:** инверсия SVG row→Y ставила ряд 11 вниз сектора.  
+**Фикс:** `sortSectorRowBandsFromField` + `rowNumToBandIndex` (не Y с `<tspan>`).
 
 ---
 

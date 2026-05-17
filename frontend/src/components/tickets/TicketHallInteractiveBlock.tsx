@@ -1103,7 +1103,9 @@ export function TicketHallInteractiveBlock({
   );
   const visibleNativePlacements = useMemo(() => {
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
-    /** Лужники / portalbilet-стиль: на обзоре все sellable; при выборе зоны — фильтр по bbox полигона. */
+    /** Лужники: все sellable на карте при зуме/пане; панель сектора — только список офферов. */
+    if (luzhnikiCheckout) return interactive;
+    /** portalbilet-стиль: на обзоре все sellable; при выборе зоны — фильтр по bbox полигона. */
     if (!sectorMode.enabled || !selectedSectorSummary) return interactive;
     const byLabel = interactive.filter((p) => normalizeSectorLabel(p.sectorLabel) === selectedSector);
     const path = selectedSectorSummary.meta.path;

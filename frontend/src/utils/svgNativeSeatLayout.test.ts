@@ -83,6 +83,30 @@ describe('svgNativeSeatLayout', () => {
     expect(s2?.xPct).toBe(99);
   });
 
+  it('buildLuzhnikiMapSellablePlacements prefers live sellable over layout.seats', () => {
+    const layoutSeats = [
+      { sector: 'Сектор A 101', row: '11', seat: '6', xPct: 10, yPct: 88 },
+    ];
+    const serverSellable = [
+      {
+        sector: 'Сектор A 101',
+        row: '11',
+        seat: '6',
+        xPct: 23.4,
+        yPct: 79.7,
+        geodesySource: 'svgRow' as const,
+      },
+    ];
+    const result = buildLuzhnikiMapSellablePlacements(
+      layoutSeats,
+      serverSellable,
+      [{ Id: 'o1', Sector: 'сектор a101', Row: '11', SeatList: ['6'], AgentPrice: '1000' }],
+      (o) => String(o.AgentPrice ?? ''),
+    );
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0]).toMatchObject({ yPct: 79.7, xPct: 23.4 });
+  });
+
   it('buildSellableGeodesyPlacements uses server coords without reordering', () => {
     const sellable = [
       { sector: 'Сектор C 243', row: '31', seat: '7', xPct: 47.7, yPct: 1.99 },
@@ -143,13 +167,13 @@ describe('svgNativeSeatLayout', () => {
     });
   });
 
-  it('luzhniki map prefers layout coords and ignores dot/anchor server coords', () => {
+  it('luzhniki map prefers trusted server sellable over layout.seats', () => {
     const layout = [
-      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 11, yPct: 22, geodesySource: 'strict' as const },
+      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 11, yPct: 22 },
       { sector: 'Сектор A1', row: '5', seat: '4', xPct: 13, yPct: 24 },
     ];
     const server = [
-      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 80, yPct: 80, geodesySource: 'dot' as const },
+      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 23.4, yPct: 79.7, geodesySource: 'svgRow' as const },
       { sector: 'Сектор A1', row: '5', seat: '4', xPct: 99, yPct: 99, geodesySource: 'cloud' as const },
     ];
     const result = buildLuzhnikiMapSellablePlacements(
@@ -159,11 +183,7 @@ describe('svgNativeSeatLayout', () => {
       (o) => String(o.AgentPrice ?? ''),
     );
     expect(result.placements).toHaveLength(2);
-    const seat3 = result.placements.find((p) => p.seat === '3');
-    const seat4 = result.placements.find((p) => p.seat === '4');
-    expect(seat3?.xPct).toBe(11);
-    expect(seat3?.yPct).toBe(22);
-    expect(seat4?.xPct).toBe(13);
-    expect(seat4?.yPct).toBe(24);
+    expect(result.placements.find((p) => p.seat === '3')).toMatchObject({ xPct: 23.4, yPct: 79.7 });
+    expect(result.placements.find((p) => p.seat === '4')).toMatchObject({ xPct: 99, yPct: 99 });
   });
 });
