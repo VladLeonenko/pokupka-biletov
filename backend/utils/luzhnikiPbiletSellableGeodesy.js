@@ -10,7 +10,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getManualSectorRowAnchors } from './hallSeatGeodesySectorRowAnchors.js';
+import {
+  getManualSectorRowAnchors,
+  loadSectorCalibrationBlocksByNorm,
+} from './hallSeatGeodesySectorRowAnchors.js';
 import {
   buildSectorDotIndex,
   buildSectorOfferRowRanges,
@@ -171,6 +174,18 @@ function buildSectorNativeLookup(layout, ticketsPayload, offers, svgMarkup, w, h
     rowRanges,
     seatRangesByRow,
   };
+}
+
+/** Боковые B/C: дуга из sector-row-anchors; верхние A/D — fieldGrid / svgRow. */
+function trySectorPolarGrid(norm, row, seat) {
+  const blocks = loadSectorCalibrationBlocksByNorm();
+  for (const n of luzhnikiSectorLookupNorms(norm)) {
+    if (!/^[bc]/.test(n)) continue;
+    if (blocks.get(n)?.anchors?.length >= 4) {
+      return resolvePolarGridSeatFromAnchors(norm, row, seat);
+    }
+  }
+  return null;
 }
 
 function trySectorNative(nativeCtx, norm, row, seat, w, h) {
@@ -337,6 +352,10 @@ export function buildSellableSeatGeodesyPbiletAccurate(
         }
 
         if (!hit) {
+          hit = trySectorPolarGrid(norm, row, seat);
+        }
+
+        if (!hit) {
           hit = trySectorNative(nativeCtx, norm, row, seat, w, h);
           if (hit) {
             seen.add(dedupe);
@@ -354,10 +373,6 @@ export function buildSellableSeatGeodesyPbiletAccurate(
             seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
             continue;
           }
-        }
-
-        if (!hit && mode === 'sector-anchors') {
-          hit = resolvePolarGridSeatFromAnchors(norm, row, seat);
         }
 
         if (!hit && mode === 'layout-anchors') {

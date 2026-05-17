@@ -5,8 +5,11 @@
 
 import { clusterDotsByRow, pathBBox } from './hallSeatGeodesyFromDots.js';
 import {
+  findBandIndexForRowNum,
+  labelSectorBandsWithSvgRowNumbers,
   resolveOfferSeatSectorNativeLayout,
   resolveRowYPctSectorNative,
+  sortSectorRowBandsFromField,
 } from './hallSeatGeodesySectorNative.js';
 
 const TSPAN_RE =
@@ -342,9 +345,28 @@ export function resolveRowYPctFromSvgLabels(
   );
 }
 
+function interpolateAlongRowArc(rowDots, seatNum, seatRangeInRow) {
+  if (!rowDots?.length) return null;
+  const seatMin = seatRangeInRow?.min ?? 1;
+  const seatMax = seatRangeInRow?.max ?? seatNum;
+  const span = Math.max(1, seatMax - seatMin);
+  const t = (seatNum - seatMin) / span;
+  if (rowDots.length === 1) return { xPct: rowDots[0].xPct, yPct: rowDots[0].yPct };
+
+  const idx = t * (rowDots.length - 1);
+  const i0 = Math.floor(idx);
+  const i1 = Math.min(i0 + 1, rowDots.length - 1);
+  const f = idx - i0;
+  const a = rowDots[i0];
+  const b = rowDots[i1];
+  return {
+    xPct: a.xPct + f * (b.xPct - a.xPct),
+    yPct: a.yPct + f * (b.yPct - a.yPct),
+  };
+}
+
 /**
- * Sellable на линии подписанного ряда: одна Y для всего ряда (как <tspan>17</tspan> на схеме),
- * места вдоль ряда — по номеру места, не по индексу точки на дуге трибуны.
+ * Sellable на дуге ряда: полоса точек с подписью rowNum на SVG, места — вдоль отсортированной дуги.
  *
  * @param {{ min: number, max: number } | null} [seatRangeInRow]
  */
@@ -359,10 +381,43 @@ export function resolveOfferSeatFromSvgRowLabels(
   seatRangeInRow = null,
   fieldCenterPct = { xPct: 50, yPct: 50 },
 ) {
-  if (!sectorDots?.length || !allLabels?.length || !sectorPath) return null;
+  if (!sectorDots?.length || !sectorPath || seatNum == null || seatNum < 1) return null;
 
-  const targetY = getRowLabelYPctInSector(rowNum, sectorPath, allLabels, hallWidth, hallHeight);
-  if (targetY == null) {
+  const rowHint = Math.max(rowNum, 12);
+  const { bands } = sortSectorRowBandsFromField(
+    sectorDots,
+    sectorPath,
+    fieldCenterPct,
+    hallWidth,
+    hallHeight,
+    rowHint,
+  );
+
+  let rowDots = [];
+  if (bands.length >= 1 && allLabels?.length) {
+    const labeled = labelSectorBandsWithSvgRowNumbers(
+      bands,
+      sectorPath,
+      allLabels,
+      fieldCenterPct,
+      hallWidth,
+      hallHeight,
+    );
+    const bi = findBandIndexForRowNum(rowNum, labeled);
+    rowDots = labeled[bi]?.dots?.length ? [...labeled[bi].dots] : [];
+  }
+
+  if (rowDots.length < 4) {
+    const targetY = getRowLabelYPctInSector(rowNum, sectorPath, allLabels, hallWidth, hallHeight);
+    if (targetY != null) {
+      const flatBands = clusterDotsByRow(sectorDots);
+      const idx = findBandIndexNearestY(flatBands, targetY);
+      rowDots =
+        flatBands[idx]?.dots?.length >= 4 ? [...flatBands[idx].dots] : rowDots;
+    }
+  }
+
+  if (rowDots.length < 2) {
     return resolveOfferSeatSectorNativeLayout(
       rowNum,
       seatNum,
@@ -372,25 +427,11 @@ export function resolveOfferSeatFromSvgRowLabels(
       hallWidth,
       hallHeight,
       fieldCenterPct,
+      null,
+      seatRangeInRow,
     );
   }
 
-  let rowDots = sectorDots.filter((d) => Math.abs(d.yPct - targetY) <= 0.45);
-  if (rowDots.length < 4) {
-    const bands = clusterDotsByRow(sectorDots);
-    const idx = findBandIndexNearestY(bands, targetY);
-    rowDots = bands[idx]?.dots?.length ? [...bands[idx].dots] : [...sectorDots];
-  }
-
   rowDots = sortDotsInSectorRow(rowNum, rowDots, sectorPath, allLabels, hallWidth, hallHeight);
-  if (rowDots.length < 1) return null;
-
-  const seatMin = seatRangeInRow?.min ?? 1;
-  const seatMax = seatRangeInRow?.max ?? seatNum;
-  const span = Math.max(1, seatMax - seatMin);
-  const t = (seatNum - seatMin) / span;
-  const x0 = rowDots[0].xPct;
-  const x1 = rowDots[rowDots.length - 1].xPct;
-
-  return { xPct: x0 + t * (x1 - x0), yPct: targetY };
+  return interpolateAlongRowArc(rowDots, seatNum, seatRangeInRow);
 }

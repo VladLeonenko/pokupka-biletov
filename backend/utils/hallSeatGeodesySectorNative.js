@@ -223,7 +223,7 @@ export function labelSectorBandsWithSvgRowNumbers(
   return scored.map((s, i) => ({ ...s.band, rowNum: i + 1 }));
 }
 
-function findBandIndexForRowNum(rowNum, labeledBands) {
+export function findBandIndexForRowNum(rowNum, labeledBands) {
   const exact = [];
   for (let i = 0; i < labeledBands.length; i += 1) {
     if (labeledBands[i].rowNum === rowNum) exact.push(i);
