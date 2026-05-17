@@ -2,6 +2,8 @@
 
 **Продажа через схему (без 81k pbilet):** см. [LUZHNIKI_MAP_SELL_VIA_SCHEME.md](./LUZHNIKI_MAP_SELL_VIA_SCHEME.md)
 
+**Векторная подложка вручную (viewBox 11413×9676, Method Draw / Inkscape):** [LUZHNIKI_SVG_VIEWBOX_COORDINATE_PLAN.md](./LUZHNIKI_SVG_VIEWBOX_COORDINATE_PLAN.md) — **основной путь**, без strict-only.
+
 ---
 
 ## HANDOFF для второго агента (17.05.2026, ~9ч без стабильного прода)

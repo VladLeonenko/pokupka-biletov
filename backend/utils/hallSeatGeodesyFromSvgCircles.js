@@ -150,18 +150,27 @@ export function injectPbiletSeatsIntoSvg(svgMarkup, labeledSeats, hallWidth, hal
  * Sellable только по circle в SVG (+ дубли из layout.seats с тем же ключом).
  * Без cloud/svgRow — координаты как у театра.
  */
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.svgOnlyMatched] — только места с кругом в SVG (не подмешивать 80k layout.seats)
+ * @param {boolean} [options.layoutHintsOnly] — layout только как подсказка, SVG перекрывает по ключу
+ */
 export function buildSellableSeatGeodesyFromSvgCircles(
   svgMarkup,
   layoutSeats,
   offers,
   hallWidth,
   hallHeight,
+  options = {},
 ) {
+  const { svgOnlyMatched = false, layoutHintsOnly = true } = options;
   const fromSvg = parseSvgNativeSeatCircles(svgMarkup, hallWidth, hallHeight);
-  const byKey = buildLabeledSeatIndex(layoutSeats || []);
+  const byKey = svgOnlyMatched
+    ? new Map()
+    : buildLabeledSeatIndex(layoutHintsOnly ? layoutSeats || [] : []);
   for (const s of fromSvg) {
-    for (const key of [strictSeatKey(s.sector, s.row, s.seat)]) {
-      byKey.set(key, s);
+    for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
+      byKey.set(key, { ...s, geodesySource: 'svgCircle' });
     }
   }
 
@@ -174,16 +183,21 @@ export function buildSellableSeatGeodesyFromSvgCircles(
     }
   }
 
-  const seats = base.seats.map((s) => {
+  let seats = base.seats.map((s) => {
     const fromCircle = [...labeledSeatLookupKeys(s.sector, s.row, s.seat)].some((k) =>
       svgKeySet.has(k),
     );
     return { ...s, geodesySource: fromCircle ? 'svgCircle' : 'strict' };
   });
 
+  if (svgOnlyMatched) {
+    seats = seats.filter((s) => s.geodesySource === 'svgCircle');
+  }
+
   return {
     ...base,
     seats,
+    matched: seats.length,
     svgCircleCount: fromSvg.length,
     svgCircleMatched: seats.filter((s) => s.geodesySource === 'svgCircle').length,
   };

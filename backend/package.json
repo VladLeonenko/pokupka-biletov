@@ -34,6 +34,7 @@
     "reseed:luzhniki-from-repo": "node scripts/reseed-luzhniki-geodesy-from-repo.js",
     "generate:luzhniki-sector-pilot": "node scripts/generate-luzhniki-sector-pilot-svg.js --sector \"Сектор D 230\" --with-bg",
     "apply:luzhniki-sector-pilot": "node scripts/apply-luzhniki-sector-pilot-svg.js --bundle data/luzhniki-geodesy/hand/bundle-sector-d-230-pilot.json",
+    "enrich:luzhniki-sector-pilot": "node scripts/enrich-luzhniki-sector-pilot-from-offers.js",
     "ensure:luzhniki-football-map": "node scripts/ensure-luzhniki-football-stage-map.js",
     "seed:luzhniki-football-synthetic": "node scripts/seed-luzhniki-football-native-map.js",
     "ensure:stage-maps-columns": "node scripts/ensure-getbilet-stage-maps-columns.js",

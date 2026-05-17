@@ -124,6 +124,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
 
     const svgCircleCount = countSvgNativeSeatCircles(svgMarkup);
     const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
+    const pilotSvgLayer = String(svgMarkup).includes('id="luzhniki-pilot-seats"');
     const geodesy =
       svgCircleCount >= minSvgCircles
         ? buildSellableSeatGeodesyFromSvgCircles(
@@ -132,6 +133,11 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
             offerRows,
             hallWidth,
             hallHeight,
+            {
+              /** Пилот: не тянуть 80k grid в sellable — только круги из SVG. */
+              svgOnlyMatched: pilotSvgLayer,
+              layoutHintsOnly: true,
+            },
           )
         : buildSellableSeatGeodesyLuzhniki({
             layoutSeats: baseSeats,
