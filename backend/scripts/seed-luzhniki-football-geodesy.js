@@ -264,9 +264,9 @@ async function main() {
       ? {
           allSeatCoordinates,
           uniformHallSeatAppearance: true,
-          hallBackgroundFromLabeledSeats: true,
+          hallBackgroundFromLabeledSeats: false,
         }
-      : { hallBackgroundFromLabeledSeats: true }),
+      : { hallBackgroundFromLabeledSeats: false }),
     sectorPathCount: sectorsMeta.length,
     seats,
     sectorMode: {

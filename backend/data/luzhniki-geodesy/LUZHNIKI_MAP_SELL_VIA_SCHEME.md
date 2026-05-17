@@ -1,6 +1,8 @@
 # Лужники — продажа через схему (без полного pbilet tickets)
 
-Цель: **sellable GetBilet на карте в правильных местах**, удобно с **мобилки**. Визуал: **`luzhniki.txt`** (77k серая чаша) + **`tickets.json`** (геодезия).
+> **Handoff агенту 2:** полный план, мобилка, критерии приёмки — [LUZHNIKI_STADIUM_MAP_WORKLOG.md](./LUZHNIKI_STADIUM_MAP_WORKLOG.md) (блок **HANDOFF**).
+
+Цель: **sellable GetBilet на карте в правильных местах**, удобно с **мобилки**. Визуал: **`luzhniki.txt`** (77k серая чаша) + **`tickets.json`** (геодезия, частичный ~6k strict).
 
 ## Данные
 
@@ -24,13 +26,13 @@
 
 | Правило | Смысл |
 |---------|--------|
-| **Ряд 1** | Внизу сектора при взгляде **с зелёного поля** (ближе к арене), далее 2, 3… вверх по линиям точек |
-| **Место 1** | **Левая** точка ряда при том же взгляде; место N = N-я точка слева направо |
-| **Номер ряда** | N-я полоса точек от поля; `maxRow` с подписей SVG в bbox сектора |
-| **Ось мест** | Перпендикуляр «сектор → центр арены» (`seatLeftAxisFromSector`) |
+| **Ряд 1 (API)** | Ближе всего к **зелёному полю** (центр схемы), не цифра «1» на SVG pbilet |
+| **Ряд N** | `rowNumToBandIndex(N, maxRow, bandCount)` по полосам `sortSectorRowBandsFromField` |
+| **Место N** | N-я точка в полосе вдоль `seatLeftAxisFromSector` (не всегда слева на экране) |
+| **Подписи `<tspan>`** | Только ориентир для `maxRow`, **не** координата API-ряда |
 
-Реализация: `backend/utils/hallSeatGeodesySectorNative.js`  
-Цепочка: `strict` → `svgRow` (sector-native) → `cloud` → `cloudSnap` (тот же Y/ось мест).
+Реализация: `backend/utils/hallSeatGeodesySectorNative.js` + `hallSeatGeodesyLuzhnikiGrid.js`  
+**Прод:** `strict` → `fieldGrid` (grid). **Не использовать** привязку ряда к Y подписи SVG. `cloud`/`cloudSnap` — выключить для luzhniki-football (см. worklog HANDOFF).
 
 **Не меняем:** отрисовку серой чаши, только координаты цветных sellable.
 
@@ -214,3 +216,5 @@ cd ../frontend && npm ci && npm run build && chown -R www-data:www-data dist
 | май 2026 | **`cloudSnap`** + снят блокировки `anchors<2` + fillMissingSectorDots | На карте **все** sellable из GetBilet — **оставляем за истину** |
 | май 2026 | **sector-native** — ряд 1 у поля, места 1…N слева направо с поля | Тултип «ряд 38» на визуальном ряду 38, не на «ряд 1» сбоку |
 | май 2026 | ~~strict-only~~ — откатили: убирал цветные точки, визуал трогать нельзя | — |
+| май 2026 | Ось мест Y-down, maxRow сектора, ряд по SVG-Y | Частично; на проде точки всё ещё скачут — см. worklog «эвристики нестабильны» |
+| май 2026 | **Вывод:** нужен strict / полный tickets / калибровка, не новые формулы cloud | [LUZHNIKI_STADIUM_MAP_WORKLOG.md](./LUZHNIKI_STADIUM_MAP_WORKLOG.md) § «кардинальные альтернативы» |

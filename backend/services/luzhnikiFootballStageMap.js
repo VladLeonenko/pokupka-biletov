@@ -4,12 +4,7 @@
  */
 
 import ticketPool from '../ticketDb.js';
-import { buildSellableSeatGeodesyWithDots } from '../utils/hallSeatGeodesyFromDots.js';
-import {
-  buildSellableSeatGeodesyFromSvgCircles,
-  countSvgNativeSeatCircles,
-  injectPbiletSeatsIntoSvg,
-} from '../utils/hallSeatGeodesyFromSvgCircles.js';
+import { buildSellableSeatGeodesyLuzhniki } from '../utils/hallSeatGeodesyLuzhnikiGrid.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
@@ -114,79 +109,38 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     uniformHallSeatAppearance: true,
     omitClientSeatCoordinateCloud: false,
     disableStadiumCanvas: false,
-    /** Серая чаша = layout.seats (tickets.json), не 77k точек без подписи. */
-    hallBackgroundFromLabeledSeats: true,
+    /** Серая чаша = allSeatCoordinates (luzhniki.txt ~77k), не grid layout.seats. */
+    hallBackgroundFromLabeledSeats: false,
   };
 
   if (Array.isArray(offerRows) && offerRows.length > 0) {
-    let svgMarkup = typeof row.svg_markup === 'string' ? row.svg_markup : '';
+    const svgMarkup = typeof row.svg_markup === 'string' ? row.svg_markup : '';
     const hallWidth = Number(layout.geodesy?.hallWidth) || 11413;
     const hallHeight = Number(layout.geodesy?.hallHeight) || 9676;
-    let circleCount = countSvgNativeSeatCircles(svgMarkup);
-    if (circleCount < 24 && baseSeats.length >= 24) {
-      const injected = injectPbiletSeatsIntoSvg(svgMarkup, baseSeats, hallWidth, hallHeight);
-      if (injected.embedded) {
-        svgMarkup = injected.svgMarkup;
-        circleCount = countSvgNativeSeatCircles(svgMarkup);
-      }
-    }
-    const useSvgCircles =
-      circleCount >= 24 ||
-      process.env.LUZHNIKI_FORCE_SVG_CIRCLE_GEODESY === '1';
 
-    let geodesy;
-    if (useSvgCircles) {
-      geodesy = buildSellableSeatGeodesyFromSvgCircles(
-        svgMarkup,
-        baseSeats,
-        offerRows,
-        hallWidth,
-        hallHeight,
-      );
-      if (process.env.LUZHNIKI_SVG_CIRCLE_FILL_CLOUD === '1') {
-        const extra = buildSellableSeatGeodesyWithDots(
-          baseSeats,
-          allSeatCoordinates,
-          sectorPaths,
-          hallWidth,
-          hallHeight,
-          offerRows,
-          svgMarkup,
-        );
-        const seen = new Set(
-          geodesy.seats.map((s) => `${s.sector}|${s.row}|${s.seat}`.toLowerCase()),
-        );
-        for (const s of extra.seats) {
-          const k = `${s.sector}|${s.row}|${s.seat}`.toLowerCase();
-          if (seen.has(k)) continue;
-          seen.add(k);
-          geodesy.seats.push(s);
-        }
-        geodesy.matched = geodesy.seats.length;
-      }
-    } else {
-      geodesy = buildSellableSeatGeodesyWithDots(
-        baseSeats,
-        allSeatCoordinates,
-        sectorPaths,
-        hallWidth,
-        hallHeight,
-        offerRows,
-        svgMarkup,
-      );
-    }
+    const geodesy = buildSellableSeatGeodesyLuzhniki({
+      layoutSeats: baseSeats,
+      allSeatCoordinates,
+      sectorPaths,
+      hallWidth,
+      hallHeight,
+      offers: offerRows,
+      svgMarkup,
+    });
 
     nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
-    nextLayout.sellableSeatsLabeledOnly = useSvgCircles;
-    nextLayout.sellableGeodesyMode = useSvgCircles ? 'svgCircle' : 'heuristic';
+    nextLayout.sellableSeatsLabeledOnly = false;
+    nextLayout.sellableGeodesyMode = 'luzhnikiGrid';
     nextLayout.offerSeatGeodesy = {
       matched: geodesy.matched,
-      strictMatched: geodesy.strictMatched ?? geodesy.matched,
+      strictMatched: geodesy.strictMatched ?? 0,
       totalSellable: geodesy.totalSellable,
       unmatched: Math.max(0, geodesy.totalSellable - geodesy.matched),
-      svgCircleCount: geodesy.svgCircleCount ?? circleCount,
+      svgCircleCount: geodesy.svgCircleCount ?? 0,
       svgCircleMatched: geodesy.svgCircleMatched ?? 0,
+      sectorGridMatched: geodesy.sectorGridMatched ?? 0,
+      layoutSeatCount: geodesy.layoutSeatCount ?? baseSeats.length,
       dotMatched: geodesy.dotMatched ?? 0,
       cloudMatched: geodesy.cloudMatched ?? 0,
       svgRowMatched: geodesy.svgRowMatched ?? 0,

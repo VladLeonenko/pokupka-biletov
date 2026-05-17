@@ -94,7 +94,7 @@ describe('svgNativeSeatLayout', () => {
         seat: '6',
         xPct: 23.4,
         yPct: 79.7,
-        geodesySource: 'svgRow' as const,
+        geodesySource: 'fieldGrid' as const,
       },
     ];
     const result = buildLuzhnikiMapSellablePlacements(
@@ -173,7 +173,7 @@ describe('svgNativeSeatLayout', () => {
       { sector: 'Сектор A1', row: '5', seat: '4', xPct: 13, yPct: 24 },
     ];
     const server = [
-      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 23.4, yPct: 79.7, geodesySource: 'svgRow' as const },
+      { sector: 'Сектор A1', row: '5', seat: '3', xPct: 23.4, yPct: 79.7, geodesySource: 'fieldGrid' as const },
       { sector: 'Сектор A1', row: '5', seat: '4', xPct: 99, yPct: 99, geodesySource: 'cloud' as const },
     ];
     const result = buildLuzhnikiMapSellablePlacements(
@@ -184,6 +184,6 @@ describe('svgNativeSeatLayout', () => {
     );
     expect(result.placements).toHaveLength(2);
     expect(result.placements.find((p) => p.seat === '3')).toMatchObject({ xPct: 23.4, yPct: 79.7 });
-    expect(result.placements.find((p) => p.seat === '4')).toMatchObject({ xPct: 99, yPct: 99 });
+    expect(result.placements.find((p) => p.seat === '4')).toMatchObject({ xPct: 13, yPct: 24 });
   });
 });

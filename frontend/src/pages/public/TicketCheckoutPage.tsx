@@ -93,6 +93,7 @@ import {
   isNamedTicketUxEnabledForSlug,
   repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
+import { filterOffersForSuperfinalSession } from '@/utils/superfinalOffersFilter';
 import { useTicketCart } from '@/context/TicketCartContext';
 import styles from './TicketCheckoutPage.module.css';
 
@@ -350,7 +351,10 @@ export function TicketCheckoutPage() {
     staleTime: isLuzhnikiFootballStage ? 30_000 : 120_000,
   });
 
-  const offers = useMemo(() => parseOffers(raw), [raw]);
+  const offers = useMemo(() => {
+    const parsed = parseOffers(raw);
+    return filterOffersForSuperfinalSession(parsed, repertoireId);
+  }, [raw, repertoireId]);
   const namedTicketUxEnabled = useMemo(
     () =>
       isNamedTicketUxEnabledForRepertoire(repertoireId) &&

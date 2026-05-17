@@ -11,6 +11,7 @@ export type SeatGeodesySource =
   | 'strict'
   | 'svgCircle'
   | 'sectorGrid'
+  | 'fieldGrid'
   | 'grid'
   | 'anchor'
   | 'dot'
@@ -614,15 +615,14 @@ export function buildSellableGeodesyPlacements(
   };
 }
 
+/** B2: только точные и field-based источники; svgRow/cloud/dot — не рисуем. */
 const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>([
   'strict',
   'svgCircle',
   'sectorGrid',
+  'fieldGrid',
   'grid',
-  'cloud',
-  'svgRow',
-  'cloudSnap',
-  'dot',
+  'anchor',
 ]);
 
 /** Sellable с бэкенда: strict + привязка к облаку (cloud/dot). Без anchor/dotOnly/без метки. */

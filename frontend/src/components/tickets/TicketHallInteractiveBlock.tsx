@@ -148,7 +148,10 @@ function parseUniformHallSeatAppearance(layout: unknown): boolean {
 
 function parseDisableStadiumCanvas(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
-  if (isLuzhnikiStadiumCheckoutLayout(layout)) return false;
+  if (isLuzhnikiStadiumCheckoutLayout(layout)) {
+    if (isCoarsePointerDevice()) return true;
+    return (layout as Record<string, unknown>).disableStadiumCanvas === true;
+  }
   return (layout as Record<string, unknown>).disableStadiumCanvas === true;
 }
 

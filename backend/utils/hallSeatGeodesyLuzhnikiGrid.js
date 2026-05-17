@@ -19,6 +19,8 @@ import {
   countSvgNativeSeatCircles,
 } from './hallSeatGeodesyFromSvgCircles.js';
 import { parseSvgHallRowLabels } from './hallSeatGeodesyFromSvgRows.js';
+import { resolveOfferSeatFromAnchors } from './hallSeatGeodesyFromDots.js';
+import { getManualSectorRowAnchors } from './hallSeatGeodesySectorRowAnchors.js';
 import {
   computeFieldCenterPct,
   maxRowInSectorFromSvg,
@@ -29,6 +31,8 @@ import {
   sortSectorRowBandsFromField,
 } from './hallSeatGeodesySectorNative.js';
 
+const FIELD_GRID_SOURCE = 'fieldGrid';
+
 function parseNum(value) {
   const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
   return Number.isFinite(n) ? n : null;
@@ -36,7 +40,7 @@ function parseNum(value) {
 
 /**
  * Прописать sellable-ключи sector+row+seat на облаке точек (ряд от поля, не с подписи SVG).
- * @returns {{ sector: string, row: string, seat: string, xPct: number, yPct: number, geodesySource: 'grid' }[]}
+ * @returns {{ sector: string, row: string, seat: string, xPct: number, yPct: number, geodesySource: 'fieldGrid' }[]}
  */
 export function buildStadiumLayoutSeatsFromDotGrid({
   sectorPaths,
@@ -108,7 +112,7 @@ export function buildStadiumLayoutSeatsFromDotGrid({
           seat: seatLabel,
           xPct: dot.xPct,
           yPct: dot.yPct,
-          geodesySource: 'grid',
+          geodesySource: FIELD_GRID_SOURCE,
         });
       }
     };
@@ -127,7 +131,7 @@ export function mergeLayoutSeatsPreferPbiletStrict(ticketsSeats, gridSeats) {
   const byKey = new Map();
   for (const s of gridSeats || []) {
     for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
-      if (!byKey.has(key)) byKey.set(key, { ...s, geodesySource: 'grid' });
+      if (!byKey.has(key)) byKey.set(key, { ...s, geodesySource: FIELD_GRID_SOURCE });
     }
   }
   for (const s of ticketsSeats || []) {
@@ -204,6 +208,7 @@ export function buildSellableSeatGeodesyLuzhniki({
   const seen = new Set();
   let gridMatched = 0;
   let strictMatched = 0;
+  let anchorMatched = 0;
   let totalSellable = 0;
   const unmatchedSamples = [];
 
@@ -222,9 +227,14 @@ export function buildSellableSeatGeodesyLuzhniki({
       const labeled = lookupLabeledSeat(index, sector, row, seat);
       if (labeled) {
         seen.add(key);
-        const src = labeled.geodesySource === 'strict' ? 'strict' : 'grid';
+        const src =
+          labeled.geodesySource === 'strict'
+            ? 'strict'
+            : labeled.geodesySource === FIELD_GRID_SOURCE || labeled.geodesySource === 'grid'
+              ? FIELD_GRID_SOURCE
+              : labeled.geodesySource;
         if (src === 'strict') strictMatched += 1;
-        else gridMatched += 1;
+        else if (src === FIELD_GRID_SOURCE) gridMatched += 1;
         seats.push({
           sector,
           row,
@@ -238,6 +248,25 @@ export function buildSellableSeatGeodesyLuzhniki({
 
       const rowNum = parseNum(row);
       const seatNum = parseNum(seat);
+
+      const manualAnchors = getManualSectorRowAnchors(sector);
+      if (rowNum != null && seatNum != null && manualAnchors.length >= 2) {
+        const fromManual = resolveOfferSeatFromAnchors(rowNum, seatNum, manualAnchors);
+        if (fromManual) {
+          seen.add(key);
+          anchorMatched += 1;
+          seats.push({
+            sector,
+            row,
+            seat,
+            xPct: fromManual.xPct,
+            yPct: fromManual.yPct,
+            geodesySource: 'anchor',
+          });
+          continue;
+        }
+      }
+
       const sectorDots = dotsBySector.get(norm);
       const sectorPath = sectorPathByNorm.get(norm);
       if (rowNum != null && seatNum != null && sectorDots?.length && sectorPath) {
@@ -260,7 +289,7 @@ export function buildSellableSeatGeodesyLuzhniki({
             seat,
             xPct: resolved.xPct,
             yPct: resolved.yPct,
-            geodesySource: 'grid',
+            geodesySource: FIELD_GRID_SOURCE,
           });
           continue;
         }
@@ -283,7 +312,7 @@ export function buildSellableSeatGeodesyLuzhniki({
     svgRowMatched: 0,
     cloudSnapMatched: 0,
     dotMatched: 0,
-    anchorInterpolated: 0,
+    anchorInterpolated: anchorMatched,
     layoutSeatCount: layoutSeats?.length ?? 0,
     unmatchedSamples,
   };

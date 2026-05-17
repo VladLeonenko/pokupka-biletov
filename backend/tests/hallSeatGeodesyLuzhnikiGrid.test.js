@@ -34,7 +34,7 @@ test('buildStadiumLayoutSeatsFromDotGrid labels B147 row 11 seat 17', async () =
   });
   const hit = grid.find((s) => /b\s*147/i.test(s.sector) && s.row === '11' && s.seat === '17');
   assert.ok(hit, 'grid must contain B147 r11 s17');
-  assert.equal(hit.geodesySource, 'grid');
+  assert.equal(hit.geodesySource, 'fieldGrid');
 });
 
 test('B147 row 11 seat 17 sellable lookup from layout grid', async () => {
@@ -73,6 +73,6 @@ test('B147 row 11 seat 17 sellable lookup from layout grid', async () => {
 
   const hit = g.seats.find((s) => s.row === '11' && s.seat === '17');
   assert.ok(hit, 'expected grid lookup hit');
-  assert.equal(hit.geodesySource, 'grid');
+  assert.equal(hit.geodesySource, 'fieldGrid');
   assert.equal(g.cloudMatched, 0);
 });

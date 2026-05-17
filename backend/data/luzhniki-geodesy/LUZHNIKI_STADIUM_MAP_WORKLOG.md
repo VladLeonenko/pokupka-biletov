@@ -4,30 +4,118 @@
 
 ---
 
-## 17.05.2026 — ось сектора + подписи рядов на SVG + мобильный оверлей
+## HANDOFF для второго агента (17.05.2026, ~9ч без стабильного прода)
 
-### Симптомы
-1. **Мобильная версия:** на обзоре стадиона цветные точки колоннами через всё поле (все sellable сразу).
-2. **Сектор:** кружки не на серых точках; ряд 11 визуально у подписи 25–30 (A101); логика «ряд 1 = у поля» не совпадает с цифрой **1** на схеме (D121).
+### Цели заказчика (все четыре обязательны)
 
-### Правило заказчика (канон)
-У **каждого сектора своя** система координат:
-- **Ряд N** — полоса точек у подписи «N» на схеме (не «ряд 1 у поля» и не интерполяция 22 полос → 40 подписей).
-- В секторе несколько колонок цифр на SVG — берём колонку, где номера рядов **монотонно** идут по Y (`pickSectorRowLabelAisle`).
-- **Место 1** — у подписи ряда; **место 2, 3…** — вдоль ряда в направлении от подписи ряда R к R+1 (или R−1), не всегда «слева».
-- Горизонтальные трибуны (A101): полосы по Y; боковые (D121, B147): полосы вдоль оси поле→сектор.
+| # | Требование | Статус на проде |
+|---|------------|-----------------|
+| 1 | **Визуал** — серая чаша как сейчас (`luzhniki.txt` ~77k), не ломать | Часто ок; не подменять чашу `layout.seats` grid |
+| 2 | **Каждое sellable GetBilet** — цветная точка **на своей** серой точке (сектор+ряд+место) | **Не ок** (~2% на карте, ряды «прыгают», 35 ряд у подписи «1») |
+| 3 | **Без полного `tickets.json`** (~81k) — API pbilet не отдаёт | Жёсткое ограничение |
+| 4 | **Мобилка** — убрать **вторую карту поверх нашей** (дубль подложки) | **Не ок** у пользователя |
 
-### Исправление (код)
-| Модуль | Что сделано |
-|--------|-------------|
-| `hallSeatGeodesyFromDots.js` | `clusterDotsByRowAlongAxis` — полосы вдоль оси «поле → сектор» |
-| `hallSeatGeodesySectorNative.js` | `labelSectorBandsWithSvgRowNumbers` — полоса ↔ номер ряда с подписи SVG; `findBandIndexForRowNum`; места слева направо |
-| `hallSeatGeodesyLuzhnikiGrid.js` | grid `layout.seats` с теми же номерами рядов/мест |
-| `hallSeatGeodesyFromSvgRows.js` | `pickSectorRowLabelAisle`, `getRowLabelYPctInSector`, `sortDotsInSectorRow` |
-| `TicketHallInteractiveBlock.tsx` | sellable **только в выбранном секторе** (DOM + canvas на обзоре пусто) |
-| CSS / hitbox | диаметр клика ≈ точка на canvas |
+### Единственный канон геометрии (не путать с цифрами на SVG pbilet)
 
-### Деплой VPS (`/var/pokupka-biletov`)
+Взгляд **с зелёного поля** (центр схемы) на сектор:
+
+- **API ряд N** = N-я полоса точек **от поля к дальнему краю** сектора (`sortSectorRowBandsFromField` → `rowNumToBandIndex`).
+- **НЕ** привязывать API row к цифре `<tspan>N</tspan>` на SVG — на A101/B156 подпись «1» часто на **противоположном** крае от поля → симптом «35 ряд на первом ряду схемы».
+- **Место N** = N-я точка в полосе вдоль `seatLeftAxisFromSector` (не всегда «слева на экране»).
+- **Проход между блоками** — не ряд: точки в центральном зазоре отфильтровать (`filterCentralAisleDots`), кластер только `clusterDotsByRowAlongAxis` (не `clusterDotsByRow` по глобальной Y).
+
+**Устарело / отменить в коде и в голове:** `getRowLabelYPctInSector`, `pickSectorRowLabelAisle` как источник номера API-ряда, `labelSectorBandsWithSvgRowNumbers` для sellable.
+
+### Почему «не работает» после многих итераций
+
+1. **Данные:** `tickets.json` в репо ≈ **6132** мест с x,y; у B147, D121 и др. `r: []` — strict = 0. Остальное только эвристика grid/cloud.
+2. **Эвристика ≠ точность:** 20–35 полос на 35+ рядов → ряды 19/20/35 сливаются; на проде без **пересида** в БД остаётся старый `layout.seats` / старый `/map`.
+3. **Два пайплайна:** `buildSellableSeatGeodesyLuzhniki` (grid) и `buildSellableSeatGeodesyWithDots` (svgRow/cloud) — фронт доверяет `geodesySource` из `TRUSTED_SERVER_GEODESY` в `svgNativeSeatLayout.ts`; если с `/map` приходит мусор — рисуется мусор.
+4. **Мобильный дубль:** `stadiumCanvasEnabled` рисует SVG в **canvas** + в DOM остаётся `svgLayer` (класс `svgLayerCanvasBacked { opacity: 0 }`). На части iOS/Safari при гонке загрузки видны **оба** слоя или смещённые transform → «карта поверх карты».
+5. **Локальные фиксы field-based** уже в `hallSeatGeodesySectorNative.js` / `hallSeatGeodesyLuzhnikiGrid.js` (main), но **бесполезны без seed + deploy + build фронта**.
+
+### Решение (прагматичное, без полного tickets)
+
+#### Слой A — визуал (не трогать)
+
+- Сид: `layout_json.allSeatCoordinates` ← массив из `luzhniki.txt` / `coordinates.coordinates` (~77415).
+- Фронт: `parseBackgroundSeatCoordinates` для Лужников при `cloud.length >= 5000` **всегда** берёт `allSeatCoordinates` (см. `TicketHallInteractiveBlock.tsx`).
+- В `luzhnikiFootballStageMap.js` **не ставить** `hallBackgroundFromLabeledSeats: true` если это заставит рисовать 133k grid-мест вместо чаши — для прода лучше **`hallBackgroundFromLabeledSeats: false`** (или убрать флаг).
+- Canvas: серые точки только из `backgroundSeatCoordinates`, sellable — отдельным слоем.
+
+#### Слой B — sellable на правильной точке (без 81k tickets)
+
+**Вариант B1 (минимум кода, честный UX):**
+
+- На карте только места с **`geodesySource: strict`** (есть x,y в частичном `tickets.json`).
+- Остальные офферы — **только список слева** + текст «на схеме недоступно».
+- `adaptLuzhnikiStageMapForLiveOffers`: **не** вызывать grid-fallback для unmatched; `sellableSeatsLabeledOnly: true`.
+- Покрытие ~6k/все sellable, но **без лжи** на карте.
+
+**Вариант B2 (нужно покрытие всех sellable — основной запрос заказчика):**
+
+Комбинация трёх источников по приоритету:
+
+1. `strict` — из `tickets.json` / `layout.seats` где есть sector+row+seat+xPct+yPct.
+2. **`fieldGrid`** — `resolveOfferSeatSectorNativeLayout` + `buildStadiumLayoutSeatsFromDotGrid` (только от поля, см. канон выше); переименовать `geodesySource` с `svgRow`/`grid` для ясности.
+3. **Калибровка сектора** — файл `backend/data/luzhniki-geodesy/sector-row-anchors.json` (ручные или полуавтоматические якоря):
+
+```json
+{
+  "a101": {
+    "anchors": [
+      { "row": 1, "seat": 1, "xPct": 21.2, "yPct": 78.5 },
+      { "row": 35, "seat": 30, "xPct": 20.1, "yPct": 85.2 }
+    ]
+  },
+  "b156": { "anchors": [ ... ] }
+}
+```
+
+Интерполяция ряда/места **внутри сектора** между 2–4 якорями — стабильнее, чем глобальная формула на весь стадион. Заполнять якоря:
+
+- админ-инструмент: клик по серой точке → привязать к выбранному офферу (сохранить JSON);
+- или выгрузка **по одному сектору** из pbilet (не весь stadium), если API отдаёт `r[]` для сектора.
+
+**Отключить на проде:** `cloud`, `cloudSnap`, `dot`, `anchor` в `buildSellableSeatGeodesyWithDots` для `luzhniki-football`.
+
+#### Слой C — мобилка: убрать дубль карты
+
+Проверить на iPhone/Android в DevTools / remote debugging:
+
+1. **Canvas + DOM SVG:** в `TicketHallInteractiveBlock.module.css` для `.svgLayerCanvasBacked` добавить не только `opacity: 0`, но `visibility: hidden; height: 0; overflow: hidden` **или** на coarse pointer (`isCoarsePointerDevice`) ставить `disableStadiumCanvas: true` в `layout_json` из `luzhnikiFootballStageMap.js`.
+2. **Два инстанса карты:** на странице inline `primaryHallMap` + `Dialog` fullscreen — при открытии диалога inline можно `display: none` (опционально).
+3. **Фоновый SVG-слой точек** (`backgroundSeatLayer`, если `<= 4000` точек) **+** canvas — не должны показываться вместе с полной чашой на canvas; при `stadiumCanvasEnabled` не рисовать `backgroundSeatLayer`.
+4. **Внешний план:** `externalPlanUrl` / iframe pbilet — если где-то подключён, отключить для `luzhniki-football`.
+
+Файлы: `TicketHallInteractiveBlock.tsx` (766–821, 1492–1507), `TicketHallInteractiveBlock.module.css` (136–233), `TicketCheckoutPage.tsx` (map Dialog).
+
+#### Слой D — фронт: только доверенные координаты
+
+`frontend/src/utils/svgNativeSeatLayout.ts`:
+
+```ts
+const TRUSTED_SERVER_GEODESY = new Set(['strict', 'svgCircle', 'fieldGrid', 'grid']);
+```
+
+- `buildLuzhnikiMapSellablePlacements`: live `sellableSeats` с `/map` **строго выше** `layout.seats` из контекста (уже так; проверить что `/map` всегда fetch для `luzhniki-football`).
+- `visibleNativePlacements`: цветные **только в выбранном секторе** (`luzhnikiCheckout && selectedSectorSummary`) — иначе на мобилке «колонны» через стадион.
+- Hitbox ≈ диаметр canvas-точки (`luzhnikiSeatHitDiameterPct`).
+
+### План работ для агента 2 (порядок)
+
+```
+□ 1. git pull; убедиться что field-based код в hallSeatGeodesySectorNative.js (resolveOfferSeatSectorNativeLayout без SVG-Y).
+□ 2. backend/tests — npm test (82 теста).
+□ 3. seed на VPS с luzhniki.txt + tickets.json (частичный); в логе: layout seats grid ~130k, offerSeatGeodesy matched/total.
+□ 4. curl /api/bilet/stage/luzhniki-football/map?repertoireId=… → jq offerSeatGeodesy, group_by geodesySource.
+□ 5. Если matched << totalSellable — включить B1 (strict-only) ИЛИ стартовать sector-row-anchors.json для топ-20 секторов по продажам.
+□ 6. Фронт: фикс мобильного дубля (disableStadiumCanvas на touch ИЛИ visibility hidden).
+□ 7. npm run build frontend; deploy-via-git.sh main.
+□ 8. Приёмка: A101 ряд 1 ближе к полю чем 35; B156 ряд 20 ниже/дальше 19; нет ряда точек в проходе; мобилка — одна подложка.
+```
+
+### Деплой VPS (путь `/var/pokupka-biletov`)
 
 ```bash
 cd /var/pokupka-biletov && git pull origin main
@@ -35,10 +123,101 @@ cd backend
 LUZHNIKI_PBILET_TICKETS_JSON=/var/pokupka-biletov/tickets.json \
 LUZHNIKI_PBILET_COORDINATES_JSON=/var/pokupka-biletov/luzhniki.txt \
 npm run seed:luzhniki-football-map
+cd ../frontend && npm ci && npm run build && chown -R www-data:www-data dist
 cd .. && ./scripts/deploy-via-git.sh main
 ```
 
-Проверка: обзор без сектора — **нет** цветных точек на поле; клик сектор → ряд/место на серых точках у цифр рядов.
+**Без seed после pull координаты в PostgreSQL не меняются** — это частая причина «на проде как было».
+
+### Диагностика (скопировать в тикет)
+
+```bash
+# API
+curl -sS 'https://biletvsem.com/api/bilet/stage/luzhniki-football/map?repertoireId=REPERTOIRE_ID' | jq '{
+  sellable: (.layout_json.sellableSeats | length),
+  bySource: (.layout_json.sellableSeats | group_by(.geodesySource) | map({s:.[0].geodesySource,n:length})),
+  geodesy: .layout_json.offerSeatGeodesy,
+  cloud: (.layout_json.allSeatCoordinates | length),
+  layoutSeats: (.layout_json.seats | length)
+}'
+
+# Локально: один сектор
+cd backend && node --input-type=module -e "
+import fs from 'fs';
+import { extractPbiletCoordinatesSeatDots, extractPbiletTicketSectorPaths } from './utils/luzhnikiPbiletGeodesyExtract.js';
+import { buildSectorDotIndex } from './utils/hallSeatGeodesyFromDots.js';
+import { resolveOfferSeatSectorNativeLayout, computeFieldCenterPct } from './utils/hallSeatGeodesySectorNative.js';
+import { parseSvgHallRowLabels } from './utils/hallSeatGeodesyFromSvgRows.js';
+import { normalizeSectorLabel } from './utils/ticketHallSectorNormalize.js';
+const t=JSON.parse(fs.readFileSync('../tickets.json'));
+const l=JSON.parse(fs.readFileSync('../luzhniki.txt'));
+const sec=t.sectors.find(s=>/a101/i.test(s.i));
+const coords=JSON.parse(fs.readFileSync('../luzhniki-pbilet-coordinates-fetched.json'));
+const svg=await(await fetch(coords.bg)).text();
+const cloud=extractPbiletCoordinatesSeatDots(l,11413,9676);
+const dots=buildSectorDotIndex(cloud,extractPbiletTicketSectorPaths(t),11413,9676).get(normalizeSectorLabel('a101'));
+const field=computeFieldCenterPct(cloud);
+const labels=parseSvgHallRowLabels(svg,11413,9676);
+for (const r of [1,11,19,20,35]) {
+  const p=resolveOfferSeatSectorNativeLayout(r,5,dots,sec.o,labels,11413,9676,field,40);
+  console.log('row',r,'y',p?.yPct?.toFixed(2));
+}
+"
+# Ожидание: y(1) < y(11) < y(35) (если поле «выше» по Y) или монотонно по dist до field
+```
+
+### Критерии «задача закрыта»
+
+- [ ] Суперфинал 24.05.2026 18:00: **≥ 90%** sellable сеанса имеют точку на карте **или** явный UI «только в списке» (если сознательно strict-only).
+- [ ] Ручная проверка **A101, B156, B147**: тултип ряд/место совпадает с положением на серой точке; нет «20 ряд выше 19».
+- [ ] Нет горизонтального «ряда» точек в вертикальном проходе.
+- [ ] iPhone: **одна** подложка стадиона, без наложения второй схемы.
+- [ ] Серая чаша визуально как до правок (77k, плотная).
+
+### Что НЕ делать (потолок потраченного времени)
+
+- ❌ Очередной тюнинг `eps` / `margin` без новых якорей или strict-данных.
+- ❌ Снова привязывать API row к `<tspan>` на SVG как к истине.
+- ❌ Ждать полный `tickets.json` с pbilet — не выгрузить; не блокировать релиз.
+- ❌ Рисовать все sellable через `cloudSnap` «куда попало» ради 100% покрытия.
+
+### Ключевые файлы
+
+| Область | Файл |
+|---------|------|
+| Канон ряд/место | `backend/utils/hallSeatGeodesySectorNative.js` |
+| Grid + sellable lookup | `backend/utils/hallSeatGeodesyLuzhnikiGrid.js` |
+| Live `/map` | `backend/services/luzhnikiFootballStageMap.js` |
+| Сид | `backend/scripts/seed-luzhniki-football-geodesy.js` |
+| Старая цепочка cloud/svgRow | `backend/utils/hallSeatGeodesyFromDots.js` — **отключить для luzhniki** |
+| Фронт placements | `frontend/src/utils/svgNativeSeatLayout.ts` |
+| UI карта | `frontend/src/components/tickets/TicketHallInteractiveBlock.tsx` |
+| Чекаут | `frontend/src/pages/public/TicketCheckoutPage.tsx` |
+
+---
+
+## 17.05.2026 — field-based ряды (исправление SVG-путаницы) + мобильный оверлей
+
+### Симптомы (репорт заказчика)
+1. **~2%** sellable видно на карте после деплоя.
+2. **Проход:** горизонтальный «ряд» точек между блоками (кластер по Y).
+3. **B156:** ряд 20 визуально **выше** 19; фиолетовые точки не по порядку рядов.
+4. **A101:** на подписи «1» на схеме — тултип **35 ряд** (привязка к SVG, а не к полю).
+
+### Канон (актуальный, см. HANDOFF выше)
+- **Ряд N от API** = N-я полоса **от зелёного поля**, не цифра на SVG.
+- **Места** вдоль `seatLeftAxisFromSector`.
+
+### Код (в main, проверить на VPS после seed)
+| Модуль | Изменение |
+|--------|-----------|
+| `hallSeatGeodesySectorNative.js` | `filterCentralAisleDots`, adaptive eps, `rowNumToBandIndex` only |
+| `hallSeatGeodesyLuzhnikiGrid.js` | grid без `getRowLabelYPctInSector` / aisle loop |
+| `hallSeatGeodesyFromDots.js` | `buildSectorDotIndex` margin 0.24 |
+| `TicketHallInteractiveBlock.tsx` | sellable только в выбранном секторе |
+
+### Мобилка (ещё не закрыто)
+- Дубль: canvas + `svgLayer` — см. HANDOFF слой C.
 
 ---
 
