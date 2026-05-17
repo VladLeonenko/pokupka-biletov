@@ -234,6 +234,7 @@ export function slimLuzhnikiStageMapForClient(row) {
       nextLayout.omitClientSeatCoordinateCloud = true;
       nextLayout.allSeatCoordinatesCount = cloud.length;
       nextLayout.hallBackgroundFromLabeledSeats = false;
+      nextLayout.luzhnikiPilotBackgroundSeatsUrl = `/api/bilet/stage/${LUZHNIKI_FOOTBALL_STAGE_MAP_KEY}/pilot-seats`;
     }
   }
 

@@ -686,6 +686,7 @@ const UNTRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>([
   'cloud',
   'svgRow',
   'cloudSnap',
+  'anchor',
 ]);
 
 function hasValidSeatPct(s: SvgNativeSeat): boolean {
@@ -749,7 +750,16 @@ export function buildLuzhnikiMapSellablePlacements(
   const offerSeatTotal = countOfferSeats(offers);
   if (placedKeys.size < offerSeatTotal) {
     const rescue = buildSellableGeodesyPlacements(
-      serverSellableSeats.filter(hasValidSeatPct),
+      serverSellableSeats.filter(
+        (s) =>
+          hasValidSeatPct(s) &&
+          (!s.geodesySource ||
+            s.geodesySource === 'strict' ||
+            s.geodesySource === 'fieldGridSnap' ||
+            s.geodesySource === 'fieldGrid' ||
+            s.geodesySource === 'lmrSnap' ||
+            s.geodesySource === 'svgCircle'),
+      ),
       offers,
       getPriceKey,
     );

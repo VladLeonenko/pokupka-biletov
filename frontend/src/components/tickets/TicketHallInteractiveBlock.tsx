@@ -18,6 +18,8 @@ import {
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
 import { FAN_ID_NOTICE } from '@/utils/fanIdRequiredEvents';
+import { useLuzhnikiPilotBackgroundSeats } from '@/hooks/useLuzhnikiPilotBackgroundSeats';
+import { luzhnikiHallSeatDotRadiusViewBox } from '@/utils/luzhnikiHallSeatGeometry';
 import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
@@ -147,8 +149,8 @@ function parseSeatSelectionDisabled(layout: unknown): boolean {
 function parseUniformHallSeatAppearance(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   const r = layout as Record<string, unknown>;
-  if (r.omitClientSeatCoordinateCloud === true) return false;
   if (isLuzhnikiStadiumCheckoutLayout(layout)) return true;
+  if (r.omitClientSeatCoordinateCloud === true) return false;
   return r.uniformHallSeatAppearance === true;
 }
 
@@ -660,6 +662,16 @@ export function TicketHallInteractiveBlock({
   const [hoverSectorAnchor, setHoverSectorAnchor] = useState<Element | null>(null);
   const [hoverSector, setHoverSector] = useState<SectorSummary | null>(null);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const { seats: luzhnikiPilotBackgroundSeats } = useLuzhnikiPilotBackgroundSeats(
+    layoutJson,
+    luzhnikiCheckout ? selectedSector : null,
+  );
+  const effectiveBackgroundSeatCoordinates = useMemo(() => {
+    if (luzhnikiCheckout && luzhnikiPilotBackgroundSeats.length > 0) {
+      return luzhnikiPilotBackgroundSeats;
+    }
+    return backgroundSeatCoordinates;
+  }, [backgroundSeatCoordinates, luzhnikiCheckout, luzhnikiPilotBackgroundSeats]);
   const [sectorPanelCollapsed, setSectorPanelCollapsed] = useState(false);
   const [selectedSeatDetails, setSelectedSeatDetails] = useState<HallSelectedSeat[]>([]);
   const zoomRef = useRef(zoom);
@@ -1177,7 +1189,7 @@ export function TicketHallInteractiveBlock({
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
   }, [
-    backgroundSeatCoordinates.length,
+    effectiveBackgroundSeatCoordinates.length,
     layoutJson,
     luzhnikiCheckout,
     matchedNativeSeatKeys,
@@ -1193,7 +1205,7 @@ export function TicketHallInteractiveBlock({
   ]);
 
   const denseBackgroundHall =
-    backgroundSeatCoordinates.length >= 8000 || hallBackgroundFromLabeledSeats;
+    effectiveBackgroundSeatCoordinates.length >= 8000 || hallBackgroundFromLabeledSeats;
   /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
@@ -1291,12 +1303,15 @@ export function TicketHallInteractiveBlock({
   );
 
   const visibleBackgroundSeatCoordinates = useMemo(() => {
-    if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
-    if (mapZoomed || denseBackgroundHall) return backgroundSeatCoordinates;
+    if (!sectorMode.enabled || effectiveBackgroundSeatCoordinates.length === 0) return [];
+    if (luzhnikiCheckout || mapZoomed || denseBackgroundHall) {
+      return effectiveBackgroundSeatCoordinates;
+    }
     return [];
   }, [
-    backgroundSeatCoordinates,
     denseBackgroundHall,
+    effectiveBackgroundSeatCoordinates,
+    luzhnikiCheckout,
     mapZoomed,
     sectorMode.enabled,
   ]);
@@ -1309,22 +1324,21 @@ export function TicketHallInteractiveBlock({
     };
   }, [isMapDragging, pan.x, pan.y, stadiumCanvasEnabled, zoom]);
 
-  /** Круги в единицах viewBox — масштабируются вместе со схемой, без «огромных» px поверх zoom. */
+  /** Круги в единицах viewBox — как diagnostic (luzhnikiNativeSeatCircleRadius). */
   const stadiumSellableDotR = useMemo(() => {
-    if (luzhnikiCheckout && sectorSeatFocusView) {
-      return Math.max(5, Math.min(12, svgViewBox.width * 0.00075));
+    if (luzhnikiCheckout) {
+      return luzhnikiHallSeatDotRadiusViewBox(svgViewBox.width, svgViewBox.height);
     }
     return Math.max(16, Math.min(38, svgViewBox.width * 0.0024));
-  }, [luzhnikiCheckout, sectorSeatFocusView, svgViewBox.width]);
+  }, [luzhnikiCheckout, svgViewBox.height, svgViewBox.width]);
   /** Диаметр hitbox sellable ≈ 2× радиус точки на canvas (scalePx×6, как в paintHallCanvas). */
   const luzhnikiSeatHitDiameterPct = useMemo(() => {
     if (!luzhnikiCheckout || !uniformHallSeatAppearance) return null;
     const vb = Math.max(1, svgViewBox.width);
-    return (12 / vb) * 100;
-  }, [luzhnikiCheckout, uniformHallSeatAppearance, svgViewBox.width]);
-  /** Сектор: sellable в SVG viewBox (как диагностика), не DOM px + не canvas px — иначе «плывут» при zoom. */
-  const useStadiumSvgSellableDots =
-    sectorSeatFocusView && useSvgNative && (luzhnikiCheckout || !useCanvasCompositing);
+    return ((2 * stadiumSellableDotR) / vb) * 100;
+  }, [luzhnikiCheckout, stadiumSellableDotR, uniformHallSeatAppearance, svgViewBox.width]);
+  /** Лужники: sellable только SVG viewBox (как diagnostic); canvas — подложка + серая чаша. */
+  const useStadiumSvgSellableDots = luzhnikiCheckout && useSvgNative;
 
   const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
@@ -1370,12 +1384,16 @@ export function TicketHallInteractiveBlock({
       ctx.restore();
     }
 
-    const bg = backgroundSeatCoordinates;
+    const bg = effectiveBackgroundSeatCoordinates;
     const dragging = isMapDraggingRef.current;
     const skipDenseBgWhileDragging = dragging && bg.length >= 8000;
     const drawBackgroundDots =
       bg.length > 0 &&
-      (liveZoom > fitZoom + 0.01 || bg.length >= 8000 || hallBackgroundFromLabeledSeats);
+      !(luzhnikiCheckout && sectorSeatFocusView) &&
+      (luzhnikiCheckout ||
+        liveZoom > fitZoom + 0.01 ||
+        bg.length >= 8000 ||
+        hallBackgroundFromLabeledSeats);
     if (!skipDenseBgWhileDragging && drawBackgroundDots) {
       ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
       const scalePx = w / Math.max(1, svgViewBox.width);
@@ -1411,13 +1429,11 @@ export function TicketHallInteractiveBlock({
 
     if (visibleNativePlacements.length > 0 && !useStadiumSvgSellableDots) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
-      const overview = liveZoom <= fitZoom + 0.01;
       const scalePx = w / Math.max(1, svgViewBox.width);
       const bgDotR =
-        backgroundSeatCoordinates.length >= 8000
+        effectiveBackgroundSeatCoordinates.length >= 8000
           ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
           : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
-      const overviewSellableR = Math.max(3.25, bgDotR * 2.1, scalePx * 5.5);
       for (const seat of visibleNativePlacements) {
         const active = activeKeys.has(seat.key);
         if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
@@ -1425,11 +1441,7 @@ export function TicketHallInteractiveBlock({
         const sx = x + (seat.xPct / 100) * w;
         const sy = y + (seat.yPct / 100) * h;
         if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-        const r = active
-          ? Math.max(bgDotR * 1.35, 3.5)
-          : overview
-            ? overviewSellableR
-            : Math.max(bgDotR * 1.15, Math.min(5.5, scalePx * 7));
+        const r = active ? Math.max(bgDotR * 1.35, 3.5) : bgDotR;
         ctx.beginPath();
         ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -1442,8 +1454,8 @@ export function TicketHallInteractiveBlock({
       }
     }
   }, [
-    backgroundSeatCoordinates,
     colorForSeat,
+    effectiveBackgroundSeatCoordinates,
     fitZoom,
     getLayerBase,
     hallBackgroundFromLabeledSeats,
@@ -1455,6 +1467,7 @@ export function TicketHallInteractiveBlock({
     skipDuplicateInteractiveDotsOnCanvas,
     svgViewBox.width,
     useCanvasCompositing,
+    sectorSeatFocusView,
     useStadiumSvgSellableDots,
     visibleNativePlacements,
   ]);
@@ -1629,23 +1642,20 @@ export function TicketHallInteractiveBlock({
                   className={styles.sellableSeatSvgLayer}
                   viewBox={svgViewBox.value}
                   preserveAspectRatio="xMidYMid meet"
-                  aria-label="Места в секторе"
+                  aria-label="Места на схеме"
                 >
-                  {visibleUnavailableNativeSeats.map((seat) => {
-                    const cx = (seat.xPct / 100) * svgViewBox.width;
-                    const cy = (seat.yPct / 100) * svgViewBox.height;
-                    const r = Math.max(10, stadiumSellableDotR * 0.38);
-                    return (
-                      <circle
-                        key={`sector-gray-${seatMapKey(seat.sector, seat.row, seat.seat)}`}
-                        className={styles.backgroundSeatDot}
-                        cx={cx}
-                        cy={cy}
-                        r={r}
-                        aria-hidden="true"
-                      />
-                    );
-                  })}
+                  {sectorSeatFocusView
+                    ? luzhnikiPilotBackgroundSeats.map((seat, index) => (
+                        <circle
+                          key={`luz-bg-${index}-${seat.xPct.toFixed(3)}-${seat.yPct.toFixed(3)}`}
+                          className={styles.backgroundSeatDot}
+                          cx={(seat.xPct / 100) * svgViewBox.width}
+                          cy={(seat.yPct / 100) * svgViewBox.height}
+                          r={stadiumSellableDotR}
+                          aria-hidden="true"
+                        />
+                      ))
+                    : null}
                   {visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);
@@ -1672,7 +1682,7 @@ export function TicketHallInteractiveBlock({
                         r={stadiumSellableDotR}
                         fill={fill}
                         stroke="#fff"
-                        strokeWidth={Math.max(2, stadiumSellableDotR * 0.14)}
+                        strokeWidth={Math.max(0.6, stadiumSellableDotR * 0.12)}
                         aria-label={p.title}
                         onPointerDown={(ev) => {
                           ev.stopPropagation();
