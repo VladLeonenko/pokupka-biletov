@@ -9,6 +9,9 @@ export type OfferLike = {
 
 export type SeatGeodesySource =
   | 'strict'
+  | 'svgCircle'
+  | 'sectorGrid'
+  | 'grid'
   | 'anchor'
   | 'dot'
   | 'dotOnly'
@@ -146,6 +149,9 @@ export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
     const geodesyRaw = cleanString(row.geodesySource ?? row.geodesy_source);
     const geodesySource =
       geodesyRaw === 'strict' ||
+      geodesyRaw === 'svgCircle' ||
+      geodesyRaw === 'sectorGrid' ||
+      geodesyRaw === 'grid' ||
       geodesyRaw === 'anchor' ||
       geodesyRaw === 'dot' ||
       geodesyRaw === 'dotOnly' ||
@@ -610,6 +616,9 @@ export function buildSellableGeodesyPlacements(
 
 const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>([
   'strict',
+  'svgCircle',
+  'sectorGrid',
+  'grid',
   'cloud',
   'svgRow',
   'cloudSnap',

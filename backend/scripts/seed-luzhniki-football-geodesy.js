@@ -27,6 +27,15 @@ import ticketPool from '../ticketDb.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
 import {
+  countSvgNativeSeatCircles,
+  injectPbiletSeatsIntoSvg,
+  parseSvgNativeSeatCircles,
+} from '../utils/hallSeatGeodesyFromSvgCircles.js';
+import {
+  buildStadiumLayoutSeatsFromDotGrid,
+  mergeLayoutSeatsPreferPbiletStrict,
+} from '../utils/hallSeatGeodesyLuzhnikiGrid.js';
+import {
   extractPbiletCoordinateCategoriesSectorPaths,
   extractPbiletCoordinatesSeatDots,
   extractPbiletTicketsSeatGeodesy,
@@ -197,6 +206,22 @@ async function main() {
       svgMarkup = normalizeHallSvgDataIds((await fetchText(bgUrl)).trim());
     }
     if (!svgMarkup.includes('<svg')) throw new Error('Подложка не похожа на SVG');
+
+    const ticketsSeats = [...seats];
+    let gridSeats = [];
+    if (allSeatCoordinates.length > 0 && sectorsMeta.length > 0) {
+      gridSeats = buildStadiumLayoutSeatsFromDotGrid({
+        sectorPaths: sectorsMeta,
+        allSeatCoordinates,
+        svgMarkup,
+        hallWidth: width,
+        hallHeight: height,
+      });
+      console.log(
+        `[luzhniki-geodesy] layout seats: tickets strict=${ticketsSeats.length} grid=${gridSeats.length}`,
+      );
+    }
+    seats = mergeLayoutSeatsPreferPbiletStrict(ticketsSeats, gridSeats);
   } else {
     throw new Error(
       [
@@ -213,6 +238,21 @@ async function main() {
     throw new Error(
       `Слишком мало мест в снимке: ${seats.length} < min ${minSeats}. Полный стадион ~81k — проверьте источник.`,
     );
+  }
+
+  const embedCircles = optionalEnv('LUZHNIKI_EMBED_TICKET_CIRCLES_IN_SVG') !== '0';
+  if (embedCircles && svgMarkup.includes('<svg') && seats.length > 0) {
+    const before = countSvgNativeSeatCircles(svgMarkup);
+    const injected = injectPbiletSeatsIntoSvg(svgMarkup, seats, width, height, {
+      maxCircles: Number(optionalEnv('LUZHNIKI_MAX_SVG_SEAT_CIRCLES')) || 12000,
+    });
+    if (injected.embedded) {
+      svgMarkup = normalizeHallSvgDataIds(injected.svgMarkup);
+      const after = parseSvgNativeSeatCircles(svgMarkup, width, height).length;
+      console.log(
+        `[luzhniki-geodesy] SVG circles: pbilet bg had ${before}, injected ${injected.count}, parsed ${after}`,
+      );
+    }
   }
 
   const layoutJson = {
@@ -244,8 +284,10 @@ async function main() {
         ? { coordinateDotsFromHallLayout: allSeatCoordinates.length }
         : {}),
     },
+    seatCirclesEmbeddedInSvg: countSvgNativeSeatCircles(svgMarkup),
+    layoutSeatsFromGrid: true,
     note:
-      'Реальная геодезия из файлового снимка; наличие и цены только из офферов GetBilet.',
+      'layout.seats = grid (каждая точка сектора: ряд по SVG, место 1…N слева) + strict из tickets.json где есть r[].s[].',
   };
 
   const notesInternal =

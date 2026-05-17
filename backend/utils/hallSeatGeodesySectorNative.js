@@ -95,6 +95,20 @@ export function rowNumToBandIndex(rowNum, maxRow, bandCount) {
   return Math.round(((rowNum - 1) / Math.max(1, maxR - 1)) * (bandCount - 1));
 }
 
+/** Обратное к rowNumToBandIndex: полоса bi (0 = у поля) → номер ряда на схеме. */
+export function bandIndexToRowNum(bandIndex, maxRow, bandCount) {
+  if (bandCount < 1) return 1;
+  const maxR = Math.max(maxRow, bandCount, 1);
+  if (maxR <= 1) return 1;
+  return Math.round(1 + (bandIndex / Math.max(1, bandCount - 1)) * (maxR - 1));
+}
+
+function calibrationHasDistinctY(calibration, minSpanPct = 0.15) {
+  if (!calibration?.length || calibration.length < 2) return false;
+  const ys = calibration.map((c) => c.yPct);
+  return Math.max(...ys) - Math.min(...ys) >= minSpanPct;
+}
+
 /** Единый maxRow сектора: SVG-подписи, офферы, число полос — не номер текущего ряда. */
 export function resolveSectorNativeMaxRow(
   sectorPath,
@@ -134,7 +148,7 @@ function resolveRowBandIndex(
     Array.isArray(svgRowLabels) && svgRowLabels.length > 0 && sectorPath
       ? buildSectorRowYPctCalibration(sectorPath, svgRowLabels, hintXAbs, hallWidth, hallHeight)
       : [];
-  if (calibration.length >= 2) {
+  if (calibration.length >= 2 && calibrationHasDistinctY(calibration)) {
     const targetY = interpolateSvgRowYPct(rowNum, calibration);
     if (targetY != null) return findBandIndexNearestY(bands, targetY);
   }
