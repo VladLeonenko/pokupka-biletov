@@ -2,21 +2,30 @@
 
 **Для следующего агента.** Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
+## Эталонный сектор: **A 101** (`a101`)
+
+- В `tickets.json`: **`r: []`** — strict-рядов нет.
+- Якоря: `sector-row-anchors.json` → rows **1 / 42** × seats **1 / 4 / 16**.
+- На суперфинале есть живые офферы (ряды 11, 28, 32, 35, 38…).
+- **Приоритет axisGrid** (`prefersSectorAxisGrid`): sellable **не** через fieldGrid (там ряд 11 уезжал на подпись «ряд 1»).
+
+Второй эталон с прорезью рядов: **B 154** (`b154`) — ряд 17 между 16 и 27.
+
 ## Когда нужен
 
-- В `tickets.json` / `layout.seats` **нет ряда** (прорезь между блоками), но оффер есть — пример **B154 ряд 17** (между 16 и 27).
-- `polarGrid` / `pbiletLerp` дают диагональ или плоскую линию не по дуге трибуны.
-- Эталон «как надо» для линейного ряда: **D124 ряд 10** → `pbiletLerp` + constant X (все места ряда в layout).
+- В `tickets.json` / `layout.seats` **нет ряда** (прорезь или `r: []`), но оффер есть.
+- `polarGrid` / `pbiletLerp` / **fieldGrid** дают диагональ или сдвиг ряда.
+- Линейный ряд с полным layout: **D124 ряд 10** → `pbiletLerp` (не axisGrid).
 
-## Код (единственный модуль)
+## Код
 
 | Файл | Роль |
 |------|------|
-| `backend/utils/luzhnikiSectorAxisGridPlacement.js` | API: model + resolve sellable |
-| `backend/utils/luzhnikiPbiletSellableGeodesy.js` | Вызов после strict, до polarGrid |
-| `backend/data/luzhniki-geodesy/sector-row-anchors.json` | 4 угла сектора (rows 1,6,19,26 для b154) |
+| `backend/utils/luzhnikiSectorAxisGridPlacement.js` | model, resolve, `prefersSectorAxisGrid`, `SECTOR_AXIS_GRID_PRIORITY_NORMS` |
+| `backend/utils/luzhnikiPbiletSellableGeodesy.js` | axisGrid **до** fieldGrid для `a101` / `b154` |
+| `backend/data/luzhniki-geodesy/sector-row-anchors.json` | 4 угла сектора |
 | `backend/tests/luzhnikiSectorAxisGridPlacement.test.js` | Юнит-тесты |
-| `backend/tests/luzhnikiPbiletSellableGeodesy.test.js` | B154 р.17 → `geodesySource: axisGrid` |
+| `backend/tests/luzhnikiPbiletSellableGeodesy.test.js` | A101 / B154 sellable |
 
 ## API (кратко)
 
@@ -25,61 +34,47 @@ import {
   buildSectorAxisGridModel,
   resolveSeatOnSectorAxisGrid,
   resolveSellableOnSectorAxisGrid,
+  prefersSectorAxisGrid,
 } from '../utils/luzhnikiSectorAxisGridPlacement.js';
 
-const model = buildSectorAxisGridModel(anchors, 'b154');
-const pt = resolveSeatOnSectorAxisGrid(model, 17, 5, { min: 4, max: 12 });
-// → { xPct, yPct }
+prefersSectorAxisGrid('a101', ticketsPayload); // true
+
+const model = buildSectorAxisGridModel(anchors, 'a101');
+const pt = resolveSeatOnSectorAxisGrid(model, 11, 7, { min: 7, max: 9 });
 
 const hit = resolveSellableOnSectorAxisGrid({
   anchors,
-  sectorLabel: 'b154',
-  row: 17,
-  seat: 5,
-  seatRangeInRow: { min: 4, max: 12 },
+  sectorLabel: 'a101',
+  row: 11,
+  seat: 7,
+  seatRangeInRow: { min: 7, max: 9 },
 });
 // → { xPct, yPct, geodesySource: 'axisGrid' }
 ```
 
-**Прорезь рядов:** если `rowNum` между `rowLo` и `rowHi`, но в якорях нет этого ряда и разрыв > 1 — позиция = `rowLo + (rowNum - rowLo) * rowStep`, не интерполяция к дальнему блоку.
+**Прорезь рядов (B154):** ряд между блоками → `rowLo + (target − rowLo) * rowStep`, не lerp к дальнему блоку.
 
-## Порядок в sellable (`buildSellableSeatGeodesyPbiletAccurate`)
+## Порядок в sellable
 
 1. strict из tickets  
-2. layout-anchors: fieldGrid snap → **axisGrid если ряда нет в layout** → pbiletLerp → svgRow → polarGrid (B/C)  
-3. `mode: none`: axisGrid из `sector-row-anchors.json` + manual anchors  
+2. для **`a101` / `b154`** (и `r:[]` + 4 manual anchors): **axisGrid сразу**, fieldGrid пропускается  
+3. иначе layout-anchors: fieldGrid → axisGrid если ряда нет → pbiletLerp → svgRow → polarGrid  
+4. `mode: none`: axisGrid из manual anchors  
 
-Счётчик в ответе map: `layout_json.offerSeatGeodesy.axisGridMatched`.
+Счётчик: `layout_json.offerSeatGeodesy.axisGridMatched`.
 
-## Почему B154 «пустой» на UI (май 2026)
-
-**Не баг axisGrid.** На суперфинале `repertoireId=6a05d17b46a4d000309ecf4e` в **живом GetBilet сейчас 0 офферов** по B154 (147 офферов всего, сектор с «154» не встречается).
-
-**Откуда «9 мест»:** в тестах/ручной проверке — **ряд 17, места 4–12** (9 позиций; в `luzhnikiPbiletSellableGeodesy.test.js` в mock только 8, без места 11). В `tickets.json` у «Сектор B 154» поле **`r: []`** — strict-рядов нет. Когда GetBilet снова отдаст офферы по B154, после деплоя axisGrid точки появятся на `/map`.
-
-Проверка:
+## Проверка A101
 
 ```bash
-curl -sS ".../api/bilet/repertoire/6a05d17b46a4d000309ecf4e/offers" | jq '[.[]|select(.sector|test("154";"i"))]|length'
-```
+cd backend && node --test tests/luzhnikiPbiletSellableGeodesy.test.js
 
-Когда офферы по B154 появятся — нужен деплой с коммитом axisGrid (`luzhnikiSectorAxisGridPlacement.js` + правки в `luzhnikiPbiletSellableGeodesy.js`).
-
-## Диагностика после деплоя
-
-```bash
 curl -sS ".../map?repertoireId=6a05d17b46a4d000309ecf4e" \
-  | jq '.layout_json | {sellable: (.sellableSeats|length), axis: .offerSeatGeodesy.axisGridMatched, b154: [.sellableSeats[]|select(.sector|test("154";"i"))]}'
+  | jq '[.layout_json.sellableSeats[]|select(.sector|test("101";"i"))|{row,seat,src:.geodesySource}]'
 ```
 
-Тесты:
+Ожидание: все точки A101 с `geodesySource` содержащим `axisGrid`.
 
-```bash
-cd backend && node --test tests/luzhnikiSectorAxisGridPlacement.test.js tests/luzhnikiPbiletSellableGeodesy.test.js
-```
+## TODO
 
-## TODO (не закрыто)
-
-- 8 угловых якорей пользователя в `sector-row-anchors.json` (сейчас 4).
-- Согласование подписей мест внизу схемы (5…40) с `seatNum` оффера.
-- Дуга трибуны: axisGrid даёт **прямую линию ряда** в % viewBox; для сильной кривизны — отдельная модель (не polarGrid по 4 углам).
+- 8 угловых якорей в `sector-row-anchors.json`.
+- Дуга трибуны: axisGrid = прямая линия ряда в % viewBox.

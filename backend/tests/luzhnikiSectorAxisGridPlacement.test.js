@@ -6,6 +6,7 @@ import { loadSeatsArrayFromLayout } from '../utils/luzhnikiSeatIndexCache.js';
 import { collectLayoutSectorPbiletSeats } from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import {
   buildSectorAxisGridModel,
+  prefersSectorAxisGrid,
   resolveSeatOnSectorAxisGrid,
   resolveSellableOnSectorAxisGrid,
 } from '../utils/luzhnikiSectorAxisGridPlacement.js';
@@ -16,6 +17,32 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ticketsPath = path.resolve(__dirname, '../../tickets.json');
+
+test('a101: prefersSectorAxisGrid (r[] в tickets)', () => {
+  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  assert.ok(prefersSectorAxisGrid('a101', tickets));
+  assert.ok(prefersSectorAxisGrid('сектор a101', tickets));
+});
+
+test('a101 row 11: axisGrid, места вдоль Y (вертикальная трибуна)', () => {
+  const anchors = [
+    { row: '1', seat: '1', xPct: 21.409796, yPct: 78.348491 },
+    { row: '42', seat: '1', xPct: 15.644441, yPct: 84.301364 },
+    { row: '1', seat: '4', xPct: 21.847893, yPct: 78.658537 },
+    { row: '37', seat: '16', xPct: 19.613599, yPct: 87.226126 },
+  ];
+  const model = buildSectorAxisGridModel(anchors, 'a101');
+  assert.ok(model);
+  assert.ok(!model.rowIsHorizontal);
+  const pts = [7, 8, 9].map((seat) =>
+    resolveSeatOnSectorAxisGrid(model, 11, seat, { min: 7, max: 9 }),
+  );
+  assert.ok(pts.every(Boolean));
+  const xs = pts.map((p) => p.xPct);
+  assert.ok(Math.max(...xs) - Math.min(...xs) < 0.05, 'ряд 11 — одна линия по X');
+  const ys = pts.map((p) => p.yPct);
+  assert.ok(Math.max(...ys) - Math.min(...ys) > 0.05, 'места разведены по Y');
+});
 
 test('b154 row 17: axisGrid от ряда 16 (+1 шаг), не пусто без layout ряда', async () => {
   const row = await loadLuzhnikiFootballStageMapRow();

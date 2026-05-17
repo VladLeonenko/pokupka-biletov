@@ -48,6 +48,29 @@ test('d232 row 31 seat 17: в bbox сектора', () => {
   assert.ok(seats[0].xPct >= 86 && seats[0].xPct <= 95, `xPct=${seats[0].xPct}`);
 });
 
+test('a101: все sellable через axisGrid, не fieldGrid', async () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
+  const row = await loadLuzhnikiFootballStageMapRow();
+  const layout =
+    typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const offers = [
+    { Sector: 'сектор a101', Row: '11', SeatList: ['7', '8', '9'] },
+    { Sector: 'сектор a101', Row: '28', SeatList: ['20', '21'] },
+    { Sector: 'сектор a101', Row: '35', SeatList: ['26', '27', '28'] },
+  ];
+  const { seats, axisGridMatched } = buildSellableSeatGeodesyPbiletAccurate(
+    ticketsPayload,
+    offers,
+    layout,
+    { svgMarkup: row.svg_markup },
+  );
+  assert.equal(seats.length, 8);
+  assert.equal(axisGridMatched, 8);
+  assert.ok(seats.every((s) => String(s.geodesySource).includes('axisGrid')));
+  assert.ok(!seats.some((s) => String(s.geodesySource).includes('fieldGrid')));
+});
+
 test('b154 row 17: axisGrid (прорезь 16–27), линия ряда как d124', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');

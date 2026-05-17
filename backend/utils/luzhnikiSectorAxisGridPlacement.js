@@ -13,6 +13,38 @@
 
 import { normalizeSectorLabel, luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
 
+/** Сектора, где sellable всегда через axisGrid (не fieldGrid). */
+export const SECTOR_AXIS_GRID_PRIORITY_NORMS = new Set(['a101', 'b154']);
+
+/**
+ * @param {unknown} ticketsPayload
+ * @param {string} norm
+ */
+export function ticketsSectorHasNoRows(ticketsPayload, norm) {
+  const norms = new Set(luzhnikiSectorLookupNorms(norm));
+  const sectors = /** @type {{ i?: string, r?: unknown[] }[] | undefined} */ (
+    ticketsPayload?.sectors
+  );
+  if (!Array.isArray(sectors)) return false;
+  for (const sec of sectors) {
+    const n = normalizeSectorLabel(sec?.i);
+    if (!norms.has(n)) continue;
+    const rows = sec?.r;
+    return !Array.isArray(rows) || rows.length === 0;
+  }
+  return false;
+}
+
+/**
+ * axisGrid вместо fieldGrid: нет r[] в tickets + 4 угла в sector-row-anchors (или явный список).
+ * @param {string} norm
+ * @param {unknown} [ticketsPayload]
+ */
+/** @param {string} norm @param {unknown} [_ticketsPayload] — зарезервировано под авто-список A-секторов */
+export function prefersSectorAxisGrid(norm, _ticketsPayload = null) {
+  return SECTOR_AXIS_GRID_PRIORITY_NORMS.has(normalizeSectorLabel(norm));
+}
+
 function parseNum(value) {
   const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
   return Number.isFinite(n) ? n : null;

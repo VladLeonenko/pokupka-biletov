@@ -46,7 +46,10 @@ import {
   sectorAnchorPivot,
 } from './luzhnikiPilotLayoutCalibrate.js';
 import { loadSeatsArrayFromLayout } from './luzhnikiSeatIndexCache.js';
-import { resolveSellableOnSectorAxisGrid } from './luzhnikiSectorAxisGridPlacement.js';
+import {
+  prefersSectorAxisGrid,
+  resolveSellableOnSectorAxisGrid,
+} from './luzhnikiSectorAxisGridPlacement.js';
 import {
   luzhnikiSectorLookupNorms,
   normalizeSectorLabel,
@@ -399,13 +402,24 @@ export function buildSellableSeatGeodesyPbiletAccurate(
         }
 
         const axisAnchors = mergeAxisGridAnchors(anchors, norm, label);
+        const preferAxisGrid = prefersSectorAxisGrid(norm, ticketsPayload);
         const rowNumOffer = parseRowNum(row);
         const rowMissingInLayout =
           rowNumOffer != null &&
           axisAnchors.length >= 2 &&
           !axisAnchors.some((a) => parseRowNum(a.row) === rowNumOffer);
 
-        if (!hit && mode === 'layout-anchors') {
+        if (!hit && preferAxisGrid) {
+          hit = trySectorAxisGrid(norm, label, row, seat, axisAnchors, seatRangesByRow);
+          if (hit) {
+            seen.add(dedupe);
+            axisGridMatched += 1;
+            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
+            continue;
+          }
+        }
+
+        if (!hit && mode === 'layout-anchors' && !preferAxisGrid) {
           hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
         }
 
