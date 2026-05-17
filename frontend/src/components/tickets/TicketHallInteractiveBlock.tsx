@@ -20,6 +20,17 @@ const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
 /** Подложка при zoom — без grayscale, поле остаётся зелёным. */
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
 
+/** Радиус sellable-точки на canvas (px в viewport). */
+function stadiumSeatCanvasRadiusPx(zoom: number, active: boolean): number {
+  return active ? 5 : Math.max(2.6, Math.min(6, 10 * zoom));
+}
+
+/** Размер DOM-точки в px слоя: слой масштабируется `zoom`, в viewport получается 2*r. */
+function stadiumSeatDotLayerSizePx(zoom: number, active: boolean): number {
+  const r = stadiumSeatCanvasRadiusPx(zoom, active);
+  return (2 * r) / Math.max(0.001, zoom);
+}
+
 export type HallOfferRow = {
   Id?: string;
   Sector?: string;
@@ -937,6 +948,8 @@ export function TicketHallInteractiveBlock({
 
   const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
   const mapZoomed = zoom > fitZoom + 0.01;
+  /** Номер места внутри кружка — только в выбранном секторе при достаточном zoom. */
+  const showSeatNumberInDot = sectorMode.enabled && Boolean(selectedSector) && mapZoomed;
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -1086,7 +1099,7 @@ export function TicketHallInteractiveBlock({
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-          const r = active ? 5 : Math.max(2.6, Math.min(6, (w / svgViewBox.width) * 10));
+          const r = stadiumSeatCanvasRadiusPx(zoom, active);
           ctx.beginPath();
           ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -1264,6 +1277,16 @@ export function TicketHallInteractiveBlock({
                       seat: p.seat,
                       priceKey: p.priceKey,
                     };
+                    const stadiumDotSizeStyle =
+                      sectorMode.enabled && useSvgNative
+                        ? {
+                            width: `${stadiumSeatDotLayerSizePx(zoom, active)}px`,
+                            height: `${stadiumSeatDotLayerSizePx(zoom, active)}px`,
+                            minWidth: 0,
+                            minHeight: 0,
+                          }
+                        : null;
+                    const showDotLabel = showSeatNumberInDot && !active;
                     if (p.previewOnly) {
                       return (
                         <span
@@ -1272,18 +1295,25 @@ export function TicketHallInteractiveBlock({
                             sectorMode.enabled ? styles.seatDotStadium : ''
                           } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''} ${
                             uniformDomOverlayGhost ? styles.seatDotUniformCanvasGhost : ''
-                          }`}
+                          } ${showDotLabel ? styles.seatDotWithLabel : ''}`}
                           style={
                             {
                               left: `${p.xPct}%`,
                               top: `${p.yPct}%`,
                               '--seat-accent': bg,
+                              ...stadiumDotSizeStyle,
                             } as React.CSSProperties
                           }
                           title={p.title}
                           aria-hidden
                         >
-                          <span className={styles.seatDotLabel}>{p.seat}</span>
+                          <span
+                            className={`${styles.seatDotLabel} ${
+                              showDotLabel ? styles.seatDotLabelVisible : ''
+                            }`}
+                          >
+                            {p.seat}
+                          </span>
                         </span>
                       );
                     }
@@ -1298,12 +1328,13 @@ export function TicketHallInteractiveBlock({
                           useCanvasCompositing ? styles.seatDotCanvasHit : ''
                         } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''} ${
                           sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''
-                        } ${active ? styles.seatDotOn : ''}`}
+                        } ${active ? styles.seatDotOn : ''} ${showDotLabel ? styles.seatDotWithLabel : ''}`}
                         style={
                           {
                             left: `${p.xPct}%`,
                             top: `${p.yPct}%`,
                             '--seat-accent': bg,
+                            ...stadiumDotSizeStyle,
                           } as React.CSSProperties
                         }
                         aria-label={p.title}
@@ -1328,7 +1359,13 @@ export function TicketHallInteractiveBlock({
                         }}
                       >
                         {active && !uniformDomOverlayGhost ? <span className={styles.seatDotCheck}>✓</span> : null}
-                        <span className={styles.seatDotLabel}>{p.seat}</span>
+                        <span
+                          className={`${styles.seatDotLabel} ${
+                            showDotLabel ? styles.seatDotLabelVisible : ''
+                          }`}
+                        >
+                          {p.seat}
+                        </span>
                       </button>
                     );
                   })
