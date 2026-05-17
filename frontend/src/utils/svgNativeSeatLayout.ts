@@ -177,68 +177,6 @@ export function parsePreferLayoutSeatPositions(layout: unknown): boolean {
   return r?.preferLayoutSeatPositions === true;
 }
 
-/** Быстрый подсчёт circle[place-name] без DOMParser. */
-export function countSvgPlaceNameCirclesQuick(html: string): number {
-  const m = html.match(/<circle\b[^>]*\bplace-name=/gi);
-  return m ? m.length : 0;
-}
-
-const MAX_CIRCLES_FOR_SVG_NATIVE_PARSE = 4000;
-
-/**
- * Лужники / pilot: координаты из layout_json.sellableSeats, не из 80k circle в подложке.
- * Иначе processHallSvgForNative делает O(n²) и вешает вкладку на минуты.
- */
-export function shouldSkipSvgNativeSeatCircleParse(layout: unknown, html: string): boolean {
-  const root = asRecord(layout);
-  if (root?.preferLayoutSeatPositions === true) return true;
-  if (root?.stadiumMapKey === 'luzhniki-football' || root?.luzhnikiStadiumCheckout === true) {
-    return true;
-  }
-  if (root?.luzhnikiPilotGeodesyActive === true || root?.omitLayoutSeatSellableFallback === true) {
-    return true;
-  }
-  return countSvgPlaceNameCirclesQuick(html) > MAX_CIRCLES_FOR_SVG_NATIVE_PARSE;
-}
-
-function computeMinCenterDistance(points: { x: number; y: number }[]): number {
-  const n = points.length;
-  if (n < 2) return Infinity;
-
-  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-    Math.hypot(a.x - b.x, a.y - b.y);
-
-  if (n <= 600) {
-    let min = Infinity;
-    for (let i = 0; i < n; i += 1) {
-      for (let j = i + 1; j < n; j += 1) {
-        const d = dist(points[i], points[j]);
-        if (d > 1e-4) min = Math.min(min, d);
-      }
-    }
-    return min;
-  }
-
-  const sampleCap = 400;
-  const step = Math.max(1, Math.floor(n / sampleCap));
-  const sample: { x: number; y: number }[] = [];
-  for (let i = 0; i < n; i += step) sample.push(points[i]);
-  let min = Infinity;
-  for (let i = 0; i < sample.length; i += 1) {
-    for (let j = i + 1; j < sample.length; j += 1) {
-      const d = dist(sample[i], sample[j]);
-      if (d > 1e-4) min = Math.min(min, d);
-    }
-  }
-  return min;
-}
-
-/** Лужники svg-pilot: sellable только из sellableSeats (svgCircle), без layout.seats fallback. */
-export function parseOmitLayoutSeatSellableFallback(layout: unknown): boolean {
-  const r = asRecord(layout);
-  return r?.omitLayoutSeatSellableFallback === true || r?.luzhnikiPilotGeodesyActive === true;
-}
-
 function normToken(s: string): string {
   return s
     .replace(/\u00a0/g, ' ')
@@ -328,15 +266,10 @@ export function parseSvgNativeSeatLayout(html: string): { seats: SvgNativeSeat[]
  * Подготовка нативной SVG-схемы: подрезка viewBox по кругам мест (схема по центру, без «пустого поля»),
  * проценты для оверлея в тех же координатах, что и отрисованный SVG.
  */
-export function processHallSvgForNative(
-  html: string,
-  options: { layout?: unknown } = {},
-): { seats: SvgNativeSeat[]; svgHtml: string } | null {
+export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[]; svgHtml: string } | null {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') return null;
   const trimmed = html?.trim();
   if (!trimmed || !trimmed.includes('<svg')) return null;
-  if (shouldSkipSvgNativeSeatCircleParse(options.layout, trimmed)) return null;
-  if (countSvgPlaceNameCirclesQuick(trimmed) > MAX_CIRCLES_FOR_SVG_NATIVE_PARSE) return null;
 
   let doc: Document;
   try {
@@ -380,7 +313,15 @@ export function processHallSvgForNative(
   if (raw.length < 2) return null;
 
   /** Минимальное расстояние между центрами разных мест — чтобы r не раздувался до перекрытий (театры с плотной сеткой). */
-  const minCenterDist = computeMinCenterDistance(raw);
+  let minCenterDist = Infinity;
+  for (let i = 0; i < raw.length; i++) {
+    for (let j = i + 1; j < raw.length; j++) {
+      const dx = raw[i].x - raw[j].x;
+      const dy = raw[i].y - raw[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1e-4) minCenterDist = Math.min(minCenterDist, d);
+    }
+  }
   const densityRadiusCap =
     Number.isFinite(minCenterDist) && minCenterDist < Infinity ? minCenterDist * 0.46 : null;
 
@@ -698,7 +639,6 @@ export function buildLuzhnikiMapSellablePlacements(
   serverSellableSeats: SvgNativeSeat[],
   offers: OfferLike[],
   getPriceKey: (o: OfferLike) => string,
-  options: { omitLayoutFallback?: boolean } = {},
 ): {
   placements: SvgNativePlacement[];
   unmatchedSvgCount: number;
@@ -711,24 +651,20 @@ export function buildLuzhnikiMapSellablePlacements(
     serverResult.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
   );
 
+  const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
   const extra: SvgNativePlacement[] = [];
-  let layoutUnmatched = 0;
-  if (!options.omitLayoutFallback) {
-    const layoutResult = buildSellableGeodesyPlacements(layoutLabeledSeats, offers, getPriceKey);
-    layoutUnmatched = layoutResult.unmatchedSvgCount;
-    for (const p of layoutResult.placements) {
-      const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
-      if (placedKeys.has(pk)) continue;
-      placedKeys.add(pk);
-      extra.push(p);
-    }
+  for (const p of layoutResult.placements) {
+    const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
+    if (placedKeys.has(pk)) continue;
+    placedKeys.add(pk);
+    extra.push(p);
   }
 
   const placements = [...serverResult.placements, ...extra];
   const offerSeatTotal = countOfferSeats(offers);
   return {
     placements,
-    unmatchedSvgCount: layoutUnmatched + serverResult.unmatchedSvgCount,
+    unmatchedSvgCount: layoutResult.unmatchedSvgCount + serverResult.unmatchedSvgCount,
     diagnostics: {
       totalSvgSeats: layoutLabeledSeats.length + trustedServer.length,
       matchedSeats: placements.length,

@@ -45,11 +45,9 @@ import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
 import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
-  slimLuzhnikiStageMapForClient,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
 } from '../services/luzhnikiFootballStageMap.js';
 import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
-import { buildLuzhnikiSeatGridDiagnosticPayload } from '../services/luzhnikiGeodesyGridDiagnostic.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import {
@@ -509,21 +507,6 @@ router.get('/media-config', (req, res) => {
 });
 
 /** Превью схемы Лужники (футбол): публичный pbilet + демо-офферы (или реальные места при eventSourceId/eventDateId в query или env). */
-/** strict 6132 vs fieldGrid: сравнение рядов для /test/luzhniki-seat-grid */
-router.get('/dev/luzhniki-seat-grid-diagnostic', async (req, res) => {
-  try {
-    const sector = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
-    const payload = buildLuzhnikiSeatGridDiagnosticPayload({ sectorFilter: sector });
-    return sendPublicJson(req, res, payload, { cacheSeconds: 120, staleSeconds: 300 });
-  } catch (err) {
-    console.error('[bilet] dev/luzhniki-seat-grid-diagnostic', err);
-    return res.status(500).json({
-      error: 'geodesy_diagnostic_failed',
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
-});
-
 router.get('/preview/luzhniki-football-stadium', async (req, res) => {
   try {
     const rawSource = typeof req.query.source === 'string' ? req.query.source.trim().toLowerCase() : '';
@@ -591,16 +574,13 @@ router.get('/stage/:stageId/map', async (req, res) => {
     }
     if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
     let row = r.rows[0];
-    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) {
+    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
       try {
-        if (repertoireId) {
-          const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: false });
-          const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
-          if (offerRows.length > 0) {
-            row = adaptLuzhnikiStageMapForLiveOffers(row, offerRows);
-          }
+        const { payload } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: false });
+        const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        if (offerRows.length > 0) {
+          row = adaptLuzhnikiStageMapForLiveOffers(row, offerRows);
         }
-        row = slimLuzhnikiStageMapForClient(row);
       } catch (e) {
         console.warn('[bilet] stage map luzhniki enrich:', e instanceof Error ? e.message : e);
       }

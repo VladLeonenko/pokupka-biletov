@@ -1,38 +1,11 @@
 /**
- * Каноническая схема стадиона «Лужники» для футбольных событий GetBilet.
+ * Каноническая схема стадиона «Лужники» для футбольных событий GetBilet:
+ * одна строка в getbilet_stage_maps (паттерн как у лукойл/МХТ-сидов), без pbilet API.
  */
-
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import ticketPool from '../ticketDb.js';
 import { buildSellableSeatGeodesyLuzhniki } from '../utils/hallSeatGeodesyLuzhnikiGrid.js';
-import {
-  buildSellableSeatGeodesyFromSvgCircles,
-  countSvgNativeSeatCircles,
-} from '../utils/hallSeatGeodesyFromSvgCircles.js';
-import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
-import { LUZHNIKI_PILOT_SEATS_REL_PATH } from '../utils/luzhnikiSeatIndexCache.js';
-import { stripLuzhnikiPilotSeatsLayerFromSvg } from '../utils/luzhnikiPilotSeatSvg.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, '../..');
-
-const LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS = Number(process.env.LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) || 8000;
-
-/** Sellable: pbilet strict + interpolate (default). fieldGrid/cloud — только по env, см. handoff §9.4. */
-const USE_PBILET_ACCURATE = process.env.LUZHNIKI_USE_FIELDGRID_SELLABLE !== '1';
-
-let ticketsPayloadCache = null;
-
-function loadTicketsPayload() {
-  if (ticketsPayloadCache) return ticketsPayloadCache;
-  const p = process.env.LUZHNIKI_PBILET_TICKETS_JSON?.trim() || path.join(repoRoot, 'tickets.json');
-  ticketsPayloadCache = JSON.parse(fs.readFileSync(p, 'utf8'));
-  return ticketsPayloadCache;
-}
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
   process.env.GETBILET_LUZHNIKI_FOOTBALL_STAGE_MAP_KEY?.trim() || 'luzhniki-football';
@@ -59,6 +32,17 @@ export function looksLikeLuzhnikiVenue(...values) {
   );
 }
 
+/**
+ * @param {{
+ *   title: string;
+ *   descriptionFromPayload: string | null;
+ *   genreFromPayload: string | null;
+ *   venueManual: string | null;
+ *   venueFromPayload: string | null;
+ * }} base
+ * @param {string | null} placeMapsVenue
+ * @param {string | null} [stageHallLabel]
+ */
 export function shouldUseLuzhnikiFootballCanonicalMap(base, placeMapsVenue, stageHallLabel = null) {
   const venueHit = looksLikeLuzhnikiVenue(
     base.venueManual,
@@ -77,7 +61,7 @@ export function shouldUseLuzhnikiFootballCanonicalMap(base, placeMapsVenue, stag
 export async function loadLuzhnikiFootballStageMapRow() {
   const key = LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
   const r = await ticketPool.query(
-    `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
+    `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url
      FROM getbilet_stage_maps WHERE stage_external_id = $1`,
     [key],
   );
@@ -98,8 +82,9 @@ function parseLayoutJson(row) {
 }
 
 /**
+ * Живые офферы GetBilet: координаты только там, где сектор/ряд/место есть в геодезии pbilet.
  * @param {Record<string, unknown> | null | undefined} row
- * @param {unknown[] | null | undefined} [offerRows]
+ * @param {unknown[] | null | undefined} [offerRows] ResultData из GetOfferListByRepertoireId
  */
 export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
   if (!row) return row;
@@ -112,6 +97,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     ? layout.sectorMode.sectors
     : [];
 
+  /** @type {Record<string, unknown>} */
   const nextLayout = {
     ...layout,
     stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
@@ -123,6 +109,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     uniformHallSeatAppearance: true,
     omitClientSeatCoordinateCloud: false,
     disableStadiumCanvas: false,
+    /** Серая чаша = allSeatCoordinates (luzhniki.txt ~77k), не grid layout.seats. */
     hallBackgroundFromLabeledSeats: false,
   };
 
@@ -130,45 +117,21 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     const svgMarkup = typeof row.svg_markup === 'string' ? row.svg_markup : '';
     const hallWidth = Number(layout.geodesy?.hallWidth) || 11413;
     const hallHeight = Number(layout.geodesy?.hallHeight) || 9676;
-    const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
 
-    let geodesy;
-    if (USE_PBILET_ACCURATE) {
-      geodesy = buildSellableSeatGeodesyPbiletAccurate(loadTicketsPayload(), offerRows, layout);
-      nextLayout.sellableGeodesyMode = 'pbiletStrict';
-    } else {
-      const svgCircleCount = countSvgNativeSeatCircles(svgMarkup);
-      const pilotSvgLayer = String(svgMarkup).includes('luzhniki-pilot-seats');
-      geodesy =
-        svgCircleCount >= minSvgCircles
-          ? buildSellableSeatGeodesyFromSvgCircles(
-              svgMarkup,
-              baseSeats,
-              offerRows,
-              hallWidth,
-              hallHeight,
-              { svgOnlyMatched: pilotSvgLayer, layoutHintsOnly: true },
-            )
-          : buildSellableSeatGeodesyLuzhniki({
-              layoutSeats: baseSeats,
-              allSeatCoordinates,
-              sectorPaths,
-              hallWidth,
-              hallHeight,
-              offers: offerRows,
-              svgMarkup,
-            });
-      nextLayout.sellableGeodesyMode = pilotSvgLayer ? 'luzhnikiSvgPilot' : 'luzhnikiGrid';
-    }
+    const geodesy = buildSellableSeatGeodesyLuzhniki({
+      layoutSeats: baseSeats,
+      allSeatCoordinates,
+      sectorPaths,
+      hallWidth,
+      hallHeight,
+      offers: offerRows,
+      svgMarkup,
+    });
 
     nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
     nextLayout.sellableSeatsLabeledOnly = false;
-    nextLayout.luzhnikiPilotGeodesyActive = true;
-    nextLayout.luzhnikiSeatCalibrationActive = false;
-    nextLayout.luzhnikiPilotFullStadium = layout.luzhnikiPilotFullStadium === true;
-    nextLayout.luzhnikiPilotCircleCount = geodesy.svgCircleCount ?? 0;
-    nextLayout.omitLayoutSeatSellableFallback = true;
+    nextLayout.sellableGeodesyMode = 'luzhnikiGrid';
     nextLayout.offerSeatGeodesy = {
       matched: geodesy.matched,
       strictMatched: geodesy.strictMatched ?? 0,
@@ -177,69 +140,19 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       svgCircleCount: geodesy.svgCircleCount ?? 0,
       svgCircleMatched: geodesy.svgCircleMatched ?? 0,
       sectorGridMatched: geodesy.sectorGridMatched ?? 0,
-      layoutSeatCount: geodesy.layoutSeatCount ?? 0,
+      layoutSeatCount: geodesy.layoutSeatCount ?? baseSeats.length,
       dotMatched: geodesy.dotMatched ?? 0,
       cloudMatched: geodesy.cloudMatched ?? 0,
       svgRowMatched: geodesy.svgRowMatched ?? 0,
       cloudSnapMatched: geodesy.cloudSnapMatched ?? 0,
       anchorInterpolated: geodesy.anchorInterpolated ?? 0,
       unmatchedSamples: geodesy.unmatchedSamples,
-      geodesyMode: geodesy.geodesyMode,
       updatedAt: new Date().toISOString(),
     };
   }
 
   return {
     ...row,
-    layout_json: nextLayout,
-  };
-}
-
-export function slimLuzhnikiStageMapForClient(row) {
-  if (!row) return row;
-  const layout = parseLayoutJson(row);
-  const fullPilot =
-    layout.luzhnikiPilotFullStadium === true ||
-    Number(layout.luzhnikiPilotCircleCount) >= 8000 ||
-    layout.luzhnikiPilotUseLayoutSeatsForLookup === true;
-
-  if (!fullPilot && !layout.luzhnikiPilotGeodesyActive) {
-    return row;
-  }
-
-  let svg_markup = typeof row.svg_markup === 'string' ? row.svg_markup : '';
-  if (
-    svg_markup.includes('luzhniki-pilot-seats') ||
-    svg_markup.includes('pbilet-strict-seat-geodesy')
-  ) {
-    svg_markup = stripLuzhnikiPilotSeatsLayerFromSvg(svg_markup);
-  }
-
-  const seats = Array.isArray(layout.seats) ? layout.seats : [];
-  const nextLayout = { ...layout };
-
-  if (seats.length > LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) {
-    delete nextLayout.seats;
-    delete nextLayout.nativeSeatCount;
-    delete nextLayout.layoutSeatsFromGrid;
-    nextLayout.layoutSeatsOmittedForClient = true;
-    nextLayout.layoutSeatsCount = seats.length;
-    nextLayout.luzhnikiPilotSeatsFile = layout.luzhnikiPilotSeatsFile || LUZHNIKI_PILOT_SEATS_REL_PATH;
-  }
-
-  if (process.env.LUZHNIKI_OMIT_CLIENT_SEAT_CLOUD !== '0') {
-    const cloud = Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [];
-    if (cloud.length > 15000) {
-      delete nextLayout.allSeatCoordinates;
-      nextLayout.omitClientSeatCoordinateCloud = true;
-      nextLayout.allSeatCoordinatesCount = cloud.length;
-      nextLayout.hallBackgroundFromLabeledSeats = false;
-    }
-  }
-
-  return {
-    ...row,
-    svg_markup,
     layout_json: nextLayout,
   };
 }
