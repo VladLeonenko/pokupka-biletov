@@ -12,6 +12,8 @@ export type SeatGeodesySource =
   | 'svgCircle'
   | 'sectorGrid'
   | 'fieldGrid'
+  | 'fieldGridSnap'
+  | 'lmrSnap'
   | 'grid'
   | 'anchor'
   | 'dot'
@@ -152,6 +154,9 @@ export function parseLayoutSeatPositions(layout: unknown): SvgNativeSeat[] {
       geodesyRaw === 'strict' ||
       geodesyRaw === 'svgCircle' ||
       geodesyRaw === 'sectorGrid' ||
+      geodesyRaw === 'fieldGrid' ||
+      geodesyRaw === 'fieldGridSnap' ||
+      geodesyRaw === 'lmrSnap' ||
       geodesyRaw === 'grid' ||
       geodesyRaw === 'anchor' ||
       geodesyRaw === 'dot' ||
@@ -674,19 +679,33 @@ export function buildSellableGeodesyPlacements(
   };
 }
 
-/** B2: только точные и field-based источники; svgRow/cloud/dot — не рисуем. */
-const TRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>([
-  'strict',
-  'svgCircle',
-  'sectorGrid',
-  'fieldGrid',
-  'grid',
-  'anchor',
+/** Не рисуем sellable с «сырым» облаком / dot-only — координаты неточные. */
+const UNTRUSTED_SERVER_GEODESY = new Set<SeatGeodesySource>([
+  'dot',
+  'dotOnly',
+  'cloud',
+  'svgRow',
+  'cloudSnap',
 ]);
 
-/** Sellable с бэкенда: strict + привязка к облаку (cloud/dot). Без anchor/dotOnly/без метки. */
+function hasValidSeatPct(s: SvgNativeSeat): boolean {
+  return (
+    Number.isFinite(s.xPct) &&
+    Number.isFinite(s.yPct) &&
+    s.xPct >= 0 &&
+    s.xPct <= 100 &&
+    s.yPct >= 0 &&
+    s.yPct <= 100
+  );
+}
+
+/** Sellable с бэкенда: все с валидными xPct/yPct, кроме cloud/dot-only. */
 function filterTrustedServerSellable(seats: SvgNativeSeat[]): SvgNativeSeat[] {
-  return seats.filter((s) => s.geodesySource && TRUSTED_SERVER_GEODESY.has(s.geodesySource));
+  return seats.filter((s) => {
+    if (!hasValidSeatPct(s)) return false;
+    if (!s.geodesySource) return true;
+    return !UNTRUSTED_SERVER_GEODESY.has(s.geodesySource);
+  });
 }
 
 /**
@@ -724,8 +743,24 @@ export function buildLuzhnikiMapSellablePlacements(
     }
   }
 
-  const placements = [...serverResult.placements, ...extra];
+  let placements = [...serverResult.placements, ...extra];
+
+  /** Офферы без coords после strict filter — добираем из полного sellableSeats API (в т.ч. anchor). */
   const offerSeatTotal = countOfferSeats(offers);
+  if (placedKeys.size < offerSeatTotal) {
+    const rescue = buildSellableGeodesyPlacements(
+      serverSellableSeats.filter(hasValidSeatPct),
+      offers,
+      getPriceKey,
+    );
+    for (const p of rescue.placements) {
+      const pk = offerPlacementKey(p.offerId, p.rowLabel, p.seat);
+      if (placedKeys.has(pk)) continue;
+      placedKeys.add(pk);
+      placements.push(p);
+    }
+  }
+
   return {
     placements,
     unmatchedSvgCount: layoutUnmatched + serverResult.unmatchedSvgCount,

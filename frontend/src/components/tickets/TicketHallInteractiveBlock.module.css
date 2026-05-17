@@ -52,6 +52,22 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+/** Номера мест только в боковой панели — на карте при zoom не раздуваются вместе с matrix(). */
+.rootLuzhniki .seatDotLabel,
+.rootLuzhniki .seatDotStadium.seatDotSectorFocus .seatDotLabel {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  display: block !important;
+  font-size: 0 !important;
+  pointer-events: none !important;
+}
+
 .toolbar {
   position: absolute;
   right: 16px;
@@ -287,6 +303,7 @@
   pointer-events: auto;
   cursor: pointer;
   transition: filter 0.12s ease;
+  vector-effect: non-scaling-stroke;
 }
 
 .sellableSeatDot:hover {

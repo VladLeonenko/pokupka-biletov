@@ -1040,8 +1040,17 @@ export function TicketHallInteractiveBlock({
 
     const centerX = ((bbox.minX + bbox.maxX) / 2 / svgViewBox.width) * layers.offsetWidth;
     const centerY = ((bbox.minY + bbox.maxY) / 2 / svgViewBox.height) * layers.offsetHeight;
-    focusLayerPoint(centerX, centerY, maxZoom, sector.meta.label);
-  }, [focusLayerPoint, maxZoom, svgViewBox.height, svgViewBox.width]);
+    const mobileMap = vp.clientWidth < 600;
+    const panelOffset = mobileMap ? 0 : vp.clientWidth >= 760 ? Math.min(390, vp.clientWidth * 0.38) : 0;
+    const availW = Math.max(120, vp.clientWidth - panelOffset);
+    const bboxW = ((bbox.maxX - bbox.minX) / svgViewBox.width) * layers.offsetWidth;
+    const bboxH = ((bbox.maxY - bbox.minY) / svgViewBox.height) * layers.offsetHeight;
+    const pad = luzhnikiCheckout ? 1.22 : 1.12;
+    const zoomX = availW / Math.max(1, bboxW * pad);
+    const zoomY = vp.clientHeight / Math.max(1, bboxH * pad);
+    const targetZoom = clampZoom(Math.min(zoomX, zoomY, maxZoom));
+    focusLayerPoint(centerX, centerY, targetZoom, sector.meta.label);
+  }, [clampZoom, focusLayerPoint, luzhnikiCheckout, maxZoom, svgViewBox.height, svgViewBox.width]);
 
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
@@ -1149,6 +1158,8 @@ export function TicketHallInteractiveBlock({
   ]);
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
+    /** Лужники + sellable geodesy: не рисуем сотни strict layout.seats серым DOM поверх SVG sellable. */
+    if (luzhnikiCheckout && useSellableGeodesyPlacements && selectedSectorSummary) return [];
     if (sectorMode.enabled) {
       if (backgroundSeatCoordinates.length > 0) return [];
       if (!selectedSectorSummary) return [];
@@ -1168,6 +1179,7 @@ export function TicketHallInteractiveBlock({
   }, [
     backgroundSeatCoordinates.length,
     layoutJson,
+    luzhnikiCheckout,
     matchedNativeSeatKeys,
     nativeSeats,
     sectorMode.enabled,
@@ -1176,6 +1188,7 @@ export function TicketHallInteractiveBlock({
     showUnavailableSeats,
     svgViewBox.height,
     svgViewBox.width,
+    useSellableGeodesyPlacements,
     useSvgNative,
   ]);
 
@@ -1297,18 +1310,24 @@ export function TicketHallInteractiveBlock({
   }, [isMapDragging, pan.x, pan.y, stadiumCanvasEnabled, zoom]);
 
   /** Круги в единицах viewBox — масштабируются вместе со схемой, без «огромных» px поверх zoom. */
-  const stadiumSellableDotR = useMemo(
-    () => Math.max(16, Math.min(38, svgViewBox.width * 0.0024)),
-    [svgViewBox.width],
-  );
+  const stadiumSellableDotR = useMemo(() => {
+    if (luzhnikiCheckout) {
+      if (sectorSeatFocusView) {
+        return Math.max(5, Math.min(12, svgViewBox.width * 0.00075));
+      }
+      return Math.max(7, Math.min(14, svgViewBox.width * 0.00105));
+    }
+    return Math.max(16, Math.min(38, svgViewBox.width * 0.0024));
+  }, [luzhnikiCheckout, sectorSeatFocusView, svgViewBox.width]);
   /** Диаметр hitbox sellable ≈ 2× радиус точки на canvas (scalePx×6, как в paintHallCanvas). */
   const luzhnikiSeatHitDiameterPct = useMemo(() => {
     if (!luzhnikiCheckout || !uniformHallSeatAppearance) return null;
     const vb = Math.max(1, svgViewBox.width);
     return (12 / vb) * 100;
   }, [luzhnikiCheckout, uniformHallSeatAppearance, svgViewBox.width]);
+  /** Лужники: все sellable в SVG viewBox; на других стадионах — только в фокусе сектора без canvas. */
   const useStadiumSvgSellableDots =
-    sectorSeatFocusView && useSvgNative && !useCanvasCompositing && !luzhnikiCheckout;
+    useSvgNative && (luzhnikiCheckout || (sectorSeatFocusView && !useCanvasCompositing));
 
   const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
@@ -1393,7 +1412,7 @@ export function TicketHallInteractiveBlock({
       }
     }
 
-    if (visibleNativePlacements.length > 0) {
+    if (visibleNativePlacements.length > 0 && !useStadiumSvgSellableDots) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
       const overview = liveZoom <= fitZoom + 0.01;
       const scalePx = w / Math.max(1, svgViewBox.width);
@@ -1439,6 +1458,7 @@ export function TicketHallInteractiveBlock({
     skipDuplicateInteractiveDotsOnCanvas,
     svgViewBox.width,
     useCanvasCompositing,
+    useStadiumSvgSellableDots,
     visibleNativePlacements,
   ]);
 
@@ -1460,7 +1480,9 @@ export function TicketHallInteractiveBlock({
   ]);
 
   const rootClass =
-    variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
+    variant === 'dialog'
+      ? `${styles.root} ${styles.rootInDialog}${luzhnikiCheckout ? ` ${styles.rootLuzhniki}` : ''}`
+      : `${styles.root}${luzhnikiCheckout ? ` ${styles.rootLuzhniki}` : ''}`;
 
   const hallMap = (
     <div className={rootClass}>
