@@ -4,6 +4,8 @@
 
 **Векторная подложка вручную (viewBox 11413×9676, Method Draw / Inkscape):** [LUZHNIKI_SVG_VIEWBOX_COORDINATE_PLAN.md](./LUZHNIKI_SVG_VIEWBOX_COORDINATE_PLAN.md) — **основной путь**, без strict-only.
 
+**✅ Пилот D 230 (успех, 17.05.2026):** [§ Успешный пилот D 230](#успешный-пилот-d-230--канон-для-всего-стадиона-17052026) — **эталон** для остальных секторов.
+
 ---
 
 ## HANDOFF для второго агента (17.05.2026, ~9ч без стабильного прода)
@@ -647,4 +649,114 @@ curl -sS 'https://biletvsem.com/api/bilet/stage/luzhniki-football/map?repertoire
 
 ---
 
-*Документ собран по сессии доработки схемы Лужников, май 2026.*
+## Успешный пилот D 230 — канон для всего стадиона (17.05.2026)
+
+### Результат (подтверждено на проде)
+
+| Проверка | Ожидание | Факт |
+|----------|----------|------|
+| API `/map` | `svgCircleMatched` = число мест в оффере D230 | **4** при 4 местах (ряд 24, 8–11) |
+| `svgCircleCount` | ≥ 87 (tickets) + live | **91** |
+| Визуал чекаута | Серая чаша как раньше, **без** синей рамки сектора | ✅ |
+| Цветные точки | На **ряде 24**, места 8–11 (как в оффере) | ✅ (после fix координат) |
+| Подписи в карточке | «Ряд 24», места 8–11 | Совпадают с точками на схеме |
+
+Коммиты цепочки: `e6ccbd8f` (пилот) → `bd35cb30` (merge, невидимые круги) → `8e8e7eb8` (ряд 24 из tickets.json, не layout.seats).
+
+### Почему раньше «ряд 24 рисовался как 28/29»
+
+1. **Офферы** GetBilet: `сектор d230`, **ряд 24**, места 8–11.
+2. **enrich** брал координаты из **`layout.seats`** (fieldGrid ~130k) — там подпись «ряд 24» сдвинута на физическую позицию **~ряда 28** в pbilet.
+3. Сверка `xPct/yPct`: координаты grid для `24|8` ≈ координаты **tickets.json** для `28|2`.
+4. **Исправление:** только **`tickets.json`** + **линейная интер-/экстраполяция** по рядам (`interpolatePbiletSeatGeodesy` в `luzhnikiPbiletGeodesyExtract.js`). Для D230 в tickets есть ряды **26, 28, 30, 32** — ряд 24 экстраполируется между 26 и полем.
+
+**Запрещено для live-offer кругов:** `layout.seats`, `fieldGrid`, `cloud`, `strict` без svgCircle.
+
+### Архитектура пилота (как должно быть на всём стадионе)
+
+```
+pbilet tickets.json (сектор → ряды → места x,y)
+        ↓
+generate-luzhniki-sector-pilot-svg.js  — круги сектора (geodesy)
+        ↓
+enrich-luzhniki-sector-pilot-from-offers.js  — + офферы без ряда в tickets (интерполяция)
+        ↓
+fix-luzhniki-pilot-offer-coords.js  — пересчёт live-кругов, если grid успел попасть
+        ↓
+bundle-sector-*-pilot.json  (viewBox 11413×9676, слой #luzhniki-pilot-seats)
+        ↓
+apply-luzhniki-sector-pilot-svg.js  — MERGE слоя в svg_markup БД (не replace всей схемы)
+        ↓
+luzhnikiFootballStageMap.js  — svgCircle → sellableSeats, svgOnlyMatched для пилотного слоя
+        ↓
+фронт: серая чаша canvas + цветные точки из sellableSeats (не из видимых SVG-кругов)
+```
+
+**SVG-круги пилота:** `opacity="0"`, без рамки `#luzhniki-pilot-sector` — только геодезия для API; визуал как раньше.
+
+### npm-скрипты (backend)
+
+| Скрипт | Назначение |
+|--------|------------|
+| `npm run generate:luzhniki-sector-pilot` | Сектор из tickets → bundle + SVG (`--sector "Сектор D 230" --with-bg`) |
+| `npm run enrich:luzhniki-sector-pilot` | `REPERTOIRE_ID=…` — круги для офферов (pbilet + интерполяция) |
+| `npm run fix:luzhniki-pilot-offer-coords` | Пересчёт live-offer (ряд 24 и др.) из tickets |
+| `npm run refresh:luzhniki-sector-pilot` | Нормализация bundle (без рамки, невидимые круги) |
+| `npm run build:luzhniki-stadium-pilot` | Все сектора с офферами → `bundle-luzhniki-stadium-pilot.json` |
+| `npm run apply:luzhniki-sector-pilot` | Merge `#luzhniki-pilot-seats` в `getbilet_stage_maps.svg_markup` |
+| `npm run apply:luzhniki-sector-pilot-d230` | Только пилот D230 (старый bundle) |
+
+Файлы: `backend/data/luzhniki-geodesy/hand/bundle-sector-d-230-pilot.json`, `sector-sector-d-230-pilot.svg`.
+
+### Деплой на VPS (обязательно)
+
+```bash
+cd /var/pokupka-biletov
+# если enrich менял bundle локально на сервере:
+git checkout -- backend/data/luzhniki-geodesy/hand/bundle-sector-d-230-pilot.json \
+              backend/data/luzhniki-geodesy/hand/sector-sector-d-230-pilot.svg
+git pull origin main
+cd backend
+npm run apply:luzhniki-sector-pilot
+pm2 restart bilet-backend --update-env
+```
+
+Проверка:
+
+```bash
+PORT=$(grep -E '^PORT=' .env | cut -d= -f2); PORT=${PORT:-3000}
+curl -sS "http://127.0.0.1:${PORT}/api/bilet/stage/luzhniki-football/map?repertoireId=6a05d17b46a4d000309ecf4e" \
+  | jq '.layout_json.offerSeatGeodesy | {matched,svgCircleCount,svgCircleMatched,totalSellable}'
+```
+
+Ожидание для D230: `svgCircleMatched` = число мест в оффере сектора; точки на карте совпадают с рядом/местом в карточке.
+
+### Масштабирование на весь стадион (следующий этап)
+
+**Цель:** каждый сектор с sellable-офферами — такой же точный слой geodesy-кругов, одна подложка pbilet, один merge в `svg_markup`.
+
+| Шаг | Действие |
+|-----|----------|
+| 1 | Список секторов: уникальные `Sector` из офферов суперфинала + пересечение с `tickets.json` (`sectors[].i`) |
+| 2 | Для каждого сектора: `generate:luzhniki-sector-pilot --sector "…" --with-bg` **без** `--with-bg` на 2+ сектор — только один bg в bundle; дальше — только круги в общий слой |
+| 3 | **`npm run build:luzhniki-stadium-pilot`** → `bundle-luzhniki-stadium-pilot.json` (~2k кругов, 25 секторов) | ✅ скрипт |
+| 4 | `npm run apply:luzhniki-sector-pilot` — merge мега-bundle в `svg_markup` | |
+| 5 | **Никогда** не брать координаты офферов из `layout.seats` — только tickets + интерполяция |
+| 6 | После всех секторов: ослабить/снять `svgOnlyMatched` или поднять порог — когда кругов достаточно для всех sellable |
+| 7 | Фронт: при полном покрытии — отключить canvas-дубль / единый SVG (см. план §5–6) |
+
+**Приоритет секторов:** сначала сектора с максимумом live-офферов на суперфинале (curl офферов → `group_by` Sector).
+
+**Ограничение:** `tickets.json` в репо — частичный снимок (~6k мест); для секторов без рядов в tickets — только интерполяция внутри сектора или дозагрузка полного pbilet-export.
+
+### Антипаттерны (не повторять)
+
+- ❌ `git pull` на VPS при локально изменённом `hand/bundle-*.json` после enrich — pull падает, apply старый bundle.
+- ❌ `apply` заменой **всего** `svg_markup` содержимым одного сектора (ломает чашу) — только **merge** слоя.
+- ❌ Видимые серые круги + синяя рамка сектора в SVG (портит визуал).
+- ❌ `layout.seats` / fieldGrid для координат sellable офферов.
+- ❌ Откат на коммит `rollback/luzhniki-e3110e15` (битый импорт backend).
+
+---
+
+*Документ собран по сессии доработки схемы Лужников, май 2026. Пилот D230 зафиксирован 17.05.2026.*
