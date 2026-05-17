@@ -3,6 +3,7 @@ import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
   buildSellableGeodesyPlacements,
+  buildSellableGeodesyPlacementsWithSectorGridFallback,
   buildSvgNativePlacements,
   parseLayoutBaseSeatPositions,
   parseLayoutSeatPositions,
@@ -115,10 +116,13 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
   const record = layout as Record<string, unknown>;
   if (record.omitClientSeatCoordinateCloud === true) return [];
 
-  /** Лужники: каждая серая точка = место из tickets.json (layout.seats), не безымянная координата. */
+  /** Лужники: серая чаша = luzhniki.txt (allSeatCoordinates), подписи sellable = tickets.json. */
   if (parseHallBackgroundFromLabeledSeats(layout)) {
+    const cloud = coordinatesFromSeatRows(record.allSeatCoordinates);
+    if (isLuzhnikiStadiumCheckoutLayout(layout) && cloud.length >= 5000) return cloud;
     const labeled = coordinatesFromSeatRows(record.seats ?? record.seatPositions);
     if (labeled.length > 0) return labeled;
+    if (cloud.length > 0) return cloud;
   }
 
   const raw = record.allSeatCoordinates ?? record.backgroundSeats ?? record.coordinates;
@@ -405,6 +409,7 @@ export function TicketHallInteractiveBlock({
   const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
   const sectorMode = useMemo(() => parseSectorMode(layoutJson), [layoutJson]);
   const seatSelectionDisabled = useMemo(() => parseSeatSelectionDisabled(layoutJson), [layoutJson]);
+  const luzhnikiCheckout = useMemo(() => isLuzhnikiStadiumCheckoutLayout(layoutJson), [layoutJson]);
   const hasLiveOffers = offers.length > 0;
   const grayHallWhenNoOffers = useMemo(
     () => parseGrayHallWhenNoOffers(layoutJson, seatSelectionDisabled, hasLiveOffers),
@@ -472,8 +477,17 @@ export function TicketHallInteractiveBlock({
     }
 
     if (useSellableGeodesyPlacements) {
-      const { placements } = buildSellableGeodesyPlacements(sellableGeodesySeats, offers, getPriceKey);
-      return { nativePlacements: placements };
+      const { placements } = luzhnikiCheckout
+        ? buildSellableGeodesyPlacementsWithSectorGridFallback(
+            sellableGeodesySeats,
+            offers,
+            getPriceKey,
+            sectorMode.sectors,
+            svgViewBox.width,
+            svgViewBox.height,
+          )
+        : buildSellableGeodesyPlacements(sellableGeodesySeats, offers, getPriceKey);
+      return { nativePlacements: placements.placements };
     }
 
     if (sectorMode.enabled) {
@@ -520,6 +534,7 @@ export function TicketHallInteractiveBlock({
     nativeSeats,
     sellableGeodesySeats,
     useSellableGeodesyPlacements,
+    luzhnikiCheckout,
   ]);
 
   const matchedNativeSeatKeys = useMemo(
@@ -549,7 +564,10 @@ export function TicketHallInteractiveBlock({
 
     return sectorMode.sectors.map((meta) => {
       let sectorOffers: HallOfferRow[];
-      if (useGeometryForOffers && meta.path) {
+      const labelOffers = offersBySector.get(normalizeSectorLabel(meta.label)) ?? [];
+      if (luzhnikiCheckout) {
+        sectorOffers = labelOffers;
+      } else if (useGeometryForOffers && meta.path) {
         const inSector = filterPlacementsInSectorPath(
           sellablePlacements,
           meta.path,
@@ -559,7 +577,7 @@ export function TicketHallInteractiveBlock({
         const ids = new Set(inSector.map((p) => p.offerId).filter(Boolean));
         sectorOffers = [...ids].map((id) => offerById.get(id)).filter(Boolean) as HallOfferRow[];
       } else {
-        sectorOffers = offersBySector.get(normalizeSectorLabel(meta.label)) ?? [];
+        sectorOffers = labelOffers;
       }
       const prices = sectorOffers.map((offer) => Number(getPriceKey(offer))).filter(Number.isFinite);
       const seatCount = sectorOffers.reduce(
@@ -574,7 +592,16 @@ export function TicketHallInteractiveBlock({
         maxPrice: prices.length > 0 ? Math.max(...prices) : null,
       };
     });
-  }, [getPriceKey, nativePlacements, offers, sectorMode.enabled, sectorMode.sectors, svgViewBox.height, svgViewBox.width]);
+  }, [
+    getPriceKey,
+    luzhnikiCheckout,
+    nativePlacements,
+    offers,
+    sectorMode.enabled,
+    sectorMode.sectors,
+    svgViewBox.height,
+    svgViewBox.width,
+  ]);
 
   const sectorSummaryByLabel = useMemo(() => {
     const map = new Map<string, SectorSummary>();
@@ -945,9 +972,10 @@ export function TicketHallInteractiveBlock({
     const vp = viewportRef.current;
     const base = getLayerBase();
     if (!vp || !base) return;
-    const panelOffset = vp.clientWidth >= 760 ? Math.min(390, vp.clientWidth * 0.38) : 0;
+    const mobileMap = vp.clientWidth < 600;
+    const panelOffset = mobileMap ? 0 : vp.clientWidth >= 760 ? Math.min(390, vp.clientWidth * 0.38) : 0;
     const targetScreenX = panelOffset + (vp.clientWidth - panelOffset) / 2;
-    const targetScreenY = vp.clientHeight / 2;
+    const targetScreenY = mobileMap && sectorLabel ? vp.clientHeight * 0.36 : vp.clientHeight / 2;
     if (sectorLabel) setSelectedSector(normalizeSectorLabel(sectorLabel));
     applyCamera(targetZoom, {
       x: targetScreenX - base.x - layerX * targetZoom,
@@ -1079,15 +1107,23 @@ export function TicketHallInteractiveBlock({
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
     /** Лужники / portalbilet-стиль: на обзоре все sellable; при выборе зоны — фильтр по bbox полигона. */
     if (!sectorMode.enabled || !selectedSectorSummary) return interactive;
+    const byLabel = interactive.filter((p) => normalizeSectorLabel(p.sectorLabel) === selectedSector);
     const path = selectedSectorSummary.meta.path;
     if (path && svgViewBox.width > 0 && svgViewBox.height > 0) {
-      return filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
+      const byBbox = filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
+      if (luzhnikiCheckout) {
+        const merged = new Map<string, SvgNativePlacement>();
+        for (const p of [...byLabel, ...byBbox]) merged.set(p.key, p);
+        return [...merged.values()];
+      }
+      return byBbox;
     }
-    return interactive.filter((p) => normalizeSectorLabel(p.sectorLabel) === selectedSector);
+    return byLabel;
   }, [
     nativePlacements,
     sectorMode.enabled,
     selectedSector,
+    luzhnikiCheckout,
     selectedSectorSummary,
     svgViewBox.height,
     svgViewBox.width,

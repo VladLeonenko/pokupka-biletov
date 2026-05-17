@@ -82,7 +82,7 @@ async function main() {
   const notesExtra = optionalEnv('STAGE_MAP_NOTES');
   const externalPlanUrl =
     optionalEnv('STAGE_MAP_EXTERNAL_PLAN_URL') || 'https://tickets-luzhniki.ru/';
-  const minSeats = Number(optionalEnv('LUZHNIKI_GEODESY_MIN_SEATS')) || 80000;
+  const minSeats = Number(optionalEnv('LUZHNIKI_GEODESY_MIN_SEATS')) || 4000;
 
   const bundlePath = optionalEnv('LUZHNIKI_GEODESY_BUNDLE_JSON');
   const ticketsPath = optionalEnv('LUZHNIKI_PBILET_TICKETS_JSON');

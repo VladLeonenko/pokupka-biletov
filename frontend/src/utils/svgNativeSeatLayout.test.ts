@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSellableGeodesyPlacements,
+  buildSellableGeodesyPlacementsWithSectorGridFallback,
   buildSvgNativePlacements,
   extractSectorCode,
   matchSvgSeatToOffer,
@@ -140,5 +141,25 @@ describe('svgNativeSeatLayout', () => {
       unmatchedSvgCount: 1,
       unmatchedOfferSeats: 0,
     });
+  });
+
+  it('grid fallback places unmatched offer inside sector bbox', () => {
+    const path = 'M10,10 L90,10 L90,40 L10,40 Z';
+    const result = buildSellableGeodesyPlacementsWithSectorGridFallback(
+      [],
+      [{ Id: 'o1', Sector: 'сектор a1', Row: '5', SeatList: ['3', '4'], AgentPrice: '5000' }],
+      (o) => String(o.AgentPrice ?? ''),
+      [{ label: 'Сектор A 1', path }],
+      100,
+      100,
+    );
+    expect(result.placements).toHaveLength(2);
+    expect(result.gridFallbackCount).toBe(2);
+    for (const p of result.placements) {
+      expect(p.xPct).toBeGreaterThan(10);
+      expect(p.xPct).toBeLessThan(90);
+      expect(p.yPct).toBeGreaterThan(10);
+      expect(p.yPct).toBeLessThan(40);
+    }
   });
 });

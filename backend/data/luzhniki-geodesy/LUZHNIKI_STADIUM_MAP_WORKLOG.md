@@ -1,5 +1,7 @@
 # Лужники — интерактивная схема зала (worklog)
 
+**Продажа через схему (без 81k pbilet):** см. [LUZHNIKI_MAP_SELL_VIA_SCHEME.md](./LUZHNIKI_MAP_SELL_VIA_SCHEME.md)
+
 Страница: [Суперфинал Кубка России — Спартак / Краснодар](https://biletvsem.com/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar)  
 Эталон UX: [portalbilet — финал Кубка России](https://portalbilet.ru/msk/final-kubka-rossii-po-futbolu)
 
@@ -170,14 +172,29 @@ git push origin main
 ssh root@91.229.9.229 "cd /var/www/pokupka-biletov && ./scripts/deploy-via-git.sh main"
 ```
 
-**Данные (если обновляете tickets.json / полную геодезию):**
+**Порог сида:** по умолчанию `LUZHNIKI_GEODESY_MIN_SEATS=4000` (частичный `tickets.json` ~6k мест). Для полного стадиона ~81k: `LUZHNIKI_GEODESY_MIN_SEATS=80000`.
+
+**Данные (геодезия на VPS):**
+
+Путь на сервере часто `/var/pokupka-biletov`, не `/var/www/...`.  
+`../tickets.json` из `backend/` **не работает** — скрипт резолвит от корня репо и ищет `/var/tickets.json`.
 
 ```bash
-cd /var/www/pokupka-biletov/backend
-LUZHNIKI_PBILET_TICKETS_JSON=/path/to/tickets.json \
-LUZHNIKI_PBILET_COORDINATES_JSON=/path/to/luzhniki.txt \
+# локально — скопировать файлы на сервер
+scp tickets.json luzhniki.txt root@YOUR_SERVER:/var/pokupka-biletov/
+
+# на сервере
+cd /var/pokupka-biletov/backend
+LUZHNIKI_PBILET_TICKETS_JSON=/var/pokupka-biletov/tickets.json \
+LUZHNIKI_PBILET_COORDINATES_JSON=/var/pokupka-biletov/luzhniki.txt \
 npm run seed:luzhniki-football-map
 ```
+
+Без `../` — относительно корня репо: `LUZHNIKI_PBILET_TICKETS_JSON=tickets.json` (если cwd = корень проекта).
+
+**CORS на проде:** в `backend/.env` добавить  
+`CORS_ORIGIN=https://biletvsem.com,https://www.biletvsem.com,http://localhost:5173`  
+и `pm2 restart all`. Ошибки в Safari при открытии с **localhost** на прод-API — это ожидаемо; открывайте сайт с `https://biletvsem.com`.
 
 После сида в `layout_json` окажутся актуальные `seats` (все места из файла) и при необходимости `allSeatCoordinates`.
 

@@ -955,15 +955,51 @@
   }
 
   .sectorPanel {
-    display: none;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(44svh, 360px);
+    border-radius: 16px 16px 0 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 32px rgba(15, 23, 42, 0.22);
   }
 
   .sectorPanelRestore {
-    display: none;
+    left: 50%;
+    top: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
   }
 
   .sectorOfferList {
-    max-height: min(28vh, 260px);
+    max-height: min(32svh, 240px);
+  }
+
+  .sectorSeatButton {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 0.9rem;
+  }
+
+  .seatDotOverview {
+    width: 0.16%;
+    min-width: 7px;
+    min-height: 7px;
+  }
+
+  .seatDotStadium.seatDotSectorFocus,
+  .seatDotStadium.seatDotSellable.seatDotSectorFocus {
+    width: 0.56%;
+    min-width: 14px;
+    min-height: 14px;
+  }
+
+  .seatDotUniformCanvas::before,
+  .seatDotCanvasHit::before {
+    inset: -8px;
   }
 
 }

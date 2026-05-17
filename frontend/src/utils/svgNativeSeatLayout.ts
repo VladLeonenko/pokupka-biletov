@@ -1,4 +1,5 @@
-import { strictSeatKey } from '@/utils/ticketHallSectorNormalize';
+import { normalizeSectorLabel, strictSeatKey } from '@/utils/ticketHallSectorNormalize';
+import { parseHallSectorPathBBox } from '@/utils/ticketHallMapInteraction';
 
 export type OfferLike = {
   Id?: string;
@@ -581,6 +582,148 @@ export function buildSellableGeodesyPlacements(
       totalSvgSeats: coordByKey.size,
       matchedSeats: out.length,
       unmatchedSvgCount: Math.max(0, coordByKey.size - out.length),
+      unmatchedOfferSeats: Math.max(0, countOfferSeats(offers) - placedOfferKeys.size),
+    },
+  };
+}
+
+export type SectorPathForGrid = { label: string; path: string };
+
+function parseRowNum(row: string): number | null {
+  const n = Number.parseInt(String(row ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseSeatNum(seat: string): number | null {
+  const n = Number.parseInt(String(seat ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Офферы без hit в sellableSeats — сетка внутри bbox сектора (все места на карте, не в боковом списке).
+ */
+export function buildSellableGeodesyPlacementsWithSectorGridFallback(
+  sellableSeats: SvgNativeSeat[],
+  offers: OfferLike[],
+  getPriceKey: (o: OfferLike) => string,
+  sectors: SectorPathForGrid[],
+  viewBoxWidth: number,
+  viewBoxHeight: number,
+): {
+  placements: SvgNativePlacement[];
+  unmatchedSvgCount: number;
+  diagnostics: HallLayoutDiagnostics;
+  gridFallbackCount: number;
+} {
+  const base = buildSellableGeodesyPlacements(sellableSeats, offers, getPriceKey);
+  const placedOfferKeys = new Set(
+    base.placements.map((p) => offerPlacementKey(p.offerId, p.rowLabel, p.seat)),
+  );
+
+  const sectorByNorm = new Map<string, SectorPathForGrid>();
+  for (const s of sectors) {
+    const norm = normalizeSectorLabel(s.label);
+    if (norm && s.path) sectorByNorm.set(norm, s);
+  }
+
+  const w = Math.max(1, viewBoxWidth);
+  const h = Math.max(1, viewBoxHeight);
+  const extra: SvgNativePlacement[] = [];
+  let gridFallbackCount = 0;
+
+  /** sectorNorm → rowNum → seats[] */
+  const pending = new Map<string, Map<number, { offer: OfferLike; seat: string }[]>>();
+
+  for (const offer of offers) {
+    const oid = String(offer.Id ?? '').trim();
+    if (!oid) continue;
+    const sectorNorm = normalizeSectorLabel(offer.Sector);
+    const rowNum = parseRowNum(String(offer.Row ?? ''));
+    if (!sectorNorm || rowNum == null) continue;
+    const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    for (const seat of list) {
+      if (!seat.trim()) continue;
+      const pk = offerPlacementKey(oid, String(offer.Row ?? ''), seat);
+      if (placedOfferKeys.has(pk)) continue;
+      const byRow = pending.get(sectorNorm) ?? new Map();
+      const arr = byRow.get(rowNum) ?? [];
+      arr.push({ offer, seat });
+      byRow.set(rowNum, arr);
+      pending.set(sectorNorm, byRow);
+    }
+  }
+
+  for (const [sectorNorm, rowsMap] of pending) {
+    const meta = sectorByNorm.get(sectorNorm);
+    if (!meta?.path) continue;
+    const bbox = parseHallSectorPathBBox(meta.path);
+    if (!bbox) continue;
+
+    const padX = Math.max(2, (bbox.maxX - bbox.minX) * 0.06);
+    const padY = Math.max(2, (bbox.maxY - bbox.minY) * 0.06);
+    const innerMinX = bbox.minX + padX;
+    const innerMaxX = bbox.maxX - padX;
+    const innerMinY = bbox.minY + padY;
+    const innerMaxY = bbox.maxY - padY;
+    if (innerMaxX <= innerMinX || innerMaxY <= innerMinY) continue;
+
+    const minXPct = (innerMinX / w) * 100;
+    const maxXPct = (innerMaxX / w) * 100;
+    const minYPct = (innerMinY / h) * 100;
+    const maxYPct = (innerMaxY / h) * 100;
+
+    const rowNums = [...rowsMap.keys()].sort((a, b) => a - b);
+    const rowCount = rowNums.length;
+    if (rowCount < 1) continue;
+
+    for (let ri = 0; ri < rowNums.length; ri++) {
+      const rowNum = rowNums[ri];
+      const entries = rowsMap.get(rowNum) ?? [];
+      entries.sort((a, b) => {
+        const na = parseSeatNum(a.seat) ?? 0;
+        const nb = parseSeatNum(b.seat) ?? 0;
+        return na - nb || String(a.seat).localeCompare(String(b.seat), 'ru', { numeric: true });
+      });
+      const seatCount = entries.length;
+      const yPct = minYPct + ((ri + 0.5) / rowCount) * (maxYPct - minYPct);
+
+      for (let si = 0; si < entries.length; si++) {
+        const { offer, seat } = entries[si];
+        const oid = String(offer.Id ?? '');
+        const xPct = minXPct + ((si + 0.5) / Math.max(1, seatCount)) * (maxXPct - minXPct);
+        const rowLabel = String(offer.Row ?? '');
+        const sectorLabel = String(offer.Sector ?? meta.label);
+        const pk = offerPlacementKey(oid, rowLabel, seat);
+        if (placedOfferKeys.has(pk)) continue;
+        placedOfferKeys.add(pk);
+        gridFallbackCount += 1;
+        const svgKey = seatMapKey(sectorLabel, rowLabel, seat);
+        const available = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+        extra.push({
+          key: `${oid}-${seat}-${xPct.toFixed(3)}-${yPct.toFixed(3)}-grid`,
+          svgKey,
+          offerId: oid,
+          sectorLabel,
+          seat,
+          rowLabel,
+          available,
+          xPct,
+          yPct,
+          title: `${sectorLabel} · ряд ${rowLabel} · место ${seat} · ${getPriceKey(offer)} ₽`,
+          priceKey: getPriceKey(offer),
+        });
+      }
+    }
+  }
+
+  const placements = [...base.placements, ...extra];
+  return {
+    placements,
+    unmatchedSvgCount: base.unmatchedSvgCount,
+    gridFallbackCount,
+    diagnostics: {
+      ...base.diagnostics,
+      matchedSeats: placements.length,
       unmatchedOfferSeats: Math.max(0, countOfferSeats(offers) - placedOfferKeys.size),
     },
   };

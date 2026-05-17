@@ -114,25 +114,25 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
   };
 
   if (Array.isArray(offerRows) && offerRows.length > 0 && baseSeats.length > 0) {
-    const { seats, matched, totalSellable, unmatchedSamples } =
-      buildSellableSeatGeodesyWithDots(
-        baseSeats,
-        allSeatCoordinates,
-        sectorPaths,
-        Number(layout.geodesy?.hallWidth),
-        Number(layout.geodesy?.hallHeight),
-        offerRows,
-      );
-    nextLayout.sellableSeats = seats;
+    const geodesy = buildSellableSeatGeodesyWithDots(
+      baseSeats,
+      allSeatCoordinates,
+      sectorPaths,
+      Number(layout.geodesy?.hallWidth),
+      Number(layout.geodesy?.hallHeight),
+      offerRows,
+    );
+    nextLayout.sellableSeats = geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
-    nextLayout.sellableSeatsLabeledOnly = true;
+    nextLayout.sellableSeatsLabeledOnly = false;
     nextLayout.offerSeatGeodesy = {
-      matched,
-      totalSellable,
-      unmatched: Math.max(0, totalSellable - matched),
-      dotMatched: 0,
-      anchorInterpolated: 0,
-      unmatchedSamples,
+      matched: geodesy.matched,
+      strictMatched: geodesy.strictMatched ?? geodesy.matched,
+      totalSellable: geodesy.totalSellable,
+      unmatched: Math.max(0, geodesy.totalSellable - geodesy.matched),
+      dotMatched: geodesy.dotMatched ?? 0,
+      anchorInterpolated: geodesy.anchorInterpolated ?? 0,
+      unmatchedSamples: geodesy.unmatchedSamples,
       updatedAt: new Date().toISOString(),
     };
   }

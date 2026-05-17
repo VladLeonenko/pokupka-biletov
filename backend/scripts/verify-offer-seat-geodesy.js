@@ -46,6 +46,8 @@ console.log(
         diag.totalSellable > 0
           ? Math.round((diag.matched / diag.totalSellable) * 1000) / 10
           : 0,
+      strictMatched: diag.strictMatched ?? diag.matched,
+      anchorInterpolated: diag.anchorInterpolated ?? 0,
       dotMatched: diag.dotMatched ?? 0,
       unmatchedSamples: diag.unmatchedSamples,
     },

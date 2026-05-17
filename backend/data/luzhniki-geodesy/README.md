@@ -37,6 +37,25 @@ LUZHNIKI_GEODESY_BUNDLE_JSON=data/luzhniki-geodesy/your-bundle.json npm run seed
 LUZHNIKI_GEODESY_MIN_SEATS=81000 LUZHNIKI_GEODESY_BUNDLE_JSON=... npm run seed:luzhniki-football-map
 ```
 
+## Проверка: что отдаёт pbilet (скрипт)
+
+```bash
+cd backend
+
+# coordinates 2564 + аудит локального tickets.json
+PBILET_LAYOUT_ID=2564 npm run fetch:pbilet-luzhniki
+
+# + живой tickets (URL из DevTools → Network целиком):
+PBILET_TICKETS_URL='https://api.pbilet.net/public/v2/tickets?currency_code=RUB&lang=ru&event_source_id=...&event_date_id=...&source_id=2' \
+  PBILET_OUTPUT=../tickets-pbilet-live.json \
+  npm run fetch:pbilet-luzhniki
+
+# подсказка schemeId со страницы SSD-донора:
+SSD_EVENT_PAGE_URL='https://luzhniki-tickets.online/football/cup-of-russia/57057/' npm run fetch:pbilet-luzhniki
+```
+
+Скрипт печатает `geodesySeats` (места с x/y в дереве). Если **≥ 75000** — полный стадион; если **~6k** — тот же частичный снимок, что и `tickets.json` в репо.
+
 ## Вариант B — два снимка pbilet (файлы без коммита в git)
 
 1. Сохранить ответ **`GET …/public/v1/hall-layouts/<id>/coordinates`** → `coordinates.json` (нужны `width`, `height`, `bg`, `categories`).
