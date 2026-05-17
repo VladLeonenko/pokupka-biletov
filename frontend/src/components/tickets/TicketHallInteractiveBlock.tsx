@@ -26,9 +26,16 @@ function stadiumSeatCanvasRadiusPx(
   layerWidth: number,
   svgViewBoxWidth: number,
   active: boolean,
+  mapZoomed: boolean,
 ): number {
   const w = layerWidth * zoom;
-  return active ? 5 : Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
+  let r = active ? 5 : Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
+  /** На обзоре 100% (fit) — sellable в 2× меньше, при zoom-in — полный размер. */
+  if (!mapZoomed) {
+    r *= 0.5;
+    r = active ? Math.max(2.5, r) : Math.max(1.3, r);
+  }
+  return r;
 }
 
 /** DOM-хитбокс в px слоя: после transform(zoom) в viewport = 2*r. */
@@ -37,8 +44,9 @@ function stadiumSeatHitboxLayerPx(
   layerWidth: number,
   svgViewBoxWidth: number,
   active: boolean,
+  mapZoomed: boolean,
 ): number {
-  const r = stadiumSeatCanvasRadiusPx(zoom, layerWidth, svgViewBoxWidth, active);
+  const r = stadiumSeatCanvasRadiusPx(zoom, layerWidth, svgViewBoxWidth, active, mapZoomed);
   return (2 * r) / Math.max(0.001, zoom);
 }
 
@@ -1108,7 +1116,13 @@ export function TicketHallInteractiveBlock({
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-          const r = stadiumSeatCanvasRadiusPx(zoom, base.width, svgViewBox.width, active);
+          const r = stadiumSeatCanvasRadiusPx(
+            zoom,
+            base.width,
+            svgViewBox.width,
+            active,
+            zoom > fitZoom + 0.01,
+          );
           ctx.beginPath();
           ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -1290,7 +1304,13 @@ export function TicketHallInteractiveBlock({
                     const syncCanvasHitbox =
                       sectorMode.enabled && useSvgNative && useCanvasCompositing;
                     const hitboxPx = syncCanvasHitbox
-                      ? stadiumSeatHitboxLayerPx(zoom, stadiumLayerWidth, svgViewBox.width, active)
+                      ? stadiumSeatHitboxLayerPx(
+                          zoom,
+                          stadiumLayerWidth,
+                          svgViewBox.width,
+                          active,
+                          mapZoomed,
+                        )
                       : null;
                     if (p.previewOnly) {
                       return (
