@@ -25,6 +25,7 @@ import {
 /** Не вшивать 80k circle в svg_markup — геодезия через layout_json.seats. */
 const MAX_PILOT_CIRCLES_TO_MERGE_IN_SVG = Number(process.env.LUZHNIKI_MAX_PILOT_CIRCLES_IN_SVG) || 6000;
 import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
+import { resetLuzhnikiSeatIndexCache, LUZHNIKI_PILOT_SEATS_REL_PATH } from '../utils/luzhnikiSeatIndexCache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -136,11 +137,15 @@ async function main() {
     }
   }
   if (fullStadium && pilotSeats?.length > 0) {
-    layoutPatch.seats = pilotSeats;
-    layoutPatch.nativeSeatCount = pilotSeats.length;
-    layoutPatch.layoutSeatsFromGrid = true;
+    layoutPatch.luzhnikiPilotSeatsFile = LUZHNIKI_PILOT_SEATS_REL_PATH;
+    layoutPatch.layoutSeatsCount = pilotSeats.length;
+    layoutPatch.layoutSeatsStoredInFile = true;
     layoutPatch.note =
-      'layout.seats = full pilot (#luzhniki-pilot-seats): tickets strict + fieldGrid + offer enrich';
+      'full pilot seats in sidecar JSON (не в layout_json); sellable через индекс на бэке';
+    delete layoutPatch.seats;
+    delete layoutPatch.nativeSeatCount;
+    delete layoutPatch.layoutSeatsFromGrid;
+    resetLuzhnikiSeatIndexCache();
   }
 
   const r = await ticketPool.query(

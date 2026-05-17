@@ -5,15 +5,17 @@
 
 import ticketPool from '../ticketDb.js';
 import { buildSellableSeatGeodesyLuzhniki } from '../utils/hallSeatGeodesyLuzhnikiGrid.js';
-import { transformLayoutSeatToSvg } from '../utils/luzhnikiSeatWarp.js';
 import {
+  buildSellableSeatGeodesyFromLabeledIndex,
   buildSellableSeatGeodesyFromSvgCircles,
   countSvgNativeSeatCircles,
 } from '../utils/hallSeatGeodesyFromSvgCircles.js';
-import { classifyEventTitle } from './eventTitleHeuristics.js';
+import { resolveCalibratedSeatPosition } from '../utils/luzhnikiSeatWarp.js';
+import { getLuzhnikiLabeledSeatIndex, LUZHNIKI_PILOT_SEATS_REL_PATH } from '../utils/luzhnikiSeatIndexCache.js';
 import { stripLuzhnikiPilotSeatsLayerFromSvg } from '../utils/luzhnikiPilotSeatSvg.js';
+import { classifyEventTitle } from './eventTitleHeuristics.js';
 
-/** Не отдавать клиенту десятки тысяч pilot-circle в svg_markup. */
+/** Не отдавать клиенту layout.seats (80k) — только sellableSeats + облако опционально. */
 const LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS = Number(process.env.LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) || 8000;
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY =
@@ -90,10 +92,23 @@ function parseLayoutJson(row) {
   return layout && typeof layout === 'object' ? layout : {};
 }
 
+function calibrateSellableList(seats, enabled) {
+  if (!enabled || !Array.isArray(seats)) return seats;
+  return seats.map((s) => {
+    const hit = resolveCalibratedSeatPosition(s.sector, s.row, s.seat);
+    if (!hit) return s;
+    return {
+      ...s,
+      xPct: hit.xPct,
+      yPct: hit.yPct,
+      geodesySource: s.geodesySource === 'strict' ? 'strict' : 'calibrated',
+    };
+  });
+}
+
 /**
- * Живые офферы GetBilet: координаты только там, где сектор/ряд/место есть в геодезии pbilet.
  * @param {Record<string, unknown> | null | undefined} row
- * @param {unknown[] | null | undefined} [offerRows] ResultData из GetOfferListByRepertoireId
+ * @param {unknown[] | null | undefined} [offerRows]
  */
 export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
   if (!row) return row;
@@ -118,7 +133,6 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     uniformHallSeatAppearance: true,
     omitClientSeatCoordinateCloud: false,
     disableStadiumCanvas: false,
-    /** Серая чаша = allSeatCoordinates (luzhniki.txt ~77k), не grid layout.seats. */
     hallBackgroundFromLabeledSeats: false,
   };
 
@@ -139,47 +153,63 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       layout.luzhnikiPilotFullStadium === true ||
       Number(layout.luzhnikiPilotCircleCount) >= 8000 ||
       svgCircleCount >= 8000;
-    const useLayoutAsPilotCircles =
-      pilotSvgLayer &&
-      fullPilotStadium &&
-      baseSeats.length >= minSvgCircles &&
-      layout.luzhnikiPilotUseLayoutSeatsForLookup !== false;
-    const geodesy =
-      svgCircleCount >= minSvgCircles
-        ? buildSellableSeatGeodesyFromSvgCircles(
-            svgMarkup,
-            baseSeats,
-            offerRows,
-            hallWidth,
-            hallHeight,
-            {
-              svgOnlyMatched: pilotSvgLayer,
-              layoutHintsOnly: !useLayoutAsPilotCircles,
-              labeledSeatsAsCircles: useLayoutAsPilotCircles ? baseSeats : null,
-            },
-          )
-        : buildSellableSeatGeodesyLuzhniki({
-            layoutSeats: baseSeats,
-            allSeatCoordinates,
-            sectorPaths,
-            hallWidth,
-            hallHeight,
-            offers: offerRows,
-            svgMarkup,
-          });
 
     const calibrateSellable = process.env.LUZHNIKI_SKIP_SEAT_CALIBRATION !== '1';
+
+    let geodesy;
+    if (fullPilotStadium && pilotSvgLayer) {
+      const { index, seatCount } = getLuzhnikiLabeledSeatIndex(
+        layout,
+        String(row.updated_at ?? layout.luzhnikiPilotMergedAt ?? ''),
+      );
+      if (index.size >= minSvgCircles) {
+        geodesy = buildSellableSeatGeodesyFromLabeledIndex(index, offerRows, {
+          geodesySource: 'svgCircle',
+          svgOnlyMatched: true,
+        });
+        geodesy.layoutSeatCount = seatCount;
+      } else {
+        geodesy = buildSellableSeatGeodesyLuzhniki({
+          layoutSeats: baseSeats,
+          allSeatCoordinates,
+          sectorPaths,
+          hallWidth,
+          hallHeight,
+          offers: offerRows,
+          svgMarkup,
+        });
+      }
+    } else if (svgCircleCount >= minSvgCircles) {
+      geodesy = buildSellableSeatGeodesyFromSvgCircles(
+        svgMarkup,
+        baseSeats,
+        offerRows,
+        hallWidth,
+        hallHeight,
+        { svgOnlyMatched: pilotSvgLayer, layoutHintsOnly: true },
+      );
+    } else {
+      geodesy = buildSellableSeatGeodesyLuzhniki({
+        layoutSeats: baseSeats,
+        allSeatCoordinates,
+        sectorPaths,
+        hallWidth,
+        hallHeight,
+        offers: offerRows,
+        svgMarkup,
+      });
+    }
+
     nextLayout.sellableSeats = calibrateSellable
-      ? geodesy.seats.map((s) => transformLayoutSeatToSvg(s))
+      ? calibrateSellableList(geodesy.seats, true)
       : geodesy.seats;
     nextLayout.preferLayoutSeatPositions = true;
     nextLayout.sellableSeatsLabeledOnly = false;
     nextLayout.sellableGeodesyMode = pilotSvgLayer ? 'luzhnikiSvgPilot' : 'luzhnikiGrid';
-    /** Фронт: не дополнять sellable из layout.seats (fieldGrid ломает ряды). */
-    nextLayout.luzhnikiPilotGeodesyActive = pilotSvgLayer && svgCircleCount >= minSvgCircles;
+    nextLayout.luzhnikiPilotGeodesyActive = pilotSvgLayer && (geodesy.svgCircleCount ?? 0) >= minSvgCircles;
     nextLayout.luzhnikiSeatCalibrationActive = calibrateSellable;
     nextLayout.luzhnikiPilotFullStadium = fullPilotStadium;
-    nextLayout.luzhnikiPilotCircleCount = svgCircleCount;
+    nextLayout.luzhnikiPilotCircleCount = geodesy.svgCircleCount ?? svgCircleCount;
     nextLayout.omitLayoutSeatSellableFallback = nextLayout.luzhnikiPilotGeodesyActive === true;
     nextLayout.offerSeatGeodesy = {
       matched: geodesy.matched,
@@ -207,7 +237,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
 }
 
 /**
- * Облегчённый ответ GET /stage/.../map для браузера: без 80k pilot-circle в SVG и без layout.seats.
+ * Облегчённый ответ GET /stage/.../map: без 80k seats, без 77k облака (серая чаша = SVG).
  * @param {Record<string, unknown>} row
  */
 export function slimLuzhnikiStageMapForClient(row) {
@@ -229,12 +259,24 @@ export function slimLuzhnikiStageMapForClient(row) {
 
   const seats = Array.isArray(layout.seats) ? layout.seats : [];
   const nextLayout = { ...layout };
+
   if (seats.length > LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) {
     delete nextLayout.seats;
     delete nextLayout.nativeSeatCount;
     delete nextLayout.layoutSeatsFromGrid;
     nextLayout.layoutSeatsOmittedForClient = true;
     nextLayout.layoutSeatsCount = seats.length;
+    nextLayout.luzhnikiPilotSeatsFile = layout.luzhnikiPilotSeatsFile || LUZHNIKI_PILOT_SEATS_REL_PATH;
+  }
+
+  if (process.env.LUZHNIKI_OMIT_CLIENT_SEAT_CLOUD !== '0') {
+    const cloud = Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [];
+    if (cloud.length > 15000) {
+      delete nextLayout.allSeatCoordinates;
+      nextLayout.omitClientSeatCoordinateCloud = true;
+      nextLayout.allSeatCoordinatesCount = cloud.length;
+      nextLayout.hallBackgroundFromLabeledSeats = false;
+    }
   }
 
   return {

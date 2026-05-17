@@ -8,6 +8,7 @@ import {
   buildLabeledSeatIndex,
   buildSellableSeatGeodesy,
   labeledSeatLookupKeys,
+  lookupLabeledSeat,
 } from './hallSeatGeodesyMatch.js';
 import { strictSeatKey } from './ticketHallSectorNormalize.js';
 
@@ -218,5 +219,63 @@ export function buildSellableSeatGeodesyFromSvgCircles(
     matched: seats.length,
     svgCircleCount: fromSvg.length,
     svgCircleMatched: seats.filter((s) => s.geodesySource === 'svgCircle').length,
+  };
+}
+
+/**
+ * Только офферы × индекс мест (O(sellable)), без материализации 80k массива.
+ * @param {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }>} labeledIndex
+ */
+export function buildSellableSeatGeodesyFromLabeledIndex(labeledIndex, offers, options = {}) {
+  const { geodesySource = 'svgCircle', svgOnlyMatched = true } = options;
+  const seen = new Set();
+  const seats = [];
+  let matched = 0;
+  let totalSellable = 0;
+  const unmatchedSamples = [];
+
+  for (const offer of offers) {
+    const sector = String(offer.Sector ?? '');
+    const row = String(offer.Row ?? '');
+    const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    for (const seat of list) {
+      if (!seat.trim()) continue;
+      totalSellable += 1;
+      const hit = lookupLabeledSeat(labeledIndex, sector, row, seat);
+      if (!hit) {
+        if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
+        continue;
+      }
+      const dedupe = strictSeatKey(sector, row, seat);
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      matched += 1;
+      seats.push({
+        sector: String(offer.Sector ?? hit.sector),
+        row: String(offer.Row ?? hit.row),
+        seat,
+        xPct: hit.xPct,
+        yPct: hit.yPct,
+        geodesySource,
+      });
+    }
+  }
+
+  const out = svgOnlyMatched ? seats : seats;
+  return {
+    seats: out,
+    matched,
+    totalSellable,
+    strictMatched: 0,
+    svgCircleCount: labeledIndex.size,
+    svgCircleMatched: matched,
+    sectorGridMatched: 0,
+    layoutSeatCount: labeledIndex.size,
+    dotMatched: 0,
+    cloudMatched: 0,
+    svgRowMatched: 0,
+    cloudSnapMatched: 0,
+    anchorInterpolated: 0,
+    unmatchedSamples,
   };
 }
