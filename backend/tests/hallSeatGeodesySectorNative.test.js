@@ -40,7 +40,7 @@ test('seat index is left-to-right from field (A101 row 11)', async () => {
   assert.ok(s7.xPct > s6.xPct || s7.yPct !== s6.yPct);
 });
 
-test('row 11 farther from field than row 1 for A101', async () => {
+test('A101 row 11 Y follows pbilet SVG labels not row 32 band', async () => {
   const t = JSON.parse(fs.readFileSync(path.join(repoRoot, 'tickets.json'), 'utf8'));
   const l = JSON.parse(fs.readFileSync(path.join(repoRoot, 'luzhniki.txt'), 'utf8'));
   const sec = t.sectors.find((s) => s.i === 'Сектор A 101');
@@ -49,6 +49,14 @@ test('row 11 farther from field than row 1 for A101', async () => {
 
   const coords = JSON.parse(fs.readFileSync(coordsPath, 'utf8'));
   const svg = await (await fetch(coords.bg)).text();
+  const labels = parseSvgHallRowLabels(svg, 11413, 9676);
+  const { buildSectorRowYPctCalibration, interpolateSvgRowYPct } = await import(
+    '../utils/hallSeatGeodesyFromSvgRows.js'
+  );
+  const cal = buildSectorRowYPctCalibration(sec.o, labels, null, 11413, 9676);
+  const y11 = interpolateSvgRowYPct(11, cal);
+  const y32 = interpolateSvgRowYPct(32, cal);
+
   const cloud = extractPbiletCoordinatesSeatDots(l, 11413, 9676);
   const offers = [
     { Sector: 'сектор a101', Row: '11', SeatList: ['6'] },
@@ -65,9 +73,13 @@ test('row 11 farther from field than row 1 for A101', async () => {
   );
   const r11 = g.seats.find((s) => s.row === '11' && s.seat === '6');
   const r1 = g.seats.find((s) => s.row === '1' && s.seat === '1');
-  assert.ok(r11 && r1);
-  assert.ok(r11.yPct > r1.yPct && r11.yPct < 84, `row1 y=${r1.yPct} row11 y=${r11.yPct}`);
-  assert.ok(r11.yPct < 82, 'row 11 not in bottom bands');
+  assert.ok(r11 && r1 && y11 != null && y32 != null);
+  assert.ok(Math.abs(r11.yPct - y11) < 1.2, `row11 y=${r11.yPct} svg11=${y11}`);
+  assert.ok(
+    Math.abs(r11.yPct - y32) > Math.abs(r11.yPct - y11),
+    `row11 must be nearer label 11 than 32`,
+  );
+  assert.ok(Math.abs(r11.yPct - r1.yPct) > 1.5);
 });
 
 test('D121 corner sector: seat 1 is leftmost dot in row (low x)', () => {

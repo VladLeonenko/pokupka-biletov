@@ -116,16 +116,93 @@ function pickAisle(aisles, rowNum, hintXAbs) {
   return best;
 }
 
+/** Калибровка «номер ряда → Y%» по <tspan> на подложке pbilet внутри сектора. */
+export function buildSectorRowYPctCalibration(
+  sectorPath,
+  allLabels,
+  hintXAbs,
+  hallWidth,
+  hallHeight,
+) {
+  const aisles = buildSectorSvgRowAisles(sectorPath, allLabels, hallWidth, hallHeight);
+  if (!aisles.length) return [];
+  let aisle =
+    hintXAbs != null && Number.isFinite(hintXAbs)
+      ? pickAisle(aisles, 1, hintXAbs)
+      : null;
+  if (!aisle) {
+    aisle = aisles.reduce(
+      (best, a) => ((a.rowY?.size ?? 0) > (best?.rowY?.size ?? 0) ? a : best),
+      aisles[0],
+    );
+  }
+  if (!aisle?.rowY?.size) return [];
+  const rows = [...aisle.rowY.entries()].map(([row, yPct]) => ({
+    row: Number(row),
+    yPct: Number(yPct),
+  }));
+  rows.sort((a, b) => a.row - b.row);
+  return rows.filter((r) => r.row >= 1 && Number.isFinite(r.yPct));
+}
+
+/** Линейная интерполяция Y% ряда между подписями на схеме. */
+export function interpolateSvgRowYPct(rowNum, calibration) {
+  if (!calibration?.length || rowNum == null) return null;
+  const exact = calibration.find((c) => c.row === rowNum);
+  if (exact) return exact.yPct;
+  if (calibration.length === 1) return calibration[0].yPct;
+  if (rowNum <= calibration[0].row) return calibration[0].yPct;
+  const last = calibration[calibration.length - 1];
+  if (rowNum >= last.row) return last.yPct;
+  for (let i = 0; i < calibration.length - 1; i += 1) {
+    const lo = calibration[i];
+    const hi = calibration[i + 1];
+    if (rowNum >= lo.row && rowNum <= hi.row) {
+      const t = (rowNum - lo.row) / Math.max(1, hi.row - lo.row);
+      return lo.yPct + t * (hi.yPct - lo.yPct);
+    }
+  }
+  return null;
+}
+
+/** Индекс полосы точек с Y, ближайшим к подписи ряда на SVG. */
+export function findBandIndexNearestY(bands, targetYPct) {
+  if (!bands?.length || targetYPct == null) return 0;
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < bands.length; i += 1) {
+    const d = Math.abs(bands[i].yPct - targetYPct);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
 export function resolveRowYPctFromSvgLabels(
   rowNum,
   sectorPath,
   allLabels,
   hallWidth,
   hallHeight,
-  _hintXPct = 50,
+  hintXPct = 50,
   fieldCenterPct = { xPct: 50, yPct: 50 },
   sectorDots = [],
 ) {
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const hintXAbs = (Number(hintXPct) / 100) * w;
+  const calibration = buildSectorRowYPctCalibration(
+    sectorPath,
+    allLabels,
+    hintXAbs,
+    hallWidth,
+    hallHeight,
+  );
+  if (calibration.length >= 2) {
+    const y = interpolateSvgRowYPct(rowNum, calibration);
+    if (y != null) return y;
+  }
   if (!sectorDots?.length) return null;
   return resolveRowYPctSectorNative(
     rowNum,

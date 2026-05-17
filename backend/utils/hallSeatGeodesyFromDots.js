@@ -11,6 +11,11 @@ import {
   seatLeftAxisFromSector,
 } from './hallSeatGeodesySectorNative.js';
 import {
+  buildSectorRowYPctCalibration,
+  findBandIndexNearestY,
+  interpolateSvgRowYPct,
+} from './hallSeatGeodesyFromSvgRows.js';
+import {
   normalizeRowLabel,
   normalizeSectorLabel,
   strictSeatKey,
@@ -416,16 +421,22 @@ export function resolveOfferSeatFromCalibratedCloud(
   orientation,
   layoutAnchors = [],
   seatAlongAxis = null,
+  svgRowPick = null,
 ) {
   const bands = clusterDotsByRow(sectorDots);
   if (bands.length < 2 || !rowRange) return null;
 
-  const fullRowRange = inferCloudSectorRowRange(rowRange, bands.length, layoutAnchors);
-  const span = Math.max(1, fullRowRange.max - fullRowRange.min);
-  const t = (rowNum - fullRowRange.min) / span;
-  let idx = Math.round(t * (bands.length - 1));
-  if (orientation?.rowYPctIncreases === -1) {
-    idx = bands.length - 1 - idx;
+  let idx;
+  if (svgRowPick?.targetYPct != null) {
+    idx = findBandIndexNearestY(bands, svgRowPick.targetYPct);
+  } else {
+    const fullRowRange = inferCloudSectorRowRange(rowRange, bands.length, layoutAnchors);
+    const span = Math.max(1, fullRowRange.max - fullRowRange.min);
+    const t = (rowNum - fullRowRange.min) / span;
+    idx = Math.round(t * (bands.length - 1));
+    if (orientation?.rowYPctIncreases === -1) {
+      idx = bands.length - 1 - idx;
+    }
   }
   const band = bands[Math.min(Math.max(idx, 0), bands.length - 1)];
 
@@ -736,6 +747,20 @@ export function buildSellableSeatGeodesyWithDots(
         sectorPath && fieldCenterPct
           ? seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight)
           : null;
+      let svgRowPick = null;
+      if (sectorPath && svgRowLabels.length > 0) {
+        const b = pathBBox(sectorPath);
+        const hintXAbs = b ? (b.minX + b.maxX) / 2 : hallWidth / 2;
+        const cal = buildSectorRowYPctCalibration(
+          sectorPath,
+          svgRowLabels,
+          hintXAbs,
+          hallWidth,
+          hallHeight,
+        );
+        const targetYPct = interpolateSvgRowYPct(rowNum, cal);
+        if (targetYPct != null) svgRowPick = { targetYPct };
+      }
 
       if (!resolved && canSectorNative) {
         resolved = resolveOfferSeatSectorNativeLayout(
@@ -761,6 +786,7 @@ export function buildSellableSeatGeodesyWithDots(
           sectorOrientation,
           anchors,
           seatAlongAxis,
+          svgRowPick,
         );
         if (resolved) mode = 'cloud';
       }
