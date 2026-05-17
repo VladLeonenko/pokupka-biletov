@@ -3,7 +3,7 @@
  * Офферы GetBilet могут содержать только доступные места — координаты всего чаша задаём здесь.
  */
 
-import { normalizeSectorLabel } from './ticketHallSectorNormalize.js';
+import { luzhnikiSectorLookupNorms, normalizeSectorLabel } from './ticketHallSectorNormalize.js';
 
 function normalizeText(value) {
   return String(value ?? '')
@@ -82,6 +82,41 @@ export function extractPbiletTicketsSeatGeodesy(ticketsPayload, width, height) {
   return out;
 }
 
+/**
+ * Якоря рядов из layout.seats (система координат pbilet) для interpolatePbiletSeatGeodesy.
+ */
+export function collectLayoutSectorPbiletSeats(layoutIndex, lookupNorms, canonicalLabel = '') {
+  const norms = new Set((lookupNorms || []).map((n) => normalizeSectorLabel(n)).filter(Boolean));
+  const out = [];
+  const seen = new Set();
+  for (const s of layoutIndex.values()) {
+    if (!norms.has(normalizeSectorLabel(s.sector))) continue;
+    const row = normalizeText(s.row);
+    const seat = normalizeText(s.seat);
+    if (!row || !seat) continue;
+    const key = `${row.toLowerCase()}|${seat.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      sector: canonicalLabel || s.sector,
+      row,
+      seat,
+      xPct: s.xPct,
+      yPct: s.yPct,
+    });
+  }
+  return out;
+}
+
+export function countPbiletRowAnchors(seats) {
+  const rows = new Set();
+  for (const s of seats) {
+    const n = parseRowNum(s.row);
+    if (n != null) rows.add(n);
+  }
+  return rows.size;
+}
+
 function parseRowNum(value) {
   const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
   return Number.isFinite(n) ? n : null;
@@ -122,12 +157,12 @@ function lerpSeat(a, b, t, row, seat, sector) {
  * layout.seats (fieldGrid) для Лужников даёт сдвиг рядов — не использовать для офферов.
  */
 export function interpolatePbiletSeatGeodesy(pbiletSeats, sectorLabel, row, seat) {
-  const norm = normalizeSectorLabel(sectorLabel);
+  const lookupNorms = new Set(luzhnikiSectorLookupNorms(sectorLabel));
   const targetRow = parseRowNum(row);
   const seatNum = parseSeatNum(seat);
   if (targetRow == null || seatNum == null) return null;
 
-  const sectorSeats = pbiletSeats.filter((s) => normalizeSectorLabel(s.sector) === norm);
+  const sectorSeats = pbiletSeats.filter((s) => lookupNorms.has(normalizeSectorLabel(s.sector)));
   if (sectorSeats.length < 1) return null;
 
   const exact = seatAtRow(sectorSeats, targetRow, seatNum);

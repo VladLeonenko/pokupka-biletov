@@ -63,6 +63,14 @@ export function normalizeSectorLabel(value) {
   return stripped.replace(/\s+/g, '');
 }
 
+/** GetBilet «vip c138» → tickets/layout «Сектор C 138» (c138). */
+export function luzhnikiSectorLookupNorms(norm) {
+  const n = normalizeSectorLabel(norm);
+  if (n === 'vipc138') return ['vipc138', 'c138'];
+  if (n === 'c138') return ['c138', 'vipc138'];
+  return [n];
+}
+
 export function normalizeRowLabel(value) {
   const raw = String(value ?? '')
     .replace(/\u00a0/g, ' ')
