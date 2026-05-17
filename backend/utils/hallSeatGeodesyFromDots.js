@@ -410,7 +410,7 @@ export function pickNearestSectorOrientation(targetNorm, orientationIndex) {
   return best;
 }
 
-function buildSectorOfferSeatRangesByRow(offers) {
+export function buildSectorOfferSeatRangesByRow(offers) {
   /** norm → rowNum → { min, max } */
   const bySector = new Map();
   for (const offer of offers) {

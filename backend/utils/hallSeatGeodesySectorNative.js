@@ -376,6 +376,7 @@ export function resolveOfferSeatSectorNativeLayout(
   hallHeight,
   fieldCenterPct,
   sectorRowMax = null,
+  seatRangeInRow = null,
 ) {
   if (!sectorDots?.length || !sectorPath || seatNum == null || seatNum < 1) return null;
 
@@ -394,22 +395,39 @@ export function resolveOfferSeatSectorNativeLayout(
   );
   if (bands.length < 1) return null;
 
-  const maxRow = resolveSectorNativeMaxRow(
-    sectorPath,
-    svgRowLabels,
-    bands.length,
-    sectorRowMax,
-    hallWidth,
-    hallHeight,
-    fieldCenterPct,
-  );
+  const maxRow =
+    sectorRowMax != null && sectorRowMax > 0
+      ? Math.max(sectorRowMax, rowNum, bands.length)
+      : resolveSectorNativeMaxRow(
+          sectorPath,
+          svgRowLabels,
+          bands.length,
+          sectorRowMax,
+          hallWidth,
+          hallHeight,
+          fieldCenterPct,
+        );
   const rowIdx = resolveRowBandIndex(rowNum, bands, maxRow);
   const band = bands[Math.min(Math.max(rowIdx, 0), bands.length - 1)];
   if (!band?.dots?.length) return null;
 
   const axis = seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
   const rowDots = [...band.dots].sort((a, b) => seatSortKey(a, axis) - seatSortKey(b, axis));
-  const pick = rowDots[Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1)];
+  let pick = null;
+  const seatMin = seatRangeInRow?.min;
+  const seatMax = seatRangeInRow?.max;
+  if (
+    seatMin != null &&
+    seatMax != null &&
+    seatMax > seatMin &&
+    rowDots.length > 1
+  ) {
+    const t = (seatNum - seatMin) / (seatMax - seatMin);
+    const idx = Math.round(t * (rowDots.length - 1));
+    pick = rowDots[Math.min(Math.max(idx, 0), rowDots.length - 1)];
+  } else {
+    pick = rowDots[Math.min(Math.max(seatNum - 1, 0), rowDots.length - 1)];
+  }
   return pick ? { xPct: pick.xPct, yPct: pick.yPct } : null;
 }
 

@@ -14,6 +14,7 @@ import { getManualSectorRowAnchors } from './hallSeatGeodesySectorRowAnchors.js'
 import {
   buildSectorDotIndex,
   buildSectorOfferRowRanges,
+  buildSectorOfferSeatRangesByRow,
 } from './hallSeatGeodesyFromDots.js';
 import { parseSvgHallRowLabels } from './hallSeatGeodesyFromSvgRows.js';
 import {
@@ -160,8 +161,16 @@ function buildSectorNativeLookup(layout, ticketsPayload, offers, svgMarkup, w, h
       : [];
   const fieldCenterPct = computeFieldCenterPct(allSeatCoordinates);
   const rowRanges = buildSectorOfferRowRanges(offers);
+  const seatRangesByRow = buildSectorOfferSeatRangesByRow(offers);
 
-  return { sectorPathByNorm, dotsBySector, svgRowLabels, fieldCenterPct, rowRanges };
+  return {
+    sectorPathByNorm,
+    dotsBySector,
+    svgRowLabels,
+    fieldCenterPct,
+    rowRanges,
+    seatRangesByRow,
+  };
 }
 
 function trySectorNative(nativeCtx, norm, row, seat, w, h) {
@@ -172,9 +181,10 @@ function trySectorNative(nativeCtx, norm, row, seat, w, h) {
 
   const sectorDots = nativeCtx.dotsBySector.get(norm);
   const sectorPath = nativeCtx.sectorPathByNorm.get(norm);
-  if (!sectorDots?.length || !sectorPath || nativeCtx.svgRowLabels.length < 50) return null;
+  if (!sectorDots?.length || !sectorPath) return null;
 
   const sectorRowMax = nativeCtx.rowRanges.get(norm)?.max ?? null;
+  const seatRangeInRow = nativeCtx.seatRangesByRow.get(norm)?.get(rowNum) ?? null;
   const pt = resolveOfferSeatSectorNativeLayout(
     rowNum,
     seatNum,
@@ -185,6 +195,7 @@ function trySectorNative(nativeCtx, norm, row, seat, w, h) {
     h,
     nativeCtx.fieldCenterPct,
     sectorRowMax,
+    seatRangeInRow,
   );
   if (!pt) return null;
   return {
@@ -325,14 +336,6 @@ export function buildSellableSeatGeodesyPbiletAccurate(
 
         if (mode === 'tickets') {
           hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, null);
-        } else {
-          hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
-          if (hit) {
-            seen.add(dedupe);
-            fieldGridMatched += 1;
-            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
-            continue;
-          }
         }
 
         if (!hit) {
@@ -345,15 +348,25 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           }
         }
 
+        if (!hit && mode === 'layout-anchors') {
+          hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
+          if (hit) {
+            seen.add(dedupe);
+            fieldGridMatched += 1;
+            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
+            continue;
+          }
+        }
+
         if (!hit && mode === 'sector-anchors') {
           hit = resolvePolarGridSeatFromAnchors(norm, row, seat);
         }
 
         if (!hit && mode === 'layout-anchors') {
           const interpRow = rowShift > 0 ? layoutAnchorLookupRow(norm, row) : row;
-          hit = interpolatePbiletSeatGeodesy(anchors, label, interpRow, seat, fieldGridSnapIndex);
+          hit = interpolatePbiletSeatGeodesy(anchors, label, interpRow, seat, null);
           if (!hit && rowShift > 0) {
-            hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, fieldGridSnapIndex);
+            hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, null);
           }
         }
 
