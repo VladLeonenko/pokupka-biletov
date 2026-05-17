@@ -23,6 +23,7 @@ import { resolveOfferSeatFromAnchors } from './hallSeatGeodesyFromDots.js';
 import { getManualSectorRowAnchors } from './hallSeatGeodesySectorRowAnchors.js';
 import {
   computeFieldCenterPct,
+  labelSectorBandsWithSvgRowNumbers,
   maxRowInSectorFromSvg,
   resolveOfferSeatSectorNativeLayout,
   resolveSectorNativeMaxRow,
@@ -30,6 +31,11 @@ import {
   seatLeftAxisFromSector,
   sortSectorRowBandsFromField,
 } from './hallSeatGeodesySectorNative.js';
+import {
+  buildFieldGridSeatsFromStrictCalibration,
+  buildSectorRowCalibrationFromStrict,
+  groupStrictSeatsBySectorNorm,
+} from './luzhnikiFieldGridRowCalibration.js';
 
 const FIELD_GRID_SOURCE = 'fieldGrid';
 
@@ -49,6 +55,8 @@ export function buildStadiumLayoutSeatsFromDotGrid({
   hallWidth,
   hallHeight,
   minDotsPerSector = 12,
+  /** strict из tickets.json — калибровка рядов fieldGrid (≥2 рядов в секторе). */
+  ticketsSeats = null,
 }) {
   const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
   const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
@@ -58,6 +66,7 @@ export function buildStadiumLayoutSeatsFromDotGrid({
     typeof svgMarkup === 'string' && svgMarkup.includes('<tspan')
       ? parseSvgHallRowLabels(svgMarkup, w, h)
       : [];
+  const strictBySector = groupStrictSeatsBySectorNorm(ticketsSeats);
 
   const out = [];
   const seen = new Set();
@@ -71,6 +80,32 @@ export function buildStadiumLayoutSeatsFromDotGrid({
     const sectorDots = dotsBySector.get(norm);
     if (!sectorDots || sectorDots.length < minDotsPerSector) continue;
 
+    const sectorStrict = strictBySector.get(norm) ?? [];
+    const calibration = buildSectorRowCalibrationFromStrict(
+      sectorStrict,
+      sectorPath,
+      fieldCenterPct,
+      w,
+      h,
+    );
+
+    if (calibration.length >= 2) {
+      out.push(
+        ...buildFieldGridSeatsFromStrictCalibration({
+          sectorLabel,
+          sectorDots,
+          sectorPath,
+          calibration,
+          fieldCenterPct,
+          hallWidth: w,
+          hallHeight: h,
+          seenKeys: seen,
+          strictSeats: sectorStrict,
+        }),
+      );
+      continue;
+    }
+
     const rowHint = Math.max(maxRowInSectorFromSvg(sectorPath, svgRowLabels, w, h), 12);
     const { bands: sortedBands } = sortSectorRowBandsFromField(
       sectorDots,
@@ -79,15 +114,6 @@ export function buildStadiumLayoutSeatsFromDotGrid({
       w,
       h,
       rowHint,
-    );
-    const maxRow = resolveSectorNativeMaxRow(
-      sectorPath,
-      svgRowLabels,
-      sortedBands.length,
-      null,
-      w,
-      h,
-      fieldCenterPct,
     );
     if (sortedBands.length < 1) continue;
     const seatAxis = seatLeftAxisFromSector(sectorPath, fieldCenterPct, w, h);
@@ -117,6 +143,31 @@ export function buildStadiumLayoutSeatsFromDotGrid({
       }
     };
 
+    const labeledBands = labelSectorBandsWithSvgRowNumbers(
+      sortedBands,
+      sectorPath,
+      svgRowLabels,
+      fieldCenterPct,
+      w,
+      h,
+    );
+
+    if (svgRowLabels.length > 0 && labeledBands.some((b) => b.rowNum != null)) {
+      for (const band of labeledBands) {
+        emitBand(band, String(band.rowNum));
+      }
+      continue;
+    }
+
+    const maxRow = resolveSectorNativeMaxRow(
+      sectorPath,
+      svgRowLabels,
+      sortedBands.length,
+      null,
+      w,
+      h,
+      fieldCenterPct,
+    );
     for (let rowNum = 1; rowNum <= maxRow; rowNum += 1) {
       const bi = rowNumToBandIndex(rowNum, maxRow, sortedBands.length);
       emitBand(sortedBands[bi], String(rowNum));

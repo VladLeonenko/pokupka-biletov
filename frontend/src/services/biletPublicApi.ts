@@ -891,6 +891,22 @@ export async function fetchLuzhnikiFootballStadiumPreview(params?: {
   return res.json() as Promise<LuzhnikiFootballStadiumPreviewPayload>;
 }
 
+export type LuzhnikiSeatGridDiagnosticPayload = import('@/utils/luzhnikiFieldGridCompare').LuzhnikiSeatGridDiagnosticPayload;
+
+export async function fetchLuzhnikiSeatGridDiagnostic(sector?: string): Promise<LuzhnikiSeatGridDiagnosticPayload> {
+  const base = getApiBase();
+  const sp = new URLSearchParams();
+  if (sector?.trim()) sp.set('sector', sector.trim());
+  const qs = sp.toString();
+  const url = `${base}/api/bilet/dev/luzhniki-seat-grid-diagnostic${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<LuzhnikiSeatGridDiagnosticPayload>;
+}
+
 /** Флаги: включены ли шаблоны URL в `.env` (сами шаблоны не отдаются). */
 export async function fetchMediaConfig(): Promise<{
   posterTemplateEnabled?: boolean;

@@ -5,6 +5,8 @@
 
 import cheerio from 'cheerio';
 
+import { normalizeSectorLabel } from './ticketHallSectorNormalize.js';
+
 /** Как luzhnikiFootballNativeGenerator: min(W,H) * 0.0029 */
 export const LUZHNIKI_PILOT_SEATS_LAYER_ID = 'luzhniki-pilot-seats';
 export const LUZHNIKI_PILOT_SECTOR_LAYER_ID = 'luzhniki-pilot-sector';
@@ -57,6 +59,14 @@ export function stripLuzhnikiPilotSeatsLayerFromSvg(svgMarkup) {
   return $.xml ? $.xml() : $.html();
 }
 
+/** Стабильный id для DOM (80k кругов пилота). */
+export function luzhnikiPilotSeatCircleId(sector, row, seat) {
+  const norm = normalizeSectorLabel(sector) || 'sector';
+  const rowClean = String(row ?? '').replace(/\D/g, '') || '0';
+  const seatClean = String(seat ?? '').replace(/\D/g, '') || '0';
+  return `lz-${norm}-r${rowClean}-s${seatClean}`;
+}
+
 /** Невидимые круги: не портят подложку и processHallSvgForNative. */
 export function pilotSeatCircleMarkup(sector, row, seat, cx, cy, hallWidth, hallHeight, extraAttrs = '') {
   const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
@@ -64,5 +74,6 @@ export function pilotSeatCircleMarkup(sector, row, seat, cx, cy, hallWidth, hall
   const r = luzhnikiNativeSeatCircleRadius(w, h);
   const cxN = Number(cx);
   const cyN = Number(cy);
-  return `<circle cx="${cxN.toFixed(2)}" cy="${cyN.toFixed(2)}" r="${r.toFixed(2)}" place-name="${escSvgAttr(sector)}" row="${escSvgAttr(row)}" place="${escSvgAttr(seat)}" fill="none" stroke="none" opacity="0" pointer-events="none"${extraAttrs ? ` ${extraAttrs}` : ''}/>`;
+  const id = luzhnikiPilotSeatCircleId(sector, row, seat);
+  return `<circle id="${escSvgAttr(id)}" cx="${cxN.toFixed(2)}" cy="${cyN.toFixed(2)}" r="${r.toFixed(2)}" place-name="${escSvgAttr(sector)}" row="${escSvgAttr(row)}" place="${escSvgAttr(seat)}" fill="none" stroke="none" opacity="0" pointer-events="none"${extraAttrs ? ` ${extraAttrs}` : ''}/>`;
 }

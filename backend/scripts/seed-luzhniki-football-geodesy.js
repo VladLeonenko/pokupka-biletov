@@ -216,6 +216,7 @@ async function main() {
         svgMarkup,
         hallWidth: width,
         hallHeight: height,
+        ticketsSeats,
       });
       console.log(
         `[luzhniki-geodesy] layout seats: tickets strict=${ticketsSeats.length} grid=${gridSeats.length}`,

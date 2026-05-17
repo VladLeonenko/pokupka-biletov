@@ -439,6 +439,10 @@ if (existingDistRoots.length) {
         res.setHeader('Cache-Control', 'public, max-age=3600');
       } else if (filePath.endsWith('favicon.svg')) {
         res.setHeader('Content-Type', 'image/svg+xml');
+      } else if (filePath.includes(`${path.sep}tools${path.sep}`) && filePath.endsWith('.html')) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+        res.setHeader('Cache-Control', 'private, no-store');
       }
     },
   };
