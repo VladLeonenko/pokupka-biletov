@@ -29,6 +29,11 @@ import {
   pilotSeatCircleMarkup,
 } from '../utils/luzhnikiPilotSeatSvg.js';
 import {
+  applyLeftTribuneScale,
+  layoutAnchorLookupRow,
+  sectorAnchorPivot,
+} from '../utils/luzhnikiPilotLayoutCalibrate.js';
+import {
   luzhnikiSectorLookupNorms,
   normalizeSectorLabel,
   strictSeatKey,
@@ -104,21 +109,25 @@ function pushCircle(circles, keys, entry) {
   return true;
 }
 
-function addOfferSeatsFromPbilet({ circles, keys, anchors, label, sectorOffers, stats }) {
+function addOfferSeatsFromPbilet({ circles, keys, anchors, label, norm, anchorMode, sectorOffers, stats }) {
+  const pivot = sectorAnchorPivot(anchors);
   for (const o of sectorOffers) {
     const row = String(o.Row ?? '');
     const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
     for (const seat of list) {
       if (!seat.trim()) continue;
-      const hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat);
+      const lookupRow =
+        anchorMode === 'layout-anchors' ? layoutAnchorLookupRow(norm, row) : row;
+      const hit = interpolatePbiletSeatGeodesy(anchors, label, lookupRow, seat);
       if (!hit) continue;
+      const scaled = applyLeftTribuneScale(norm, hit.xPct, hit.yPct, pivot, anchorMode);
       if (
         pushCircle(circles, keys, {
           sector: label,
           row,
           seat,
-          xPct: hit.xPct,
-          yPct: hit.yPct,
+          xPct: scaled.xPct,
+          yPct: scaled.yPct,
           source: 'live-offer',
         })
       ) {
@@ -188,7 +197,16 @@ async function main() {
       }
     }
 
-    addOfferSeatsFromPbilet({ circles, keys, anchors, label, sectorOffers, stats });
+    addOfferSeatsFromPbilet({
+      circles,
+      keys,
+      anchors,
+      label,
+      norm,
+      anchorMode: mode,
+      sectorOffers,
+      stats,
+    });
 
     const total = stats.fromTickets + stats.fromOffers;
     if (total > 0) {
