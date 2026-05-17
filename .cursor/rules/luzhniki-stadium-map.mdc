@@ -1,0 +1,43 @@
+---
+description: Схема зала «Лужники» (футбол) — визуал, геодезия, имена секторов GetBilet
+globs:
+  - frontend/src/components/tickets/TicketHallInteractiveBlock.*
+  - frontend/src/utils/luzhnikiStadiumMap.ts
+  - frontend/src/utils/ticketHallSectorNormalize.ts
+  - backend/services/luzhnikiFootballStageMap.js
+  - backend/utils/hallSeatGeodesyFromDots.js
+  - backend/data/luzhniki-geodesy/**
+---
+
+# Лужники (luzhniki-football) — чекаут
+
+## Визуал (эталон — portalbilet, был в коммите ~5d746070)
+
+- **Не отключать** `allSeatCoordinates` (~77k) и **canvas** на чекауте.
+- `uniformHallSeatAppearance: true` — вся чаша **мелкими серыми** точками, **без зума** (`bg.length >= 8000` рисуется сразу).
+- `sellableSeats` поверх — **цвет по цене** (`colorForSeat`).
+- **Не** ставить `omitClientSeatCoordinateCloud: true` / `disableStadiumCanvas: true` для живых офферов — это убирает чашу и ломает UX.
+- Слой секторов (`sectorLayer`) остаётся **поверх** canvas (`pointer-events: auto`); canvas — `pointer-events: none`.
+
+## Имена секторов GetBilet ↔ сайт ↔ геодезия
+
+| GetBilet | Наш UI / layout.seats | Ключ `normalizeSectorLabel` |
+|----------|------------------------|-----------------------------|
+| `сектор D230`, `секторD230` | `Сектор D 230`, `d 230` | `d230` |
+| `сектор d227` | `Сектор D 227` | `d227` |
+| `vip c138` | `VIP C 138` | `vipc138` |
+
+- Нормализация: `ticketHallSectorNormalize` (фронт и `backend/utils/ticketHallSectorNormalize.js`).
+- Полигоны схемы (`Категория 1`, `SILVER`) **≠** код трибуны в оффере — фильтр мест при клике по зоне только по **bbox path**, не по строке label.
+- Dot-геодезия: `dotsByTribuneSector` в `hallSeatGeodesyFromDots.js` — точки чаши привязываются к коду трибуны через якоря `layout.seats`.
+
+## Бэкенд
+
+- `adaptLuzhnikiStageMapForLiveOffers` — флаги через `luzhnikiStadiumCheckoutLayoutFlags` / `stadiumMapKey: luzhniki-football`.
+- Полная геодезия: `backend/data/luzhniki-geodesy/README.md`, сид `seed:luzhniki-football-map`.
+
+## Не делать
+
+- Прячь все места до выбора сектора на обзоре стадиона.
+- Крупные DOM/SVG-кружки вместо canvas для 77k+ точек.
+- Сопоставлять оффер только с подписью полигона «Категория N» без геометрии/кода трибуны.

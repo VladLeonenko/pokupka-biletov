@@ -47,13 +47,13 @@ export function normalizeSectorLabel(value) {
   const hasVip = /\bvip\b/i.test(raw);
   const stripped = latinizeSectorHomoglyphs(
     raw
-      .replace(/^сектор\s+/i, '')
+      .replace(/^сектор\s*/i, '')
       .replace(/\bvip\b/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim(),
   );
 
-  const m = stripped.match(/^([a-z])\s*(\d{2,4})\b/);
+  const m = stripped.match(/^([a-z])\s*(\d{2,4})\b/i);
   if (m) {
     const code = `${m[1]}${m[2]}`;
     return hasVip ? `vip${code}` : code;

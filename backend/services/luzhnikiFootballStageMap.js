@@ -100,10 +100,16 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
   /** @type {Record<string, unknown>} */
   const nextLayout = {
     ...layout,
+    stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+    luzhnikiStadiumCheckout: true,
     grayHallWhenNoOffers: false,
     seatSelectionDisabled: false,
     disablePositionalSeatZip: true,
     preferExactOfferSeatMatch: true,
+    /** Полная чаша (~77k) — мелкие серые точки; sellableSeats — цветные поверх (portalbilet-стиль). */
+    uniformHallSeatAppearance: true,
+    omitClientSeatCoordinateCloud: false,
+    disableStadiumCanvas: false,
   };
 
   if (Array.isArray(offerRows) && offerRows.length > 0 && baseSeats.length > 0) {
@@ -118,10 +124,6 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
       );
     nextLayout.sellableSeats = seats;
     nextLayout.preferLayoutSeatPositions = true;
-    /** На чекауте: DOM-SVG (не canvas), без серого облака, цветные sellable после выбора сектора. */
-    nextLayout.omitClientSeatCoordinateCloud = true;
-    nextLayout.disableStadiumCanvas = true;
-    nextLayout.uniformHallSeatAppearance = false;
     nextLayout.offerSeatGeodesy = {
       matched,
       totalSellable,

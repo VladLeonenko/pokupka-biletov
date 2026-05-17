@@ -5,6 +5,9 @@ describe('normalizeSectorLabel', () => {
   it('matches GetBilet and layout spellings for sector codes', () => {
     expect(normalizeSectorLabel('сектор d227')).toBe('d227');
     expect(normalizeSectorLabel('Сектор D 227')).toBe('d227');
+    expect(normalizeSectorLabel('сектор D230')).toBe('d230');
+    expect(normalizeSectorLabel('секторD230')).toBe('d230');
+    expect(normalizeSectorLabel('d 230')).toBe('d230');
     expect(normalizeSectorLabel('vip c138')).toBe('vipc138');
   });
 

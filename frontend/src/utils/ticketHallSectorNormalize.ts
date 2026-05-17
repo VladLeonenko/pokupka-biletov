@@ -47,13 +47,14 @@ export function normalizeSectorLabel(value: unknown): string {
   const hasVip = /\bvip\b/i.test(raw);
   const stripped = latinizeSectorHomoglyphs(
     raw
-      .replace(/^сектор\s+/i, '')
+      .replace(/^сектор\s*/i, '')
       .replace(/\bvip\b/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim(),
   );
 
-  const m = stripped.match(/^([a-z])\s*(\d{2,4})\b/);
+  /** GetBilet D230 / portalbilet «d 230» / layout «Сектор D 230» → d230 */
+  const m = stripped.match(/^([a-z])\s*(\d{2,4})\b/i);
   if (m) {
     const code = `${m[1]}${m[2]}`;
     return hasVip ? `vip${code}` : code;

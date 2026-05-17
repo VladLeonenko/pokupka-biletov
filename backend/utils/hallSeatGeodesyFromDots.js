@@ -285,6 +285,25 @@ export function buildSellableSeatGeodesyWithDots(
     anchorsBySector.set(norm, arr);
   }
 
+  /** GetBilet «сектор D230» / «d 230» ≠ подпись полигона «Категория 2» — точки чаши по якорям layout.seats. */
+  const dotsByTribuneSector = new Map();
+  for (const s of layoutSeats) {
+    const norm = normalizeSectorLabel(s.sector);
+    const xPct = Number(s.xPct);
+    const yPct = Number(s.yPct);
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
+    let bestBox = null;
+    for (const sb of sectorBoxes) {
+      if (!pointInBBox(xPct, yPct, sb.bbox, 0.2)) continue;
+      if (!bestBox || sb.area < bestBox.area) bestBox = sb;
+    }
+    if (!bestBox) continue;
+    const polyDots = dotsBySector.get(bestBox.norm);
+    if (!polyDots?.length) continue;
+    const cur = dotsByTribuneSector.get(norm);
+    if (!cur || cur.length < polyDots.length) dotsByTribuneSector.set(norm, polyDots);
+  }
+
   const extra = [];
   const seen = new Set(strictKeys);
   let dotMatched = 0;
@@ -294,7 +313,7 @@ export function buildSellableSeatGeodesyWithDots(
     const row = String(offer.Row ?? '');
     const norm = normalizeSectorLabel(sector);
     const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
-    const sectorDots = dotsBySector.get(norm);
+    const sectorDots = dotsByTribuneSector.get(norm) ?? dotsBySector.get(norm);
     const anchors = anchorsBySector.get(norm) ?? [];
     if (!sectorDots?.length || anchors.length < 2) continue;
 

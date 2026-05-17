@@ -136,19 +136,19 @@ function parseSeatSelectionDisabled(layout: unknown): boolean {
   return (layout as Record<string, unknown>).seatSelectionDisabled === true;
 }
 
-/** Места из офферов выглядят как остальная чаша (без цвета цены поверх фона). */
+/** Места из офферов — цвет цены; чаша — единый серый (Лужники: uniformHallSeatAppearance). */
 function parseUniformHallSeatAppearance(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   const r = layout as Record<string, unknown>;
   if (r.omitClientSeatCoordinateCloud === true) return false;
+  if (isLuzhnikiStadiumCheckoutLayout(layout)) return true;
   return r.uniformHallSeatAppearance === true;
 }
 
-/** Luzhniki: DOM-SVG вместо canvas — иначе секторы не кликаются, точки уезжают на газон. */
 function parseDisableStadiumCanvas(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
-  const r = layout as Record<string, unknown>;
-  return r.disableStadiumCanvas === true || r.omitClientSeatCoordinateCloud === true;
+  if (isLuzhnikiStadiumCheckoutLayout(layout)) return false;
+  return (layout as Record<string, unknown>).disableStadiumCanvas === true;
 }
 
 function parseDisablePositionalSeatZip(layout: unknown): boolean {
@@ -206,6 +206,7 @@ import {
   normalizeSeatToken,
   normalizeSectorLabel,
 } from '@/utils/ticketHallSectorNormalize';
+import { isLuzhnikiStadiumCheckoutLayout } from '@/utils/luzhnikiStadiumMap';
 import {
   filterPlacementsInSectorPath,
   filterSeatsInSectorPath,
@@ -1065,9 +1066,8 @@ export function TicketHallInteractiveBlock({
   );
   const visibleNativePlacements = useMemo(() => {
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
-    /** На обзоре стадиона не рисуем сотни точек — только после выбора сектора. */
-    if (sectorMode.enabled && !selectedSectorSummary) return [];
-    if (!sectorMode.enabled) return interactive;
+    /** Лужники / portalbilet-стиль: на обзоре все sellable; при выборе зоны — фильтр по bbox полигона. */
+    if (!sectorMode.enabled || !selectedSectorSummary) return interactive;
     const path = selectedSectorSummary.meta.path;
     if (path && svgViewBox.width > 0 && svgViewBox.height > 0) {
       return filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
@@ -1284,12 +1284,8 @@ export function TicketHallInteractiveBlock({
     const bg = backgroundSeatCoordinates;
     const dragging = isMapDraggingRef.current;
     const skipDenseBgWhileDragging = dragging && bg.length >= 8000;
-    /** Luzhniki ~77k: серую чашу не рисуем на canvas (только SVG + sellable после выбора сектора). */
     const drawBackgroundDots =
-      bg.length > 0 &&
-      bg.length < 8000 &&
-      (!sectorMode.enabled || Boolean(selectedSector)) &&
-      (liveZoom > fitZoom + 0.01 || bg.length < 2500);
+      bg.length > 0 && (liveZoom > fitZoom + 0.01 || bg.length >= 8000);
     if (!skipDenseBgWhileDragging && drawBackgroundDots) {
       ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
       const scalePx = w / Math.max(1, svgViewBox.width);
