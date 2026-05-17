@@ -2,6 +2,185 @@
 
 **Продажа через схему (без 81k pbilet):** см. [LUZHNIKI_MAP_SELL_VIA_SCHEME.md](./LUZHNIKI_MAP_SELL_VIA_SCHEME.md)
 
+---
+
+## 17.05.2026 — grid по оси сектора (не глобальная Y)
+
+### Симптом
+После сида `layout.seats` ~133k sellable «летают»: цветные кнопки не на серых точках, ряды выстроены одной горизонтальной гребёнкой (глобальная Y), хотя стадион овальный.
+
+### Причина
+`clusterDotsByRow` группировал точки по **yPct** для всех секторов одинаково. На боковых (B147, D121) ряды идут вдоль радиуса от поля, не по горизонтали.
+
+### Исправление (код)
+| Модуль | Что сделано |
+|--------|-------------|
+| `hallSeatGeodesyFromDots.js` | `clusterDotsByRowAlongAxis(dots, rowAxis)` — полосы вдоль оси «поле → сектор» |
+| `hallSeatGeodesySectorNative.js` | `rowAxisFromSector`, `sortSectorRowBandsFromField` через ось сектора; боковые (`|rowAxis.y| < 0.72`) — `maxRow = число полос`, без ложных 40 `<tspan>` в bbox; верх/низ — Y с SVG |
+| `hallSeatGeodesyLuzhnikiGrid.js` | `buildStadiumLayoutSeatsFromDotGrid` — те же правила + lookup sellable |
+| `TicketHallInteractiveBlock` | hitbox sellable = диаметр точки canvas (`12/svgWidth * 100%`) |
+
+### Правило (каждый сектор отдельно)
+1. Ось рядов: центр поля → центр сектора.
+2. Ось мест: перпендикуляр (взгляд с поля), место 1 — слева.
+3. Ряд N → полоса `rowNumToBandIndex(N, maxRow, bandCount)`; на боковых `maxRow = bandCount`.
+4. Место M → M-я точка в полосе по оси мест.
+
+### Деплой на VPS (`/var/pokupka-biletov`, не `/var/www/...`)
+
+```bash
+cd /var/pokupka-biletov
+git pull origin main
+
+cd backend
+LUZHNIKI_PBILET_TICKETS_JSON=/var/pokupka-biletov/tickets.json \
+LUZHNIKI_PBILET_COORDINATES_JSON=/var/pokupka-biletov/luzhniki.txt \
+npm run seed:luzhniki-football-map
+
+cd ..
+./scripts/deploy-via-git.sh main
+# deploy уже собирает frontend + pm2; seed — обязателен после pull с grid-фиксом
+```
+
+Проверка API (суперфинал / map): `offerSeatGeodesy.sectorGridMatched > 0`, `cloudMatched: 0`.
+
+---
+
+## Май 2026 — история геодезии sellable и вывод: эвристики нестабильны
+
+### Что хотим
+
+| Слой | Источник | Требование |
+|------|----------|------------|
+| Серая чаша | `luzhniki.txt` (~77k точек) | Не трогать — визуал ок |
+| Цветные sellable | GetBilet офферы | **Сектор + ряд + место** = та же точка, что на portalbilet / подписи на схеме |
+
+Правило от заказчика (зафиксировано): в ряду считать точки **слева направо**, место 1 = первая точка; ряд 1 — у поля при взгляде с арены. На практике это **не выводится** надёжно из облака без подписи каждого места.
+
+### Почему точки «скачут» (корневая причина)
+
+1. **Два разных датасета pbilet**
+   - `luzhniki.txt` — 77k координат **без** sector/row/seat.
+   - `tickets.json` — ~6k мест **с** подписью (частичный снимок API, не весь стадион).
+   - У большинства секторов в tickets `r: []` (пример: D 121, B 147) — **ноль** strict-координат.
+
+2. **Любая додумка = интерполяция**
+   - Привязка «ряд N → полоса точек» / «место M → M-я точка в полосе» / «ось с поля» / «Y с `<tspan>`» работает **по-разному** в каждом клине (A101 низ, D121 бок, углы у ворот).
+   - Подписи рядов на SVG (`<tspan>`) и геометрия облака **не всегда согласованы** (ряд 11 на подписи ≠ ряд 11 по fieldScore; после фикса SVG-Y — место в ряду всё ещё эвристика).
+
+3. **Противоречие в требованиях продукта**
+   - «Все sellable на карте» (полное покрытие GetBilet) ↔ «только честные координаты» (strict-only).
+   - Покрытие достигали через `cloud` / `svgRow` / `cloudSnap` — ценой точности.
+
+4. **Деплой / кэш** (вторично)
+   - Координаты считаются в `adaptLuzhnikiStageMapForLiveOffers` на каждый `/map`, но фронт должен брать `sellableSeats` с API, не старый `layout.seats` из сида.
+
+### Хронология попыток (кратко)
+
+| Этап | Подход | Результат |
+|------|--------|-----------|
+| 1 | Интерполяция по 77k облаку, grid в bbox | Боковые сектора «летают», ряд 32 у ряда 29 |
+| 2 | Только `layout.seats` strict | Чаша ок, **половина офферов без точки** (рядов нет в снимке tickets) |
+| 3 | `anchor` между якорями tickets | Между рядами — неверный Y/X на овале |
+| 4 | `cloud` + ориентация от соседнего сектора (B258→B147) | Покрытие↑, ряды 3/11 на одной полосе → сняли |
+| 5 | `inferCloudSectorRowRange` с 1, не с min оффера | Ряд 11 не на подписи «1», но места всё ещё мимо |
+| 6 | `svgRow` / Y с `<tspan>` напрямую | Часть секторов ок, A101 — ряд 11 внизу чаши |
+| 7 | **sector-native**: ряд 1 = полоса к полю, место = слева направо | Ряд/место зеркалятся на D121, A101 |
+| 8 | Фикс оси мест `(vy,-vx)` для Y-down | Места в ряду лучше на боковых, **ряды** всё ещё мимо |
+| 9 | `maxRow` сектора из офферов, не `rowNum` | Ряды 21/22/28 не схлопываются в одну полосу |
+| 10 | Ряд → Y из SVG `<tspan>` → ближайшая полоса точек | На тестах A101 ряд 11 ≈ подпись 81%; **на проде точки всё ещё скачут** — значит либо нет SVG на VPS, либо место в ряду/полоса/сектор dots всё ещё неверны |
+
+**Итог сессии:** чинить очередную формулу в `hallSeatGeodesy*.js` — **низкий потолок**. Нужен источник координат **покомпонентно** (sector, row, seat), а не вывод из облака.
+
+### Кардинальные альтернативы (что делать дальше)
+
+#### A. Strict-only на карте (рекомендуется как быстрый честный режим)
+
+- Цветные точки **только** где есть запись в `tickets.json` / полном pbilet export (`r[].s[]` с x,y).
+- Остальные офферы — **только список слева**, без точки на карте.
+- Плюсы: не врём; серая чаша без изменений. Минусы: ~6k/81k покрытие сейчас.
+
+**Шаги:** `sellableSeatsLabeledOnly: true`, отключить `cloud`/`svgRow`/`cloudSnap` в `buildSellableSeatGeodesyWithDots`; UI: «место на схеме недоступно — выберите из списка».
+
+#### B. Полный `tickets.json` с pbilet (стратегически правильно)
+
+- В Network сеанса найти URL tickets с **всеми** секторами и `r[].s[]` (цель ~81k мест).
+- `npm run fetch:pbilet-luzhniki` → пересид `seed:luzhniki-football-map`.
+- Sellable = только `strict` match по ключу — **без эвристик**.
+
+**Блокер:** API без `event_source_id` / `event_date_id` отдаёт ~6k мест; D121, B147 с `r: []`.
+
+#### C. Координаты из SVG `circle[place-name][row][place]` (выбрано, май 2026)
+
+**Проверка pbilet `coordinates.bg`:** в SVG Лужников **0** `<circle place-name>`, **5137** `<tspan>` (номера рядов), **18** path (чаша). Нативных кругов мест нет.
+
+**Решение:** при сиде `injectPbiletSeatsIntoSvg` — вшить круги из `tickets.json` (x,y → place-name/row/place) в подложку pbilet. Sellable = `buildSellableSeatGeodesyFromSvgCircles` (как театр), **без cloud/svgRow**.
+
+| Файл | Роль |
+|------|------|
+| `hallSeatGeodesyFromSvgCircles.js` | parse / inject / sellable по кругам |
+| `seed-luzhniki-football-geodesy.js` | после сида в SVG ~6k кругов |
+| `luzhnikiFootballStageMap.js` | `/map` → `svgCircle` если circles ≥ 24 |
+
+**Ограничение:** покрытие = места в `tickets.json` (~6k), не все GetBilet. Остальное — список или `LUZHNIKI_SVG_CIRCLE_FILL_CLOUD=1`.
+
+**Пересид обязателен:** без inject в `svg_markup` в БД фронт не увидит круги.
+
+#### D. Ручная/полуавтоматическая калибровка секторов
+
+- Файл `backend/data/luzhniki-geodesy/sector-calibration.json`: `{ "d121": { "rowAxis": ..., "row1Y": ..., "seat1Left": ... } }` или таблица якорей (ряд 1 место 1 → x,y; ряд 40 место 40 → x,y).
+- Инструмент в админке: клик по точке чаши → привязка к офферу.
+- Плюсы: 100% для продаваемых секторов. Минусы: трудозатраты, поддержка при смене схемы.
+
+#### E. Взять логику позиционирования с portalbilet / pbilet frontend
+
+- Reverse: как их виджет кладёт sellable на те же 77k точек (если используют тот же layout id).
+- Возможен отдельный endpoint или inline JSON в странице события.
+
+#### F. Не рисовать sellable на овале; UX «как у аэрофлота»
+
+- Обзор: только серая чаша + клик по полигону сектора.
+- Внутри сектора: **локальная сетка** из `tickets` strict для этого сектора или таблица рядов без привязки к глобальным % (отдельный viewBox сектора).
+
+#### G. GetBilet / pbilet live API на чекаут
+
+- Если у оффера или pbilet session API есть x,y — использовать напрямую, кэш по `repertoireId`.
+
+### Рекомендуемый план (прагматично)
+
+```
+1. Сразу (1–2 ч): режим A — strict-only на карте + честный UI для «без координат».
+2. Параллельно: B — выбить полный tickets URL (event_source_id + event_date_id) для финала.
+3. Если B недоступен: C — осмотр SVG на circle с place; если нет — D для топ-30 секторов с продажами.
+4. Заморозить новые эвристики в hallSeatGeodesyFromDots (не добавлять cloudSnap/svgRow без флага).
+```
+
+### Файлы (текущая реализация эвристик)
+
+| Файл | Роль |
+|------|------|
+| `hallSeatGeodesyMatch.js` | strict из layout.seats |
+| `hallSeatGeodesyFromDots.js` | цепочка strict → svgRow → cloud → cloudSnap |
+| `hallSeatGeodesySectorNative.js` | полосы рядов, ось мест, SVG-Y → band |
+| `hallSeatGeodesyFromSvgRows.js` | parse `<tspan>`, калибровка row→Y% |
+| `luzhnikiFootballStageMap.js` | `adaptLuzhnikiStageMapForLiveOffers` → sellableSeats |
+| `svgNativeSeatLayout.ts` | приоритет sellable с `/map` |
+
+### Диагностика на проде (после любого деплоя)
+
+```bash
+curl -sS 'https://biletvsem.com/api/bilet/stage/luzhniki-football/map?repertoireId=REPERTOIRE_ID' | jq '{
+  sellable: (.layout_json.sellableSeats | length),
+  bySource: (.layout_json.sellableSeats | group_by(.geodesySource) | map({source: .[0].geodesySource, n: length})),
+  sample: .layout_json.sellableSeats[0:3],
+  geodesy: .layout_json.offerSeatGeodesy
+}'
+```
+
+Если `bySource` почти весь `cloud`/`cloudSnap` — на карте эвристика, будут скачки. Цель для продакшена: **`strict` ≥ 95%** sellable или явный режим «без точки».
+
+---
+
 ### Май 2026 — sellable «уезжали» при идеальной чаше
 
 **Симптом:** серая чаша 77k ок, цветные точки офферов не на местах.

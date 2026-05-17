@@ -148,16 +148,14 @@ function predictSeatXPct(rowNum, seatNum, anchors) {
   return interpolateByRowNumber(rowNum, anchors, (a) => a.xPct);
 }
 
-/** Горизонтальные полосы рядов по плотности точек чаши. */
-export function clusterDotsByRow(dots, eps = 0.2) {
-  if (!dots?.length) return [];
-  const sorted = [...dots].sort((a, b) => a.yPct - b.yPct || a.xPct - b.xPct);
+function clusterSortedDotsIntoBands(sorted, coordOf, eps = 0.2) {
+  if (!sorted.length) return [];
   const bands = [];
   let cur = [sorted[0]];
   for (let i = 1; i < sorted.length; i += 1) {
     const d = sorted[i];
-    const meanY = cur.reduce((s, p) => s + p.yPct, 0) / cur.length;
-    if (d.yPct - meanY <= eps) cur.push(d);
+    const meanC = cur.reduce((s, p) => s + coordOf(p), 0) / cur.length;
+    if (coordOf(d) - meanC <= eps) cur.push(d);
     else {
       bands.push(cur);
       cur = [d];
@@ -166,10 +164,37 @@ export function clusterDotsByRow(dots, eps = 0.2) {
   bands.push(cur);
   return bands
     .filter((pts) => pts.length >= 2)
-    .map((pts) => ({
-      yPct: pts.reduce((s, p) => s + p.yPct, 0) / pts.length,
-      dots: pts,
-    }));
+    .map((pts) => {
+      const rowCoord = pts.reduce((s, p) => s + coordOf(p), 0) / pts.length;
+      return {
+        rowCoord,
+        yPct: pts.reduce((s, p) => s + p.yPct, 0) / pts.length,
+        dots: pts,
+      };
+    });
+}
+
+/** Горизонтальные полосы рядов по глобальной Y (театры / горизонтальные сектора). */
+export function clusterDotsByRow(dots, eps = 0.2) {
+  if (!dots?.length) return [];
+  const sorted = [...dots].sort((a, b) => a.yPct - b.yPct || a.xPct - b.xPct);
+  return clusterSortedDotsIntoBands(sorted, (d) => d.yPct, eps);
+}
+
+/**
+ * Полосы рядов вдоль оси сектора (от поля к дальнему краю) — для овала Лужников.
+ * @param {{ x: number, y: number }} rowAxis единичный вектор «поле → сектор» в % координатах
+ */
+export function clusterDotsByRowAlongAxis(dots, rowAxis, eps = 0.18) {
+  if (!dots?.length || !rowAxis) return [];
+  const ax = Number(rowAxis.x);
+  const ay = Number(rowAxis.y);
+  const len = Math.hypot(ax, ay) || 1;
+  const nx = ax / len;
+  const ny = ay / len;
+  const proj = (d) => d.xPct * nx + d.yPct * ny;
+  const sorted = [...dots].sort((a, b) => proj(a) - proj(b) || a.xPct - b.xPct);
+  return clusterSortedDotsIntoBands(sorted, proj, eps);
 }
 
 /** Калибровка номера ряда → Y по якорям, привязанным к полосам точек чаши. */

@@ -82,6 +82,7 @@ export function buildStadiumLayoutSeatsFromDotGrid({
       null,
       w,
       h,
+      fieldCenterPct,
     );
     const axis = seatLeftAxisFromSector(sectorPath, fieldCenterPct, w, h);
 

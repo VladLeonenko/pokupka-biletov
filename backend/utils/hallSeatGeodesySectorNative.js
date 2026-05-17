@@ -4,7 +4,7 @@
  * — места слева→направо, взгляд с поля (центр арены).
  */
 
-import { pathBBox, clusterDotsByRow } from './hallSeatGeodesyFromDots.js';
+import { pathBBox, clusterDotsByRow, clusterDotsByRowAlongAxis } from './hallSeatGeodesyFromDots.js';
 import {
   buildSectorRowYPctCalibration,
   buildSectorSvgRowAisles,
@@ -41,6 +41,15 @@ export function seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, ha
   return { x: vy, y: -vx };
 }
 
+/** Ось рядов: от центра поля к центру сектора (каждый сектор — своя «гребёнка»). */
+export function rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight) {
+  const { scx, scy } = sectorCenterPct(sectorPath, hallWidth, hallHeight);
+  let vx = scx - fieldCenterPct.xPct;
+  let vy = scy - fieldCenterPct.yPct;
+  const len = Math.hypot(vx, vy) || 1;
+  return { x: vx / len, y: vy / len };
+}
+
 function seatSortKey(dot, axis) {
   return dot.xPct * axis.x + dot.yPct * axis.y;
 }
@@ -58,7 +67,11 @@ function sectorCenterPct(sectorPath, hallWidth, hallHeight) {
 
 /** Полосы точек сектора, отсортированные от поля (ряд 1) к дальнему краю. */
 export function sortSectorRowBandsFromField(sectorDots, sectorPath, fieldCenterPct, hallWidth, hallHeight) {
-  const bands = clusterDotsByRow(sectorDots);
+  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
+  let bands = clusterDotsByRowAlongAxis(sectorDots, rowAxis);
+  if (bands.length < 2) {
+    bands = clusterDotsByRow(sectorDots);
+  }
   if (bands.length < 1) return { bands: [], maxRow: 1 };
 
   const { scx, scy } = sectorCenterPct(sectorPath, hallWidth, hallHeight);
@@ -103,10 +116,23 @@ export function bandIndexToRowNum(bandIndex, maxRow, bandCount) {
   return Math.round(1 + (bandIndex / Math.max(1, bandCount - 1)) * (maxR - 1));
 }
 
-function calibrationHasDistinctY(calibration, minSpanPct = 0.15) {
+export function calibrationHasDistinctY(calibration, minSpanPct = 0.15) {
   if (!calibration?.length || calibration.length < 2) return false;
   const ys = calibration.map((c) => c.yPct);
   return Math.max(...ys) - Math.min(...ys) >= minSpanPct;
+}
+
+function sectorRowCalibration(sectorPath, svgRowLabels, hallWidth, hallHeight) {
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const b = pathBBox(sectorPath);
+  const hintXAbs = b ? (b.minX + b.maxX) / 2 : w / 2;
+  if (!Array.isArray(svgRowLabels) || !sectorPath) return [];
+  return buildSectorRowYPctCalibration(sectorPath, svgRowLabels, hintXAbs, hallWidth, hallHeight);
+}
+
+/** Нижние/верхние трибуны: ряды ≈ горизонтальны на SVG. Боковые — своя ось, без Y-подписей. */
+function sectorPrefersSvgRowLabels(rowAxis) {
+  return Math.abs(rowAxis.y) >= 0.72;
 }
 
 /** Единый maxRow сектора: SVG-подписи, офферы, число полос — не номер текущего ряда. */
@@ -117,19 +143,19 @@ export function resolveSectorNativeMaxRow(
   sectorRowMax,
   hallWidth,
   hallHeight,
+  fieldCenterPct = { xPct: 50, yPct: 50 },
 ) {
-  let maxRow = 1;
-  if (Array.isArray(svgRowLabels) && svgRowLabels.length > 0 && sectorPath) {
-    maxRow = Math.max(maxRow, maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight));
-  } else if (sectorRowMax != null && sectorRowMax > 0) {
-    maxRow = sectorRowMax;
-  } else {
-    maxRow = Math.max(bandCount, 1);
+  const cal = sectorRowCalibration(sectorPath, svgRowLabels, hallWidth, hallHeight);
+  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
+  if (calibrationHasDistinctY(cal) && sectorPrefersSvgRowLabels(rowAxis)) {
+    let maxRow = Math.max(maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight), bandCount, 1);
+    if (sectorRowMax != null && sectorRowMax > 0) maxRow = Math.max(maxRow, sectorRowMax);
+    return maxRow;
   }
   if (sectorRowMax != null && sectorRowMax > 0) {
-    maxRow = Math.max(maxRow, sectorRowMax);
+    return Math.max(sectorRowMax, bandCount, 1);
   }
-  return maxRow;
+  return Math.max(bandCount, 1);
 }
 
 function resolveRowBandIndex(
@@ -140,15 +166,11 @@ function resolveRowBandIndex(
   maxRow,
   hallWidth,
   hallHeight,
+  fieldCenterPct = { xPct: 50, yPct: 50 },
 ) {
-  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
-  const b = pathBBox(sectorPath);
-  const hintXAbs = b ? (b.minX + b.maxX) / 2 : w / 2;
-  const calibration =
-    Array.isArray(svgRowLabels) && svgRowLabels.length > 0 && sectorPath
-      ? buildSectorRowYPctCalibration(sectorPath, svgRowLabels, hintXAbs, hallWidth, hallHeight)
-      : [];
-  if (calibration.length >= 2 && calibrationHasDistinctY(calibration)) {
+  const calibration = sectorRowCalibration(sectorPath, svgRowLabels, hallWidth, hallHeight);
+  const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
+  if (calibration.length >= 2 && calibrationHasDistinctY(calibration) && sectorPrefersSvgRowLabels(rowAxis)) {
     const targetY = interpolateSvgRowYPct(rowNum, calibration);
     if (targetY != null) return findBandIndexNearestY(bands, targetY);
   }
@@ -181,6 +203,7 @@ export function resolveRowYPctSectorNative(
     sectorRowMax,
     hallWidth,
     hallHeight,
+    fieldCenterPct,
   );
   const idx = resolveRowBandIndex(
     rowNum,
@@ -190,6 +213,7 @@ export function resolveRowYPctSectorNative(
     maxRow,
     hallWidth,
     hallHeight,
+    fieldCenterPct,
   );
   return bands[Math.min(Math.max(idx, 0), bands.length - 1)]?.yPct ?? null;
 }
@@ -227,6 +251,7 @@ export function resolveOfferSeatSectorNativeLayout(
     sectorRowMax,
     hallWidth,
     hallHeight,
+    fieldCenterPct,
   );
 
   const rowIdx = resolveRowBandIndex(
@@ -237,6 +262,7 @@ export function resolveOfferSeatSectorNativeLayout(
     maxRow,
     hallWidth,
     hallHeight,
+    fieldCenterPct,
   );
   const band = bands[Math.min(Math.max(rowIdx, 0), bands.length - 1)];
   if (!band?.dots?.length) return null;

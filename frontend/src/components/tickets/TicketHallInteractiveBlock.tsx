@@ -1282,6 +1282,12 @@ export function TicketHallInteractiveBlock({
     () => Math.max(16, Math.min(38, svgViewBox.width * 0.0024)),
     [svgViewBox.width],
   );
+  /** Диаметр hitbox sellable ≈ 2× радиус точки на canvas (scalePx×6, как в paintHallCanvas). */
+  const luzhnikiSeatHitDiameterPct = useMemo(() => {
+    if (!luzhnikiCheckout || !uniformHallSeatAppearance) return null;
+    const vb = Math.max(1, svgViewBox.width);
+    return (12 / vb) * 100;
+  }, [luzhnikiCheckout, uniformHallSeatAppearance, svgViewBox.width]);
   const useStadiumSvgSellableDots =
     sectorSeatFocusView && useSvgNative && !useCanvasCompositing;
 
@@ -1696,6 +1702,12 @@ export function TicketHallInteractiveBlock({
                             left: `${p.xPct}%`,
                             top: `${p.yPct}%`,
                             '--seat-accent': bg,
+                            ...(luzhnikiSeatHitDiameterPct != null
+                              ? {
+                                  width: `${luzhnikiSeatHitDiameterPct}%`,
+                                  height: `${luzhnikiSeatHitDiameterPct}%`,
+                                }
+                              : {}),
                           } as React.CSSProperties
                         }
                         aria-label={p.title}
