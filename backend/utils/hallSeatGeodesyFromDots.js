@@ -4,11 +4,12 @@
  */
 
 import { buildSellableSeatGeodesy } from './hallSeatGeodesyMatch.js';
+import { parseSvgHallRowLabels, resolveRowYPctFromSvgLabels } from './hallSeatGeodesyFromSvgRows.js';
 import {
-  parseSvgHallRowLabels,
-  resolveOfferSeatFromSvgRowLabels,
-  resolveRowYPctFromSvgLabels,
-} from './hallSeatGeodesyFromSvgRows.js';
+  computeFieldCenterPct,
+  resolveOfferSeatSectorNativeLayout,
+  seatLeftAxisFromSector,
+} from './hallSeatGeodesySectorNative.js';
 import {
   normalizeRowLabel,
   normalizeSectorLabel,
@@ -457,18 +458,26 @@ export function resolveOfferSeatSnapInSector(
   sectorDots,
   targetYPct,
   seatNum,
-  seatRangeInRow,
+  _seatRangeInRow,
   maxYDist = 0.85,
+  seatLeftAxis = null,
 ) {
   if (!sectorDots?.length || targetYPct == null) return null;
   let pool = sectorDots.filter((d) => Math.abs(d.yPct - targetYPct) <= maxYDist);
   if (pool.length < 2) pool = [...sectorDots];
-  pool.sort((a, b) => a.xPct - b.xPct);
-  const seatMax = Math.max(seatRangeInRow?.max ?? seatNum ?? 1, pool.length, 1);
-  const st =
-    seatNum != null ? (seatNum - 1) / Math.max(1, seatMax - 1) : 0.5;
-  const seatIdx = Math.round(st * (pool.length - 1));
-  const pick = pool[Math.min(Math.max(seatIdx, 0), pool.length - 1)];
+  if (seatLeftAxis) {
+    pool.sort(
+      (a, b) =>
+        a.xPct * seatLeftAxis.x +
+        a.yPct * seatLeftAxis.y -
+        (b.xPct * seatLeftAxis.x + b.yPct * seatLeftAxis.y),
+    );
+  } else {
+    pool.sort((a, b) => a.xPct - b.xPct);
+  }
+  const seatIdx =
+    seatNum != null ? Math.min(Math.max(seatNum - 1, 0), pool.length - 1) : Math.floor(pool.length / 2);
+  const pick = pool[seatIdx];
   return pick ? { xPct: pick.xPct, yPct: pick.yPct } : null;
 }
 
@@ -627,6 +636,7 @@ export function buildSellableSeatGeodesyWithDots(
     typeof svgMarkup === 'string' && svgMarkup.includes('<tspan')
       ? parseSvgHallRowLabels(svgMarkup, hallWidth, hallHeight)
       : [];
+  const fieldCenterPct = computeFieldCenterPct(allSeatCoordinates);
   const sectorPathByNorm = new Map();
   for (const sp of sectorPaths || []) {
     const norm = normalizeSectorLabel(sp.label);
@@ -682,7 +692,7 @@ export function buildSellableSeatGeodesyWithDots(
     const canPlace =
       sectorDots && sectorDots.length >= 4 && rowRanges.has(norm);
     const sectorPath = sectorPathByNorm.get(norm);
-    const canSvgRow =
+    const canSectorNative =
       canPlace && svgRowLabels.length >= 50 && sectorPath && sectorPath.length > 8;
     const canCloud = canPlace;
     const sectorOrientation = pickNearestSectorOrientation(norm, orientationIndex);
@@ -710,8 +720,8 @@ export function buildSellableSeatGeodesyWithDots(
         });
         if (resolved) mode = 'dot';
       }
-      if (!resolved && canSvgRow) {
-        resolved = resolveOfferSeatFromSvgRowLabels(
+      if (!resolved && canSectorNative) {
+        resolved = resolveOfferSeatSectorNativeLayout(
           rowNum,
           seatNum,
           sectorDots,
@@ -719,7 +729,7 @@ export function buildSellableSeatGeodesyWithDots(
           svgRowLabels,
           hallWidth,
           hallHeight,
-          seatByRow?.get(rowNum) ?? null,
+          fieldCenterPct,
         );
         if (resolved) mode = 'svgRow';
       }
@@ -746,7 +756,11 @@ export function buildSellableSeatGeodesyWithDots(
       }
       if (!resolved && canPlace) {
         let targetY = null;
-        if (canSvgRow && sectorPath) {
+        const axis =
+          sectorPath && fieldCenterPct
+            ? seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight)
+            : null;
+        if (sectorPath) {
           targetY = resolveRowYPctFromSvgLabels(
             rowNum,
             sectorPath,
@@ -754,6 +768,8 @@ export function buildSellableSeatGeodesyWithDots(
             hallWidth,
             hallHeight,
             50,
+            fieldCenterPct,
+            sectorDots,
           );
         }
         if (targetY == null && canCloud) {
@@ -777,6 +793,8 @@ export function buildSellableSeatGeodesyWithDots(
           targetY,
           seatNum,
           seatByRow?.get(rowNum) ?? null,
+          0.9,
+          axis,
         );
         if (resolved) mode = 'cloudSnap';
       }

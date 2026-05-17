@@ -39,6 +39,22 @@
 
 **Файлы:** `hallSeatGeodesyFromDots.js`, `hallSeatGeodesyFromSvgRows.js`, `luzhnikiFootballStageMap.js`, `svgNativeSeatLayout.ts`.
 
+### Май 2026 — sector-native: ряд/место на точках сектора
+
+**Зафиксировано:** на карте отображаются **все** sellable GetBilet (полное покрытие).
+
+**Симптом:** тултип «ряд 38» на визуальном ряду 1 (подписи SVG с противоположной стороны от поля); место 6 не шестая точка слева.
+
+**Правила:**
+- Ряд **1** — полоса точек **ближе всего к центру арены** (взгляд с поля).
+- Ряд N — `round((N-1)/(maxRow-1)*(bands-1))` по полосам, отсортированным к полю.
+- Место **1** — первая точка ряда **слева направо** (`seatLeftAxisFromSector`).
+- Не использовать Y подписей SVG напрямую (на A101 давало ряд 11 внизу чаши).
+
+**Код:** `hallSeatGeodesySectorNative.js` — `svgRow` / `cloudSnap` с той же осью мест.
+
+**Деплой:** `git pull` → `pm2 restart` (backend). Frontend без смены trusted sources.
+
 ---
 
 Страница: [Суперфинал Кубка России — Спартак / Краснодар](https://biletvsem.com/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar)  

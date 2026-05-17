@@ -3,12 +3,11 @@
  * Для секторов без r[] в tickets.json — target Y ряда с подписи на схеме.
  */
 
+import { pathBBox } from './hallSeatGeodesyFromDots.js';
 import {
-  clusterDotsByRow,
-  pickDotNearRowSeat,
-  pathBBox,
-  resolveOfferSeatSnapInSector,
-} from './hallSeatGeodesyFromDots.js';
+  resolveOfferSeatSectorNativeLayout,
+  resolveRowYPctSectorNative,
+} from './hallSeatGeodesySectorNative.js';
 
 const TSPAN_RE =
   /<tspan\s+[^>]*\bx=["']([\d.]+)["'][^>]*\by=["']([\d.]+)["'][^>]*>([^<]*)<\/tspan>/gi;
@@ -123,18 +122,25 @@ export function resolveRowYPctFromSvgLabels(
   allLabels,
   hallWidth,
   hallHeight,
-  hintXPct = 50,
+  _hintXPct = 50,
+  fieldCenterPct = { xPct: 50, yPct: 50 },
+  sectorDots = [],
 ) {
-  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
-  const aisles = buildSectorSvgRowAisles(sectorPath, allLabels, hallWidth, hallHeight);
-  const aisle = pickAisle(aisles, rowNum, (hintXPct / 100) * w);
-  if (!aisle) return null;
-  const y = aisle.rowY.get(rowNum);
-  return Number.isFinite(y) ? y : null;
+  if (!sectorDots?.length) return null;
+  return resolveRowYPctSectorNative(
+    rowNum,
+    sectorDots,
+    sectorPath,
+    allLabels,
+    hallWidth,
+    hallHeight,
+    fieldCenterPct,
+  );
 }
 
 /**
  * @param {{ xPct: number, yPct: number }[]} sectorDots
+ * @param {{ xPct: number, yPct: number }} [fieldCenterPct]
  */
 export function resolveOfferSeatFromSvgRowLabels(
   rowNum,
@@ -144,61 +150,18 @@ export function resolveOfferSeatFromSvgRowLabels(
   allLabels,
   hallWidth,
   hallHeight,
-  seatRangeInRow,
+  _seatRangeInRow,
+  fieldCenterPct = { xPct: 50, yPct: 50 },
 ) {
   if (!sectorDots?.length || !allLabels?.length || !sectorPath) return null;
-
-  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
-  const bands = clusterDotsByRow(sectorDots);
-  if (bands.length < 2) return null;
-
-  const roughX =
-    seatNum != null && seatRangeInRow
-      ? ((seatNum - 1) / Math.max(1, seatRangeInRow.max - 1)) * 100
-      : 50;
-  const targetYPct = resolveRowYPctFromSvgLabels(
+  return resolveOfferSeatSectorNativeLayout(
     rowNum,
+    seatNum,
+    sectorDots,
     sectorPath,
     allLabels,
     hallWidth,
     hallHeight,
-    roughX,
-  );
-  if (targetYPct == null) return null;
-
-  let bestBand = bands[0];
-  let bestDy = Math.abs(bands[0].yPct - targetYPct);
-  for (const band of bands) {
-    const dy = Math.abs(band.yPct - targetYPct);
-    if (dy < bestDy) {
-      bestDy = dy;
-      bestBand = band;
-    }
-  }
-
-  let rowDots = [...bestBand.dots].sort((a, b) => a.xPct - b.xPct);
-
-  const seatMax = Math.max(seatRangeInRow?.max ?? seatNum ?? 1, rowDots.length, 1);
-  const seatMin = 1;
-  let targetX;
-  if (seatNum != null && rowDots.length >= 1) {
-    const st = (seatNum - seatMin) / Math.max(1, seatMax - seatMin);
-    const seatIdx = Math.round(st * (rowDots.length - 1));
-    targetX = rowDots[Math.min(Math.max(seatIdx, 0), rowDots.length - 1)].xPct;
-  } else {
-    targetX = rowDots[Math.floor(rowDots.length / 2)]?.xPct ?? 50;
-  }
-
-  if (rowDots.length >= 2) {
-    const hit = pickDotNearRowSeat(rowDots, bestBand.yPct, targetX, 0.75);
-    if (hit) return { xPct: hit.xPct, yPct: hit.yPct };
-  }
-
-  return resolveOfferSeatSnapInSector(
-    sectorDots,
-    targetYPct,
-    seatNum,
-    seatRangeInRow,
-    0.9,
+    fieldCenterPct,
   );
 }
