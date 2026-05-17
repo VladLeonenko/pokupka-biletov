@@ -34,6 +34,10 @@ function resolveSeatsPath(layout) {
   return null;
 }
 
+export function loadSeatsArrayFromLayout(layout) {
+  return loadSeatsArray(layout);
+}
+
 function loadSeatsArray(layout) {
   const inline = Array.isArray(layout?.seats) ? layout.seats : [];
   if (inline.length > 0 && inline.length <= 12000) return inline;

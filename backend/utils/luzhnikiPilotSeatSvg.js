@@ -36,12 +36,16 @@ export function stripLuzhnikiPilotSeatsLayerFromSvg(svgMarkup) {
 
   const circleCount = (trimmed.match(/<circle\b[^>]*\bplace-name=/gi) || []).length;
   if (circleCount > 6000) {
-    const replaced = trimmed.replace(
+    let replaced = trimmed.replace(
       new RegExp(
         `<g[^>]*id=["']${LUZHNIKI_PILOT_SEATS_LAYER_ID}["'][^>]*>[\\s\\S]*?</g>`,
         'i',
       ),
       PILOT_LAYER_STUB,
+    );
+    replaced = replaced.replace(
+      /<g[^>]*id=["']pbilet-strict-seat-geodesy["'][^>]*>[\s\S]*?<\/g>/i,
+      '',
     );
     if (replaced !== trimmed) return replaced;
   }

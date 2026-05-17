@@ -13,7 +13,6 @@ import {
   buildStadiumLayoutSeatsFromDotGrid,
   mergeLayoutSeatsPreferPbiletStrict,
 } from './hallSeatGeodesyLuzhnikiGrid.js';
-import { applyLuzhnikiCalibrationBatch } from './luzhnikiSeatWarp.js';
 
 /**
  * @param {{
@@ -61,14 +60,6 @@ export function buildFullStadiumLabeledSeats({
   let seats = mergeLayoutSeatsPreferPbiletStrict(ticketsSeats, gridSeats);
   const strictCount = seats.filter((s) => s.geodesySource === 'strict').length;
 
-  const calibrate = process.env.LUZHNIKI_SKIP_SEAT_CALIBRATION !== '1';
-  let calibratedCount = 0;
-  if (calibrate) {
-    const batch = applyLuzhnikiCalibrationBatch(seats, { onlyFieldGrid: true });
-    seats = batch.seats;
-    calibratedCount = batch.calibrated;
-  }
-
   return {
     seats,
     sectorPaths,
@@ -81,7 +72,6 @@ export function buildFullStadiumLabeledSeats({
       coordinateDots: allSeatCoordinates.length,
       gridRaw: gridSeats.length,
       ticketsStrict: ticketsSeats.length,
-      calibratedGrid: calibratedCount,
     },
   };
 }
