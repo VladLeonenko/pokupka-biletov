@@ -52,6 +52,27 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+/**
+ * Лужники: сырой SVG pbilet не показываем в DOM — только растр на canvas (без «Ложа 48…»).
+ * Иначе до загрузки canvas или при сбое — текст заливает viewport.
+ */
+.rootLuzhniki .svgLayer {
+  position: absolute !important;
+  left: -10000px !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+.rootLuzhniki .svgLayer :global(text),
+.rootLuzhniki .svgLayer :global(tspan) {
+  display: none !important;
+}
+
 /** Номера мест только в боковой панели — на карте при zoom не раздуваются вместе с matrix(). */
 .rootLuzhniki .seatDotLabel,
 .rootLuzhniki .seatDotStadium.seatDotSectorFocus .seatDotLabel {

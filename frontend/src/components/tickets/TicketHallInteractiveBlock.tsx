@@ -19,7 +19,11 @@ import {
 } from '../../utils/svgNativeSeatLayout';
 import { FAN_ID_NOTICE } from '@/utils/fanIdRequiredEvents';
 import { useLuzhnikiPilotBackgroundSeats } from '@/hooks/useLuzhnikiPilotBackgroundSeats';
-import { luzhnikiHallSeatDotRadiusViewBox } from '@/utils/luzhnikiHallSeatGeometry';
+import {
+  luzhnikiHallSeatDotRadiusScreen,
+  luzhnikiHallSeatDotRadiusViewBox,
+} from '@/utils/luzhnikiHallSeatGeometry';
+import { stripLuzhnikiStadiumSvgForCanvasBackdrop } from '@/utils/luzhnikiStadiumSvgBackdrop';
 import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
@@ -488,6 +492,11 @@ export function TicketHallInteractiveBlock({
     return hallSvgHtml;
   }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
 
+  const svgHtmlForCanvasBackdrop = useMemo(() => {
+    if (!luzhnikiCheckout) return svgHtmlSafe;
+    return stripLuzhnikiStadiumSvgForCanvasBackdrop(svgHtmlSafe);
+  }, [luzhnikiCheckout, svgHtmlSafe]);
+
   const { nativePlacements } = useMemo(() => {
     if (!useSvgNative || nativeSeats.length < 2) {
       return {
@@ -802,7 +811,7 @@ export function TicketHallInteractiveBlock({
   const useCanvasCompositing = stadiumCanvasEnabled && canvasBackdropReady;
 
   useEffect(() => {
-    if (!stadiumCanvasEnabled || !svgHtmlSafe.trim()) {
+    if (!stadiumCanvasEnabled || !svgHtmlForCanvasBackdrop.trim()) {
       canvasImageRef.current = null;
       setCanvasBackdropReady(false);
       setCanvasImageVersion((v) => v + 1);
@@ -812,7 +821,7 @@ export function TicketHallInteractiveBlock({
     setCanvasBackdropReady(false);
     canvasImageRef.current = null;
 
-    const blob = new Blob([svgHtmlSafe], { type: 'image/svg+xml;charset=utf-8' });
+    const blob = new Blob([svgHtmlForCanvasBackdrop], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.decoding = 'async';
@@ -849,7 +858,7 @@ export function TicketHallInteractiveBlock({
       if (canvasImageRef.current === img) canvasImageRef.current = null;
       setCanvasBackdropReady(false);
     };
-  }, [stadiumCanvasEnabled, svgHtmlSafe]);
+  }, [stadiumCanvasEnabled, svgHtmlForCanvasBackdrop]);
 
   useEffect(() => {
     if (!activeOfferId || selectedSeats.length === 0) {
@@ -1337,8 +1346,9 @@ export function TicketHallInteractiveBlock({
     const vb = Math.max(1, svgViewBox.width);
     return ((2 * stadiumSellableDotR) / vb) * 100;
   }, [luzhnikiCheckout, stadiumSellableDotR, uniformHallSeatAppearance, svgViewBox.width]);
-  /** Лужники: sellable только SVG viewBox (как diagnostic); canvas — подложка + серая чаша. */
-  const useStadiumSvgSellableDots = luzhnikiCheckout && useSvgNative;
+  /** Лужники: все места на canvas (серые + цветные, один r); иначе SVG в фокусе сектора. */
+  const useStadiumSvgSellableDots =
+    !luzhnikiCheckout && sectorSeatFocusView && useSvgNative && !useCanvasCompositing;
 
   const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
@@ -1387,22 +1397,24 @@ export function TicketHallInteractiveBlock({
     const bg = effectiveBackgroundSeatCoordinates;
     const dragging = isMapDraggingRef.current;
     const skipDenseBgWhileDragging = dragging && bg.length >= 8000;
+    const scalePx = w / Math.max(1, svgViewBox.width);
+    const seatDotR = luzhnikiCheckout
+      ? Math.max(1.1, luzhnikiHallSeatDotRadiusScreen(svgViewBox.width, w, svgViewBox.height))
+      : effectiveBackgroundSeatCoordinates.length >= 8000
+        ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
+        : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+
     const drawBackgroundDots =
       bg.length > 0 &&
-      !(luzhnikiCheckout && sectorSeatFocusView) &&
       (luzhnikiCheckout ||
         liveZoom > fitZoom + 0.01 ||
         bg.length >= 8000 ||
         hallBackgroundFromLabeledSeats);
     if (!skipDenseBgWhileDragging && drawBackgroundDots) {
       ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
-      const scalePx = w / Math.max(1, svgViewBox.width);
       const useRects = bg.length >= 2500;
+      const r = luzhnikiCheckout ? seatDotR : useRects && bg.length >= 8000 ? Math.max(0.5, seatDotR * 0.55) : seatDotR;
       if (useRects) {
-        const dense = bg.length >= 8000;
-        const r = dense
-          ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
-          : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
         ctx.beginPath();
         const limW = width + 14;
         const limH = height + 14;
@@ -1415,7 +1427,6 @@ export function TicketHallInteractiveBlock({
         ctx.fill();
       } else {
         ctx.beginPath();
-        const r = Math.max(1.15, Math.min(3.2, scalePx * 7));
         for (const seat of bg) {
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
@@ -1429,11 +1440,7 @@ export function TicketHallInteractiveBlock({
 
     if (visibleNativePlacements.length > 0 && !useStadiumSvgSellableDots) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
-      const scalePx = w / Math.max(1, svgViewBox.width);
-      const bgDotR =
-        effectiveBackgroundSeatCoordinates.length >= 8000
-          ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
-          : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+      const sellableR = luzhnikiCheckout ? seatDotR : seatDotR * 1.05;
       for (const seat of visibleNativePlacements) {
         const active = activeKeys.has(seat.key);
         if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
@@ -1441,7 +1448,7 @@ export function TicketHallInteractiveBlock({
         const sx = x + (seat.xPct / 100) * w;
         const sy = y + (seat.yPct / 100) * h;
         if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
-        const r = active ? Math.max(bgDotR * 1.35, 3.5) : bgDotR;
+        const r = active ? Math.max(sellableR * 1.2, sellableR + 0.5) : sellableR;
         ctx.beginPath();
         ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -1467,7 +1474,8 @@ export function TicketHallInteractiveBlock({
     skipDuplicateInteractiveDotsOnCanvas,
     svgViewBox.width,
     useCanvasCompositing,
-    sectorSeatFocusView,
+    stadiumSellableDotR,
+    svgViewBox.height,
     useStadiumSvgSellableDots,
     visibleNativePlacements,
   ]);
@@ -1540,7 +1548,7 @@ export function TicketHallInteractiveBlock({
                   : ''
               }`}
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
+              dangerouslySetInnerHTML={{ __html: luzhnikiCheckout ? svgHtmlForCanvasBackdrop : svgHtmlSafe }}
             />
             {sectorMode.enabled ? (
               <svg
