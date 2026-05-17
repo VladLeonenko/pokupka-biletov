@@ -27,6 +27,7 @@ import {
   maxRowInSectorFromSvg,
   resolveOfferSeatSectorNativeLayout,
   resolveSectorNativeMaxRow,
+  rowAxisFromSector,
   rowNumToBandIndex,
   seatLeftAxisFromSector,
   sortSectorRowBandsFromField,
@@ -34,8 +35,14 @@ import {
 import {
   buildFieldGridSeatsFromStrictCalibration,
   buildSectorRowCalibrationFromStrict,
+  extendCalibrationWithSectorExtents,
   groupStrictSeatsBySectorNorm,
 } from './luzhnikiFieldGridRowCalibration.js';
+import {
+  buildFieldGridSeatsRadialStep,
+  resolveGlobalSectorMaxRow,
+  useRadialStepFieldGrid,
+} from './luzhnikiRadialStepFieldGrid.js';
 
 const FIELD_GRID_SOURCE = 'fieldGrid';
 
@@ -81,6 +88,7 @@ export function buildStadiumLayoutSeatsFromDotGrid({
     if (!sectorDots || sectorDots.length < minDotsPerSector) continue;
 
     const sectorStrict = strictBySector.get(norm) ?? [];
+
     const calibration = buildSectorRowCalibrationFromStrict(
       sectorStrict,
       sectorPath,
@@ -90,19 +98,55 @@ export function buildStadiumLayoutSeatsFromDotGrid({
     );
 
     if (calibration.length >= 2) {
-      out.push(
-        ...buildFieldGridSeatsFromStrictCalibration({
-          sectorLabel,
-          sectorDots,
-          sectorPath,
-          calibration,
-          fieldCenterPct,
-          hallWidth: w,
-          hallHeight: h,
-          seenKeys: seen,
-          strictSeats: sectorStrict,
-        }),
+      const strictMax = sectorStrict.reduce((m, s) => Math.max(m, parseNum(s.row) ?? 0), 0);
+      const rowHint = Math.max(maxRowInSectorFromSvg(sectorPath, svgRowLabels, w, h), 12);
+      const { bands: sortedBands } = sortSectorRowBandsFromField(
+        sectorDots,
+        sectorPath,
+        fieldCenterPct,
+        w,
+        h,
+        rowHint,
       );
+      const maxRow = resolveGlobalSectorMaxRow(sectorLabel, {
+        strictMax,
+        bandCount: sortedBands.length,
+      });
+      const rowAxis = rowAxisFromSector(sectorPath, fieldCenterPct, w, h);
+      const extendedCalibration = extendCalibrationWithSectorExtents({
+        calibration,
+        sectorDots,
+        rowAxis,
+        minRowNum: 1,
+        maxRowNum: maxRow,
+      });
+      const gridFn = useRadialStepFieldGrid()
+        ? buildFieldGridSeatsRadialStep
+        : buildFieldGridSeatsFromStrictCalibration;
+      const gridArgs = useRadialStepFieldGrid()
+        ? {
+            sectorLabel,
+            sectorDots,
+            sectorPath,
+            fieldCenterPct,
+            hallWidth: w,
+            hallHeight: h,
+            seenKeys: seen,
+            strictSeats: sectorStrict,
+            maxRow,
+          }
+        : {
+            sectorLabel,
+            sectorDots,
+            sectorPath,
+            calibration: extendedCalibration,
+            fieldCenterPct,
+            hallWidth: w,
+            hallHeight: h,
+            seenKeys: seen,
+            strictSeats: sectorStrict,
+          };
+      out.push(...gridFn(gridArgs));
       continue;
     }
 

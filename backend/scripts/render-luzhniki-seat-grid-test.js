@@ -23,6 +23,7 @@ import { buildPolarCloudRowColumnGrid } from '../utils/luzhnikiPolarCloudRowColu
 import { loadProdLayoutSeats } from '../utils/luzhnikiProdLayoutSeats.js';
 import { buildSeatRowColumnGrid, analyzeSeatGridQuality } from '../utils/luzhnikiSeatRowColumnGrid.js';
 import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
+import { buildCheckoutSeatCircleOverlay } from '../utils/luzhnikiCheckoutSeatCircleSvg.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -103,8 +104,9 @@ function verdictBadge(verdict) {
 function buildHtml(params) {
   let sourceLi = '';
   if (params.source === 'prodLayout') {
-    sourceLi =
-      '<li><strong>prod layout.seats</strong> — те же координаты, что на <a href="/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar">/map</a> (<code>bundle-luzhniki-stadium-pilot-seats.json</code>). Ряд = полилиния seat 1→N, колонна = одинаковый seat по рядам. Без polar/LMR.</li>';
+    sourceLi = params.seatCirclesOnly
+      ? '<li><strong>Круги мест</strong> — те же <code>xPct/yPct</code>, что <code>layout.seats</code> на <a href="/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar">/map</a> (sidecar после <code>build:luzhniki-stadium-pilot</code>). Атрибуты <code>place-name row place</code> + <code>id</code>. Ряд = от поля вверх (1…N в fieldGrid). Границы секторов — path из <code>tickets.json</code>.</li>'
+      : '<li><strong>prod layout.seats</strong> — legacy overlay.</li>';
   } else if (params.source === 'cloudMaster' || params.source === 'polar') {
     sourceLi =
       '<li><strong>cloudMaster (legacy)</strong> — узлы luzhniki.txt; не использовать для сверки с /map.</li>';
@@ -133,12 +135,12 @@ h1{font-size:18px} p,li{font-size:14px;opacity:.9;line-height:1.45}
 .quality{margin:10px 0;padding:10px;border:1px solid #444;border-radius:6px;background:#1a1a1a}
 a{color:#90caf9}
 </style></head><body><div class="wrap">
-<h1>Сетка рядов / колонн — ${escHtml(params.modeLabel)}</h1>
+<h1>${params.seatCirclesOnly ? 'Места (circle SVG)' : 'Сетка рядов / колонн'} — ${escHtml(params.modeLabel)}</h1>
 <div class="legend">
-<span><i class="sw" style="background:#64748b"></i> серая чаша (фон)</span>
+${params.seatCirclesOnly ? '<span><i class="sw" style="background:#94a3b8;height:8px;border-radius:50%"></i> место</span><span><i class="sw" style="background:#475569"></i> сектор</span>' : `<span><i class="sw" style="background:#64748b"></i> серая чаша</span>
 <span><i class="sw" style="background:#e53935"></i> ряд</span>
-<span><i class="sw" style="background:#1e88e5;border-bottom:1px dashed #1e88e5"></i> колонна</span>
-</div>
+<span><i class="sw" style="background:#1e88e5;border-bottom:1px dashed #1e88e5"></i> колонна</span>`}
+</motion>
 <p>Секторов: <strong>${params.sectorCount}</strong> · точек: <strong>${params.dotCount.toLocaleString('ru-RU')}</strong>${params.cloudDotCount ? ` · чаша: <strong>${params.cloudDotCount.toLocaleString('ru-RU')}</strong>` : ''} · рядов: <strong>${params.rowCount}</strong> · колонн: <strong>${params.colCount}</strong></p>
 <div class="quality">
 <p>Качество: ${verdictBadge(params.quality.verdict)} · откл. рядов <strong>${params.quality.maxRowChordDeviationPct}%</strong> · колонн <strong>${params.quality.maxColumnChordDeviationPct}%</strong> · пересеч. рядов <strong>${params.quality.rowLineCrossings}</strong> · колонн <strong>${params.quality.columnLineCrossings}</strong></p>
@@ -177,39 +179,36 @@ function main() {
 
   if (src === 'prodlayout' || src === 'prod') {
     const prod = loadProdLayoutSeats({ hallWidth: w, hallHeight: h });
-    const seats = prod.seats.filter((s) => {
-      if (!sectorMatches(s.sector, sector)) return false;
-      return true;
-    });
-    const gridBuilt = buildSeatRowColumnGrid(seats, {
-      sector,
-      hallWidth: w,
-      hallHeight: h,
-    });
-    const quality = analyzeSeatGridQuality(gridBuilt.rowLines, gridBuilt.columnLines, {
-      layoutSeatGrid: true,
-    });
+    const seats = prod.seats.filter((s) => sectorMatches(s.sector, sector));
+    const sectorPaths = extractPbiletTicketSectorPaths(tickets);
+    const built = buildCheckoutSeatCircleOverlay(seats, w, h, sectorPaths);
+    const quality = {
+      verdict: 'grid_ok',
+      verdictHint:
+        'Каждый <circle> = одно место layout.seats (cx/cy как на /map). Без линий сетки.',
+      maxRowChordDeviationPct: 0,
+      maxColumnChordDeviationPct: 0,
+      rowLineCrossings: 0,
+      columnLineCrossings: 0,
+    };
     const html = buildHtml({
       modeLabel: sector.trim()
-        ? `prod layout.seats · ${sector}`
-        : `prod layout.seats — как на /map (${prod.seatCount.toLocaleString('ru-RU')})`,
+        ? `круги мест · ${sector} · ${seats.length.toLocaleString('ru-RU')}`
+        : `круги layout.seats — как /map (${prod.seatCount.toLocaleString('ru-RU')})`,
       w,
       h,
       bgInner,
-      overlay: [
-        grayLayer,
-        ...gridBuilt.columnLines.map((l) => polyline(l.points, '#1e88e5', 1.2, '5 4', 0.65)),
-        ...gridBuilt.rowLines.map((l) => polyline(l.points, '#e53935', 2, false, 0.92)),
-      ].join('\n'),
-      sectorCount: gridBuilt.sectorCount,
-      dotCount: gridBuilt.dotCount,
+      overlay: built.markup,
+      sectorCount: built.sectorCount,
+      dotCount: seats.length,
       cloudDotCount,
-      rowCount: gridBuilt.rowLines.length,
-      colCount: gridBuilt.columnLines.length,
+      rowCount: built.rowCount,
+      colCount: 0,
       quality,
       source: 'prodLayout',
       builtAt,
-      colHiddenNote: `<li>Файл: <code>${prod.sourceFile}</code>. Линии source=layoutSeat (зеркало <code>luzhnikiSeatRowColumnGrid.ts</code>).</li>`,
+      seatCirclesOnly: true,
+      colHiddenNote: `<li>Файл: <code>${prod.sourceFile}</code>. Пересобрать: <code>npm run build:luzhniki-stadium-pilot</code>.</li>`,
     });
 
     const writeTargets = out
@@ -229,10 +228,10 @@ function main() {
           sector: sector || '(весь стадион)',
           seatFile: prod.sourceFile,
           seatCount: prod.seatCount,
-          sectorCount: gridBuilt.sectorCount,
-          dotCount: gridBuilt.dotCount,
-          rows: gridBuilt.rowLines.length,
-          cols: gridBuilt.columnLines.length,
+          sectorCount: built.sectorCount,
+          dotCount: seats.length,
+          rows: built.rowCount,
+          cols: 0,
           quality,
         },
         null,

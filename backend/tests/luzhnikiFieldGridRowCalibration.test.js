@@ -60,4 +60,9 @@ test('fieldGrid row labels align with strict tickets (A103, D230)', () => {
       `${sector}: row delta poor exact=${exact}/${deltas.length} within1=${within1}/${deltas.length} sample=${deltas.slice(0, 8)}`,
     );
   }
+
+  const d230 = grid.filter((s) => s.sector === 'Сектор D 230');
+  const rowNums = [...new Set(d230.map((s) => parseInt(s.row, 10)))].filter(Number.isFinite).sort((a, b) => a - b);
+  assert.ok(rowNums.length >= 25, `D230: need full tribune rows, got ${rowNums.length} (${rowNums[0]}..${rowNums[rowNums.length - 1]})`);
+  assert.equal(rowNums[0], 1, 'D230: radial step starts at row 1');
 });

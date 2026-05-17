@@ -18,6 +18,7 @@ import {
 import { buildFullCloudGridLabeledSeats } from './luzhnikiCloudGridSeatIndex.js';
 import { useCloudMasterMap } from './luzhnikiCloudMasterMap.js';
 import { applyLocalMagneticResonanceToLabeledSeats } from './luzhnikiLocalMagneticResonance.js';
+import { useRadialStepFieldGrid } from './luzhnikiRadialStepFieldGrid.js';
 
 /**
  * @param {{
@@ -82,18 +83,27 @@ export function buildFullStadiumLabeledSeats({
       : [];
 
   const merged = mergeLayoutSeatsPreferPbiletStrict(ticketsSeats, gridSeats);
-  const dotsBySector = buildSectorDotIndex(allSeatCoordinates, sectorPaths, w, h);
-  const { seats } = applyLocalMagneticResonanceToLabeledSeats(
-    merged,
-    sectorPaths,
-    allSeatCoordinates,
-    w,
-    h,
-    ticketsSeats,
-    { dotsBySector, svgMarkup: String(svgMarkup ?? '') },
-  );
+  let seats = merged;
+  let lmrSnapCount = 0;
+  const runLmr =
+    useRadialStepFieldGrid() &&
+    process.env.LUZHNIKI_SKIP_LMR !== '1' &&
+    process.env.LUZHNIKI_SKIP_LMR !== 'true';
+  if (runLmr) {
+    const dotsBySector = buildSectorDotIndex(allSeatCoordinates, sectorPaths, w, h);
+    const lmr = applyLocalMagneticResonanceToLabeledSeats(
+      merged,
+      sectorPaths,
+      allSeatCoordinates,
+      w,
+      h,
+      ticketsSeats,
+      { dotsBySector, svgMarkup: String(svgMarkup ?? '') },
+    );
+    seats = lmr.seats;
+    lmrSnapCount = seats.filter((s) => s.geodesySource === 'lmrSnap').length;
+  }
   const strictCount = seats.filter((s) => s.geodesySource === 'strict').length;
-  const lmrSnapCount = seats.filter((s) => s.geodesySource === 'lmrSnap').length;
 
   return {
     seats,

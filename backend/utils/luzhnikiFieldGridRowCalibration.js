@@ -98,6 +98,47 @@ function snapDotRowFromStrict(dot, strictSeats) {
   return bestRow;
 }
 
+/**
+ * Расширить якоря strict до физического диапазона облака: row 1 у поля … maxRow у верха сектора.
+ * Без этого все точки вне 26–32 схлопываются в 4 pbilet-ряда (D230: 8 рядов вместо ~30).
+ */
+export function extendCalibrationWithSectorExtents({
+  calibration,
+  sectorDots,
+  rowAxis,
+  minRowNum = 1,
+  maxRowNum,
+}) {
+  if (!calibration?.length || calibration.length < 2) return calibration ?? [];
+  const maxRow = Math.max(
+    maxRowNum || 1,
+    ...calibration.map((c) => c.rowNum),
+    minRowNum,
+  );
+  let minCoord = Infinity;
+  let maxCoord = -Infinity;
+  for (const dot of sectorDots || []) {
+    const rc = dot.xPct * rowAxis.x + dot.yPct * rowAxis.y;
+    if (Number.isFinite(rc)) {
+      minCoord = Math.min(minCoord, rc);
+      maxCoord = Math.max(maxCoord, rc);
+    }
+  }
+  if (!Number.isFinite(minCoord)) return calibration;
+
+  const out = calibration.map((c) => ({ ...c }));
+  const first = out[0];
+  const last = out[out.length - 1];
+
+  if (minCoord < first.rowCoord - 1e-9) {
+    out.unshift({ rowNum: minRowNum, rowCoord: minCoord });
+  }
+  if (maxCoord > last.rowCoord + 1e-9) {
+    out.push({ rowNum: maxRow, rowCoord: maxCoord });
+  }
+  return out.sort((a, b) => a.rowCoord - b.rowCoord);
+}
+
 export function buildFieldGridSeatsFromStrictCalibration({
   sectorLabel,
   sectorDots,

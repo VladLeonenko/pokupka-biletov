@@ -80,7 +80,8 @@ export function analyzeSeatGridQuality(rowLines, columnLines, options = {}) {
     );
   }
 
-  const arcRows = options.lmrGrid || options.rowArcs;
+  const arcRows =
+    options.lmrGrid || options.rowArcs || options.polarRowRings || options.stadiumRadialStep;
   const rowLinesForCross = arcRows
     ? rowLines.filter(
         (l) =>
@@ -92,8 +93,9 @@ export function analyzeSeatGridQuality(rowLines, columnLines, options = {}) {
   const rowLineCrossings = countPolylineCrossings(rowLinesForCross, true);
   const columnLineCrossings = countPolylineCrossings(columnLines, true);
 
-  const layoutSeatGrid = options.layoutSeatGrid === true;
-  const polar = options.polarGuide || options.anchorMesh || arcRows;
+  const layoutSeatGrid = options.layoutSeatGrid === true && !options.stadiumRadialStep;
+  const polar =
+    options.polarGuide || options.anchorMesh || arcRows || options.polarRowRings || options.stadiumRadialStep;
   const chordOk = !options.curvedRows && !polar && !layoutSeatGrid;
   const gridCrooked =
     (chordOk && maxRowChordDeviationPct > ROW_DEVIATION_OK_PCT) ||
@@ -111,7 +113,11 @@ export function analyzeSeatGridQuality(rowLines, columnLines, options = {}) {
       : 'Сетка кривая — проверь fieldGrid / калибровку рядов или якоря sector-row-anchors.json.';
   } else if (rowLines.length >= 2) {
     verdict = layoutSeatGrid || polar ? 'grid_ok' : 'grid_ok_svg_suspect';
-    verdictHint = layoutSeatGrid
+    verdictHint = options.polarRowRings
+      ? `Полярные кольца: ${rowLines.length} дуг (R, φ), медиана R по row_id — без пересечений.`
+      : options.rowArcs
+        ? 'Дуги рядов: полилиния мест с одним row_id (φ), колонны скрыты.'
+        : layoutSeatGrid
       ? 'Сетка = полилинии через layout.seats (как /map). Дуги рядов — норма.'
       : options.lmrGrid
         ? 'LST: дуги от центра поля, лучи по seat_id, обрезка по крайним местам.'
