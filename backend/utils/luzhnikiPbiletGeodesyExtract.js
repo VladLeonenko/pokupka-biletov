@@ -3,6 +3,7 @@
  * Офферы GetBilet могут содержать только доступные места — координаты всего чаша задаём здесь.
  */
 
+import { lookupLabeledSeat } from './hallSeatGeodesyMatch.js';
 import { luzhnikiSectorLookupNorms, normalizeSectorLabel } from './ticketHallSectorNormalize.js';
 
 function normalizeText(value) {
@@ -152,15 +153,61 @@ function lerpSeat(a, b, t, row, seat, sector) {
   };
 }
 
+export function snapFieldGridSeat(fieldGridIndex, sectorLabel, row, seat) {
+  if (!fieldGridIndex?.size) return null;
+  const targetRow = parseRowNum(row);
+  const seatNum = parseSeatNum(seat);
+  if (targetRow == null || seatNum == null) return null;
+
+  const exact = lookupLabeledSeat(fieldGridIndex, sectorLabel, row, seat);
+  if (exact) {
+    return {
+      sector: sectorLabel,
+      row: String(row),
+      seat: String(seat),
+      xPct: exact.xPct,
+      yPct: exact.yPct,
+      geodesySource: 'fieldGridSnap',
+    };
+  }
+
+  const lookupNorms = new Set(luzhnikiSectorLookupNorms(sectorLabel));
+  let best = null;
+  let bestDist = Infinity;
+  for (const s of fieldGridIndex.values()) {
+    if (!lookupNorms.has(normalizeSectorLabel(s.sector))) continue;
+    if (parseRowNum(s.row) !== targetRow) continue;
+    const sn = parseSeatNum(s.seat);
+    if (sn == null) continue;
+    const d = Math.abs(sn - seatNum);
+    if (d < bestDist) {
+      bestDist = d;
+      best = s;
+    }
+  }
+  if (!best) return null;
+  return {
+    sector: sectorLabel,
+    row: String(row),
+    seat: String(seat),
+    xPct: best.xPct,
+    yPct: best.yPct,
+    geodesySource: 'fieldGridSnap',
+  };
+}
+
 /**
- * Координаты места по tickets.json: точное совпадение или линейная интер-/экстраполяция по рядам.
- * layout.seats (fieldGrid) для Лужников даёт сдвиг рядов — не использовать для офферов.
+ * Координаты места: snap к LMR fieldGrid (если index передан), иначе tickets + интерполяция.
+ * @param {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }>} [fieldGridIndex]
  */
-export function interpolatePbiletSeatGeodesy(pbiletSeats, sectorLabel, row, seat) {
+export function interpolatePbiletSeatGeodesy(pbiletSeats, sectorLabel, row, seat, fieldGridIndex = null) {
   const lookupNorms = new Set(luzhnikiSectorLookupNorms(sectorLabel));
   const targetRow = parseRowNum(row);
   const seatNum = parseSeatNum(seat);
   if (targetRow == null || seatNum == null) return null;
+
+  const gridHit = snapFieldGridSeat(fieldGridIndex, sectorLabel, row, seat);
+  if (gridHit) return gridHit;
 
   const sectorSeats = pbiletSeats.filter((s) => lookupNorms.has(normalizeSectorLabel(s.sector)));
   if (sectorSeats.length < 1) return null;

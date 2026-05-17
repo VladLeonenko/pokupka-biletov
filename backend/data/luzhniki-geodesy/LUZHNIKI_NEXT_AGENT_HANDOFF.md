@@ -113,12 +113,10 @@ pbilet SVG подложка (GetBilet / seed)     — художественна
 
 **Требование заказчика:** каждый круг должен иметь **id** (уникальный).
 
-**Сейчас:** `pilotSeatCircleMarkup()` в `luzhnikiPilotSeatSvg.js` — атрибуты `place-name`, `row`, `place`, **без `id`**.
-
-**Предложение (не реализовано):**
+**Сейчас (B, 2026-05-17):** `pilotSeatCircleMarkup()` — `id="seat-{norm}-r{row}-s{seat}"` + `place-name`, `row`, `place`.
 
 ```xml
-<circle id="seat-{normSector}-{row}-{seat}" ... place-name="..." row="..." place="..." />
+<circle id="seat-{normSector}-r{row}-s{seat}" ... place-name="..." row="..." place="..." />
 ```
 
 Нормализация id: без пробелов, латиница, `strictSeatKey` или hash.
@@ -222,13 +220,14 @@ curl -sS "http://127.0.0.1:${PORT}/api/bilet/stage/luzhniki-football/map?reperto
 
 | Область | Агент | Статус | Файлы |
 |---------|-------|--------|-------|
-| fieldGrid: сдвиг рядов ~4 | **A** | ✅ фикс в коде, ❌ bundle/БД не пересобраны | `luzhnikiFieldGridRowCalibration.js`, `hallSeatGeodesyLuzhnikiGrid.js`, `luzhnikiStadiumFullGeodesy.js` |
+| fieldGrid: сдвиг рядов ~4 | **A** | ✅ код; **B:** bundle+sidecar пересобраны, apply в dev-БД | `luzhnikiFieldGridRowCalibration.js`, `hallSeatGeodesyLuzhnikiGrid.js`, `luzhnikiStadiumFullGeodesy.js` |
 | Диагностика strict vs fieldGrid | **A** | ✅ | `/test/luzhniki-seat-grid`, `GET /api/bilet/dev/luzhniki-seat-grid-diagnostic`, `luzhnikiGeodesyGridDiagnostic.js` |
-| Серая чаша: линии рядов (HTML) | **B?** | WIP | `luzhnikiGrayCloudRowColumnGrid.js`, `render:luzhniki-seat-grid`, `hand/grid-diagnostic.html` |
-| Sellable cloud-grid-snap | **B?** | код есть, **не подключён** к `/map` | `luzhnikiCloudGridSeatIndex.js` → `buildSellableSeatGeodesyCloudGridSnap` |
-| `id` на 80k circle | **оба** | ❌ | `luzhnikiPilotSeatSvg.js` `pilotSeatCircleMarkup` |
-| VIP C138 manual pilot | **B** | ❌ | `sector-row-anchors.json`, polarGrid в `luzhnikiCloudGridSeatIndex.js` |
-| Production build + apply | **ожидает merge** | ❌ | `build:luzhniki-stadium-pilot` → `apply:luzhniki-sector-pilot` |
+| `/tools/luzhniki-grid-diagnostic.html` | **B** | ✅ **Master Grid** (`FORCE_FULL_GRID=1`): 1..maxRow из SVG+облака, виртуальные дуги, snap sellable; D230 ≈32 ряда | `luzhnikiMasterGridGapFill.js`, `luzhnikiLocalMagneticResonance.js` |
+| Sellable `/map` | **B** | ✅ **pbiletStrict** (откат cloud-grid default); snap — только `LUZHNIKI_SELLABLE_GEODESY=cloud-grid` после OK | `luzhnikiFootballStageMap.js`, `luzhnikiPbiletSellableGeodesy.js` |
+| Sellable cloud-grid-snap | **B** | черновик, **не в /map** | `luzhnikiCloudGridSeatIndex.js` |
+| `id` на pilot circle | **B** | ✅ `seat-{norm}-r{row}-s{seat}` | `luzhnikiPilotSeatSvg.js` |
+| VIP C138 polarGrid | **B** | черновик в cloud-модуле; sellable VIP — через pbilet/anchors | `sector-row-anchors.json`, `luzhnikiCloudGridSeatIndex.js` |
+| Production build + apply | **B** | ✅ локально; прод — после `git push` + deploy §9.5 | `bundle-luzhniki-stadium-pilot.json`, sidecar seats |
 
 ### 9.2. Корневая причина «сдвиг ~4 ряда» (не offset вручную)
 
@@ -316,7 +315,7 @@ cd ../frontend && npm ci && npm run build
 | `http://localhost:5173/test/luzhniki-seat-grid?mode=strict&sector=D+230` | strict 6132, линии рядов |
 | `?mode=fieldGrid` | fieldGrid после фикса A (нужен backend) |
 | `?mode=compare` | Δряд strict vs fieldGrid, гистограмма |
-| `cd backend && npm run render:luzhniki-seat-grid` | офлайн HTML, серая чаша |
+| `cd backend && npm run render:luzhniki-seat-grid` | офлайн HTML polar (R,φ) + D230 + cloud legacy |
 | `node --test backend/tests/luzhnikiFieldGridRowCalibration.test.js` | регрессия fieldGrid |
 
 ### 9.7. Definition of Done (уточнённый)

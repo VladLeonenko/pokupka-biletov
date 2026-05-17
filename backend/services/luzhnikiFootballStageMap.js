@@ -12,7 +12,6 @@ import {
   buildSellableSeatGeodesyFromSvgCircles,
   countSvgNativeSeatCircles,
 } from '../utils/hallSeatGeodesyFromSvgCircles.js';
-import { buildSellableSeatGeodesyCloudGridSnap } from '../utils/luzhnikiCloudGridSeatIndex.js';
 import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
 import { LUZHNIKI_PILOT_SEATS_REL_PATH } from '../utils/luzhnikiSeatIndexCache.js';
 import { stripLuzhnikiPilotSeatsLayerFromSvg } from '../utils/luzhnikiPilotSeatSvg.js';
@@ -23,14 +22,8 @@ const repoRoot = path.resolve(__dirname, '../..');
 
 const LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS = Number(process.env.LUZHNIKI_CLIENT_MAX_LAYOUT_SEATS) || 8000;
 
-/** cloud-grid (default) | pbilet | fieldgrid/svg */
-function resolveLuzhnikiSellableGeodesyMode() {
-  if (process.env.LUZHNIKI_USE_FIELDGRID_SELLABLE === '1') return 'fieldgrid';
-  const explicit = String(process.env.LUZHNIKI_SELLABLE_GEODESY ?? '').trim().toLowerCase();
-  if (explicit === 'pbilet' || explicit === 'pbilet-strict') return 'pbilet';
-  if (explicit === 'fieldgrid' || explicit === 'field-grid') return 'fieldgrid';
-  return 'cloud-grid';
-}
+/** Sellable: pbilet strict + interpolate (default). fieldGrid/cloud — только по env, см. handoff §9.4. */
+const USE_PBILET_ACCURATE = process.env.LUZHNIKI_USE_FIELDGRID_SELLABLE !== '1';
 
 let ticketsPayloadCache = null;
 
@@ -140,23 +133,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = null) {
     const minSvgCircles = Number(process.env.LUZHNIKI_MIN_SVG_CIRCLES_FOR_SELLABLE) || 12;
 
     let geodesy;
-    const sellableMode = resolveLuzhnikiSellableGeodesyMode();
-    if (sellableMode === 'cloud-grid') {
-      const tickets = loadTicketsPayload();
-      let coordsPayload = layout._coordinatesPayload;
-      if (!coordsPayload) {
-        const coordsPath =
-          process.env.LUZHNIKI_COORDINATES_TXT?.trim() || path.join(repoRoot, 'luzhniki.txt');
-        if (fs.existsSync(coordsPath)) {
-          coordsPayload = JSON.parse(fs.readFileSync(coordsPath, 'utf8'));
-        }
-      }
-      geodesy = buildSellableSeatGeodesyCloudGridSnap(tickets, offerRows, {
-        ...layout,
-        _coordinatesPayload: coordsPayload,
-      });
-      nextLayout.sellableGeodesyMode = 'cloudGridSnap';
-    } else if (sellableMode === 'pbilet') {
+    if (USE_PBILET_ACCURATE) {
       geodesy = buildSellableSeatGeodesyPbiletAccurate(loadTicketsPayload(), offerRows, layout);
       nextLayout.sellableGeodesyMode = 'pbiletStrict';
     } else {

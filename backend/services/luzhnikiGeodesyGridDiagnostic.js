@@ -8,12 +8,12 @@ import { fileURLToPath } from 'node:url';
 
 import {
   extractPbiletCoordinateCategoriesSectorPaths,
+  extractPbiletCoordinatesSeatDots,
   extractPbiletTicketSectorPaths,
   mergeSectorMetaPreferTickets,
 } from '../utils/luzhnikiPbiletGeodesyExtract.js';
-import { buildSeatRowColumnGrid } from '../utils/luzhnikiSeatGridLines.js';
-import { analyzeSeatGridQuality } from '../utils/luzhnikiSeatRowColumnGrid.js';
-import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
+import { buildSeatRowColumnGrid, analyzeSeatGridQuality } from '../utils/luzhnikiSeatRowColumnGrid.js';
+import { loadProdLayoutSeats } from '../utils/luzhnikiProdLayoutSeats.js';
 import { extractPbiletTicketsSeatGeodesy } from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
@@ -89,18 +89,12 @@ export function compareStrictToFieldGrid(strict, grid) {
   };
 }
 
-let cachedBuild = null;
+let cachedProd = null;
 
-function loadFullBuild() {
-  if (cachedBuild) return cachedBuild;
-  const tickets = loadRepoJson('tickets.json');
-  const coords = loadRepoJson('luzhniki.txt');
-  cachedBuild = buildFullStadiumLabeledSeats({
-    ticketsPayload: tickets,
-    coordinatesPayload: coords,
-    svgMarkup: '',
-  });
-  return cachedBuild;
+function loadProdBuild() {
+  if (cachedProd) return cachedProd;
+  cachedProd = loadProdLayoutSeats();
+  return cachedProd;
 }
 
 /**
@@ -112,18 +106,18 @@ export function buildLuzhnikiSeatGridDiagnosticPayload(options = {}) {
   const H = 9676;
   const tickets = loadRepoJson('tickets.json');
   const strictAll = extractPbiletTicketsSeatGeodesy(tickets, W, H);
-  const { seats, stats, hallWidth, hallHeight } = loadFullBuild();
+  const { seats, hallWidth, hallHeight, seatCount, sourceFile } = loadProdBuild();
+  const stats = { coordinateDots: seatCount, prodLayoutFile: sourceFile };
 
   const strict = strictAll.filter((s) => sectorMatches(s.sector, sectorFilter));
-  const grid = seats.filter(
-    (s) => s.geodesySource === 'fieldGrid' && sectorMatches(s.sector, sectorFilter),
-  );
+  const grid = seats.filter((s) => sectorMatches(s.sector, sectorFilter));
 
   const sectors = [...new Set(strictAll.map((s) => s.sector.trim()))].sort((a, b) =>
     a.localeCompare(b, 'ru'),
   );
 
   const coords = loadRepoJson('luzhniki.txt');
+  const cloudDots = extractPbiletCoordinatesSeatDots(coords, hallWidth, hallHeight);
   const sectorPaths = mergeSectorMetaPreferTickets(
     extractPbiletTicketSectorPaths(tickets),
     extractPbiletCoordinateCategoriesSectorPaths(coords),
@@ -136,26 +130,15 @@ export function buildLuzhnikiSeatGridDiagnosticPayload(options = {}) {
     sector: sectorFilter,
     hallWidth,
     hallHeight,
-    sectorPaths,
-    preferAnchorMesh: true,
   });
-  const mostlyAnchors = gridBuilt.anchorSectorCount >= gridBuilt.spatialSectorCount;
-  const gridQuality = analyzeSeatGridQuality(gridBuilt.rowLines, gridBuilt.columnLines, {
-    anchorMesh: mostlyAnchors,
-    curvedRows: !mostlyAnchors,
-  });
+  const gridQuality = analyzeSeatGridQuality(gridBuilt.rowLines, gridBuilt.columnLines);
 
   const strictGrid = buildSeatRowColumnGrid(strict, {
     sector: sectorFilter,
     hallWidth,
     hallHeight,
-    sectorPaths,
-    preferAnchorMesh: true,
   });
-  const strictQuality = analyzeSeatGridQuality(strictGrid.rowLines, strictGrid.columnLines, {
-    anchorMesh: true,
-    curvedRows: false,
-  });
+  const strictQuality = analyzeSeatGridQuality(strictGrid.rowLines, strictGrid.columnLines);
 
   return {
     hallWidth,

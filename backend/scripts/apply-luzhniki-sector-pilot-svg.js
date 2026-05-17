@@ -132,12 +132,7 @@ async function main() {
         seat: s.seat,
         xPct: s.xPct,
         yPct: s.yPct,
-        geodesySource:
-          s.geodesySource === 'strict'
-            ? 'strict'
-            : s.geodesySource === 'cloudGrid'
-              ? 'cloudGrid'
-              : 'fieldGrid',
+        geodesySource: s.geodesySource === 'strict' ? 'strict' : 'fieldGrid',
       }));
     }
   }

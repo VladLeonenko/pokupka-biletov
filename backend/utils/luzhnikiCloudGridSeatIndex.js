@@ -536,7 +536,7 @@ export function buildFullCloudGridLabeledSeats({
   };
 }
 
-function interpolateBandToApiRow(bandIdx, rowPairs) {
+export function interpolateBandToApiRow(bandIdx, rowPairs) {
   if (!rowPairs?.length) return String(bandIdx + 1);
   for (let i = 0; i < rowPairs.length - 1; i += 1) {
     const lo = rowPairs[i];

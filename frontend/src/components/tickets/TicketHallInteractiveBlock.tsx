@@ -1122,9 +1122,9 @@ export function TicketHallInteractiveBlock({
   );
   const visibleNativePlacements = useMemo(() => {
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
-    /** Лужники: цветные точки только в выбранном секторе (на обзоре — только серая чаша). */
+    /** Лужники: без выбранного сектора — все sellable (пан/зум без повторного клика по полигону). */
     if (luzhnikiCheckout) {
-      if (!selectedSectorSummary) return [];
+      if (!selectedSectorSummary) return interactive;
       /** Только метка сектора из оффера — не bbox path (соседи с layout-grid coords попадают в polygon). */
       return interactive.filter(
         (p) => normalizeSectorLabel(p.sectorLabel) === selectedSector,
@@ -1393,11 +1393,7 @@ export function TicketHallInteractiveBlock({
       }
     }
 
-    const drawSellableDots =
-      visibleNativePlacements.length > 0 &&
-      !(luzhnikiCheckout && !selectedSectorSummary);
-
-    if (drawSellableDots) {
+    if (visibleNativePlacements.length > 0) {
       const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
       const overview = liveZoom <= fitZoom + 0.01;
       const scalePx = w / Math.max(1, svgViewBox.width);

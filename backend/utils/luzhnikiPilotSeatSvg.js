@@ -64,7 +64,7 @@ export function luzhnikiPilotSeatCircleId(sector, row, seat) {
   const norm = normalizeSectorLabel(sector) || 'sector';
   const rowClean = String(row ?? '').replace(/\D/g, '') || '0';
   const seatClean = String(seat ?? '').replace(/\D/g, '') || '0';
-  return `lz-${norm}-r${rowClean}-s${seatClean}`;
+  return `seat-${norm}-r${rowClean}-s${seatClean}`;
 }
 
 /** Невидимые круги: не портят подложку и processHallSvgForNative. */

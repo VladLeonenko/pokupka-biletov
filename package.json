@@ -18,7 +18,10 @@
     "restore:blog-body:prod": "cd backend && node scripts/restore-blog-article-body.js --prod",
     "sync:event-descriptions": "cd backend && node scripts/sync-and-backfill-new-events.js",
     "backfill:event-description-packs": "cd backend && node scripts/backfill-event-description-packs.js",
-    "backfill:event-description-packs:force": "cd backend && npm run backfill:event-description-packs:force"
+    "backfill:event-description-packs:force": "cd backend && npm run backfill:event-description-packs:force",
+    "render:luzhniki-seat-grid": "cd backend && npm run render:luzhniki-seat-grid",
+    "build:luzhniki-stadium-pilot": "cd backend && npm run build:luzhniki-stadium-pilot",
+    "apply:luzhniki-sector-pilot": "cd backend && npm run apply:luzhniki-sector-pilot"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"

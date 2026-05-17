@@ -2,7 +2,7 @@
 /**
  * Geodesy-круги (#luzhniki-pilot-seats) для Лужников.
  *
- * Режим full (по умолчанию): все сектора / ~77k мест (tickets strict + cloud grid по luzhniki.txt).
+ * Режим full (по умолчанию): все сектора / ~79k мест (tickets strict + fieldGrid по luzhniki.txt).
  * Режим offers: только сектора с live-офферами (старый пилот).
  *
  *   npm run build:luzhniki-stadium-pilot
@@ -319,7 +319,11 @@ async function buildFullMode() {
     xPct: s.xPct,
     yPct: s.yPct,
     source:
-      s.geodesySource === 'strict' ? 'strict' : s.geodesySource === 'cloudGrid' ? 'cloudGrid' : 'fieldGrid',
+      s.geodesySource === 'strict'
+        ? 'strict'
+        : s.geodesySource === 'lmrSnap' || s.geodesySource === 'polarSnap'
+          ? 'lmrSnap'
+          : 'fieldGrid',
   }));
 
   const enrich = await enrichFullCirclesWithOffers(circles, tickets, w, h, repertoireId);
@@ -354,7 +358,7 @@ async function main() {
     hallWidth: built.w,
     hallHeight: built.h,
     mode: built.mode,
-    source: built.mode === 'full' ? 'stadium-cloud-grid+tickets' : 'stadium-pilot-d230-mapping',
+    source: built.mode === 'full' ? 'stadium-full-grid+tickets' : 'stadium-pilot-d230-mapping',
     repertoireId: built.repertoireId,
     builtAt: new Date().toISOString(),
     svgMarkup,
@@ -369,8 +373,8 @@ async function main() {
             geodesySource:
               c.source === 'strict'
                 ? 'strict'
-                : c.source === 'cloudGrid'
-                  ? 'cloudGrid'
+                : c.source === 'lmrSnap' || c.source === 'polarSnap'
+                  ? 'lmrSnap'
                   : c.source === 'live-offer'
                     ? 'svgCircle'
                     : 'fieldGrid',

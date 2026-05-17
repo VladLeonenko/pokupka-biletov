@@ -2,9 +2,10 @@
 /**
  * Офлайн HTML: сетка рядов (красная) и колонн (синяя).
  *
- *   npm run render:luzhniki-seat-grid          # fieldGrid + калибровка A → /tools/luzhniki-grid-diagnostic.html
+ *   npm run render:luzhniki-seat-grid          # prod layout.seats (= /map) → luzhniki-grid-diagnostic.html
+ *   node scripts/render-luzhniki-seat-grid-test.js --source fieldGrid
  *   node scripts/render-luzhniki-seat-grid-test.js --source strict
- *   node scripts/render-luzhniki-seat-grid-test.js --source cloud   # legacy → luzhniki-grid-diagnostic-cloud.html
+ *   node scripts/render-luzhniki-seat-grid-test.js --source cloud   # legacy axis → luzhniki-grid-diagnostic-cloud.html
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,8 +19,9 @@ import {
   mergeSectorMetaPreferTickets,
 } from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import { buildGrayCloudRowColumnGrid } from '../utils/luzhnikiGrayCloudRowColumnGrid.js';
-import { buildSeatRowColumnGrid } from '../utils/luzhnikiSeatGridLines.js';
-import { analyzeSeatGridQuality } from '../utils/luzhnikiSeatRowColumnGrid.js';
+import { buildPolarCloudRowColumnGrid } from '../utils/luzhnikiPolarCloudRowColumnGrid.js';
+import { loadProdLayoutSeats } from '../utils/luzhnikiProdLayoutSeats.js';
+import { buildSeatRowColumnGrid, analyzeSeatGridQuality } from '../utils/luzhnikiSeatRowColumnGrid.js';
 import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,7 +40,7 @@ function parseArgs() {
   const outIdx = args.indexOf('--out');
   return {
     sector: sectorIdx >= 0 ? args[sectorIdx + 1] : '',
-    source: sourceIdx >= 0 ? args[sourceIdx + 1] : 'fieldGrid',
+    source: sourceIdx >= 0 ? args[sourceIdx + 1] : 'prodLayout',
     out: outIdx >= 0 ? args[outIdx + 1] : '',
     ticketsPath: path.join(repoRoot, 'tickets.json'),
     coordsPath: path.join(repoRoot, 'luzhniki.txt'),
@@ -100,13 +102,19 @@ function verdictBadge(verdict) {
 
 function buildHtml(params) {
   let sourceLi = '';
-  if (params.source === 'fieldGrid') {
+  if (params.source === 'prodLayout') {
     sourceLi =
-      '<li><strong>Якорная сетка</strong> — углы из <code>sector-row-anchors.json</code> (bilinear + rowCurve), как A 108 VIP; иначе spatial sort по оси сектора.</li>';
+      '<li><strong>prod layout.seats</strong> — те же координаты, что на <a href="/ticket/superfinal-fonbet-kubka-rossii-spartak-krasnodar">/map</a> (<code>bundle-luzhniki-stadium-pilot-seats.json</code>). Ряд = полилиния seat 1→N, колонна = одинаковый seat по рядам. Без polar/LMR.</li>';
+  } else if (params.source === 'cloudMaster' || params.source === 'polar') {
+    sourceLi =
+      '<li><strong>cloudMaster (legacy)</strong> — узлы luzhniki.txt; не использовать для сверки с /map.</li>';
+  } else if (params.source === 'fieldGrid') {
+    sourceLi =
+      '<li><strong>fieldGrid</strong> — подписанные места + якорная/полярная сетка (не чаша).</li>';
   } else if (params.source === 'strict') {
     sourceLi = '<li><strong>strict</strong> — 6132 места <code>tickets.json</code>.</li>';
   } else {
-    sourceLi = '<li><strong>cloud</strong> — сырая чаша (зигзаг ожидаем).</li>';
+    sourceLi = '<li><strong>cloud (legacy)</strong> — ось сектора, зигзаг ожидаем.</li>';
   }
 
   return `<!DOCTYPE html>
@@ -139,7 +147,7 @@ a{color:#90caf9}
 <ul>
 ${sourceLi}
 ${params.colHiddenNote || ''}
-<li><a href="/test/luzhniki-seat-grid?mode=fieldGrid">Интерактив</a> · <a href="/tools/luzhniki-grid-diagnostic-d230.html">D230</a> · <a href="/tools/luzhniki-grid-diagnostic-cloud.html">cloud (legacy)</a></li>
+<li><a href="/test/luzhniki-seat-grid?mode=fieldGrid">Интерактив (fieldGrid)</a> · <a href="/tools/luzhniki-grid-diagnostic-d230.html">D230</a> · <a href="/tools/luzhniki-grid-diagnostic-cloud.html">cloud (legacy axis)</a></li>
 </ul>
 <p style="opacity:.6;font-size:12px">source=${escHtml(params.source)} · ${escHtml(params.builtAt)}</p>
 <div class="stage"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${params.w} ${params.h}">${params.bgInner}${params.overlay}</svg></div>
@@ -164,7 +172,181 @@ function main() {
     bgInner = `<image href="${bgUrl}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>`;
   }
 
-  if (source === 'cloud') {
+  const src = String(source).toLowerCase();
+  const grayMax = src === 'polar' || src === 'cloudmaster' ? 50000 : maxGrayDots;
+
+  if (src === 'prodlayout' || src === 'prod') {
+    const prod = loadProdLayoutSeats({ hallWidth: w, hallHeight: h });
+    const seats = prod.seats.filter((s) => {
+      if (!sectorMatches(s.sector, sector)) return false;
+      return true;
+    });
+    const gridBuilt = buildSeatRowColumnGrid(seats, {
+      sector,
+      hallWidth: w,
+      hallHeight: h,
+    });
+    const quality = analyzeSeatGridQuality(gridBuilt.rowLines, gridBuilt.columnLines, {
+      layoutSeatGrid: true,
+    });
+    const html = buildHtml({
+      modeLabel: sector.trim()
+        ? `prod layout.seats · ${sector}`
+        : `prod layout.seats — как на /map (${prod.seatCount.toLocaleString('ru-RU')})`,
+      w,
+      h,
+      bgInner,
+      overlay: [
+        grayLayer,
+        ...gridBuilt.columnLines.map((l) => polyline(l.points, '#1e88e5', 1.2, '5 4', 0.65)),
+        ...gridBuilt.rowLines.map((l) => polyline(l.points, '#e53935', 2, false, 0.92)),
+      ].join('\n'),
+      sectorCount: gridBuilt.sectorCount,
+      dotCount: gridBuilt.dotCount,
+      cloudDotCount,
+      rowCount: gridBuilt.rowLines.length,
+      colCount: gridBuilt.columnLines.length,
+      quality,
+      source: 'prodLayout',
+      builtAt,
+      colHiddenNote: `<li>Файл: <code>${prod.sourceFile}</code>. Линии source=layoutSeat (зеркало <code>luzhnikiSeatRowColumnGrid.ts</code>).</li>`,
+    });
+
+    const writeTargets = out
+      ? [path.resolve(repoRoot, out)]
+      : [outPath, publicOutPath, distOutPath];
+    for (const target of writeTargets) {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, html, 'utf8');
+    }
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          outPath: writeTargets[writeTargets.length - 1],
+          publicUrl: 'https://biletvsem.com/tools/luzhniki-grid-diagnostic.html',
+          source: 'prodLayout',
+          sector: sector || '(весь стадион)',
+          seatFile: prod.sourceFile,
+          seatCount: prod.seatCount,
+          sectorCount: gridBuilt.sectorCount,
+          dotCount: gridBuilt.dotCount,
+          rows: gridBuilt.rowLines.length,
+          cols: gridBuilt.columnLines.length,
+          quality,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  if (src === 'polar' || src === 'cloudmaster') {
+    const sectorPaths = mergeSectorMetaPreferTickets(
+      extractPbiletTicketSectorPaths(tickets),
+      extractPbiletCoordinateCategoriesSectorPaths(coords),
+    );
+    const polarGrid = buildPolarCloudRowColumnGrid({
+      allSeatCoordinates: cloud,
+      ticketsPayload: tickets,
+      coordinatesPayload: coords,
+      sectorPaths,
+      hallWidth: w,
+      hallHeight: h,
+      sectorFilter: sector,
+      maxColumnsPerSector: sector.trim() ? 40 : 16,
+    });
+    const quality = analyzeSeatGridQuality(polarGrid.rowLines, polarGrid.columnLines, {
+      curvedRows: false,
+      polarGuide: false,
+      lmrGrid: false,
+    });
+    const grayPolar = sampleGrayDots(cloud, w, h, grayMax).join('\n');
+    const html = buildHtml({
+      modeLabel: sector.trim()
+        ? `Master Map · ${sector}`
+        : 'Master Map — узлы чаши (~72k)',
+      w,
+      h,
+      bgInner,
+      overlay: [
+        grayPolar,
+        ...polarGrid.columnLines.map((l) => polyline(l.points, '#1e88e5', 1.2, '5 4', 0.65)),
+        ...polarGrid.rowLines.map((l) => polyline(l.points, '#e53935', 2, false, 0.92)),
+      ].join('\n'),
+      sectorCount: polarGrid.sectorCount,
+      dotCount: polarGrid.dotCount,
+      cloudDotCount,
+      rowCount: polarGrid.rowLines.length,
+      colCount: polarGrid.columnLines.length,
+      quality,
+      source: 'cloudMaster',
+      builtAt,
+      colHiddenNote: `<li>Подписано мест: <strong>${(polarGrid.labeledSeatCount ?? polarGrid.dotCount ?? 0).toLocaleString('ru-RU')}</strong>. Линии = полилинии через узлы чаши (source=cloudDot). Центр поля (${polarGrid.fieldCenter.xPct.toFixed(2)}%, ${polarGrid.fieldCenter.yPct.toFixed(2)}%).</li>`,
+    });
+
+    if (out) {
+      const outAbs = path.resolve(repoRoot, out);
+      fs.mkdirSync(path.dirname(outAbs), { recursive: true });
+      fs.writeFileSync(outAbs, html, 'utf8');
+      if (outAbs.includes(`${path.sep}public${path.sep}tools${path.sep}`)) {
+        const distMirror = outAbs.replace(
+          `${path.sep}public${path.sep}tools${path.sep}`,
+          `${path.sep}dist${path.sep}tools${path.sep}`,
+        );
+        fs.mkdirSync(path.dirname(distMirror), { recursive: true });
+        fs.writeFileSync(distMirror, html, 'utf8');
+      }
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            out: outAbs,
+            source: 'cloudMaster',
+            sector: sector || '(весь стадион)',
+            sectorCount: polarGrid.sectorCount,
+            dotCount: polarGrid.dotCount,
+            rows: polarGrid.rowLines.length,
+            cols: polarGrid.columnLines.length,
+            quality,
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.mkdirSync(path.dirname(publicOutPath), { recursive: true });
+    fs.mkdirSync(path.dirname(distOutPath), { recursive: true });
+    fs.writeFileSync(outPath, html, 'utf8');
+    fs.writeFileSync(publicOutPath, html, 'utf8');
+    fs.writeFileSync(distOutPath, html, 'utf8');
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          outPath,
+          publicOutPath,
+          publicUrl: 'https://biletvsem.com/tools/luzhniki-grid-diagnostic.html',
+          source: 'cloudMaster',
+          sector: sector || '(весь стадион)',
+          sectorCount: polarGrid.sectorCount,
+          dotCount: polarGrid.dotCount,
+          rows: polarGrid.rowLines.length,
+          cols: polarGrid.columnLines.length,
+          quality,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  if (src === 'cloud') {
     const sectorPaths = mergeSectorMetaPreferTickets(
       extractPbiletTicketSectorPaths(tickets),
       extractPbiletCoordinateCategoriesSectorPaths(coords),
@@ -219,7 +401,7 @@ function main() {
     extractPbiletCoordinateCategoriesSectorPaths(coords),
   );
 
-  if (source === 'fieldGrid' || source === 'fieldgrid') {
+  if (src === 'fieldgrid') {
     const built = buildFullStadiumLabeledSeats({
       ticketsPayload: tickets,
       coordinatesPayload: coords,
@@ -232,35 +414,41 @@ function main() {
       return row && row !== '—' && seat;
     });
     modeLabel = sector.trim()
-      ? `якорная сетка + fieldGrid · ${sector}`
-      : 'якорная сетка (sector-row-anchors) · весь стадион';
-  } else if (source === 'strict' || source === 'tickets') {
+      ? `полярная сетка (R,φ) + колонны · ${sector}`
+      : 'полярная сетка от центра поля · весь стадион';
+  } else if (src === 'strict' || src === 'tickets') {
     seats = extractPbiletTicketsSeatGeodesy(tickets, w, h).filter((s) =>
       sectorMatches(s.sector, sector),
     );
     modeLabel = sector.trim() ? `strict · ${sector}` : 'strict · весь стадион';
   } else {
-    throw new Error(`Unknown --source ${source}; use fieldGrid | strict | cloud`);
+    throw new Error(`Unknown --source ${source}; use polar | fieldGrid | strict | cloud`);
   }
+
+  const cloudDots = extractPbiletCoordinatesSeatDots(coords, w, h);
 
   const gridBuilt = buildSeatRowColumnGrid(seats, {
     sector,
     hallWidth: w,
     hallHeight: h,
-    sectorPaths,
-    preferAnchorMesh: true,
   });
-  const { rowLines, columnLines, sectorCount, dotCount, anchorSectorCount, spatialSectorCount } =
-    gridBuilt;
-
-  const showColumns = dotCount <= 12_000;
-  const isFieldGrid = source === 'fieldGrid' || source === 'fieldgrid';
-  const mostlyAnchors = anchorSectorCount >= spatialSectorCount;
-  const quality = analyzeSeatGridQuality(
+  const {
     rowLines,
-    showColumns ? columnLines : [],
-    { curvedRows: isFieldGrid && !mostlyAnchors, anchorMesh: mostlyAnchors },
-  );
+    columnLines,
+    sectorCount,
+    dotCount,
+    anchorSectorCount,
+    spatialSectorCount,
+    columnLineCount,
+  } = gridBuilt;
+
+  const isFieldGrid = src === 'fieldgrid';
+  const mostlyAnchors = anchorSectorCount >= spatialSectorCount;
+  const quality = analyzeSeatGridQuality(rowLines, columnLines, {
+    curvedRows: false,
+    anchorMesh: mostlyAnchors,
+    polarGuide: mostlyAnchors,
+  });
 
   let strictQualityNote = '';
   if (isFieldGrid) {
@@ -274,10 +462,8 @@ function main() {
 
   const overlay = [
     grayLayer,
-    ...rowLines.map((l) => polyline(l.points, '#e53935', 2, false)),
-    ...(showColumns
-      ? columnLines.map((l) => polyline(l.points, '#1e88e5', 1.5, '6 4', 0.55))
-      : []),
+    ...columnLines.map((l) => polyline(l.points, '#1e88e5', 1.4, '5 3', 0.65)),
+    ...rowLines.map((l) => polyline(l.points, '#e53935', 2, false, 0.9)),
   ].join('\n');
 
   const html = buildHtml({
@@ -290,15 +476,13 @@ function main() {
     dotCount,
     cloudDotCount,
     rowCount: rowLines.length,
-    colCount: columnLines.length,
+    colCount: columnLineCount ?? columnLines.length,
     quality,
     source: source === 'fieldGrid' || source === 'fieldgrid' ? 'fieldGrid' : 'strict',
     builtAt,
     colHiddenNote: [
       strictQualityNote,
-      showColumns
-        ? ''
-        : '<li>Колонны скрыты на полном стадионе — только ряды; пересборка: <code>--sector \"Сектор D 230\"</code>.</li>',
+      `<li>Колонны (синий): ~${columnLines.length} линий; место <strong>№5</strong> всегда в выборке. Ряды: полярные дуги R=const, guide rows между 1-м и последним рядом.</li>`,
     ].join('\n'),
   });
 
