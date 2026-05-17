@@ -10,13 +10,16 @@ function parseRowNum(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Нижняя/средняя левая трибуна: A*, B*, C14–C25 (xPct ≲ 35). */
+/**
+ * Нижняя/средняя левая трибуна (xPct ≲ 35): сдвиг layout-ряда +4 только здесь.
+ * Верхнее кольцо A201–A216, C243 и т.п. — не трогать (fieldGrid ряд = оффер).
+ */
 export function isLeftTribuneSector(norm) {
   const n = normalizeSectorLabel(norm);
-  if (/^a\d/.test(n)) return true;
+  if (/^a1(0[1-9]|1[0-6])$/.test(n)) return true;
   if (/^b\d/.test(n)) return true;
-  if (/^c1[4-9]\d/.test(n)) return true;
-  if (/^c2[0-5]\d/.test(n)) return true;
+  if (/^c1[4-9]\d$/.test(n)) return true;
+  if (/^c2[0-5]\d$/.test(n)) return true;
   return false;
 }
 

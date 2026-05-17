@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { getManualSectorRowAnchors } from './hallSeatGeodesySectorRowAnchors.js';
 import {
   collectLayoutSectorPbiletSeats,
   countPbiletRowAnchors,
@@ -18,6 +19,8 @@ import {
   interpolatePbiletSeatGeodesy,
   snapFieldGridSeat,
 } from './luzhnikiPbiletGeodesyExtract.js';
+import { clampPctToSectorBbox, getSectorBboxPct } from './luzhnikiSectorBbox.js';
+import { resolvePolarGridSeatFromAnchors } from './luzhnikiSectorPolarGrid.js';
 import {
   getCachedCloudMasterIndex,
   snapToCloudMaster,
@@ -63,6 +66,19 @@ function resolveSectorPbiletAnchors(pbilet, layoutIndex, lookupNorms, label) {
   if (countPbiletRowAnchors(fromLayout) >= 2) {
     return { anchors: fromLayout, mode: 'layout-anchors' };
   }
+  const manual = getManualSectorRowAnchors(label || lookupNorms[0] || '');
+  if (manual.length >= 4) {
+    return {
+      anchors: manual.map((a) => ({
+        sector: label || lookupNorms[0] || '',
+        row: a.row,
+        seat: a.seat,
+        xPct: a.xPct,
+        yPct: a.yPct,
+      })),
+      mode: 'sector-anchors',
+    };
+  }
   return { anchors: [], mode: 'none' };
 }
 
@@ -74,9 +90,17 @@ function canonicalSectorLabel(pbilet, lookupNorms, offerSector) {
   return offerSector || lookupNorms[0] || '';
 }
 
-function useFieldGridSellableSnap() {
-  const v = String(process.env.LUZHNIKI_USE_FIELDGRID_SELLABLE ?? '').trim().toLowerCase();
-  return v === '1' || v === 'true' || v === 'yes';
+function finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h) {
+  const bbox = getSectorBboxPct(ticketsPayload, sector, w, h);
+  const clamped = clampPctToSectorBbox(hit.xPct, hit.yPct, bbox);
+  return {
+    sector,
+    row,
+    seat,
+    xPct: clamped.xPct,
+    yPct: clamped.yPct,
+    geodesySource: clamped.clamped ? `${hit.geodesySource}+bbox` : hit.geodesySource,
+  };
 }
 
 /**
@@ -162,14 +186,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
         if (direct) {
           seen.add(dedupe);
           strictMatched += 1;
-          seats.push({
-            sector,
-            row,
-            seat,
-            xPct: direct.xPct,
-            yPct: direct.yPct,
-            geodesySource: 'strict',
-          });
+          seats.push(finalizeSellableCoords(sector, row, seat, { ...direct, geodesySource: 'strict' }, ticketsPayload, w, h));
           continue;
         }
 
@@ -178,7 +195,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
           if (cloudHit) {
             seen.add(dedupe);
             cloudMasterMatched += 1;
-            seats.push(cloudHit);
+            seats.push(finalizeSellableCoords(sector, row, seat, cloudHit, ticketsPayload, w, h));
             continue;
           }
         }
@@ -189,14 +206,29 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
         }
 
         const lookupRow = mode === 'layout-anchors' ? layoutAnchorLookupRow(norm, row) : row;
-        // fieldGrid 80k — не истина для sellable (см. LUZHNIKI_NEXT_AGENT_HANDOFF §2, §9.3)
-        const gridHit = useFieldGridSellableSnap()
-          ? snapFieldGridSeat(fieldGridSnapIndex, sector, row, seat) ||
-            (lookupRow !== row
-              ? snapFieldGridSeat(fieldGridSnapIndex, sector, lookupRow, seat)
-              : null)
-          : null;
-        const hit = gridHit || interpolatePbiletSeatGeodesy(anchors, label, lookupRow, seat, null);
+
+        let hit = null;
+
+        if (mode === 'layout-anchors' || mode === 'sector-anchors') {
+          hit =
+            (fieldGridSnapIndex &&
+              (snapFieldGridSeat(fieldGridSnapIndex, sector, row, seat) ||
+                snapFieldGridSeat(fieldGridSnapIndex, label, row, seat))) ||
+            null;
+        }
+
+        if (!hit) {
+          hit = interpolatePbiletSeatGeodesy(anchors, label, lookupRow, seat, null);
+        }
+
+        if (!hit && mode === 'sector-anchors') {
+          hit = resolvePolarGridSeatFromAnchors(norm, row, seat);
+        }
+
+        if (!hit && mode === 'layout-anchors' && fieldGridSnapIndex) {
+          hit = snapFieldGridSeat(fieldGridSnapIndex, sector, lookupRow, seat);
+        }
+
         if (!hit) {
           if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
           continue;
@@ -205,19 +237,17 @@ export function buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, l
         const scaled = applyLeftTribuneScale(norm, hit.xPct, hit.yPct, pivot, mode);
         seen.add(dedupe);
         interpolated += 1;
-        seats.push({
-          sector,
-          row,
-          seat,
-          xPct: scaled.xPct,
-          yPct: scaled.yPct,
-          geodesySource:
-            hit.geodesySource === 'fieldGridSnap'
-              ? 'fieldGridSnap'
-              : mode === 'tickets'
-                ? 'svgCircle'
-                : 'anchor',
-        });
+        seats.push(
+          finalizeSellableCoords(
+            sector,
+            row,
+            seat,
+            { ...hit, xPct: scaled.xPct, yPct: scaled.yPct },
+            ticketsPayload,
+            w,
+            h,
+          ),
+        );
       }
     }
   }

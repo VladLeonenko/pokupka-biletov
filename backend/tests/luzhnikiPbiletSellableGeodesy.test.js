@@ -12,6 +12,42 @@ const ticketsPath = path.resolve(__dirname, '../../tickets.json');
 const W = 11413;
 const H = 9676;
 
+test('a216 row 29: fieldGrid по оффер-ряду, не polar с уездом', () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const { seats: layoutSeats } = JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, '../data/luzhniki-geodesy/hand/bundle-luzhniki-stadium-pilot-seats.json'),
+      'utf8',
+    ),
+  );
+  const offers = [{ Sector: 'сектор a216', Row: '29', SeatList: ['21'] }];
+  const { seats } = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, {
+    geodesy: { hallWidth: W, hallHeight: H },
+    seats: Array.isArray(layoutSeats) ? layoutSeats : [],
+  });
+  assert.equal(seats.length, 1);
+  assert.match(String(seats[0].geodesySource), /fieldGrid/);
+  assert.ok(seats[0].yPct > 88 && seats[0].yPct < 92);
+});
+
+test('d232 row 31 seat 17: в bbox сектора', () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const layoutSeats = JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, '../data/luzhniki-geodesy/hand/bundle-luzhniki-stadium-pilot-seats.json'),
+      'utf8',
+    ),
+  );
+  const offers = [{ Sector: 'сектор d232', Row: '31', SeatList: ['17'] }];
+  const { seats } = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, {
+    geodesy: { hallWidth: W, hallHeight: H },
+    seats: layoutSeats,
+  });
+  assert.equal(seats.length, 1);
+  assert.ok(seats[0].yPct >= 9 && seats[0].yPct <= 19, `yPct=${seats[0].yPct}`);
+  assert.ok(seats[0].xPct >= 86 && seats[0].xPct <= 95, `xPct=${seats[0].xPct}`);
+});
+
 test('c243 row 35 seats 8–9: pbilet extrapolation, not fieldGrid on grass', () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const offers = [{ Sector: 'сектор c243', Row: '35', SeatList: ['8', '9'] }];

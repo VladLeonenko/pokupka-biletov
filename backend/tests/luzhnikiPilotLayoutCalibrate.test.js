@@ -11,6 +11,8 @@ import {
 test('left tribune sectors', () => {
   assert.equal(isLeftTribuneSector('b145'), true);
   assert.equal(isLeftTribuneSector('a101'), true);
+  assert.equal(isLeftTribuneSector('a216'), false);
+  assert.equal(isLeftTribuneSector('a201'), false);
   assert.equal(isLeftTribuneSector('d230'), false);
 });
 

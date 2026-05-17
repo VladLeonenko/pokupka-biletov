@@ -172,26 +172,54 @@ export function snapFieldGridSeat(fieldGridIndex, sectorLabel, row, seat) {
   }
 
   const lookupNorms = new Set(luzhnikiSectorLookupNorms(sectorLabel));
-  let best = null;
-  let bestDist = Infinity;
+  const rowSeats = [];
   for (const s of fieldGridIndex.values()) {
     if (!lookupNorms.has(normalizeSectorLabel(s.sector))) continue;
     if (parseRowNum(s.row) !== targetRow) continue;
     const sn = parseSeatNum(s.seat);
     if (sn == null) continue;
-    const d = Math.abs(sn - seatNum);
-    if (d < bestDist) {
-      bestDist = d;
-      best = s;
-    }
+    rowSeats.push({ sn, xPct: s.xPct, yPct: s.yPct });
   }
-  if (!best) return null;
+  if (rowSeats.length < 1) return null;
+
+  rowSeats.sort((a, b) => a.sn - b.sn);
+
+  if (rowSeats.length >= 2) {
+    let lower = rowSeats[0];
+    let upper = rowSeats[rowSeats.length - 1];
+    for (let i = 0; i < rowSeats.length - 1; i += 1) {
+      if (rowSeats[i].sn <= seatNum && rowSeats[i + 1].sn >= seatNum) {
+        lower = rowSeats[i];
+        upper = rowSeats[i + 1];
+        break;
+      }
+    }
+    if (seatNum <= rowSeats[0].sn) {
+      lower = rowSeats[0];
+      upper = rowSeats[1];
+    } else if (seatNum >= rowSeats[rowSeats.length - 1].sn) {
+      lower = rowSeats[rowSeats.length - 2];
+      upper = rowSeats[rowSeats.length - 1];
+    }
+    const span = upper.sn - lower.sn;
+    const t = span !== 0 ? (seatNum - lower.sn) / span : 0;
+    return {
+      sector: sectorLabel,
+      row: String(row),
+      seat: String(seat),
+      xPct: lower.xPct + t * (upper.xPct - lower.xPct),
+      yPct: lower.yPct + t * (upper.yPct - lower.yPct),
+      geodesySource: 'fieldGridRow',
+    };
+  }
+
+  const only = rowSeats[0];
   return {
     sector: sectorLabel,
     row: String(row),
     seat: String(seat),
-    xPct: best.xPct,
-    yPct: best.yPct,
+    xPct: only.xPct,
+    yPct: only.yPct,
     geodesySource: 'fieldGridSnap',
   };
 }
