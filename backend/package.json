@@ -34,6 +34,8 @@
     "reseed:luzhniki-from-repo": "node scripts/reseed-luzhniki-geodesy-from-repo.js",
     "generate:luzhniki-sector-pilot": "node scripts/generate-luzhniki-sector-pilot-svg.js --sector \"Сектор D 230\" --with-bg",
     "apply:luzhniki-sector-pilot": "node scripts/apply-luzhniki-sector-pilot-svg.js --bundle data/luzhniki-geodesy/hand/bundle-luzhniki-stadium-pilot.json",
+    "reset:luzhniki-checkout-map-db": "node scripts/reset-luzhniki-checkout-map-db.js",
+    "reset:luzhniki-checkout-map-db-full": "node scripts/reset-luzhniki-checkout-map-db.js --reseed",
     "apply:luzhniki-sector-pilot-d230": "node scripts/apply-luzhniki-sector-pilot-svg.js --bundle data/luzhniki-geodesy/hand/bundle-sector-d-230-pilot.json",
     "strip:luzhniki-pilot-svg-db": "node scripts/strip-luzhniki-pilot-circles-from-db-svg.js",
     "render:luzhniki-seat-grid": "node scripts/render-luzhniki-seat-grid-test.js --source prodLayout && node scripts/render-luzhniki-seat-grid-test.js --source cloud && node scripts/render-luzhniki-seat-grid-test.js --source prodLayout --sector \"Сектор D 230\" --out frontend/public/tools/luzhniki-grid-diagnostic-d230.html",
