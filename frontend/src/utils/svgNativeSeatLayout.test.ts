@@ -207,51 +207,6 @@ describe('svgNativeSeatLayout', () => {
     });
   });
 
-  it('buildLuzhnikiMapSellablePlacements accepts fieldGridSnap from API', () => {
-    const serverSellable = [
-      {
-        sector: 'Сектор D 231',
-        row: '7',
-        seat: '8',
-        xPct: 44.2,
-        yPct: 55.1,
-        geodesySource: 'fieldGridSnap' as const,
-      },
-      {
-        sector: 'Сектор D 231',
-        row: '15',
-        seat: '4',
-        xPct: 45.1,
-        yPct: 56.2,
-        geodesySource: 'fieldGridSnap' as const,
-      },
-    ];
-    const result = buildLuzhnikiMapSellablePlacements(
-      [],
-      serverSellable,
-      [
-        {
-          Id: 'o1',
-          Sector: 'сектор d231',
-          Row: '7',
-          SeatList: ['8'],
-          AgentPrice: '8500',
-        },
-        {
-          Id: 'o2',
-          Sector: 'сектор d231',
-          Row: '15',
-          SeatList: ['4'],
-          AgentPrice: '7650',
-        },
-      ],
-      (o) => String(o.AgentPrice ?? ''),
-      { omitLayoutFallback: true },
-    );
-    expect(result.placements).toHaveLength(2);
-    expect(result.diagnostics.unmatchedOfferSeats).toBe(0);
-  });
-
   it('luzhniki map prefers trusted server sellable over layout.seats', () => {
     const layout = [
       { sector: 'Сектор A1', row: '5', seat: '3', xPct: 11, yPct: 22 },

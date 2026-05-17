@@ -48,7 +48,6 @@ import {
   slimLuzhnikiStageMapForClient,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
 } from '../services/luzhnikiFootballStageMap.js';
-import { loadProdLayoutSeats } from '../utils/luzhnikiProdLayoutSeats.js';
 import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import { buildLuzhnikiSeatGridDiagnosticPayload } from '../services/luzhnikiGeodesyGridDiagnostic.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
@@ -558,23 +557,6 @@ router.get('/preview/luzhniki-football-stadium', async (req, res) => {
       error: 'pbilet_preview_failed',
       message: err instanceof Error ? err.message : String(err),
     });
-  }
-});
-
-/** FieldGrid sidecar (~72k) для серой чаши на чекауте, когда allSeatCoordinates урезан из /map. */
-router.get(`/stage/${LUZHNIKI_FOOTBALL_STAGE_MAP_KEY}/pilot-seats`, async (req, res) => {
-  try {
-    const { seats } = loadProdLayoutSeats();
-    if (!seats.length) {
-      return res.status(503).json({
-        error: 'pilot_seats_missing',
-        message: 'На сервере: cd backend && npm run build:luzhniki-stadium-pilot',
-      });
-    }
-    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
-    return res.json(seats);
-  } catch (err) {
-    return sendGetbiletError(err, res);
   }
 });
 
