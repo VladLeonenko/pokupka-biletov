@@ -300,6 +300,7 @@
 .backgroundSeatDot {
   fill: rgba(148, 163, 184, 0.74);
   vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .sectorLayer {

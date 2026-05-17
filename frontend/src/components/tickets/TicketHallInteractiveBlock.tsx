@@ -207,6 +207,8 @@ import {
   normalizeSectorLabel,
 } from '@/utils/ticketHallSectorNormalize';
 import {
+  filterPlacementsInSectorPath,
+  filterSeatsInSectorPath,
   HALL_MAP_DELEGATED_HIT_MIN,
   hallMapCanvasDevicePixelRatio,
   isCoarsePointerDevice,
@@ -530,8 +532,30 @@ export function TicketHallInteractiveBlock({
       offersBySector.set(key, arr);
     }
 
+    const offerById = new Map<string, HallOfferRow>();
+    for (const offer of offers) {
+      const oid = String(offer.Id ?? '').trim();
+      if (oid) offerById.set(oid, offer);
+    }
+
+    const sellablePlacements = nativePlacements.filter((p) => !p.previewOnly && p.offerId);
+    const useGeometryForOffers =
+      sectorMode.enabled && sellablePlacements.length > 0 && svgViewBox.width > 0 && svgViewBox.height > 0;
+
     return sectorMode.sectors.map((meta) => {
-      const sectorOffers = offersBySector.get(normalizeSectorLabel(meta.label)) ?? [];
+      let sectorOffers: HallOfferRow[];
+      if (useGeometryForOffers && meta.path) {
+        const inSector = filterPlacementsInSectorPath(
+          sellablePlacements,
+          meta.path,
+          svgViewBox.width,
+          svgViewBox.height,
+        );
+        const ids = new Set(inSector.map((p) => p.offerId).filter(Boolean));
+        sectorOffers = [...ids].map((id) => offerById.get(id)).filter(Boolean) as HallOfferRow[];
+      } else {
+        sectorOffers = offersBySector.get(normalizeSectorLabel(meta.label)) ?? [];
+      }
       const prices = sectorOffers.map((offer) => Number(getPriceKey(offer))).filter(Number.isFinite);
       const seatCount = sectorOffers.reduce(
         (sum, offer) => sum + (Array.isArray(offer.SeatList) ? offer.SeatList.length : 0),
@@ -545,7 +569,7 @@ export function TicketHallInteractiveBlock({
         maxPrice: prices.length > 0 ? Math.max(...prices) : null,
       };
     });
-  }, [getPriceKey, offers, sectorMode.sectors]);
+  }, [getPriceKey, nativePlacements, offers, sectorMode.enabled, sectorMode.sectors, svgViewBox.height, svgViewBox.width]);
 
   const sectorSummaryByLabel = useMemo(() => {
     const map = new Map<string, SectorSummary>();
@@ -1042,24 +1066,36 @@ export function TicketHallInteractiveBlock({
   const visibleNativePlacements = useMemo(() => {
     const interactive = nativePlacements.filter((p) => !p.previewOnly);
     /** На обзоре стадиона не рисуем сотни точек — только после выбора сектора. */
-    if (sectorMode.enabled && !selectedSector) return [];
+    if (sectorMode.enabled && !selectedSectorSummary) return [];
     if (!sectorMode.enabled) return interactive;
-    return interactive.filter(
-      (p) => normalizeSectorLabel(p.sectorLabel) === selectedSector,
-    );
-  }, [nativePlacements, sectorMode.enabled, selectedSector]);
+    const path = selectedSectorSummary.meta.path;
+    if (path && svgViewBox.width > 0 && svgViewBox.height > 0) {
+      return filterPlacementsInSectorPath(interactive, path, svgViewBox.width, svgViewBox.height);
+    }
+    return interactive.filter((p) => normalizeSectorLabel(p.sectorLabel) === selectedSector);
+  }, [
+    nativePlacements,
+    sectorMode.enabled,
+    selectedSector,
+    selectedSectorSummary,
+    svgViewBox.height,
+    svgViewBox.width,
+  ]);
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
-    /** sellableSeats + omit cloud: на карте только цветные офферы, без серой чаши layout.seats. */
-    if (useSellableGeodesyPlacements || parseOmitClientSeatCoordinateCloud(layoutJson)) return [];
     if (sectorMode.enabled) {
       if (backgroundSeatCoordinates.length > 0) return [];
       if (!selectedSectorSummary) return [];
-      return nativeSeats.filter(
-        (seat) => normalizeSectorLabel(seat.sector) === selectedSector
-          && !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
+      const path = selectedSectorSummary.meta.path;
+      const inSector =
+        path && svgViewBox.width > 0 && svgViewBox.height > 0
+          ? filterSeatsInSectorPath(nativeSeats, path, svgViewBox.width, svgViewBox.height)
+          : nativeSeats.filter((seat) => normalizeSectorLabel(seat.sector) === selectedSector);
+      return inSector.filter(
+        (seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
       );
     }
+    if (parseOmitClientSeatCoordinateCloud(layoutJson)) return [];
     return showUnavailableSeats
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
@@ -1072,7 +1108,8 @@ export function TicketHallInteractiveBlock({
     selectedSector,
     selectedSectorSummary,
     showUnavailableSeats,
-    useSellableGeodesyPlacements,
+    svgViewBox.height,
+    svgViewBox.width,
     useSvgNative,
   ]);
 
@@ -1491,8 +1528,23 @@ export function TicketHallInteractiveBlock({
                   className={styles.sellableSeatSvgLayer}
                   viewBox={svgViewBox.value}
                   preserveAspectRatio="xMidYMid meet"
-                  aria-label="Доступные места"
+                  aria-label="Места в секторе"
                 >
+                  {visibleUnavailableNativeSeats.map((seat) => {
+                    const cx = (seat.xPct / 100) * svgViewBox.width;
+                    const cy = (seat.yPct / 100) * svgViewBox.height;
+                    const r = Math.max(10, stadiumSellableDotR * 0.38);
+                    return (
+                      <circle
+                        key={`sector-gray-${seatMapKey(seat.sector, seat.row, seat.seat)}`}
+                        className={styles.backgroundSeatDot}
+                        cx={cx}
+                        cy={cy}
+                        r={r}
+                        aria-hidden="true"
+                      />
+                    );
+                  })}
                   {visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
                     const active = selectedSeatDetails.some((d) => d.key === visualKey);
