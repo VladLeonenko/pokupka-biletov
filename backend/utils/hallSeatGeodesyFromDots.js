@@ -415,6 +415,7 @@ export function resolveOfferSeatFromCalibratedCloud(
   seatRangeInRow,
   orientation,
   layoutAnchors = [],
+  seatAlongAxis = null,
 ) {
   const bands = clusterDotsByRow(sectorDots);
   if (bands.length < 2 || !rowRange) return null;
@@ -428,8 +429,18 @@ export function resolveOfferSeatFromCalibratedCloud(
   }
   const band = bands[Math.min(Math.max(idx, 0), bands.length - 1)];
 
-  let rowDots = [...band.dots].sort((a, b) => a.xPct - b.xPct);
-  if (orientation?.seatXPctIncreases === -1) rowDots = rowDots.reverse();
+  let rowDots;
+  if (seatAlongAxis) {
+    rowDots = [...band.dots].sort(
+      (a, b) =>
+        a.xPct * seatAlongAxis.x +
+        a.yPct * seatAlongAxis.y -
+        (b.xPct * seatAlongAxis.x + b.yPct * seatAlongAxis.y),
+    );
+  } else {
+    rowDots = [...band.dots].sort((a, b) => a.xPct - b.xPct);
+    if (orientation?.seatXPctIncreases === -1) rowDots = rowDots.reverse();
+  }
   const cloudSeatRange = inferCloudSeatRangeInRow(seatRangeInRow, seatNum, rowDots);
 
   let targetX;
@@ -720,6 +731,12 @@ export function buildSellableSeatGeodesyWithDots(
         });
         if (resolved) mode = 'dot';
       }
+      const sectorRowMax = rowRanges.get(norm)?.max ?? null;
+      const seatAlongAxis =
+        sectorPath && fieldCenterPct
+          ? seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight)
+          : null;
+
       if (!resolved && canSectorNative) {
         resolved = resolveOfferSeatSectorNativeLayout(
           rowNum,
@@ -730,6 +747,7 @@ export function buildSellableSeatGeodesyWithDots(
           hallWidth,
           hallHeight,
           fieldCenterPct,
+          sectorRowMax,
         );
         if (resolved) mode = 'svgRow';
       }
@@ -742,6 +760,7 @@ export function buildSellableSeatGeodesyWithDots(
           seatByRow?.get(rowNum) ?? null,
           sectorOrientation,
           anchors,
+          seatAlongAxis,
         );
         if (resolved) mode = 'cloud';
       }

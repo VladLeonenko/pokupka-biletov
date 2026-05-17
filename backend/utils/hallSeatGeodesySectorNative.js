@@ -22,7 +22,7 @@ export function computeFieldCenterPct(allSeatCoordinates) {
   return { xPct: sx / dots.length, yPct: sy / dots.length };
 }
 
-/** Ось «слева→направо» в ряду при взгляде с поля на сектор. */
+/** Ось «слева→направо» в ряду при взгляде с поля на сектор (координаты pbilet: Y вниз). */
 export function seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight) {
   const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
   const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
@@ -35,7 +35,7 @@ export function seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, ha
   const len = Math.hypot(vx, vy) || 1;
   vx /= len;
   vy /= len;
-  return { x: -vy, y: vx };
+  return { x: vy, y: -vx };
 }
 
 function seatSortKey(dot, axis) {
@@ -88,8 +88,30 @@ export function maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallH
 
 export function rowNumToBandIndex(rowNum, maxRow, bandCount) {
   if (bandCount < 1) return 0;
-  const maxR = Math.max(maxRow, rowNum, bandCount);
+  const maxR = Math.max(maxRow, bandCount, 1);
   return Math.round(((rowNum - 1) / Math.max(1, maxR - 1)) * (bandCount - 1));
+}
+
+/** Единый maxRow сектора: SVG-подписи, офферы, число полос — не номер текущего ряда. */
+export function resolveSectorNativeMaxRow(
+  sectorPath,
+  svgRowLabels,
+  bandCount,
+  sectorRowMax,
+  hallWidth,
+  hallHeight,
+) {
+  let maxRow = Math.max(bandCount, 1);
+  if (Array.isArray(svgRowLabels) && svgRowLabels.length > 0 && sectorPath) {
+    maxRow = Math.max(
+      maxRow,
+      maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight),
+    );
+  }
+  if (sectorRowMax != null && sectorRowMax > 0) {
+    maxRow = Math.max(maxRow, sectorRowMax);
+  }
+  return maxRow;
 }
 
 /** Y% целевого ряда (для cloudSnap). */
@@ -101,6 +123,7 @@ export function resolveRowYPctSectorNative(
   hallWidth,
   hallHeight,
   fieldCenterPct,
+  sectorRowMax = null,
 ) {
   const { bands } = sortSectorRowBandsFromField(
     sectorDots,
@@ -110,13 +133,14 @@ export function resolveRowYPctSectorNative(
     hallHeight,
   );
   if (bands.length < 1) return null;
-  const maxRow =
-    svgRowLabels?.length > 0
-      ? Math.max(
-          maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight),
-          bands.length,
-        )
-      : Math.max(rowNum, bands.length);
+  const maxRow = resolveSectorNativeMaxRow(
+    sectorPath,
+    svgRowLabels,
+    bands.length,
+    sectorRowMax,
+    hallWidth,
+    hallHeight,
+  );
   const idx = rowNumToBandIndex(rowNum, maxRow, bands.length);
   return bands[Math.min(Math.max(idx, 0), bands.length - 1)]?.yPct ?? null;
 }
@@ -134,6 +158,7 @@ export function resolveOfferSeatSectorNativeLayout(
   hallWidth,
   hallHeight,
   fieldCenterPct,
+  sectorRowMax = null,
 ) {
   if (!sectorDots?.length || !sectorPath || seatNum == null || seatNum < 1) return null;
 
@@ -146,14 +171,14 @@ export function resolveOfferSeatSectorNativeLayout(
   );
   if (bands.length < 1) return null;
 
-  const maxRow =
-    Array.isArray(svgRowLabels) && svgRowLabels.length > 0
-      ? Math.max(
-          maxRowInSectorFromSvg(sectorPath, svgRowLabels, hallWidth, hallHeight),
-          bands.length,
-          rowNum,
-        )
-      : Math.max(rowNum, bands.length);
+  const maxRow = resolveSectorNativeMaxRow(
+    sectorPath,
+    svgRowLabels,
+    bands.length,
+    sectorRowMax,
+    hallWidth,
+    hallHeight,
+  );
 
   const rowIdx = rowNumToBandIndex(rowNum, maxRow, bands.length);
   const band = bands[Math.min(Math.max(rowIdx, 0), bands.length - 1)];
