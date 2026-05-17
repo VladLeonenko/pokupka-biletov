@@ -48,7 +48,7 @@ test('d232 row 31 seat 17: в bbox сектора', () => {
   assert.ok(seats[0].xPct >= 86 && seats[0].xPct <= 95, `xPct=${seats[0].xPct}`);
 });
 
-test('b154 row 17: fieldGrid lerp 16↔27 — линия ряда как d124', async () => {
+test('b154 row 17: axisGrid (прорезь 16–27), линия ряда как d124', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
   const row = await loadLuzhnikiFootballStageMapRow();
@@ -61,7 +61,7 @@ test('b154 row 17: fieldGrid lerp 16↔27 — линия ряда как d124', 
     svgMarkup: row.svg_markup,
   });
   assert.equal(seats.length, 8);
-  assert.match(String(seats[0].geodesySource), /pbiletLerp|fieldGrid/);
+  assert.match(String(seats[0].geodesySource), /axisGrid/);
   const bySeat = [...seats].sort((a, b) => Number(a.seat) - Number(b.seat));
   const ys = bySeat.map((s) => s.yPct);
   assert.ok(Math.max(...ys) - Math.min(...ys) < 1.2, 'one row (Y stable), not diagonal');
