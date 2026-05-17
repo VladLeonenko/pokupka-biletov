@@ -1037,11 +1037,11 @@ export function TicketHallInteractiveBlock({
     () => selectedSectorOffers.filter((offer) => Array.isArray(offer.SeatList) && offer.SeatList.length > 0),
     [selectedSectorOffers],
   );
+  /** Все sellable на карте при любом zoom — после приближения можно панорамировать к соседним секторам. */
   const visibleNativePlacements = useMemo(() => {
     if (!sectorMode.enabled) return nativePlacements;
-    if (!selectedSector) return nativePlacements;
-    return nativePlacements.filter((p) => sectorNormsMatch(p.sectorLabel, selectedSector));
-  }, [nativePlacements, sectorMode.enabled, selectedSector]);
+    return nativePlacements;
+  }, [nativePlacements, sectorMode.enabled]);
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
