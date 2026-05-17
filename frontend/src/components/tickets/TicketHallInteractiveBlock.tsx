@@ -3,7 +3,7 @@ import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
   buildSellableGeodesyPlacements,
-  buildSellableGeodesyPlacementsWithSectorGridFallback,
+  buildLuzhnikiMapSellablePlacements,
   buildSvgNativePlacements,
   parseLayoutBaseSeatPositions,
   parseLayoutSeatPositions,
@@ -478,13 +478,11 @@ export function TicketHallInteractiveBlock({
 
     if (useSellableGeodesyPlacements) {
       const geodesy = luzhnikiCheckout
-        ? buildSellableGeodesyPlacementsWithSectorGridFallback(
+        ? buildLuzhnikiMapSellablePlacements(
+            layoutBaseSeats,
             sellableGeodesySeats,
             offers,
             getPriceKey,
-            sectorMode.sectors ?? [],
-            svgViewBox.width,
-            svgViewBox.height,
           )
         : buildSellableGeodesyPlacements(sellableGeodesySeats, offers, getPriceKey);
       return { nativePlacements: geodesy.placements };
