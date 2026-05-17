@@ -9,6 +9,7 @@ import {
   labelSectorBandsWithSvgRowNumbers,
   resolveOfferSeatSectorNativeLayout,
   resolveRowYPctSectorNative,
+  seatLeftAxisFromSector,
   sortSectorRowBandsFromField,
 } from './hallSeatGeodesySectorNative.js';
 
@@ -345,24 +346,79 @@ export function resolveRowYPctFromSvgLabels(
   );
 }
 
-function interpolateAlongRowArc(rowDots, seatNum, seatRangeInRow) {
-  if (!rowDots?.length) return null;
-  const seatMin = seatRangeInRow?.min ?? 1;
-  const seatMax = seatRangeInRow?.max ?? seatNum;
-  const span = Math.max(1, seatMax - seatMin);
-  const t = (seatNum - seatMin) / span;
+function resolveRowLabelAnchorPct(rowNum, sectorPath, allLabels, hallWidth, hallHeight) {
+  const w = Number(hallWidth) > 0 ? Number(hallWidth) : 11413;
+  const h = Number(hallHeight) > 0 ? Number(hallHeight) : 9676;
+  const inside = labelsInsideSectorBBox(sectorPath, allLabels);
+  const aisle = pickSectorRowLabelAisle(sectorPath, allLabels, hallWidth, hallHeight);
+  const labR =
+    aisle != null
+      ? pickRowLabelAtAisle(rowNum, inside, aisle.centerX)
+      : inside.find((l) => l.row === rowNum) ?? null;
+  if (labR) return { xPct: labR.xPct, yPct: labR.yPct };
+  const yPct = getRowLabelYPctInSector(rowNum, sectorPath, allLabels, hallWidth, hallHeight);
+  if (yPct == null) return null;
+  const b = pathBBox(sectorPath);
+  const xPct = b ? ((b.minX + b.maxX) / 2 / w) * 100 : 50;
+  return { xPct, yPct };
+}
+
+function seatAxisForSectorRow(
+  rowNum,
+  sectorPath,
+  allLabels,
+  hallWidth,
+  hallHeight,
+  fieldCenterPct,
+  rowDots = [],
+) {
+  const lab = resolveRowLabelAnchorPct(rowNum, sectorPath, allLabels, hallWidth, hallHeight);
+  if (!lab) return null;
+  const seatA = seatLeftAxisFromSector(sectorPath, fieldCenterPct, hallWidth, hallHeight);
+  let sx = seatA.x;
+  let sy = seatA.y;
+  if (rowDots.length >= 2) {
+    let sum = 0;
+    for (const d of rowDots) {
+      sum += (d.xPct - lab.xPct) * sx + (d.yPct - lab.yPct) * sy;
+    }
+    if (sum / rowDots.length < 0) {
+      sx = -sx;
+      sy = -sy;
+    }
+  }
+  return { lab, sx, sy };
+}
+
+/**
+ * Места в одном ряду: прямая через подпись ряда; ось «место» — вдоль длинной стороны полосы точек
+ * (на B154 ряд ≈ горизонталь → фиксируем Y, шаг по X; на D124 наоборот, как pbiletLerp).
+ */
+function interpolateSeatAlongRowAxis(axis, rowDots, seatNum, seatRangeInRow) {
+  if (!axis || !rowDots?.length) return null;
   if (rowDots.length === 1) return { xPct: rowDots[0].xPct, yPct: rowDots[0].yPct };
 
-  const idx = t * (rowDots.length - 1);
-  const i0 = Math.floor(idx);
-  const i1 = Math.min(i0 + 1, rowDots.length - 1);
-  const f = idx - i0;
-  const a = rowDots[i0];
-  const b = rowDots[i1];
-  return {
-    xPct: a.xPct + f * (b.xPct - a.xPct),
-    yPct: a.yPct + f * (b.yPct - a.yPct),
-  };
+  const xs = rowDots.map((d) => d.xPct);
+  const ys = rowDots.map((d) => d.yPct);
+  const xSpan = Math.max(...xs) - Math.min(...xs);
+  const ySpan = Math.max(...ys) - Math.min(...ys);
+  const rowIsHorizontal = xSpan >= ySpan;
+
+  const seatMin = seatRangeInRow?.min ?? 1;
+  const seatMax = seatRangeInRow?.max ?? seatNum;
+  const t = (seatNum - seatMin) / Math.max(1, seatMax - seatMin);
+
+  if (rowIsHorizontal) {
+    const yRow = axis.lab.yPct;
+    const x0 = Math.min(...xs);
+    const x1 = Math.max(...xs);
+    return { xPct: x0 + t * (x1 - x0), yPct: yRow };
+  }
+
+  const xRow = axis.lab.xPct;
+  const y0 = Math.min(...ys);
+  const y1 = Math.max(...ys);
+  return { xPct: xRow, yPct: y0 + t * (y1 - y0) };
 }
 
 /**
@@ -433,5 +489,28 @@ export function resolveOfferSeatFromSvgRowLabels(
   }
 
   rowDots = sortDotsInSectorRow(rowNum, rowDots, sectorPath, allLabels, hallWidth, hallHeight);
-  return interpolateAlongRowArc(rowDots, seatNum, seatRangeInRow);
+  const axis = seatAxisForSectorRow(
+    rowNum,
+    sectorPath,
+    allLabels,
+    hallWidth,
+    hallHeight,
+    fieldCenterPct,
+    rowDots,
+  );
+  const onAxis = interpolateSeatAlongRowAxis(axis, rowDots, seatNum, seatRangeInRow);
+  if (onAxis) return onAxis;
+
+  return resolveOfferSeatSectorNativeLayout(
+    rowNum,
+    seatNum,
+    sectorDots,
+    sectorPath,
+    allLabels,
+    hallWidth,
+    hallHeight,
+    fieldCenterPct,
+    null,
+    seatRangeInRow,
+  );
 }

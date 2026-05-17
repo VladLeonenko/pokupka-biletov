@@ -48,7 +48,7 @@ test('d232 row 31 seat 17: в bbox сектора', () => {
   assert.ok(seats[0].xPct >= 86 && seats[0].xPct <= 95, `xPct=${seats[0].xPct}`);
 });
 
-test('b154 row 17: polarGrid по дуге трибуны, не плоская линия', async () => {
+test('b154 row 17: fieldGrid lerp 16↔27 — линия ряда как d124', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
   const row = await loadLuzhnikiFootballStageMapRow();
@@ -61,13 +61,17 @@ test('b154 row 17: polarGrid по дуге трибуны, не плоская �
     svgMarkup: row.svg_markup,
   });
   assert.equal(seats.length, 8);
-  assert.equal(seats[0].geodesySource, 'polarGrid');
-  const ys = seats.map((s) => s.yPct);
-  assert.ok(Math.max(...ys) - Math.min(...ys) > 0.02, 'row follows tribune arc (Y varies)');
-  assert.ok(Math.max(...ys) - Math.min(...ys) < 0.8, 'same row, not diagonal across sector');
+  assert.match(String(seats[0].geodesySource), /pbiletLerp|fieldGrid/);
   const bySeat = [...seats].sort((a, b) => Number(a.seat) - Number(b.seat));
-  const dx = bySeat[bySeat.length - 1].xPct - bySeat[0].xPct;
-  assert.ok(Math.abs(dx) > 0.1, 'seats spread along arc');
+  const ys = bySeat.map((s) => s.yPct);
+  assert.ok(Math.max(...ys) - Math.min(...ys) < 1.2, 'one row (Y stable), not diagonal');
+  for (let i = 1; i < bySeat.length; i += 1) {
+    const step = Math.hypot(
+      bySeat[i].xPct - bySeat[i - 1].xPct,
+      bySeat[i].yPct - bySeat[i - 1].yPct,
+    );
+    assert.ok(step > 0.01, `seat ${bySeat[i].seat} spaced from prev`);
+  }
 });
 
 test('c243 row 35 seats 8–9: pbilet extrapolation, not fieldGrid on grass', () => {

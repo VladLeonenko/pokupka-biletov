@@ -351,8 +351,22 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, null);
         }
 
-        if (!hit) {
-          hit = trySectorPolarGrid(norm, row, seat);
+        if (!hit && mode === 'layout-anchors') {
+          hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
+        }
+
+        if (!hit && mode === 'layout-anchors') {
+          const interpRow = rowShift > 0 ? layoutAnchorLookupRow(norm, row) : row;
+          hit = interpolatePbiletSeatGeodesy(
+            anchors,
+            label,
+            interpRow,
+            seat,
+            fieldGridSnapIndex,
+          );
+          if (!hit && rowShift > 0) {
+            hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, fieldGridSnapIndex);
+          }
         }
 
         if (!hit) {
@@ -365,22 +379,8 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           }
         }
 
-        if (!hit && mode === 'layout-anchors') {
-          hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
-          if (hit) {
-            seen.add(dedupe);
-            fieldGridMatched += 1;
-            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
-            continue;
-          }
-        }
-
-        if (!hit && mode === 'layout-anchors') {
-          const interpRow = rowShift > 0 ? layoutAnchorLookupRow(norm, row) : row;
-          hit = interpolatePbiletSeatGeodesy(anchors, label, interpRow, seat, null);
-          if (!hit && rowShift > 0) {
-            hit = interpolatePbiletSeatGeodesy(anchors, label, row, seat, null);
-          }
+        if (!hit) {
+          hit = trySectorPolarGrid(norm, row, seat);
         }
 
         if (!hit) {
