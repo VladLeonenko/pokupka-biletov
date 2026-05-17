@@ -1622,7 +1622,7 @@ export function TicketHallInteractiveBlock({
         <div className={styles.mapPreloader} aria-live="polite" aria-label="Схема загружается">
           <div className={styles.mapPreloaderCard}>
             <span className={styles.mapPreloaderSpinner} aria-hidden="true" />
-            <span>Готовим схему</span>
+            <span>Загрузка схемы</span>
           </div>
         </div>
       ) : null}

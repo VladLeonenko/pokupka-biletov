@@ -104,6 +104,21 @@ import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
 
+function HallMapLoadingPane() {
+  return (
+    <div
+      className={styles.hallMapLoading}
+      role="status"
+      aria-live="polite"
+      aria-label="Загрузка схемы"
+    >
+      <div className={styles.hallMapLoadingCard}>
+        <span className={styles.hallMapLoadingSpinner} aria-hidden="true" />
+        <span>Загрузка схемы</span>
+      </div>
+    </div>
+  );
+}
 
 type OfferRow = {
   Id?: string;
@@ -903,15 +918,34 @@ export function TicketCheckoutPage() {
 
   const showHallMissingCard =
     Boolean(!hallSvg && !externalPlanUrl && hallMapLoadSettled);
+
+  /** Блок схемы сразу, пока тянем SVG/layout (Лужники deferred и т.п.). */
+  const showHallMapShell = useMemo(() => {
+    if (!stageIdEff || showHallMissingCard) return false;
+    if (hallMapLoadSettled && !hallSvg && externalPlanUrl) return false;
+    return Boolean(hallSvg) || !hallMapLoadSettled || svgDeferred || isLuzhnikiFootballStage;
+  }, [
+    stageIdEff,
+    showHallMissingCard,
+    hallMapLoadSettled,
+    hallSvg,
+    externalPlanUrl,
+    svgDeferred,
+    isLuzhnikiFootballStage,
+  ]);
+
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
   const noOffersAfterFetch = !isLoading && (isSuccess || isError) && offers.length === 0;
 
   /** Ключ сеанса для карты: без офферов используем «_», чтобы отрисовать подложку без выбора даты. */
   const hallMapSessionKey = useMemo(() => {
-    if (selectedSessionKey) return selectedSessionKey;
+    const key = selectedSessionKey ?? defaultSessionKey;
+    if (key) return key;
     if (noOffersAfterFetch) return '_';
     return null;
-  }, [selectedSessionKey, noOffersAfterFetch]);
+  }, [selectedSessionKey, defaultSessionKey, noOffersAfterFetch]);
+
+  const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
 
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
@@ -1356,7 +1390,7 @@ export function TicketCheckoutPage() {
             </Typography>
           </Box>
 
-          {hallSvg && hallMapSessionKey ? (
+          {showHallMapShell ? (
             <Paper className={styles.primaryHallMap} elevation={0}>
               <Box className={styles.primaryHallMapHead}>
                 <Box sx={{ minWidth: 0 }}>
@@ -1364,7 +1398,7 @@ export function TicketCheckoutPage() {
                     Схема зала
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {hallSchemeSubtitle}
+                    {hallMapReady ? hallSchemeSubtitle : 'Загрузка схемы…'}
                   </Typography>
                 </Box>
                 <Button
@@ -1372,38 +1406,45 @@ export function TicketCheckoutPage() {
                   variant="outlined"
                   startIcon={<EventSeatIcon />}
                   onClick={() => setMapDialogOpen(true)}
+                  disabled={!hallMapReady}
                 >
                   На весь экран
                 </Button>
               </Box>
-              {priceChipsForMap.length > 0 ? (
-                <TicketPriceFilterCarousel
-                  chips={priceChipsForMap}
-                  selectedPriceKey={mapSelectedPriceKey}
-                  onSelect={handleMapPriceSelect}
-                  onReset={handleMapPriceReset}
-                />
-              ) : null}
-              <Suspense fallback={<Box sx={{ minHeight: 280, bgcolor: 'rgba(0,0,0,0.03)' }} />}>
-              <TicketHallInteractiveBlock
-                hallSvgHtml={hallSvg}
-                layoutJson={layoutJsonForStage}
-                offers={offersForMapDisplay}
-                getPriceKey={(o) => priceKey(o as OfferRow)}
-                colorForSeat={colorSeat}
-                activeOfferId={offerId}
-                selectedSeats={seats}
-                onToggleSeat={toggleSeat}
-                selectedOffer={selectedOfferForMap}
-                onReserveFromMap={() => setPurchaseOpen(true)}
-                onClearSelection={resetSelectedSeats}
-                onSelectionChange={handleMapSelectionChange}
-                reservePending={false}
-                onNavigateToList={navigateToPlacesList}
-                hideSelectionBar
-                showFanIdNotice={requiresFanId}
-              />
-              </Suspense>
+              {hallMapReady ? (
+                <>
+                  {priceChipsForMap.length > 0 ? (
+                    <TicketPriceFilterCarousel
+                      chips={priceChipsForMap}
+                      selectedPriceKey={mapSelectedPriceKey}
+                      onSelect={handleMapPriceSelect}
+                      onReset={handleMapPriceReset}
+                    />
+                  ) : null}
+                  <Suspense fallback={<HallMapLoadingPane />}>
+                    <TicketHallInteractiveBlock
+                      hallSvgHtml={hallSvg!}
+                      layoutJson={layoutJsonForStage}
+                      offers={offersForMapDisplay}
+                      getPriceKey={(o) => priceKey(o as OfferRow)}
+                      colorForSeat={colorSeat}
+                      activeOfferId={offerId}
+                      selectedSeats={seats}
+                      onToggleSeat={toggleSeat}
+                      selectedOffer={selectedOfferForMap}
+                      onReserveFromMap={() => setPurchaseOpen(true)}
+                      onClearSelection={resetSelectedSeats}
+                      onSelectionChange={handleMapSelectionChange}
+                      reservePending={false}
+                      onNavigateToList={navigateToPlacesList}
+                      hideSelectionBar
+                      showFanIdNotice={requiresFanId}
+                    />
+                  </Suspense>
+                </>
+              ) : (
+                <HallMapLoadingPane />
+              )}
             </Paper>
           ) : null}
 
@@ -1796,37 +1837,43 @@ export function TicketCheckoutPage() {
                 </FormControl>
               </Box>
             ) : null}
-            {hallSvg && hallMapSessionKey ? (
+            {showHallMapShell ? (
               <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', px: 0 }}>
-                {priceChipsForMap.length > 0 ? (
-                  <TicketPriceFilterCarousel
-                    chips={priceChipsForMap}
-                    selectedPriceKey={mapSelectedPriceKey}
-                    onSelect={handleMapPriceSelect}
-                    onReset={handleMapPriceReset}
-                  />
-                ) : null}
-                <Suspense fallback={<Box sx={{ flex: 1, minHeight: 320 }} />}>
-                  <TicketHallInteractiveBlock
-                    variant="dialog"
-                    hallSvgHtml={hallSvg}
-                    layoutJson={layoutJsonForStage}
-                    offers={offersForMapDisplay}
-                    getPriceKey={(o) => priceKey(o as OfferRow)}
-                    colorForSeat={colorSeat}
-                    activeOfferId={offerId}
-                    selectedSeats={seats}
-                    onToggleSeat={toggleSeat}
-                    selectedOffer={selectedOfferForMap}
-                    onReserveFromMap={() => setPurchaseOpen(true)}
-                    onClearSelection={resetSelectedSeats}
-                    onSelectionChange={handleMapSelectionChange}
-                    reservePending={false}
-                    onNavigateToList={navigateToPlacesList}
-                    hideSelectionBar
-                    showFanIdNotice={requiresFanId}
-                  />
-                </Suspense>
+                {hallMapReady ? (
+                  <>
+                    {priceChipsForMap.length > 0 ? (
+                      <TicketPriceFilterCarousel
+                        chips={priceChipsForMap}
+                        selectedPriceKey={mapSelectedPriceKey}
+                        onSelect={handleMapPriceSelect}
+                        onReset={handleMapPriceReset}
+                      />
+                    ) : null}
+                    <Suspense fallback={<HallMapLoadingPane />}>
+                      <TicketHallInteractiveBlock
+                        variant="dialog"
+                        hallSvgHtml={hallSvg!}
+                        layoutJson={layoutJsonForStage}
+                        offers={offersForMapDisplay}
+                        getPriceKey={(o) => priceKey(o as OfferRow)}
+                        colorForSeat={colorSeat}
+                        activeOfferId={offerId}
+                        selectedSeats={seats}
+                        onToggleSeat={toggleSeat}
+                        selectedOffer={selectedOfferForMap}
+                        onReserveFromMap={() => setPurchaseOpen(true)}
+                        onClearSelection={resetSelectedSeats}
+                        onSelectionChange={handleMapSelectionChange}
+                        reservePending={false}
+                        onNavigateToList={navigateToPlacesList}
+                        hideSelectionBar
+                        showFanIdNotice={requiresFanId}
+                      />
+                    </Suspense>
+                  </>
+                ) : (
+                  <HallMapLoadingPane />
+                )}
               </Box>
             ) : null}
           </DialogContent>
