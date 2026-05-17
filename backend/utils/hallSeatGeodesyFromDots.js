@@ -489,13 +489,17 @@ export function resolveOfferSeatFromCalibratedCloud(
     targetX = rowDots[Math.floor(rowDots.length / 2)]?.xPct ?? 50;
   }
 
-  if (rowDots.length >= 2) {
-    const hit = pickDotNearRowSeat(rowDots, band.yPct, targetX, 0.65);
-    if (hit) return { xPct: hit.xPct, yPct: hit.yPct };
+  const rowY =
+    svgRowPick?.targetYPct != null && Number.isFinite(svgRowPick.targetYPct)
+      ? svgRowPick.targetYPct
+      : band?.yPct ?? null;
+
+  if (rowDots.length >= 2 && rowY != null) {
+    const hit = pickDotNearRowSeat(rowDots, rowY, targetX, 0.65);
+    if (hit) return { xPct: hit.xPct, yPct: rowY };
   }
 
-  const yFromBand = band?.yPct ?? null;
-  return resolveOfferSeatSnapInSector(sectorDots, yFromBand, seatNum, seatRangeInRow);
+  return resolveOfferSeatSnapInSector(sectorDots, rowY, seatNum, seatRangeInRow);
 }
 
 /**

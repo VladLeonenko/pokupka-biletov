@@ -3,7 +3,7 @@
  * Для секторов без r[] в tickets.json — target Y ряда с подписи на схеме.
  */
 
-import { pathBBox } from './hallSeatGeodesyFromDots.js';
+import { clusterDotsByRow, pathBBox } from './hallSeatGeodesyFromDots.js';
 import {
   resolveOfferSeatSectorNativeLayout,
   resolveRowYPctSectorNative,
@@ -343,8 +343,10 @@ export function resolveRowYPctFromSvgLabels(
 }
 
 /**
- * @param {{ xPct: number, yPct: number }[]} sectorDots
- * @param {{ xPct: number, yPct: number }} [fieldCenterPct]
+ * Sellable на линии подписанного ряда: одна Y для всего ряда (как <tspan>17</tspan> на схеме),
+ * места вдоль ряда — по номеру места, не по индексу точки на дуге трибуны.
+ *
+ * @param {{ min: number, max: number } | null} [seatRangeInRow]
  */
 export function resolveOfferSeatFromSvgRowLabels(
   rowNum,
@@ -354,18 +356,41 @@ export function resolveOfferSeatFromSvgRowLabels(
   allLabels,
   hallWidth,
   hallHeight,
-  _seatRangeInRow,
+  seatRangeInRow = null,
   fieldCenterPct = { xPct: 50, yPct: 50 },
 ) {
   if (!sectorDots?.length || !allLabels?.length || !sectorPath) return null;
-  return resolveOfferSeatSectorNativeLayout(
-    rowNum,
-    seatNum,
-    sectorDots,
-    sectorPath,
-    allLabels,
-    hallWidth,
-    hallHeight,
-    fieldCenterPct,
-  );
+
+  const targetY = getRowLabelYPctInSector(rowNum, sectorPath, allLabels, hallWidth, hallHeight);
+  if (targetY == null) {
+    return resolveOfferSeatSectorNativeLayout(
+      rowNum,
+      seatNum,
+      sectorDots,
+      sectorPath,
+      allLabels,
+      hallWidth,
+      hallHeight,
+      fieldCenterPct,
+    );
+  }
+
+  let rowDots = sectorDots.filter((d) => Math.abs(d.yPct - targetY) <= 0.45);
+  if (rowDots.length < 4) {
+    const bands = clusterDotsByRow(sectorDots);
+    const idx = findBandIndexNearestY(bands, targetY);
+    rowDots = bands[idx]?.dots?.length ? [...bands[idx].dots] : [...sectorDots];
+  }
+
+  rowDots = sortDotsInSectorRow(rowNum, rowDots, sectorPath, allLabels, hallWidth, hallHeight);
+  if (rowDots.length < 1) return null;
+
+  const seatMin = seatRangeInRow?.min ?? 1;
+  const seatMax = seatRangeInRow?.max ?? seatNum;
+  const span = Math.max(1, seatMax - seatMin);
+  const t = (seatNum - seatMin) / span;
+  const x0 = rowDots[0].xPct;
+  const x1 = rowDots[rowDots.length - 1].xPct;
+
+  return { xPct: x0 + t * (x1 - x0), yPct: targetY };
 }

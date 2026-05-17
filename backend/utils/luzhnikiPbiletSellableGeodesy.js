@@ -16,11 +16,11 @@ import {
   buildSectorOfferRowRanges,
   buildSectorOfferSeatRangesByRow,
 } from './hallSeatGeodesyFromDots.js';
-import { parseSvgHallRowLabels } from './hallSeatGeodesyFromSvgRows.js';
 import {
-  computeFieldCenterPct,
-  resolveOfferSeatSectorNativeLayout,
-} from './hallSeatGeodesySectorNative.js';
+  parseSvgHallRowLabels,
+  resolveOfferSeatFromSvgRowLabels,
+} from './hallSeatGeodesyFromSvgRows.js';
+import { computeFieldCenterPct } from './hallSeatGeodesySectorNative.js';
 import {
   collectLayoutSectorPbiletSeats,
   countPbiletRowAnchors,
@@ -183,9 +183,8 @@ function trySectorNative(nativeCtx, norm, row, seat, w, h) {
   const sectorPath = nativeCtx.sectorPathByNorm.get(norm);
   if (!sectorDots?.length || !sectorPath) return null;
 
-  const sectorRowMax = nativeCtx.rowRanges.get(norm)?.max ?? null;
   const seatRangeInRow = nativeCtx.seatRangesByRow.get(norm)?.get(rowNum) ?? null;
-  const pt = resolveOfferSeatSectorNativeLayout(
+  const pt = resolveOfferSeatFromSvgRowLabels(
     rowNum,
     seatNum,
     sectorDots,
@@ -193,9 +192,8 @@ function trySectorNative(nativeCtx, norm, row, seat, w, h) {
     nativeCtx.svgRowLabels,
     w,
     h,
-    nativeCtx.fieldCenterPct,
-    sectorRowMax,
     seatRangeInRow,
+    nativeCtx.fieldCenterPct,
   );
   if (!pt) return null;
   return {

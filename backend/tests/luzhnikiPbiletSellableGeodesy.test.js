@@ -48,6 +48,26 @@ test('d232 row 31 seat 17: в bbox сектора', () => {
   assert.ok(seats[0].xPct >= 86 && seats[0].xPct <= 95, `xPct=${seats[0].xPct}`);
 });
 
+test('b154 row 17: одна Y (подпись ряда), X по местам', async () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
+  const row = await loadLuzhnikiFootballStageMapRow();
+  const layout =
+    typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const offers = [
+  { Sector: 'сектор b154', Row: '17', SeatList: ['4', '5', '6', '7', '8', '9', '10', '12'] },
+  ];
+  const { seats } = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layout, {
+    svgMarkup: row.svg_markup,
+  });
+  assert.equal(seats.length, 8);
+  const ys = seats.map((s) => s.yPct);
+  assert.ok(Math.max(...ys) - Math.min(...ys) < 0.05, 'row 17 must share one Y (not diagonal)');
+  const bySeat = [...seats].sort((a, b) => Number(a.seat) - Number(b.seat));
+  const dx = bySeat[bySeat.length - 1].xPct - bySeat[0].xPct;
+  assert.ok(Math.abs(dx) > 0.5, 'seats must spread along row');
+});
+
 test('c243 row 35 seats 8–9: pbilet extrapolation, not fieldGrid on grass', () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const offers = [{ Sector: 'сектор c243', Row: '35', SeatList: ['8', '9'] }];
