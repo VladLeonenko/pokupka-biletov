@@ -1311,11 +1311,8 @@ export function TicketHallInteractiveBlock({
 
   /** Круги в единицах viewBox — масштабируются вместе со схемой, без «огромных» px поверх zoom. */
   const stadiumSellableDotR = useMemo(() => {
-    if (luzhnikiCheckout) {
-      if (sectorSeatFocusView) {
-        return Math.max(5, Math.min(12, svgViewBox.width * 0.00075));
-      }
-      return Math.max(7, Math.min(14, svgViewBox.width * 0.00105));
+    if (luzhnikiCheckout && sectorSeatFocusView) {
+      return Math.max(5, Math.min(12, svgViewBox.width * 0.00075));
     }
     return Math.max(16, Math.min(38, svgViewBox.width * 0.0024));
   }, [luzhnikiCheckout, sectorSeatFocusView, svgViewBox.width]);
@@ -1325,9 +1322,9 @@ export function TicketHallInteractiveBlock({
     const vb = Math.max(1, svgViewBox.width);
     return (12 / vb) * 100;
   }, [luzhnikiCheckout, uniformHallSeatAppearance, svgViewBox.width]);
-  /** Лужники: все sellable в SVG viewBox; на других стадионах — только в фокусе сектора без canvas. */
+  /** Сектор: sellable в SVG viewBox (как диагностика), не DOM px + не canvas px — иначе «плывут» при zoom. */
   const useStadiumSvgSellableDots =
-    useSvgNative && (luzhnikiCheckout || (sectorSeatFocusView && !useCanvasCompositing));
+    sectorSeatFocusView && useSvgNative && (luzhnikiCheckout || !useCanvasCompositing);
 
   const paintHallCanvas = useCallback(() => {
     if (!useCanvasCompositing) return;
