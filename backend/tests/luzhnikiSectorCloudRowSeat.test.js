@@ -75,7 +75,8 @@ test('a101 sellable: cloudRowSeat для ряда 11 при allSeatCoordinates',
     { Sector: 'сектор a101', Row: '11', SeatList: ['7', '8'] },
     { Sector: 'сектор a101', Row: '35', SeatList: ['3'] },
   ];
-  const { seats, cloudRowSeatMatched, pbiletLabeledMatched } = buildSellableSeatGeodesyPbiletAccurate(
+  const { seats, radialGridMatched, cloudRowSeatMatched, pbiletLabeledMatched } =
+    buildSellableSeatGeodesyPbiletAccurate(
     ticketsPayload,
     offers,
     { geodesy: { hallWidth: W, hallHeight: H }, allSeatCoordinates: cloud },
@@ -87,11 +88,11 @@ test('a101 sellable: cloudRowSeat для ряда 11 при allSeatCoordinates',
     },
   );
   assert.equal(seats.length, 3);
-  assert.ok(cloudRowSeatMatched + pbiletLabeledMatched >= 2);
+  assert.ok(radialGridMatched >= 2);
   const r11 = seats.find((s) => s.row === '11' && s.seat === '7');
-  assert.ok(r11 && /cloudRowSeat|pbiletLabeled/.test(String(r11.geodesySource)));
+  assert.ok(r11 && String(r11.geodesySource).includes('radialGrid'));
   const r35 = seats.find((s) => s.row === '35' && s.seat === '3');
-  assert.match(String(r35?.geodesySource), /cloudRowSeat|radialGrid/);
+  assert.match(String(r35?.geodesySource), /radialGrid|cloudRowSeat/);
 });
 
 test('trySectorCloudRowSeatForRadial: не nearest-dot в чужом ряду', () => {

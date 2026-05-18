@@ -56,8 +56,9 @@ test('a101: layout.seats с fieldGrid не блокирует cloudRowSeat дл�
     );
 
   assert.equal(seats.length, 2);
-  assert.ok(cloudRowSeatMatched + radialGridMatched >= 2, 'cloud or radial, not poisoned layout');
+  assert.equal(radialGridMatched, 2, 'radial first, not poisoned layout');
   assert.equal(pbiletLabeledMatched, 0);
+  assert.equal(cloudRowSeatMatched, 0);
   assert.ok(seats.every((s) => s.yPct < 90 && s.xPct < 50));
 });
 
