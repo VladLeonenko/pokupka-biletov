@@ -2,44 +2,48 @@
 
 Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
-## Два режима (не путать)
+## Константы шага сетки (эталон D 124)
 
-| Тип сектора | Модуль | Пример |
-|-------------|--------|--------|
-| **Прямоугольный**, прорезь рядов | `luzhnikiSectorAxisGridPlacement.js` — **axisGrid** (линия ряда) | **B154** р.17 между 16 и 27 |
-| **Угловой**, радиальные ряды | `luzhnikiSectorPolarGrid.js` — **radialGrid** (4 угла + `rowCurve`) | **A101** |
+Измерено по strict `tickets.json`, сектор **«Сектор D 124»** (ряды с полными `x`,`y`; в файле нет ряда 10, есть 9 — для офферов ряд 10 считается интерполяцией).
 
-**A101 — не эталон axisGrid.** Угловой сектор: оси X/Y от поля, ряды — дуги. Линейный axisGrid давал ряд 11 у подписи «33».
+| Константа | Значение (% viewBox) | В D124 физически |
+|-----------|---------------------|------------------|
+| `seatStepPct` | **0.206697** | соседние места в ряду (у D124 X постоянен, шаг по Y) |
+| `rowStepPct` | **0.192763** | соседние ряды (у D124 Y постоянен, шаг по X) |
 
-## A101 — radialGrid
+Код: `backend/utils/luzhnikiPbiletGridSpacing.js` — `getPbiletGridSpacing()`, `measurePbiletGridSpacingFromTickets()`.
 
-- `tickets.json`: `r: []`
-- `sector-row-anchors.json`: 4 угла (rows 1/42 × seats 1/4/16), `rowCurve: 0.32`
-- Sellable: **`prefersSectorRadialCorner`** → radial **до** fieldGrid
-- Код: `interpolateSeatFromCornerAnchors` + `rowCurve` в `luzhnikiSeatWarp.js`
+Масштаб UI только zoom — шаги в `xPct`/`yPct` не меняются.
+
+## A101 — угловой сектор (`radialGrid+d124step`)
+
+- **Не axisGrid** (линейный X/Y ломает угол).
+- 4 угла: `sector-row-anchors.json` → `nearLeft` / `nearRight` / `farLeft` / `farRight`.
+- Позиция: от `nearLeft` + `rowStepPct` вдоль рядов + `seatStepPct` вдоль места на дуге ряда + `rowCurve` 0.32.
+- Модуль: `resolveCornerSectorPbiletStepGrid()` → `luzhnikiSectorPolarGrid.js` для `SECTOR_RADIAL_PRIORITY_NORMS` (`a101`).
 
 ```js
-import { prefersSectorRadialCorner, resolvePolarGridSeatFromAnchors } from '../utils/luzhnikiSectorPolarGrid.js';
+import { getPbiletGridSpacing, resolveCornerSectorPbiletStepGrid } from '../utils/luzhnikiPbiletGridSpacing.js';
 
-prefersSectorRadialCorner('a101'); // true
-resolvePolarGridSeatFromAnchors('a101', '11', '7'); // geodesySource: radialGrid
+getPbiletGridSpacing();
+// { seatStepPct: 0.206697, rowStepPct: 0.192763, source: 'Сектор D 124' }
 ```
 
-## B154 — axisGrid
+## B154 — axisGrid (прямоугольник, прорезь рядов)
 
-См. `luzhnikiSectorAxisGridPlacement.js`, `SECTOR_AXIS_GRID_PRIORITY_NORMS = ['b154']`.
+`luzhnikiSectorAxisGridPlacement.js`, `SECTOR_AXIS_GRID_PRIORITY_NORMS = ['b154']`.
 
-## Порядок в sellable
+## Sellable-порядок
 
 1. strict  
-2. **A101**: radialGrid → (не fieldGrid)  
-3. **B154**: axisGrid при прорези → fieldGrid / pbiletLerp  
-4. svgRow / polarGrid B/C  
+2. **a101**: `radialGrid+d124step` (до fieldGrid)  
+3. **b154**: axisGrid  
+4. fieldGrid / svgRow / polar B/C  
 
-`offerSeatGeodesy.radialGridMatched` / `axisGridMatched`.
+`offerSeatGeodesy.radialGridMatched`, `axisGridMatched`.
 
 ## Тесты
 
 ```bash
-cd backend && node --test tests/luzhnikiSectorAxisGridPlacement.test.js tests/luzhnikiPbiletSellableGeodesy.test.js
+cd backend && node --test tests/luzhnikiPbiletGridSpacing.test.js tests/luzhnikiPbiletSellableGeodesy.test.js
 ```

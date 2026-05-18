@@ -74,7 +74,7 @@ test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи
   );
   assert.equal(seats.length, 5);
   assert.equal(radialGridMatched, 5);
-  assert.ok(seats.every((s) => String(s.geodesySource).includes('radialGrid')));
+  assert.ok(seats.every((s) => /radialGrid/.test(String(s.geodesySource))));
   assert.ok(!seats.some((s) => String(s.geodesySource).includes('fieldGrid')));
 
   const labels = parseSvgHallRowLabels(row.svg_markup, W, H);

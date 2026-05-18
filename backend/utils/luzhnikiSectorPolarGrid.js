@@ -5,6 +5,7 @@
 
 import { loadSectorCalibrationBlocksByNorm } from './hallSeatGeodesySectorRowAnchors.js';
 import { normalizeSectorLabel, luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
+import { resolveCornerSectorPbiletStepGrid } from './luzhnikiPbiletGridSpacing.js';
 import { interpolateSeatFromCornerAnchors } from './luzhnikiSeatWarp.js';
 
 function parseNum(value) {
@@ -56,8 +57,23 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
   }
   if (!block?.anchors) return null;
 
-  const useRadialCurve =
-    Number(block.rowCurve) > 0 || /^a\d{3}$/.test(normHit);
+  const usePbiletStepGrid = SECTOR_RADIAL_PRIORITY_NORMS.has(normHit);
+  if (usePbiletStepGrid) {
+    const pt = resolveCornerSectorPbiletStepGrid(block.anchors, apiRow, apiSeat, {
+      rowCurve: Number(block.rowCurve ?? 0.32),
+    });
+    if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;
+    return {
+      sector: sectorLabel,
+      row: String(apiRow),
+      seat: String(apiSeat),
+      xPct: pt.xPct,
+      yPct: pt.yPct,
+      geodesySource: 'radialGrid+d124step',
+    };
+  }
+
+  const useRadialCurve = Number(block.rowCurve) > 0;
   if (useRadialCurve) {
     const pt = interpolateSeatFromCornerAnchors(
       block.anchors,
