@@ -269,7 +269,6 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
   const rowT = clamp01((dr * rowStep) / anchorRowDist);
-  const minSeats = parseNum(opts.minSeatPerRow) ?? nearR.seat ?? 4;
   const maxSeats = parseNum(opts.maxSeatPerRow) ?? 39;
   const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
   const rowRadialBoost = Number(opts.rowRadialDepthBoost ?? 0.06);
