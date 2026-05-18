@@ -4,7 +4,11 @@
  * Координаты считаются на каждый GET /map, не из сида.
  */
 
-import { buildLabeledSeatIndex, lookupLabeledSeat } from './hallSeatGeodesyMatch.js';
+import {
+  buildLabeledSeatIndex,
+  lookupLabeledSeat,
+  lookupSeatByRowPositionZip,
+} from './hallSeatGeodesyMatch.js';
 import { getLuzhnikiLabeledSeatIndex } from './luzhnikiSeatIndexCache.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -426,7 +430,12 @@ export function buildSellableSeatGeodesyPbiletAccurate(
 
         // Ручная разметка (hover → bundle) важнее strict pbilet для тех же sector/row/seat.
         if (grayCloudLabeledIndex?.size) {
-          const labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
+          let labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
+          let labeledSrc = 'grayCloudLabeled';
+          if (!labeled) {
+            labeled = lookupSeatByRowPositionZip(grayCloudLabeledIndex, sector, row, seat, list);
+            if (labeled) labeledSrc = 'grayCloudLabeled+rowZip';
+          }
           if (labeled) {
             seen.add(dedupe);
             grayCloudLabeledMatched += 1;
@@ -435,7 +444,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
                 sector,
                 row,
                 seat,
-                { ...labeled, geodesySource: 'grayCloudLabeled' },
+                { ...labeled, geodesySource: labeledSrc },
                 ticketsPayload,
                 w,
                 h,
