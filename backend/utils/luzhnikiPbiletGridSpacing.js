@@ -274,12 +274,6 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
   const rowRadialBoost = Number(opts.rowRadialDepthBoost ?? 0.06);
   const rowDepthT = clamp01(rowT + rowRadialBoost * rowT * rowT);
-  const seatsInRow = Math.max(
-    minSeats,
-    Math.round(minSeats + rowT * (maxSeats - minSeats)),
-    seatN,
-  );
-
   let seat1Pt = lerpPct(nearL, farL, rowDepthT);
   let seatEndPt = lerpPct(nearR, farR, rowDepthT);
   if (radialFan !== 1 && rowT > 1e-6) {
@@ -318,9 +312,12 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowBendExtraDeg ?? 0,
   );
 
-  const seatSpan = Math.max(1, seatsInRow - originSeat);
+  // Делитель всегда maxSeatPerRow (39), не seatsInRow — иначе ряд 11+ слипается в seatT=1.
+  const seatSpan = Math.max(1, maxSeats - originSeat);
   let seatT = clamp01((seatN - originSeat) / seatSpan);
-  if (opts.seatCountFromRight || opts.seatMirror) seatT = 1 - seatT;
+  const mirrorFromFieldLeft =
+    opts.seatCountFromLeft || opts.seatCountFromRight || opts.seatMirror;
+  if (mirrorFromFieldLeft) seatT = 1 - seatT;
 
   let pt = lerpPct(seat1Pt, seatEndPt, seatT);
 

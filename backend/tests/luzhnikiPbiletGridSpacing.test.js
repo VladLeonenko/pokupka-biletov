@@ -62,13 +62,23 @@ test('a101 row11 seat7: step grid ближе к svg row11 чем row33', () => {
   assert.ok(Math.abs(pt.yPct - pt33.yPct) > 0.5, 'row 11 and 33 separated');
 });
 
-test('a101 row11: seatCountFromLeft — 7 левее 8 левее 9 (от поля)', () => {
+test('a101 row11: seatCountFromLeft — 7,8,9 разведены, не слиплись', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const pts = [7, 8, 9].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 11, seat, A101_OPTS),
   );
   assert.ok(pts.every(Boolean));
-  assert.ok(pts[0].xPct < pts[1].xPct && pts[1].xPct < pts[2].xPct);
+  const xs = pts.map((p) => p.xPct);
+  assert.ok(new Set(xs.map((x) => x.toFixed(4))).size === 3);
+  assert.ok(pts[0].xPct > pts[1].xPct && pts[1].xPct > pts[2].xPct, 'от поля: 7 правее 8 правее 9');
+});
+
+test('a101 row11: места 22–25 не в одной точке', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('a101');
+  const xs = [22, 23, 24, 25].map(
+    (s) => resolveCornerSectorPbiletStepGrid(block.anchors, 11, s, A101_OPTS).xPct,
+  );
+  assert.ok(new Set(xs.map((x) => x.toFixed(3))).size === 4);
 });
 
 function pointInConvexQuad(p, q) {
@@ -148,17 +158,17 @@ test('a101 row38: места 22–25 отдельные, 22 левее 25', () =
   assert.ok(pts.every(Boolean));
   const xs = pts.map((p) => p.xPct);
   assert.ok(new Set(xs.map((x) => x.toFixed(3))).size === 4);
-  assert.ok(pts[0].xPct < pts[3].xPct - 0.15);
+  assert.ok(pts[0].xPct > pts[3].xPct + 0.15, 'seat22 правее seat25 (от поля)');
   const p30 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 30, A101_OPTS);
-  assert.ok(Math.abs(pts[0].xPct - p30.xPct) > 0.2, 'seat22 not at seat30');
+  assert.ok(Math.abs(pts[0].xPct - p30.xPct) > 0.25, 'seat22 not at seat30');
 });
 
-test('a101 row38: место 25 правее места 7 (от поля)', () => {
+test('a101 row38: место 7 правее места 25 (от поля)', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const p7 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, A101_OPTS);
   const p25 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 25, A101_OPTS);
   assert.ok(p7 && p25);
-  assert.ok(p25.xPct > p7.xPct + 0.2, `seat25 x=${p25.xPct} right of seat7 x=${p7.xPct}`);
+  assert.ok(p7.xPct > p25.xPct + 0.15, `seat7 x=${p7.xPct} right of seat25 x=${p25.xPct}`);
 });
 
 const B155_OPTS = {
