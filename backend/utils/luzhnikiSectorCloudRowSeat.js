@@ -11,7 +11,11 @@ import {
   resolveCloudGridSeat,
 } from './luzhnikiCloudGridSeatIndex.js';
 import { extractPbiletCoordinatesSeatDots } from './luzhnikiPbiletGeodesyExtract.js';
-import { resolveRowYPctFromSvgLabels } from './hallSeatGeodesyFromSvgRows.js';
+import {
+  findBandIndexNearestY,
+  getRowLabelYPctInSector,
+  resolveRowYPctFromSvgLabels,
+} from './hallSeatGeodesyFromSvgRows.js';
 import {
   computeFieldCenterPct,
   findBandIndexForRowNum,
@@ -104,23 +108,93 @@ function sortBandDots(bandDots, seatAxis) {
   return [...(bandDots || [])].sort((a, b) => seatSortKey(a, seatAxis) - seatSortKey(b, seatAxis));
 }
 
-/** bandIdx / svgRow: плотная хорда; svgY — строже (часто путает соседние ряды). */
 const MIN_GRAY_ROW_BAND_DOTS = 6;
-const MIN_SVGY_ROW_BAND_DOTS = 10;
+const MIN_LABELED_ROW_BAND_DOTS = 4;
+const MAX_SVG_ROW_Y_BAND_GAP_PCT = 1.0;
+
+function bandCentroidYPct(dots) {
+  if (!dots?.length) return null;
+  return dots.reduce((s, d) => s + d.yPct, 0) / dots.length;
+}
+
+/** Y% подписи ряда N на схеме сектора (шкала справа A101). */
+function resolveTargetRowYPct(entry, rowN) {
+  const { sectorPath, svgRowLabels, sectorDots, fieldCenter, w, h } = entry;
+  if (!sectorPath || !svgRowLabels?.length) return null;
+  const fromAisle = getRowLabelYPctInSector(rowN, sectorPath, svgRowLabels, w, h);
+  if (fromAisle != null) return fromAisle;
+  if (!sectorDots?.length) return null;
+  return resolveRowYPctFromSvgLabels(
+    rowN,
+    sectorPath,
+    svgRowLabels,
+    w,
+    h,
+    18,
+    fieldCenter,
+    sectorDots,
+  );
+}
 
 /**
- * Полоса облака для API-ряда: SVG Y → ближайшая полоса; иначе подписанные bands / bandIdx.
+ * Полоса облака для API-ряда N: ближайшая по Y к подписи ряда на SVG (не bandIdx 11→30).
  * @param {object} entry
  * @param {number} rowN
  */
 function resolveRowBandDots(entry, rowN) {
-  const { grid, labeledBands, sectorPath, svgRowLabels, sectorDots, fieldCenter, w, h } = entry;
+  const { grid, labeledBands, sectorPath, svgRowLabels, w, h, fieldCenter } = entry;
   if (!grid?.rows?.length) return null;
+
+  const targetY = resolveTargetRowYPct(entry, rowN);
+
+  if (labeledBands?.length >= 2 && targetY != null) {
+    const candidates = labeledBands
+      .map((band) => ({
+        band,
+        yPct: bandCentroidYPct(band.dots),
+        n: band.dots?.length ?? 0,
+      }))
+      .filter((c) => c.n >= MIN_LABELED_ROW_BAND_DOTS && c.yPct != null);
+    if (candidates.length) {
+      const bi = findBandIndexNearestY(
+        candidates.map((c) => ({ yPct: c.yPct })),
+        targetY,
+      );
+      const chosen = candidates[bi];
+      if (chosen?.band?.dots?.length) {
+        if (Math.abs(chosen.yPct - targetY) <= MAX_SVG_ROW_Y_BAND_GAP_PCT) {
+          return { dots: chosen.band.dots, via: 'cloudRowSeat+svgRowY' };
+        }
+        const approx = labeledBands[findBandIndexForRowNum(rowN, labeledBands)];
+        if (approx?.dots?.length >= MIN_LABELED_ROW_BAND_DOTS) {
+          return { dots: approx.dots, via: 'cloudRowSeat+svgRowNum' };
+        }
+        return { dots: chosen.band.dots, via: 'cloudRowSeat+svgRowY+gap' };
+      }
+    }
+  }
 
   if (labeledBands?.length >= 2) {
     const band = labeledBands[findBandIndexForRowNum(rowN, labeledBands)];
     if (band?.dots?.length >= MIN_GRAY_ROW_BAND_DOTS && Number(band.rowNum) === rowN) {
       return { dots: band.dots, via: 'cloudRowSeat+svgRow' };
+    }
+  }
+
+  const denseRows = grid.rows.filter((r) => r.dots?.length >= MIN_GRAY_ROW_BAND_DOTS);
+  if (targetY != null && denseRows.length) {
+    let bestRow = null;
+    let bestD = Infinity;
+    for (const gridRow of denseRows) {
+      const cy = bandCentroidYPct(gridRow.dots);
+      const d = Math.abs(cy - targetY);
+      if (d < bestD) {
+        bestD = d;
+        bestRow = gridRow;
+      }
+    }
+    if (bestRow) {
+      return { dots: bestRow.dots, via: 'cloudRowSeat+svgY' };
     }
   }
 
@@ -138,38 +212,6 @@ function resolveRowBandDots(entry, rowN) {
   if (row?.dots?.length >= MIN_GRAY_ROW_BAND_DOTS) {
     return { dots: row.dots, via: 'cloudRowSeat+bandIdx' };
   }
-
-  const targetY =
-    sectorPath && svgRowLabels?.length && sectorDots?.length
-      ? resolveRowYPctFromSvgLabels(
-          rowN,
-          sectorPath,
-          svgRowLabels,
-          w,
-          h,
-          18,
-          fieldCenter,
-          sectorDots,
-        )
-      : null;
-
-  if (targetY != null) {
-    let bestRow = null;
-    let bestD = Infinity;
-    for (const gridRow of grid.rows) {
-      if (!gridRow.dots?.length || gridRow.dots.length < MIN_SVGY_ROW_BAND_DOTS) continue;
-      const cy = gridRow.dots.reduce((s, d) => s + d.yPct, 0) / gridRow.dots.length;
-      const d = Math.abs(cy - targetY);
-      if (d < bestD) {
-        bestD = d;
-        bestRow = gridRow;
-      }
-    }
-    if (bestRow?.dots?.length >= MIN_SVGY_ROW_BAND_DOTS) {
-      return { dots: bestRow.dots, via: 'cloudRowSeat+svgY' };
-    }
-  }
-
   if (row?.dots?.length >= 2) {
     return { dots: row.dots, via: 'cloudRowSeat+bandIdx+thin' };
   }

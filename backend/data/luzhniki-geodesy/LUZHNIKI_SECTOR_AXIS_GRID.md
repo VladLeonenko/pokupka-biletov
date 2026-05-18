@@ -180,15 +180,15 @@ flowchart TD
 | Шаг | Запрещено | Разрешено |
 |-----|-----------|-----------|
 | Координата sellable | `argmin distance` по всем 77k | полоса ряда → место M → **точка из `dots[]`** |
-| Выбор полосы ряда | svgY по полосе из 2–6 точек (путает 11↔33) | **bandIdx** (≥6 точек) → svgY (≥10) → thin bandIdx |
+| Выбор полосы ряда | **bandIdx** / dense grid (11→~30) | **`svgRowY`**: `getRowLabelYPctInSector(N)` → `findBandIndexNearestY` по `labeledBands` (≥4 точки) |
 | Источник layout.seats | patched fieldGrid как pbiletLabeled | только strict / grayCloud / radial+gray |
 | Финал без серых в полосе | выдуманный lerp между серыми | radial §3 без snap (редкий fallback) |
 
 ### Sellable-порядок (A101)
 
 1. `strict` (`tickets.json`)  
-2. **`grayCloud`** — полоса ряда + место M на серой точке (`resolveSellableGrayCloudSeat`)  
-3. **`radialGrid+d124step`** (§3) → **обязательный** `grayCloud+radialChord` snap в той же полосе  
+2. **`radialGrid+d124step`** (§3) — подсказка ряда, затем **`grayCloud`** (полоса по SVG Y + snap на серую)  
+3. без radial — **`grayCloud`** по подписи ряда на схеме  
 4. `pbiletLabeled` — только доверенный prod (не fieldGrid), последний  
 5. **Не** патчить `layout.seats` для a101 sellable с `grayCloud` / `radialGrid` (цикл ложного pbiletLabeled)
 

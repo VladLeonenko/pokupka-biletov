@@ -54,9 +54,13 @@ test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
   const { extractPbiletCoordinatesSeatDots } = await import('../utils/luzhnikiPbiletGeodesyExtract.js');
+  const { getRowLabelYPctInSector, parseSvgHallRowLabels } = await import(
+    '../utils/hallSeatGeodesyFromSvgRows.js'
+  );
   const row = await loadLuzhnikiFootballStageMapRow();
   const layout =
     typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const sec = ticketsPayload.sectors.find((s) => s.i === 'Сектор A 101');
   const offers = [
     { Sector: 'сектор a101', Row: '11', SeatList: ['7', '8', '9'] },
     { Sector: 'сектор a101', Row: '35', SeatList: ['26', '27'] },
@@ -84,11 +88,23 @@ test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи
   assert.ok(String(r11.geodesySource).includes('grayCloud'));
   const uniq = new Set(r11seats.map((s) => `${s.xPct.toFixed(4)},${s.yPct.toFixed(4)}`));
   assert.equal(uniq.size, r11seats.length, 'row11 seats on distinct gray dots');
-  const y11avg = r11seats.reduce((a, s) => a + s.yPct, 0) / r11seats.length;
+  const labels = parseSvgHallRowLabels(row.svg_markup, W, H);
+  const y11label = getRowLabelYPctInSector(11, sec.o, labels, W, H);
+  const y30label = getRowLabelYPctInSector(30, sec.o, labels, W, H);
+  const y35label = getRowLabelYPctInSector(35, sec.o, labels, W, H);
+  assert.ok(y11label != null && y30label != null && y35label != null);
+  assert.ok(
+    Math.abs(r11.yPct - y11label) < 1.5,
+    `row11 seat7 y=${r11.yPct} near svg row11=${y11label}`,
+  );
+  assert.ok(
+    Math.abs(r11.yPct - y11label) < Math.abs(r11.yPct - y30label),
+    `row11 seat7 y=${r11.yPct} nearer svg row11=${y11label} than row30=${y30label}`,
+  );
   const y35avg = r35seats.reduce((a, s) => a + s.yPct, 0) / r35seats.length;
   assert.ok(
-    y11avg < y35avg,
-    `row11 avg y=${y11avg} should be closer to field than row35 avg y=${y35avg}`,
+    Math.abs(y35avg - y35label) < Math.abs(y35avg - y11label),
+    `row35 avg y=${y35avg} nearer label ${y35label} than row11 label ${y11label}`,
   );
 });
 
