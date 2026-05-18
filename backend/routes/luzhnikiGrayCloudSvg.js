@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 import { extractLabeledSeatsFromSvgMarkup } from '../utils/luzhnikiExtractSeatsFromEnrichedSvg.js';
 import { resetGrayCloudLabeledIndexCache } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
+import { normalizeLuzhnikiGrayCloudSvgSectorAttrs } from '../utils/luzhnikiNormalizeGrayCloudSvgSectors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -32,8 +33,10 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
   if (!body.includes('<svg')) {
     return res.status(400).json({ ok: false, error: 'expected SVG XML in body' });
   }
-  const xml = body.startsWith('<?xml') ? body : `<?xml version="1.0" encoding="UTF-8"?>\n${body}`;
+  let xml = body.startsWith('<?xml') ? body : `<?xml version="1.0" encoding="UTF-8"?>\n${body}`;
   try {
+    const sectorNorm = normalizeLuzhnikiGrayCloudSvgSectorAttrs(xml);
+    xml = sectorNorm.xml;
     fs.mkdirSync(path.dirname(HAND_SVG), { recursive: true });
     fs.mkdirSync(path.dirname(PUBLIC_SVG), { recursive: true });
     fs.writeFileSync(HAND_SVG, xml, 'utf8');
@@ -57,6 +60,7 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
       ok: true,
       bytes: Buffer.byteLength(xml, 'utf8'),
       labeledSeats: extracted.labeledCount,
+      sectorLabelsNormalized: sectorNorm.changed,
       paths: { hand: HAND_SVG, public: PUBLIC_SVG, seatsBundle: SEATS_BUNDLE },
     });
   } catch (e) {

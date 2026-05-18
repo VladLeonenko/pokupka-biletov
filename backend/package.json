@@ -65,7 +65,9 @@
     "seed:luzhniki-cup-final-2026": "node scripts/seed-luzhniki-cup-final-2026-event.js",
     "precompute:luzhniki-labeled-dots": "node scripts/precomputeLabeledDots.js",
     "enrich:luzhniki-gray-circles-svg": "node scripts/enrich-luzhniki-gray-circles-svg.js",
-    "export:luzhniki-gray-cloud-lookup": "LUZHNIKI_SKIP_LMR=1 node scripts/enrich-luzhniki-gray-circles-svg.js"
+    "enrich:luzhniki-cloud-sectors-polygon": "node scripts/enrich-luzhniki-cloud-sectors-by-polygon.js",
+    "export:luzhniki-gray-cloud-lookup": "LUZHNIKI_SKIP_LMR=1 node scripts/enrich-luzhniki-gray-circles-svg.js",
+    "normalize:luzhniki-gray-cloud-sectors": "node scripts/normalize-luzhniki-gray-cloud-sector-labels.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

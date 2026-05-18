@@ -2,6 +2,8 @@
  * Из enriched SVG → seats[] для bundle-luzhniki-gray-cloud-labeled-seats.json (карта checkout).
  */
 
+import { resolveCanonicalSectorLabel } from './luzhnikiSectorDisplayLabel.js';
+
 function decodeSvgAttr(s) {
   return String(s || '')
     .replace(/&quot;/g, '"')
@@ -46,10 +48,11 @@ export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
     const cx = Number(attr(tag, 'cx'));
     const cy = Number(attr(tag, 'cy'));
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-    const sector = attr(tag, 'data-sector') || attr(tag, 'place-name');
+    const sectorRaw = attr(tag, 'data-sector') || attr(tag, 'place-name');
     const row = attr(tag, 'data-row') || attr(tag, 'row');
     const seat = attr(tag, 'data-seat') || attr(tag, 'place');
-    if (!sector || !isValidRowSeat(row, seat)) continue;
+    if (!sectorRaw || !isValidRowSeat(row, seat)) continue;
+    const sector = resolveCanonicalSectorLabel(sectorRaw);
     const source = attr(tag, 'data-source') || 'svg';
     seats.push({
       sector,

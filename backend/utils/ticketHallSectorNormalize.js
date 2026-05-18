@@ -55,6 +55,7 @@ export function normalizeSectorLabel(value) {
   const stripped = latinizeSectorHomoglyphs(
     raw
       .replace(/^сектор\s*/i, '')
+      .replace(/^sector\s*/i, '')
       .replace(/\bvip\b/gi, ' ')
       .replace(/([a-z])\s*-\s*(\d)/gi, '$1 $2')
       .replace(/\s+/g, ' ')
