@@ -62,7 +62,8 @@
     "backfill:event-description-packs:force": "BACKFILL_EVENT_DESCRIPTIONS_FORCE=1 node scripts/backfill-event-description-packs.js",
     "test:email": "node scripts/test-email-send.js",
     "seed:tbank-demo-event": "node scripts/seed-tbank-demo-event.js",
-    "seed:luzhniki-cup-final-2026": "node scripts/seed-luzhniki-cup-final-2026-event.js"
+    "seed:luzhniki-cup-final-2026": "node scripts/seed-luzhniki-cup-final-2026-event.js",
+    "precompute:luzhniki-labeled-dots": "node scripts/precomputeLabeledDots.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

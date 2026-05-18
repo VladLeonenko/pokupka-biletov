@@ -473,3 +473,105 @@ export function buildCloudRowSeatIndexForSellable(opts) {
 }
 
 export { SECTOR_RADIAL_PRIORITY_NORMS };
+
+// ─── Doc mechanical port (labeled-dots + anchor-band gray cloud) ─────────────
+
+function projectOnAxisDoc(pt, origin, axis) {
+  return (pt.x - origin.x) * axis.x + (pt.y - origin.y) * axis.y;
+}
+
+function normalizeDoc(v) {
+  const len = Math.sqrt(v.x * v.x + v.y * v.y);
+  if (len === 0) return { x: 0, y: 0 };
+  return { x: v.x / len, y: v.y / len };
+}
+
+export function clusterDotsIntoRowBands(dots, anchors, expectedRows) {
+  const depthAxis = normalizeDoc({
+    x: anchors.farLeft.x - anchors.nearLeft.x,
+    y: anchors.farLeft.y - anchors.nearLeft.y,
+  });
+
+  const projected = dots.map((pt, i) => ({
+    pt,
+    idx: i,
+    depthT: projectOnAxisDoc(pt, anchors.nearLeft, depthAxis),
+  }));
+
+  projected.sort((a, b) => a.depthT - b.depthT);
+
+  const gaps = [];
+  for (let i = 1; i < projected.length; i++) {
+    gaps.push({
+      i,
+      gap: projected[i].depthT - projected[i - 1].depthT,
+    });
+  }
+  gaps.sort((a, b) => b.gap - a.gap);
+
+  const splitPoints = gaps
+    .slice(0, expectedRows - 1)
+    .map((g) => g.i)
+    .sort((a, b) => a - b);
+
+  const bands = [];
+  let start = 0;
+  for (const sp of splitPoints) {
+    bands.push(projected.slice(start, sp).map((p) => p.pt));
+    start = sp;
+  }
+  bands.push(projected.slice(start).map((p) => p.pt));
+
+  return bands;
+}
+
+export function sortDotsAlongChord(band, anchors) {
+  const chordAxis = normalizeDoc({
+    x: anchors.nearRight.x - anchors.nearLeft.x,
+    y: anchors.nearRight.y - anchors.nearLeft.y,
+  });
+
+  return [...band].sort(
+    (a, b) =>
+      projectOnAxisDoc(a, anchors.nearLeft, chordAxis) -
+      projectOnAxisDoc(b, anchors.nearLeft, chordAxis),
+  );
+}
+
+export function resolveSellableGrayCloudSeatByAnchors(dots, anchors, rowN, seatN, params) {
+  const { seatCountFromLeft = false, expectedRows = 38 } = params ?? {};
+
+  const bands = clusterDotsIntoRowBands(dots, anchors, expectedRows);
+  if (rowN < 1 || rowN > bands.length) return null;
+
+  const band = bands[rowN - 1];
+  const sorted = sortDotsAlongChord(band, anchors);
+
+  let idx;
+  if (seatCountFromLeft) {
+    idx = sorted.length - seatN;
+  } else {
+    idx = seatN - 1;
+  }
+
+  if (idx < 0 || idx >= sorted.length) return null;
+
+  return {
+    ...sorted[idx],
+    geodesySource: 'grayCloud',
+  };
+}
+
+export function buildLabeledDotsMap(labeledDots) {
+  const map = new Map();
+  for (const d of labeledDots) {
+    map.set(`${d.row}:${d.seat}`, { x: d.x, y: d.y });
+  }
+  return map;
+}
+
+export function resolveSellableFromLabeledDots(labeledMap, rowN, seatN) {
+  const pt = labeledMap.get(`${rowN}:${seatN}`);
+  if (!pt) return null;
+  return { x: pt.x, y: pt.y, geodesySource: 'grayCloud+labeled' };
+}
