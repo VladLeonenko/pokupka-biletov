@@ -269,12 +269,11 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
   const rowT = clamp01((dr * rowStep) / anchorRowDist);
+  const minSeats = parseNum(opts.minSeatPerRow) ?? nearR.seat ?? 4;
   const maxSeats = parseNum(opts.maxSeatPerRow) ?? 39;
   const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
-  const rowRadialBoost = Number(opts.rowRadialDepthBoost ?? 0.06);
-  const rowDepthT = clamp01(rowT + rowRadialBoost * rowT * rowT);
-  let seat1Pt = lerpPct(nearL, farL, rowDepthT);
-  let seatEndPt = lerpPct(nearR, farR, rowDepthT);
+  let seat1Pt = lerpPct(nearL, farL, rowT);
+  let seatEndPt = lerpPct(nearR, farR, rowT);
   if (radialFan !== 1 && rowT > 1e-6) {
     const fanWidthT = Math.pow(rowT, radialFan);
     if (fanWidthT > rowT) {
@@ -311,12 +310,17 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowBendExtraDeg ?? 0,
   );
 
-  // Делитель всегда maxSeatPerRow (39), не seatsInRow — иначе ряд 11+ слипается в seatT=1.
-  const seatSpan = Math.max(1, maxSeats - originSeat);
-  let seatT = clamp01((seatN - originSeat) / seatSpan);
-  const mirrorFromFieldLeft =
-    opts.seatCountFromLeft || opts.seatCountFromRight || opts.seatMirror;
-  if (mirrorFromFieldLeft) seatT = 1 - seatT;
+  const seatsInRow = Math.max(
+    minSeats,
+    Math.round(minSeats + rowT * (maxSeats - minSeats)),
+  );
+  let seatDenom = Math.max(1, seatsInRow - originSeat);
+  const seatIndex = seatN - originSeat;
+  if (seatIndex > seatDenom) seatDenom = Math.max(seatDenom, maxSeats - originSeat);
+  let seatT = clamp01(seatIndex / seatDenom);
+  // Взгляд с поля: чёрная линия рядов справа → место 1 у seatEndPt (nearR), номера влево.
+  if (opts.seatCountFromLeft) seatT = 1 - seatT;
+  else if (opts.seatCountFromRight || opts.seatMirror) seatT = 1 - seatT;
 
   let pt = lerpPct(seat1Pt, seatEndPt, seatT);
 

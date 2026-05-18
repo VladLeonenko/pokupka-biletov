@@ -19,8 +19,8 @@ const A101_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.12,
   seatSpreadMultiplier: 0.206697,
-  rowLiftPct: 0.08,
-  rowRadialDepthBoost: 0.06,
+  rowLiftPct: 0,
+  rowRadialDepthBoost: 0,
   seatCountFromLeft: true,
   radialFanExponent: 2,
   minSeatPerRow: 4,
@@ -129,15 +129,13 @@ test('a101 radialFan: хорда ряда 38 шире ряда 1', () => {
   assert.ok(chord38 > chord1 * 1.5, `chord38=${chord38} chord1=${chord1}`);
 });
 
-test('a101 row38: rowLift поднимает ряд чуть выше', () => {
+test('a101 row21: от чёрной линии 14 правее 15 правее 21', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
-  const lifted = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, A101_OPTS)?.yPct;
-  const flat = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, {
-    ...A101_OPTS,
-    rowLiftPct: 0,
-  })?.yPct;
-  assert.ok(lifted != null && flat != null);
-  assert.ok(lifted < flat, `lifted y=${lifted} should be above flat y=${flat}`);
+  const p14 = resolveCornerSectorPbiletStepGrid(block.anchors, 21, 14, A101_OPTS);
+  const p15 = resolveCornerSectorPbiletStepGrid(block.anchors, 21, 15, A101_OPTS);
+  const p21 = resolveCornerSectorPbiletStepGrid(block.anchors, 21, 21, A101_OPTS);
+  assert.ok(p14 && p15 && p21);
+  assert.ok(p14.xPct > p15.xPct && p15.xPct > p21.xPct);
 });
 
 test('a101 row35: места 1–4 не слипаются', () => {

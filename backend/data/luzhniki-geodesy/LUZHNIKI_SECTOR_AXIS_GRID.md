@@ -29,8 +29,8 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 ```
 
 - **Ряд 1 место 1** = якорь `nearLeft` (нижний угол клина у поля).
-- **`seatCountFromLeft: true`** (A101, B155, B156) — в коде **зеркало `seatT = 1 − t`**. Это и есть «слева направо от поля»; **не** убирать зеркало и **не** ставить `seatCountFromRight` одновременно.
-- Проверка на diagnostic @ 1000%: оффер ряд 38 места 22–25 — **четыре отдельные точки**, не на местах 30–32.
+- **Чёрная линия на схеме** = правый край сектора, подписи рядов 1…40. **Место 1** у этой линии (`seatEndPt` / nearR), номера растут **влево** → `seatCountFromLeft: true` ⇒ `seatT = 1 − (M−1)/(местВРяду−1)`.
+- **Не** поднимать верх `rowLiftPct` / `rowRadialDepthBoost` без просьбы — ломает глубину рядов.
 
 ### 3. Математика углового сектора (`resolveCornerSectorPbiletStepGrid`)
 
@@ -38,29 +38,23 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
 ```
 rowT = clamp01((rowN − originRow) × rowStepPct × rowStepMultiplier / dist(nearL → farL))
-rowDepthT = clamp01(rowT + rowRadialDepthBoost × rowT²)   // только верх чуть дальше
-seat1Pt = lerp(nearL, farL, rowDepthT)   // левый край ряда
-seatEndPt = lerp(nearR, farR, rowDepthT)  // правый край ряда
+seat1Pt = lerp(nearL, farL, rowT)    // левый конец хорды
+seatEndPt = lerp(nearR, farR, rowT)   // правый конец = чёрная линия рядов
 ```
 
-**Нельзя:** `rowDepthT = rowT^radialFan` — ряд 11 окажется на глубине ряда 4.
+**Нельзя:** `rowDepthT = rowT²` или `rowRadialDepthBoost > 0` без калибровки — ряды уезжают вверх.
 
 **Ширина хорды (веер):** только если `fanWidthT = rowT^radialFan > rowT` — расширить концы хорды от центра. Если `fanWidthT ≤ rowT` — **не сужать** (иначе слипание).
 
 **Место в ряду:**
 
 ```
-seatSpan = maxSeatPerRow − originSeat          // всегда 39−1, НЕ seatsInRow ряда
-seatT = clamp01((seatN − originSeat) / seatSpan)
-если seatCountFromLeft → seatT = 1 − seatT
+seatsInRow = round(minSeatPerRow + rowT × (maxSeatPerRow − minSeatPerRow))  // 4→39 по вееру
+seatT = 1 − (seatN − 1) / (seatsInRow − 1)   // seatCountFromLeft: место 1 у чёрной линии
 pt = lerp(seat1Pt, seatEndPt, seatT)
 ```
 
-**Нельзя:**
-
-- `seatT = (seatN−1) × 0.206697 / chordLen` без clamp — ряды 11+ дают `seatT=1` → **одна точка**.
-- `seatSpan = seatsInRow − 1` где `seatsInRow = 4 + rowT×35` — на ряду 11 получится ~12 мест → места 22+ слипаются.
-- Убирать `seatCountFromLeft` на A101 — нумерация уедет «справа налево».
+**Нельзя:** делитель только `maxSeatPerRow` (39) — на ряду 11 место 21 окажется между 14 и 15 визуально неверно; слипание при gap/chord clamp.
 
 **Дуга ряда:** `rowCurve` + `rowBendExtraDeg` на `seat1Pt` и `seatEndPt`, потом lerp места.
 
@@ -131,8 +125,8 @@ cd backend && node --test \
 {
   "rowCurve": 0.42,
   "rowStepMultiplier": 1.12,
-  "rowLiftPct": 0.08,
-  "rowRadialDepthBoost": 0.06,
+  "rowLiftPct": 0,
+  "rowRadialDepthBoost": 0,
   "seatCountFromLeft": true,
   "radialFanExponent": 2,
   "rowBendExtraDeg": 5,
@@ -181,3 +175,4 @@ cd backend && node --test \
   tests/luzhnikiSectorAxisGridPlacement.test.js \
   tests/luzhnikiPbiletSellableGeodesy.test.js
 ```
+##После тестов делаем пуш и коммит и пишем, что сделали пуш и коммит
