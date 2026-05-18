@@ -131,6 +131,57 @@ export function getPbiletGridSpacing(ticketsPayload = null) {
   return measured;
 }
 
+/**
+ * Расстояние % viewBox между соседними местами strict D124 (ряд 10 м5–м6, иначе ближайший ряд).
+ * @param {unknown} [ticketsPayload]
+ * @param {number} [row]
+ * @param {number} [seatA]
+ * @param {number} [seatB]
+ */
+export function measureD124SeatGapPct(
+  ticketsPayload = null,
+  row = 10,
+  seatA = 5,
+  seatB = 6,
+  hallWidth = DEFAULT_HALL_W,
+  hallHeight = DEFAULT_HALL_H,
+) {
+  let payload = ticketsPayload;
+  if (!payload) {
+    try {
+      payload = JSON.parse(
+        fs.readFileSync(path.resolve(__dirname, '../../tickets.json'), 'utf8'),
+      );
+    } catch {
+      return getPbiletGridSpacing().seatStepPct;
+    }
+  }
+  const sectors = Array.isArray(payload?.sectors) ? payload.sectors : [];
+  const sec = sectors.find((s) => String(s?.i ?? '').trim() === PBILET_GRID_REFERENCE_SECTOR);
+  if (!sec?.r?.length) return getPbiletGridSpacing(payload).seatStepPct;
+
+  const rowCandidates = [
+    row,
+    ...sec.r.map((r) => parseNum(r.i)).filter((n) => n != null),
+  ].filter((n, i, a) => a.indexOf(n) === i);
+
+  for (const rn of rowCandidates) {
+    const r = sec.r.find((x) => parseNum(x.i) === rn);
+    const sa = r?.s?.find((s) => parseNum(s.i) === seatA);
+    const sb = r?.s?.find((s) => parseNum(s.i) === seatB);
+    if (!sa || !sb || !Number.isFinite(sa.x) || !Number.isFinite(sb.x)) continue;
+    const ds = seatB - seatA;
+    if (ds <= 0) continue;
+    return (
+      hypotPct(
+        ((sb.x - sa.x) / hallWidth) * 100,
+        ((sb.y - sa.y) / hallHeight) * 100,
+      ) / ds
+    );
+  }
+  return getPbiletGridSpacing(payload).seatStepPct;
+}
+
 function pickCornerAnchors(anchors) {
   const parsed = (anchors || [])
     .map((a) => ({
@@ -224,6 +275,9 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
   if (radialFan !== 1 && rowT > 1e-6) {
     const fanT = Math.pow(rowT, radialFan);
+    if (fanT <= rowT) {
+      // низ клина — только rowT, без сужения хорды
+    } else {
     const widthScale = (fanT - rowT) / rowT;
     const mid = lerpPct(seat1Pt, seatEndPt, 0.5);
     seat1Pt = {
@@ -234,6 +288,7 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
       xPct: seatEndPt.xPct + (seatEndPt.xPct - mid.xPct) * widthScale,
       yPct: seatEndPt.yPct + (seatEndPt.yPct - mid.yPct) * widthScale,
     };
+    }
   }
   seat1Pt = applyRowBend(
     seat1Pt,
@@ -256,14 +311,32 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowBendExtraDeg ?? 0,
   );
 
-  const seatSpread = Math.max(1, Number(opts.seatSpreadMultiplier ?? 1));
-  const seatSpan = Math.max(1, (maxSeats - originSeat) / seatSpread);
-  let seatT = clamp01((seatN - originSeat) / seatSpan);
+  const seatGapPct = Number(
+    opts.seatSpreadPct ??
+      opts.seatSpreadMultiplier ??
+      measureD124SeatGapPct(),
+  );
+  const chordLen =
+    hypotPct(seatEndPt.xPct - seat1Pt.xPct, seatEndPt.yPct - seat1Pt.yPct) || 1e-9;
+  let seatT;
+  if (seatGapPct > 1) {
+    const seatSpan = Math.max(1, (maxSeats - originSeat) / seatGapPct);
+    seatT = clamp01((seatN - originSeat) / seatSpan);
+  } else {
+    seatT = clamp01(((seatN - originSeat) * seatGapPct) / chordLen);
+  }
   const seatFromLeft =
     opts.seatCountFromLeft ?? opts.seatCountFromRight ?? opts.seatMirror;
   if (seatFromLeft) seatT = 1 - seatT;
 
   let pt = lerpPct(seat1Pt, seatEndPt, seatT);
+
+  const rowLiftPct = Number(opts.rowLiftPct ?? 0);
+  const rowLiftFromT = Number(opts.rowLiftFromRowT ?? 0.35);
+  if (rowLiftPct > 0 && rowT > rowLiftFromT) {
+    const liftT = (rowT - rowLiftFromT) / Math.max(1e-6, 1 - rowLiftFromT);
+    pt.yPct -= rowLiftPct * liftT;
+  }
 
   if (opts.sectorBbox) {
     const c = clampPctToSectorBbox(pt.xPct, pt.yPct, opts.sectorBbox);

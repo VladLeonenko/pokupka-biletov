@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   getPbiletGridSpacing,
+  measureD124SeatGapPct,
   measurePbiletGridSpacingFromTickets,
   resolveCornerSectorPbiletStepGrid,
 } from '../utils/luzhnikiPbiletGridSpacing.js';
@@ -17,7 +18,8 @@ const ticketsPath = path.resolve(__dirname, '../../tickets.json');
 const A101_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.12,
-  seatSpreadMultiplier: 1.75,
+  seatSpreadMultiplier: 0.206697,
+  rowLiftPct: 0.08,
   seatCountFromLeft: true,
   radialFanExponent: 2,
   minSeatPerRow: 4,
@@ -31,6 +33,12 @@ test('D124 strict: seatStep ~0.2067%, rowStep ~0.1928%', () => {
   const m = measurePbiletGridSpacingFromTickets(t);
   assert.ok(Math.abs(m.seatStepPct - 0.206697) < 0.0001);
   assert.ok(Math.abs(m.rowStepPct - 0.192763) < 0.0001);
+});
+
+test('D124 row10 seat5-6 gap (fallback row9) ~0.206697%', () => {
+  const t = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const gap = measureD124SeatGapPct(t, 10, 5, 6);
+  assert.ok(Math.abs(gap - 0.206697) < 0.0001, `gap=${gap}`);
 });
 
 test('a101 row11 не на глубине ряда 4 (rowT, не rowT²)', () => {
@@ -86,9 +94,8 @@ test('a101: sellable-ряды внутри четырёхугольника як
     [1, 4],
     [11, 7],
     [11, 9],
-    [35, 26],
-    [38, 25],
-    [42, 1],
+    [30, 8],
+    [38, 7],
   ];
   for (const [row, seat] of samples) {
     const pt = resolveCornerSectorPbiletStepGrid(block.anchors, row, seat, A101_OPTS);
@@ -109,6 +116,26 @@ test('a101 radialFan: хорда ряда 38 шире ряда 1', () => {
   const chord1 = Math.hypot(p1b.xPct - p1a.xPct, p1b.yPct - p1a.yPct);
   const chord38 = Math.hypot(p38b.xPct - p38a.xPct, p38b.yPct - p38a.yPct);
   assert.ok(chord38 > chord1 * 1.5, `chord38=${chord38} chord1=${chord1}`);
+});
+
+test('a101 row38: rowLift поднимает ряд чуть выше', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('a101');
+  const lifted = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, A101_OPTS)?.yPct;
+  const flat = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, {
+    ...A101_OPTS,
+    rowLiftPct: 0,
+  })?.yPct;
+  assert.ok(lifted != null && flat != null);
+  assert.ok(lifted < flat, `lifted y=${lifted} should be above flat y=${flat}`);
+});
+
+test('a101 row11: шаг мест ~ D124 gap', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('a101');
+  const gap = measureD124SeatGapPct();
+  const p7 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 7, A101_OPTS);
+  const p8 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 8, A101_OPTS);
+  const d = Math.hypot(p8.xPct - p7.xPct, p8.yPct - p7.yPct);
+  assert.ok(Math.abs(d - gap) < 0.04, `d=${d} gap=${gap}`);
 });
 
 test('a101 row38: место 25 левее места 7 (от поля)', () => {
@@ -136,6 +163,36 @@ test('b155 row20: seatCountFromLeft — 8 правее 9 (от поля)', () =>
   const block = loadSectorCalibrationBlocksByNorm().get('b155');
   const pts = [8, 9, 10].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B155_OPTS),
+  );
+  assert.ok(pts.every(Boolean));
+  assert.ok(pts[0].xPct > pts[1].xPct && pts[1].xPct > pts[2].xPct);
+});
+
+const B156_OPTS = {
+  rowCurve: 0.42,
+  rowStepMultiplier: 1.12,
+  seatSpreadMultiplier: 1.25,
+  seatCountFromLeft: true,
+  radialFanExponent: 2,
+  rowBendExtraDeg: 5,
+  originRow: 1,
+  originSeat: 1,
+  minSeatPerRow: 4,
+  maxSeatPerRow: 62,
+};
+
+test('b156 row1 seat1: у nearLeft якоря', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('b156');
+  const pt = resolveCornerSectorPbiletStepGrid(block.anchors, 1, 1, B156_OPTS);
+  const nearL = block.anchors.find((a) => a.role === 'nearLeft');
+  assert.ok(pt && nearL);
+  assert.ok(Math.hypot(pt.xPct - nearL.xPct, pt.yPct - nearL.yPct) < 0.25);
+});
+
+test('b156 row20: seatCountFromLeft — 8 правее 9 (от поля)', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('b156');
+  const pts = [8, 9, 10].map((seat) =>
+    resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B156_OPTS),
   );
   assert.ok(pts.every(Boolean));
   assert.ok(pts[0].xPct > pts[1].xPct && pts[1].xPct > pts[2].xPct);

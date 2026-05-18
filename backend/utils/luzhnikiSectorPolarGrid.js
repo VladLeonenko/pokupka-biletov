@@ -44,8 +44,8 @@ function clamp01(t) {
   return Math.max(0, Math.min(1, t));
 }
 
-/** Угловые A: пока только A101 (остальные A — fieldGrid, см. тест a216). */
-export const SECTOR_RADIAL_PRIORITY_NORMS = new Set(['a101']);
+/** Угловые клинья: A101, B155/B156 (остальные A/B — fieldGrid, см. тест a216). */
+export const SECTOR_RADIAL_PRIORITY_NORMS = new Set(['a101', 'b155', 'b156']);
 
 /**
  * @param {string} norm
@@ -91,9 +91,11 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
       originSeat: block.originSeat,
       minSeatPerRow: block.minSeatPerRow,
       maxSeatPerRow: block.maxSeatPerRow,
-      seatSpreadMultiplier: Number(block.seatSpreadMultiplier ?? 1),
+      seatSpreadMultiplier: Number(block.seatSpreadMultiplier ?? 0.206697),
       seatCountFromLeft: block.seatCountFromLeft ?? block.seatCountFromRight,
       radialFanExponent: Number(block.radialFanExponent ?? block.radialSeatExponent ?? 1),
+      rowLiftPct: Number(block.rowLiftPct ?? 0),
+      rowLiftFromRowT: Number(block.rowLiftFromRowT ?? 0.35),
       sectorBbox,
     });
     if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;

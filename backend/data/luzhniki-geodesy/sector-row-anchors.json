@@ -4884,7 +4884,16 @@
     "sectorLabel": "Сектор B 152"
   },
   "b156": {
-    "rowCurve": 0.32,
+    "rowCurve": 0.42,
+    "rowStepMultiplier": 1.12,
+    "seatSpreadMultiplier": 1.25,
+    "seatCountFromLeft": true,
+    "radialFanExponent": 2,
+    "rowBendExtraDeg": 5,
+    "originRow": 1,
+    "originSeat": 1,
+    "minSeatPerRow": 4,
+    "maxSeatPerRow": 62,
     "anchors": [
       {
         "row": "1",
@@ -4894,21 +4903,21 @@
         "role": "nearLeft"
       },
       {
-        "row": "31",
+        "row": "41",
         "seat": "1",
         "xPct": 13.716814,
         "yPct": 82.5031,
         "role": "farLeft"
       },
       {
-        "row": "17",
-        "seat": "62",
-        "xPct": 20.191887,
-        "yPct": 84.042993,
+        "row": "1",
+        "seat": "2",
+        "xPct": 19.4296,
+        "yPct": 75.8061,
         "role": "nearRight"
       },
       {
-        "row": "17",
+        "row": "28",
         "seat": "62",
         "xPct": 20.191887,
         "yPct": 84.042993,
@@ -6042,7 +6051,8 @@
   "a101": {
     "rowCurve": 0.42,
     "rowStepMultiplier": 1.12,
-    "seatSpreadMultiplier": 1.75,
+    "seatSpreadMultiplier": 0.206697,
+    "rowLiftPct": 0.08,
     "seatCountFromLeft": true,
     "radialFanExponent": 2,
     "rowBendExtraDeg": 5,
