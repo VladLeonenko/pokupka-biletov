@@ -98,7 +98,7 @@ pbilet SVG подложка (GetBilet / seed)     — художественна
 **Код sellable (актуальный):**
 
 - `backend/utils/luzhnikiPbiletSellableGeodesy.js` — `buildSellableSeatGeodesyPbiletAccurate`
-- **`backend/utils/luzhnikiSectorAxisGridPlacement.js`** — **axisGrid** (эталон **A101**, прорезь **B154**); гайд: [LUZHNIKI_SECTOR_AXIS_GRID.md](./LUZHNIKI_SECTOR_AXIS_GRID.md)
+- **`backend/utils/luzhnikiSectorAxisGridPlacement.js`** — **axisGrid** (B154); **`luzhnikiSectorPolarGrid.js`** — **radialGrid** (A101); гайд: [LUZHNIKI_SECTOR_AXIS_GRID.md](./LUZHNIKI_SECTOR_AXIS_GRID.md)
 - `backend/services/luzhnikiFootballStageMap.js` — `adaptLuzhnikiStageMapForLiveOffers` + `slimLuzhnikiStageMapForClient`
 - `backend/utils/luzhnikiPilotSeatSvg.js` — разметка circle, strip тяжёлого слоя с клиента
 

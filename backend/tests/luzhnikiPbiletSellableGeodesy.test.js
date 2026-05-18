@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ticketsPath = path.resolve(__dirname, '../../tickets.json');
+const repoRoot = path.resolve(__dirname, '../..');
+const ticketsPath = path.resolve(repoRoot, 'tickets.json');
 
 const W = 11413;
 const H = 9676;
@@ -48,27 +49,55 @@ test('d232 row 31 seat 17: в bbox сектора', () => {
   assert.ok(seats[0].xPct >= 86 && seats[0].xPct <= 95, `xPct=${seats[0].xPct}`);
 });
 
-test('a101: все sellable через axisGrid, не fieldGrid', async () => {
+test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи SVG чем к ряду 33', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
+  const { parseSvgHallRowLabels, resolveRowYPctFromSvgLabels } = await import(
+    '../utils/hallSeatGeodesyFromSvgRows.js'
+  );
+  const { pathBBox } = await import('../utils/hallSeatGeodesyFromDots.js');
+  const { computeFieldCenterPct } = await import('../utils/hallSeatGeodesySectorNative.js');
+  const { extractPbiletCoordinatesSeatDots } = await import('../utils/luzhnikiPbiletGeodesyExtract.js');
   const row = await loadLuzhnikiFootballStageMapRow();
   const layout =
     typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const sec = ticketsPayload.sectors.find((s) => s.i === 'Сектор A 101');
   const offers = [
     { Sector: 'сектор a101', Row: '11', SeatList: ['7', '8', '9'] },
-    { Sector: 'сектор a101', Row: '28', SeatList: ['20', '21'] },
-    { Sector: 'сектор a101', Row: '35', SeatList: ['26', '27', '28'] },
+    { Sector: 'сектор a101', Row: '35', SeatList: ['26', '27'] },
   ];
-  const { seats, axisGridMatched } = buildSellableSeatGeodesyPbiletAccurate(
+  const { seats, radialGridMatched } = buildSellableSeatGeodesyPbiletAccurate(
     ticketsPayload,
     offers,
     layout,
     { svgMarkup: row.svg_markup },
   );
-  assert.equal(seats.length, 8);
-  assert.equal(axisGridMatched, 8);
-  assert.ok(seats.every((s) => String(s.geodesySource).includes('axisGrid')));
+  assert.equal(seats.length, 5);
+  assert.equal(radialGridMatched, 5);
+  assert.ok(seats.every((s) => String(s.geodesySource).includes('radialGrid')));
   assert.ok(!seats.some((s) => String(s.geodesySource).includes('fieldGrid')));
+
+  const labels = parseSvgHallRowLabels(row.svg_markup, W, H);
+  const cloud = extractPbiletCoordinatesSeatDots(
+    JSON.parse(fs.readFileSync(path.join(repoRoot, 'luzhniki.txt'), 'utf8')),
+    W,
+    H,
+  );
+  const b = pathBBox(sec.o);
+  const sectorDots = cloud.filter((d) => {
+    const x = (d.xPct / 100) * W;
+    const y = (d.yPct / 100) * H;
+    return x >= b.minX - 50 && x <= b.maxX + 50 && y >= b.minY - 50 && y <= b.maxY + 50;
+  });
+  const field = computeFieldCenterPct(cloud);
+  const y11 = resolveRowYPctFromSvgLabels(11, sec.o, labels, W, H, 18, field, sectorDots);
+  const y33 = resolveRowYPctFromSvgLabels(33, sec.o, labels, W, H, 18, field, sectorDots);
+  const r11 = seats.find((s) => s.row === '11' && s.seat === '7');
+  assert.ok(r11 && y11 != null && y33 != null);
+  assert.ok(
+    Math.abs(r11.yPct - y11) < Math.abs(r11.yPct - y33),
+    `row11 y=${r11.yPct} should be nearer svg row11 y=${y11} than row33 y=${y33}`,
+  );
 });
 
 test('b154 row 17: axisGrid (прорезь 16–27), линия ряда как d124', async () => {

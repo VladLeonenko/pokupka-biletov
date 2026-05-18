@@ -13,8 +13,8 @@
 
 import { normalizeSectorLabel, luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
 
-/** Сектора, где sellable всегда через axisGrid (не fieldGrid). */
-export const SECTOR_AXIS_GRID_PRIORITY_NORMS = new Set(['a101', 'b154']);
+/** Прямоугольные сектора с прорезью рядов — линейный axisGrid, не fieldGrid. Угловые A — radialGrid. */
+export const SECTOR_AXIS_GRID_PRIORITY_NORMS = new Set(['b154']);
 
 /**
  * @param {unknown} ticketsPayload

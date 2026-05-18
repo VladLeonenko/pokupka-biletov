@@ -33,7 +33,10 @@ import {
   snapFieldGridSeat,
 } from './luzhnikiPbiletGeodesyExtract.js';
 import { clampPctToSectorBbox, getSectorBboxPct } from './luzhnikiSectorBbox.js';
-import { resolvePolarGridSeatFromAnchors } from './luzhnikiSectorPolarGrid.js';
+import {
+  prefersSectorRadialCorner,
+  resolvePolarGridSeatFromAnchors,
+} from './luzhnikiSectorPolarGrid.js';
 import {
   getCachedCloudMasterIndex,
   snapToCloudMaster,
@@ -180,13 +183,14 @@ function buildSectorNativeLookup(layout, ticketsPayload, offers, svgMarkup, w, h
   };
 }
 
-/** Боковые B/C: дуга из sector-row-anchors; верхние A/D — fieldGrid / svgRow. */
+/** Угловые сектора: A (radialGrid+rowCurve), B/C (polarGrid). */
 function trySectorPolarGrid(norm, row, seat) {
   const blocks = loadSectorCalibrationBlocksByNorm();
   for (const n of luzhnikiSectorLookupNorms(norm)) {
-    if (!/^[bc]/.test(n)) continue;
-    if (blocks.get(n)?.anchors?.length >= 4) {
-      return resolvePolarGridSeatFromAnchors(norm, row, seat);
+    const hasAnchors = blocks.get(n)?.anchors?.length >= 4;
+    if (!hasAnchors) continue;
+    if (/^a\d{3}$/.test(n) || /^[bc]\d{3}$/.test(n)) {
+      return resolvePolarGridSeatFromAnchors(n, row, seat);
     }
   }
   return null;
@@ -318,6 +322,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
   let fieldGridMatched = 0;
   let sectorNativeMatched = 0;
   let axisGridMatched = 0;
+  let radialGridMatched = 0;
   let interpolated = 0;
   let totalSellable = 0;
   const unmatchedSamples = [];
@@ -403,11 +408,22 @@ export function buildSellableSeatGeodesyPbiletAccurate(
 
         const axisAnchors = mergeAxisGridAnchors(anchors, norm, label);
         const preferAxisGrid = prefersSectorAxisGrid(norm, ticketsPayload);
+        const preferRadial = prefersSectorRadialCorner(norm);
         const rowNumOffer = parseRowNum(row);
         const rowMissingInLayout =
           rowNumOffer != null &&
           axisAnchors.length >= 2 &&
           !axisAnchors.some((a) => parseRowNum(a.row) === rowNumOffer);
+
+        if (!hit && preferRadial) {
+          hit = trySectorPolarGrid(norm, row, seat);
+          if (hit) {
+            seen.add(dedupe);
+            radialGridMatched += 1;
+            seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
+            continue;
+          }
+        }
 
         if (!hit && preferAxisGrid) {
           hit = trySectorAxisGrid(norm, label, row, seat, axisAnchors, seatRangesByRow);
@@ -419,7 +435,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           }
         }
 
-        if (!hit && mode === 'layout-anchors' && !preferAxisGrid) {
+        if (!hit && mode === 'layout-anchors' && !preferAxisGrid && !preferRadial) {
           hit = snapFieldGridOfferRow(fieldGridSnapIndex, sector, label, row, seat);
         }
 
@@ -507,6 +523,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     fieldGridMatched,
     sectorNativeMatched,
     axisGridMatched,
+    radialGridMatched,
     svgCircleCount: fromTickets.length,
     svgCircleMatched: strictMatched + fieldGridMatched + sectorNativeMatched + interpolated,
     sectorGridMatched: sectorNativeMatched,

@@ -1,9 +1,11 @@
 /**
- * Билинейная сетка по 4 углам sector-row-anchors.json (сектора без r[] в tickets).
+ * Угловые сектора: билинейная / radial сетка по 4 углам sector-row-anchors.json.
+ * A-трибуна: bilinear + rowCurve (дуга рядов). B/C — классический polar без изгиба.
  */
 
 import { loadSectorCalibrationBlocksByNorm } from './hallSeatGeodesySectorRowAnchors.js';
-import { luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
+import { normalizeSectorLabel, luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
+import { interpolateSeatFromCornerAnchors } from './luzhnikiSeatWarp.js';
 
 function parseNum(value) {
   const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
@@ -21,6 +23,16 @@ function clamp01(t) {
   return Math.max(0, Math.min(1, t));
 }
 
+/** Угловые A: пока только A101 (остальные A — fieldGrid, см. тест a216). */
+export const SECTOR_RADIAL_PRIORITY_NORMS = new Set(['a101']);
+
+/**
+ * @param {string} norm
+ */
+export function prefersSectorRadialCorner(norm) {
+  return SECTOR_RADIAL_PRIORITY_NORMS.has(normalizeSectorLabel(norm));
+}
+
 /**
  * @param {string} sectorLabel
  * @param {string} apiRow
@@ -33,14 +45,36 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
 
   const blocks = loadSectorCalibrationBlocksByNorm();
   let block = null;
+  let normHit = '';
   for (const norm of luzhnikiSectorLookupNorms(sectorLabel)) {
     const b = blocks.get(norm);
     if (b?.anchors?.length >= 4) {
       block = b;
+      normHit = norm;
       break;
     }
   }
   if (!block?.anchors) return null;
+
+  const useRadialCurve =
+    Number(block.rowCurve) > 0 || /^a\d{3}$/.test(normHit);
+  if (useRadialCurve) {
+    const pt = interpolateSeatFromCornerAnchors(
+      block.anchors,
+      apiRow,
+      apiSeat,
+      Number(block.rowCurve ?? 0.32),
+    );
+    if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;
+    return {
+      sector: sectorLabel,
+      row: String(apiRow),
+      seat: String(apiSeat),
+      xPct: pt.xPct,
+      yPct: pt.yPct,
+      geodesySource: 'radialGrid',
+    };
+  }
 
   const byRole = Object.fromEntries(
     block.anchors
