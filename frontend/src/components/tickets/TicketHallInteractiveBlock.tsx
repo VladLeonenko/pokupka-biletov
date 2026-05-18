@@ -1301,9 +1301,13 @@ export function TicketHallInteractiveBlock({
                       onPointerEnter={(ev) => {
                         showSectorInfo(ev.currentTarget, sector);
                       }}
+                      onPointerLeave={(ev) => {
+                        if (ev.pointerType !== 'touch') hideSectorInfo();
+                      }}
                       onFocus={(ev) => {
                         showSectorInfo(ev.currentTarget, sector);
                       }}
+                      onBlur={hideSectorInfo}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         if (suppressMapClickRef.current) return;
