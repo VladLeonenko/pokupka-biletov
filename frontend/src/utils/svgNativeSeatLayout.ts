@@ -1,5 +1,3 @@
-import { buildLabeledSeatIndex, lookupLabeledSeat } from './hallSeatSeatLookup';
-
 export type OfferLike = {
   Id?: string;
   Sector?: string;
@@ -409,59 +407,6 @@ export function matchSvgSeatToOffer(
   const top = candidates.filter((c) => c.score === best);
   top.sort((x, y) => String(y.offer.Sector ?? '').length - String(x.offer.Sector ?? '').length);
   return { offer: top[0].offer, seat: top[0].seat };
-}
-
-function selectionSeatKey(offerId: unknown, row: unknown, seat: unknown): string {
-  return `${String(offerId ?? '')}|${String(row ?? '')}|${String(seat ?? '')}`;
-}
-
-/**
- * Sellable на схеме: только места из SeatList офферов GetBilet.
- * Координаты — lookup в coordSources (sellableSeats с /map, затем SVG/layout), без zip/fuzzy.
- */
-export function buildSellablePlacementsFromGetbiletOffers(
-  offers: OfferLike[],
-  getPriceKey: (o: OfferLike) => string,
-  coordSources: SvgNativeSeat[],
-): SvgNativePlacement[] {
-  const index = buildLabeledSeatIndex(coordSources);
-  const placedKeys = new Set<string>();
-  const out: SvgNativePlacement[] = [];
-
-  for (const offer of offers) {
-    const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
-    if (list.length === 0) continue;
-    const oid = String(offer.Id ?? '');
-    if (!oid) continue;
-
-    for (const seat of list) {
-      if (!seat.trim()) continue;
-      const hit = lookupLabeledSeat(index, offer.Sector, offer.Row, seat);
-      if (!hit) continue;
-
-      const svgKey = seatMapKey(hit.sector, hit.row, hit.seat);
-      if (placedKeys.has(svgKey)) continue;
-      placedKeys.add(svgKey);
-
-      const rowLabel = String(offer.Row ?? hit.row);
-      const sectorLabel = String(offer.Sector ?? hit.sector);
-      out.push({
-        svgKey,
-        key: selectionSeatKey(oid, rowLabel, seat),
-        offerId: oid,
-        sectorLabel,
-        seat,
-        rowLabel,
-        available: list,
-        xPct: hit.xPct,
-        yPct: hit.yPct,
-        title: `${sectorLabel} · ряд ${rowLabel} · место ${seat} · ${getPriceKey(offer)} ₽`,
-        priceKey: getPriceKey(offer),
-      });
-    }
-  }
-
-  return out;
 }
 
 export type SvgNativePlacement = {
