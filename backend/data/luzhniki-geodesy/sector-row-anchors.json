@@ -6061,6 +6061,7 @@
     "originSeat": 1,
     "minSeatPerRow": 4,
     "maxSeatPerRow": 39,
+    "seatSpacingScale": 1.22,
     "anchors": [
       {
         "row": "1",

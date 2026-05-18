@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { lookupLabeledSeat } from './hallSeatGeodesyMatch.js';
 import { loadSectorCalibrationBlocksByNorm } from './hallSeatGeodesySectorRowAnchors.js';
 import { getSectorBboxPct } from './luzhnikiSectorBbox.js';
 import { normalizeSectorLabel, luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
@@ -97,6 +98,7 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
       rowLiftPct: Number(block.rowLiftPct ?? 0),
       rowLiftFromRowT: Number(block.rowLiftFromRowT ?? 0.35),
       rowRadialDepthBoost: Number(block.rowRadialDepthBoost ?? 0),
+      seatSpacingScale: Number(block.seatSpacingScale ?? 1),
       sectorBbox,
     });
     if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;
@@ -165,5 +167,31 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
     xPct: p.xPct,
     yPct: p.yPct,
     geodesySource: 'polarGrid',
+  };
+}
+
+/**
+ * Exact sector+row+seat → XY (layout / prod pilot). Только угловые radial-сектора.
+ * Не «ближайшая серая» из coordinates.
+ */
+export function tryExactPbiletLabeledForRadialSector(
+  layoutIndex,
+  prodLayoutIndex,
+  sector,
+  row,
+  seat,
+) {
+  if (!prefersSectorRadialCorner(sector)) return null;
+  const hit =
+    lookupLabeledSeat(layoutIndex, sector, row, seat) ||
+    lookupLabeledSeat(prodLayoutIndex, sector, row, seat);
+  if (!hit) return null;
+  return {
+    sector,
+    row: String(row),
+    seat: String(seat),
+    xPct: hit.xPct,
+    yPct: hit.yPct,
+    geodesySource: 'pbiletLabeled',
   };
 }

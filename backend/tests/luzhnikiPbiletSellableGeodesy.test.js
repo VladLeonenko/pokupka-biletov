@@ -100,6 +100,84 @@ test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи
   );
 });
 
+test('b156 row 20: radialGrid+d124step, ряд 20 дальше от поля чем 19', async () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
+  const row = await loadLuzhnikiFootballStageMapRow();
+  const layout =
+    typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const offers = [
+    { Sector: 'сектор b156', Row: '19', SeatList: ['8', '9', '10'] },
+    { Sector: 'сектор b156', Row: '20', SeatList: ['8', '9', '10', '11', '12'] },
+  ];
+  const { seats, radialGridMatched, pbiletLabeledMatched } = buildSellableSeatGeodesyPbiletAccurate(
+    ticketsPayload,
+    offers,
+    layout,
+    { svgMarkup: row.svg_markup },
+  );
+  assert.equal(seats.length, 8);
+  assert.equal(radialGridMatched + pbiletLabeledMatched, 8);
+  assert.ok(
+    seats.every((s) => /radialGrid|pbiletLabeled/.test(String(s.geodesySource))),
+  );
+  assert.ok(!seats.some((s) => String(s.geodesySource) === 'axisGrid'));
+
+  const r19 = seats.filter((s) => s.row === '19');
+  const r20 = seats.filter((s) => s.row === '20');
+  const y19 = r19.reduce((a, s) => a + s.yPct, 0) / r19.length;
+  const y20 = r20.reduce((a, s) => a + s.yPct, 0) / r20.length;
+  assert.ok(y20 > y19, `row20 y=${y20} should exceed row19 y=${y19}`);
+
+  const row20 = [...r20].sort((a, b) => Number(a.seat) - Number(b.seat));
+  const xs = row20.map((s) => s.xPct);
+  assert.ok(Math.max(...xs) - Math.min(...xs) > 0.05, 'дуга ряда 20 — места разведены по X');
+});
+
+test('b155 row 20: radialGrid+d124step, не axisGrid', async () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
+  const row = await loadLuzhnikiFootballStageMapRow();
+  const layout =
+    typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const offers = [
+    { Sector: 'сектор b155', Row: '20', SeatList: ['8', '9', '10', '11', '12'] },
+  ];
+  const { seats, radialGridMatched, pbiletLabeledMatched } = buildSellableSeatGeodesyPbiletAccurate(
+    ticketsPayload,
+    offers,
+    layout,
+    { svgMarkup: row.svg_markup },
+  );
+  assert.equal(seats.length, 5);
+  assert.equal(radialGridMatched + pbiletLabeledMatched, 5);
+  assert.ok(
+    seats.every((s) => /radialGrid|pbiletLabeled/.test(String(s.geodesySource))),
+  );
+  const bySeat = [...seats].sort((a, b) => Number(a.seat) - Number(b.seat));
+  const ys = bySeat.map((s) => s.yPct);
+  assert.ok(Math.max(...ys) - Math.min(...ys) > 0.05, 'дуга ряда — Y не константа как axisGrid');
+});
+
+test('a101 row 35 seat 3: pbiletLabeled из prod bundle (exact sector+row+seat)', async () => {
+  const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
+  const row = await loadLuzhnikiFootballStageMapRow();
+  const layout =
+    typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
+  const offers = [{ Sector: 'сектор a101', Row: '35', SeatList: ['3'] }];
+  const { seats, pbiletLabeledMatched } = buildSellableSeatGeodesyPbiletAccurate(
+    ticketsPayload,
+    offers,
+    layout,
+    { svgMarkup: row.svg_markup },
+  );
+  assert.equal(seats.length, 1);
+  assert.equal(pbiletLabeledMatched, 1);
+  assert.equal(seats[0].geodesySource, 'pbiletLabeled');
+  assert.ok(Math.abs(seats[0].xPct - 19.745027687724527) < 0.02);
+});
+
 test('b154 row 17: axisGrid (прорезь 16–27), линия ряда как d124', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');

@@ -314,13 +314,23 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     minSeats,
     Math.round(minSeats + rowT * (maxSeats - minSeats)),
   );
-  let seatDenom = Math.max(1, seatsInRow - originSeat);
-  const seatIndex = seatN - originSeat;
-  if (seatIndex > seatDenom) seatDenom = Math.max(seatDenom, maxSeats - originSeat);
-  let seatT = clamp01(seatIndex / seatDenom);
-  // Взгляд с поля: чёрная линия рядов справа → место 1 у seatEndPt (nearR), номера влево.
-  if (opts.seatCountFromLeft) seatT = 1 - seatT;
-  else if (opts.seatCountFromRight || opts.seatMirror) seatT = 1 - seatT;
+  const seatCountFromLeft =
+    opts.seatCountFromLeft ?? !(opts.seatCountFromRight || opts.seatMirror);
+  const spacingScale = Math.max(1, Number(opts.seatSpacingScale ?? 1));
+  const chordLen = hypotPct(seatEndPt.xPct - seat1Pt.xPct, seatEndPt.yPct - seat1Pt.yPct);
+  let seatT;
+  if (spacingScale > 1 && chordLen > 0.015) {
+    const along = (seatN - originSeat) * seatStep * spacingScale;
+    seatT = clamp01(along / chordLen);
+    if (seatCountFromLeft) seatT = 1 - seatT;
+  } else {
+    let seatDenom = Math.max(1, seatsInRow - 1);
+    if (seatN > seatsInRow) {
+      seatDenom = Math.max(seatDenom, maxSeats - 1);
+    }
+    seatT = clamp01((seatN - 1) / seatDenom);
+    if (seatCountFromLeft) seatT = 1 - seatT;
+  }
 
   let pt = lerpPct(seat1Pt, seatEndPt, seatT);
 

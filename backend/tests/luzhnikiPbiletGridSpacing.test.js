@@ -42,6 +42,23 @@ test('D124 row10 seat5-6 gap (fallback row9) ~0.206697%', () => {
   assert.ok(Math.abs(gap - 0.206697) < 0.0001, `gap=${gap}`);
 });
 
+test('a101 seatSpacingScale > 1 разводит соседние места вдоль хорды', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('a101');
+  const p7 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 7, A101_OPTS);
+  const p8 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 8, A101_OPTS);
+  const wide7 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 7, {
+    ...A101_OPTS,
+    seatSpacingScale: 1.22,
+  });
+  const wide8 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 8, {
+    ...A101_OPTS,
+    seatSpacingScale: 1.22,
+  });
+  const baseStep = Math.hypot(p8.xPct - p7.xPct, p8.yPct - p7.yPct);
+  const wideStep = Math.hypot(wide8.xPct - wide7.xPct, wide8.yPct - wide7.yPct);
+  assert.ok(wideStep > baseStep * 1.05, `wide=${wideStep} base=${baseStep}`);
+});
+
 test('a101 row11 не на глубине ряда 4 (rowT, не rowT²)', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const y4 = resolveCornerSectorPbiletStepGrid(block.anchors, 4, 7, A101_OPTS)?.yPct;
@@ -172,8 +189,7 @@ test('a101 row38: место 7 правее места 25 (от поля)', () =
 const B155_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.1,
-  seatSpreadMultiplier: 1.2,
-  seatCountFromRight: true,
+  seatCountFromLeft: true,
   radialFanExponent: 2,
   rowBendExtraDeg: 5,
   originRow: 1,
@@ -182,7 +198,7 @@ const B155_OPTS = {
   maxSeatPerRow: 29,
 };
 
-test('b155 row20: seatCountFromRight — 8 правее 9', () => {
+test('b155 row20: seatCountFromLeft — 8 правее 9 (от поля)', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('b155');
   const pts = [8, 9, 10].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B155_OPTS),
@@ -194,8 +210,7 @@ test('b155 row20: seatCountFromRight — 8 правее 9', () => {
 const B156_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.12,
-  seatSpreadMultiplier: 1.25,
-  seatCountFromRight: true,
+  seatCountFromLeft: true,
   radialFanExponent: 2,
   rowBendExtraDeg: 5,
   originRow: 1,
@@ -212,7 +227,7 @@ test('b156 row1 seat1: у nearLeft якоря', () => {
   assert.ok(Math.hypot(pt.xPct - nearL.xPct, pt.yPct - nearL.yPct) < 0.25);
 });
 
-test('b156 row20: seatCountFromRight — 8 правее 9', () => {
+test('b156 row20: seatCountFromLeft — 8 правее 9 (от поля)', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('b156');
   const pts = [8, 9, 10].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B156_OPTS),

@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { buildLabeledSeatIndex } from './hallSeatGeodesyMatch.js';
 import { loadSeatsArrayFromLayout } from './luzhnikiSeatIndexCache.js';
 import { LUZHNIKI_PILOT_SEATS_REL_PATH } from './luzhnikiSeatIndexCache.js';
 
@@ -77,4 +78,19 @@ export function loadProdLayoutSeats(options = {}) {
     sourceFile: filePath ? path.basename(filePath) : 'layout',
     seatCount: seats.length,
   };
+}
+
+let cachedProdLabeledIndex = null;
+
+/** Индекс sector+row+seat → XY (pilot bundle / prod sidecar), для exact sellable snap. */
+export function getCachedProdLayoutLabeledIndex() {
+  if (!cachedProdLabeledIndex) {
+    const { seats } = loadProdLayoutSeats();
+    cachedProdLabeledIndex = buildLabeledSeatIndex(seats);
+  }
+  return cachedProdLabeledIndex;
+}
+
+export function resetProdLayoutLabeledIndexCache() {
+  cachedProdLabeledIndex = null;
 }

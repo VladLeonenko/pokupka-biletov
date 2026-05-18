@@ -10,6 +10,7 @@ import {
   resolveSeatOnSectorAxisGrid,
   resolveSellableOnSectorAxisGrid,
 } from '../utils/luzhnikiSectorAxisGridPlacement.js';
+import { prefersSectorRadialCorner } from '../utils/luzhnikiSectorPolarGrid.js';
 import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,6 +22,18 @@ const ticketsPath = path.resolve(__dirname, '../../tickets.json');
 test('a101: не prefersSectorAxisGrid (угловой — radialGrid)', () => {
   const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   assert.ok(!prefersSectorAxisGrid('a101', tickets));
+});
+
+test('b155: radialGrid, не axisGrid (клин над B154)', () => {
+  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  assert.ok(prefersSectorRadialCorner('b155'));
+  assert.ok(!prefersSectorAxisGrid('b155', tickets));
+});
+
+test('b156: radialGrid, не axisGrid (клин рядом с A101)', () => {
+  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  assert.ok(prefersSectorRadialCorner('b156'));
+  assert.ok(!prefersSectorAxisGrid('b156', tickets));
 });
 
 test('b154 row 17: axisGrid от ряда 16 (+1 шаг), не пусто без layout ряда', async () => {
