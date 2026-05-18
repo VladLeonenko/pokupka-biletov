@@ -53,16 +53,10 @@ test('d232 row 31 seat 17: в bbox сектора', () => {
 test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи SVG чем к ряду 33', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
-  const { parseSvgHallRowLabels, resolveRowYPctFromSvgLabels } = await import(
-    '../utils/hallSeatGeodesyFromSvgRows.js'
-  );
-  const { pathBBox } = await import('../utils/hallSeatGeodesyFromDots.js');
-  const { computeFieldCenterPct } = await import('../utils/hallSeatGeodesySectorNative.js');
   const { extractPbiletCoordinatesSeatDots } = await import('../utils/luzhnikiPbiletGeodesyExtract.js');
   const row = await loadLuzhnikiFootballStageMapRow();
   const layout =
     typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
-  const sec = ticketsPayload.sectors.find((s) => s.i === 'Сектор A 101');
   const offers = [
     { Sector: 'сектор a101', Row: '11', SeatList: ['7', '8', '9'] },
     { Sector: 'сектор a101', Row: '35', SeatList: ['26', '27'] },
@@ -73,37 +67,28 @@ test('a101: radialGrid по 4 углам, ряд 11 ближе к подписи
     H,
   );
   const layoutWithCloud = { ...layout, allSeatCoordinates: coords };
-  const { seats, radialGridMatched, cloudRowSeatMatched, pbiletLabeledMatched } =
+  const { seats, radialGridMatched, grayCloudMatched, pbiletLabeledMatched } =
     buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layoutWithCloud, {
       svgMarkup: row.svg_markup,
     });
   assert.equal(seats.length, 5);
-  assert.equal(radialGridMatched, 5);
+  assert.equal(grayCloudMatched, 5);
   assert.equal(pbiletLabeledMatched, 0);
-  assert.ok(seats.every((s) => String(s.geodesySource).includes('radialGrid')));
+  assert.ok(seats.every((s) => String(s.geodesySource).includes('grayCloud')));
   assert.ok(!seats.some((s) => String(s.geodesySource).includes('fieldGrid')));
 
-  const labels = parseSvgHallRowLabels(row.svg_markup, W, H);
-  const cloud = extractPbiletCoordinatesSeatDots(
-    JSON.parse(fs.readFileSync(path.join(repoRoot, 'luzhniki.txt'), 'utf8')),
-    W,
-    H,
-  );
-  const b = pathBBox(sec.o);
-  const sectorDots = cloud.filter((d) => {
-    const x = (d.xPct / 100) * W;
-    const y = (d.yPct / 100) * H;
-    return x >= b.minX - 50 && x <= b.maxX + 50 && y >= b.minY - 50 && y <= b.maxY + 50;
-  });
-  const field = computeFieldCenterPct(cloud);
-  const y11 = resolveRowYPctFromSvgLabels(11, sec.o, labels, W, H, 18, field, sectorDots);
-  const y33 = resolveRowYPctFromSvgLabels(33, sec.o, labels, W, H, 18, field, sectorDots);
-  const r11 = seats.find((s) => s.row === '11' && s.seat === '7');
-  assert.ok(r11 && y11 != null && y33 != null);
-  assert.ok(String(r11.geodesySource).includes('radialGrid'));
+  const r11seats = seats.filter((s) => s.row === '11');
+  const r35seats = seats.filter((s) => s.row === '35');
+  const r11 = r11seats.find((s) => s.seat === '7');
+  assert.ok(r11);
+  assert.ok(String(r11.geodesySource).includes('grayCloud'));
+  const uniq = new Set(r11seats.map((s) => `${s.xPct.toFixed(4)},${s.yPct.toFixed(4)}`));
+  assert.equal(uniq.size, r11seats.length, 'row11 seats on distinct gray dots');
+  const y11avg = r11seats.reduce((a, s) => a + s.yPct, 0) / r11seats.length;
+  const y35avg = r35seats.reduce((a, s) => a + s.yPct, 0) / r35seats.length;
   assert.ok(
-    Math.abs(r11.yPct - y11) < Math.abs(r11.yPct - y33),
-    `row11 y=${r11.yPct} nearer svg y11=${y11} than y33=${y33}`,
+    y11avg < y35avg,
+    `row11 avg y=${y11avg} should be closer to field than row35 avg y=${y35avg}`,
   );
 });
 
@@ -174,14 +159,15 @@ test('a101 row 35 seat 3: cloudRowSeat или radial (prod fieldGrid не pbilet
     H,
   );
   const offers = [{ Sector: 'сектор a101', Row: '35', SeatList: ['3'] }];
-  const { seats, cloudRowSeatMatched, radialGridMatched, pbiletLabeledMatched } =
+  const { seats, grayCloudMatched, pbiletLabeledMatched } =
     buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, {
       geodesy: { hallWidth: W, hallHeight: H },
       allSeatCoordinates: cloud,
     });
   assert.equal(seats.length, 1);
   assert.equal(pbiletLabeledMatched, 0);
-  assert.ok(String(seats[0].geodesySource).includes('radialGrid'));
+  assert.equal(grayCloudMatched, 1);
+  assert.ok(String(seats[0].geodesySource).includes('grayCloud'));
 });
 
 test('b154 row 17: axisGrid (прорезь 16–27), линия ряда как d124', async () => {

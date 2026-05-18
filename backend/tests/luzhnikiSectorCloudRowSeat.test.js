@@ -75,7 +75,7 @@ test('a101 sellable: cloudRowSeat для ряда 11 при allSeatCoordinates',
     { Sector: 'сектор a101', Row: '11', SeatList: ['7', '8'] },
     { Sector: 'сектор a101', Row: '35', SeatList: ['3'] },
   ];
-  const { seats, radialGridMatched, cloudRowSeatMatched, pbiletLabeledMatched } =
+  const { seats, grayCloudMatched, pbiletLabeledMatched } =
     buildSellableSeatGeodesyPbiletAccurate(
     ticketsPayload,
     offers,
@@ -88,11 +88,12 @@ test('a101 sellable: cloudRowSeat для ряда 11 при allSeatCoordinates',
     },
   );
   assert.equal(seats.length, 3);
-  assert.ok(radialGridMatched >= 2);
-  const r11 = seats.find((s) => s.row === '11' && s.seat === '7');
-  assert.ok(r11 && String(r11.geodesySource).includes('radialGrid'));
-  const r35 = seats.find((s) => s.row === '35' && s.seat === '3');
-  assert.match(String(r35?.geodesySource), /radialGrid|cloudRowSeat/);
+  assert.equal(grayCloudMatched, 3);
+  assert.equal(pbiletLabeledMatched, 0);
+  assert.ok(seats.every((s) => String(s.geodesySource).includes('grayCloud')));
+  const r11 = seats.filter((s) => s.row === '11');
+  const uniq11 = new Set(r11.map((s) => `${s.xPct},${s.yPct}`));
+  assert.equal(uniq11.size, r11.length, 'row11 seats on distinct gray dots');
 });
 
 test('trySectorCloudRowSeatForRadial: не nearest-dot в чужом ряду', () => {

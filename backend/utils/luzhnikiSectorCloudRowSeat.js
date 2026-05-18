@@ -43,23 +43,6 @@ function seatSortKey(dot, axis) {
   return dot.xPct * axis.x + dot.yPct * axis.y;
 }
 
-function lerpDot(a, b, t) {
-  return {
-    xPct: a.xPct + (b.xPct - a.xPct) * t,
-    yPct: a.yPct + (b.yPct - a.yPct) * t,
-  };
-}
-
-function pickAlongSortedDots(sorted, t) {
-  if (!sorted.length) return null;
-  if (sorted.length === 1) return sorted[0];
-  const idx = clamp01(t) * (sorted.length - 1);
-  const i0 = Math.floor(idx);
-  const i1 = Math.min(sorted.length - 1, i0 + 1);
-  const f = idx - i0;
-  return lerpDot(sorted[i0], sorted[i1], f);
-}
-
 /**
  * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} labeledSeats
  * @param {ReturnType<typeof buildSectorCloudGrid>} grid
@@ -70,33 +53,60 @@ function calibrateFromLabeledSeats(labeledSeats, grid) {
 }
 
 /**
- * @param {{ xPct: number, yPct: number }[]} dots
- * @param {{ x: number, y: number }} seatAxis
- * @param {number} seatN
- * @param {{ min?: number, max?: number } | null} seatRangeInRow
- * @param {object | null} block sector-row-anchors block
+ * Место M → реальная серая точка в ряду (не lerp между точками).
+ * @param {{ xPct: number, yPct: number }[]} sorted
  */
-function pickSeatAlongBand(dots, seatAxis, seatN, seatRangeInRow, block) {
-  if (!dots?.length) return null;
-  const sorted = [...dots].sort((a, b) => seatSortKey(a, seatAxis) - seatSortKey(b, seatAxis));
+function pickGrayDotAtSeat(sorted, seatN, seatRangeInRow, block) {
+  if (!sorted?.length) return null;
   const originSeat = parseNum(block?.originSeat) ?? 1;
   const seatMin = seatRangeInRow?.min ?? originSeat;
   let seatMax = seatRangeInRow?.max;
-  if (seatMax == null) {
-    seatMax = parseNum(block?.maxSeatPerRow) ?? sorted.length;
-  }
-  if (seatMax <= seatMin) seatMax = seatMin + Math.max(1, sorted.length - 1);
+  if (seatMax == null) seatMax = parseNum(block?.maxSeatPerRow) ?? sorted.length;
+  if (seatMax < seatMin) seatMax = seatMin;
 
-  let t;
-  if (block?.seatCountFromLeft) {
-    t = 1 - (seatN - seatMin) / Math.max(1, seatMax - seatMin);
-  } else if (block?.seatCountFromRight || block?.seatMirror) {
-    t = 1 - (seatN - seatMin) / Math.max(1, seatMax - seatMin);
-  } else {
-    t = (seatN - seatMin) / Math.max(1, seatMax - seatMin);
-  }
-  return pickAlongSortedDots(sorted, t);
+  const seatCount = Math.max(1, seatMax - seatMin + 1);
+  const seatOrdinal = seatN - seatMin;
+  let rel =
+    seatCount <= 1
+      ? 0
+      : block?.seatCountFromLeft || block?.seatCountFromRight || block?.seatMirror
+        ? 1 - seatOrdinal / (seatCount - 1)
+        : seatOrdinal / (seatCount - 1);
+  rel = clamp01(rel);
+
+  const idx =
+    seatCount <= 1 || sorted.length <= 1
+      ? 0
+      : Math.min(
+          sorted.length - 1,
+          Math.round((seatOrdinal / (seatCount - 1)) * (sorted.length - 1)),
+        );
+  return sorted[idx];
 }
+
+/** Snap вдоль хорды ряда (1D по seatAxis), не nearest 2D по сектору. */
+function snapToGrayAlongChord(sorted, seatAxis, hintPt) {
+  if (!sorted?.length || !hintPt) return null;
+  const target = seatSortKey(hintPt, seatAxis);
+  let best = sorted[0];
+  let bestD = Infinity;
+  for (const d of sorted) {
+    const dd = Math.abs(seatSortKey(d, seatAxis) - target);
+    if (dd < bestD) {
+      bestD = dd;
+      best = d;
+    }
+  }
+  return best;
+}
+
+function sortBandDots(bandDots, seatAxis) {
+  return [...(bandDots || [])].sort((a, b) => seatSortKey(a, seatAxis) - seatSortKey(b, seatAxis));
+}
+
+/** bandIdx / svgRow: плотная хорда; svgY — строже (часто путает соседние ряды). */
+const MIN_GRAY_ROW_BAND_DOTS = 6;
+const MIN_SVGY_ROW_BAND_DOTS = 10;
 
 /**
  * Полоса облака для API-ряда: SVG Y → ближайшая полоса; иначе подписанные bands / bandIdx.
@@ -106,6 +116,28 @@ function pickSeatAlongBand(dots, seatAxis, seatN, seatRangeInRow, block) {
 function resolveRowBandDots(entry, rowN) {
   const { grid, labeledBands, sectorPath, svgRowLabels, sectorDots, fieldCenter, w, h } = entry;
   if (!grid?.rows?.length) return null;
+
+  if (labeledBands?.length >= 2) {
+    const band = labeledBands[findBandIndexForRowNum(rowN, labeledBands)];
+    if (band?.dots?.length >= MIN_GRAY_ROW_BAND_DOTS && Number(band.rowNum) === rowN) {
+      return { dots: band.dots, via: 'cloudRowSeat+svgRow' };
+    }
+  }
+
+  const maxRow = resolveSectorNativeMaxRow(
+    sectorPath,
+    svgRowLabels ?? [],
+    grid.rows.length,
+    entry.sectorRowMax ?? null,
+    w,
+    h,
+    fieldCenter,
+  );
+  const bandIdx = rowNumToBandIndex(rowN, maxRow, grid.rows.length);
+  const row = grid.rows[Math.min(Math.max(bandIdx, 0), grid.rows.length - 1)];
+  if (row?.dots?.length >= MIN_GRAY_ROW_BAND_DOTS) {
+    return { dots: row.dots, via: 'cloudRowSeat+bandIdx' };
+  }
 
   const targetY =
     sectorPath && svgRowLabels?.length && sectorDots?.length
@@ -124,40 +156,22 @@ function resolveRowBandDots(entry, rowN) {
   if (targetY != null) {
     let bestRow = null;
     let bestD = Infinity;
-    for (const row of grid.rows) {
-      if (!row.dots?.length) continue;
-      const cy = row.dots.reduce((s, d) => s + d.yPct, 0) / row.dots.length;
+    for (const gridRow of grid.rows) {
+      if (!gridRow.dots?.length || gridRow.dots.length < MIN_SVGY_ROW_BAND_DOTS) continue;
+      const cy = gridRow.dots.reduce((s, d) => s + d.yPct, 0) / gridRow.dots.length;
       const d = Math.abs(cy - targetY);
       if (d < bestD) {
         bestD = d;
-        bestRow = row;
+        bestRow = gridRow;
       }
     }
-    if (bestRow?.dots?.length >= 2) {
+    if (bestRow?.dots?.length >= MIN_SVGY_ROW_BAND_DOTS) {
       return { dots: bestRow.dots, via: 'cloudRowSeat+svgY' };
     }
   }
 
-  if (labeledBands?.length >= 2) {
-    const band = labeledBands[findBandIndexForRowNum(rowN, labeledBands)];
-    if (band?.dots?.length >= 2 && band.rowNum === rowN) {
-      return { dots: band.dots, via: 'cloudRowSeat+svgRow' };
-    }
-  }
-
-  const maxRow = resolveSectorNativeMaxRow(
-    sectorPath,
-    svgRowLabels ?? [],
-    grid.rows.length,
-    entry.sectorRowMax ?? null,
-    w,
-    h,
-    fieldCenter,
-  );
-  const bandIdx = rowNumToBandIndex(rowN, maxRow, grid.rows.length);
-  const row = grid.rows[Math.min(Math.max(bandIdx, 0), grid.rows.length - 1)];
   if (row?.dots?.length >= 2) {
-    return { dots: row.dots, via: 'cloudRowSeat+bandIdx' };
+    return { dots: row.dots, via: 'cloudRowSeat+bandIdx+thin' };
   }
   return null;
 }
@@ -177,10 +191,11 @@ export function resolveSectorCloudRowSeat(entry, apiRow, apiSeat, seatRangeInRow
   const { grid, calibration, block } = entry;
 
   const band = resolveRowBandDots(entry, rowN);
-  if (band?.dots?.length >= 2) {
-    const pt = pickSeatAlongBand(band.dots, grid.seatAxis, seatN, seatRangeInRow, block);
+  if (band?.dots?.length >= 1) {
+    const sorted = sortBandDots(band.dots, grid.seatAxis);
+    const pt = pickGrayDotAtSeat(sorted, seatN, seatRangeInRow, block);
     if (pt) {
-      return { xPct: pt.xPct, yPct: pt.yPct, geodesySource: band.via };
+      return { xPct: pt.xPct, yPct: pt.yPct, geodesySource: `grayCloud+${band.via}` };
     }
   }
 
@@ -281,28 +296,70 @@ export function buildSectorCloudRowSeatIndex(input) {
  * @param {string} seat
  * @param {{ min?: number, max?: number } | null} [seatRangeInRow]
  */
-export function trySectorCloudRowSeatForRadial(index, sector, row, seat, seatRangeInRow = null) {
+function getCloudEntry(index, sector) {
   if (!index?.byNorm?.size) return null;
+  for (const n of luzhnikiSectorLookupNorms(sector)) {
+    const entry = index.byNorm.get(n);
+    if (entry) return entry;
+  }
+  return null;
+}
+
+/**
+ * Sellable на серой точке: ряд из SVG-полосы + место по §3 (seatCountFromLeft).
+ * @param {ReturnType<typeof buildSectorCloudRowSeatIndex>} index
+ * @param {{ xPct?: number, yPct?: number }} [radialHint] — после radialGrid, snap вдоль хорды
+ */
+export function resolveSellableGrayCloudSeat(
+  index,
+  sector,
+  row,
+  seat,
+  seatRangeInRow = null,
+  radialHint = null,
+) {
   const norm = normalizeSectorLabel(sector);
   if (!SECTOR_CLOUD_ROW_SEAT_NORMS.has(norm)) return null;
-
-  let entry = null;
-  for (const n of luzhnikiSectorLookupNorms(sector)) {
-    entry = index.byNorm.get(n);
-    if (entry) break;
-  }
+  const entry = getCloudEntry(index, sector);
   if (!entry) return null;
 
-  const hit = resolveSectorCloudRowSeat(entry, row, seat, seatRangeInRow);
-  if (!hit) return null;
+  const rowN = parseNum(row);
+  const seatN = parseNum(seat);
+  if (rowN == null || seatN == null) return null;
+
+  const band = resolveRowBandDots(entry, rowN);
+  if (!band?.dots?.length) return null;
+
+  const sorted = sortBandDots(band.dots, entry.grid.seatAxis);
+  let dot = pickGrayDotAtSeat(sorted, seatN, seatRangeInRow, entry.block);
+  let via = `grayCloud+${band.via}`;
+
+  if (
+    radialHint &&
+    Number.isFinite(radialHint.xPct) &&
+    Number.isFinite(radialHint.yPct)
+  ) {
+    const along = snapToGrayAlongChord(sorted, entry.grid.seatAxis, radialHint);
+    if (along) {
+      dot = along;
+      via = `grayCloud+radialChord+${band.via}`;
+    }
+  }
+
+  if (!dot) return null;
   return {
     sector,
     row: String(row),
     seat: String(seat),
-    xPct: hit.xPct,
-    yPct: hit.yPct,
-    geodesySource: hit.geodesySource,
+    xPct: dot.xPct,
+    yPct: dot.yPct,
+    geodesySource: via,
   };
+}
+
+/** @deprecated use resolveSellableGrayCloudSeat */
+export function trySectorCloudRowSeatForRadial(index, sector, row, seat, seatRangeInRow = null) {
+  return resolveSellableGrayCloudSeat(index, sector, row, seat, seatRangeInRow, null);
 }
 
 /**

@@ -43,7 +43,7 @@ test('a101: layout.seats с fieldGrid не блокирует cloudRowSeat дл�
   assert.ok(lookupPoison(layoutIndex, 'сектор a101', '11', '7'));
 
   const offers = [{ Sector: 'сектор a101', Row: '11', SeatList: ['7', '8'] }];
-  const { seats, cloudRowSeatMatched, radialGridMatched, pbiletLabeledMatched } =
+  const { seats, grayCloudMatched, radialGridMatched, pbiletLabeledMatched } =
     buildSellableSeatGeodesyPbiletAccurate(
       ticketsPayload,
       offers,
@@ -56,9 +56,10 @@ test('a101: layout.seats с fieldGrid не блокирует cloudRowSeat дл�
     );
 
   assert.equal(seats.length, 2);
-  assert.equal(radialGridMatched, 2, 'radial first, not poisoned layout');
+  assert.equal(grayCloudMatched, 2, 'gray cloud, not poisoned layout');
   assert.equal(pbiletLabeledMatched, 0);
-  assert.equal(cloudRowSeatMatched, 0);
+  assert.equal(radialGridMatched, 0);
+  assert.ok(seats.every((s) => String(s.geodesySource).includes('grayCloud')));
   assert.ok(seats.every((s) => s.yPct < 90 && s.xPct < 50));
 });
 

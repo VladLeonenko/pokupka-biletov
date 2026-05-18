@@ -168,6 +168,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
         strictMatched: geodesy.strictMatched,
         pbiletLabeledMatched: geodesy.pbiletLabeledMatched ?? 0,
         cloudRowSeatMatched: geodesy.cloudRowSeatMatched ?? 0,
+        grayCloudMatched: geodesy.grayCloudMatched ?? 0,
         radialGridMatched: geodesy.radialGridMatched ?? 0,
         sectorNativeMatched: geodesy.sectorNativeMatched ?? 0,
         fieldGridMatched: geodesy.fieldGridMatched ?? 0,
