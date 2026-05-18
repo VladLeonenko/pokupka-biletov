@@ -74,7 +74,8 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 - 4 угла: `sector-row-anchors.json` → `nearLeft` / `nearRight` / `farLeft` / `farRight`.
 - **Взгляд с поля:** origin **ряд 1 место 1** (`nearLeft`) — нижний-левый угол клина.
 - **Ряд N:** доля `rowT` вдоль nearL→farL (шаг `rowStepPct × rowStepMultiplier`, сейчас **1.1**).
-- **Место M в ряду:** доля вдоль хорды ряда; у **A101** `seatCountFromRight: true` — место **1** у правого края (от поля), номера растут влево.
+- **Место M в ряду:** доля вдоль хорды ряда, **слева направо от поля** (место 1 = `nearLeft`).
+- **Шаг мест:** `seatSpreadMultiplier: 2` — визуальный зазор между точками в 2× (делитель `(местВРяду−1)/2`).
 - **Мест в ряду растёт с рядом:** ряд 1 ≈ **4** места, верхние ≈ **39** (`minSeatPerRow` / `maxSeatPerRow`) — веер, не прямоугольник.
 - Точка **всегда внутри четырёхугольника** якорей (не «шаг X» за край клина).
 - Дуга: `rowCurve` + `rowBendExtraDeg` на оба конца хорды ряда, затем lerp места.
@@ -83,11 +84,11 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 ```json
 {
   "rowCurve": 0.42,
-  "rowStepMultiplier": 1.15,
+  "rowStepMultiplier": 1.12,
+  "seatSpreadMultiplier": 2,
   "rowBendExtraDeg": 5,
   "originRow": 1,
   "originSeat": 1,
-  "seatCountFromRight": true,
   "minSeatPerRow": 4,
   "maxSeatPerRow": 39
 }

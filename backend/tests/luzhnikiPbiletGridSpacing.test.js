@@ -26,8 +26,8 @@ test('a101 row11 seat7: step grid ближе к svg row11 чем row33', () => {
   const anchors = block?.anchors ?? [];
   const opts = {
     rowCurve: 0.42,
-    rowStepMultiplier: 1.15,
-    seatCountFromRight: true,
+    rowStepMultiplier: 1.12,
+    seatSpreadMultiplier: 2,
     minSeatPerRow: 4,
     maxSeatPerRow: 39,
     originRow: 1,
@@ -44,8 +44,8 @@ test('a101 row11: места 7,8,9 монотонно слева направо'
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const opts = {
     rowCurve: 0.42,
-    rowStepMultiplier: 1.15,
-    seatCountFromRight: true,
+    rowStepMultiplier: 1.12,
+    seatSpreadMultiplier: 2,
     minSeatPerRow: 4,
     maxSeatPerRow: 39,
     originRow: 1,
@@ -55,7 +55,7 @@ test('a101 row11: места 7,8,9 монотонно слева направо'
     resolveCornerSectorPbiletStepGrid(block.anchors, 11, seat, opts),
   );
   assert.ok(pts.every(Boolean));
-  assert.ok(pts[0].xPct > pts[1].xPct && pts[1].xPct > pts[2].xPct, 'seatCountFromRight: 7 right of 8 right of 9');
+  assert.ok(pts[0].xPct < pts[1].xPct && pts[1].xPct < pts[2].xPct, 'от поля: 7 слева от 8 слева от 9');
 });
 
 function pointInConvexQuad(p, q) {
@@ -79,8 +79,8 @@ test('a101: sellable-ряды внутри четырёхугольника як
   const quad = roles.map((r) => byRole[r]);
   const opts = {
     rowCurve: 0.42,
-    rowStepMultiplier: 1.15,
-    seatCountFromRight: true,
+    rowStepMultiplier: 1.12,
+    seatSpreadMultiplier: 2,
     minSeatPerRow: 4,
     maxSeatPerRow: 39,
     originRow: 1,
@@ -109,8 +109,8 @@ test('a101 row38: место 25 правее места 7 (слева напра
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const opts = {
     rowCurve: 0.42,
-    rowStepMultiplier: 1.15,
-    seatCountFromRight: true,
+    rowStepMultiplier: 1.12,
+    seatSpreadMultiplier: 2,
     minSeatPerRow: 4,
     maxSeatPerRow: 39,
     originRow: 1,
@@ -119,5 +119,5 @@ test('a101 row38: место 25 правее места 7 (слева напра
   const p7 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, opts);
   const p25 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 25, opts);
   assert.ok(p7 && p25);
-  assert.ok(p25.xPct < p7.xPct - 0.3, `seat25 x=${p25.xPct} should be left of seat7 x=${p7.xPct}`);
+  assert.ok(p25.xPct > p7.xPct + 0.3, `seat25 x=${p25.xPct} should be right of seat7 x=${p7.xPct}`);
 });
