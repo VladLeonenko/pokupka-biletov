@@ -223,7 +223,6 @@ import {
   buildLabeledSeatIndex,
   labeledSeatLookupKeys,
   lookupLabeledSeat,
-  lookupSeatByRowPositionZip,
 } from '@/utils/hallSeatSeatLookup';
 import {
   normalizeRowLabel,
@@ -488,9 +487,7 @@ export function TicketHallInteractiveBlock({
 
         for (const seat of list) {
           if (!seat.trim()) continue;
-          const hit =
-            lookupLabeledSeat(layoutIndex, offer.Sector, offer.Row, seat) ??
-            lookupSeatByRowPositionZip(layoutIndex, offer.Sector, offer.Row, seat, list);
+          const hit = lookupLabeledSeat(layoutIndex, offer.Sector, offer.Row, seat);
           if (!hit) continue;
 
           const svgKey = seatMapKey(hit.sector, hit.row, hit.seat);

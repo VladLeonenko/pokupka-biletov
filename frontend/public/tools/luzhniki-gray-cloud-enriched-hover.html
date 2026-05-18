@@ -117,9 +117,6 @@
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
       <label>Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
-      <label title="иначе остаётся place/data-seat с облака (как в GetBilet)">
-        <input type="checkbox" id="paintRenumberFromStart" /> с «Место с»
-      </label>
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
       <button type="button" id="paintApply" class="warn">▶ Применить ряд</button>
     </div>
@@ -157,7 +154,6 @@
     const paintSector = document.getElementById('paintSector');
     const paintRow = document.getElementById('paintRow');
     const paintStartSeat = document.getElementById('paintStartSeat');
-    const paintRenumberFromStart = document.getElementById('paintRenumberFromStart');
     const paintCorridor = document.getElementById('paintCorridor');
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
@@ -1170,7 +1166,6 @@
         return 0;
       }
       const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
-      const renumber = paintRenumberFromStart && paintRenumberFromStart.checked;
       if (!sector) sector = inferSectorFromSelection(paintSelection);
       if (!sector) {
         showPaintToast('err', 'Укажи сектор (или выдели места одного сектора)');
@@ -1186,7 +1181,7 @@
           'info',
           '⚠ В выделении есть точки с другим row в облаке (' +
             cloudRowMismatch +
-            '). Проверь линию.',
+            '). Проверь линию; места из place/data-seat сохраним как есть.',
         );
       }
       const pathForSort =
@@ -1196,54 +1191,28 @@
       const sortedSel = sortCirclesAlongPath(paintSelection, pathForSort);
       const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
       let nextAuto = startSeat;
-      let applied = 0;
-      let noPlace = 0;
-      const appliedCircles = [];
+      let preserved = 0;
       for (const c of sortedSel) {
         const existing = circleSeatNum(c);
-        let seat;
-        if (renumber) {
-          seat = String(nextAuto);
-          nextAuto += 1;
-        } else if (existing != null) {
-          seat = String(existing);
-        } else {
-          noPlace += 1;
-          continue;
-        }
+        const seat = existing != null ? String(existing) : String(nextAuto);
+        if (existing != null) preserved++;
         applySeatToCircle(c, sector, row, seat, 'manual-row');
-        applied += 1;
-        appliedCircles.push(c);
-      }
-      if (!applied) {
-        showPaintToast('err', 'Ни одной точки не подписано');
-        return 0;
-      }
-      if (!renumber && noPlace > 0) {
-        showPaintToast('info', noPlace + ' точек без place — пропущены');
-      }
-      if (renumber) {
-        const places = sortedSel.map(circleSeatNum).filter((n) => n != null);
-        const minP = places.length ? Math.min(...places) : null;
-        if (minP != null && minP > startSeat) {
-          showPaintToast(
-            'info',
-            'В облаке места от ' + minP + ' — для GetBilet сними галку «с «Место с»» (checkout сопоставит по позиции в ряду)',
-          );
-        }
+        if (existing == null) nextAuto += 1;
+        else nextAuto = Math.max(nextAuto, existing + 1);
       }
       pushUndo(batch);
-      persistCircleEdits(appliedCircles);
+      persistCircleEdits(paintSelection);
       paintUnlabeled(svgRoot);
       recountStats();
-      const seatHint = renumber
-        ? ' · нумерация 1…N с ' + startSeat
-        : ' · номера place из облака';
+      const seatHint =
+        preserved > 0
+          ? ' · номера мест из облака: ' + preserved
+          : ' · места с «Место с»=' + startSeat;
       showPaintToast(
         'ok',
-        '✓ ' + sector + ' ряд ' + row + ': ' + applied + ' мест' + seatHint + ' (сохранено)',
+        '✓ ' + sector + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' (сохранено)',
       );
-      return applied;
+      return paintSelection.length;
     }
 
     function cancelPaintDrag() {
