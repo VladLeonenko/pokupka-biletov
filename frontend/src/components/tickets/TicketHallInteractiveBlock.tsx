@@ -456,7 +456,6 @@ export function TicketHallInteractiveBlock({
   const useSvgNative =
     layoutMode !== 'grid' &&
     (layoutMode === 'svgNative' ||
-      (sellableFromGetbiletOffersOnly && sectorMode.enabled) ||
       (layoutMode === 'auto' && nativeSeats.length >= 2));
 
   const svgHtmlSafe = useMemo(() => {
@@ -466,7 +465,7 @@ export function TicketHallInteractiveBlock({
   }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
 
   const { nativePlacements } = useMemo(() => {
-    if (!useSvgNative && !sellableFromGetbiletOffersOnly) {
+    if (!useSvgNative) {
       return {
         nativePlacements: [] as SvgNativePlacement[],
       };

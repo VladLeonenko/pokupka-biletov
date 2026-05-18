@@ -50,10 +50,7 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import {
-  LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
-  mergeLuzhnikiCheckoutLayoutJson,
-} from '@/utils/luzhnikiStadiumMap';
+import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
   isNamedTicketOfferRow,
@@ -852,16 +849,19 @@ export function TicketCheckoutPage() {
       ctx?.stageId === stageIdEff ? (ctx?.stageMap?.layout_json as Record<string, unknown> | null) : null;
     const mapLayout = mapByStageId?.layout_json as Record<string, unknown> | undefined;
 
-    /** Лужники: серая чаша (allSeatCoordinates) + sellableSeats с GET /map по офферам GetBilet. */
+    /** Лужники: sellableSeats с GET /map (adaptLuzhniki + live offers), тяжёлое — из контекста. */
     if (isLuzhnikiFootballStage && mapLayout && stageMapFetched) {
-      const merged = mergeLuzhnikiCheckoutLayoutJson(
-        ctxLayout as Record<string, unknown> | undefined,
-        mapLayout,
-      );
-      return {
-        ...merged,
-        svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,
-      };
+      const sellable = mapLayout.sellableSeats;
+      if (Array.isArray(sellable) && sellable.length > 0) {
+        return {
+          ...(ctxLayout ?? mapLayout),
+          ...mapLayout,
+          allSeatCoordinates: ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates,
+          seats: ctxLayout?.seats ?? mapLayout.seats,
+          sectorMode: ctxLayout?.sectorMode ?? mapLayout.sectorMode,
+          svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,
+        };
+      }
     }
 
     if (ctxLayout) return ctxLayout;

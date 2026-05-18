@@ -49,39 +49,3 @@ export function parseHallBackgroundFromLabeledSeats(layout: unknown): boolean {
   if (r.hallBackgroundFromLabeledSeats === true) return true;
   return false;
 }
-
-function cloudCoordinateCount(layout: Record<string, unknown> | null | undefined): number {
-  if (!layout) return 0;
-  const cloud = layout.allSeatCoordinates;
-  return Array.isArray(cloud) ? cloud.length : 0;
-}
-
-/** Чекаут: серая чаша из контекста или /map, sellableSeats — только с живого /map. */
-export function mergeLuzhnikiCheckoutLayoutJson(
-  ctxLayout: Record<string, unknown> | null | undefined,
-  mapLayout: Record<string, unknown> | null | undefined,
-): Record<string, unknown> {
-  const ctx = ctxLayout ?? {};
-  const map = mapLayout ?? {};
-  const ctxCloud = cloudCoordinateCount(ctx);
-  const mapCloud = cloudCoordinateCount(map);
-  const allSeatCoordinates =
-    ctxCloud >= mapCloud && ctxCloud > 0
-      ? ctx.allSeatCoordinates
-      : mapCloud > 0
-        ? map.allSeatCoordinates
-        : ctx.allSeatCoordinates ?? map.allSeatCoordinates;
-
-  return {
-    ...luzhnikiStadiumCheckoutLayoutFlags({ ...ctx, ...map }),
-    ...ctx,
-    ...map,
-    allSeatCoordinates,
-    seats:
-      (Array.isArray(ctx.seats) && ctx.seats.length > 0 ? ctx.seats : map.seats) ??
-      ctx.seats ??
-      map.seats,
-    sectorMode: ctx.sectorMode ?? map.sectorMode,
-    sellableSeats: Array.isArray(map.sellableSeats) ? map.sellableSeats : [],
-  };
-}

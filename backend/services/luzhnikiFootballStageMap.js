@@ -122,8 +122,6 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     seatSelectionDisabled: false,
     sellableFromGetbiletOffersOnly: true,
     sellableSeatsFromLiveOffers: true,
-    omitClientSeatCoordinateCloud: false,
-    uniformHallSeatAppearance: true,
   };
 
   const offers = Array.isArray(offerRows) ? offerRows : [];
