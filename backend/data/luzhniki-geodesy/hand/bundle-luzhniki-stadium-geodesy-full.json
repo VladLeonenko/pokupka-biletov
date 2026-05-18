@@ -1,0 +1,10 @@
+{
+  "hallWidth": 11413,
+  "hallHeight": 9676,
+  "mode": "full-stadium-geodesy",
+  "sectorFilter": null,
+  "seatCount": 72267,
+  "rowCount": 44,
+  "builtAt": "2026-05-17T17:59:49.089Z",
+  "svgPath": "luzhniki-stadium-geodesy-full.svg"
+}

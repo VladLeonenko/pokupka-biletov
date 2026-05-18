@@ -14,6 +14,8 @@ import {
   buildSellableSeatGeodesyPbiletAccurate,
   ensureLuzhnikiLayoutCloud,
 } from '../utils/luzhnikiPbiletSellableGeodesy.js';
+import { prefersSectorRadialCorner } from '../utils/luzhnikiSectorPolarGrid.js';
+import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -149,7 +151,13 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     svgMarkup: String(row.svg_markup ?? ''),
   });
   const layoutSeats = Array.isArray(layoutForGeodesy.seats) ? layoutForGeodesy.seats : [];
-  const mergeResult = mergeSellableSeatsIntoLayout(layoutSeats, geodesy.seats);
+  /** Угловые (a101…): не пачкать layout.seats старыми sellable — иначе pbiletLabeled съедает cloud/radial. */
+  const sellableForLayoutPatch = geodesy.seats.filter((s) => {
+    if (!prefersSectorRadialCorner(normalizeSectorLabel(s.sector))) return true;
+    const src = String(s.geodesySource ?? '');
+    return src.includes('strict') || src.includes('pbiletLabeled');
+  });
+  const mergeResult = mergeSellableSeatsIntoLayout(layoutSeats, sellableForLayoutPatch);
   const patched = mergeResult?.patched ?? 0;
 
   return {

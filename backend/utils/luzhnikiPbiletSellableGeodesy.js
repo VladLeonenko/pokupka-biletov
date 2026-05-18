@@ -478,29 +478,6 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           !axisAnchors.some((a) => parseRowNum(a.row) === rowNumOffer);
 
         if (!hit && preferRadial) {
-          const labeledPbilet = tryExactPbiletLabeledForRadialSector(
-            layoutIndex,
-            prodLayoutIndex,
-            sector,
-            row,
-            seat,
-          );
-          if (labeledPbilet) {
-            seen.add(dedupe);
-            pbiletLabeledMatched += 1;
-            seats.push(
-              finalizeSellableCoords(
-                sector,
-                row,
-                seat,
-                labeledPbilet,
-                ticketsPayload,
-                w,
-                h,
-              ),
-            );
-            continue;
-          }
           const seatRangeInRow = seatRangesByRow?.get(norm)?.get(rowNumOffer) ?? null;
           const cloudRowHit = cloudRowSeatIndex
             ? trySectorCloudRowSeatForRadial(
@@ -524,6 +501,29 @@ export function buildSellableSeatGeodesyPbiletAccurate(
             seen.add(dedupe);
             radialGridMatched += 1;
             seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
+            continue;
+          }
+          const labeledPbilet = tryExactPbiletLabeledForRadialSector(
+            layoutIndex,
+            prodLayoutIndex,
+            sector,
+            row,
+            seat,
+          );
+          if (labeledPbilet) {
+            seen.add(dedupe);
+            pbiletLabeledMatched += 1;
+            seats.push(
+              finalizeSellableCoords(
+                sector,
+                row,
+                seat,
+                labeledPbilet,
+                ticketsPayload,
+                w,
+                h,
+              ),
+            );
             continue;
           }
         }

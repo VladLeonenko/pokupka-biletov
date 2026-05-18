@@ -347,17 +347,9 @@ export function buildCloudRowSeatIndexForSellable(opts) {
   };
 
   for (const s of prodSeats) {
+    const src = String(s.geodesySource ?? '').toLowerCase();
+    if (src.includes('fieldgrid')) continue;
     pushLabeled(s);
-  }
-  if (opts.layoutIndex?.values) {
-    for (const s of opts.layoutIndex.values()) {
-      pushLabeled(s);
-    }
-  }
-  if (opts.prodLayoutIndex?.values) {
-    for (const s of opts.prodLayoutIndex.values()) {
-      pushLabeled(s);
-    }
   }
 
   for (const o of opts.offers || []) {

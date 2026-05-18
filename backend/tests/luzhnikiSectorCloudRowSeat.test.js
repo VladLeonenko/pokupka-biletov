@@ -91,7 +91,7 @@ test('a101 sellable: cloudRowSeat для ряда 11 при allSeatCoordinates',
   const r11 = seats.find((s) => s.row === '11' && s.seat === '7');
   assert.ok(r11 && /cloudRowSeat|pbiletLabeled/.test(String(r11.geodesySource)));
   const r35 = seats.find((s) => s.row === '35' && s.seat === '3');
-  assert.equal(r35?.geodesySource, 'pbiletLabeled');
+  assert.match(String(r35?.geodesySource), /cloudRowSeat|radialGrid/);
 });
 
 test('trySectorCloudRowSeatForRadial: не nearest-dot в чужом ряду', () => {

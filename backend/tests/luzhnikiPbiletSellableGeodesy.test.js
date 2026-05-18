@@ -4,6 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { extractPbiletCoordinatesSeatDots } from '../utils/luzhnikiPbiletGeodesyExtract.js';
 import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -164,23 +165,23 @@ test('b155 row 20: radialGrid+d124step, не axisGrid', async () => {
   assert.ok(Math.max(...ys) - Math.min(...ys) > 0.05, 'дуга ряда — Y не константа как axisGrid');
 });
 
-test('a101 row 35 seat 3: pbiletLabeled из prod bundle (exact sector+row+seat)', async () => {
+test('a101 row 35 seat 3: cloudRowSeat или radial (prod fieldGrid не pbiletLabeled)', async () => {
   const ticketsPayload = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
-  const { loadLuzhnikiFootballStageMapRow } = await import('../services/luzhnikiFootballStageMap.js');
-  const row = await loadLuzhnikiFootballStageMapRow();
-  const layout =
-    typeof row.layout_json === 'string' ? JSON.parse(row.layout_json) : row.layout_json;
-  const offers = [{ Sector: 'сектор a101', Row: '35', SeatList: ['3'] }];
-  const { seats, pbiletLabeledMatched } = buildSellableSeatGeodesyPbiletAccurate(
-    ticketsPayload,
-    offers,
-    layout,
-    { svgMarkup: row.svg_markup },
+  const cloud = extractPbiletCoordinatesSeatDots(
+    JSON.parse(fs.readFileSync(path.join(repoRoot, 'luzhniki.txt'), 'utf8')),
+    W,
+    H,
   );
+  const offers = [{ Sector: 'сектор a101', Row: '35', SeatList: ['3'] }];
+  const { seats, cloudRowSeatMatched, radialGridMatched, pbiletLabeledMatched } =
+    buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, {
+      geodesy: { hallWidth: W, hallHeight: H },
+      allSeatCoordinates: cloud,
+    });
   assert.equal(seats.length, 1);
-  assert.equal(pbiletLabeledMatched, 1);
-  assert.equal(seats[0].geodesySource, 'pbiletLabeled');
-  assert.ok(Math.abs(seats[0].xPct - 19.745027687724527) < 0.02);
+  assert.equal(pbiletLabeledMatched, 0);
+  assert.ok(cloudRowSeatMatched + radialGridMatched === 1);
+  assert.match(String(seats[0].geodesySource), /cloudRowSeat|radialGrid/);
 });
 
 test('b154 row 17: axisGrid (прорезь 16–27), линия ряда как d124', async () => {

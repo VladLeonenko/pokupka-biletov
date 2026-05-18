@@ -170,22 +170,29 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
   };
 }
 
+/** Pilot bundle fieldGrid — не vendor XY, для угловых не использовать как pbiletLabeled. */
+function isTrustedRadialPbiletLabeledHit(hit) {
+  if (!hit) return false;
+  const src = String(hit.geodesySource ?? '').toLowerCase();
+  if (!src || src.includes('fieldgrid') || src.includes('interp') || src.includes('native')) {
+    return false;
+  }
+  return true;
+}
+
 /**
- * Exact sector+row+seat → XY (layout / prod pilot). Только угловые radial-сектора.
- * Не «ближайшая серая» из coordinates.
+ * Exact sector+row+seat → XY только из доверенного prod-pilot (не layout.seats — там patched sellable).
  */
 export function tryExactPbiletLabeledForRadialSector(
-  layoutIndex,
+  _layoutIndex,
   prodLayoutIndex,
   sector,
   row,
   seat,
 ) {
   if (!prefersSectorRadialCorner(sector)) return null;
-  const hit =
-    lookupLabeledSeat(layoutIndex, sector, row, seat) ||
-    lookupLabeledSeat(prodLayoutIndex, sector, row, seat);
-  if (!hit) return null;
+  const hit = lookupLabeledSeat(prodLayoutIndex, sector, row, seat);
+  if (!isTrustedRadialPbiletLabeledHit(hit)) return null;
   return {
     sector,
     row: String(row),
