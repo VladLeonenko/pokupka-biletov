@@ -225,8 +225,9 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     minSeats,
     Math.round(minSeats + rowT * (maxSeats - minSeats)),
   );
-  const seatT =
+  let seatT =
     maxSeatAtRow > 1 ? clamp01((seatN - 1) / (maxSeatAtRow - 1)) : 0;
+  if (opts.seatCountFromRight ?? opts.seatMirror) seatT = 1 - seatT;
 
   let seat1Pt = lerpPct(nearL, farL, rowT);
   let seatEndPt = lerpPct(nearR, farR, rowT);
