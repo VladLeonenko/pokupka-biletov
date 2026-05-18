@@ -51,8 +51,11 @@ import {
 } from './luzhnikiPilotLayoutCalibrate.js';
 import { loadSeatsArrayFromLayout } from './luzhnikiSeatIndexCache.js';
 import { getCachedProdLayoutLabeledIndex } from './luzhnikiProdLayoutSeats.js';
-import { buildLabeledDotsMap, LUZHNIKI_PRECOMPUTE_SECTOR_NORMS } from './luzhnikiLabeledDotsStore.js';
-import { SECTOR_RADIAL_PRIORITY_NORMS } from './luzhnikiSectorPolarGrid.js';
+import {
+  buildLabeledDotsMap,
+  LUZHNIKI_LABELED_SELLABLE_LOOKUP_NORMS,
+  LUZHNIKI_PRECOMPUTE_SECTOR_NORMS,
+} from './luzhnikiLabeledDotsStore.js';
 import {
   buildCloudRowSeatIndexForSellable,
   resolveSellableFromLabeledDots,
@@ -371,7 +374,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
   })();
 
   const labeledDotsByNorm = new Map();
-  for (const sectorNorm of LUZHNIKI_PRECOMPUTE_SECTOR_NORMS) {
+  for (const sectorNorm of LUZHNIKI_LABELED_SELLABLE_LOOKUP_NORMS) {
     const map = buildLabeledDotsMap(sectorNorm);
     if (map?.size) labeledDotsByNorm.set(sectorNorm, map);
   }
@@ -457,7 +460,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           }
           return null;
         })();
-        if (labeledMap && !SECTOR_RADIAL_PRIORITY_NORMS.has(norm)) {
+        if (labeledMap) {
           const labeledHit = resolveSellableFromLabeledDots(labeledMap, row, seat);
           if (labeledHit) {
             seen.add(dedupe);

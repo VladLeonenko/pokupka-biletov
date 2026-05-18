@@ -182,7 +182,7 @@ export function measureD124SeatGapPct(
   return getPbiletGridSpacing(payload).seatStepPct;
 }
 
-function pickCornerAnchors(anchors) {
+export function pickCornerAnchors(anchors) {
   const parsed = (anchors || [])
     .map((a) => ({
       row: parseNum(a.row),

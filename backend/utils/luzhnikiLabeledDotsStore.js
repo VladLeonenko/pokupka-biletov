@@ -77,3 +77,8 @@ export function clearLabeledDotsCaches() {
   _fileCache.clear();
   _mapCache.clear();
 }
+
+/** Сектора, для которых sellable берёт O(1) из labeled-dots (straight + B154). */
+export const LUZHNIKI_LABELED_SELLABLE_LOOKUP_NORMS = LUZHNIKI_PRECOMPUTE_SECTOR_NORMS.filter(
+  (n) => !['a101', 'a116', 'b155', 'b156'].includes(n),
+);

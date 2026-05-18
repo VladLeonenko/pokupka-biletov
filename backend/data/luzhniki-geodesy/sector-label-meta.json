@@ -15,12 +15,12 @@
     "a113": { "gridMode": "fieldGrid", "expectedRows": 28 },
     "a114": { "gridMode": "fieldGrid", "expectedRows": 28 },
     "a115": { "gridMode": "fieldGrid", "expectedRows": 28 },
-    "a116": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true },
+    "a116": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": false },
     "b151": { "gridMode": "fieldGrid", "expectedRows": 28 },
     "b152": { "gridMode": "fieldGrid", "expectedRows": 28 },
     "b153": { "gridMode": "fieldGrid", "expectedRows": 28 },
     "b154": { "gridMode": "axisGrid", "expectedRows": 33, "rowGap": 17 },
-    "b155": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true },
-    "b156": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true }
+    "b155": { "gridMode": "radialGrid+d124step", "expectedRows": 33, "seatCountFromLeft": false },
+    "b156": { "gridMode": "radialGrid+d124step", "expectedRows": 33, "seatCountFromLeft": false }
   }
 }

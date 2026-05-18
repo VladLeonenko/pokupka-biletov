@@ -9,12 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 import { buildSectorDotIndex, clusterDotsByRow } from './hallSeatGeodesyFromDots.js';
 import { parseSvgHallRowLabels } from './hallSeatGeodesyFromSvgRows.js';
-import {
-  computeFieldCenterPct,
-  labelSectorBandsWithSvgRowNumbers,
-  seatLeftAxisFromSector,
-  sortSectorRowBandsFromField,
-} from './hallSeatGeodesySectorNative.js';
+import { loadSectorCalibrationBlocksByNorm } from './hallSeatGeodesySectorRowAnchors.js';
+import { computeFieldCenterPct } from './hallSeatGeodesySectorNative.js';
+import { labelCornerDotsWithAnchors } from './luzhnikiGrayCloudAnchorBands.js';
+import { getPbiletGridSpacing } from './luzhnikiPbiletGridSpacing.js';
 import { extractPbiletCoordinatesSeatDots, extractPbiletTicketSectorPaths } from './luzhnikiPbiletGeodesyExtract.js';
 import {
   luzhnikiSectorLookupNorms,
@@ -78,9 +76,11 @@ function mergeYGroups(groups, maxRows) {
  * @param {{ expectedRows?: number }} meta
  */
 export function labelStraightSector(dots, meta = {}) {
+  const { rowStepPct } = getPbiletGridSpacing();
+  const step = rowStepPct > 0 ? rowStepPct : 0.192763;
   const byY = new Map();
   for (const d of dots) {
-    const yKey = Math.round(d.yPct * Y_ROUND) / Y_ROUND;
+    const yKey = Math.round(d.yPct / step);
     const arr = byY.get(yKey) ?? [];
     arr.push(d);
     byY.set(yKey, arr);
@@ -116,50 +116,14 @@ export function labelStraightSector(dots, meta = {}) {
 
 /**
  * @param {{ xPct: number, yPct: number }[]} dots
- * @param {{ expectedRows?: number }} meta
- * @param {string} sectorPath
- * @param {{ xPct: number, yPct: number }} fieldCenter
- * @param {number} w
- * @param {number} h
+ * @param {object} block — sector-row-anchors
  */
-export function labelCornerSector(dots, meta, sectorPath, fieldCenter, w, h, svgRowLabels = []) {
-  const rowHint = meta.expectedRows ?? 38;
-  const { bands } = sortSectorRowBandsFromField(dots, sectorPath, fieldCenter, w, h, rowHint);
-  let labeledBands = bands;
-  if (svgRowLabels?.length >= 2) {
-    labeledBands = labelSectorBandsWithSvgRowNumbers(
-      bands,
-      sectorPath,
-      svgRowLabels,
-      fieldCenter,
-      w,
-      h,
-    );
-  } else if (bands.length !== rowHint) {
-    console.warn(
-      `[luzhnikiGrayDotsLabeler] corner: expected ${rowHint} row bands, got ${bands.length}`,
-    );
+export function labelCornerSector(dots, meta, sectorPath, fieldCenter, w, h, svgRowLabels = [], block = null) {
+  if (!block?.anchors?.length) {
+    console.warn('[luzhnikiGrayDotsLabeler] corner: missing anchors block');
+    return [];
   }
-  const seatAxis = seatLeftAxisFromSector(sectorPath, fieldCenter, w, h);
-  const out = [];
-  let fallbackRow = 1;
-  for (const band of labeledBands) {
-    const rowNum = Number(band.rowNum) >= 1 ? Number(band.rowNum) : fallbackRow;
-    fallbackRow += 1;
-    const sorted = [...(band.dots || [])].sort(
-      (a, b) => seatSortKey(a, seatAxis) - seatSortKey(b, seatAxis),
-    );
-    if (meta.seatCountFromLeft) {
-      sorted.reverse();
-    }
-    let seat = 1;
-    for (const d of sorted) {
-      const xy = dotToXY(d);
-      out.push({ x: xy.x, y: xy.y, row: rowNum, seat });
-      seat += 1;
-    }
-  }
-  return out;
+  return labelCornerDotsWithAnchors(dots, block, meta, sectorPath, svgRowLabels, fieldCenter, w, h);
 }
 
 /**
@@ -231,6 +195,7 @@ export function labelSectorDots(sectorNorm, ctx) {
   const meta = { expectedRows: metaEntry.expectedRows, rowGap: metaEntry.rowGap, seatCountFromLeft: metaEntry.seatCountFromLeft };
 
   if (gridMode === 'radialGrid+d124step') {
+    const block = ctx.blocksByNorm.get(norm);
     return labelCornerSector(
       dots,
       meta,
@@ -239,6 +204,7 @@ export function labelSectorDots(sectorNorm, ctx) {
       ctx.w,
       ctx.h,
       ctx.svgRowLabels,
+      block,
     );
   }
   if (gridMode === 'axisGrid') {
@@ -285,6 +251,8 @@ export function loadPrecomputeContext(options = {}) {
     if (norm) sectorPathByNorm.set(norm, sp.path);
   }
 
+  const blocksByNorm = loadSectorCalibrationBlocksByNorm();
+
   const dotsByNorm = new Map();
   const sectorPathByNormCanonical = new Map();
   for (const norm of LUZHNIKI_PRECOMPUTE_SECTOR_NORMS) {
@@ -309,6 +277,7 @@ export function loadPrecomputeContext(options = {}) {
     fieldCenter,
     dotsByNorm,
     sectorPathByNorm: sectorPathByNormCanonical,
+    blocksByNorm,
     svgRowLabels,
     meta: loadSectorLabelMeta(),
   };

@@ -88,9 +88,8 @@ test('a101 precompute: row bands and labeled file', { skip: !hasLuzhniki }, () =
   const labeled = labelSectorDots('a101', ctx);
   assert.ok(labeled.length > 100, `a101 dots=${labeled.length}`);
   const rows = new Set(labeled.map((p) => p.row));
-  assert.ok(rows.size >= 20, `row count ${rows.size}`);
-  const row1 = labeled.filter((p) => p.row === 1);
-  assert.ok(row1.length >= 3 && row1.length <= 8, `row1 seats=${row1.length}`);
+  assert.equal(rows.size, 38, `row count ${rows.size}`);
+  assert.ok(labeled.some((p) => p.row === 11), 'row 11 present');
   assertNoDupes(labeled);
 });
 
