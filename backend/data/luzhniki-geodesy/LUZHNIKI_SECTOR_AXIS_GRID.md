@@ -72,19 +72,20 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
 - **Не axisGrid** (линейный X/Y ломает угол).
 - 4 угла: `sector-row-anchors.json` → `nearLeft` / `nearRight` / `farLeft` / `farRight`.
-- **Origin:** `originRow: 1`, `originSeat: 1` (= `nearLeft`, нижний-левый угол от поля).
-- **Места (X):** отсчёт **слева направо** — место 1 у левого края ряда, место N = `(N−1) × seatStepPct` вдоль хорды ряда; если не влезает в ширину ряда → доля `N / maxSeatPerRow` (40).
-- **Ряды (Y):** `rowStepPct` × `rowStepMultiplier` (**0.6** сейчас) по дуге nearL→farL.
-- **Дуга:** `rowCurve: 0.42`, `rowBendExtraDeg: 5`.
-- **Граница:** clamp bbox `tickets.json`.
-- **Sellable:** все офферы A101 → 17 точек на `/map` (не bilinear по якорям seat 4/16 — иначе место 25 оказывается у «7»).
+- **Взгляд с поля** (зелёное поле снизу): **место 1** = левый кружок ряда, **место 2, 3…** вправо по **оси X**; **ряд 1, 2…** — вглубь трибуны по **оси Y**.
+- **Origin:** `nearLeft` = ряд 1, место 1 (нижний-левый угол блока от поля).
+- **Ряд N:** `rowPt = nearL + axisY × (N−1) × rowStepPct × rowStepMultiplier` (+ дуга ряда).
+- **Место M в ряду:** `pt = rowPt + axisX × (M−1) × seatStepPct` — **строго слева направо**, номер места = номеру в оффере GetBilet.
+- **Дуга ряда:** `rowCurve` / `rowBendExtraDeg` смещают **весь ряд** одинаково (не per-seat — иначе место 8 оказывается левее 7).
+- **Оси X на дальних рядах:** `axisX` интерполируется near→far (веер расширяется).
+- **Граница:** clamp bbox; при выходе за ширину ряда — доля до `maxSeatPerRow` (40).
 
 Калибровка `sector-row-anchors.json` → `"a101"`:
 
 ```json
 {
   "rowCurve": 0.42,
-  "rowStepMultiplier": 0.6,
+  "rowStepMultiplier": 0.9,
   "rowBendExtraDeg": 5,
   "originRow": 1,
   "originSeat": 1,
@@ -92,12 +93,12 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 }
 ```
 
-| Симптом | Параметр |
-|---------|----------|
-| Ряды слишком плотно / далеко | `rowStepMultiplier` |
-| Место N не на N-й позиции слева | `maxSeatPerRow`, `originSeat: 1` |
-| Мало/много дуги | `rowCurve`, `rowBendExtraDeg` |
-| На карте 7 точек вместо 17 | деплой + проверить `sellableSeats.length` в `/map` |
+| Симптом | Причина / фикс |
+|---------|----------------|
+| Место 8 левее 7 в одном ряду | был bend по `v=seatIndex` — убран, только bend ряда |
+| Место 25 на ~7-й точке | места шли по хорде left→right (вертикаль на р.11) — теперь только **axisX** |
+| Ряды сжаты/раздвинуты | `rowStepMultiplier` (сейчас **0.9**) |
+| 7 точек вместо 17 на UI | деплой + `sellableSeats` в `/map` |
 
 Проверка: diagnostic @ 100%, sellable внутри серого клина, ряд 11 на дуге подписи «11».
 

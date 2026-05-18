@@ -6032,7 +6032,7 @@
   },
   "a101": {
     "rowCurve": 0.42,
-    "rowStepMultiplier": 0.6,
+    "rowStepMultiplier": 0.9,
     "rowBendExtraDeg": 5,
     "originRow": 1,
     "originSeat": 1,

@@ -169,7 +169,8 @@ function pickCornerAnchors(anchors) {
   };
 }
 
-function applyRowBend(pt, u, v, nearL, nearR, farL, farR, rowCurve, extraDeg = 0) {
+/** Изгиб дуги ряда (одинаковый для всех мест в ряду — не ломает порядок мест слева направо). */
+function applyRowBend(pt, rowT, nearL, nearR, farL, farR, rowCurve, extraDeg = 0) {
   const k = Number(rowCurve);
   if (!Number.isFinite(k) || k <= 0) return pt;
   const midU = { xPct: (nearL.xPct + nearR.xPct) / 2, yPct: (nearL.yPct + nearR.yPct) / 2 };
@@ -177,13 +178,13 @@ function applyRowBend(pt, u, v, nearL, nearR, farL, farR, rowCurve, extraDeg = 0
   const nx = midV.xPct - midU.xPct;
   const ny = midV.yPct - midU.yPct;
   const len = Math.hypot(nx, ny) || 1;
-  const bend = k * Math.sin(Math.PI * u) * (v - 0.5) * 2;
+  const bend = k * Math.sin(Math.PI * rowT);
   const chord = Math.hypot(nearR.xPct - nearL.xPct, nearR.yPct - nearL.yPct) || 1;
   const amp = chord * 0.06;
   const extra = chord * Math.sin((Number(extraDeg) * Math.PI) / 180) * 0.15;
   return {
-    xPct: pt.xPct + (-ny / len) * (bend * amp + extra * Math.sin(Math.PI * u)),
-    yPct: pt.yPct + (nx / len) * (bend * amp + extra * Math.sin(Math.PI * u)),
+    xPct: pt.xPct + (-ny / len) * (bend * amp + extra),
+    yPct: pt.yPct + (nx / len) * (bend * amp + extra),
   };
 }
 
@@ -216,35 +217,24 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const dr = rowN - originRow;
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
-
-  const rowTStep = clamp01((dr * rowStep) / anchorRowDist);
+  const rowT = clamp01((dr * rowStep) / anchorRowDist);
   const rowTWidth = clamp01(dr / rowSpan);
 
-  const leftPt = lerpPct(nearL, farL, rowTWidth);
-  const rightPt = lerpPct(nearR, farR, rowTWidth);
-  const chordLen = hypotPct(rightPt.xPct - leftPt.xPct, rightPt.yPct - leftPt.yPct) || 1e-9;
-  const seatDir = unitVec(rightPt.xPct - leftPt.xPct, rightPt.yPct - leftPt.yPct);
+  const axisY = unitVec(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct);
+  const axisXNear = unitVec(nearR.xPct - nearL.xPct, nearR.yPct - nearL.yPct);
+  const axisXFar = unitVec(farR.xPct - farL.xPct, farR.yPct - farL.yPct);
+  const axisX = unitVec(
+    axisXNear.x * (1 - rowTWidth) + axisXFar.x * rowTWidth,
+    axisXNear.y * (1 - rowTWidth) + axisXFar.y * rowTWidth,
+  );
 
-  const maxSeatPerRow = parseNum(opts.maxSeatPerRow) ?? 40;
-  const seatIndex = seatN - originSeat;
-  const seatIndexMax = Math.max(1, maxSeatPerRow - originSeat);
-
-  let along = seatIndex * seatStep;
-  if (along > chordLen * 0.98) {
-    along = (seatIndex / seatIndexMax) * chordLen;
-  }
-
-  let pt = {
-    xPct: leftPt.xPct + seatDir.x * along,
-    yPct: leftPt.yPct + seatDir.y * along,
+  let rowPt = {
+    xPct: nearL.xPct + axisY.x * dr * rowStep,
+    yPct: nearL.yPct + axisY.y * dr * rowStep,
   };
-
-  const u = rowTStep;
-  const v = clamp01(seatIndex / seatIndexMax);
-  pt = applyRowBend(
-    pt,
-    u,
-    v,
+  rowPt = applyRowBend(
+    rowPt,
+    rowT,
     nearL,
     nearR,
     farL,
@@ -252,6 +242,26 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowCurve ?? 0.32,
     opts.rowBendExtraDeg ?? 0,
   );
+
+  const seatNum = seatN - originSeat + 1;
+  const seatOffset = (seatNum - 1) * seatStep;
+
+  let pt = {
+    xPct: rowPt.xPct + axisX.x * seatOffset,
+    yPct: rowPt.yPct + axisX.y * seatOffset,
+  };
+
+  const maxSeatPerRow = parseNum(opts.maxSeatPerRow) ?? 40;
+  const seatEnd = {
+    xPct: rowPt.xPct + axisX.x * (maxSeatPerRow - 1) * seatStep,
+    yPct: rowPt.yPct + axisX.y * (maxSeatPerRow - 1) * seatStep,
+  };
+  const chordLen = hypotPct(seatEnd.xPct - rowPt.xPct, seatEnd.yPct - rowPt.yPct) || 1e-9;
+  const along = hypotPct(pt.xPct - rowPt.xPct, pt.yPct - rowPt.yPct);
+  if (along > chordLen * 1.02) {
+    const t = clamp01((seatNum - 1) / (maxSeatPerRow - 1));
+    pt = lerpPct(rowPt, seatEnd, t);
+  }
 
   if (opts.sectorBbox) {
     const c = clampPctToSectorBbox(pt.xPct, pt.yPct, opts.sectorBbox);
