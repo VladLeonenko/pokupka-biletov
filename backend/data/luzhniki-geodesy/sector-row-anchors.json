@@ -6033,7 +6033,9 @@
   "a101": {
     "rowCurve": 0.42,
     "rowStepMultiplier": 1.12,
-    "seatSpreadMultiplier": 2,
+    "seatSpreadMultiplier": 1.25,
+    "seatCountFromLeft": true,
+    "radialFanExponent": 2,
     "rowBendExtraDeg": 5,
     "originRow": 1,
     "originSeat": 1,

@@ -92,7 +92,8 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
       minSeatPerRow: block.minSeatPerRow,
       maxSeatPerRow: block.maxSeatPerRow,
       seatSpreadMultiplier: Number(block.seatSpreadMultiplier ?? 1),
-      seatCountFromRight: block.seatCountFromRight,
+      seatCountFromLeft: block.seatCountFromLeft ?? block.seatCountFromRight,
+      radialFanExponent: Number(block.radialFanExponent ?? block.radialSeatExponent ?? 1),
       sectorBbox,
     });
     if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;

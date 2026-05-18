@@ -218,15 +218,12 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
   const rowT = clamp01((dr * rowStep) / anchorRowDist);
+  const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
+  const fanT = radialFan === 1 ? rowT : Math.pow(rowT, radialFan);
 
-  const minSeats = parseNum(opts.minSeatPerRow) ?? nearR.seat ?? 4;
   const maxSeats = parseNum(opts.maxSeatPerRow) ?? 39;
-  const maxSeatAtRow = Math.max(
-    minSeats,
-    Math.round(minSeats + rowT * (maxSeats - minSeats)),
-  );
-  let seat1Pt = lerpPct(nearL, farL, rowT);
-  let seatEndPt = lerpPct(nearR, farR, rowT);
+  let seat1Pt = lerpPct(nearL, farL, fanT);
+  let seatEndPt = lerpPct(nearR, farR, fanT);
   seat1Pt = applyRowBend(
     seat1Pt,
     rowT,
@@ -249,13 +246,15 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   );
 
   const seatSpread = Number(opts.seatSpreadMultiplier ?? 1);
-  const seatSpan = Math.max(1, maxSeatAtRow - 1);
-  const seatTLinear = (seatN - originSeat) / seatSpan;
+  const seatSpan = Math.max(1, maxSeats - originSeat);
+  const seatTLinear = clamp01((seatN - originSeat) / seatSpan);
   let seatT =
     seatSpread === 1
       ? seatTLinear
       : clamp01(0.5 + (seatTLinear - 0.5) * seatSpread);
-  if (opts.seatCountFromRight ?? opts.seatMirror) seatT = 1 - seatT;
+  const seatFromLeft =
+    opts.seatCountFromLeft ?? opts.seatCountFromRight ?? opts.seatMirror;
+  if (seatFromLeft) seatT = 1 - seatT;
 
   let pt = lerpPct(seat1Pt, seatEndPt, seatT);
 
