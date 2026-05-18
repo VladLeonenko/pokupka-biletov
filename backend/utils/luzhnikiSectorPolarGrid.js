@@ -3,10 +3,30 @@
  * A-трибуна: bilinear + rowCurve (дуга рядов). B/C — классический polar без изгиба.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { loadSectorCalibrationBlocksByNorm } from './hallSeatGeodesySectorRowAnchors.js';
+import { getSectorBboxPct } from './luzhnikiSectorBbox.js';
 import { normalizeSectorLabel, luzhnikiSectorLookupNorms } from './ticketHallSectorNormalize.js';
 import { resolveCornerSectorPbiletStepGrid } from './luzhnikiPbiletGridSpacing.js';
 import { interpolateSeatFromCornerAnchors } from './luzhnikiSeatWarp.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let cachedTickets = null;
+
+function loadTicketsPayload() {
+  if (cachedTickets) return cachedTickets;
+  try {
+    cachedTickets = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '../../tickets.json'), 'utf8'),
+    );
+  } catch {
+    cachedTickets = null;
+  }
+  return cachedTickets;
+}
 
 function parseNum(value) {
   const n = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
@@ -59,8 +79,17 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
 
   const usePbiletStepGrid = SECTOR_RADIAL_PRIORITY_NORMS.has(normHit);
   if (usePbiletStepGrid) {
+    const tickets = loadTicketsPayload();
+    const sectorBbox = tickets
+      ? getSectorBboxPct(tickets, block.sectorLabel || sectorLabel, 11413, 9676)
+      : null;
     const pt = resolveCornerSectorPbiletStepGrid(block.anchors, apiRow, apiSeat, {
       rowCurve: Number(block.rowCurve ?? 0.32),
+      rowStepMultiplier: Number(block.rowStepMultiplier ?? 1),
+      rowBendExtraDeg: Number(block.rowBendExtraDeg ?? 0),
+      originRow: block.originRow,
+      originSeat: block.originSeat,
+      sectorBbox,
     });
     if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;
     return {

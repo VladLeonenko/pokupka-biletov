@@ -6031,7 +6031,11 @@
     "sectorLabel": "Сектор B 266"
   },
   "a101": {
-    "rowCurve": 0.32,
+    "rowCurve": 0.42,
+    "rowStepMultiplier": 1.2,
+    "rowBendExtraDeg": 5,
+    "originRow": 1,
+    "originSeat": 1,
     "anchors": [
       {
         "row": "1",

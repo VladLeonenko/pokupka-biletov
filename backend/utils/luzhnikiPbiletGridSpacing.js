@@ -1,18 +1,20 @@
 /**
  * Шаг сетки pbilet в % viewBox (11413×9676) — эталон strict «Сектор D 124».
- * Масштаб карты меняет только zoom; шаги в xPct/yPct постоянны.
+ * A101: origin (ряд 1 место 1), X → места, Y → ряды, калибровка в sector-row-anchors.json.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { clampPctToSectorBbox } from './luzhnikiSectorBbox.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_HALL_W = 11413;
 const DEFAULT_HALL_H = 9676;
 
-/** Эталон для измерения (в tickets есть ряды 5–37, ряд 10 — через интерполяцию офферов). */
 export const PBILET_GRID_REFERENCE_SECTOR = 'Сектор D 124';
+
+/** @typedef {{ seatStepPct: number, rowStepPct: number, source: string }} PbiletGridSpacing */
 
 let cachedSpacing = null;
 
@@ -38,10 +40,22 @@ function unitVec(dx, dy) {
   return { x: dx / len, y: dy / len };
 }
 
+function lerpPct(a, b, t) {
+  return {
+    xPct: a.xPct + (b.xPct - a.xPct) * t,
+    yPct: a.yPct + (b.yPct - a.yPct) * t,
+  };
+}
+
+function clamp01(t) {
+  return Math.max(0, Math.min(1, t));
+}
+
 /**
  * @param {unknown} ticketsPayload
  * @param {number} [hallWidth]
  * @param {number} [hallHeight]
+ * @returns {PbiletGridSpacing}
  */
 export function measurePbiletGridSpacingFromTickets(
   ticketsPayload,
@@ -100,6 +114,7 @@ export function measurePbiletGridSpacingFromTickets(
   };
 }
 
+/** @param {unknown} [ticketsPayload] @returns {PbiletGridSpacing} */
 export function getPbiletGridSpacing(ticketsPayload = null) {
   if (cachedSpacing && !ticketsPayload) return cachedSpacing;
   let payload = ticketsPayload;
@@ -154,16 +169,30 @@ function pickCornerAnchors(anchors) {
   };
 }
 
-function addPct(a, dx, dy) {
-  return { xPct: a.xPct + dx, yPct: a.yPct + dy };
+function applyRowBend(pt, u, v, nearL, nearR, farL, farR, rowCurve, extraDeg = 0) {
+  const k = Number(rowCurve);
+  if (!Number.isFinite(k) || k <= 0) return pt;
+  const midU = { xPct: (nearL.xPct + nearR.xPct) / 2, yPct: (nearL.yPct + nearR.yPct) / 2 };
+  const midV = { xPct: (farL.xPct + farR.xPct) / 2, yPct: (farL.yPct + farR.yPct) / 2 };
+  const nx = midV.xPct - midU.xPct;
+  const ny = midV.yPct - midU.yPct;
+  const len = Math.hypot(nx, ny) || 1;
+  const bend = k * Math.sin(Math.PI * u) * (v - 0.5) * 2;
+  const chord = Math.hypot(nearR.xPct - nearL.xPct, nearR.yPct - nearL.yPct) || 1;
+  const amp = chord * 0.06;
+  const extra = chord * Math.sin((Number(extraDeg) * Math.PI) / 180) * 0.15;
+  return {
+    xPct: pt.xPct + (-ny / len) * (bend * amp + extra * Math.sin(Math.PI * u)),
+    yPct: pt.yPct + (nx / len) * (bend * amp + extra * Math.sin(Math.PI * u)),
+  };
 }
 
 /**
- * Угловой сектор (A101): оси из 4 углов, шаг места/ряда = D124 strict.
+ * A101: origin = nearLeft (ряд 1 место 1), места +X, ряды +Y, шаги D124.
  * @param {{ row: string|number, seat: string|number, xPct: number, yPct: number, role?: string }[]} anchors
  * @param {string|number} row
  * @param {string|number} seat
- * @param {{ rowCurve?: number, seatStepPct?: number, rowStepPct?: number }} [opts]
+ * @param {object} [opts]
  */
 export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {}) {
   const roles = pickCornerAnchors(anchors);
@@ -177,35 +206,59 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const seatN = parseNum(seat);
   if (rowN == null || seatN == null) return null;
 
+  const originRow = parseNum(opts.originRow ?? nearL.row) ?? nearL.row;
+  const originSeat = parseNum(opts.originSeat ?? nearL.seat) ?? nearL.seat;
   const { seatStepPct, rowStepPct } = getPbiletGridSpacing();
   const seatStep = Number(opts.seatStepPct ?? seatStepPct);
-  const rowStep = Number(opts.rowStepPct ?? rowStepPct);
+  const rowStep =
+    Number(opts.rowStepPct ?? rowStepPct) * Number(opts.rowStepMultiplier ?? 1);
 
-  const dr = rowN - nearL.row;
-  const rowDirNear = unitVec(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct);
-  const rowDirFar = unitVec(farR.xPct - nearR.xPct, farR.yPct - nearR.yPct);
+  const dr = rowN - originRow;
+  const ds = seatN - originSeat;
+  const rowSpan = Math.max(1, farL.row - originRow);
 
-  const leftEdge = addPct(nearL, rowDirNear.x * dr * rowStep, rowDirNear.y * dr * rowStep);
-  const rightEdge = addPct(nearR, rowDirFar.x * dr * rowStep, rowDirFar.y * dr * rowStep);
+  const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
+  const rowT = clamp01((dr * rowStep) / anchorRowDist);
 
-  const seatDir = unitVec(rightEdge.xPct - leftEdge.xPct, rightEdge.yPct - leftEdge.yPct);
-  const ds = seatN - nearL.seat;
-  let pt = addPct(leftEdge, seatDir.x * ds * seatStep, seatDir.y * ds * seatStep);
+  const seatMaxNear = nearR.seat - originSeat;
+  const seatMaxFar = farR.seat - originSeat;
+  const seatSpan = Math.max(1, seatMaxNear + rowT * (seatMaxFar - seatMaxNear));
+  const seatT = clamp01(ds / seatSpan);
 
-  const k = Number(opts.rowCurve ?? 0);
-  if (Number.isFinite(k) && k > 0) {
-    const rowSpan = Math.max(1, (farL.row ?? nearL.row) - nearL.row);
-    const u = Math.max(0, Math.min(1, dr / rowSpan));
-    const v = Math.max(0, Math.min(1, ds / Math.max(1, (farR.seat ?? nearR.seat) - nearL.seat)));
-    const midU = { xPct: (nearL.xPct + nearR.xPct) / 2, yPct: (nearL.yPct + nearR.yPct) / 2 };
-    const midV = { xPct: (farL.xPct + farR.xPct) / 2, yPct: (farL.yPct + farR.yPct) / 2 };
-    const nx = midV.xPct - midU.xPct;
-    const ny = midV.yPct - midU.yPct;
-    const len = Math.hypot(nx, ny) || 1;
-    const bend = k * Math.sin(Math.PI * u) * (v - 0.5) * 2;
-    const chord = Math.hypot(nearR.xPct - nearL.xPct, nearR.yPct - nearL.yPct) || 1;
-    const amp = chord * 0.06;
-    pt = addPct(pt, (-ny / len) * bend * amp, (nx / len) * bend * amp);
+  const p00 = nearL;
+  const p10 = farL;
+  const p01 = nearR;
+  const p11 = farR;
+  let pt = {
+    xPct:
+      (1 - rowT) * (1 - seatT) * p00.xPct +
+      rowT * (1 - seatT) * p10.xPct +
+      (1 - rowT) * seatT * p01.xPct +
+      rowT * seatT * p11.xPct,
+    yPct:
+      (1 - rowT) * (1 - seatT) * p00.yPct +
+      rowT * (1 - seatT) * p10.yPct +
+      (1 - rowT) * seatT * p01.yPct +
+      rowT * seatT * p11.yPct,
+  };
+
+  const u = rowT;
+  const v = seatT;
+  pt = applyRowBend(
+    pt,
+    u,
+    v,
+    nearL,
+    nearR,
+    farL,
+    farR,
+    opts.rowCurve ?? 0.32,
+    opts.rowBendExtraDeg ?? 0,
+  );
+
+  if (opts.sectorBbox) {
+    const c = clampPctToSectorBbox(pt.xPct, pt.yPct, opts.sectorBbox);
+    pt = { xPct: c.xPct, yPct: c.yPct };
   }
 
   if (!Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;
