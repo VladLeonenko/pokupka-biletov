@@ -115,11 +115,16 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     luzhnikiStadiumCheckout: true,
     grayHallWhenNoOffers: false,
     seatSelectionDisabled: false,
+    sellableFromGetbiletOffersOnly: true,
+    sellableSeatsFromLiveOffers: true,
   };
 
   const offers = Array.isArray(offerRows) ? offerRows : [];
   if (offers.length < 1) {
-    return { ...row, layout_json: { ...base, sellableSeats: [], sellableSeatsFromLiveOffers: true } };
+    return {
+      ...row,
+      layout_json: { ...base, sellableSeats: [], sellableSeatsFromLiveOffers: true },
+    };
   }
 
   const ticketsPayload = loadTicketsPayload();
@@ -140,7 +145,6 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
       ...base,
       seats: layoutSeats,
       sellableSeats: geodesy.seats,
-      sellableSeatsFromLiveOffers: true,
       sellableGeodesyMode: geodesy.geodesyMode,
       offerSeatGeodesy: {
         matched: geodesy.matched,

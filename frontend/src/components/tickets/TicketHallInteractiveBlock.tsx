@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  buildSellablePlacementsFromGetbiletOffers,
   buildSvgNativePlacements,
   parseLayoutSeatPositions,
   parseLayoutMode,
@@ -11,6 +12,7 @@ import {
   type SvgNativePlacement,
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
+import { parseSellableFromGetbiletOffersOnly } from '../../utils/luzhnikiStadiumMap';
 import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
@@ -206,11 +208,7 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
   return { enabled: record.enabled === true && sectors.length > 0, sectors };
 }
 
-import {
-  buildLabeledSeatIndex,
-  labeledSeatLookupKeys,
-  lookupLabeledSeat,
-} from '@/utils/hallSeatSeatLookup';
+import { buildLabeledSeatIndex, lookupLabeledSeat } from '@/utils/hallSeatSeatLookup';
 import {
   normalizeRowLabel,
   normalizeSeatToken,
@@ -421,13 +419,35 @@ export function TicketHallInteractiveBlock({
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],
   );
+  const sellableFromGetbiletOffersOnly = useMemo(
+    () => parseSellableFromGetbiletOffersOnly(layoutJson),
+    [layoutJson],
+  );
+  const sellableSeatCoords = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return [] as SvgNativeSeat[];
+    return parseLayoutSeatPositions({
+      seats: (layoutJson as Record<string, unknown>).sellableSeats,
+    });
+  }, [layoutJson]);
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (sellableFromGetbiletOffersOnly) {
+      if (sellableSeatCoords.length >= 1) return sellableSeatCoords;
+      const fromSvg = nativeProcessed?.seats ?? [];
+      if (fromSvg.length >= 2) return fromSvg;
+      return [];
+    }
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  }, [
+    preferLayoutSeatPositions,
+    layoutSeats,
+    nativeProcessed,
+    sellableFromGetbiletOffersOnly,
+    sellableSeatCoords,
+  ]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
     if (preferLayoutSeatPositions) return false;
@@ -445,7 +465,33 @@ export function TicketHallInteractiveBlock({
   }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
 
   const { nativePlacements } = useMemo(() => {
-    if (!useSvgNative || nativeSeats.length < 2) {
+    if (!useSvgNative) {
+      return {
+        nativePlacements: [] as SvgNativePlacement[],
+      };
+    }
+
+    const coordSources: SvgNativeSeat[] = [];
+    const seenCoord = new Set<string>();
+    const pushCoord = (s: SvgNativeSeat) => {
+      const k = seatMapKey(s.sector, s.row, s.seat);
+      if (seenCoord.has(k)) return;
+      seenCoord.add(k);
+      coordSources.push(s);
+    };
+    for (const s of sellableSeatCoords) pushCoord(s);
+    for (const s of nativeSeats) pushCoord(s);
+
+    if (sellableFromGetbiletOffersOnly) {
+      const placements = buildSellablePlacementsFromGetbiletOffers(offers, getPriceKey, coordSources);
+      const merged =
+        grayHallWhenNoOffers && nativeSeats.length >= 2
+          ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
+          : placements;
+      return { nativePlacements: merged };
+    }
+
+    if (nativeSeats.length < 2) {
       return {
         nativePlacements: [] as SvgNativePlacement[],
       };
@@ -453,16 +499,6 @@ export function TicketHallInteractiveBlock({
 
     if (sectorMode.enabled) {
       const layoutIndex = buildLabeledSeatIndex(nativeSeats);
-      const sellableFromApi = parseLayoutSeatPositions(
-        layoutJson && typeof layoutJson === 'object'
-          ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
-          : null,
-      );
-      for (const s of sellableFromApi) {
-        for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
-          layoutIndex.set(key, s);
-        }
-      }
       const placements: SvgNativePlacement[] = [];
       const placedKeys = new Set<string>();
 
@@ -519,13 +555,12 @@ export function TicketHallInteractiveBlock({
       nativePlacements: mergedNonSector,
     };
   }, [
-    colorForSeat,
     getPriceKey,
     grayHallWhenNoOffers,
     offers,
     sectorMode.enabled,
-    seatSelectionDisabled,
-    layoutJson,
+    sellableFromGetbiletOffersOnly,
+    sellableSeatCoords,
     useSvgNative,
     nativeSeats,
   ]);
@@ -1043,6 +1078,7 @@ export function TicketHallInteractiveBlock({
     return nativePlacements;
   }, [nativePlacements, sectorMode.enabled]);
   const visibleUnavailableNativeSeats = useMemo(() => {
+    if (sellableFromGetbiletOffersOnly) return [];
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
       if (backgroundSeatCoordinates.length > 0) return [];
@@ -1056,7 +1092,17 @@ export function TicketHallInteractiveBlock({
     return showUnavailableSeats
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
-  }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
+  }, [
+    backgroundSeatCoordinates.length,
+    matchedNativeSeatKeys,
+    nativeSeats,
+    sectorMode.enabled,
+    selectedSector,
+    selectedSectorSummary,
+    sellableFromGetbiletOffersOnly,
+    showUnavailableSeats,
+    useSvgNative,
+  ]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
   /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */

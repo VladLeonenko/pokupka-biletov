@@ -29,9 +29,17 @@ export function luzhnikiStadiumCheckoutLayoutFlags(
     grayHallWhenNoOffers: false,
     disablePositionalSeatZip: true,
     preferExactOfferSeatMatch: true,
+    /** Цветные точки — только SeatList из живых офферов GetBilet, без fuzzy SVG-match. */
+    sellableFromGetbiletOffersOnly: true,
     /** Фон чаши — облако luzhniki.txt, не grid layout.seats (~80k). */
     hallBackgroundFromLabeledSeats: false,
   };
+}
+
+export function parseSellableFromGetbiletOffersOnly(layout: unknown): boolean {
+  if (!isLuzhnikiStadiumCheckoutLayout(layout)) return false;
+  const r = layout as Record<string, unknown>;
+  return r.sellableFromGetbiletOffersOnly !== false;
 }
 
 export function parseHallBackgroundFromLabeledSeats(layout: unknown): boolean {

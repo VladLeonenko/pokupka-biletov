@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildSellablePlacementsFromGetbiletOffers,
   buildSvgNativePlacements,
   extractSectorCode,
   matchSvgSeatToOffer,
@@ -54,6 +55,24 @@ describe('svgNativeSeatLayout', () => {
       { sector: 'Партер', row: '1', seat: '1', xPct: 12.5, yPct: 30 },
       { sector: 'Партер', row: '1', seat: '2', xPct: 20, yPct: 40 },
     ]);
+  });
+
+  it('buildSellablePlacementsFromGetbiletOffers only maps API SeatList', () => {
+    const coords = parseLayoutSeatPositions({
+      seats: [
+        { sector: 'D 230', row: '11', seat: '5', xPct: 10, yPct: 20 },
+        { sector: 'D 230', row: '11', seat: '99', xPct: 90, yPct: 20 },
+      ],
+    });
+    const offers = [{ Id: 'o1', Sector: 'Сектор D 230', Row: '11', SeatList: ['5'], AgentPrice: '5000' }];
+    const placements = buildSellablePlacementsFromGetbiletOffers(
+      offers,
+      (o) => String(o.AgentPrice ?? ''),
+      coords,
+    );
+    expect(placements).toHaveLength(1);
+    expect(placements[0]?.seat).toBe('5');
+    expect(placements[0]?.offerId).toBe('o1');
   });
 
   it('matches layout seats with GetBilet offers and reports gaps', () => {
