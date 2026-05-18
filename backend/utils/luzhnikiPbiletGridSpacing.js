@@ -218,22 +218,30 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
   const rowT = clamp01((dr * rowStep) / anchorRowDist);
-  const rowTWidth = clamp01(dr / rowSpan);
 
-  const axisY = unitVec(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct);
-  const axisXNear = unitVec(nearR.xPct - nearL.xPct, nearR.yPct - nearL.yPct);
-  const axisXFar = unitVec(farR.xPct - farL.xPct, farR.yPct - farL.yPct);
-  const axisX = unitVec(
-    axisXNear.x * (1 - rowTWidth) + axisXFar.x * rowTWidth,
-    axisXNear.y * (1 - rowTWidth) + axisXFar.y * rowTWidth,
+  const minSeats = parseNum(opts.minSeatPerRow) ?? nearR.seat ?? 4;
+  const maxSeats = parseNum(opts.maxSeatPerRow) ?? 39;
+  const maxSeatAtRow = Math.max(
+    minSeats,
+    Math.round(minSeats + rowT * (maxSeats - minSeats)),
   );
+  const seatT =
+    maxSeatAtRow > 1 ? clamp01((seatN - 1) / (maxSeatAtRow - 1)) : 0;
 
-  let rowPt = {
-    xPct: nearL.xPct + axisY.x * dr * rowStep,
-    yPct: nearL.yPct + axisY.y * dr * rowStep,
-  };
-  rowPt = applyRowBend(
-    rowPt,
+  let seat1Pt = lerpPct(nearL, farL, rowT);
+  let seatEndPt = lerpPct(nearR, farR, rowT);
+  seat1Pt = applyRowBend(
+    seat1Pt,
+    rowT,
+    nearL,
+    nearR,
+    farL,
+    farR,
+    opts.rowCurve ?? 0.32,
+    opts.rowBendExtraDeg ?? 0,
+  );
+  seatEndPt = applyRowBend(
+    seatEndPt,
     rowT,
     nearL,
     nearR,
@@ -243,25 +251,7 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowBendExtraDeg ?? 0,
   );
 
-  const seatNum = seatN - originSeat + 1;
-  const seatOffset = (seatNum - 1) * seatStep;
-
-  let pt = {
-    xPct: rowPt.xPct + axisX.x * seatOffset,
-    yPct: rowPt.yPct + axisX.y * seatOffset,
-  };
-
-  const maxSeatPerRow = parseNum(opts.maxSeatPerRow) ?? 40;
-  const seatEnd = {
-    xPct: rowPt.xPct + axisX.x * (maxSeatPerRow - 1) * seatStep,
-    yPct: rowPt.yPct + axisX.y * (maxSeatPerRow - 1) * seatStep,
-  };
-  const chordLen = hypotPct(seatEnd.xPct - rowPt.xPct, seatEnd.yPct - rowPt.yPct) || 1e-9;
-  const along = hypotPct(pt.xPct - rowPt.xPct, pt.yPct - rowPt.yPct);
-  if (along > chordLen * 1.02) {
-    const t = clamp01((seatNum - 1) / (maxSeatPerRow - 1));
-    pt = lerpPct(rowPt, seatEnd, t);
-  }
+  let pt = lerpPct(seat1Pt, seatEndPt, seatT);
 
   if (opts.sectorBbox) {
     const c = clampPctToSectorBbox(pt.xPct, pt.yPct, opts.sectorBbox);
