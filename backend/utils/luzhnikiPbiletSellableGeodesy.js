@@ -51,8 +51,11 @@ import {
 } from './luzhnikiPilotLayoutCalibrate.js';
 import { loadSeatsArrayFromLayout } from './luzhnikiSeatIndexCache.js';
 import { getCachedProdLayoutLabeledIndex } from './luzhnikiProdLayoutSeats.js';
+import { buildLabeledDotsMap, LUZHNIKI_PRECOMPUTE_SECTOR_NORMS } from './luzhnikiLabeledDotsStore.js';
+import { SECTOR_RADIAL_PRIORITY_NORMS } from './luzhnikiSectorPolarGrid.js';
 import {
   buildCloudRowSeatIndexForSellable,
+  resolveSellableFromLabeledDots,
   resolveSellableGrayCloudSeat,
 } from './luzhnikiSectorCloudRowSeat.js';
 import {
@@ -367,6 +370,12 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     });
   })();
 
+  const labeledDotsByNorm = new Map();
+  for (const sectorNorm of LUZHNIKI_PRECOMPUTE_SECTOR_NORMS) {
+    const map = buildLabeledDotsMap(sectorNorm);
+    if (map?.size) labeledDotsByNorm.set(sectorNorm, map);
+  }
+
   const offerByNorm = new Map();
   for (const o of offers) {
     const norm = normalizeSectorLabel(o.Sector);
@@ -437,6 +446,33 @@ export function buildSellableSeatGeodesyPbiletAccurate(
             seen.add(dedupe);
             cloudMasterMatched += 1;
             seats.push(finalizeSellableCoords(sector, row, seat, cloudHit, ticketsPayload, w, h));
+            continue;
+          }
+        }
+
+        const labeledMap = (() => {
+          for (const n of lookupNorms) {
+            const m = labeledDotsByNorm.get(n);
+            if (m?.size) return m;
+          }
+          return null;
+        })();
+        if (labeledMap && !SECTOR_RADIAL_PRIORITY_NORMS.has(norm)) {
+          const labeledHit = resolveSellableFromLabeledDots(labeledMap, row, seat);
+          if (labeledHit) {
+            seen.add(dedupe);
+            grayCloudMatched += 1;
+            seats.push(
+              finalizeSellableCoords(
+                sector,
+                row,
+                seat,
+                { ...labeledHit, sector, row, seat },
+                ticketsPayload,
+                w,
+                h,
+              ),
+            );
             continue;
           }
         }

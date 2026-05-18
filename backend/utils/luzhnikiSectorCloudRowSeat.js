@@ -405,6 +405,28 @@ export function trySectorCloudRowSeatForRadial(index, sector, row, seat, seatRan
 }
 
 /**
+ * O(1) lookup из precomputed labeled-dots.
+ * @param {Map<string, { x: number, y: number }>} labeledMap — `${row}:${seat}` → точка
+ */
+export function resolveSellableFromLabeledDots(labeledMap, rowN, seatN) {
+  if (!labeledMap?.size) return null;
+  const row = parseNum(rowN);
+  const seat = parseNum(seatN);
+  if (row == null || seat == null) return null;
+  const pt = labeledMap.get(`${row}:${seat}`);
+  if (!pt || !Number.isFinite(pt.x) || !Number.isFinite(pt.y)) return null;
+  const x = pt.xPct ?? pt.x;
+  const y = pt.yPct ?? pt.y;
+  return {
+    xPct: x,
+    yPct: y,
+    geodesySource: 'grayCloud+labeled',
+  };
+}
+
+export { buildLabeledDotsMap } from './luzhnikiLabeledDotsStore.js';
+
+/**
  * @param {{
  *   layout: Record<string, unknown>;
  *   ticketsPayload: unknown;

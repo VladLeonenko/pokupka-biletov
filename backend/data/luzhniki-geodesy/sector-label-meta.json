@@ -1,0 +1,26 @@
+{
+  "sectors": {
+    "a101": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true },
+    "a102": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a103": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a104": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a105": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a106": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a107": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a108": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a109": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a110": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a111": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a112": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a113": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a114": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a115": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "a116": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true },
+    "b151": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "b152": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "b153": { "gridMode": "fieldGrid", "expectedRows": 28 },
+    "b154": { "gridMode": "axisGrid", "expectedRows": 33, "rowGap": 17 },
+    "b155": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true },
+    "b156": { "gridMode": "radialGrid+d124step", "expectedRows": 38, "seatCountFromLeft": true }
+  }
+}
