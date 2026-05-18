@@ -63,7 +63,8 @@
     "test:email": "node scripts/test-email-send.js",
     "seed:tbank-demo-event": "node scripts/seed-tbank-demo-event.js",
     "seed:luzhniki-cup-final-2026": "node scripts/seed-luzhniki-cup-final-2026-event.js",
-    "precompute:luzhniki-labeled-dots": "node scripts/precomputeLabeledDots.js"
+    "precompute:luzhniki-labeled-dots": "node scripts/precomputeLabeledDots.js",
+    "enrich:luzhniki-gray-circles-svg": "node scripts/enrich-luzhniki-gray-circles-svg.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
