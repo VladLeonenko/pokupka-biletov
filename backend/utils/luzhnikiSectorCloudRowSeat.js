@@ -547,12 +547,7 @@ export function resolveSellableGrayCloudSeatByAnchors(dots, anchors, rowN, seatN
   const band = bands[rowN - 1];
   const sorted = sortDotsAlongChord(band, anchors);
 
-  let idx;
-  if (seatCountFromLeft) {
-    idx = sorted.length - seatN;
-  } else {
-    idx = seatN - 1;
-  }
+  const idx = seatN - 1;
 
   if (idx < 0 || idx >= sorted.length) return null;
 

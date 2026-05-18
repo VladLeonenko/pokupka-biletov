@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import cheerio from 'cheerio';
 
-import { buildFullStadiumLabeledSeats } from '../utils/luzhnikiStadiumFullGeodesy.js';
+import { buildCanonicalLabeledSeatsForLookup, resetGrayDotsLabelerCache } from '../utils/luzhnikiGrayDotsLabeler.js';
 import {
   buildEnrichedGrayCloudSeatIndexes,
   buildEnrichedGrayCloudSvg,
@@ -90,12 +90,12 @@ async function main() {
     baseSvg = fs.readFileSync(args.mergeInto, 'utf8');
   }
 
+  resetGrayDotsLabelerCache();
   const indexes = await buildEnrichedGrayCloudSeatIndexes({
     ticketsPayload,
     coordinatesPayload,
     svgMarkup: baseSvg,
-    useFullStadiumFallback: true,
-    useLabeledDotsFallback: true,
+    useCanonicalCloudLabels: true,
   });
 
   let svg;
@@ -140,31 +140,14 @@ async function main() {
   );
 
   const seatsBundlePath = path.join(outDir, 'bundle-luzhniki-gray-cloud-labeled-seats.json');
-  const fullBuilt = buildFullStadiumLabeledSeats({
-    ticketsPayload,
-    coordinatesPayload,
-    svgMarkup: baseSvg,
-    hallWidth: indexes.w,
-    hallHeight: indexes.h,
-  });
-  const seatsForLookup = fullBuilt.seats
-    .filter((s) => s?.sector && s?.row != null && s?.seat != null)
-    .map((s) => ({
-      sector: String(s.sector),
-      row: String(s.row),
-      seat: String(s.seat),
-      xPct: Number(s.xPct),
-      yPct: Number(s.yPct),
-      geodesySource: s.geodesySource ?? 'fieldGrid',
-    }));
+  const seatsForLookup = buildCanonicalLabeledSeatsForLookup();
   fs.writeFileSync(
     seatsBundlePath,
     `${JSON.stringify(
       {
         builtAt: new Date().toISOString(),
-        mode: 'gray-cloud-labeled-lookup',
+        mode: 'canonical-cloud-lookup',
         seatCount: seatsForLookup.length,
-        stats: fullBuilt.stats,
         seats: seatsForLookup,
       },
       null,
