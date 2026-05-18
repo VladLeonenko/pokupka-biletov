@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Лужники — просмотр и правка разметки</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #0f1419; color: #e8eaed; font-family: system-ui, sans-serif;
+    }
+    .bar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: 8px 12px; background: #1a2332; border-bottom: 1px solid #334155;
+    }
+    .bar label { font-size: 13px; cursor: pointer; }
+    .bar input[type="text"], .bar input[type="number"] {
+      width: 72px; padding: 3px 6px; border-radius: 4px;
+      border: 1px solid #475569; background: #0f172a; color: #e8eaed; font: inherit; font-size: 13px;
+    }
+    .bar input.wide { width: 120px; }
+    .bar button {
+      font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 6px;
+      border: 1px solid #475569; background: #334155; color: #e8eaed; cursor: pointer;
+    }
+    .bar button:hover { background: #475569; }
+    .bar button.active { background: #2563eb; border-color: #3b82f6; }
+    .bar button.warn { background: #b45309; border-color: #d97706; }
+    .bar .sep { width: 1px; height: 22px; background: #475569; margin: 0 2px; }
+    .bar .group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    #status { font-size: 12px; opacity: 0.85; flex: 1; min-width: 180px; }
+    #infoPanel {
+      position: fixed; z-index: 100; right: 12px; top: 56px;
+      width: min(380px, calc(100vw - 24px)); padding: 12px 14px; border-radius: 10px;
+      background: rgba(15, 23, 42, 0.97); border: 1px solid #475569;
+      font-size: 14px; line-height: 1.45; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      display: none;
+    }
+    #infoPanel.visible { display: block; }
+    #infoPanel strong.title { color: #fbbf24; font-size: 15px; }
+    #infoPanel .src { font-size: 11px; opacity: 0.65; margin-top: 6px; }
+    #infoPanel .coords { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+    #infoPanel button.close {
+      float: right; margin: -4px -4px 4px 8px; padding: 2px 8px; font-size: 12px;
+    }
+    #infoPanel .edit-grid {
+      display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin-top: 10px; align-items: center;
+    }
+    #infoPanel .edit-grid input {
+      width: 100%; padding: 4px 8px; border-radius: 4px;
+      border: 1px solid #475569; background: #0f172a; color: #e8eaed; font: inherit;
+    }
+    #infoPanel .edit-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    #infoPanel .edit-actions button { font-size: 12px; padding: 4px 10px; }
+    #paintToast {
+      position: fixed; z-index: 200; left: 50%; bottom: 24px; transform: translateX(-50%);
+      max-width: min(520px, calc(100vw - 24px)); padding: 12px 18px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; text-align: center; display: none;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55); pointer-events: none;
+    }
+    #paintToast.ok { display: block; background: #166534; color: #ecfdf5; border: 1px solid #22c55e; }
+    #paintToast.err { display: block; background: #7f1d1d; color: #fef2f2; border: 1px solid #f87171; }
+    #paintToast.info { display: block; background: #1e3a5f; color: #e0f2fe; border: 1px solid #38bdf8; }
+    .viewport {
+      position: relative; overflow: hidden;
+      width: 100%; height: calc(100vh - 48px);
+      background: #000; cursor: crosshair; touch-action: none; overscroll-behavior: none;
+    }
+    .viewport.panning { cursor: grab; }
+    .viewport.panning.dragging { cursor: grabbing; }
+    .viewport.mode-paint { cursor: crosshair; }
+    .viewport.mode-edit .stage svg circle { cursor: cell; }
+    .stage {
+      position: absolute; left: 50%; top: 50%;
+      transform-origin: center center; will-change: transform;
+      touch-action: none;
+    }
+    .viewport.mode-paint .stage svg { touch-action: none; }
+    .stage svg { display: block; max-width: none; max-height: none; }
+    .stage svg circle { pointer-events: all; cursor: pointer; }
+    .stage svg circle.hl { fill: #f59e0b !important; stroke: #fff; stroke-width: 3px; }
+    .stage svg circle.paint-preview { fill: #22d3ee !important; stroke: #fff; stroke-width: 2px; opacity: 0.85; }
+    .stage svg circle.paint-selected { fill: #a78bfa !important; stroke: #fff; stroke-width: 2px; }
+    .stage svg circle.persist-flash { stroke: #22c55e !important; stroke-width: 4px !important; }
+    /* Только в редакторе — в SVG на диск не попадает (снимается при serialize) */
+    .stage svg circle.seat-edited-in-editor {
+      fill: #fbbf24 !important;
+      stroke: #b45309;
+      stroke-width: 1.5px;
+    }
+    .stage svg circle.seat-edited-in-editor.paint-selected { fill: #c4b5fd !important; }
+    .stage svg circle.unlabeled-dot { fill: #7f1d1d; }
+    .hint { font-size: 11px; opacity: 0.55; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <label>SVG: <input type="file" id="file" accept=".svg,image/svg+xml" /></label>
+    <button type="button" id="zoomOut" title="Уменьшить">−</button>
+    <button type="button" id="zoomIn" title="Увеличить">+</button>
+    <button type="button" id="zoomFit" title="Вписать в экран">⊡</button>
+    <button type="button" id="panMode" title="Перетаскивание (Space+drag)">✋</button>
+    <span class="sep"></span>
+    <div class="group">
+      <button type="button" id="modeView" class="active" title="Только просмотр">👁</button>
+      <button type="button" id="modeEdit" title="Правка точки в карточке">✎</button>
+      <button type="button" id="modePaint" title="Протянуть линию вдоль ряда">〰</button>
+    </div>
+    <div class="group" id="paintBar" hidden>
+      <label title="макс. захват вокруг линии">Коридор <input type="number" id="paintCorridor" min="8" max="60" value="20" /></label>
+      <label title="отсечь соседние ряды по ⊥ расстоянию"><input type="checkbox" id="paintOneRow" checked /> 1 ряд</label>
+      <button type="button" id="paintClearSel">✕ выделение</button>
+      <span class="hint" id="paintSelCount">0 точек</span>
+      <span class="sep"></span>
+      <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
+      <label>Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
+      <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
+      <button type="button" id="paintApply" class="warn">▶ Применить ряд</button>
+    </div>
+    <span class="sep"></span>
+    <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
+    <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
+    <span class="hint" id="saveTarget"></span>
+    <span class="hint" id="saveStatus"></span>
+    <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
+    <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
+    <span id="status">Загрузка…</span>
+  </div>
+  <div id="infoPanel" aria-live="polite"></div>
+  <div id="paintToast" role="status"></div>
+  <div class="viewport" id="viewport">
+    <div class="stage" id="stage"></div>
+  </div>
+  <script>
+    const fileInput = document.getElementById('file');
+    const viewport = document.getElementById('viewport');
+    const stage = document.getElementById('stage');
+    const infoPanel = document.getElementById('infoPanel');
+    const paintToast = document.getElementById('paintToast');
+    const status = document.getElementById('status');
+    let paintToastTimer = 0;
+    const markUnlabeled = document.getElementById('markUnlabeled');
+    const panModeBtn = document.getElementById('panMode');
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+    const zoomFitBtn = document.getElementById('zoomFit');
+    const modeViewBtn = document.getElementById('modeView');
+    const modeEditBtn = document.getElementById('modeEdit');
+    const modePaintBtn = document.getElementById('modePaint');
+    const paintBar = document.getElementById('paintBar');
+    const paintSector = document.getElementById('paintSector');
+    const paintRow = document.getElementById('paintRow');
+    const paintStartSeat = document.getElementById('paintStartSeat');
+    const paintCorridor = document.getElementById('paintCorridor');
+    const paintOneRow = document.getElementById('paintOneRow');
+    const paintClearSel = document.getElementById('paintClearSel');
+    const paintApply = document.getElementById('paintApply');
+    const paintSelCount = document.getElementById('paintSelCount');
+    const undoBtn = document.getElementById('undoBtn');
+    const saveSvgBtn = document.getElementById('saveSvg');
+    const saveStatus = document.getElementById('saveStatus');
+    const saveTargetEl = document.getElementById('saveTarget');
+
+    const urlParams = new URLSearchParams(location.search);
+    const isLocalEditor =
+      location.hostname === 'localhost' ||
+      location.hostname === '127.0.0.1' ||
+      ['5173', '5174', '8766'].includes(location.port);
+    const PROD_ORIGIN = 'https://biletvsem.com';
+    /** Сохранение: локально по умолчанию на прод (?saveApi= перебивает). */
+    const saveApiBase = (urlParams.get('saveApi') || '').replace(/\/$/, '') || (isLocalEditor ? PROD_ORIGIN : '');
+    /** SVG всегда с этого же хоста, иначе на :8766 уезжало на biletvsem (404). */
+    const svgFetchBase = (urlParams.get('svgBase') || '').replace(/\/$/, '');
+    const saveAuthToken = urlParams.get('saveToken') || urlParams.get('token') || '';
+
+    function saveApiUrl() {
+      return (saveApiBase || '') + '/api/tools/luzhniki-gray-cloud-svg';
+    }
+
+    function updateSaveTargetHint() {
+      if (!saveTargetEl) return;
+      saveTargetEl.textContent = saveApiBase ? '→ ' + saveApiBase.replace(/^https?:\/\//, '') : '→ этот хост';
+    }
+    updateSaveTargetHint();
+
+    let svgRoot = null;
+    let overlayG = null;
+    let previewLine = null;
+    let allCircles = [];
+    /** @type {{ grid: Map<string, Element[]>, cellSize: number } | null} */
+    let circleGrid = null;
+    let selectedCircle = null;
+    let panX = 0;
+    let panY = 0;
+    let zoom = 0.08;
+    let panMode = false;
+    let spacePan = false;
+    let dragPan = false;
+    let didDrag = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let panStartX = 0;
+    let panStartY = 0;
+    let vbW = 11413;
+    let vbH = 9676;
+    /** @type {'view'|'edit'|'paint'} */
+    let appMode = 'view';
+    let paintDrag = false;
+    /** @type {{ clientX: number, clientY: number, additive: boolean } | null} */
+    let paintPending = null;
+    /** @type {{ x: number, y: number }[]} */
+    let paintPathPoints = [];
+    /** @type {{ x: number, y: number } | null} */
+    let paintCursor = null;
+    let paintCaptureId = -1;
+    let paintPreviewRaf = 0;
+    let paintSuppressClick = false;
+    /** @type {Element[]} */
+    let paintSelection = [];
+    /** @type {Element[]} */
+    let paintPreviewList = [];
+    /** @type {Set<Element>} */
+    let paintPreviewMarked = new Set();
+    let previewPolyline = null;
+    let serverSaveTimer = 0;
+    let lastFileSaveOk = false;
+    let lastLabeledSeatCount = 0;
+    /** @type {Map<string, Element>} */
+    let circleCoordIndex = new Map();
+    /** @type {Array<Array<{el: Element, attrs: Record<string, string|null>}>>} */
+    const undoStack = [];
+
+    function getSvgFileName() {
+      return new URLSearchParams(location.search).get('svg') || 'luzhniki-gray-cloud-enriched.svg';
+    }
+
+    function editStorageKey() {
+      return 'luzhniki-gray-cloud-edits:v1:' + getSvgFileName();
+    }
+
+    function circleCoordKey(circle) {
+      return (+circle.getAttribute('cx')).toFixed(3) + ',' + (+circle.getAttribute('cy')).toFixed(3);
+    }
+
+    function loadEditStore() {
+      try {
+        const raw = localStorage.getItem(editStorageKey());
+        if (!raw) return { overrides: {}, updatedAt: 0 };
+        const data = JSON.parse(raw);
+        return { overrides: data.overrides || {}, updatedAt: data.updatedAt || 0 };
+      } catch {
+        return { overrides: {}, updatedAt: 0 };
+      }
+    }
+
+    function saveEditStore(store) {
+      try {
+        localStorage.setItem(
+          editStorageKey(),
+          JSON.stringify({ overrides: store.overrides, updatedAt: store.updatedAt || Date.now() }),
+        );
+      } catch (e) {
+        showPaintToast('err', 'localStorage переполнен — нажми 💾 Сохранить');
+      }
+    }
+
+    function updateSaveStatus() {
+      if (!saveStatus) return;
+      const n = Object.keys(loadEditStore().overrides).length;
+      const parts = [];
+      if (n) parts.push(n + ' правок в браузере');
+      if (lastFileSaveOk) {
+        parts.push('SVG ✓');
+        if (lastLabeledSeatCount) parts.push('карта: ' + lastLabeledSeatCount.toLocaleString('ru') + ' мест');
+      }
+      saveStatus.textContent = parts.join(' · ');
+    }
+
+    function flashPersisted(circles) {
+      for (const c of circles) {
+        c.classList.add('persist-flash');
+        window.setTimeout(() => c.classList.remove('persist-flash'), 700);
+      }
+    }
+
+    function isManualEditedCircle(circle) {
+      const src = circle.getAttribute('data-source') || '';
+      return src === 'manual' || src === 'manual-row' || src === 'manual-sector' || src.startsWith('manual');
+    }
+
+    function applyEditorVisual(circle) {
+      if (isManualEditedCircle(circle)) circle.classList.add('seat-edited-in-editor');
+      else circle.classList.remove('seat-edited-in-editor');
+    }
+
+    function refreshAllEditorVisuals() {
+      allCircles.forEach(applyEditorVisual);
+    }
+
+    function rebuildCircleCoordIndex() {
+      circleCoordIndex = new Map();
+      for (const c of allCircles) {
+        circleCoordIndex.set(circleCoordKey(c), c);
+      }
+    }
+
+    function findCircleByCoord(cx, cy, tolSvg) {
+      const k = (+cx).toFixed(3) + ',' + (+cy).toFixed(3);
+      if (circleCoordIndex.has(k)) return circleCoordIndex.get(k);
+      const t = tolSvg || 8;
+      let best = null;
+      let bestD = t;
+      for (const c of allCircles) {
+        const d = Math.hypot(+c.getAttribute('cx') - cx, +c.getAttribute('cy') - cy);
+        if (d <= bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+      return best;
+    }
+
+    function persistCircleEdits(circles) {
+      if (!circles.length) return;
+      const store = loadEditStore();
+      for (const c of circles) {
+        store.overrides[circleCoordKey(c)] = snapshotCircle(c);
+        applyEditorVisual(c);
+      }
+      store.updatedAt = Date.now();
+      saveEditStore(store);
+      flashPersisted(circles);
+      updateSaveStatus();
+      scheduleServerSave();
+    }
+
+    function applyStoredEditsToSvg() {
+      const store = loadEditStore();
+      const keys = Object.keys(store.overrides);
+      if (!keys.length || !allCircles.length) return 0;
+      let n = 0;
+      for (const c of allCircles) {
+        const snap = store.overrides[circleCoordKey(c)];
+        if (snap) {
+          restoreCircle(c, snap);
+          applyEditorVisual(c);
+          n++;
+        }
+      }
+      return n;
+    }
+
+    function serializeCurrentSvgXml() {
+      if (!svgRoot) return '';
+      const clone = svgRoot.cloneNode(true);
+      const ov = clone.querySelector('#editor-overlay');
+      if (ov) ov.remove();
+      clone.querySelectorAll(
+        'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor',
+      ).forEach((c) => {
+        c.classList.remove('hl', 'paint-preview', 'paint-selected', 'persist-flash', 'seat-edited-in-editor');
+      });
+      const decl = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      return decl + new XMLSerializer().serializeToString(clone);
+    }
+
+    async function saveSvgToServer() {
+      const xml = serializeCurrentSvgXml();
+      if (!xml) return false;
+      try {
+        const headers = { 'Content-Type': 'image/svg+xml; charset=utf-8' };
+        if (saveAuthToken) headers['x-luzhniki-svg-save-token'] = saveAuthToken;
+        const r = await fetch(saveApiUrl(), {
+          method: 'POST',
+          headers,
+          body: xml,
+          credentials: 'omit',
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) throw new Error(data.error || r.status + ' ' + r.statusText);
+        lastFileSaveOk = true;
+        lastLabeledSeatCount = data.labeledSeats ?? 0;
+        updateSaveStatus();
+        return true;
+      } catch (e) {
+        lastFileSaveOk = false;
+        updateSaveStatus();
+        showPaintToast('err', 'Сервер: ' + e.message);
+        return false;
+      }
+    }
+
+    function scheduleServerSave() {
+      clearTimeout(serverSaveTimer);
+      serverSaveTimer = window.setTimeout(async () => {
+        const ok = await saveSvgToServer();
+        if (ok) {
+          showPaintToast(
+            'ok',
+            (saveApiBase || 'сервер') + ': SVG + карта ' + (lastLabeledSeatCount || '?') + ' мест',
+          );
+        } else if (Object.keys(loadEditStore().overrides).length) {
+          showPaintToast('info', 'Только localStorage — проверь saveApi / saveToken / deploy API');
+        }
+      }, 600);
+    }
+
+    function setAppMode(mode) {
+      appMode = mode;
+      modeViewBtn.classList.toggle('active', mode === 'view');
+      modeEditBtn.classList.toggle('active', mode === 'edit');
+      modePaintBtn.classList.toggle('active', mode === 'paint');
+      paintBar.hidden = mode !== 'paint';
+      viewport.classList.toggle('mode-paint', mode === 'paint');
+      viewport.classList.toggle('mode-edit', mode === 'edit');
+      cancelPaintDrag();
+      if (mode !== 'paint') clearPaintSelection();
+      if (mode === 'paint') {
+        panMode = false;
+        dragPan = false;
+        panModeBtn.classList.remove('active');
+        viewport.classList.remove('dragging');
+        updatePanCursor();
+        infoPanel.classList.remove('visible');
+      } else if (selectedCircle) {
+        renderInfo(readCircleMeta(selectedCircle));
+      } else if (infoPanel.classList.contains('visible')) {
+        infoPanel.classList.remove('visible');
+      }
+      refreshStatusHint();
+    }
+
+    function refreshStatusHint() {
+      const base = 'Zoom ' + (zoom * 100).toFixed(0) + '%';
+      if (appMode === 'paint') {
+        status.textContent =
+          base +
+          ' · 〰 тяни линию (Space — сдвиг карты) · ' +
+          paintSelection.length +
+          ' точек → ряд → ▶';
+      } else if (appMode === 'edit') {
+        status.textContent = base + ' · ✎: клик — карточка, правка row/place, Применить';
+      } else {
+        status.textContent = base + ' · клик — карточка · Space+drag — pan';
+      }
+    }
+
+    function applyTransform() {
+      stage.style.transform =
+        'translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + zoom + ')';
+      refreshStatusHint();
+    }
+
+    function syncStageSize() {
+      if (!svgRoot) return;
+      svgRoot.setAttribute('width', String(vbW));
+      svgRoot.setAttribute('height', String(vbH));
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function decodeAttr(s) {
+      const el = document.createElement('textarea');
+      el.innerHTML = String(s || '');
+      return el.value;
+    }
+
+    function isCircle(el) {
+      return el && el.tagName && el.tagName.toLowerCase() === 'circle';
+    }
+
+    function sectorKey(s) {
+      return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function circleSector(circle) {
+      return decodeAttr(circle.getAttribute('data-sector') || circle.getAttribute('place-name') || '');
+    }
+
+    function sectorMatches(circle, filter) {
+      if (!filter) return true;
+      return sectorKey(circleSector(circle)) === sectorKey(filter);
+    }
+
+    function isValidPaintRow(row) {
+      const r = String(row ?? '').trim();
+      return /^\d+$/.test(r);
+    }
+
+    function getEffectivePaintRow() {
+      const v = String(paintRow.value ?? '').trim();
+      if (isValidPaintRow(v)) return v;
+      const fb = String(paintRow.dataset.fallback || '1').trim();
+      return isValidPaintRow(fb) ? fb : '1';
+    }
+
+    function setPaintRowFromMeta(row) {
+      const r = String(row ?? '').trim();
+      if (isValidPaintRow(r)) {
+        paintRow.value = r;
+        paintRow.dataset.fallback = r;
+      }
+    }
+
+    function showPaintToast(kind, message) {
+      if (!paintToast) return;
+      paintToast.className = kind;
+      paintToast.textContent = message;
+      clearTimeout(paintToastTimer);
+      paintToastTimer = window.setTimeout(() => {
+        paintToast.className = '';
+        paintToast.textContent = '';
+      }, kind === 'err' ? 5000 : 2800);
+    }
+
+    function buildCircleGrid(circles, cellSize = 96) {
+      const grid = new Map();
+      for (const c of circles) {
+        const cx = +c.getAttribute('cx');
+        const cy = +c.getAttribute('cy');
+        const gx = Math.floor(cx / cellSize);
+        const gy = Math.floor(cy / cellSize);
+        const key = gx + ',' + gy;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(c);
+      }
+      return { grid, cellSize };
+    }
+
+    function gridCandidatesForSegment(x1, y1, x2, y2, corridorHalf) {
+      if (!circleGrid) return allCircles;
+      const pad = corridorHalf + 8;
+      const minX = Math.min(x1, x2) - pad;
+      const maxX = Math.max(x1, x2) + pad;
+      const minY = Math.min(y1, y2) - pad;
+      const maxY = Math.max(y1, y2) + pad;
+      const cs = circleGrid.cellSize;
+      const out = new Set();
+      const gx0 = Math.floor(minX / cs);
+      const gx1 = Math.floor(maxX / cs);
+      const gy0 = Math.floor(minY / cs);
+      const gy1 = Math.floor(maxY / cs);
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gy = gy0; gy <= gy1; gy++) {
+          const cell = circleGrid.grid.get(gx + ',' + gy);
+          if (cell) cell.forEach((c) => out.add(c));
+        }
+      }
+      return out.size ? Array.from(out) : allCircles;
+    }
+
+    const TRACK_ATTRS = [
+      'place-name', 'row', 'place', 'data-sector', 'data-row', 'data-seat',
+      'data-source', 'data-unlabeled', 'data-seat-uuid',
+    ];
+
+    function snapshotCircle(circle) {
+      /** @type {Record<string, string|null>} */
+      const attrs = {};
+      for (const a of TRACK_ATTRS) {
+        attrs[a] = circle.hasAttribute(a) ? circle.getAttribute(a) : null;
+      }
+      attrs['class'] = circle.getAttribute('class');
+      return attrs;
+    }
+
+    function restoreCircle(circle, attrs) {
+      for (const a of TRACK_ATTRS) {
+        if (attrs[a] == null) circle.removeAttribute(a);
+        else circle.setAttribute(a, attrs[a]);
+      }
+      if (attrs.class == null) circle.removeAttribute('class');
+      else circle.setAttribute('class', attrs.class);
+    }
+
+    function pushUndo(entries) {
+      if (!entries.length) return;
+      undoStack.push(entries);
+      if (undoStack.length > 80) undoStack.shift();
+      undoBtn.disabled = false;
+    }
+
+    function undo() {
+      const batch = undoStack.pop();
+      if (!batch) return;
+      for (const { el, attrs } of batch) restoreCircle(el, attrs);
+      persistCircleEdits(batch.map((b) => b.el));
+      undoBtn.disabled = undoStack.length === 0;
+      if (svgRoot) {
+        paintUnlabeled(svgRoot);
+        recountStats();
+      }
+      if (selectedCircle) renderInfo(readCircleMeta(selectedCircle));
+    }
+
+    function applySeatToCircle(circle, sector, row, seat, source) {
+      const s = String(sector || '').trim();
+      const r = String(row ?? '').trim();
+      const p = String(seat ?? '').trim();
+      if (!s) return false;
+      circle.setAttribute('place-name', s);
+      circle.setAttribute('data-sector', s);
+      if (r) {
+        circle.setAttribute('row', r);
+        circle.setAttribute('data-row', r);
+      } else {
+        circle.removeAttribute('row');
+        circle.removeAttribute('data-row');
+      }
+      if (p) {
+        circle.setAttribute('place', p);
+        circle.setAttribute('data-seat', p);
+      } else {
+        circle.removeAttribute('place');
+        circle.removeAttribute('data-seat');
+      }
+      circle.setAttribute('data-source', source || 'manual');
+      circle.removeAttribute('data-unlabeled');
+      circle.classList.remove('unlabeled-dot');
+      return true;
+    }
+
+    function readCircleMeta(circle) {
+      return {
+        sector: decodeAttr(circle.getAttribute('data-sector') || circle.getAttribute('place-name') || ''),
+        row: decodeAttr(circle.getAttribute('data-row') || circle.getAttribute('row') || ''),
+        seat: decodeAttr(circle.getAttribute('data-seat') || circle.getAttribute('place') || ''),
+        source: circle.getAttribute('data-source') || '',
+        unlabeled: circle.getAttribute('data-unlabeled') === '1',
+        cx: circle.getAttribute('cx'),
+        cy: circle.getAttribute('cy'),
+      };
+    }
+
+    function renderInfo(meta) {
+      let body;
+      if (appMode === 'edit') {
+        body =
+          '<strong class="title">Правка</strong>' +
+          '<div class="edit-grid">' +
+          '<label for="edSector">Сектор</label><input id="edSector" type="text" value="' + escapeHtml(meta.sector) + '" />' +
+          '<label for="edRow">row / data-row</label><input id="edRow" type="text" value="' + escapeHtml(meta.row) + '" />' +
+          '<label for="edSeat">place / data-seat</label><input id="edSeat" type="text" value="' + escapeHtml(meta.seat) + '" />' +
+          '</div>' +
+          '<div class="edit-actions">' +
+          '<button type="button" id="applyEdit">Применить</button>' +
+          '<button type="button" id="clearRowSeat">Сбросить ряд/место</button>' +
+          '</div>';
+        if (meta.source) body += '<div class="src">было: ' + escapeHtml(meta.source) + '</div>';
+        body += '<div class="coords">cx=' + escapeHtml(meta.cx) + ', cy=' + escapeHtml(meta.cy) + '</div>';
+      } else if (meta.unlabeled || !meta.sector) {
+        body =
+          '<strong class="title">без разметки</strong>' +
+          '<div class="coords">cx=' + escapeHtml(meta.cx) + ', cy=' + escapeHtml(meta.cy) + '</div>' +
+          '<div class="src">data-unlabeled</div>';
+      } else if (meta.source === 'fieldGrid') {
+        body =
+          '<strong class="title">⚠ fieldGrid</strong> (ряд может быть неточным)<br/>' +
+          escapeHtml(meta.sector) + '<br/>ряд <strong>' + escapeHtml(meta.row) + '</strong> · место <strong>' +
+          escapeHtml(meta.seat) + '</strong>';
+      } else {
+        const rowSeat = meta.row || meta.seat
+          ? 'ряд <strong>' + escapeHtml(meta.row) + '</strong> · место <strong>' + escapeHtml(meta.seat) + '</strong>'
+          : '<em>только сектор</em>';
+        body = '<strong class="title">' + escapeHtml(meta.sector) + '</strong><br/>' + rowSeat;
+      }
+      if (appMode === 'view' && meta.source) body += '<div class="src">' + escapeHtml(meta.source) + '</div>';
+      if (appMode === 'view') body += '<div class="coords">cx=' + escapeHtml(meta.cx) + ', cy=' + escapeHtml(meta.cy) + '</div>';
+
+      infoPanel.innerHTML = '<button type="button" class="close" id="closeInfo">✕</button>' + body;
+      infoPanel.classList.add('visible');
+      document.getElementById('closeInfo').onclick = clearSelection;
+
+      const applyBtn = document.getElementById('applyEdit');
+      if (applyBtn) applyBtn.onclick = () => applyEditFromPanel();
+      const clearBtn = document.getElementById('clearRowSeat');
+      if (clearBtn) clearBtn.onclick = () => {
+        if (!selectedCircle) return;
+        const snap = [{ el: selectedCircle, attrs: snapshotCircle(selectedCircle) }];
+        const sector = document.getElementById('edSector')?.value.trim() || readCircleMeta(selectedCircle).sector;
+        applySeatToCircle(selectedCircle, sector, '', '', 'manual-sector');
+        pushUndo(snap);
+        persistCircleEdits([selectedCircle]);
+        renderInfo(readCircleMeta(selectedCircle));
+        paintUnlabeled(svgRoot);
+      };
+    }
+
+    function applyEditFromPanel() {
+      if (!selectedCircle) return;
+      const sector = document.getElementById('edSector')?.value.trim() ?? '';
+      const row = document.getElementById('edRow')?.value.trim() ?? '';
+      const seat = document.getElementById('edSeat')?.value.trim() ?? '';
+      if (!sector) {
+        alert('Укажи сектор');
+        return;
+      }
+      const snap = [{ el: selectedCircle, attrs: snapshotCircle(selectedCircle) }];
+      applySeatToCircle(selectedCircle, sector, row, seat, 'manual');
+      pushUndo(snap);
+      persistCircleEdits([selectedCircle]);
+      renderInfo(readCircleMeta(selectedCircle));
+      recountStats();
+      paintUnlabeled(svgRoot);
+      if (paintSector && !paintSector.value) paintSector.value = sector;
+      showPaintToast('ok', 'Точка: ' + sector + ' р' + row + ' м' + seat);
+    }
+
+    function clearSelection() {
+      if (selectedCircle) {
+        selectedCircle.classList.remove('hl');
+        selectedCircle = null;
+      }
+      infoPanel.classList.remove('visible');
+    }
+
+    function selectCircle(circle) {
+      if (selectedCircle === circle) return;
+      if (selectedCircle) selectedCircle.classList.remove('hl');
+      selectedCircle = circle;
+      circle.classList.add('hl');
+      const meta = readCircleMeta(circle);
+      if (appMode === 'paint') return;
+      renderInfo(meta);
+      if (paintSector && !paintSector.value && meta.sector) paintSector.value = meta.sector;
+      setPaintRowFromMeta(meta.row);
+    }
+
+    function paintUnlabeled(svg) {
+      svg.querySelectorAll('circle.unlabeled-dot').forEach((c) => c.classList.remove('unlabeled-dot'));
+      if (!markUnlabeled.checked) return;
+      svg.querySelectorAll('circle[data-unlabeled="1"]').forEach((c) => c.classList.add('unlabeled-dot'));
+    }
+
+    function recountStats() {
+      if (!svgRoot) return;
+      let labeled = 0;
+      let unlabeled = 0;
+      svgRoot.querySelectorAll('circle').forEach((c) => {
+        if (c.getAttribute('data-unlabeled') === '1') unlabeled++;
+        else if (c.getAttribute('data-sector') || c.getAttribute('place-name')) labeled++;
+      });
+      status.textContent =
+        'Точек ' + (labeled + unlabeled).toLocaleString('ru') +
+        ' · с разметкой ' + labeled.toLocaleString('ru') + ' · undo: ' + undoStack.length;
+      refreshStatusHint();
+    }
+
+    function fitToView() {
+      const pad = 20;
+      const zw = (viewport.clientWidth - pad * 2) / vbW;
+      const zh = (viewport.clientHeight - pad * 2) / vbH;
+      zoom = Math.min(zw, zh);
+      panX = 0;
+      panY = 0;
+      applyTransform();
+    }
+
+    function zoomCenter(factor) {
+      zoom = Math.min(6, Math.max(0.02, zoom * factor));
+      applyTransform();
+    }
+
+    function isPanActive() {
+      return panMode || spacePan;
+    }
+
+    function updatePanCursor() {
+      viewport.classList.toggle('panning', isPanActive());
+    }
+
+    function ensureOverlay() {
+      if (!svgRoot || overlayG) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      overlayG = document.createElementNS(ns, 'g');
+      overlayG.setAttribute('id', 'editor-overlay');
+      overlayG.setAttribute('pointer-events', 'none');
+      overlayG.setAttribute('style', 'pointer-events: none;');
+      previewLine = document.createElementNS(ns, 'line');
+      previewLine.setAttribute('stroke', '#22d3ee');
+      previewLine.setAttribute('stroke-width', '2');
+      previewLine.setAttribute('stroke-linecap', 'round');
+      previewLine.setAttribute('stroke-dasharray', '8 6');
+      previewLine.setAttribute('vector-effect', 'non-scaling-stroke');
+      previewLine.setAttribute('opacity', '0.9');
+      previewLine.setAttribute('visibility', 'hidden');
+      overlayG.appendChild(previewLine);
+      previewPolyline = document.createElementNS(ns, 'polyline');
+      previewPolyline.setAttribute('fill', 'none');
+      previewPolyline.setAttribute('stroke', '#38bdf8');
+      previewPolyline.setAttribute('stroke-width', '2');
+      previewPolyline.setAttribute('stroke-linecap', 'round');
+      previewPolyline.setAttribute('stroke-linejoin', 'round');
+      previewPolyline.setAttribute('vector-effect', 'non-scaling-stroke');
+      previewPolyline.setAttribute('opacity', '0.85');
+      previewPolyline.setAttribute('visibility', 'hidden');
+      overlayG.appendChild(previewPolyline);
+      svgRoot.appendChild(overlayG);
+    }
+
+    /** Экран → viewBox: только через stage.getBoundingClientRect (учитывает pan/zoom CSS). */
+    function clientToSvg(clientX, clientY) {
+      if (!svgRoot) return null;
+      const r = stage.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      return {
+        x: ((clientX - r.left) / r.width) * vbW,
+        y: ((clientY - r.top) / r.height) * vbH,
+      };
+    }
+
+    function circleRow(c) {
+      return decodeAttr(c.getAttribute('data-row') || c.getAttribute('row') || '');
+    }
+
+    function paintCorridorPx() {
+      return Math.max(6, Math.min(40, +paintCorridor.value || 14));
+    }
+
+    function circleAtClient(clientX, clientY) {
+      const top = document.elementFromPoint(clientX, clientY);
+      if (isCircle(top) && svgRoot && svgRoot.contains(top)) return top;
+      const p = clientToSvg(clientX, clientY);
+      if (!p) return null;
+      const r = stage.getBoundingClientRect();
+      const hitSvg = 28 * (vbW / Math.max(r.width, 1));
+      const pool = gridCandidatesForSegment(p.x, p.y, p.x, p.y, hitSvg);
+      let best = null;
+      let bestD = Infinity;
+      for (const c of pool) {
+        const d = Math.hypot(+c.getAttribute('cx') - p.x, +c.getAttribute('cy') - p.y);
+        if (d < hitSvg && d < bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+      return best;
+    }
+
+    function distPointToSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len2 = dx * dx + dy * dy;
+      if (len2 < 1) {
+        return { dist: Math.hypot(px - x1, py - y1), t: 0 };
+      }
+      let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const qx = x1 + t * dx;
+      const qy = y1 + t * dy;
+      return { dist: Math.hypot(px - qx, py - qy), t };
+    }
+
+    function circlesAlongSegmentMeta(x1, y1, x2, y2, corridorHalf, sectorFilter) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len2 = dx * dx + dy * dy;
+      if (len2 < 1) return [];
+      const pool = gridCandidatesForSegment(x1, y1, x2, y2, corridorHalf + 10);
+      const out = [];
+      for (const c of pool) {
+        if (sectorFilter && !sectorMatches(c, sectorFilter)) continue;
+        const cx = +c.getAttribute('cx');
+        const cy = +c.getAttribute('cy');
+        const { dist, t } = distPointToSegment(cx, cy, x1, y1, x2, y2);
+        if (dist <= corridorHalf) out.push({ c, t, perp: dist });
+      }
+      out.sort((a, b) => a.t - b.t || a.perp - b.perp);
+      return out;
+    }
+
+    function circlesNearPoint(px, py, radius, sectorFilter) {
+      const pool = gridCandidatesForSegment(px, py, px, py, radius + 8);
+      const out = [];
+      for (const c of pool) {
+        if (sectorFilter && !sectorMatches(c, sectorFilter)) continue;
+        const d = Math.hypot(+c.getAttribute('cx') - px, +c.getAttribute('cy') - py);
+        if (d <= radius) out.push(c);
+      }
+      return out;
+    }
+
+    function positionAlongPath(pathPoints, cx, cy) {
+      let best = Infinity;
+      let pos = 0;
+      let base = 0;
+      for (let i = 1; i < pathPoints.length; i++) {
+        const x1 = pathPoints[i - 1].x;
+        const y1 = pathPoints[i - 1].y;
+        const x2 = pathPoints[i].x;
+        const y2 = pathPoints[i].y;
+        const segLen = Math.hypot(x2 - x1, y2 - y1);
+        if (segLen < 0.5) continue;
+        const { dist, t } = distPointToSegment(cx, cy, x1, y1, x2, y2);
+        const along = base + t * segLen;
+        if (dist < best) {
+          best = dist;
+          pos = along;
+        }
+        base += segLen;
+      }
+      return pos;
+    }
+
+    function paintPathForPreview() {
+      if (!paintPathPoints.length) return [];
+      if (!paintCursor) return paintPathPoints;
+      return paintPathPoints.concat([paintCursor]);
+    }
+
+    function appendPaintPathPoint(x, y) {
+      const minStep = Math.max(3, paintCorridorPx() * 0.35);
+      if (!paintPathPoints.length) {
+        paintPathPoints.push({ x, y });
+        return;
+      }
+      const last = paintPathPoints[paintPathPoints.length - 1];
+      const d = Math.hypot(x - last.x, y - last.y);
+      if (d < minStep) return;
+      if (d > minStep * 2.5) {
+        const n = Math.ceil(d / minStep);
+        for (let i = 1; i <= n; i++) {
+          const t = i / n;
+          paintPathPoints.push({
+            x: last.x + (x - last.x) * t,
+            y: last.y + (y - last.y) * t,
+          });
+        }
+        return;
+      }
+      paintPathPoints.push({ x, y });
+    }
+
+    function densifyPaintPath(points, step) {
+      if (points.length < 2) return points.slice();
+      const out = [{ x: points[0].x, y: points[0].y }];
+      const s = Math.max(2, step);
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1];
+        const b = points[i];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        const n = Math.max(1, Math.ceil(len / s));
+        for (let j = 1; j <= n; j++) {
+          const t = j / n;
+          out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+        }
+      }
+      return out;
+    }
+
+    function perpDistToPath(px, py, pathPoints) {
+      if (!pathPoints.length) return Infinity;
+      if (pathPoints.length === 1) {
+        return Math.hypot(px - pathPoints[0].x, py - pathPoints[0].y);
+      }
+      let best = Infinity;
+      for (let i = 1; i < pathPoints.length; i++) {
+        const { dist } = distPointToSegment(
+          px,
+          py,
+          pathPoints[i - 1].x,
+          pathPoints[i - 1].y,
+          pathPoints[i].x,
+          pathPoints[i].y,
+        );
+        if (dist < best) best = dist;
+      }
+      return best;
+    }
+
+    /** Ближайший ⊥-слой к линии (один ряд), без отсечения по сектору. */
+    function filterToNearestRowBand(circles, pathPoints, corridorHalf) {
+      if (circles.length < 2) return circles;
+      const items = circles.map((c) => ({
+        c,
+        perp: perpDistToPath(+c.getAttribute('cx'), +c.getAttribute('cy'), pathPoints),
+      }));
+      const bins = new Map();
+      for (const o of items) {
+        const k = Math.round(o.perp / 3);
+        if (!bins.has(k)) bins.set(k, 0);
+        bins.set(k, bins.get(k) + 1);
+      }
+      let bestK = 0;
+      let bestN = -1;
+      for (const [k, n] of bins) {
+        if (n > bestN || (n === bestN && k < bestK)) {
+          bestN = n;
+          bestK = k;
+        }
+      }
+      const maxPerp = Math.min(corridorHalf, (bestK + 2) * 3 + 2);
+      return items.filter((o) => o.perp <= maxPerp).map((o) => o.c);
+    }
+
+    function sortCirclesAlongPath(circles, pathPoints) {
+      return circles.slice().sort((a, b) => {
+        const pa = positionAlongPath(pathPoints, +a.getAttribute('cx'), +a.getAttribute('cy'));
+        const pb = positionAlongPath(pathPoints, +b.getAttribute('cx'), +b.getAttribute('cy'));
+        return pa - pb;
+      });
+    }
+
+    /** Кисть вдол линии; при «1 ряд» — только ближайший ⊥-слой к штриху. */
+    function pickCirclesAlongPath(pathPoints, corridorHalf, sectorFilter) {
+      if (pathPoints.length < 1) return [];
+      const hit = new Set();
+      for (let i = 1; i < pathPoints.length; i++) {
+        const meta = circlesAlongSegmentMeta(
+          pathPoints[i - 1].x,
+          pathPoints[i - 1].y,
+          pathPoints[i].x,
+          pathPoints[i].y,
+          corridorHalf,
+          sectorFilter,
+        );
+        for (const o of meta) hit.add(o.c);
+      }
+      for (const p of pathPoints) {
+        for (const c of circlesNearPoint(p.x, p.y, corridorHalf, sectorFilter)) hit.add(c);
+      }
+      let list = Array.from(hit);
+      if (paintOneRow && paintOneRow.checked && list.length > 1) {
+        list = filterToNearestRowBand(list, pathPoints, corridorHalf);
+      }
+      return sortCirclesAlongPath(list, pathPoints);
+    }
+
+    function updatePaintSelCount() {
+      if (paintSelCount) paintSelCount.textContent = paintSelection.length + ' точек';
+    }
+
+    function clearPaintSelection() {
+      paintSelection.forEach((c) => c.classList.remove('paint-selected'));
+      paintSelection = [];
+      updatePaintSelCount();
+    }
+
+    function setPaintSelection(circles) {
+      clearPaintSelection();
+      paintSelection = circles.slice();
+      paintSelection.forEach((c) => c.classList.add('paint-selected'));
+      updatePaintSelCount();
+    }
+
+    function mergePaintSelection(circles) {
+      for (const c of circles) {
+        if (!paintSelection.includes(c)) {
+          paintSelection.push(c);
+          c.classList.add('paint-selected');
+        }
+      }
+      updatePaintSelCount();
+    }
+
+    function togglePaintCircle(circle, additive) {
+      const idx = paintSelection.indexOf(circle);
+      if (idx >= 0) {
+        circle.classList.remove('paint-selected');
+        paintSelection.splice(idx, 1);
+        return;
+      }
+      if (!additive) clearPaintSelection();
+      paintSelection.push(circle);
+      circle.classList.add('paint-selected');
+      updatePaintSelCount();
+      setPaintRowFromMeta(circleRow(circle));
+      refreshStatusHint();
+    }
+
+    function clearPaintHighlight() {
+      paintPreviewMarked.forEach((c) => c.classList.remove('paint-preview'));
+      paintPreviewMarked.clear();
+    }
+
+    function hidePaintLine() {
+      if (previewLine) previewLine.setAttribute('visibility', 'hidden');
+      if (previewPolyline) previewPolyline.setAttribute('visibility', 'hidden');
+    }
+
+    /** Сектор из поля — только для «Применить», не для геометрии линии. */
+    function paintSectorForApply() {
+      return paintSector.value.trim();
+    }
+
+    function inferSectorFromSelection(circles) {
+      const counts = new Map();
+      for (const c of circles) {
+        const s = circleSector(c);
+        if (!s) continue;
+        counts.set(s, (counts.get(s) || 0) + 1);
+      }
+      let best = '';
+      let bestN = 0;
+      for (const [s, n] of counts) {
+        if (n > bestN) {
+          bestN = n;
+          best = s;
+        }
+      }
+      return best;
+    }
+
+    function updatePaintPreview() {
+      clearPaintHighlight();
+      const path = paintPathForPreview();
+      if (previewLine) previewLine.setAttribute('visibility', 'hidden');
+      if (previewPolyline) {
+        if (path.length >= 2) {
+          previewPolyline.setAttribute('points', path.map((p) => p.x + ',' + p.y).join(' '));
+          previewPolyline.setAttribute('visibility', 'visible');
+        } else {
+          previewPolyline.setAttribute('visibility', 'hidden');
+        }
+      }
+      const corridor = paintCorridorPx();
+      const dense = path.length >= 1 ? densifyPaintPath(path, Math.max(4, corridor * 0.35)) : [];
+      paintPreviewList = dense.length >= 1 ? pickCirclesAlongPath(dense, corridor, '') : [];
+      for (const c of paintPreviewList) {
+        if (!paintPreviewMarked.has(c)) {
+          c.classList.add('paint-preview');
+          paintPreviewMarked.add(c);
+        }
+      }
+    }
+
+    function applyPaintToSelection() {
+      if (!paintSelection.length) {
+        showPaintToast('err', 'Протяни линию вдоль ряда или Shift+клик по точкам');
+        return 0;
+      }
+      let sector = paintSectorForApply();
+      const row = getEffectivePaintRow();
+      if (!isValidPaintRow(row)) {
+        showPaintToast('err', 'Введи номер ряда и нажми «Применить ряд»');
+        return 0;
+      }
+      const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      if (!sector) sector = inferSectorFromSelection(paintSelection);
+      if (!sector) {
+        showPaintToast('err', 'Укажи сектор (или выдели места одного сектора)');
+        return 0;
+      }
+      if (!paintSectorForApply()) paintSector.value = sector;
+      const batch = paintSelection.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      let seatNum = startSeat;
+      for (const c of paintSelection) {
+        applySeatToCircle(c, sector, row, String(seatNum), 'manual-row');
+        seatNum++;
+      }
+      pushUndo(batch);
+      persistCircleEdits(paintSelection);
+      paintUnlabeled(svgRoot);
+      recountStats();
+      showPaintToast('ok', '✓ ' + sector + ' ряд ' + row + ': ' + paintSelection.length + ' мест (сохранено)');
+      return paintSelection.length;
+    }
+
+    function cancelPaintDrag() {
+      paintDrag = false;
+      dragPan = false;
+      paintPending = null;
+      paintPathPoints = [];
+      paintCursor = null;
+      paintPreviewList = [];
+      clearPaintHighlight();
+      hidePaintLine();
+      viewport.classList.remove('dragging');
+      try { viewport.releasePointerCapture(paintCaptureId); } catch (_) { /* noop */ }
+      paintCaptureId = -1;
+    }
+
+    function releasePaintPointer() {
+      try { viewport.releasePointerCapture(paintCaptureId); } catch (_) { /* noop */ }
+      paintCaptureId = -1;
+    }
+
+    function endPaintPointer(e) {
+      if (!paintPending) return;
+      const additive = paintPending.additive || e.shiftKey || e.metaKey;
+      hidePaintLine();
+      clearPaintHighlight();
+      releasePaintPointer();
+
+      if (paintDrag && paintCursor) {
+        appendPaintPathPoint(paintCursor.x, paintCursor.y);
+      }
+
+      if (paintDrag && paintPathPoints.length >= 1) {
+        const corridor = paintCorridorPx();
+        const dense = densifyPaintPath(paintPathPoints, corridor * 0.4);
+        const list = pickCirclesAlongPath(dense, corridor, '');
+        if (list.length) {
+          if (additive) mergePaintSelection(list);
+          else setPaintSelection(list);
+          const hintSec = inferSectorFromSelection(list);
+          showPaintToast(
+            'info',
+            'На линии ' +
+              list.length +
+              ' мест' +
+              (hintSec ? ' · сектор: ' + hintSec : '') +
+              ' → ряд → ▶',
+          );
+        } else {
+          showPaintToast('err', '0 мест — увеличь «Коридор» или веди по центру ряда');
+        }
+        paintSuppressClick = true;
+      } else if (!paintDrag) {
+        const c = circleAtClient(paintPending.clientX, paintPending.clientY);
+        if (c) {
+          togglePaintCircle(c, additive);
+          paintSuppressClick = true;
+        }
+      }
+
+      paintDrag = false;
+      paintPending = null;
+      paintPathPoints = [];
+      paintCursor = null;
+      refreshStatusHint();
+    }
+
+    function schedulePaintPreview() {
+      if (paintPreviewRaf) return;
+      paintPreviewRaf = requestAnimationFrame(() => {
+        paintPreviewRaf = 0;
+        if (!paintPending) return;
+        updatePaintPreview();
+        status.textContent = '〰 ' + paintPreviewList.length + ' на линии · отпусти → ряд → ▶';
+      });
+    }
+
+    async function downloadSvg() {
+      if (!svgRoot) return;
+      const xml = serializeCurrentSvgXml();
+      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const base = getSvgFileName().replace(/\.svg$/i, '');
+      a.download = base + '-edited.svg';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      const ok = await saveSvgToServer();
+      if (ok) showPaintToast('ok', 'SVG на диске + скачан');
+      else showPaintToast('info', 'Скачан файл; для записи на диск — запусти backend');
+    }
+
+    function attachInteraction(svg) {
+      svgRoot = svg;
+      overlayG = null;
+      previewLine = null;
+      previewPolyline = null;
+      undoStack.length = 0;
+      undoBtn.disabled = true;
+      const vb = svg.viewBox.baseVal;
+      if (vb && vb.width) {
+        vbW = vb.width;
+        vbH = vb.height;
+      }
+      syncStageSize();
+      const embedded = svg.querySelector('script');
+      if (embedded) embedded.remove();
+      allCircles = Array.from(svg.querySelectorAll('circle'));
+      rebuildCircleCoordIndex();
+      circleGrid = buildCircleGrid(allCircles, 96);
+      ensureOverlay();
+      const restored = applyStoredEditsToSvg();
+      refreshAllEditorVisuals();
+      recountStats();
+      paintUnlabeled(svg);
+      updateSaveStatus();
+      if (restored > 0) {
+        showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
+      }
+      fitToView();
+
+      svg.addEventListener('click', (e) => {
+        if (didDrag || paintSuppressClick) {
+          paintSuppressClick = false;
+          return;
+        }
+        const t = circleAtClient(e.clientX, e.clientY);
+        if (!t) return;
+        e.stopPropagation();
+        if (appMode === 'paint') return;
+        selectCircle(t);
+      });
+
+      viewport.addEventListener('click', (e) => {
+        if (didDrag || appMode === 'paint') return;
+        if (e.target === viewport || e.target === stage || e.target === svgRoot) clearSelection();
+      });
+    }
+
+    function loadSvgText(text) {
+      stage.innerHTML = text;
+      const svg = stage.querySelector('svg');
+      if (!svg) {
+        status.textContent = 'В файле нет <svg>';
+        return;
+      }
+      attachInteraction(svg);
+    }
+
+    viewport.addEventListener(
+      'pointerdown',
+      (e) => {
+      if (e.button !== 0) return;
+
+      if (appMode === 'paint' && svgRoot) {
+        if (spacePan) {
+          dragPan = true;
+          didDrag = false;
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          panStartX = panX;
+          panStartY = panY;
+          viewport.classList.add('dragging');
+          e.preventDefault();
+          return;
+        }
+        const p = clientToSvg(e.clientX, e.clientY);
+        if (!p) {
+          e.preventDefault();
+          return;
+        }
+        dragPan = false;
+        viewport.classList.remove('dragging');
+        paintPathPoints = [{ x: p.x, y: p.y }];
+        paintCursor = { x: p.x, y: p.y };
+        paintPending = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          additive: e.shiftKey || e.metaKey,
+        };
+        paintDrag = false;
+        didDrag = false;
+        infoPanel.classList.remove('visible');
+        if (viewport.setPointerCapture) {
+          try {
+            viewport.setPointerCapture(e.pointerId);
+            paintCaptureId = e.pointerId;
+          } catch (_) { /* noop */ }
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      if (appMode === 'paint') {
+        e.preventDefault();
+        return;
+      }
+
+      if (!isPanActive()) return;
+      dragPan = true;
+      didDrag = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      panStartX = panX;
+      panStartY = panY;
+      viewport.classList.add('dragging');
+    },
+      true,
+    );
+
+    viewport.addEventListener('pointermove', (e) => {
+      if (paintPending) {
+        e.preventDefault();
+        const moved = Math.hypot(e.clientX - paintPending.clientX, e.clientY - paintPending.clientY);
+        if (!paintDrag && moved > 4) {
+          paintDrag = true;
+          didDrag = true;
+          dragPan = false;
+          viewport.classList.remove('dragging');
+          if (!paintPending.additive) clearPaintSelection();
+        }
+        if (paintDrag) {
+          const p = clientToSvg(e.clientX, e.clientY);
+          if (p) {
+            paintCursor = { x: p.x, y: p.y };
+            appendPaintPathPoint(p.x, p.y);
+            schedulePaintPreview();
+          }
+        }
+        return;
+      }
+      if (appMode === 'paint') return;
+      if (!dragPan) return;
+      if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
+      panX = panStartX + (e.clientX - dragStartX);
+      panY = panStartY + (e.clientY - dragStartY);
+      applyTransform();
+    });
+
+    viewport.addEventListener(
+      'wheel',
+      (e) => {
+        if (appMode === 'paint' && paintPending) e.preventDefault();
+      },
+      { passive: false },
+    );
+
+    viewport.addEventListener('pointerup', (e) => {
+      if (paintPending) {
+        endPaintPointer(e);
+        return;
+      }
+      if (!dragPan) return;
+      dragPan = false;
+      viewport.classList.remove('dragging');
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      if (paintPending) endPaintPointer(e);
+    });
+
+    viewport.addEventListener('pointercancel', (e) => {
+      if (paintPending) cancelPaintDrag();
+      dragPan = false;
+      viewport.classList.remove('dragging');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !e.repeat) {
+        spacePan = true;
+        updatePanCursor();
+        e.preventDefault();
+      }
+      if (e.code === 'Escape') {
+        if (paintPending) cancelPaintDrag();
+        else if (paintSelection.length) clearPaintSelection();
+        else clearSelection();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === '+' || e.key === '=') zoomCenter(1.15);
+      if (e.key === '-') zoomCenter(1 / 1.15);
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        spacePan = false;
+        updatePanCursor();
+      }
+    });
+
+    panModeBtn.addEventListener('click', () => {
+      panMode = !panMode;
+      panModeBtn.classList.toggle('active', panMode);
+      updatePanCursor();
+    });
+
+    modeViewBtn.addEventListener('click', () => setAppMode('view'));
+    modeEditBtn.addEventListener('click', () => setAppMode('edit'));
+    modePaintBtn.addEventListener('click', () => setAppMode('paint'));
+    paintRow.addEventListener('input', () => {
+      if (isValidPaintRow(paintRow.value)) paintRow.dataset.fallback = paintRow.value.trim();
+    });
+    paintClearSel.addEventListener('click', () => {
+      clearPaintSelection();
+      showPaintToast('info', 'Выделение сброшено');
+    });
+    paintApply.addEventListener('click', () => applyPaintToSelection());
+
+    zoomInBtn.addEventListener('click', () => zoomCenter(1.25));
+    zoomOutBtn.addEventListener('click', () => zoomCenter(1 / 1.25));
+    zoomFitBtn.addEventListener('click', () => { if (svgRoot) fitToView(); });
+    undoBtn.addEventListener('click', undo);
+    saveSvgBtn.addEventListener('click', downloadSvg);
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files?.[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => loadSvgText(r.result);
+      r.readAsText(f);
+    });
+    markUnlabeled.addEventListener('change', () => { if (svgRoot) paintUnlabeled(svgRoot); });
+
+    window.addEventListener('resize', () => { if (svgRoot) fitToView(); });
+
+    const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
+    const svgUrl = svgFetchBase ? svgFetchBase + '/tools/' + defaultSvg : '/tools/' + defaultSvg;
+    status.textContent = 'Загрузка ' + svgUrl + '…';
+    fetch(svgUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        return r.text();
+      })
+      .then(loadSvgText)
+      .catch((err) => {
+        status.textContent = 'Не удалось загрузить /tools/' + defaultSvg + ' — выбери файл (' + err.message + ')';
+      });
+  </script>
+</body>
+</html>
