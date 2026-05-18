@@ -424,24 +424,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
         const dedupe = strictSeatKey(sector, row, seat);
         if (seen.has(dedupe)) continue;
 
-        const direct = lookupLabeledSeat(strictIndex, sector, row, seat);
-        if (direct) {
-          seen.add(dedupe);
-          strictMatched += 1;
-          seats.push(
-            finalizeSellableCoords(
-              sector,
-              row,
-              seat,
-              { ...direct, geodesySource: 'strict' },
-              ticketsPayload,
-              w,
-              h,
-            ),
-          );
-          continue;
-        }
-
+        // Ручная разметка (hover → bundle) важнее strict pbilet для тех же sector/row/seat.
         if (grayCloudLabeledIndex?.size) {
           const labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
           if (labeled) {
@@ -460,6 +443,24 @@ export function buildSellableSeatGeodesyPbiletAccurate(
             );
             continue;
           }
+        }
+
+        const direct = lookupLabeledSeat(strictIndex, sector, row, seat);
+        if (direct) {
+          seen.add(dedupe);
+          strictMatched += 1;
+          seats.push(
+            finalizeSellableCoords(
+              sector,
+              row,
+              seat,
+              { ...direct, geodesySource: 'strict' },
+              ticketsPayload,
+              w,
+              h,
+            ),
+          );
+          continue;
         }
 
         if (grayCloudOnly) {

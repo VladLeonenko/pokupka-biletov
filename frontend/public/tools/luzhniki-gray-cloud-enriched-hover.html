@@ -492,6 +492,21 @@
       return /^\d+$/.test(r);
     }
 
+    function normalizePaintRowNum(row) {
+      const n = Number.parseInt(String(row ?? '').replace(/\D/g, ''), 10);
+      return Number.isFinite(n) ? String(n) : '';
+    }
+
+    /** Если в поле ряд N — не брать соседний ряд после ⊥-фильтра (типично 33 vs 34 на A101). */
+    function filterToTargetCloudRow(circles, targetRow) {
+      const want = normalizePaintRowNum(targetRow);
+      if (!want || circles.length < 2) return circles;
+      const matching = circles.filter((c) => normalizePaintRowNum(circleRow(c)) === want);
+      if (matching.length >= Math.min(3, circles.length)) return matching;
+      if (matching.length >= Math.ceil(circles.length * 0.45)) return matching;
+      return circles;
+    }
+
     function getEffectivePaintRow() {
       const v = String(paintRow.value ?? '').trim();
       if (isValidPaintRow(v)) return v;
@@ -818,6 +833,12 @@
       return decodeAttr(c.getAttribute('data-row') || c.getAttribute('row') || '');
     }
 
+    function circleSeatNum(c) {
+      const s = decodeAttr(c.getAttribute('data-seat') || c.getAttribute('place') || '');
+      const n = Number.parseInt(String(s).replace(/\D/g, ''), 10);
+      return Number.isFinite(n) ? n : null;
+    }
+
     function paintCorridorPx() {
       return Math.max(6, Math.min(40, +paintCorridor.value || 14));
     }
@@ -1027,6 +1048,10 @@
       let list = Array.from(hit);
       if (paintOneRow && paintOneRow.checked && list.length > 1) {
         list = filterToNearestRowBand(list, pathPoints, corridorHalf);
+        const targetRow = String(paintRow?.value ?? '').trim();
+        if (isValidPaintRow(targetRow)) {
+          list = filterToTargetCloudRow(list, targetRow);
+        }
       }
       return sortCirclesAlongPath(list, pathPoints);
     }
@@ -1147,17 +1172,46 @@
         return 0;
       }
       if (!paintSectorForApply()) paintSector.value = sector;
-      const batch = paintSelection.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
-      let seatNum = startSeat;
-      for (const c of paintSelection) {
-        applySeatToCircle(c, sector, row, String(seatNum), 'manual-row');
-        seatNum++;
+      const wantRow = normalizePaintRowNum(row);
+      const cloudRowMismatch = paintSelection.filter(
+        (c) => normalizePaintRowNum(circleRow(c)) && normalizePaintRowNum(circleRow(c)) !== wantRow,
+      ).length;
+      if (cloudRowMismatch > paintSelection.length * 0.2) {
+        showPaintToast(
+          'info',
+          '⚠ В выделении есть точки с другим row в облаке (' +
+            cloudRowMismatch +
+            '). Проверь линию; места из place/data-seat сохраним как есть.',
+        );
+      }
+      const pathForSort =
+        paintPathPoints.length >= 1
+          ? paintPathPoints
+          : paintSelection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
+      const sortedSel = sortCirclesAlongPath(paintSelection, pathForSort);
+      const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      let nextAuto = startSeat;
+      let preserved = 0;
+      for (const c of sortedSel) {
+        const existing = circleSeatNum(c);
+        const seat = existing != null ? String(existing) : String(nextAuto);
+        if (existing != null) preserved++;
+        applySeatToCircle(c, sector, row, seat, 'manual-row');
+        if (existing == null) nextAuto += 1;
+        else nextAuto = Math.max(nextAuto, existing + 1);
       }
       pushUndo(batch);
       persistCircleEdits(paintSelection);
       paintUnlabeled(svgRoot);
       recountStats();
-      showPaintToast('ok', '✓ ' + sector + ' ряд ' + row + ': ' + paintSelection.length + ' мест (сохранено)');
+      const seatHint =
+        preserved > 0
+          ? ' · номера мест из облака: ' + preserved
+          : ' · места с «Место с»=' + startSeat;
+      showPaintToast(
+        'ok',
+        '✓ ' + sector + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' (сохранено)',
+      );
       return paintSelection.length;
     }
 
