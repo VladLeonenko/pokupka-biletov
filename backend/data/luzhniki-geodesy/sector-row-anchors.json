@@ -4433,34 +4433,43 @@
     "sectorLabel": "Сектор B 261"
   },
   "b155": {
-    "rowCurve": 0.32,
+    "rowCurve": 0.42,
+    "rowStepMultiplier": 1.1,
+    "seatSpreadMultiplier": 1.2,
+    "seatCountFromLeft": true,
+    "radialFanExponent": 2,
+    "rowBendExtraDeg": 5,
+    "originRow": 1,
+    "originSeat": 1,
+    "minSeatPerRow": 4,
+    "maxSeatPerRow": 29,
     "anchors": [
       {
         "row": "1",
         "seat": "1",
-        "xPct": 18.273022,
-        "yPct": 70.266639,
+        "xPct": 17.887497,
+        "yPct": 70.245969,
         "role": "nearLeft"
       },
       {
         "row": "28",
         "seat": "1",
-        "xPct": 11.412424,
-        "yPct": 74.069864,
+        "xPct": 11.52633,
+        "yPct": 69.853245,
         "role": "farLeft"
       },
       {
-        "row": "20",
-        "seat": "34",
-        "xPct": 13.637957,
-        "yPct": 73.284415,
+        "row": "1",
+        "seat": "7",
+        "xPct": 18.465785,
+        "yPct": 71.000413,
         "role": "nearRight"
       },
       {
-        "row": "20",
-        "seat": "34",
-        "xPct": 13.637957,
-        "yPct": 73.284415,
+        "row": "28",
+        "seat": "29",
+        "xPct": 13.620433,
+        "yPct": 73.067383,
         "role": "farRight"
       }
     ],
@@ -6033,7 +6042,7 @@
   "a101": {
     "rowCurve": 0.42,
     "rowStepMultiplier": 1.12,
-    "seatSpreadMultiplier": 1.25,
+    "seatSpreadMultiplier": 1.75,
     "seatCountFromLeft": true,
     "radialFanExponent": 2,
     "rowBendExtraDeg": 5,

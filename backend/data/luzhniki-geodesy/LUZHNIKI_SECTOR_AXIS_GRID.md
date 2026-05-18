@@ -48,7 +48,7 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
         │
         ├─ угловой A, ряды-дуги (клин)?
         │     └─ да → radialGrid+d124step (4 угла + rowCurve + rowStep/seatStep)
-        │              whitelist: SECTOR_RADIAL_PRIORITY_NORMS (сейчас a101)
+        │              whitelist: SECTOR_RADIAL_PRIORITY_NORMS (a101, b155)
         │
         ├─ прямоугольник, в layout нет ряда (прорезь 16…27)?
         │     └─ да → axisGrid (линия ряда + шаг от ближнего якорного ряда)
@@ -60,7 +60,7 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 | Тип сектора | Модуль | Пример |
 |-------------|--------|--------|
 | **Прямоугольный**, прорезь рядов | `luzhnikiSectorAxisGridPlacement.js` — **axisGrid** | **B154** р.17 между 16 и 27 |
-| **Угловой**, радиальные ряды | `luzhnikiSectorPolarGrid.js` — **radialGrid+d124step** | **A101** р.11 — дуга |
+| **Угловой**, радиальные ряды | `luzhnikiSectorPolarGrid.js` — **radialGrid+d124step** | **A101** р.11; **B155** (клин над B154) |
 
 **A101 — не эталон axisGrid.** Линейный axisGrid давал ряд 11 у подписи «33».
 
@@ -75,8 +75,8 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 - **Взгляд с поля:** origin **ряд 1 место 1** (`nearLeft`) — нижний-левый угол клина.
 - **Ряд N:** доля `rowT` вдоль nearL→farL (шаг `rowStepPct × rowStepMultiplier`, сейчас **1.1**).
 - **Место M в ряду:** хорда ряда; `seatCountFromLeft: true` — нумерация **слева направо от поля** (в коде зеркало `seatT`, не путать со screen-X).
-- **Шаг sellable:** `seatSpreadMultiplier` (~1.25) — разнос от центра хорды; >1 реже, <2.
-- **Радиальный веер:** `radialFanExponent: 2` — `fanT = rowT^2`: у поля узко (мало мест), к верху шире.
+- **Шаг sellable:** `seatSpreadMultiplier` (1.75) — делитель `(maxSeat−1)/spread`, больше зазор между точками.
+- **Радиальный веер:** `radialFanExponent: 2` — **только ширина хорды** ряда (не сдвиг ряда вглубь); глубина ряда всегда по `rowT`.
 - Точка **всегда внутри четырёхугольника** якорей (не «шаг X» за край клина).
 - Дуга: `rowCurve` + `rowBendExtraDeg` на оба конца хорды ряда, затем lerp места.
 - Дополнительно: clamp bbox `tickets.json`.
@@ -85,7 +85,7 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 {
   "rowCurve": 0.42,
   "rowStepMultiplier": 1.12,
-  "seatSpreadMultiplier": 1.25,
+  "seatSpreadMultiplier": 1.75,
   "seatCountFromLeft": true,
   "radialFanExponent": 2,
   "rowBendExtraDeg": 5,
@@ -137,10 +137,23 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
 ---
 
+## B155 — угловой клин (`radialGrid+d124step`)
+
+**Сосед B154** — не прямоугольник с прорезью, а **клин** (дуги рядов, origin у поля).
+
+- **Не axisGrid** — линейный X/Y даёт сдвиг вдоль «прямой» стены B-трибуны.
+- Whitelist: `SECTOR_RADIAL_PRIORITY_NORMS` → `b155`.
+- 4 угла в `sector-row-anchors.json`: `nearLeft` р.1 м.1, `farLeft` р.28 м.1, `nearRight` р.1 м.7, `farRight` р.28 м.29.
+- Параметры как у A101 (чуть мягче): `rowCurve` 0.42, `rowStepMultiplier` 1.1, `radialFanExponent` 2, `seatCountFromLeft: true`.
+
+Проверка: diagnostic @ 1000%, sellable на дугах, не на оси B154.
+
+---
+
 ## Sellable-порядок
 
 1. strict  
-2. **a101**: `radialGrid+d124step` (до fieldGrid)  
+2. **a101**, **b155**: `radialGrid+d124step` (до fieldGrid)  
 3. **b154**: axisGrid  
 4. fieldGrid / svgRow / polar B–C  
 
@@ -164,8 +177,9 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
 | Нельзя | Почему |
 |--------|--------|
-| axisGrid на A101 | ряды дуги → ряд 11 у подписи «33» |
+| axisGrid на A101 / B155 | ряды дуги → sellable уезжают с дуг |
 | fieldGrid lerp через прорезь B154 | тянет ряд 17 к дальнему блоку 27 |
+| axisGrid на B155 | клин → линейная сетка B154 «протекает» в соседний сектор |
 | Один polarGrid для всех A | A216 и др. — fieldGrid; только whitelist |
 | Интерполировать sellable по `allSeatCoordinates` | боковые сектора овала уезжают |
 

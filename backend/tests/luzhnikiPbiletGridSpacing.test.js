@@ -17,7 +17,7 @@ const ticketsPath = path.resolve(__dirname, '../../tickets.json');
 const A101_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.12,
-  seatSpreadMultiplier: 1.25,
+  seatSpreadMultiplier: 1.75,
   seatCountFromLeft: true,
   radialFanExponent: 2,
   minSeatPerRow: 4,
@@ -31,6 +31,16 @@ test('D124 strict: seatStep ~0.2067%, rowStep ~0.1928%', () => {
   const m = measurePbiletGridSpacingFromTickets(t);
   assert.ok(Math.abs(m.seatStepPct - 0.206697) < 0.0001);
   assert.ok(Math.abs(m.rowStepPct - 0.192763) < 0.0001);
+});
+
+test('a101 row11 не на глубине ряда 4 (rowT, не rowT²)', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('a101');
+  const y4 = resolveCornerSectorPbiletStepGrid(block.anchors, 4, 7, A101_OPTS)?.yPct;
+  const y11 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 7, A101_OPTS)?.yPct;
+  const y20 = resolveCornerSectorPbiletStepGrid(block.anchors, 20, 7, A101_OPTS)?.yPct;
+  assert.ok(y4 != null && y11 != null && y20 != null);
+  assert.ok(y11 > y4 + 0.35, `row11 y=${y11} should be below row4 y=${y4}`);
+  assert.ok(y11 < y20 + 0.2, `row11 y=${y11} should be above row20 y=${y20}`);
 });
 
 test('a101 row11 seat7: step grid ближе к svg row11 чем row33', () => {
@@ -107,4 +117,26 @@ test('a101 row38: место 25 левее места 7 (от поля)', () => 
   const p25 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 25, A101_OPTS);
   assert.ok(p7 && p25);
   assert.ok(p25.xPct < p7.xPct - 0.2, `seat25 x=${p25.xPct} left of seat7 x=${p7.xPct}`);
+});
+
+const B155_OPTS = {
+  rowCurve: 0.42,
+  rowStepMultiplier: 1.1,
+  seatSpreadMultiplier: 1.2,
+  seatCountFromLeft: true,
+  radialFanExponent: 2,
+  rowBendExtraDeg: 5,
+  originRow: 1,
+  originSeat: 1,
+  minSeatPerRow: 4,
+  maxSeatPerRow: 29,
+};
+
+test('b155 row20: seatCountFromLeft — 8 правее 9 (от поля)', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('b155');
+  const pts = [8, 9, 10].map((seat) =>
+    resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B155_OPTS),
+  );
+  assert.ok(pts.every(Boolean));
+  assert.ok(pts[0].xPct > pts[1].xPct && pts[1].xPct > pts[2].xPct);
 });

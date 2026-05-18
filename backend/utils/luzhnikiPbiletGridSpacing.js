@@ -218,12 +218,23 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
   const rowT = clamp01((dr * rowStep) / anchorRowDist);
-  const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
-  const fanT = radialFan === 1 ? rowT : Math.pow(rowT, radialFan);
-
   const maxSeats = parseNum(opts.maxSeatPerRow) ?? 39;
-  let seat1Pt = lerpPct(nearL, farL, fanT);
-  let seatEndPt = lerpPct(nearR, farR, fanT);
+  let seat1Pt = lerpPct(nearL, farL, rowT);
+  let seatEndPt = lerpPct(nearR, farR, rowT);
+  const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
+  if (radialFan !== 1 && rowT > 1e-6) {
+    const fanT = Math.pow(rowT, radialFan);
+    const widthScale = (fanT - rowT) / rowT;
+    const mid = lerpPct(seat1Pt, seatEndPt, 0.5);
+    seat1Pt = {
+      xPct: seat1Pt.xPct + (seat1Pt.xPct - mid.xPct) * widthScale,
+      yPct: seat1Pt.yPct + (seat1Pt.yPct - mid.yPct) * widthScale,
+    };
+    seatEndPt = {
+      xPct: seatEndPt.xPct + (seatEndPt.xPct - mid.xPct) * widthScale,
+      yPct: seatEndPt.yPct + (seatEndPt.yPct - mid.yPct) * widthScale,
+    };
+  }
   seat1Pt = applyRowBend(
     seat1Pt,
     rowT,
@@ -245,13 +256,9 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowBendExtraDeg ?? 0,
   );
 
-  const seatSpread = Number(opts.seatSpreadMultiplier ?? 1);
-  const seatSpan = Math.max(1, maxSeats - originSeat);
-  const seatTLinear = clamp01((seatN - originSeat) / seatSpan);
-  let seatT =
-    seatSpread === 1
-      ? seatTLinear
-      : clamp01(0.5 + (seatTLinear - 0.5) * seatSpread);
+  const seatSpread = Math.max(1, Number(opts.seatSpreadMultiplier ?? 1));
+  const seatSpan = Math.max(1, (maxSeats - originSeat) / seatSpread);
+  let seatT = clamp01((seatN - originSeat) / seatSpan);
   const seatFromLeft =
     opts.seatCountFromLeft ?? opts.seatCountFromRight ?? opts.seatMirror;
   if (seatFromLeft) seatT = 1 - seatT;
