@@ -269,25 +269,32 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
   const rowSpan = Math.max(1, farL.row - originRow);
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
   const rowT = clamp01((dr * rowStep) / anchorRowDist);
+  const minSeats = parseNum(opts.minSeatPerRow) ?? nearR.seat ?? 4;
   const maxSeats = parseNum(opts.maxSeatPerRow) ?? 39;
-  let seat1Pt = lerpPct(nearL, farL, rowT);
-  let seatEndPt = lerpPct(nearR, farR, rowT);
   const radialFan = Number(opts.radialFanExponent ?? opts.radialSeatExponent ?? 1);
+  const rowRadialBoost = Number(opts.rowRadialDepthBoost ?? 0.06);
+  const rowDepthT = clamp01(rowT + rowRadialBoost * rowT * rowT);
+  const seatsInRow = Math.max(
+    minSeats,
+    Math.round(minSeats + rowT * (maxSeats - minSeats)),
+    seatN,
+  );
+
+  let seat1Pt = lerpPct(nearL, farL, rowDepthT);
+  let seatEndPt = lerpPct(nearR, farR, rowDepthT);
   if (radialFan !== 1 && rowT > 1e-6) {
-    const fanT = Math.pow(rowT, radialFan);
-    if (fanT <= rowT) {
-      // низ клина — только rowT, без сужения хорды
-    } else {
-    const widthScale = (fanT - rowT) / rowT;
-    const mid = lerpPct(seat1Pt, seatEndPt, 0.5);
-    seat1Pt = {
-      xPct: seat1Pt.xPct + (seat1Pt.xPct - mid.xPct) * widthScale,
-      yPct: seat1Pt.yPct + (seat1Pt.yPct - mid.yPct) * widthScale,
-    };
-    seatEndPt = {
-      xPct: seatEndPt.xPct + (seatEndPt.xPct - mid.xPct) * widthScale,
-      yPct: seatEndPt.yPct + (seatEndPt.yPct - mid.yPct) * widthScale,
-    };
+    const fanWidthT = Math.pow(rowT, radialFan);
+    if (fanWidthT > rowT) {
+      const widthScale = (fanWidthT - rowT) / rowT;
+      const mid = lerpPct(seat1Pt, seatEndPt, 0.5);
+      seat1Pt = {
+        xPct: seat1Pt.xPct + (seat1Pt.xPct - mid.xPct) * widthScale,
+        yPct: seat1Pt.yPct + (seat1Pt.yPct - mid.yPct) * widthScale,
+      };
+      seatEndPt = {
+        xPct: seatEndPt.xPct + (seatEndPt.xPct - mid.xPct) * widthScale,
+        yPct: seatEndPt.yPct + (seatEndPt.yPct - mid.yPct) * widthScale,
+      };
     }
   }
   seat1Pt = applyRowBend(
@@ -311,23 +318,9 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     opts.rowBendExtraDeg ?? 0,
   );
 
-  const seatGapPct = Number(
-    opts.seatSpreadPct ??
-      opts.seatSpreadMultiplier ??
-      measureD124SeatGapPct(),
-  );
-  const chordLen =
-    hypotPct(seatEndPt.xPct - seat1Pt.xPct, seatEndPt.yPct - seat1Pt.yPct) || 1e-9;
-  let seatT;
-  if (seatGapPct > 1) {
-    const seatSpan = Math.max(1, (maxSeats - originSeat) / seatGapPct);
-    seatT = clamp01((seatN - originSeat) / seatSpan);
-  } else {
-    seatT = clamp01(((seatN - originSeat) * seatGapPct) / chordLen);
-  }
-  const seatFromLeft =
-    opts.seatCountFromLeft ?? opts.seatCountFromRight ?? opts.seatMirror;
-  if (seatFromLeft) seatT = 1 - seatT;
+  const seatSpan = Math.max(1, seatsInRow - originSeat);
+  let seatT = clamp01((seatN - originSeat) / seatSpan);
+  if (opts.seatCountFromRight || opts.seatMirror) seatT = 1 - seatT;
 
   let pt = lerpPct(seat1Pt, seatEndPt, seatT);
 

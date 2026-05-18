@@ -6053,6 +6053,7 @@
     "rowStepMultiplier": 1.12,
     "seatSpreadMultiplier": 0.206697,
     "rowLiftPct": 0.08,
+    "rowRadialDepthBoost": 0.06,
     "seatCountFromLeft": true,
     "radialFanExponent": 2,
     "rowBendExtraDeg": 5,

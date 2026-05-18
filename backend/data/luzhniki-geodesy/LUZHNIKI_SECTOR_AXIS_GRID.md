@@ -74,10 +74,10 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 - 4 угла: `sector-row-anchors.json` → `nearLeft` / `nearRight` / `farLeft` / `farRight`.
 - **Взгляд с поля:** origin **ряд 1 место 1** (`nearLeft`) — нижний-левый угол клина.
 - **Ряд N:** доля `rowT` вдоль nearL→farL (шаг `rowStepPct × rowStepMultiplier`, сейчас **1.1**).
-- **Место M в ряду:** хорда ряда; `seatCountFromLeft: true` — нумерация **слева направо от поля** (в коде зеркало `seatT`, не путать со screen-X).
-- **Шаг sellable:** `seatSpreadMultiplier` = **0.206697%** — расстояние D124 ряд 10 (или ближайший strict) места 5→6, вдоль хорды ряда.
-- **Верхние ряды:** `rowLiftPct: 0.08` — чуть выше к дальнему краю (`rowT > 0.35`).
-- **Радиальный веер:** `radialFanExponent: 2` — **только ширина хорды** ряда (не сдвиг ряда вглубь); глубина ряда всегда по `rowT`.
+- **Место M:** `seatT = (M−1)/(местВРяду−1)` по хорде; `seatCountFromLeft: true` — место 1 у `nearLeft`, **без зеркала** (зеркало только `seatCountFromRight`).
+- **Мест в ряду:** растёт с `rowT` (4→39), не с `rowT²` — иначе ряды 11+ слипаются.
+- **Верх:** `rowLiftPct: 0.08`, `rowRadialDepthBoost: 0.06` — чуть выше и дуга глубже.
+- **Радиальность:** `radialFanExponent: 2` — только **ширина** хорды на верхних рядах.
 - Точка **всегда внутри четырёхугольника** якорей (не «шаг X» за край клина).
 - Дуга: `rowCurve` + `rowBendExtraDeg` на оба конца хорды ряда, затем lerp места.
 - Дополнительно: clamp bbox `tickets.json`.
@@ -88,7 +88,7 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
   "rowStepMultiplier": 1.12,
   "seatSpreadMultiplier": 0.206697,
   "rowLiftPct": 0.08,
-  "rowLiftFromRowT": 0.35,
+  "rowRadialDepthBoost": 0.06,
   "seatCountFromLeft": true,
   "radialFanExponent": 2,
   "rowBendExtraDeg": 5,

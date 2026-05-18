@@ -96,6 +96,7 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
       radialFanExponent: Number(block.radialFanExponent ?? block.radialSeatExponent ?? 1),
       rowLiftPct: Number(block.rowLiftPct ?? 0),
       rowLiftFromRowT: Number(block.rowLiftFromRowT ?? 0.35),
+      rowRadialDepthBoost: Number(block.rowRadialDepthBoost ?? 0),
       sectorBbox,
     });
     if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;

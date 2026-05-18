@@ -20,6 +20,7 @@ const A101_OPTS = {
   rowStepMultiplier: 1.12,
   seatSpreadMultiplier: 0.206697,
   rowLiftPct: 0.08,
+  rowRadialDepthBoost: 0.06,
   seatCountFromLeft: true,
   radialFanExponent: 2,
   minSeatPerRow: 4,
@@ -61,13 +62,13 @@ test('a101 row11 seat7: step grid ближе к svg row11 чем row33', () => {
   assert.ok(Math.abs(pt.yPct - pt33.yPct) > 0.5, 'row 11 and 33 separated');
 });
 
-test('a101 row11: seatCountFromLeft — 7 правее 8 правее 9 (от поля слева направо)', () => {
+test('a101 row11: seatCountFromLeft — 7 левее 8 левее 9 (от поля)', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const pts = [7, 8, 9].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 11, seat, A101_OPTS),
   );
   assert.ok(pts.every(Boolean));
-  assert.ok(pts[0].xPct > pts[1].xPct && pts[1].xPct > pts[2].xPct);
+  assert.ok(pts[0].xPct < pts[1].xPct && pts[1].xPct < pts[2].xPct);
 });
 
 function pointInConvexQuad(p, q) {
@@ -129,28 +130,42 @@ test('a101 row38: rowLift поднимает ряд чуть выше', () => {
   assert.ok(lifted < flat, `lifted y=${lifted} should be above flat y=${flat}`);
 });
 
-test('a101 row11: шаг мест ~ D124 gap', () => {
+test('a101 row35: места 1–4 не слипаются', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
-  const gap = measureD124SeatGapPct();
-  const p7 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 7, A101_OPTS);
-  const p8 = resolveCornerSectorPbiletStepGrid(block.anchors, 11, 8, A101_OPTS);
-  const d = Math.hypot(p8.xPct - p7.xPct, p8.yPct - p7.yPct);
-  assert.ok(Math.abs(d - gap) < 0.04, `d=${d} gap=${gap}`);
+  const pts = [1, 2, 3, 4].map((seat) =>
+    resolveCornerSectorPbiletStepGrid(block.anchors, 35, seat, A101_OPTS),
+  );
+  assert.ok(pts.every(Boolean));
+  const xs = pts.map((p) => p.xPct);
+  assert.ok(new Set(xs.map((x) => x.toFixed(3))).size === 4);
 });
 
-test('a101 row38: место 25 левее места 7 (от поля)', () => {
+test('a101 row38: места 22–25 отдельные, 22 левее 25', () => {
+  const block = loadSectorCalibrationBlocksByNorm().get('a101');
+  const pts = [22, 23, 24, 25].map((seat) =>
+    resolveCornerSectorPbiletStepGrid(block.anchors, 38, seat, A101_OPTS),
+  );
+  assert.ok(pts.every(Boolean));
+  const xs = pts.map((p) => p.xPct);
+  assert.ok(new Set(xs.map((x) => x.toFixed(3))).size === 4);
+  assert.ok(pts[0].xPct < pts[3].xPct - 0.15);
+  const p30 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 30, A101_OPTS);
+  assert.ok(Math.abs(pts[0].xPct - p30.xPct) > 0.2, 'seat22 not at seat30');
+});
+
+test('a101 row38: место 25 правее места 7 (от поля)', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('a101');
   const p7 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 7, A101_OPTS);
   const p25 = resolveCornerSectorPbiletStepGrid(block.anchors, 38, 25, A101_OPTS);
   assert.ok(p7 && p25);
-  assert.ok(p25.xPct < p7.xPct - 0.2, `seat25 x=${p25.xPct} left of seat7 x=${p7.xPct}`);
+  assert.ok(p25.xPct > p7.xPct + 0.2, `seat25 x=${p25.xPct} right of seat7 x=${p7.xPct}`);
 });
 
 const B155_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.1,
   seatSpreadMultiplier: 1.2,
-  seatCountFromLeft: true,
+  seatCountFromRight: true,
   radialFanExponent: 2,
   rowBendExtraDeg: 5,
   originRow: 1,
@@ -159,7 +174,7 @@ const B155_OPTS = {
   maxSeatPerRow: 29,
 };
 
-test('b155 row20: seatCountFromLeft — 8 правее 9 (от поля)', () => {
+test('b155 row20: seatCountFromRight — 8 правее 9', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('b155');
   const pts = [8, 9, 10].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B155_OPTS),
@@ -172,7 +187,7 @@ const B156_OPTS = {
   rowCurve: 0.42,
   rowStepMultiplier: 1.12,
   seatSpreadMultiplier: 1.25,
-  seatCountFromLeft: true,
+  seatCountFromRight: true,
   radialFanExponent: 2,
   rowBendExtraDeg: 5,
   originRow: 1,
@@ -189,7 +204,7 @@ test('b156 row1 seat1: у nearLeft якоря', () => {
   assert.ok(Math.hypot(pt.xPct - nearL.xPct, pt.yPct - nearL.yPct) < 0.25);
 });
 
-test('b156 row20: seatCountFromLeft — 8 правее 9 (от поля)', () => {
+test('b156 row20: seatCountFromRight — 8 правее 9', () => {
   const block = loadSectorCalibrationBlocksByNorm().get('b156');
   const pts = [8, 9, 10].map((seat) =>
     resolveCornerSectorPbiletStepGrid(block.anchors, 20, seat, B156_OPTS),
