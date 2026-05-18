@@ -6032,10 +6032,11 @@
   },
   "a101": {
     "rowCurve": 0.42,
-    "rowStepMultiplier": 1.2,
+    "rowStepMultiplier": 0.6,
     "rowBendExtraDeg": 5,
     "originRow": 1,
     "originSeat": 1,
+    "maxSeatPerRow": 40,
     "anchors": [
       {
         "row": "1",

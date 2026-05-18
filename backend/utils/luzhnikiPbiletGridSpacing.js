@@ -214,36 +214,33 @@ export function resolveCornerSectorPbiletStepGrid(anchors, row, seat, opts = {})
     Number(opts.rowStepPct ?? rowStepPct) * Number(opts.rowStepMultiplier ?? 1);
 
   const dr = rowN - originRow;
-  const ds = seatN - originSeat;
   const rowSpan = Math.max(1, farL.row - originRow);
-
   const anchorRowDist = hypotPct(farL.xPct - nearL.xPct, farL.yPct - nearL.yPct) || 1;
-  const rowT = clamp01((dr * rowStep) / anchorRowDist);
 
-  const seatMaxNear = nearR.seat - originSeat;
-  const seatMaxFar = farR.seat - originSeat;
-  const seatSpan = Math.max(1, seatMaxNear + rowT * (seatMaxFar - seatMaxNear));
-  const seatT = clamp01(ds / seatSpan);
+  const rowTStep = clamp01((dr * rowStep) / anchorRowDist);
+  const rowTWidth = clamp01(dr / rowSpan);
 
-  const p00 = nearL;
-  const p10 = farL;
-  const p01 = nearR;
-  const p11 = farR;
+  const leftPt = lerpPct(nearL, farL, rowTWidth);
+  const rightPt = lerpPct(nearR, farR, rowTWidth);
+  const chordLen = hypotPct(rightPt.xPct - leftPt.xPct, rightPt.yPct - leftPt.yPct) || 1e-9;
+  const seatDir = unitVec(rightPt.xPct - leftPt.xPct, rightPt.yPct - leftPt.yPct);
+
+  const maxSeatPerRow = parseNum(opts.maxSeatPerRow) ?? 40;
+  const seatIndex = seatN - originSeat;
+  const seatIndexMax = Math.max(1, maxSeatPerRow - originSeat);
+
+  let along = seatIndex * seatStep;
+  if (along > chordLen * 0.98) {
+    along = (seatIndex / seatIndexMax) * chordLen;
+  }
+
   let pt = {
-    xPct:
-      (1 - rowT) * (1 - seatT) * p00.xPct +
-      rowT * (1 - seatT) * p10.xPct +
-      (1 - rowT) * seatT * p01.xPct +
-      rowT * seatT * p11.xPct,
-    yPct:
-      (1 - rowT) * (1 - seatT) * p00.yPct +
-      rowT * (1 - seatT) * p10.yPct +
-      (1 - rowT) * seatT * p01.yPct +
-      rowT * seatT * p11.yPct,
+    xPct: leftPt.xPct + seatDir.x * along,
+    yPct: leftPt.yPct + seatDir.y * along,
   };
 
-  const u = rowT;
-  const v = seatT;
+  const u = rowTStep;
+  const v = clamp01(seatIndex / seatIndexMax);
   pt = applyRowBend(
     pt,
     u,

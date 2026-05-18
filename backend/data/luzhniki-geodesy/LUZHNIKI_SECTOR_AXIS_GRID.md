@@ -72,30 +72,32 @@ Handoff: [LUZHNIKI_NEXT_AGENT_HANDOFF.md](./LUZHNIKI_NEXT_AGENT_HANDOFF.md).
 
 - **Не axisGrid** (линейный X/Y ломает угол).
 - 4 угла: `sector-row-anchors.json` → `nearLeft` / `nearRight` / `farLeft` / `farRight`.
-- **Origin:** `originRow: 1`, `originSeat: 1` (= `nearLeft`).
-- **Шаги:** D124 `seatStepPct` / `rowStepPct`, для A101 `rowStepMultiplier: **1.2**` (+1.2 ряда к шагу по Y).
-- **Дуга:** `rowCurve: 0.42`, `rowBendExtraDeg: **5**` (~+5° изгиба к базовой дуге).
-- **Граница:** clamp в bbox сектора из `tickets.json` (места не вылезают за клин).
-- Билинейная сетка в (row, seat) от origin, затем bend, затем bbox.
+- **Origin:** `originRow: 1`, `originSeat: 1` (= `nearLeft`, нижний-левый угол от поля).
+- **Места (X):** отсчёт **слева направо** — место 1 у левого края ряда, место N = `(N−1) × seatStepPct` вдоль хорды ряда; если не влезает в ширину ряда → доля `N / maxSeatPerRow` (40).
+- **Ряды (Y):** `rowStepPct` × `rowStepMultiplier` (**0.6** сейчас) по дуге nearL→farL.
+- **Дуга:** `rowCurve: 0.42`, `rowBendExtraDeg: 5`.
+- **Граница:** clamp bbox `tickets.json`.
+- **Sellable:** все офферы A101 → 17 точек на `/map` (не bilinear по якорям seat 4/16 — иначе место 25 оказывается у «7»).
 
-Калибровка в `sector-row-anchors.json` → `"a101"`:
+Калибровка `sector-row-anchors.json` → `"a101"`:
 
 ```json
 {
   "rowCurve": 0.42,
-  "rowStepMultiplier": 1.2,
+  "rowStepMultiplier": 0.6,
   "rowBendExtraDeg": 5,
   "originRow": 1,
-  "originSeat": 1
+  "originSeat": 1,
+  "maxSeatPerRow": 40
 }
 ```
 
 | Симптом | Параметр |
 |---------|----------|
 | Ряды слишком плотно / далеко | `rowStepMultiplier` |
+| Место N не на N-й позиции слева | `maxSeatPerRow`, `originSeat: 1` |
 | Мало/много дуги | `rowCurve`, `rowBendExtraDeg` |
-| Уезд за сектор | якоря + bbox (авто) |
-| Места не по X | `originSeat`, ширина nearR↔farR |
+| На карте 7 точек вместо 17 | деплой + проверить `sellableSeats.length` в `/map` |
 
 Проверка: diagnostic @ 100%, sellable внутри серого клина, ряд 11 на дуге подписи «11».
 

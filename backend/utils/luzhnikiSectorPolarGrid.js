@@ -89,6 +89,7 @@ export function resolvePolarGridSeatFromAnchors(sectorLabel, apiRow, apiSeat) {
       rowBendExtraDeg: Number(block.rowBendExtraDeg ?? 0),
       originRow: block.originRow,
       originSeat: block.originSeat,
+      maxSeatPerRow: block.maxSeatPerRow,
       sectorBbox,
     });
     if (!pt || !Number.isFinite(pt.xPct) || !Number.isFinite(pt.yPct)) return null;
