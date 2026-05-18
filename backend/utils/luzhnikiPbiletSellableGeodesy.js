@@ -73,12 +73,33 @@ function parseRowNum(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function loadCoordinatesPayload() {
+export function loadCoordinatesPayload() {
   const p =
     process.env.LUZHNIKI_COORDINATES_JSON?.trim() ||
     path.join(repoRoot, 'luzhniki.txt');
   if (!fs.existsSync(p)) return null;
   return JSON.parse(fs.readFileSync(p, 'utf8'));
+}
+
+/** Для /map: облако luzhniki.txt, если в layout_json из БД нет allSeatCoordinates. */
+export function ensureLuzhnikiLayoutCloud(layout = {}, hallWidth = 11413, hallHeight = 9676) {
+  const cloud = layout?.allSeatCoordinates;
+  if (Array.isArray(cloud) && cloud.length >= 500) {
+    return { layout, cloudDotCount: cloud.length, cloudSource: 'layout' };
+  }
+  const payload = loadCoordinatesPayload();
+  if (!payload) {
+    return { layout, cloudDotCount: Array.isArray(cloud) ? cloud.length : 0, cloudSource: 'missing' };
+  }
+  const dots = extractPbiletCoordinatesSeatDots(payload, hallWidth, hallHeight);
+  if (dots.length < 500) {
+    return { layout, cloudDotCount: dots.length, cloudSource: 'repo-incomplete' };
+  }
+  return {
+    layout: { ...layout, allSeatCoordinates: dots },
+    cloudDotCount: dots.length,
+    cloudSource: 'luzhniki.txt',
+  };
 }
 
 function filterPbiletForNorms(pbilet, lookupNorms) {

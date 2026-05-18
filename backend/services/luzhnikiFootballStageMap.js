@@ -10,7 +10,10 @@ import { fileURLToPath } from 'node:url';
 import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { mergeSellableSeatsIntoLayout } from '../utils/luzhnikiLayoutSeatPatch.js';
-import { buildSellableSeatGeodesyPbiletAccurate } from '../utils/luzhnikiPbiletSellableGeodesy.js';
+import {
+  buildSellableSeatGeodesyPbiletAccurate,
+  ensureLuzhnikiLayoutCloud,
+} from '../utils/luzhnikiPbiletSellableGeodesy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -134,7 +137,15 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     return { ...row, layout_json: base };
   }
 
-  const geodesy = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layoutForGeodesy, {
+  const hallW = Number(layoutForGeodesy?.geodesy?.hallWidth) || 11413;
+  const hallH = Number(layoutForGeodesy?.geodesy?.hallHeight) || 9676;
+  const { layout: layoutWithCloud, cloudDotCount, cloudSource } = ensureLuzhnikiLayoutCloud(
+    layoutForGeodesy,
+    hallW,
+    hallH,
+  );
+
+  const geodesy = buildSellableSeatGeodesyPbiletAccurate(ticketsPayload, offers, layoutWithCloud, {
     svgMarkup: String(row.svg_markup ?? ''),
   });
   const layoutSeats = Array.isArray(layoutForGeodesy.seats) ? layoutForGeodesy.seats : [];
@@ -145,6 +156,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     ...row,
     layout_json: {
       ...base,
+      allSeatCoordinates: layoutWithCloud.allSeatCoordinates ?? base.allSeatCoordinates,
       seats: layoutSeats,
       sellableSeats: geodesy.seats,
       sellableGeodesyMode: geodesy.geodesyMode,
@@ -152,10 +164,15 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
         matched: geodesy.matched,
         totalSellable: geodesy.totalSellable,
         strictMatched: geodesy.strictMatched,
+        pbiletLabeledMatched: geodesy.pbiletLabeledMatched ?? 0,
+        cloudRowSeatMatched: geodesy.cloudRowSeatMatched ?? 0,
+        radialGridMatched: geodesy.radialGridMatched ?? 0,
         sectorNativeMatched: geodesy.sectorNativeMatched ?? 0,
         fieldGridMatched: geodesy.fieldGridMatched ?? 0,
         anchorInterpolated: geodesy.anchorInterpolated,
         layoutSeatsPatched: patched,
+        cloudDotCount,
+        cloudSource,
         unmatchedSamples: geodesy.unmatchedSamples,
       },
     },
