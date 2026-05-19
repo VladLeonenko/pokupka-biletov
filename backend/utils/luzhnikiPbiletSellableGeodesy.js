@@ -4,7 +4,16 @@
  * Координаты считаются на каждый GET /map, не из сида.
  */
 
-import { buildLabeledSeatIndex, lookupLabeledSeat } from './hallSeatGeodesyMatch.js';
+import {
+  buildLabeledSeatIndex,
+  lookupLabeledSeat,
+} from './hallSeatGeodesyMatch.js';
+import {
+  editorBundleHasRow,
+  getCachedGrayCloudLabeledIndex,
+  grayCloudLabeledOnlyMode,
+  useGrayCloudLabeledSellable,
+} from './luzhnikiGrayCloudLabeledIndex.js';
 import { getLuzhnikiLabeledSeatIndex } from './luzhnikiSeatIndexCache.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -144,6 +153,17 @@ function canonicalSectorLabel(pbilet, lookupNorms, offerSector) {
 }
 
 function finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h) {
+  const src = String(hit.geodesySource ?? '');
+  if (src.includes('grayCloudLabeled')) {
+    return {
+      sector,
+      row,
+      seat,
+      xPct: hit.xPct,
+      yPct: hit.yPct,
+      geodesySource: src,
+    };
+  }
   const bbox = getSectorBboxPct(ticketsPayload, sector, w, h);
   const clamped = clampPctToSectorBbox(hit.xPct, hit.yPct, bbox);
   return {
@@ -367,6 +387,11 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     });
   })();
 
+  const grayCloudLabeledIndex = useGrayCloudLabeledSellable()
+    ? getCachedGrayCloudLabeledIndex()
+    : null;
+  const grayCloudOnly = grayCloudLabeledOnlyMode();
+
   const offerByNorm = new Map();
   for (const o of offers) {
     const norm = normalizeSectorLabel(o.Sector);
@@ -381,6 +406,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
   let pbiletLabeledMatched = 0;
   let cloudRowSeatMatched = 0;
   let grayCloudMatched = 0;
+  let grayCloudLabeledMatched = 0;
   let cloudMasterMatched = 0;
   let fieldGridMatched = 0;
   let sectorNativeMatched = 0;
@@ -412,6 +438,31 @@ export function buildSellableSeatGeodesyPbiletAccurate(
         totalSellable += 1;
         const dedupe = strictSeatKey(sector, row, seat);
         if (seen.has(dedupe)) continue;
+
+        if (grayCloudLabeledIndex?.size) {
+          const labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
+          if (labeled) {
+            seen.add(dedupe);
+            grayCloudLabeledMatched += 1;
+            seats.push(
+              finalizeSellableCoords(
+                sector,
+                row,
+                seat,
+                { ...labeled, geodesySource: 'grayCloudLabeled' },
+                ticketsPayload,
+                w,
+                h,
+              ),
+            );
+            continue;
+          }
+        }
+
+        if (grayCloudOnly) {
+          if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
+          continue;
+        }
 
         const direct = lookupLabeledSeat(strictIndex, sector, row, seat);
         if (direct) {
@@ -478,7 +529,9 @@ export function buildSellableSeatGeodesyPbiletAccurate(
           axisAnchors.length >= 2 &&
           !axisAnchors.some((a) => parseRowNum(a.row) === rowNumOffer);
 
-        if (!hit && preferRadial && cloudRowSeatIndex) {
+        const rowInEditorBundle = editorBundleHasRow(grayCloudLabeledIndex, sector, row);
+
+        if (!hit && preferRadial && cloudRowSeatIndex && !rowInEditorBundle) {
           const seatRangeInRow = seatRangesByRow?.get(norm)?.get(rowNumOffer) ?? null;
 
           const grayDirect = resolveSellableGrayCloudSeat(
@@ -522,7 +575,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
             seats.push(finalizeSellableCoords(sector, row, seat, hit, ticketsPayload, w, h));
             continue;
           }
-        } else if (!hit && preferRadial) {
+        } else if (!hit && preferRadial && !rowInEditorBundle) {
           hit = trySectorPolarGrid(norm, row, seat);
           if (hit) {
             seen.add(dedupe);
@@ -653,6 +706,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     pbiletLabeledMatched,
     cloudRowSeatMatched,
     grayCloudMatched,
+    grayCloudLabeledMatched,
     fieldGridMatched,
     sectorNativeMatched,
     axisGridMatched,
@@ -668,6 +722,12 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     anchorInterpolated: interpolated,
     cloudMasterMatched,
     unmatchedSamples,
-    geodesyMode: cloudMasterIndex ? 'pbilet-strict+sectorNative' : 'pbilet-strict+sectorNative',
+    geodesyMode: grayCloudLabeledIndex?.size
+      ? grayCloudOnly
+        ? 'grayCloudLabeled-only'
+        : 'pbilet-strict+grayCloudLabeled'
+      : cloudMasterIndex
+        ? 'pbilet-strict+sectorNative'
+        : 'pbilet-strict+sectorNative',
   };
 }

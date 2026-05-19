@@ -72,6 +72,26 @@ export function lookupLabeledSeat(index, sector, row, seat) {
   return null;
 }
 
+/** Все уникальные точки индекса в секторе+ряду (для «ряд из редактора»). */
+export function collectIndexSeatsForRow(index, sector, row) {
+  const norms = new Set([
+    normalizeSectorLabel(sector),
+    ...luzhnikiSectorLookupNorms(sector),
+  ]);
+  const wantRow = normalizeRowNumber(row);
+  const out = [];
+  const seen = new Set();
+  for (const val of index.values()) {
+    if (!norms.has(normalizeSectorLabel(val.sector))) continue;
+    if (normalizeRowNumber(val.row) !== wantRow) continue;
+    const sig = `${val.xPct.toFixed(4)}|${val.yPct.toFixed(4)}`;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    out.push(val);
+  }
+  return out;
+}
+
 /**
  * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
  * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} offers

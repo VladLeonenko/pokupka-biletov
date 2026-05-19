@@ -148,7 +148,11 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   const sellableForLayoutPatch = geodesy.seats.filter((s) => {
     if (!prefersSectorRadialCorner(normalizeSectorLabel(s.sector))) return true;
     const src = String(s.geodesySource ?? '');
-    return src.includes('strict') || src.includes('pbiletLabeled');
+    return (
+      src.includes('strict') ||
+      src.includes('pbiletLabeled') ||
+      src.includes('grayCloudLabeled')
+    );
   });
   const mergeResult = mergeSellableSeatsIntoLayout(layoutSeats, sellableForLayoutPatch);
   const patched = mergeResult?.patched ?? 0;
@@ -169,6 +173,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
         pbiletLabeledMatched: geodesy.pbiletLabeledMatched ?? 0,
         cloudRowSeatMatched: geodesy.cloudRowSeatMatched ?? 0,
         grayCloudMatched: geodesy.grayCloudMatched ?? 0,
+        grayCloudLabeledMatched: geodesy.grayCloudLabeledMatched ?? 0,
         radialGridMatched: geodesy.radialGridMatched ?? 0,
         sectorNativeMatched: geodesy.sectorNativeMatched ?? 0,
         fieldGridMatched: geodesy.fieldGridMatched ?? 0,
