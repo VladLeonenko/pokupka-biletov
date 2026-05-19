@@ -8,6 +8,7 @@ import {
   parsePreferLayoutSeatPositions,
   processHallSvgForNative,
   seatMapKey,
+  type OfferLike,
   type SvgNativePlacement,
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
@@ -47,7 +48,8 @@ function stadiumSeatHitboxLayerPx(
   mapZoomed: boolean,
 ): number {
   const r = stadiumSeatCanvasRadiusPx(zoom, layerWidth, svgViewBoxWidth, active, mapZoomed);
-  return (2 * r) / Math.max(0.001, zoom);
+  /** Минимум ~12px в слое — иначе hover/клик не попадают в невидимый хитбокс при fit-zoom. */
+  return Math.max(12, (2 * r) / Math.max(0.001, zoom));
 }
 
 /** Те же координаты, что у canvas: xPct/yPct × viewBox (не % ширины слоя — меньше дрейфа на Лужниках). */
@@ -465,51 +467,91 @@ export function TicketHallInteractiveBlock({
     }
 
     if (sectorMode.enabled) {
-      const layoutIndex = buildLabeledSeatIndex(nativeSeats);
+      const layoutRecord =
+        layoutJson && typeof layoutJson === 'object' ? (layoutJson as Record<string, unknown>) : null;
       const sellableFromApi = parseLayoutSeatPositions(
-        layoutJson && typeof layoutJson === 'object'
-          ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
-          : null,
+        layoutRecord ? { seats: layoutRecord.sellableSeats } : null,
       );
+      const sellableFromLiveOffers = layoutRecord?.sellableSeatsFromLiveOffers === true;
+
+      const layoutIndex = buildLabeledSeatIndex(nativeSeats);
       for (const s of sellableFromApi) {
         for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
           layoutIndex.set(key, s);
         }
       }
-      const placements: SvgNativePlacement[] = [];
-      const placedKeys = new Set<string>();
 
+      const offerBySeatKey = new Map<string, { offer: OfferLike; seat: string; list: string[] }>();
       for (const offer of offers) {
         const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
         if (list.length === 0) continue;
         const oid = String(offer.Id ?? '');
         if (!oid) continue;
-
         for (const seat of list) {
           if (!seat.trim()) continue;
-          const hit = lookupLabeledSeat(layoutIndex, offer.Sector, offer.Row, seat);
-          if (!hit) continue;
+          for (const key of labeledSeatLookupKeys(offer.Sector, offer.Row, seat)) {
+            offerBySeatKey.set(key, { offer, seat, list });
+          }
+        }
+      }
 
-          const svgKey = seatMapKey(hit.sector, hit.row, hit.seat);
-          if (placedKeys.has(svgKey)) continue;
-          placedKeys.add(svgKey);
+      const placements: SvgNativePlacement[] = [];
+      const placedKeys = new Set<string>();
 
-          const rowLabel = String(offer.Row ?? hit.row);
-          const sectorLabel = String(offer.Sector ?? hit.sector);
-          const priceKey = getPriceKey(offer);
-          placements.push({
-            svgKey,
-            key: selectionSeatKey(oid, rowLabel, seat),
-            offerId: oid,
-            sectorLabel,
-            seat,
-            rowLabel,
-            available: list,
-            xPct: hit.xPct,
-            yPct: hit.yPct,
-            title: `${sectorLabel}, ${rowLabel} ряд, место ${seat}, цена ${formatRub(Number(priceKey))}`,
-            priceKey,
-          });
+      const pushPlacement = (
+        hit: SvgNativeSeat,
+        offer: OfferLike,
+        seat: string,
+        list: string[],
+      ) => {
+        const oid = String(offer.Id ?? '');
+        const svgKey = seatMapKey(hit.sector, hit.row, seat);
+        if (placedKeys.has(svgKey)) return;
+        placedKeys.add(svgKey);
+        const rowLabel = String(offer.Row ?? hit.row);
+        const sectorLabel = String(offer.Sector ?? hit.sector);
+        const priceKey = getPriceKey(offer);
+        placements.push({
+          svgKey,
+          key: selectionSeatKey(oid, rowLabel, seat),
+          offerId: oid,
+          sectorLabel,
+          seat,
+          rowLabel,
+          available: list,
+          xPct: hit.xPct,
+          yPct: hit.yPct,
+          title: `${sectorLabel}, ${rowLabel} ряд, место ${seat}, цена ${formatRub(Number(priceKey))}`,
+          priceKey,
+        });
+      };
+
+      if (sellableFromLiveOffers && sellableFromApi.length > 0) {
+        for (const hit of sellableFromApi) {
+          let matched: { offer: OfferLike; seat: string; list: string[] } | undefined;
+          for (const key of labeledSeatLookupKeys(hit.sector, hit.row, hit.seat)) {
+            const m = offerBySeatKey.get(key);
+            if (m) {
+              matched = m;
+              break;
+            }
+          }
+          if (!matched) continue;
+          pushPlacement(hit, matched.offer, matched.seat, matched.list);
+        }
+      } else {
+        for (const offer of offers) {
+          const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+          if (list.length === 0) continue;
+          const oid = String(offer.Id ?? '');
+          if (!oid) continue;
+
+          for (const seat of list) {
+            if (!seat.trim()) continue;
+            const hit = lookupLabeledSeat(layoutIndex, offer.Sector, offer.Row, seat);
+            if (!hit) continue;
+            pushPlacement(hit, offer, seat, list);
+          }
         }
       }
 
@@ -1281,7 +1323,9 @@ export function TicketHallInteractiveBlock({
             />
             {sectorMode.enabled ? (
               <svg
-                className={`${styles.sectorLayer} ${selectedSectorSummary || mapZoomed ? styles.sectorLayerFocused : ''}`}
+                className={`${styles.sectorLayer} ${selectedSectorSummary || mapZoomed ? styles.sectorLayerFocused : ''} ${
+                  selectedSectorSummary ? styles.sectorLayerSeatPick : ''
+                }`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
                 aria-label="Секторы стадиона"

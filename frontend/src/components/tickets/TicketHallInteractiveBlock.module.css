@@ -220,6 +220,7 @@
 .seatLayer {
   position: absolute;
   inset: 0;
+  z-index: 6;
   pointer-events: none;
 }
 
@@ -255,6 +256,15 @@
   stroke: transparent !important;
   opacity: 0;
   pointer-events: auto;
+}
+
+/** Сектор выбран — клики/hover на sellable, не на невидимых path */
+.sectorLayerSeatPick {
+  pointer-events: none !important;
+}
+
+.sectorLayerSeatPick .sectorPath {
+  pointer-events: none !important;
 }
 
 .sectorPath {
