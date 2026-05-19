@@ -18,15 +18,25 @@ const DEFAULT_BUNDLE = path.join(
 /** @type {{ mtime: number, index: Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null, seatCount: number, bundleMode: string | null }} */
 const state = { mtime: 0, index: null, seatCount: 0, bundleMode: null };
 
-/** Автоген ~75k из fieldGrid — не для checkout; только editor-svg-extract после hover.html. */
+const MAX_EDITOR_BUNDLE_SEATS = 8000;
+const MIN_STRICT_ONLY_BUNDLE_SEATS = 4000;
+
+function manualEditorSeats(seats) {
+  return (seats || []).filter((s) => String(s?.geodesySource ?? '').includes('manual'));
+}
+
+/** Автоген ~75k fieldGrid — не editor bundle; только manual из hover.html. */
 export function isEditorLabeledBundle(raw) {
   if (!raw || typeof raw !== 'object') return false;
   const mode = String(raw.mode ?? '').trim();
-  if (mode === 'editor-svg-extract') return true;
+  const seats = Array.isArray(raw.seats) ? raw.seats : [];
+  if (mode === 'editor-svg-extract') {
+    const manual = manualEditorSeats(seats);
+    return manual.length > 0 && manual.length <= MAX_EDITOR_BUNDLE_SEATS;
+  }
   if (/fieldgrid|sector-axes|canonical-overlay/i.test(mode)) return false;
-  const n = Array.isArray(raw.seats) ? raw.seats.length : 0;
-  if (n > 8000) return false;
-  return n > 0;
+  if (seats.length > MAX_EDITOR_BUNDLE_SEATS) return false;
+  return seats.length > 0;
 }
 
 function allowAutoGrayBundle() {
@@ -53,6 +63,15 @@ export function grayCloudLabeledOnlyMode() {
   if (v === '0' || v === 'false') return false;
   if (v === '1' || v === 'true') return true;
   return true;
+}
+
+/**
+ * ONLY без pbilet-fallback — только если bundle большой ручной слой (не 1 ряд, не 75k fieldGrid).
+ */
+export function grayCloudLabeledStrictOnlyMode() {
+  if (!grayCloudLabeledOnlyMode()) return false;
+  const n = getGrayCloudLabeledSeatCount();
+  return n >= MIN_STRICT_ONLY_BUNDLE_SEATS && n <= MAX_EDITOR_BUNDLE_SEATS;
 }
 
 /** API seat 28..31 → N-я точка ряда в bundle (места 1..N из редактора). */
@@ -95,7 +114,10 @@ export function getCachedGrayCloudLabeledIndex() {
       return state.index;
     }
 
-    const seats = Array.isArray(raw?.seats) ? raw.seats : Array.isArray(raw) ? raw : [];
+    let seats = Array.isArray(raw?.seats) ? raw.seats : Array.isArray(raw) ? raw : [];
+    if (state.bundleMode === 'editor-svg-extract') {
+      seats = manualEditorSeats(seats);
+    }
     const filtered = seats.filter(
       (s) =>
         s?.sector &&

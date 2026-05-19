@@ -13,6 +13,7 @@ import {
   editorBundleHasRow,
   getCachedGrayCloudLabeledIndex,
   grayCloudLabeledOnlyMode,
+  grayCloudLabeledStrictOnlyMode,
   useGrayCloudLabeledSellable,
   useGrayCloudRowZip,
 } from './luzhnikiGrayCloudLabeledIndex.js';
@@ -392,9 +393,9 @@ export function buildSellableSeatGeodesyPbiletAccurate(
   const grayCloudLabeledIndex = useGrayCloudLabeledSellable()
     ? getCachedGrayCloudLabeledIndex()
     : null;
-  /** ONLY без мест в bundle → pbilet/cloud (иначе после deploy с пустым editor-bundle sellable=0). */
+  /** ONLY только для полного manual bundle (4k–8k); 1 ряд / fieldGrid dump → pbilet fallback. */
   const grayCloudOnly =
-    grayCloudLabeledOnlyMode() && Boolean(grayCloudLabeledIndex?.size);
+    grayCloudLabeledStrictOnlyMode() && Boolean(grayCloudLabeledIndex?.size);
   const grayCloudRowZip = useGrayCloudRowZip();
 
   const offerByNorm = new Map();

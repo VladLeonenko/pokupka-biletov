@@ -395,13 +395,19 @@
       applyStoredEditsToSvg();
     }
 
+    function isManualLabeledCircle(c) {
+      const src = c.getAttribute('data-source') || '';
+      if (!src.startsWith('manual')) return false;
+      const sector = circleSector(c);
+      const row = circleRow(c);
+      const seat = circleSeatNum(c);
+      return Boolean(sector && isValidPaintRow(row) && seat != null);
+    }
+
     function countLabeledCirclesInDom() {
       let n = 0;
       for (const c of allCircles) {
-        const sector = circleSector(c);
-        const row = circleRow(c);
-        const seat = circleSeatNum(c);
-        if (sector && isValidPaintRow(row) && seat != null) n++;
+        if (isManualLabeledCircle(c)) n++;
       }
       return n;
     }

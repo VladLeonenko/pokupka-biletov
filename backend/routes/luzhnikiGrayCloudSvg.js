@@ -58,10 +58,21 @@ router.get('/status', (_req, res) => {
   } catch {
     /* */
   }
-  return res.json({
-    ok: true,
-    bundle,
-    svg: {
+    let manualInFile = 0;
+    if (bundle.exists) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(SEATS_BUNDLE, 'utf8'));
+        const seats = Array.isArray(raw?.seats) ? raw.seats : [];
+        manualInFile = seats.filter((s) => String(s?.geodesySource ?? '').includes('manual')).length;
+      } catch {
+        /* */
+      }
+    }
+
+    return res.json({
+      ok: true,
+      bundle: { ...bundle, manualEditorSeats: manualInFile },
+      svg: {
       handExists: fs.existsSync(HAND_SVG),
       publicExists: fs.existsSync(PUBLIC_SVG),
       handBytes: handSvgBytes,
