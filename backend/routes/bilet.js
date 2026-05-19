@@ -50,7 +50,7 @@ import {
 import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
-import { filterOffersForSuperfinalSession } from '../utils/superfinalOffersFilter.js';
+import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
 import {
   applyGetbiletMarkupToOfferPayload,
   getGetbiletMarkupRuleForRepertoire,
@@ -579,8 +579,10 @@ router.get('/stage/:stageId/map', async (req, res) => {
     if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
       try {
         const { payload } = await getPublicOffersForRepertoire(repertoireId);
-        const offerRowsRaw = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
-        const offerRows = filterOffersForSuperfinalSession(offerRowsRaw, repertoireId);
+        const offerRows = filterPublicOffersPayload(
+          { ResultData: Array.isArray(payload?.ResultData) ? payload.ResultData : [] },
+          repertoireId,
+        ).ResultData ?? [];
         stageRow = adaptLuzhnikiStageMapForLiveOffers(stageRow, offerRows);
       } catch (err) {
         console.warn('[bilet] stage map sellable geodesy', repertoireId, err?.message || err);
@@ -620,12 +622,16 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
       res.setHeader('X-Getbilet-Offers-Cache', offersResult.meta.cache);
     }
     setMarkupResponseHeader(res, offersResult.markupRule);
+    const offersPayload = filterPublicOffersPayload(
+      normalizeGetbiletOfferListPayload(offersResult.payload),
+      repertoireId,
+    );
     return sendPublicJson(
       req,
       res,
       {
         context,
-        offers: normalizeGetbiletOfferListPayload(offersResult.payload),
+        offers: offersPayload,
       },
       { noCache: true },
     );
@@ -689,7 +695,8 @@ router.get('/repertoire/:repertoireId/offers', async (req, res) => {
       res.setHeader('X-Getbilet-Offers-Cache', meta.cache);
     }
     setMarkupResponseHeader(res, markupRule);
-    return sendPublicJson(req, res, normalizeGetbiletOfferListPayload(payload), { noCache: true });
+    const normalized = normalizeGetbiletOfferListPayload(payload);
+    return sendPublicJson(req, res, filterPublicOffersPayload(normalized, repertoireId), { noCache: true });
   } catch (err) {
     return sendGetbiletError(err, res);
   }
