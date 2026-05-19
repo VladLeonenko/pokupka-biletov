@@ -14,8 +14,9 @@ import {
   getCachedGrayCloudLabeledIndex,
   grayCloudLabeledOnlyMode,
   grayCloudLabeledStrictOnlyMode,
+  partialManualEditorBundleActive,
   useGrayCloudLabeledSellable,
-  useGrayCloudRowZip,
+  useGrayCloudRowZipForBundle,
 } from './luzhnikiGrayCloudLabeledIndex.js';
 import { getLuzhnikiLabeledSeatIndex } from './luzhnikiSeatIndexCache.js';
 import fs from 'node:fs';
@@ -396,7 +397,8 @@ export function buildSellableSeatGeodesyPbiletAccurate(
   /** ONLY только для полного manual bundle (4k–8k); 1 ряд / fieldGrid dump → pbilet fallback. */
   const grayCloudOnly =
     grayCloudLabeledStrictOnlyMode() && Boolean(grayCloudLabeledIndex?.size);
-  const grayCloudRowZip = useGrayCloudRowZip();
+  const grayCloudRowZip = useGrayCloudRowZipForBundle();
+  const partialManualOnly = partialManualEditorBundleActive();
 
   const offerByNorm = new Map();
   for (const o of offers) {
@@ -473,6 +475,15 @@ export function buildSellableSeatGeodesyPbiletAccurate(
             );
             continue;
           }
+          if (editorBundleHasRow(grayCloudLabeledIndex, sector, row)) {
+            if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
+            continue;
+          }
+        }
+
+        if (partialManualOnly) {
+          if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
+          continue;
         }
 
         if (grayCloudOnly) {
@@ -743,12 +754,15 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     anchorInterpolated: interpolated,
     cloudMasterMatched,
     unmatchedSamples,
-    geodesyMode: grayCloudLabeledIndex?.size
-      ? grayCloudOnly
-        ? 'grayCloudLabeled-only'
-        : 'pbilet-strict+grayCloudLabeled'
-      : cloudMasterIndex
-        ? 'pbilet-strict+sectorNative'
-        : 'pbilet-strict+sectorNative',
+    partialManualOnly,
+    geodesyMode: partialManualOnly
+      ? 'grayCloudLabeled-partial-manual-only'
+      : grayCloudLabeledIndex?.size
+        ? grayCloudOnly
+          ? 'grayCloudLabeled-only'
+          : 'pbilet-strict+grayCloudLabeled'
+        : cloudMasterIndex
+          ? 'pbilet-strict+sectorNative'
+          : 'pbilet-strict+sectorNative',
   };
 }

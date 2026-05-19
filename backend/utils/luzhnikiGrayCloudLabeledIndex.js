@@ -74,6 +74,24 @@ export function grayCloudLabeledStrictOnlyMode() {
   return n >= MIN_STRICT_ONLY_BUNDLE_SEATS && n <= MAX_EDITOR_BUNDLE_SEATS;
 }
 
+/**
+ * Частичная правка в hover (сотни мест, не весь стадион).
+ * По умолчанию sellable только с coords из bundle — без pbilet/cloud «в никуда».
+ * LUZHNIKI_PARTIAL_MANUAL_ONLY_SELLABLE=0 — вернуть cloud для неразмеченных рядов.
+ */
+export function partialManualEditorBundleActive() {
+  const v = process.env.LUZHNIKI_PARTIAL_MANUAL_ONLY_SELLABLE?.trim();
+  if (v === '0' || v === 'false') return false;
+  if (v === '1' || v === 'true') return true;
+  const n = getGrayCloudLabeledSeatCount();
+  return n > 0 && n < MIN_STRICT_ONLY_BUNDLE_SEATS;
+}
+
+export function useGrayCloudRowZipForBundle() {
+  if (!useGrayCloudRowZip()) return false;
+  return grayCloudLabeledStrictOnlyMode();
+}
+
 /** API seat 28..31 → N-я точка ряда в bundle (места 1..N из редактора). */
 export function useGrayCloudRowZip() {
   const v = process.env.LUZHNIKI_GRAY_CLOUD_ROW_ZIP?.trim();

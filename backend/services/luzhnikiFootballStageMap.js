@@ -168,6 +168,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
       sellableGeodesyMode: geodesy.geodesyMode,
       offerSeatGeodesy: {
         matched: geodesy.matched,
+        partialManualOnly: geodesy.partialManualOnly === true,
         totalSellable: geodesy.totalSellable,
         strictMatched: geodesy.strictMatched,
         pbiletLabeledMatched: geodesy.pbiletLabeledMatched ?? 0,
