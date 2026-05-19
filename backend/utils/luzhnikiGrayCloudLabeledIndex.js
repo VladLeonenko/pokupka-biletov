@@ -31,9 +31,12 @@ export function useGrayCloudLabeledSellable() {
   return Boolean(resolveBundlePath());
 }
 
+/** По умолчанию only, если не выключено явно (LUZHNIKI_SELLABLE_GRAY_CLOUD_ONLY=0). */
 export function grayCloudLabeledOnlyMode() {
   const v = process.env.LUZHNIKI_SELLABLE_GRAY_CLOUD_ONLY?.trim();
-  return v === '1' || v === 'true';
+  if (v === '0' || v === 'false') return false;
+  if (v === '1' || v === 'true') return true;
+  return true;
 }
 
 /** Ряд есть в bundle редактора — не подменять cloudRowSeat/radial. */

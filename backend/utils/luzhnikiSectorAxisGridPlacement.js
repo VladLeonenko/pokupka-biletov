@@ -321,3 +321,16 @@ export function resolveSellableOnSectorAxisGrid({
     geodesySource: 'axisGrid',
   };
 }
+
+/** Doc API: (rowN, seatN, anchors, params) → {x, y} */
+export function resolveAxisGridSeat(rowN, seatN, anchors, params = {}) {
+  const result = resolveSellableOnSectorAxisGrid({
+    anchors,
+    sectorLabel: params.sectorLabel ?? 'b154',
+    row: rowN,
+    seat: seatN,
+    seatRangeInRow: params.seatRangeInRow ?? null,
+  });
+  if (!result) return null;
+  return { x: result.xPct, y: result.yPct };
+}

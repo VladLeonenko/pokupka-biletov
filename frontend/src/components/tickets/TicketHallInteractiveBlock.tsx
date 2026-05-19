@@ -50,6 +50,19 @@ function stadiumSeatHitboxLayerPx(
   return (2 * r) / Math.max(0.001, zoom);
 }
 
+/** Те же координаты, что у canvas: xPct/yPct × viewBox (не % ширины слоя — меньше дрейфа на Лужниках). */
+function stadiumSeatDotLayerPosition(
+  xPct: number,
+  yPct: number,
+  viewBoxWidth: number,
+  viewBoxHeight: number,
+): Pick<React.CSSProperties, 'left' | 'top'> {
+  return {
+    left: `${(xPct / 100) * viewBoxWidth}px`,
+    top: `${(yPct / 100) * viewBoxHeight}px`,
+  };
+}
+
 export type HallOfferRow = {
   Id?: string;
   Sector?: string;
@@ -1369,6 +1382,8 @@ export function TicketHallInteractiveBlock({
                       priceKey: p.priceKey,
                     };
                     const stadiumLayerWidth = Math.round(svgViewBox.width);
+                    const useStadiumViewBoxPx =
+                      sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
                     const syncCanvasHitbox =
                       sectorMode.enabled && useSvgNative && useCanvasCompositing;
                     const hitboxPx = syncCanvasHitbox
@@ -1380,6 +1395,14 @@ export function TicketHallInteractiveBlock({
                           mapZoomed,
                         )
                       : null;
+                    const seatPos = useStadiumViewBoxPx
+                      ? stadiumSeatDotLayerPosition(
+                          p.xPct,
+                          p.yPct,
+                          svgViewBox.width,
+                          svgViewBox.height,
+                        )
+                      : { left: `${p.xPct}%`, top: `${p.yPct}%` };
                     if (p.previewOnly) {
                       return (
                         <span
@@ -1391,8 +1414,7 @@ export function TicketHallInteractiveBlock({
                           } ${syncCanvasHitbox ? styles.seatDotStadiumHitbox : ''}`}
                           style={
                             {
-                              left: `${p.xPct}%`,
-                              top: `${p.yPct}%`,
+                              ...seatPos,
                               '--seat-accent': bg,
                               ...(hitboxPx != null
                                 ? { width: `${hitboxPx}px`, height: `${hitboxPx}px` }
@@ -1422,8 +1444,7 @@ export function TicketHallInteractiveBlock({
                         }`}
                         style={
                           {
-                            left: `${p.xPct}%`,
-                            top: `${p.yPct}%`,
+                            ...seatPos,
                             '--seat-accent': bg,
                             ...(hitboxPx != null
                               ? { width: `${hitboxPx}px`, height: `${hitboxPx}px` }

@@ -1,0 +1,18 @@
+{
+  "builtAt": "2026-05-18T16:14:30.237Z",
+  "coordsPath": "/Users/vladislavleonenko/Desktop/pokupka-biletov/luzhniki.txt",
+  "ticketsPath": "/Users/vladislavleonenko/Desktop/pokupka-biletov/tickets.json",
+  "matchTolPx": 1.5,
+  "outSvg": "data/luzhniki-geodesy/hand/luzhniki-gray-cloud-full-labeled.svg",
+  "mergeInto": null,
+  "stats": {
+    "total": 77415,
+    "matchedStrict": 6131,
+    "matchedFull": 69716,
+    "matchedLabeled": 0,
+    "matchedPolygon": 1565,
+    "unmatched": 3,
+    "labeled": 77412
+  },
+  "ticketSeatsIndexed": 6132
+}

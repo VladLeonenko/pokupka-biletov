@@ -62,7 +62,12 @@
     "backfill:event-description-packs:force": "BACKFILL_EVENT_DESCRIPTIONS_FORCE=1 node scripts/backfill-event-description-packs.js",
     "test:email": "node scripts/test-email-send.js",
     "seed:tbank-demo-event": "node scripts/seed-tbank-demo-event.js",
-    "seed:luzhniki-cup-final-2026": "node scripts/seed-luzhniki-cup-final-2026-event.js"
+    "seed:luzhniki-cup-final-2026": "node scripts/seed-luzhniki-cup-final-2026-event.js",
+    "precompute:luzhniki-labeled-dots": "node scripts/precomputeLabeledDots.js",
+    "enrich:luzhniki-gray-circles-svg": "node scripts/enrich-luzhniki-gray-circles-svg.js",
+    "enrich:luzhniki-cloud-sectors-polygon": "node scripts/enrich-luzhniki-cloud-sectors-by-polygon.js",
+    "export:luzhniki-gray-cloud-lookup": "LUZHNIKI_SKIP_LMR=1 node scripts/enrich-luzhniki-gray-circles-svg.js",
+    "normalize:luzhniki-gray-cloud-sectors": "node scripts/normalize-luzhniki-gray-cloud-sector-labels.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

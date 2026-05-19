@@ -22,6 +22,7 @@ import blogCategoriesRouter from './routes/blogCategories.js';
 import carouselsRouter from './routes/carousels.js';
 import publicCarouselsRouter from './routes/publicCarousels.js';
 import errorsRouter from './routes/errors.js';
+import luzhnikiGrayCloudSvgRouter from './routes/luzhnikiGrayCloudSvg.js';
 import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
@@ -101,14 +102,17 @@ const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).fil
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
+  'http://127.0.0.1:5173',
   'https://biletvsem.com',
   'https://www.biletvsem.com',
+  'http://91.229.9.229',
+  'https://91.229.9.229',
 ];
 app.use(cors({
   origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token'],
 }));
 
 // Compression middleware - сжимаем все ответы (gzip/brotli)
@@ -247,6 +251,7 @@ app.use('/api/ai-team', authenticatedLimiter);
 
 // public endpoints
 app.use('/api/errors', errorsRouter); // Логирование ошибок с фронтенда (публичный)
+app.use('/api/tools/luzhniki-gray-cloud-svg', luzhnikiGrayCloudSvgRouter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);

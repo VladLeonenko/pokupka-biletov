@@ -1,0 +1,71 @@
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import { extractLabeledSeatsFromSvgMarkup } from '../utils/luzhnikiExtractSeatsFromEnrichedSvg.js';
+import { resetGrayCloudLabeledIndexCache } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
+import { normalizeLuzhnikiGrayCloudSvgSectorAttrs } from '../utils/luzhnikiNormalizeGrayCloudSvgSectors.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '../..');
+const HAND_SVG = path.join(REPO_ROOT, 'backend/data/luzhniki-geodesy/hand/luzhniki-gray-cloud-enriched.svg');
+const PUBLIC_SVG = path.join(REPO_ROOT, 'frontend/public/tools/luzhniki-gray-cloud-enriched.svg');
+const SEATS_BUNDLE = path.join(
+  REPO_ROOT,
+  'backend/data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json',
+);
+
+const router = express.Router();
+
+function checkSaveAuth(req, res) {
+  const expected = process.env.LUZHNIKI_SVG_SAVE_TOKEN?.trim();
+  if (!expected) return true;
+  const got = String(req.headers['x-luzhniki-svg-save-token'] || '').trim();
+  if (got === expected) return true;
+  res.status(403).json({ ok: false, error: 'invalid save token' });
+  return false;
+}
+
+router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application/xml', 'text/plain', '*/*'], limit: '64mb' }), (req, res) => {
+  if (!checkSaveAuth(req, res)) return;
+  const body = typeof req.body === 'string' ? req.body.trim() : '';
+  if (!body.includes('<svg')) {
+    return res.status(400).json({ ok: false, error: 'expected SVG XML in body' });
+  }
+  let xml = body.startsWith('<?xml') ? body : `<?xml version="1.0" encoding="UTF-8"?>\n${body}`;
+  try {
+    const sectorNorm = normalizeLuzhnikiGrayCloudSvgSectorAttrs(xml);
+    xml = sectorNorm.xml;
+    fs.mkdirSync(path.dirname(HAND_SVG), { recursive: true });
+    fs.mkdirSync(path.dirname(PUBLIC_SVG), { recursive: true });
+    fs.writeFileSync(HAND_SVG, xml, 'utf8');
+    fs.writeFileSync(PUBLIC_SVG, xml, 'utf8');
+
+    const extracted = extractLabeledSeatsFromSvgMarkup(xml);
+    const bundlePayload = {
+      builtAt: new Date().toISOString(),
+      mode: 'editor-svg-extract',
+      hallWidth: extracted.hallWidth,
+      hallHeight: extracted.hallHeight,
+      seatCount: extracted.seats.length,
+      labeledSeatCount: extracted.labeledCount,
+      seats: extracted.seats,
+    };
+    fs.mkdirSync(path.dirname(SEATS_BUNDLE), { recursive: true });
+    fs.writeFileSync(SEATS_BUNDLE, `${JSON.stringify(bundlePayload, null, 2)}\n`, 'utf8');
+    resetGrayCloudLabeledIndexCache();
+
+    return res.json({
+      ok: true,
+      bytes: Buffer.byteLength(xml, 'utf8'),
+      labeledSeats: extracted.labeledCount,
+      sectorLabelsNormalized: sectorNorm.changed,
+      paths: { hand: HAND_SVG, public: PUBLIC_SVG, seatsBundle: SEATS_BUNDLE },
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+export default router;

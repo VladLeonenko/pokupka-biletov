@@ -357,6 +357,8 @@
   min-height: 0 !important;
   aspect-ratio: 1;
   box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
 }
 
 .seatDotStadiumHitbox::before,

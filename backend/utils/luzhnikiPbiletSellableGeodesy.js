@@ -439,6 +439,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
         const dedupe = strictSeatKey(sector, row, seat);
         if (seen.has(dedupe)) continue;
 
+        // Ручная разметка (hover → bundle) важнее strict pbilet для тех же sector/row/seat.
         if (grayCloudLabeledIndex?.size) {
           const labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
           if (labeled) {
@@ -479,6 +480,11 @@ export function buildSellableSeatGeodesyPbiletAccurate(
               h,
             ),
           );
+          continue;
+        }
+
+        if (grayCloudOnly) {
+          if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
           continue;
         }
 

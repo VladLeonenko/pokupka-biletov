@@ -84,7 +84,22 @@ async function main() {
   const cloudLen = Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates.length : 0;
   const sellable = Array.isArray(layout.sellableSeats) ? layout.sellableSeats : [];
   const a101Sellable = sellable.filter((s) => /a101/i.test(String(s.sector ?? '')));
-  const row11 = a101Sellable.filter((s) => String(s.row) === '11');
+  const rowsInOffers = {};
+  for (const o of a101Offers) {
+    const r = String(o.Row ?? '');
+    if (!r) continue;
+    const n = Array.isArray(o.SeatList) ? o.SeatList.length : 0;
+    rowsInOffers[r] = (rowsInOffers[r] ?? 0) + n;
+  }
+  const sellableByRow = {};
+  for (const s of a101Sellable) {
+    const r = String(s.row ?? '');
+    if (!sellableByRow[r]) sellableByRow[r] = { count: 0, grayCloudLabeled: 0 };
+    sellableByRow[r].count += 1;
+    if (String(s.geodesySource ?? '').includes('grayCloudLabeled')) {
+      sellableByRow[r].grayCloudLabeled += 1;
+    }
+  }
 
   const sources = {};
   for (const s of a101Sellable) {
@@ -102,7 +117,8 @@ async function main() {
         offerSeatGeodesy: geo,
         a101SellableCount: a101Sellable.length,
         a101Sources: sources,
-        row11Sample: row11.slice(0, 5),
+        a101RowsInOffers: rowsInOffers,
+        a101SellableByRow: sellableByRow,
       },
       null,
       2,
