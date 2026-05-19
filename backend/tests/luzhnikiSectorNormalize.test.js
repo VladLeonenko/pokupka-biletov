@@ -17,6 +17,11 @@ test('cyrillic б and latin b147', () => {
   assert.equal(normalizeSectorLabel('Сектор B 147'), 'b147');
 });
 
+test('cheerio numeric entities (Сектор glued to b147)', () => {
+  const encoded = '&#x421;&#x435;&#x43a;&#x442;&#x43e;&#x440;b147';
+  assert.equal(normalizeSectorLabel(encoded), 'b147');
+});
+
 test('VIP tribune without vip in offer string', () => {
   assert.ok(sectorNormsMatch('сектор a107', 'Сектор A 107 VIP'));
   assert.ok(sectorNormsMatch('сектор c136', 'Сектор C 136 VIP'));

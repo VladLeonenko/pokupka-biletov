@@ -42,8 +42,22 @@ export function latinizeSectorHomoglyphs(value) {
   return [...value].map((ch) => CYRILLIC_SECTOR_HOMOGLYPHS[ch] ?? ch).join('');
 }
 
+/** Cheerio $.xml() и старые SVG — &#x421;… вместо «Сектор». */
+export function decodeHtmlEntities(value) {
+  let s = String(value ?? '');
+  s = s
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+  s = s.replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+  s = s.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+  return s;
+}
+
 export function normalizeSectorLabel(value) {
-  const raw = String(value ?? '')
+  const raw = decodeHtmlEntities(String(value ?? ''))
     .replace(/\u00a0/g, ' ')
     .replace(/ё/g, 'е')
     .replace(/Ё/g, 'е')
@@ -55,6 +69,7 @@ export function normalizeSectorLabel(value) {
   const stripped = latinizeSectorHomoglyphs(
     raw
       .replace(/^сектор\s*/i, '')
+      .replace(/^сектор(?=[a-z])/i, '')
       .replace(/^sector\s*/i, '')
       .replace(/\bvip\b/gi, ' ')
       .replace(/([a-z])\s*-\s*(\d)/gi, '$1 $2')

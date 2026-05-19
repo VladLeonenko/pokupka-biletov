@@ -1,14 +1,28 @@
 /**
  * place-name / data-sector → канон из tickets.json (регистр и «сектор» не важны).
+ * Без cheerio $.xml() — он кодирует кириллицу в &#x…; и ломает lookup b147.
  */
-
-import * as cheerio from 'cheerio';
 
 import {
   getCachedTicketsSectorLabelByNorm,
   resolveCanonicalSectorLabel,
 } from './luzhnikiSectorDisplayLabel.js';
-import { sectorNormsMatch } from './ticketHallSectorNormalize.js';
+import { decodeHtmlEntities, sectorNormsMatch } from './ticketHallSectorNormalize.js';
+
+function readAttr(tag, name) {
+  const re = new RegExp(`${name}=["']([^"']*)["']`, 'i');
+  const m = tag.match(re);
+  return m ? decodeHtmlEntities(m[1]) : '';
+}
+
+function writeAttr(tag, name, value) {
+  const escaped = String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;');
+  const re = new RegExp(`(${name}=)["'][^"']*["']`, 'i');
+  if (re.test(tag)) return tag.replace(re, `$1"${escaped}"`);
+  return tag.replace(/\/?>$/, ` ${name}="${escaped}"$&`);
+}
 
 /**
  * @param {string} svgMarkup
@@ -16,19 +30,18 @@ import { sectorNormsMatch } from './ticketHallSectorNormalize.js';
  */
 export function normalizeLuzhnikiGrayCloudSvgSectorAttrs(svgMarkup) {
   const byNorm = getCachedTicketsSectorLabelByNorm();
-  const $ = cheerio.load(svgMarkup, { xml: true });
   let changed = 0;
 
-  $('circle').each((_, el) => {
-    const c = $(el);
-    const cur = c.attr('data-sector') || c.attr('place-name') || '';
-    if (!cur.trim()) return;
+  const xml = svgMarkup.replace(/<circle\b[^>]*\/?>/gi, (tag) => {
+    const cur = readAttr(tag, 'data-sector') || readAttr(tag, 'place-name');
+    if (!cur.trim()) return tag;
     const next = resolveCanonicalSectorLabel(cur, byNorm);
-    if (!next || sectorNormsMatch(cur, next)) return;
+    if (!next || sectorNormsMatch(cur, next)) return tag;
     changed += 1;
-    c.attr('place-name', next);
-    c.attr('data-sector', next);
+    let out = writeAttr(tag, 'place-name', next);
+    out = writeAttr(out, 'data-sector', next);
+    return out;
   });
 
-  return { xml: $.xml(), changed };
+  return { xml, changed };
 }

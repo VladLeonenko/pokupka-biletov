@@ -6,6 +6,10 @@ import { fileURLToPath } from 'url';
 import { extractLabeledSeatsFromSvgMarkup } from '../utils/luzhnikiExtractSeatsFromEnrichedSvg.js';
 import { resetGrayCloudLabeledIndexCache } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 import { normalizeLuzhnikiGrayCloudSvgSectorAttrs } from '../utils/luzhnikiNormalizeGrayCloudSvgSectors.js';
+import {
+  getCachedTicketsSectorLabelByNorm,
+  resolveCanonicalSectorLabel,
+} from '../utils/luzhnikiSectorDisplayLabel.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -142,14 +146,20 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
       });
     }
 
+    const byNorm = getCachedTicketsSectorLabelByNorm();
+    const seats = extracted.seats.map((s) => ({
+      ...s,
+      sector: resolveCanonicalSectorLabel(s.sector, byNorm),
+    }));
+
     const bundlePayload = {
       builtAt: new Date().toISOString(),
       mode: 'editor-svg-extract',
       hallWidth: extracted.hallWidth,
       hallHeight: extracted.hallHeight,
-      seatCount: extracted.seats.length,
+      seatCount: seats.length,
       labeledSeatCount: labeledCount,
-      seats: extracted.seats,
+      seats,
     };
     fs.mkdirSync(path.dirname(SEATS_BUNDLE), { recursive: true });
     fs.writeFileSync(SEATS_BUNDLE, `${JSON.stringify(bundlePayload, null, 2)}\n`, 'utf8');

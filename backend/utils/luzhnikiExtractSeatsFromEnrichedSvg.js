@@ -3,14 +3,10 @@
  */
 
 import { resolveCanonicalSectorLabel } from './luzhnikiSectorDisplayLabel.js';
+import { decodeHtmlEntities } from './ticketHallSectorNormalize.js';
 
 function decodeSvgAttr(s) {
-  return String(s || '')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .trim();
+  return decodeHtmlEntities(String(s || '')).trim();
 }
 
 function parseViewBox(svgMarkup) {
