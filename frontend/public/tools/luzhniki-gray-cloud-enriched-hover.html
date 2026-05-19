@@ -478,8 +478,55 @@
       return el && el.tagName && el.tagName.toLowerCase() === 'circle';
     }
 
-    function sectorKey(s) {
-      return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    /** Как ticketHallSectorNormalize.ts / checkout: b147 ≡ «Сектор B 147» ≡ «сектор b 147». */
+    const CYRILLIC_SECTOR_HOMOGLYPHS = {
+      '\u0430': 'a', '\u0410': 'a', '\u0432': 'b', '\u0412': 'b', '\u0441': 'c', '\u0421': 'c',
+      '\u0435': 'e', '\u0415': 'e', '\u043a': 'k', '\u041a': 'k', '\u043c': 'm', '\u041c': 'm',
+      '\u043e': 'o', '\u041e': 'o', '\u0440': 'p', '\u0420': 'p', '\u0445': 'x', '\u0425': 'x',
+      '\u0443': 'y', '\u0423': 'y', '\u0442': 't', '\u0422': 't', '\u043d': 'n', '\u041d': 'n',
+      '\u0434': 'd', '\u0414': 'd', '\u0431': 'b', '\u0411': 'b',
+    };
+
+    function latinizeSectorHomoglyphs(value) {
+      return [...value].map((ch) => CYRILLIC_SECTOR_HOMOGLYPHS[ch] ?? ch).join('');
+    }
+
+    function normalizeSectorLabel(value) {
+      const raw = String(value ?? '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/ё/g, 'е')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+      const hasVip = /\bvip\b/i.test(raw);
+      const stripped = latinizeSectorHomoglyphs(
+        raw
+          .replace(/^сектор\s*/i, '')
+          .replace(/\bvip\b/gi, ' ')
+          .replace(/([a-z])\s*-\s*(\d)/gi, '$1 $2')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      );
+      const m = stripped.match(/^([a-z])\s*(\d{2,4})\b/i);
+      if (m) {
+        const code = m[1] + m[2];
+        return hasVip ? 'vip' + code : code;
+      }
+      return stripped.replace(/\s+/g, '');
+    }
+
+    function sectorNormsMatch(a, b) {
+      if (!a || !b) return false;
+      return normalizeSectorLabel(a) === normalizeSectorLabel(b);
+    }
+
+    function canonicalSectorLabel(sector) {
+      const n = normalizeSectorLabel(sector);
+      const vip = n.match(/^vip([a-d])(\d{2,4})$/i);
+      if (vip) return 'VIP ' + vip[1].toUpperCase() + ' ' + vip[2];
+      const m = n.match(/^([a-d])(\d{2,4})$/i);
+      if (m) return 'Сектор ' + m[1].toUpperCase() + ' ' + m[2];
+      return String(sector || '').trim();
     }
 
     function circleSector(circle) {
@@ -488,7 +535,7 @@
 
     function sectorMatches(circle, filter) {
       if (!filter) return true;
-      return sectorKey(circleSector(circle)) === sectorKey(filter);
+      return sectorNormsMatch(circleSector(circle), filter);
     }
 
     function isValidPaintRow(row) {
@@ -501,8 +548,12 @@
       return Number.isFinite(n) ? String(n) : '';
     }
 
-    /** Если в поле ряд N — не брать соседний ряд после ⊥-фильтра (типично 33 vs 34 на A101). */
+  /**
+   * Если в поле ряд N — не брать соседний ряд после ⊥-фильтра (типично 33 vs 34 на A101).
+   * При «с Место с» не режем по старым data-row (B147 и др. в облаке без r[] / fieldGrid врёт).
+   */
     function filterToTargetCloudRow(circles, targetRow) {
+      if (paintRenumber && paintRenumber.checked) return circles;
       const want = normalizePaintRowNum(targetRow);
       if (!want || circles.length < 2) return circles;
       const matching = circles.filter((c) => normalizePaintRowNum(circleRow(c)) === want);
@@ -618,7 +669,7 @@
     }
 
     function applySeatToCircle(circle, sector, row, seat, source) {
-      const s = String(sector || '').trim();
+      const s = canonicalSectorLabel(sector) || String(sector || '').trim();
       const r = String(row ?? '').trim();
       const p = String(seat ?? '').trim();
       if (!s) return false;
@@ -853,7 +904,7 @@
       const p = clientToSvg(clientX, clientY);
       if (!p) return null;
       const r = stage.getBoundingClientRect();
-      const hitSvg = 28 * (vbW / Math.max(r.width, 1));
+      const hitSvg = Math.max(32, 26 * (vbW / Math.max(r.width, 1)));
       const pool = gridCandidatesForSegment(p.x, p.y, p.x, p.y, hitSvg);
       let best = null;
       let bestD = Infinity;
@@ -1230,7 +1281,6 @@
         return;
       }
       const wantRow = normalizePaintRowNum(row);
-      const sectorLo = sector.toLowerCase();
       clearPaintSelection();
       const hits = [];
       for (const c of svgRoot.querySelectorAll('circle')) {
@@ -1238,13 +1288,20 @@
         const r = normalizePaintRowNum(circleRow(c));
         if (!s || !r) continue;
         if (r !== wantRow) continue;
-        if (s.toLowerCase() !== sectorLo && !s.toLowerCase().includes(sectorLo.replace(/\s+/g, ''))) {
-          if (!sectorLo.includes('a101') || !/a\s*101/i.test(s)) continue;
-        }
+        if (!sectorNormsMatch(s, sector)) continue;
         hits.push(c);
       }
       if (!hits.length) {
-        showPaintToast('info', 'Нет точек с data-row=' + row + ' в секторе — протяни линию');
+        showPaintToast(
+          'info',
+          'Нет точек с data-row=' +
+            row +
+            ' в «' +
+            canonicalSectorLabel(sector) +
+            '». Протяни линию по ряду (〰), «Место с»=' +
+            (paintStartSeat.value || '1') +
+            ' → ▶',
+        );
         return;
       }
       for (const c of hits) togglePaintCircle(c, true);

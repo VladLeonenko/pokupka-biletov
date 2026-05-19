@@ -233,6 +233,12 @@
   pointer-events: auto !important;
 }
 
+/** Обзор 100%: клик проходит к сектору / zoom, не в корзину */
+.seatDotNoPickAtOverview {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
 .sectorLayerUnderSeats {
   z-index: 4;
 }

@@ -720,6 +720,7 @@ export function TicketHallInteractiveBlock({
   const [sectorPanelCollapsed, setSectorPanelCollapsed] = useState(false);
   const [selectedSeatDetails, setSelectedSeatDetails] = useState<HallSelectedSeat[]>([]);
   const zoomRef = useRef(zoom);
+  const fitZoomRef = useRef(1);
   const panRef = useRef(pan);
   const pointersRef = useRef(new Map<number, Point>());
   const suppressMapClickRef = useRef(false);
@@ -831,6 +832,10 @@ export function TicketHallInteractiveBlock({
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
+
+  useEffect(() => {
+    fitZoomRef.current = fitZoom;
+  }, [fitZoom]);
 
   useEffect(() => {
     panRef.current = pan;
@@ -1092,8 +1097,13 @@ export function TicketHallInteractiveBlock({
       /* */
     }
     if (clicked && !(e.target as HTMLElement).closest('[data-seat-dot="true"]')) {
-      const pickCtx = buildPlacementPickCtx(zoomRef.current > fitZoom + 0.01);
-      if (pickCtx && (stadiumCanvasEnabled || sectorMode.enabled)) {
+      const mapZoomedNow = zoomRef.current > fitZoomRef.current + 0.01;
+      const pickCtx = buildPlacementPickCtx(mapZoomedNow);
+      if (
+        pickCtx
+        && mapZoomedNow
+        && (stadiumCanvasEnabled || sectorMode.enabled)
+      ) {
         const picked = findNearestSellablePlacement(e.clientX, e.clientY, pickCtx);
         if (picked) {
           activatePlacementRef.current(picked);
@@ -1190,6 +1200,7 @@ export function TicketHallInteractiveBlock({
   }, [onSelectionChange]);
 
   activatePlacementRef.current = (p: SvgNativePlacement) => {
+    if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) return;
     const seatInfo: HallSelectedSeat = {
       key: p.key,
       offerId: p.offerId,
@@ -1238,6 +1249,10 @@ export function TicketHallInteractiveBlock({
   const probeSeatHover = useCallback(
     (clientX: number, clientY: number) => {
       if (!stadiumCanvasEnabled && !sectorMode.enabled) return;
+      if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) {
+        hideSeatInfo();
+        return;
+      }
       const vp = viewportRef.current;
       const probe = hoverProbeRef.current;
       if (!vp || !probe) return;
@@ -1267,11 +1282,12 @@ export function TicketHallInteractiveBlock({
 
   const pickSellableAtClient = useCallback(
     (clientX: number, clientY: number): SvgNativePlacement | null => {
-      const pickCtx = buildPlacementPickCtx(zoomRef.current > fitZoom + 0.01);
+      if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) return null;
+      const pickCtx = buildPlacementPickCtx(zoomRef.current > fitZoomRef.current + 0.01);
       if (!pickCtx) return null;
       return findNearestSellablePlacement(clientX, clientY, pickCtx);
     },
-    [buildPlacementPickCtx, fitZoom],
+    [buildPlacementPickCtx, sectorMode.enabled],
   );
 
   useEffect(() => {
@@ -1550,7 +1566,7 @@ export function TicketHallInteractiveBlock({
                         showSectorInfo(ev.currentTarget, sector);
                       }}
                       onPointerEnter={(ev) => {
-                        const picked = pickSellableAtClient(ev.clientX, ev.clientY);
+                        const picked = mapZoomed ? pickSellableAtClient(ev.clientX, ev.clientY) : null;
                         if (picked) {
                           const probe = hoverProbeRef.current;
                           if (probe) {
@@ -1582,10 +1598,12 @@ export function TicketHallInteractiveBlock({
                       onClick={(ev) => {
                         ev.stopPropagation();
                         if (suppressMapClickRef.current) return;
-                        const picked = pickSellableAtClient(ev.clientX, ev.clientY);
-                        if (picked) {
-                          activatePlacementRef.current(picked);
-                          return;
+                        if (mapZoomed) {
+                          const picked = pickSellableAtClient(ev.clientX, ev.clientY);
+                          if (picked) {
+                            activatePlacementRef.current(picked);
+                            return;
+                          }
                         }
                         focusSector(sector);
                       }}
@@ -1697,6 +1715,8 @@ export function TicketHallInteractiveBlock({
                             : ''
                         } ${active ? styles.seatDotOn : ''} ${
                           syncCanvasHitbox ? styles.seatDotStadiumHitbox : ''
+                        } ${
+                          sectorMode.enabled && !mapZoomed ? styles.seatDotNoPickAtOverview : ''
                         }`}
                         style={
                           {
@@ -1723,6 +1743,11 @@ export function TicketHallInteractiveBlock({
                         }}
                         onBlur={hideSeatInfo}
                         onClick={(ev) => {
+                          ev.stopPropagation();
+                          if (sectorMode.enabled && !mapZoomed) {
+                            focusClickPoint(ev.clientX, ev.clientY);
+                            return;
+                          }
                           showSeatInfo(ev.currentTarget, seatInfo);
                           updateSelectedDetails(seatInfo, p.available);
                           if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
