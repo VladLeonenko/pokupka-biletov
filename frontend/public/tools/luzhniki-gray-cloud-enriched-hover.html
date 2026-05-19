@@ -299,7 +299,7 @@
         if (serverBundleSeatCount === 0 && saveAuthToken) {
           showPaintToast(
             'info',
-            'На сервере bundle пуст — после 💾 должно быть >0 мест. Checkout: только билеты GetBilet.',
+            'На сервере bundle пуст (заглушка git). Нужен 💾 после ▶ Применить ряд — в status должен быть builtAt и seatCount>0.',
           );
         }
       } catch {
@@ -390,6 +390,22 @@
       return n;
     }
 
+    /** Перед POST: localStorage → DOM, иначе на сервер уходит «голый» SVG без data-row/seat. */
+    function flushEditsToDomBeforeSave() {
+      applyStoredEditsToSvg();
+    }
+
+    function countLabeledCirclesInDom() {
+      let n = 0;
+      for (const c of allCircles) {
+        const sector = circleSector(c);
+        const row = circleRow(c);
+        const seat = circleSeatNum(c);
+        if (sector && isValidPaintRow(row) && seat != null) n++;
+      }
+      return n;
+    }
+
     function serializeCurrentSvgXml() {
       if (!svgRoot) return '';
       const clone = svgRoot.cloneNode(true);
@@ -405,6 +421,15 @@
     }
 
     async function saveSvgToServer() {
+      flushEditsToDomBeforeSave();
+      const labeledDom = countLabeledCirclesInDom();
+      if (labeledDom < 1) {
+        showPaintToast(
+          'err',
+          '0 размеченных мест в SVG. 〰 → ▶ Применить ряд (сектор+ряд+«Место с») или ✎ → Применить на точке.',
+        );
+        return false;
+      }
       const xml = serializeCurrentSvgXml();
       if (!xml) return false;
       try {
@@ -1433,6 +1458,7 @@
 
     async function downloadSvg() {
       if (!svgRoot) return;
+      flushEditsToDomBeforeSave();
       const xml = serializeCurrentSvgXml();
       const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
       const a = document.createElement('a');

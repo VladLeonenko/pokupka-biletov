@@ -98,13 +98,27 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
     fs.writeFileSync(PUBLIC_SVG, xml, 'utf8');
 
     const extracted = extractLabeledSeatsFromSvgMarkup(xml);
+    const labeledCount = extracted.labeledCount ?? extracted.seats.length;
+
+    if (labeledCount < 1) {
+      const prev = readBundleMeta();
+      return res.status(400).json({
+        ok: false,
+        error:
+          'В SVG 0 мест с data-sector + data-row + data-seat. В редакторе: 〰 линия → ▶ Применить ряд (или ✎ + Применить на точке). Bundle не тронут.',
+        labeledSeats: 0,
+        svgSaved: true,
+        previousBundleSeatCount: prev.seatCount ?? 0,
+      });
+    }
+
     const bundlePayload = {
       builtAt: new Date().toISOString(),
       mode: 'editor-svg-extract',
       hallWidth: extracted.hallWidth,
       hallHeight: extracted.hallHeight,
       seatCount: extracted.seats.length,
-      labeledSeatCount: extracted.labeledCount,
+      labeledSeatCount: labeledCount,
       seats: extracted.seats,
     };
     fs.mkdirSync(path.dirname(SEATS_BUNDLE), { recursive: true });
@@ -114,7 +128,8 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
     return res.json({
       ok: true,
       bytes: Buffer.byteLength(xml, 'utf8'),
-      labeledSeats: extracted.labeledCount,
+      labeledSeats: labeledCount,
+      builtAt: bundlePayload.builtAt,
       sectorLabelsNormalized: sectorNorm.changed,
       paths: { hand: HAND_SVG, public: PUBLIC_SVG, seatsBundle: SEATS_BUNDLE },
     });
