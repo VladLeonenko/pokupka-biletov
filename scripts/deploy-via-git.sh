@@ -38,6 +38,15 @@ if [ -f "$BACKEND_ENV" ]; then
   echo "✅ .env сохранён"
 fi
 
+# Editor bundle Лужников (git reset --hard затирает hand/* из репо-заглушки)
+LUZHNIKI_EDITOR_BUNDLE="$PROJECT_ROOT/backend/data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json"
+LUZHNIKI_BUNDLE_BACKUP=""
+if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
+  LUZHNIKI_BUNDLE_BACKUP=$(mktemp)
+  cp "$LUZHNIKI_EDITOR_BUNDLE" "$LUZHNIKI_BUNDLE_BACKUP"
+  echo "✅ Luzhniki editor bundle сохранён"
+fi
+
 # Git pull (жёстко на origin/$BRANCH — иначе после экспериментов остаётся старый код)
 echo "📥 git fetch + checkout $BRANCH"
 git fetch origin
@@ -55,6 +64,15 @@ if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
     echo "✅ .env восстановлен"
   fi
   rm -f "$ENV_BACKUP"
+fi
+
+if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
+  seat_count=$(node -e "const j=require(process.argv[1]);process.stdout.write(String(j.seatCount||j.seats?.length||0))" "$LUZHNIKI_BUNDLE_BACKUP" 2>/dev/null || echo 0)
+  if [ "${seat_count:-0}" -gt 0 ] 2>/dev/null; then
+    cp "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_EDITOR_BUNDLE"
+    echo "✅ Luzhniki editor bundle восстановлен ($seat_count мест)"
+  fi
+  rm -f "$LUZHNIKI_BUNDLE_BACKUP"
 fi
 
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)

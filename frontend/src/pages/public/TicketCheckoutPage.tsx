@@ -1074,13 +1074,13 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (!offerId) return;
-    const still = offersForMapDisplay.some((o) => String(o.Id ?? '') === offerId);
+    const still = offersForMap.some((o) => String(o.Id ?? '') === offerId);
     if (!still) {
       setOfferId(null);
       setSeats([]);
       setMapSelectedSeats([]);
     }
-  }, [offersForMapDisplay, offerId]);
+  }, [offersForMap, offerId]);
 
   const colorSeat = useCallback(
     (p: string) => priceColorMap.get(p) ?? colorForPriceIndex(0),
@@ -1088,8 +1088,8 @@ export function TicketCheckoutPage() {
   );
 
   const selectedOfferForMap = useMemo(
-    () => (offerId ? (offersForMapDisplay.find((o) => String(o.Id ?? '') === offerId) ?? null) : null),
-    [offerId, offersForMapDisplay],
+    () => (offerId ? (offersForMap.find((o) => String(o.Id ?? '') === offerId) ?? null) : null),
+    [offerId, offersForMap],
   );
 
   const resetSelectedSeats = useCallback(() => {
@@ -1468,7 +1468,7 @@ export function TicketCheckoutPage() {
                     <TicketHallInteractiveBlock
                       hallSvgHtml={hallSvg!}
                       layoutJson={layoutJsonForStage}
-                      offers={offersForMapDisplay}
+                      offers={offersForMap}
                       getPriceKey={(o) => priceKey(o as OfferRow)}
                       colorForSeat={colorSeat}
                       activeOfferId={offerId}
@@ -1935,7 +1935,7 @@ export function TicketCheckoutPage() {
                         variant="dialog"
                         hallSvgHtml={hallSvg!}
                         layoutJson={layoutJsonForStage}
-                        offers={offersForMapDisplay}
+                        offers={offersForMap}
                         getPriceKey={(o) => priceKey(o as OfferRow)}
                         colorForSeat={colorSeat}
                         activeOfferId={offerId}

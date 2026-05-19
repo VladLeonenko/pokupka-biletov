@@ -47,10 +47,20 @@ function stadiumSeatHitboxLayerPx(
   active: boolean,
   mapZoomed: boolean,
 ): number {
+  return sellablePickHitRadiusLayerPx(zoom, layerWidth, svgViewBoxWidth, mapZoomed, active);
+}
+
+/** Радиус pick/hover в координатах слоя (= видимая точка на canvas, min ~12px на экране). */
+function sellablePickHitRadiusLayerPx(
+  zoom: number,
+  layerWidth: number,
+  svgViewBoxWidth: number,
+  mapZoomed: boolean,
+  active = false,
+): number {
   const r = stadiumSeatCanvasRadiusPx(zoom, layerWidth, svgViewBoxWidth, active, mapZoomed);
   const z = Math.max(0.001, zoom);
-  /** Минимум ~12px на экране (в координатах слоя = 12/zoom). */
-  return Math.max(12 / z, (2 * r) / z);
+  return Math.max(12 / z, (2 * r + 4) / z);
 }
 
 /** Те же координаты, что у canvas: xPct/yPct × viewBox (не % ширины слоя — меньше дрейфа на Лужниках). */
@@ -74,9 +84,11 @@ type PlacementPickCtx = {
   placements: SvgNativePlacement[];
   viewBoxW: number;
   viewBoxH: number;
+  layerWidth: number;
+  mapZoomed: boolean;
 };
 
-/** Hit-test sellable в координатах слоя (≈48px на экране). */
+/** Hit-test sellable в координатах слоя (радиус = видимая точка canvas). */
 function findNearestSellablePlacement(
   clientX: number,
   clientY: number,
@@ -88,7 +100,7 @@ function findNearestSellablePlacement(
   const vpRect = ctx.viewport.getBoundingClientRect();
   const layerX = (clientX - vpRect.left - base.x - ctx.pan.x) / z;
   const layerY = (clientY - vpRect.top - base.y - ctx.pan.y) / z;
-  const hitR = 48 / z;
+  const hitR = sellablePickHitRadiusLayerPx(ctx.zoom, ctx.layerWidth, ctx.viewBoxW, ctx.mapZoomed);
   let best: SvgNativePlacement | null = null;
   let bestD = Infinity;
   for (const p of ctx.placements) {
@@ -1060,6 +1072,8 @@ export function TicketHallInteractiveBlock({
           placements: placementsForHoverRef.current,
           viewBoxW: svgViewBox.width,
           viewBoxH: svgViewBox.height,
+          layerWidth: Math.round(svgViewBox.width),
+          mapZoomed: zoomRef.current > fitZoom + 0.01,
         });
         if (picked) {
           activatePlacementRef.current(picked);
@@ -1068,7 +1082,7 @@ export function TicketHallInteractiveBlock({
       }
       focusClickPoint(e.clientX, e.clientY);
     }
-  }, [focusClickPoint, getLayerBase, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.height, svgViewBox.width]);
+  }, [fitZoom, focusClickPoint, getLayerBase, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.height, svgViewBox.width]);
 
   useEffect(() => {
     applyFit(true);
@@ -1206,6 +1220,8 @@ export function TicketHallInteractiveBlock({
         placements: placementsForHoverRef.current,
         viewBoxW: svgViewBox.width,
         viewBoxH: svgViewBox.height,
+        layerWidth: Math.round(svgViewBox.width),
+        mapZoomed: zoomRef.current > fitZoom + 0.01,
       });
       if (best) {
         const vpRect = vp.getBoundingClientRect();
@@ -1224,6 +1240,7 @@ export function TicketHallInteractiveBlock({
       }
     },
     [
+      fitZoom,
       getLayerBase,
       hideSeatInfo,
       sectorMode.enabled,

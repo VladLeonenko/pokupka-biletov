@@ -416,8 +416,9 @@
   border: none !important;
   box-shadow: none !important;
   filter: none !important;
-  pointer-events: auto !important;
-  cursor: pointer !important;
+  /** Pick/hover — viewport + canvas hit-test (findNearestSellablePlacement), не рассинхрон с радиусом точки. */
+  pointer-events: none !important;
+  cursor: default !important;
   z-index: 3;
 }
 
