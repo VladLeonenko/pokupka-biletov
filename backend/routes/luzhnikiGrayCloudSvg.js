@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { extractLabeledSeatsFromSvgMarkup } from '../utils/luzhnikiExtractSeatsFromEnrichedSvg.js';
 import { resetGrayCloudLabeledIndexCache } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 import { normalizeLuzhnikiGrayCloudSvgSectorAttrs } from '../utils/luzhnikiNormalizeGrayCloudSvgSectors.js';
+import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -59,19 +60,37 @@ router.get('/status', (_req, res) => {
     /* */
   }
     let manualInFile = 0;
+    /** @type {Record<string, number>} */
+    const sectorNormCounts = {};
     if (bundle.exists) {
       try {
         const raw = JSON.parse(fs.readFileSync(SEATS_BUNDLE, 'utf8'));
         const seats = Array.isArray(raw?.seats) ? raw.seats : [];
         manualInFile = seats.filter((s) => String(s?.geodesySource ?? '').includes('manual')).length;
+        for (const s of seats) {
+          const n = normalizeSectorLabel(s?.sector);
+          if (!n) continue;
+          sectorNormCounts[n] = (sectorNormCounts[n] || 0) + 1;
+        }
       } catch {
         /* */
       }
     }
 
+    let svgManualAttrs = 0;
+    try {
+      if (fs.existsSync(HAND_SVG)) {
+        const svg = fs.readFileSync(HAND_SVG, 'utf8');
+        svgManualAttrs = (svg.match(/data-source="manual/g) || []).length;
+      }
+    } catch {
+      /* */
+    }
+
     return res.json({
       ok: true,
-      bundle: { ...bundle, manualEditorSeats: manualInFile },
+      bundle: { ...bundle, manualEditorSeats: manualInFile, sectorNormCounts },
+      svgManualAttrs,
       svg: {
       handExists: fs.existsSync(HAND_SVG),
       publicExists: fs.existsSync(PUBLIC_SVG),
@@ -136,12 +155,22 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
     fs.writeFileSync(SEATS_BUNDLE, `${JSON.stringify(bundlePayload, null, 2)}\n`, 'utf8');
     resetGrayCloudLabeledIndexCache();
 
+    /** @type {Record<string, number>} */
+    const sectorNormCounts = {};
+    for (const s of extracted.seats) {
+      const n = normalizeSectorLabel(s?.sector);
+      if (!n) continue;
+      sectorNormCounts[n] = (sectorNormCounts[n] || 0) + 1;
+    }
+
     return res.json({
       ok: true,
       bytes: Buffer.byteLength(xml, 'utf8'),
       labeledSeats: labeledCount,
       builtAt: bundlePayload.builtAt,
       sectorLabelsNormalized: sectorNorm.changed,
+      sectorNormCounts,
+      svgManualAttrs: (xml.match(/data-source="manual/g) || []).length,
       paths: { hand: HAND_SVG, public: PUBLIC_SVG, seatsBundle: SEATS_BUNDLE },
     });
   } catch (e) {

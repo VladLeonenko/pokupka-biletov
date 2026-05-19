@@ -120,7 +120,7 @@
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
-      <button type="button" id="paintApply" class="warn">▶ Применить ряд</button>
+      <button type="button" id="paintApply" class="warn">▶ Применить ряд → сервер</button>
     </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
@@ -360,7 +360,8 @@
       return best;
     }
 
-    function persistCircleEdits(circles) {
+  /** @param {Element[]} circles @param {{ deferServer?: boolean }} [opts] */
+    function persistCircleEdits(circles, opts = {}) {
       if (!circles.length) return;
       const store = loadEditStore();
       for (const c of circles) {
@@ -371,7 +372,38 @@
       saveEditStore(store);
       flashPersisted(circles);
       updateSaveStatus();
-      scheduleServerSave();
+      if (!opts.deferServer) scheduleServerSave();
+    }
+
+    /** Сразу POST SVG+bundle (после ▶ Применить ряд). @param {string} [expectSectorNorm] */
+    async function pushEditsToServer(expectSectorNorm) {
+      clearTimeout(serverSaveTimer);
+      if (!saveApiBase && isLocalEditor && !saveAuthToken) {
+        showPaintToast('err', 'Нет saveToken в URL — сохранение на biletvsem не уйдёт');
+        return { ok: false };
+      }
+      showPaintToast('info', 'POST на сервер…');
+      const result = await saveSvgToServer();
+      if (!result.ok) return result;
+      const norm = expectSectorNorm ? normalizeSectorLabel(expectSectorNorm) : '';
+      const n = norm && result.data?.sectorNormCounts ? result.data.sectorNormCounts[n] : null;
+      const label = norm ? canonicalSectorLabel(norm) : '';
+      if (norm && n === 0) {
+        showPaintToast(
+          'err',
+          'Сервер принял SVG, но в bundle 0 мест для «' +
+            label +
+            '». Проверь сектор в поле (не b145 вместо b147).',
+        );
+        return { ok: false, data: result.data };
+      }
+      showPaintToast(
+        'ok',
+        'Сервер ✓ bundle ' +
+          (result.data?.labeledSeats ?? '?') +
+          (norm && n != null ? ' · ' + label + ': ' + n + ' мест' : ''),
+      );
+      return result;
     }
 
     function applyStoredEditsToSvg() {
@@ -426,6 +458,7 @@
       return decl + new XMLSerializer().serializeToString(clone);
     }
 
+    /** @returns {Promise<{ ok: boolean, data?: Record<string, unknown> }>} */
     async function saveSvgToServer() {
       flushEditsToDomBeforeSave();
       const labeledDom = countLabeledCirclesInDom();
@@ -434,10 +467,22 @@
           'err',
           '0 размеченных мест в SVG. 〰 → ▶ Применить ряд (сектор+ряд+«Место с») или ✎ → Применить на точке.',
         );
-        return false;
+        return { ok: false };
       }
       const xml = serializeCurrentSvgXml();
-      if (!xml) return false;
+      if (!xml) return { ok: false };
+      const manualInXml = (xml.match(/data-source="manual/g) || []).length;
+      if (manualInXml < Math.min(labeledDom, Math.max(1, labeledDom - 3))) {
+        showPaintToast(
+          'err',
+          'В SVG для POST только ' +
+            manualInXml +
+            ' manual из ' +
+            labeledDom +
+            ' — flush не сработал. Обнови страницу и 💾 ещё раз.',
+        );
+        return { ok: false };
+      }
       try {
         const headers = { 'Content-Type': 'image/svg+xml; charset=utf-8' };
         if (saveAuthToken) headers['x-luzhniki-svg-save-token'] = saveAuthToken;
@@ -458,26 +503,21 @@
         lastLabeledSeatCount = data.labeledSeats ?? 0;
         serverBundleSeatCount = data.labeledSeats ?? 0;
         updateSaveStatus();
-        try {
-          await reloadSvgFromServer();
-        } catch {
-          /* SVG reload optional */
-        }
         await refreshServerBundleStatus();
-        return true;
+        return { ok: true, data };
       } catch (e) {
         lastFileSaveOk = false;
         updateSaveStatus();
         showPaintToast('err', 'Сервер: ' + e.message);
-        return false;
+        return { ok: false };
       }
     }
 
     function scheduleServerSave() {
       clearTimeout(serverSaveTimer);
       serverSaveTimer = window.setTimeout(async () => {
-        const ok = await saveSvgToServer();
-        if (ok) {
+        const result = await saveSvgToServer();
+        if (result.ok) {
           showPaintToast(
             'ok',
             (saveApiBase || 'сервер') +
@@ -840,7 +880,7 @@
       };
     }
 
-    function applyEditFromPanel() {
+    async function applyEditFromPanel() {
       if (!selectedCircle) return;
       const sector = document.getElementById('edSector')?.value.trim() ?? '';
       const row = document.getElementById('edRow')?.value.trim() ?? '';
@@ -852,12 +892,12 @@
       const snap = [{ el: selectedCircle, attrs: snapshotCircle(selectedCircle) }];
       applySeatToCircle(selectedCircle, sector, row, seat, 'manual');
       pushUndo(snap);
-      persistCircleEdits([selectedCircle]);
+      persistCircleEdits([selectedCircle], { deferServer: true });
       renderInfo(readCircleMeta(selectedCircle));
       recountStats();
       paintUnlabeled(svgRoot);
       if (paintSector && !paintSector.value) paintSector.value = sector;
-      showPaintToast('ok', 'Точка: ' + sector + ' р' + row + ' м' + seat);
+      await pushEditsToServer(normalizeSectorLabel(sector));
     }
 
     function clearSelection() {
@@ -1288,11 +1328,12 @@
       }
     }
 
-    function applyPaintToSelection() {
+    async function applyPaintToSelection() {
       if (!paintSelection.length) {
         showPaintToast('err', 'Протяни линию вдоль ряда или Shift+клик по точкам');
         return 0;
       }
+      const inferred = inferSectorFromSelection(paintSelection);
       let sector = paintSectorForApply();
       const row = getEffectivePaintRow();
       if (!isValidPaintRow(row)) {
@@ -1300,12 +1341,29 @@
         return 0;
       }
       const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
-      if (!sector) sector = inferSectorFromSelection(paintSelection);
+      if (!sector) sector = inferred;
       if (!sector) {
         showPaintToast('err', 'Укажи сектор (или выдели места одного сектора)');
         return 0;
       }
-      if (!paintSectorForApply()) paintSector.value = sector;
+      if (
+        paintSectorForApply() &&
+        inferred &&
+        !sectorNormsMatch(paintSectorForApply(), inferred)
+      ) {
+        showPaintToast(
+          'err',
+          'Поле сектор «' +
+            canonicalSectorLabel(paintSectorForApply()) +
+            '» ≠ точки «' +
+            canonicalSectorLabel(inferred) +
+            '». Очисти поле или поставь ' +
+            normalizeSectorLabel(inferred),
+        );
+        return 0;
+      }
+      sector = inferred || sector;
+      if (!paintSectorForApply()) paintSector.value = normalizeSectorLabel(sector);
       const wantRow = normalizePaintRowNum(row);
       const cloudRowMismatch = paintSelection.filter(
         (c) => normalizePaintRowNum(circleRow(c)) && normalizePaintRowNum(circleRow(c)) !== wantRow,
@@ -1336,7 +1394,7 @@
         nextAuto += 1;
       }
       pushUndo(batch);
-      persistCircleEdits(paintSelection);
+      persistCircleEdits(paintSelection, { deferServer: true });
       paintUnlabeled(svgRoot);
       recountStats();
       const seatHint = forceRenumber
@@ -1344,10 +1402,12 @@
         : preserved > 0
           ? ' · номера из облака: ' + preserved
           : ' · места с «Место с»=' + startSeat;
+      const appliedNorm = normalizeSectorLabel(sector);
       showPaintToast(
-        'ok',
-        '✓ ' + sector + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' (сохранено)',
+        'info',
+        canonicalSectorLabel(sector) + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' → сервер…',
       );
+      await pushEditsToServer(appliedNorm);
       return paintSelection.length;
     }
 
@@ -1473,8 +1533,8 @@
       a.download = base + '-edited.svg';
       a.click();
       URL.revokeObjectURL(a.href);
-      const ok = await saveSvgToServer();
-      if (ok) showPaintToast('ok', 'SVG на диске + скачан');
+      const result = await saveSvgToServer();
+      if (result.ok) showPaintToast('ok', 'SVG на диске + скачан');
       else showPaintToast('info', 'Скачан файл; для записи на диск — запусти backend');
     }
 
