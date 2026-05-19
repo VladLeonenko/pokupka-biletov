@@ -416,10 +416,9 @@
   border: none !important;
   box-shadow: none !important;
   filter: none !important;
-  /** Pick/hover — viewport + canvas hit-test (findNearestSellablePlacement), не рассинхрон с радиусом точки. */
-  pointer-events: none !important;
-  cursor: default !important;
-  z-index: 3;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 6;
 }
 
 .seatDotUniformCanvas::before {

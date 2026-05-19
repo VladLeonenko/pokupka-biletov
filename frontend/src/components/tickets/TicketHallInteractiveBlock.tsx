@@ -986,7 +986,7 @@ export function TicketHallInteractiveBlock({
         });
         return;
       }
-      if (pointersRef.current.size === 1) {
+      if (!d?.moved) {
         probeSeatHoverRef.current(e.clientX, e.clientY);
       }
     },
@@ -1200,7 +1200,19 @@ export function TicketHallInteractiveBlock({
     return nativePlacements;
   }, [nativePlacements, sectorMode.enabled]);
 
-  const hideSectorFill = mapZoomed || Boolean(selectedSectorSummary);
+  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
+  const skipDuplicateInteractiveDotsOnCanvas =
+    uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
+  const uniformDomOverlayGhost =
+    uniformHallSeatAppearance && useCanvasCompositing && useSvgNative;
+  const hasSellablePlacements = visibleNativePlacements.some(
+    (p) => !p.previewOnly && Boolean(p.offerId),
+  );
+  /** На обзоре sector path перехватывает pointer — убираем заливку, pick по canvas/viewport. */
+  const hideSectorFill =
+    mapZoomed ||
+    Boolean(selectedSectorSummary) ||
+    (sectorMode.enabled && uniformDomOverlayGhost && hasSellablePlacements);
   const sectorPathsBlockSeatPick = sectorMode.enabled && hideSectorFill;
 
   placementsForHoverRef.current = visibleNativePlacements;
@@ -1275,14 +1287,6 @@ export function TicketHallInteractiveBlock({
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
   }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
-
-  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
-  /** Дубли тех же пикселей, что allSeatCoordinates на canvas — не рисуем; выделение только у выбранных. */
-  const skipDuplicateInteractiveDotsOnCanvas =
-    uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
-  /** Canvas уже отрисовал точки — скрываем DOM-маркеры офферов, остаются только невидимые хитбоксы. */
-  const uniformDomOverlayGhost =
-    uniformHallSeatAppearance && useCanvasCompositing && useSvgNative;
 
   const visibleBackgroundSeatCoordinates = useMemo(() => {
     if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];

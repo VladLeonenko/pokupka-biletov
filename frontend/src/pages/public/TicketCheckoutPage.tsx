@@ -52,6 +52,7 @@ import {
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 import {
+  isLuzhnikiFootballRepertoire,
   isLuzhnikiStadiumCheckoutLayout,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
 } from '@/utils/luzhnikiStadiumMap';
@@ -103,11 +104,12 @@ import {
   isNamedTicketUxEnabledForSlug,
   repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
-import { filterOffersForSuperfinalSession } from '@/utils/superfinalOffersFilter';
 import { useTicketCart } from '@/context/TicketCartContext';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
+/** Лужники: не обрезать список до 5 строк офферов — иначе «11 мест в API», в UI только d227/c143…. */
+const LUZHNIKI_OFFER_ROWS_PREVIEW = 500;
 
 function HallMapLoadingPane() {
   return (
@@ -356,10 +358,11 @@ export function TicketCheckoutPage() {
   const svgDeferred = Boolean(ctx?.stageMap?.svg_markup_deferred);
   const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
   const isLuzhnikiFootballStageEarly = useMemo(() => {
+    if (isLuzhnikiFootballRepertoire(repertoireId)) return true;
     if (stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) return true;
     if (isLuzhnikiStadiumCheckoutLayout(ctx?.stageMap?.layout_json)) return true;
     return false;
-  }, [stageIdEff, ctx?.stageMap?.layout_json]);
+  }, [repertoireId, stageIdEff, ctx?.stageMap?.layout_json]);
 
   const stageMapQueryId =
     stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY || isLuzhnikiFootballStageEarly
@@ -385,10 +388,8 @@ export function TicketCheckoutPage() {
     return false;
   }, [isLuzhnikiFootballStageEarly, mapByStageId?.layout_json]);
 
-  const offers = useMemo(() => {
-    const parsed = parseOffers(raw);
-    return filterOffersForSuperfinalSession(parsed, repertoireId);
-  }, [raw, repertoireId]);
+  /** Все офферы GetBilet как пришли — без среза по сеансу/цене на фронте (сеанс → выбор даты, сектор → только список). */
+  const offers = useMemo(() => parseOffers(raw), [raw]);
   const namedTicketUxEnabled = useMemo(
     () =>
       isNamedTicketUxEnabledForRepertoire(repertoireId) &&
@@ -511,15 +512,11 @@ export function TicketCheckoutPage() {
   }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
   const filteredOffers = useMemo(() => {
-    let rows = listableOffers as OfferRow[];
     if (isLuzhnikiFootballStage) {
-      if (filterState.adjacent !== 0 || filterState.hidePassage) {
-        rows = filterOffers(rows, { ...filterState, zone: 'all' }) as OfferRow[];
-      }
-      if (stadiumSectorFilter !== 'all') {
-        rows = rows.filter((o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter);
-      }
-      return rows;
+      if (stadiumSectorFilter === 'all') return listableOffers as OfferRow[];
+      return (listableOffers as OfferRow[]).filter(
+        (o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter,
+      );
     }
     return filterOffers(listableOffers as OfferRowLike[], filterState) as OfferRow[];
   }, [isLuzhnikiFootballStage, listableOffers, filterState, stadiumSectorFilter]);
@@ -551,32 +548,6 @@ export function TicketCheckoutPage() {
     });
   }, [bySession, sessionHint]);
 
-  const flatSessionRows = useMemo(() => {
-    const out: { dt: string; row: OfferRow }[] = [];
-    for (const [dt, rows] of sessionEntriesSorted) {
-      for (const row of rows) {
-        out.push({ dt, row });
-      }
-    }
-    return out;
-  }, [sessionEntriesSorted]);
-
-  const groupedOfferRowsForList = useMemo(() => {
-    const sliced = showAllOfferRows
-      ? flatSessionRows
-      : flatSessionRows.slice(0, OFFER_ROWS_PREVIEW);
-    const order: string[] = [];
-    const m = new Map<string, OfferRow[]>();
-    for (const { dt, row } of sliced) {
-      if (!m.has(dt)) {
-        order.push(dt);
-        m.set(dt, []);
-      }
-      m.get(dt)!.push(row);
-    }
-    return order.map((dt) => [dt, m.get(dt)!] as [string, OfferRow[]]);
-  }, [flatSessionRows, showAllOfferRows]);
-
   const defaultSessionKey = useMemo(() => {
     if (allSessionsSorted.length === 0) return null;
     if (sessionHint) {
@@ -607,6 +578,36 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
+
+  const flatSessionRows = useMemo(() => {
+    const sessionKey = selectedSessionKey ?? defaultSessionKey;
+    const out: { dt: string; row: OfferRow }[] = [];
+    for (const [dt, rows] of sessionEntriesSorted) {
+      if (sessionKey && dt !== sessionKey) continue;
+      for (const row of rows) {
+        out.push({ dt, row });
+      }
+    }
+    return out;
+  }, [sessionEntriesSorted, selectedSessionKey, defaultSessionKey]);
+
+  const offerRowsPreviewLimit = isLuzhnikiFootballStage ? LUZHNIKI_OFFER_ROWS_PREVIEW : OFFER_ROWS_PREVIEW;
+
+  const groupedOfferRowsForList = useMemo(() => {
+    const sliced = showAllOfferRows
+      ? flatSessionRows
+      : flatSessionRows.slice(0, offerRowsPreviewLimit);
+    const order: string[] = [];
+    const m = new Map<string, OfferRow[]>();
+    for (const { dt, row } of sliced) {
+      if (!m.has(dt)) {
+        order.push(dt);
+        m.set(dt, []);
+      }
+      m.get(dt)!.push(row);
+    }
+    return order.map((dt) => [dt, m.get(dt)!] as [string, OfferRow[]]);
+  }, [flatSessionRows, showAllOfferRows, offerRowsPreviewLimit]);
 
   const prevSessionKeyRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1562,64 +1563,68 @@ export function TicketCheckoutPage() {
                     </Select>
                   </FormControl>
                 )}
-                <Box sx={{ flex: '1 1 260px', minWidth: 200, px: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
-                    Цена, ₽
-                  </Typography>
-                  <Slider
-                    size="small"
-                    value={filterState.priceRange}
-                    onChange={(_, v) => {
-                      const t = v as number[];
-                      setFilterState((s) => ({
-                        ...s,
-                        priceRange: [t[0], t[1]] as [number, number],
-                      }));
-                    }}
-                    min={pb.min}
-                    max={pb.max}
-                    valueLabelDisplay="auto"
-                    valueLabelFormat={(x) => `${Math.round(x).toLocaleString('ru-RU')}`}
-                    disabled={pb.max <= pb.min}
-                  />
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
-                    Подряд на ряду
-                  </Typography>
-                  <ToggleButtonGroup
-                    size="small"
-                    exclusive
-                    value={filterState.adjacent === 0 ? 'any' : String(filterState.adjacent)}
-                    onChange={(_, val) => {
-                      if (val == null) return;
-                      if (val === 'any') {
-                        setFilterState((s) => ({ ...s, adjacent: 0 }));
-                      } else {
-                        setFilterState((s) => ({
-                          ...s,
-                          adjacent: Number(val) as 2 | 3,
-                        }));
+                {!isLuzhnikiFootballStage ? (
+                  <>
+                    <Box sx={{ flex: '1 1 260px', minWidth: 200, px: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                        Цена, ₽
+                      </Typography>
+                      <Slider
+                        size="small"
+                        value={filterState.priceRange}
+                        onChange={(_, v) => {
+                          const t = v as number[];
+                          setFilterState((s) => ({
+                            ...s,
+                            priceRange: [t[0], t[1]] as [number, number],
+                          }));
+                        }}
+                        min={pb.min}
+                        max={pb.max}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={(x) => `${Math.round(x).toLocaleString('ru-RU')}`}
+                        disabled={pb.max <= pb.min}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                        Подряд на ряду
+                      </Typography>
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={filterState.adjacent === 0 ? 'any' : String(filterState.adjacent)}
+                        onChange={(_, val) => {
+                          if (val == null) return;
+                          if (val === 'any') {
+                            setFilterState((s) => ({ ...s, adjacent: 0 }));
+                          } else {
+                            setFilterState((s) => ({
+                              ...s,
+                              adjacent: Number(val) as 2 | 3,
+                            }));
+                          }
+                        }}
+                      >
+                        <ToggleButton value="any">Любое</ToggleButton>
+                        <ToggleButton value="2">2</ToggleButton>
+                        <ToggleButton value="3">3</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={filterState.hidePassage}
+                          onChange={(_, c) =>
+                            setFilterState((s) => ({ ...s, hidePassage: c }))
+                          }
+                        />
                       }
-                    }}
-                  >
-                    <ToggleButton value="any">Любое</ToggleButton>
-                    <ToggleButton value="2">2</ToggleButton>
-                    <ToggleButton value="3">3</ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={filterState.hidePassage}
-                      onChange={(_, c) =>
-                        setFilterState((s) => ({ ...s, hidePassage: c }))
-                      }
+                      label="Не у прохода"
+                      sx={{ ml: 0 }}
                     />
-                  }
-                  label="Не у прохода"
-                  sx={{ ml: 0 }}
-                />
+                  </>
+                ) : null}
               </Box>
               {filteredOffers.length < listableOffers.length ? (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
@@ -1809,7 +1814,7 @@ export function TicketCheckoutPage() {
                     </div>
                   </Paper>
                 ))}
-                {flatSessionRows.length > OFFER_ROWS_PREVIEW ? (
+                {flatSessionRows.length > offerRowsPreviewLimit ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 0.5 }}>
                     <Button
                       type="button"

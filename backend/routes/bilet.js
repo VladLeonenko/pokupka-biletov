@@ -50,6 +50,7 @@ import {
 import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
+import { filterOffersForSuperfinalSession } from '../utils/superfinalOffersFilter.js';
 import {
   applyGetbiletMarkupToOfferPayload,
   getGetbiletMarkupRuleForRepertoire,
@@ -578,7 +579,8 @@ router.get('/stage/:stageId/map', async (req, res) => {
     if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
       try {
         const { payload } = await getPublicOffersForRepertoire(repertoireId);
-        const offerRows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        const offerRowsRaw = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        const offerRows = filterOffersForSuperfinalSession(offerRowsRaw, repertoireId);
         stageRow = adaptLuzhnikiStageMapForLiveOffers(stageRow, offerRows);
       } catch (err) {
         console.warn('[bilet] stage map sellable geodesy', repertoireId, err?.message || err);
