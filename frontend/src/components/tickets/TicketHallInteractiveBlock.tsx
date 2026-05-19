@@ -77,8 +77,10 @@ function stadiumSeatDotLayerPosition(
 }
 
 type PlacementPickCtx = {
-  layersEl: HTMLDivElement;
+  viewport: HTMLDivElement;
+  getLayerBase: () => { x: number; y: number; width: number; height: number } | null;
   zoom: number;
+  pan: { x: number; y: number };
   placements: SvgNativePlacement[];
   viewBoxW: number;
   viewBoxH: number;
@@ -86,37 +88,29 @@ type PlacementPickCtx = {
   mapZoomed: boolean;
 };
 
-/** Экран → локальные px слоя (.layers). pan уже в getBoundingClientRect — не вычитать повторно. */
-function clientToLayerPoint(
-  clientX: number,
-  clientY: number,
-  layersEl: HTMLDivElement,
-  zoom: number,
-): { x: number; y: number } | null {
-  const lr = layersEl.getBoundingClientRect();
-  const z = Math.max(0.001, zoom);
-  return {
-    x: (clientX - lr.left) / z,
-    y: (clientY - lr.top) / z,
-  };
-}
-
-/** Hit-test sellable в координатах слоя (радиус = видимая точка canvas). */
+/** Hit-test sellable: base = layout origin (inner+offset), pan/zoom из transform слоя. */
 function findNearestSellablePlacement(
   clientX: number,
   clientY: number,
   ctx: PlacementPickCtx,
 ): SvgNativePlacement | null {
-  const pt = clientToLayerPoint(clientX, clientY, ctx.layersEl, ctx.zoom);
-  if (!pt) return null;
-  const hitR = sellablePickHitRadiusLayerPx(ctx.zoom, ctx.layerWidth, ctx.viewBoxW, ctx.mapZoomed);
+  const base = ctx.getLayerBase();
+  if (!base) return null;
+  const z = Math.max(0.001, ctx.zoom);
+  const vpRect = ctx.viewport.getBoundingClientRect();
+  const layerX = (clientX - vpRect.left - base.x - ctx.pan.x) / z;
+  const layerY = (clientY - vpRect.top - base.y - ctx.pan.y) / z;
+  const hitR = Math.max(
+    48 / z,
+    sellablePickHitRadiusLayerPx(ctx.zoom, ctx.layerWidth, ctx.viewBoxW, ctx.mapZoomed),
+  );
   let best: SvgNativePlacement | null = null;
   let bestD = Infinity;
   for (const p of ctx.placements) {
     if (p.previewOnly || !p.offerId) continue;
     const sx = (p.xPct / 100) * ctx.viewBoxW;
     const sy = (p.yPct / 100) * ctx.viewBoxH;
-    const dist = Math.hypot(pt.x - sx, pt.y - sy);
+    const dist = Math.hypot(layerX - sx, layerY - sy);
     if (dist < hitR && dist < bestD) {
       bestD = dist;
       best = p;
@@ -749,13 +743,14 @@ export function TicketHallInteractiveBlock({
 
   const getLayerBase = useCallback(() => {
     const vp = viewportRef.current;
+    const inner = panInnerRef.current;
     const layers = layersRef.current;
-    if (!vp || !layers) return null;
+    if (!vp || !inner || !layers) return null;
     const vpRect = vp.getBoundingClientRect();
-    const lr = layers.getBoundingClientRect();
+    const innerRect = inner.getBoundingClientRect();
     return {
-      x: lr.left - vpRect.left,
-      y: lr.top - vpRect.top,
+      x: innerRect.left - vpRect.left + layers.offsetLeft,
+      y: innerRect.top - vpRect.top + layers.offsetTop,
       width: layers.offsetWidth,
       height: layers.offsetHeight,
     };
@@ -763,11 +758,13 @@ export function TicketHallInteractiveBlock({
 
   const buildPlacementPickCtx = useCallback(
     (mapZoomed: boolean): PlacementPickCtx | null => {
-      const layers = layersRef.current;
-      if (!layers) return null;
+      const vp = viewportRef.current;
+      if (!vp) return null;
       return {
-        layersEl: layers,
+        viewport: vp,
+        getLayerBase,
         zoom: zoomRef.current,
+        pan: panRef.current,
         placements: placementsForHoverRef.current,
         viewBoxW: svgViewBox.width,
         viewBoxH: svgViewBox.height,
@@ -775,7 +772,7 @@ export function TicketHallInteractiveBlock({
         mapZoomed,
       };
     },
-    [svgViewBox.height, svgViewBox.width],
+    [getLayerBase, svgViewBox.height, svgViewBox.width],
   );
 
   const applyCamera = useCallback((nextZoom: number, nextPan: Point) => {
@@ -792,13 +789,20 @@ export function TicketHallInteractiveBlock({
 
   const getCenteredPan = useCallback((targetZoom: number) => {
     const vp = viewportRef.current;
-    const base = getLayerBase();
-    if (!vp || !base) return { x: 0, y: 0 };
+    const inner = panInnerRef.current;
+    const layers = layersRef.current;
+    if (!vp || !inner || !layers) return { x: 0, y: 0 };
+    const vpRect = vp.getBoundingClientRect();
+    const innerRect = inner.getBoundingClientRect();
+    const baseX = innerRect.left - vpRect.left + layers.offsetLeft;
+    const baseY = innerRect.top - vpRect.top + layers.offsetTop;
+    const lw = layers.offsetWidth;
+    const lh = layers.offsetHeight;
     return {
-      x: vp.clientWidth / 2 - base.x - (base.width * targetZoom) / 2,
-      y: vp.clientHeight / 2 - base.y - (base.height * targetZoom) / 2,
+      x: vp.clientWidth / 2 - baseX - (lw * targetZoom) / 2,
+      y: vp.clientHeight / 2 - baseY - (lh * targetZoom) / 2,
     };
-  }, [getLayerBase]);
+  }, []);
 
   const showSeatInfo = useCallback((anchor: HTMLElement, info: HoverSeatInfo) => {
     setHoverAnchor(anchor);
@@ -944,9 +948,8 @@ export function TicketHallInteractiveBlock({
     const pinch = pinchRef.current;
     if (!pinch) return;
     const vp = viewportRef.current;
-    const layers = layersRef.current;
     const base = getLayerBase();
-    if (!vp || !base || !layers) return;
+    if (!vp || !base) return;
     const points = [...pointersRef.current.values()];
     if (points.length < 2) return;
     const [a, b] = points;
@@ -955,16 +958,18 @@ export function TicketHallInteractiveBlock({
     const vpRect = vp.getBoundingClientRect();
     const startZoom = Math.max(0.001, pinch.startZoom);
     const nextZoom = clampZoom(pinch.startZoom * (dist / pinch.startDistance));
-    const focal = clientToLayerPoint(pinch.startMiddle.x, pinch.startMiddle.y, layers, startZoom);
-    if (!focal) return;
+    const layerX = (pinch.startMiddle.x - vpRect.left - base.x - pinch.startPan.x) / startZoom;
+    const layerY = (pinch.startMiddle.y - vpRect.top - base.y - pinch.startPan.y) / startZoom;
     applyCamera(nextZoom, {
-      x: middle.x - vpRect.left - base.x - focal.x * nextZoom,
-      y: middle.y - vpRect.top - base.y - focal.y * nextZoom,
+      x: middle.x - vpRect.left - base.x - layerX * nextZoom,
+      y: middle.y - vpRect.top - base.y - layerY * nextZoom,
     });
   }, [applyCamera, clampZoom, getLayerBase]);
 
   const onPointerDownPan = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-sector-panel="true"]')) return;
+    if ((e.target as HTMLElement).closest('[data-seat-dot="true"]')) return;
+    if ((e.target as HTMLElement).closest('[data-sector-path="true"]')) return;
     hideSeatInfo();
     hideSectorInfo();
     if (e.button !== 0 && e.pointerType !== 'touch') return;
@@ -1012,7 +1017,7 @@ export function TicketHallInteractiveBlock({
         });
         return;
       }
-      if (!d?.moved) {
+      if (!d?.moved && pointersRef.current.size <= 1) {
         probeSeatHoverRef.current(e.clientX, e.clientY);
       }
     },
@@ -1034,13 +1039,13 @@ export function TicketHallInteractiveBlock({
   }, [applyCamera, getLayerBase]);
 
   const focusClickPoint = useCallback((clientX: number, clientY: number) => {
-    const layers = layersRef.current;
-    if (!layers) return;
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) return;
+    const vpRect = vp.getBoundingClientRect();
     const currentZoom = Math.max(0.001, zoomRef.current);
-    const pt = clientToLayerPoint(clientX, clientY, layers, currentZoom);
-    if (!pt) return;
-    const layerX = pt.x;
-    const layerY = pt.y;
+    const layerX = (clientX - vpRect.left - base.x - panRef.current.x) / currentZoom;
+    const layerY = (clientY - vpRect.top - base.y - panRef.current.y) / currentZoom;
     const nextZoom = getNextZoomLevel(currentZoom, 1);
     if (typeof nextZoom !== 'number') return;
     setSelectedSector(null);
@@ -1135,26 +1140,22 @@ export function TicketHallInteractiveBlock({
     if (typeof next !== 'number') return;
     if (next <= fitZoom + 0.01) {
       setSelectedSector(null);
-      applyCamera(next, { x: 0, y: 0 });
+      applyCamera(next, getCenteredPan(next));
+      return;
+    }
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) {
+      applyCamera(next, panRef.current);
       return;
     }
     const currentZoom = Math.max(0.001, zoomRef.current);
-    const vp = viewportRef.current;
-    const layers = layersRef.current;
-    if (!vp || !layers) {
-      applyCamera(next, panRef.current);
-      return;
-    }
-    const vpRect = vp.getBoundingClientRect();
-    const focusX = vpRect.left + vp.clientWidth / 2;
-    const focusY = vpRect.top + vp.clientHeight / 2;
-    const pt = clientToLayerPoint(focusX, focusY, layers, currentZoom);
-    if (!pt) {
-      applyCamera(next, panRef.current);
-      return;
-    }
-    focusLayerPoint(pt.x, pt.y, next);
-  }, [applyCamera, fitZoom, focusLayerPoint, getLayerBase, getNextZoomLevel]);
+    const focusX = vp.clientWidth / 2;
+    const focusY = vp.clientHeight / 2;
+    const layerX = (focusX - base.x - panRef.current.x) / currentZoom;
+    const layerY = (focusY - base.y - panRef.current.y) / currentZoom;
+    focusLayerPoint(layerX, layerY, next);
+  }, [applyCamera, fitZoom, focusLayerPoint, getCenteredPan, getLayerBase, getNextZoomLevel]);
 
   const resetSectorFocus = useCallback(() => {
     setSelectedSector(null);
@@ -1225,15 +1226,8 @@ export function TicketHallInteractiveBlock({
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
   const uniformDomOverlayGhost =
     uniformHallSeatAppearance && useCanvasCompositing && useSvgNative;
-  const hasSellablePlacements = visibleNativePlacements.some(
-    (p) => !p.previewOnly && Boolean(p.offerId),
-  );
-  /** На обзоре sector path перехватывает pointer — убираем заливку, pick по canvas/viewport. */
-  const hideSectorFill =
-    mapZoomed ||
-    Boolean(selectedSectorSummary) ||
-    (sectorMode.enabled && uniformDomOverlayGhost && hasSellablePlacements);
-  const sectorPathsBlockSeatPick = sectorMode.enabled && hideSectorFill;
+  /** Сектора на обзоре 100%: подсветка и клик; заливку path убираем только после zoom-in. */
+  const hideSectorFill = mapZoomed;
 
   placementsForHoverRef.current = visibleNativePlacements;
 
@@ -1276,7 +1270,7 @@ export function TicketHallInteractiveBlock({
     };
     vp.addEventListener('pointermove', onMove, { passive: true });
     return () => vp.removeEventListener('pointermove', onMove);
-  }, []);
+  }, [hideSeatInfo]);
 
   useEffect(() => {
     if (!focusSectorNorm) {
