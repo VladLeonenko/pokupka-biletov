@@ -38,13 +38,27 @@ if [ -f "$BACKEND_ENV" ]; then
   echo "✅ .env сохранён"
 fi
 
-# Editor bundle Лужников (git reset --hard затирает hand/* из репо-заглушки)
+# Editor bundle + SVG (git reset --hard затирает hand/* и /tools/*.svg из репо)
 LUZHNIKI_EDITOR_BUNDLE="$PROJECT_ROOT/backend/data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json"
+LUZHNIKI_HAND_SVG="$PROJECT_ROOT/backend/data/luzhniki-geodesy/hand/luzhniki-gray-cloud-enriched.svg"
+LUZHNIKI_PUBLIC_SVG="$PROJECT_ROOT/frontend/public/tools/luzhniki-gray-cloud-enriched.svg"
 LUZHNIKI_BUNDLE_BACKUP=""
+LUZHNIKI_HAND_SVG_BACKUP=""
+LUZHNIKI_PUBLIC_SVG_BACKUP=""
 if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
   LUZHNIKI_BUNDLE_BACKUP=$(mktemp)
   cp "$LUZHNIKI_EDITOR_BUNDLE" "$LUZHNIKI_BUNDLE_BACKUP"
   echo "✅ Luzhniki editor bundle сохранён"
+fi
+if [ -f "$LUZHNIKI_HAND_SVG" ]; then
+  LUZHNIKI_HAND_SVG_BACKUP=$(mktemp)
+  cp "$LUZHNIKI_HAND_SVG" "$LUZHNIKI_HAND_SVG_BACKUP"
+  echo "✅ Luzhniki hand SVG сохранён"
+fi
+if [ -f "$LUZHNIKI_PUBLIC_SVG" ]; then
+  LUZHNIKI_PUBLIC_SVG_BACKUP=$(mktemp)
+  cp "$LUZHNIKI_PUBLIC_SVG" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
+  echo "✅ Luzhniki public SVG сохранён"
 fi
 
 # Git pull (жёстко на origin/$BRANCH — иначе после экспериментов остаётся старый код)
@@ -71,9 +85,20 @@ if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
   if [ "${seat_count:-0}" -gt 0 ] 2>/dev/null; then
     cp "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_EDITOR_BUNDLE"
     echo "✅ Luzhniki editor bundle восстановлен ($seat_count мест)"
+    if [ -n "$LUZHNIKI_HAND_SVG_BACKUP" ] && [ -f "$LUZHNIKI_HAND_SVG_BACKUP" ]; then
+      mkdir -p "$(dirname "$LUZHNIKI_HAND_SVG")"
+      cp "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_HAND_SVG"
+      echo "✅ Luzhniki hand SVG восстановлен"
+    fi
+    if [ -n "$LUZHNIKI_PUBLIC_SVG_BACKUP" ] && [ -f "$LUZHNIKI_PUBLIC_SVG_BACKUP" ]; then
+      mkdir -p "$(dirname "$LUZHNIKI_PUBLIC_SVG")"
+      cp "$LUZHNIKI_PUBLIC_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG"
+      echo "✅ Luzhniki public SVG восстановлен"
+    fi
   fi
   rm -f "$LUZHNIKI_BUNDLE_BACKUP"
 fi
+rm -f "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
 
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""

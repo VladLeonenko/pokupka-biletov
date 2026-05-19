@@ -18,6 +18,61 @@ const SEATS_BUNDLE = path.join(
 
 const router = express.Router();
 
+function readBundleMeta() {
+  if (!fs.existsSync(SEATS_BUNDLE)) {
+    return { exists: false, seatCount: 0, labeledSeatCount: 0, mode: null, builtAt: null, mtime: null };
+  }
+  const stat = fs.statSync(SEATS_BUNDLE);
+  try {
+    const raw = JSON.parse(fs.readFileSync(SEATS_BUNDLE, 'utf8'));
+    const seats = Array.isArray(raw?.seats) ? raw.seats : [];
+    return {
+      exists: true,
+      seatCount: Number(raw.seatCount) || seats.length,
+      labeledSeatCount: Number(raw.labeledSeatCount) || seats.length,
+      mode: raw.mode ?? null,
+      builtAt: raw.builtAt ?? null,
+      mtime: stat.mtime.toISOString(),
+    };
+  } catch (e) {
+    return {
+      exists: true,
+      seatCount: 0,
+      labeledSeatCount: 0,
+      mode: null,
+      builtAt: null,
+      mtime: stat.mtime.toISOString(),
+      parseError: e.message,
+    };
+  }
+}
+
+/** Проверка: доехала ли разметка редактора до checkout (bundle на диске VPS). */
+router.get('/status', (_req, res) => {
+  const bundle = readBundleMeta();
+  let handSvgBytes = 0;
+  let publicSvgBytes = 0;
+  try {
+    if (fs.existsSync(HAND_SVG)) handSvgBytes = fs.statSync(HAND_SVG).size;
+    if (fs.existsSync(PUBLIC_SVG)) publicSvgBytes = fs.statSync(PUBLIC_SVG).size;
+  } catch {
+    /* */
+  }
+  return res.json({
+    ok: true,
+    bundle,
+    svg: {
+      handExists: fs.existsSync(HAND_SVG),
+      publicExists: fs.existsSync(PUBLIC_SVG),
+      handBytes: handSvgBytes,
+      publicBytes: publicSvgBytes,
+    },
+    checkoutHint:
+      'Checkout показывает цветные точки только для мест с билетами в GetBilet; разметка редактора задаёт ряд/место/координаты.',
+    saveTokenRequired: Boolean(process.env.LUZHNIKI_SVG_SAVE_TOKEN?.trim()),
+  });
+});
+
 function checkSaveAuth(req, res) {
   const expected = process.env.LUZHNIKI_SVG_SAVE_TOKEN?.trim();
   if (!expected) return true;

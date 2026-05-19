@@ -232,6 +232,7 @@
     let serverSaveTimer = 0;
     let lastFileSaveOk = false;
     let lastLabeledSeatCount = 0;
+    let serverBundleSeatCount = null;
     /** @type {Map<string, Element>} */
     let circleCoordIndex = new Map();
     /** @type {Array<Array<{el: Element, attrs: Record<string, string|null>}>>} */
@@ -277,10 +278,42 @@
       const parts = [];
       if (n) parts.push(n + ' правок в браузере');
       if (lastFileSaveOk) {
-        parts.push('SVG ✓');
-        if (lastLabeledSeatCount) parts.push('карта: ' + lastLabeledSeatCount.toLocaleString('ru') + ' мест');
+        parts.push('сервер ✓');
+        if (lastLabeledSeatCount) parts.push('сохранено: ' + lastLabeledSeatCount.toLocaleString('ru') + ' мест');
+      } else if (n) {
+        parts.push('⚠ не на сервере');
+      }
+      if (serverBundleSeatCount != null) {
+        parts.push('checkout bundle: ' + serverBundleSeatCount.toLocaleString('ru'));
       }
       saveStatus.textContent = parts.join(' · ');
+    }
+
+    async function refreshServerBundleStatus() {
+      try {
+        const r = await fetch(saveApiUrl() + '/status', { cache: 'no-store' });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) return;
+        serverBundleSeatCount = data.bundle?.seatCount ?? 0;
+        updateSaveStatus();
+        if (serverBundleSeatCount === 0 && saveAuthToken) {
+          showPaintToast(
+            'info',
+            'На сервере bundle пуст — после 💾 должно быть >0 мест. Checkout: только билеты GetBilet.',
+          );
+        }
+      } catch {
+        /* офлайн / нет API */
+      }
+    }
+
+    async function reloadSvgFromServer() {
+      const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
+      const base = svgFetchBase ? svgFetchBase + '/tools/' : '/tools/';
+      const svgUrl = base + defaultSvg + '?_=' + Date.now();
+      const r = await fetch(svgUrl, { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+      loadSvgText(await r.text());
     }
 
     function flashPersisted(circles) {
@@ -384,10 +417,22 @@
           credentials: 'omit',
         });
         const data = await r.json().catch(() => ({}));
-        if (!r.ok || !data.ok) throw new Error(data.error || r.status + ' ' + r.statusText);
+        if (!r.ok || !data.ok) {
+          if (r.status === 403) {
+            throw new Error('403 save token — LUZHNIKI_SVG_SAVE_TOKEN на сервере ≠ saveToken в URL');
+          }
+          throw new Error(data.error || r.status + ' ' + r.statusText);
+        }
         lastFileSaveOk = true;
         lastLabeledSeatCount = data.labeledSeats ?? 0;
+        serverBundleSeatCount = data.labeledSeats ?? 0;
         updateSaveStatus();
+        try {
+          await reloadSvgFromServer();
+        } catch {
+          /* SVG reload optional */
+        }
+        await refreshServerBundleStatus();
         return true;
       } catch (e) {
         lastFileSaveOk = false;
@@ -404,7 +449,10 @@
         if (ok) {
           showPaintToast(
             'ok',
-            (saveApiBase || 'сервер') + ': SVG + карта ' + (lastLabeledSeatCount || '?') + ' мест',
+            (saveApiBase || 'сервер') +
+              ': bundle ' +
+              (lastLabeledSeatCount || '?') +
+              ' мест → checkout (только где есть билеты GetBilet)',
           );
         } else if (Object.keys(loadEditStore().overrides).length) {
           showPaintToast('info', 'Только localStorage — проверь saveApi / saveToken / deploy API');
@@ -1637,9 +1685,10 @@
     window.addEventListener('resize', () => { if (svgRoot) fitToView(); });
 
     const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
-    const svgUrl = svgFetchBase ? svgFetchBase + '/tools/' + defaultSvg : '/tools/' + defaultSvg;
+    const svgUrl = (svgFetchBase ? svgFetchBase + '/tools/' : '/tools/') + defaultSvg;
     status.textContent = 'Загрузка ' + svgUrl + '…';
-    fetch(svgUrl)
+    refreshServerBundleStatus();
+    fetch(svgUrl + '?_=' + Date.now(), { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
         return r.text();
