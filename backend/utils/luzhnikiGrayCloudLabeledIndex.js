@@ -6,15 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  buildLabeledSeatIndex,
-  collectIndexSeatsForRow,
-  dedupeLabeledSeatsByKey,
-} from './hallSeatGeodesyMatch.js';
-import { rebuildLuzhnikiBundleFromHandSvgIfNeeded } from './luzhnikiRebuildBundleFromHandSvg.js';
-
-let lastBundleSyncMs = 0;
-const BUNDLE_SYNC_INTERVAL_MS = 15_000;
+import { buildLabeledSeatIndex, collectIndexSeatsForRow } from './hallSeatGeodesyMatch.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -117,18 +109,6 @@ export function editorBundleHasRow(index, sector, row) {
  * @returns {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null}
  */
 export function getCachedGrayCloudLabeledIndex() {
-  if (process.env.LUZHNIKI_AUTO_SYNC_BUNDLE !== '0') {
-    const now = Date.now();
-    if (now - lastBundleSyncMs >= BUNDLE_SYNC_INTERVAL_MS) {
-      lastBundleSyncMs = now;
-      try {
-        rebuildLuzhnikiBundleFromHandSvgIfNeeded();
-      } catch {
-        /* не блокировать карту */
-      }
-    }
-  }
-
   const filePath = resolveBundlePath();
   if (!filePath) return null;
 
@@ -164,7 +144,7 @@ export function getCachedGrayCloudLabeledIndex() {
         Number.isFinite(Number(s.xPct)) &&
         Number.isFinite(Number(s.yPct)),
     );
-    state.index = buildLabeledSeatIndex(dedupeLabeledSeatsByKey(filtered));
+    state.index = buildLabeledSeatIndex(filtered);
     state.mtime = mtime;
     state.seatCount = filtered.length;
     return state.index;

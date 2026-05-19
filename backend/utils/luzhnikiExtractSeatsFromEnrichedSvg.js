@@ -2,7 +2,6 @@
  * Из enriched SVG → seats[] для bundle-luzhniki-gray-cloud-labeled-seats.json (карта checkout).
  */
 
-import { dedupeLabeledSeatsByKey } from './hallSeatGeodesyMatch.js';
 import { resolveCanonicalSectorLabel } from './luzhnikiSectorDisplayLabel.js';
 import { decodeHtmlEntities } from './ticketHallSectorNormalize.js';
 
@@ -62,11 +61,10 @@ export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
       geodesySource: source.startsWith('manual') ? 'manualEditor' : source,
     });
   }
-  const deduped = dedupeLabeledSeatsByKey(seats);
   return {
-    seats: deduped,
+    seats,
     hallWidth: w,
     hallHeight: h,
-    labeledCount: deduped.length,
+    labeledCount: seats.length,
   };
 }
