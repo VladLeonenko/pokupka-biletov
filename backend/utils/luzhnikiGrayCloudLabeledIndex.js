@@ -39,6 +39,13 @@ export function grayCloudLabeledOnlyMode() {
   return true;
 }
 
+/** API seat 28..31 → N-я точка ряда в bundle (места 1..N из редактора). */
+export function useGrayCloudRowZip() {
+  const v = process.env.LUZHNIKI_GRAY_CLOUD_ROW_ZIP?.trim();
+  if (v === '0' || v === 'false') return false;
+  return true;
+}
+
 /** Ряд есть в bundle редактора — не подменять cloudRowSeat/radial. */
 export function editorBundleHasRow(index, sector, row) {
   if (!index?.size) return false;

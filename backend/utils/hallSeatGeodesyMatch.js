@@ -92,6 +92,47 @@ export function collectIndexSeatsForRow(index, sector, row) {
   return out;
 }
 
+function seatNumForSort(value) {
+  const n = Number.parseInt(normalizeSeatNumber(value).replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+}
+
+/** Точки ряда в bundle: по возрастанию номера места (как после «Применить ряд» 1..N). */
+export function sortLabeledRowSeatsBySeat(dots) {
+  return [...dots].sort((a, b) => {
+    const d = seatNumForSort(a.seat) - seatNumForSort(b.seat);
+    if (d !== 0) return d;
+    return a.xPct - b.xPct || a.yPct - b.yPct;
+  });
+}
+
+function sortOfferSeatTokens(seatList) {
+  return [...seatList]
+    .map(String)
+    .filter((s) => s.trim())
+    .sort((a, b) => {
+      const d = seatNumForSort(a) - seatNumForSort(b);
+      if (d !== 0) return d;
+      return a.localeCompare(b, 'ru');
+    });
+}
+
+/**
+ * Sellable GetBilet (места 20..31) → координаты ряда из редактора (места 1..N по порядку).
+ * @returns {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }>}
+ */
+export function buildGrayCloudRowZipMap(index, sector, row, seatList) {
+  const rowDots = sortLabeledRowSeatsBySeat(collectIndexSeatsForRow(index, sector, row));
+  if (!rowDots.length) return null;
+  const offers = sortOfferSeatTokens(seatList);
+  const map = new Map();
+  const n = Math.min(rowDots.length, offers.length);
+  for (let i = 0; i < n; i += 1) {
+    map.set(offers[i], rowDots[i]);
+  }
+  return map;
+}
+
 /**
  * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
  * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} offers

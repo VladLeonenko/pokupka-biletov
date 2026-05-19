@@ -5,6 +5,7 @@
  */
 
 import {
+  buildGrayCloudRowZipMap,
   buildLabeledSeatIndex,
   lookupLabeledSeat,
 } from './hallSeatGeodesyMatch.js';
@@ -13,6 +14,7 @@ import {
   getCachedGrayCloudLabeledIndex,
   grayCloudLabeledOnlyMode,
   useGrayCloudLabeledSellable,
+  useGrayCloudRowZip,
 } from './luzhnikiGrayCloudLabeledIndex.js';
 import { getLuzhnikiLabeledSeatIndex } from './luzhnikiSeatIndexCache.js';
 import fs from 'node:fs';
@@ -391,6 +393,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
     ? getCachedGrayCloudLabeledIndex()
     : null;
   const grayCloudOnly = grayCloudLabeledOnlyMode();
+  const grayCloudRowZip = useGrayCloudRowZip();
 
   const offerByNorm = new Map();
   for (const o of offers) {
@@ -432,6 +435,10 @@ export function buildSellableSeatGeodesyPbiletAccurate(
       const sector = String(o.Sector ?? '');
       const row = String(o.Row ?? '');
       const list = Array.isArray(o.SeatList) ? o.SeatList.map(String) : [];
+      const rowZipMap =
+        grayCloudLabeledIndex?.size && grayCloudRowZip
+          ? buildGrayCloudRowZipMap(grayCloudLabeledIndex, sector, row, list)
+          : null;
 
       for (const seat of list) {
         if (!seat.trim()) continue;
@@ -441,7 +448,12 @@ export function buildSellableSeatGeodesyPbiletAccurate(
 
         // Ручная разметка (hover → bundle) важнее strict pbilet для тех же sector/row/seat.
         if (grayCloudLabeledIndex?.size) {
-          const labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
+          let labeled = lookupLabeledSeat(grayCloudLabeledIndex, sector, row, seat);
+          let geoSrc = 'grayCloudLabeled';
+          if (!labeled && rowZipMap) {
+            labeled = rowZipMap.get(String(seat).trim());
+            if (labeled) geoSrc = 'grayCloudLabeled+rowZip';
+          }
           if (labeled) {
             seen.add(dedupe);
             grayCloudLabeledMatched += 1;
@@ -450,7 +462,7 @@ export function buildSellableSeatGeodesyPbiletAccurate(
                 sector,
                 row,
                 seat,
-                { ...labeled, geodesySource: 'grayCloudLabeled' },
+                { ...labeled, geodesySource: geoSrc },
                 ticketsPayload,
                 w,
                 h,
