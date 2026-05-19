@@ -50,12 +50,22 @@ export function labeledSeatLookupKeys(sector, row, seat) {
 /**
  * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
  */
+/** Последняя запись по sector|row|seat побеждает (редактор пересохранял то же место). */
+export function dedupeLabeledSeatsByKey(seats) {
+  const byKey = new Map();
+  for (const s of seats) {
+    if (!Number.isFinite(s.xPct) || !Number.isFinite(s.yPct)) continue;
+    byKey.set(strictSeatKey(s.sector, s.row, s.seat), s);
+  }
+  return [...byKey.values()];
+}
+
 export function buildLabeledSeatIndex(layoutSeats) {
   const byKey = new Map();
   for (const s of layoutSeats) {
     if (!Number.isFinite(s.xPct) || !Number.isFinite(s.yPct)) continue;
     for (const key of labeledSeatLookupKeys(s.sector, s.row, s.seat)) {
-      if (!byKey.has(key)) byKey.set(key, s);
+      byKey.set(key, s);
     }
   }
   return byKey;
@@ -121,16 +131,40 @@ function sortOfferSeatTokens(seatList) {
  * Sellable GetBilet (места 20..31) → координаты ряда из редактора (места 1..N по порядку).
  * @returns {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }>}
  */
+function rowSeatNumbersAreLowConsecutive(rowDots) {
+  if (!rowDots.length) return false;
+  const nums = rowDots.map((d) => seatNumForSort(d.seat)).sort((a, b) => a - b);
+  if (nums[0] !== 1) return false;
+  for (let i = 1; i < nums.length; i += 1) {
+    if (nums[i] !== nums[i - 1] + 1) return false;
+  }
+  return true;
+}
+
+/**
+ * Sellable 28–31 → bundle 1..N по порядку вдоль ряда.
+ * Если в bundle уже есть 7,8,9… — только exact lookup, без подмены на «место 1».
+ */
 export function buildGrayCloudRowZipMap(index, sector, row, seatList) {
-  const rowDots = sortLabeledRowSeatsBySeat(collectIndexSeatsForRow(index, sector, row));
-  if (!rowDots.length) return null;
   const offers = sortOfferSeatTokens(seatList);
   const map = new Map();
-  const n = Math.min(rowDots.length, offers.length);
-  for (let i = 0; i < n; i += 1) {
-    map.set(offers[i], rowDots[i]);
+  for (const seat of offers) {
+    const hit = lookupLabeledSeat(index, sector, row, seat);
+    if (hit) map.set(String(seat).trim(), hit);
   }
-  return map;
+  const missing = offers.filter((s) => !map.has(String(s).trim()));
+  if (!missing.length) return map;
+
+  const rowDots = sortLabeledRowSeatsBySeat(collectIndexSeatsForRow(index, sector, row));
+  if (!rowDots.length || !rowSeatNumbersAreLowConsecutive(rowDots)) {
+    return map.size ? map : null;
+  }
+
+  const n = Math.min(rowDots.length, missing.length);
+  for (let i = 0; i < n; i += 1) {
+    map.set(missing[i], rowDots[i]);
+  }
+  return map.size ? map : null;
 }
 
 /**

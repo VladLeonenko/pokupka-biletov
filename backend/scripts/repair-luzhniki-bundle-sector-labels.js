@@ -11,6 +11,7 @@ import {
   getCachedTicketsSectorLabelByNorm,
   resolveCanonicalSectorLabel,
 } from '../utils/luzhnikiSectorDisplayLabel.js';
+import { dedupeLabeledSeatsByKey } from '../utils/hallSeatGeodesyMatch.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 import { resetGrayCloudLabeledIndexCache } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 
@@ -44,12 +45,19 @@ for (const s of seats) {
   counts[n] = (counts[n] || 0) + 1;
 }
 
-raw.seats = seats;
-raw.seatCount = seats.length;
-raw.labeledSeatCount = seats.length;
+const deduped = dedupeLabeledSeatsByKey(seats);
+raw.seats = deduped;
+raw.seatCount = deduped.length;
+raw.labeledSeatCount = deduped.length;
 raw.repairedAt = new Date().toISOString();
 
 fs.writeFileSync(BUNDLE, `${JSON.stringify(raw, null, 2)}\n`, 'utf8');
 resetGrayCloudLabeledIndexCache();
 
-console.log(JSON.stringify({ total: seats.length, relabeled: changed, b147: counts.b147 ?? 0 }, null, 2));
+console.log(
+  JSON.stringify(
+    { total: deduped.length, dedupedFrom: seats.length, relabeled: changed, b147: counts.b147 ?? 0 },
+    null,
+    2,
+  ),
+);

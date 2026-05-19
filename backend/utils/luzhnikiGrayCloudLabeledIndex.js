@@ -6,7 +6,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildLabeledSeatIndex, collectIndexSeatsForRow } from './hallSeatGeodesyMatch.js';
+import {
+  buildLabeledSeatIndex,
+  collectIndexSeatsForRow,
+  dedupeLabeledSeatsByKey,
+} from './hallSeatGeodesyMatch.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -144,7 +148,7 @@ export function getCachedGrayCloudLabeledIndex() {
         Number.isFinite(Number(s.xPct)) &&
         Number.isFinite(Number(s.yPct)),
     );
-    state.index = buildLabeledSeatIndex(filtered);
+    state.index = buildLabeledSeatIndex(dedupeLabeledSeatsByKey(filtered));
     state.mtime = mtime;
     state.seatCount = filtered.length;
     return state.index;
