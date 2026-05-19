@@ -144,7 +144,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-20260520a</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-20260520b</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -594,7 +594,7 @@
     }
 
     function maxZoomLevel() {
-      return isCoarsePointer() ? 64 : 16;
+      return isCoarsePointer() ? 120 : 20;
     }
 
     function minZoomLevel() {
@@ -2038,7 +2038,7 @@
 
     zoomInBtn.addEventListener('click', () => {
       const r = viewport.getBoundingClientRect();
-      zoomCenter(isCoarsePointer() ? 1.55 : 1.25, r.left + r.width / 2, r.top + r.height / 2);
+      zoomCenter(isCoarsePointer() ? 1.72 : 1.25, r.left + r.width / 2, r.top + r.height / 2);
     });
     zoomOutBtn.addEventListener('click', () => {
       const r = viewport.getBoundingClientRect();

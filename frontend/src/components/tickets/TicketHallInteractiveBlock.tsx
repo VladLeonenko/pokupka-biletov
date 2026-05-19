@@ -693,15 +693,37 @@ export function TicketHallInteractiveBlock({
   const [canvasImageVersion, setCanvasImageVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
 
+  const isCoarsePointer = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.matchMedia('(pointer: coarse)').matches ||
+      navigator.maxTouchPoints > 0 ||
+      window.innerWidth < 900
+    );
+  }, []);
+
   const [zoom, setZoom] = useState(1);
-  const maxZoom = fitZoom * (sectorMode.enabled ? 12 : 8);
+  const maxZoomMultiplier = sectorMode.enabled
+    ? isCoarsePointer
+      ? 28
+      : 12
+    : isCoarsePointer
+      ? 18
+      : 8;
+  const maxZoom = fitZoom * maxZoomMultiplier;
   const clampZoom = useCallback((z: number) => Math.min(maxZoom || 4, Math.max(0.03, z)), [maxZoom]);
   const discreteZoomLevels = useMemo(
     () => {
-      const multipliers = sectorMode.enabled ? [1, 2, 3, 4, 6, 8, 10, 12] : [1, 2, 3, 4, 6, 8];
+      const multipliers = sectorMode.enabled
+        ? isCoarsePointer
+          ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 28]
+          : [1, 2, 3, 4, 6, 8, 10, 12]
+        : isCoarsePointer
+          ? [1, 2, 3, 4, 6, 8, 12, 16, 18]
+          : [1, 2, 3, 4, 6, 8];
       return multipliers.map((multiplier) => fitZoom * multiplier).map(clampZoom);
     },
-    [clampZoom, fitZoom, sectorMode.enabled],
+    [clampZoom, fitZoom, isCoarsePointer, sectorMode.enabled],
   );
   const getNextZoomLevel = useCallback((current: number, direction: 1 | -1) => {
     const ordered = [...new Set(discreteZoomLevels.map((level) => Number(level.toFixed(4))))].sort((a, b) => a - b);

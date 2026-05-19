@@ -100,6 +100,13 @@ if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
 fi
 rm -f "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
 
+# Checkout bundle из hand SVG (после pull не нужен заход в hover только ради ▶)
+if [ -f "$LUZHNIKI_HAND_SVG" ]; then
+  echo "🔄 Luzhniki: bundle ← hand SVG"
+  (cd "$PROJECT_ROOT/backend" && node scripts/rebuild-luzhniki-bundle-from-hand-svg.js) \
+    || echo "⚠️  bundle sync пропущен (нет manual в SVG или 0 мест)"
+fi
+
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""
 echo "📦 Сборка frontend..."

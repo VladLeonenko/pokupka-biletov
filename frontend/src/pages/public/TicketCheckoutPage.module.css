@@ -18,8 +18,36 @@
   max-height: 520px;
 }
 
+@media (max-width: 899px) {
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    min-height: 100dvh;
+  }
+
+  .heroMedia {
+    position: absolute;
+    inset: 0;
+    min-height: 100%;
+    max-height: none;
+  }
+
+  .heroImg {
+    min-height: 100%;
+  }
+
+  .heroShell {
+    min-height: 100svh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+}
+
 @media (min-width: 900px) {
   .heroMedia {
+    position: relative;
     min-height: 320px;
     max-height: none;
     aspect-ratio: 21 / 9;
