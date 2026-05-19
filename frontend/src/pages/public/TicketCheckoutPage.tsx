@@ -71,6 +71,7 @@ import {
   type PriceFilterChip,
 } from '@/components/tickets/TicketPriceFilterCarousel';
 import { buildPriceColorMap, colorForPriceIndex } from '@/utils/ticketPriceColors';
+import { normalizeSectorLabel } from '@/utils/ticketHallSectorNormalize';
 
 const TicketHallInteractiveBlock = lazy(() =>
   import('@/components/tickets/TicketHallInteractiveBlock').then((m) => ({
@@ -443,6 +444,8 @@ export function TicketCheckoutPage() {
     adjacent: 0,
     hidePassage: false,
   });
+  /** Лужники: фильтр по сектору стадиона (A101, C143…), не театральные «Партер/Балкон». */
+  const [stadiumSectorFilter, setStadiumSectorFilter] = useState<string>('all');
   /** Фильтр ценовой группы на схеме (карусель над картой, как portalbilet). */
   const [mapSelectedPriceKey, setMapSelectedPriceKey] = useState<string | null>(null);
   const [showAllOfferRows, setShowAllOfferRows] = useState(false);
@@ -450,7 +453,22 @@ export function TicketCheckoutPage() {
   const filterInitRepRef = useRef<string | null>(null);
   useEffect(() => {
     filterInitRepRef.current = null;
+    setStadiumSectorFilter('all');
   }, [repertoireId]);
+
+  const stadiumSectorOptions = useMemo(() => {
+    if (!isLuzhnikiFootballStage) return [];
+    const byNorm = new Map<string, string>();
+    for (const o of listableOffers as OfferRow[]) {
+      const raw = String(o.Sector ?? '').trim();
+      if (!raw) continue;
+      const norm = normalizeSectorLabel(raw);
+      if (!byNorm.has(norm)) byNorm.set(norm, raw);
+    }
+    return [...byNorm.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
+      .map(([norm, label]) => ({ norm, label }));
+  }, [isLuzhnikiFootballStage, listableOffers]);
 
   useEffect(() => {
     if (!isSuccess || !repertoireId) return;
@@ -473,10 +491,13 @@ export function TicketCheckoutPage() {
     });
   }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
-  const filteredOffers = useMemo(
-    () => filterOffers(listableOffers as OfferRowLike[], filterState),
-    [listableOffers, filterState],
-  );
+  const filteredOffers = useMemo(() => {
+    let rows = filterOffers(listableOffers as OfferRowLike[], filterState);
+    if (isLuzhnikiFootballStage && stadiumSectorFilter !== 'all') {
+      rows = rows.filter((o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter);
+    }
+    return rows;
+  }, [isLuzhnikiFootballStage, listableOffers, filterState, stadiumSectorFilter]);
 
   const priceColorMap = useMemo(() => {
     const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
@@ -1461,26 +1482,45 @@ export function TicketCheckoutPage() {
                   alignItems: 'flex-end',
                 }}
               >
-                <FormControl size="small" sx={{ minWidth: 200 }}>
-                  <InputLabel id="ticket-zone-label">Зона</InputLabel>
-                  <Select
-                    labelId="ticket-zone-label"
-                    label="Зона"
-                    value={filterState.zone}
-                    onChange={(e) =>
-                      setFilterState((s) => ({
-                        ...s,
-                        zone: e.target.value as ZoneFilterId,
-                      }))
-                    }
-                  >
-                    {ZONE_OPTIONS.map((z) => (
-                      <MenuItem key={z.id} value={z.id}>
-                        {z.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                {isLuzhnikiFootballStage ? (
+                  <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <InputLabel id="ticket-sector-label">Сектор</InputLabel>
+                    <Select
+                      labelId="ticket-sector-label"
+                      label="Сектор"
+                      value={stadiumSectorFilter}
+                      onChange={(e) => setStadiumSectorFilter(String(e.target.value))}
+                    >
+                      <MenuItem value="all">Все сектора</MenuItem>
+                      {stadiumSectorOptions.map((s) => (
+                        <MenuItem key={s.norm} value={s.norm}>
+                          {s.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel id="ticket-zone-label">Зона</InputLabel>
+                    <Select
+                      labelId="ticket-zone-label"
+                      label="Зона"
+                      value={filterState.zone}
+                      onChange={(e) =>
+                        setFilterState((s) => ({
+                          ...s,
+                          zone: e.target.value as ZoneFilterId,
+                        }))
+                      }
+                    >
+                      {ZONE_OPTIONS.map((z) => (
+                        <MenuItem key={z.id} value={z.id}>
+                          {z.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
                 <Box sx={{ flex: '1 1 260px', minWidth: 200, px: 0.5 }}>
                   <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
                     Цена, ₽

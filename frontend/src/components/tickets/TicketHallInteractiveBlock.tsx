@@ -633,9 +633,12 @@ export function TicketHallInteractiveBlock({
   }, [sectorSummaries]);
 
   const viewportRef = useRef<HTMLDivElement>(null);
+  const hoverProbeRef = useRef<HTMLDivElement>(null);
   const panInnerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const placementsForHoverRef = useRef<SvgNativePlacement[]>([]);
+  const probeSeatHoverRef = useRef<(clientX: number, clientY: number) => void>(() => {});
   const canvasImageRef = useRef<HTMLImageElement | null>(null);
   const [canvasImageVersion, setCanvasImageVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
@@ -900,27 +903,40 @@ export function TicketHallInteractiveBlock({
     if (pointersRef.current.size >= 2) startPinchIfReady();
   }, [hideSeatInfo, hideSectorInfo, startPinchIfReady]);
 
-  const onPointerMovePan = useCallback((e: React.PointerEvent) => {
-    if (pointersRef.current.has(e.pointerId)) {
-      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
-    if (pointersRef.current.size >= 2 && pinchRef.current) {
-      suppressMapClickRef.current = true;
-      applyPinchGesture();
-      return;
-    }
-    const d = dragRef.current;
-    if (!d?.active || e.pointerId !== d.id) return;
-    const dx = e.clientX - d.sx;
-    const dy = e.clientY - d.sy;
-    if (!d.moved && Math.hypot(dx, dy) < 4) return;
-    d.moved = true;
-    suppressMapClickRef.current = true;
-    applyPan({
-      x: d.ox + dx,
-      y: d.oy + dy,
-    });
-  }, [applyPan, applyPinchGesture]);
+  const onPointerMovePan = useCallback(
+    (e: React.PointerEvent) => {
+      if (pointersRef.current.has(e.pointerId)) {
+        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+      if (pointersRef.current.size >= 2 && pinchRef.current) {
+        suppressMapClickRef.current = true;
+        applyPinchGesture();
+        hideSeatInfo();
+        return;
+      }
+      const d = dragRef.current;
+      if (d?.active && e.pointerId === d.id) {
+        const dx = e.clientX - d.sx;
+        const dy = e.clientY - d.sy;
+        if (!d.moved && Math.hypot(dx, dy) < 4) {
+          probeSeatHoverRef.current(e.clientX, e.clientY);
+          return;
+        }
+        d.moved = true;
+        suppressMapClickRef.current = true;
+        hideSeatInfo();
+        applyPan({
+          x: d.ox + dx,
+          y: d.oy + dy,
+        });
+        return;
+      }
+      if (pointersRef.current.size === 1) {
+        probeSeatHoverRef.current(e.clientX, e.clientY);
+      }
+    },
+    [applyPan, applyPinchGesture, hideSeatInfo],
+  );
 
   const focusLayerPoint = useCallback((layerX: number, layerY: number, targetZoom: number, sectorLabel?: string) => {
     const vp = viewportRef.current;
@@ -1097,6 +1113,54 @@ export function TicketHallInteractiveBlock({
     if (!sectorMode.enabled) return nativePlacements;
     return nativePlacements;
   }, [nativePlacements, sectorMode.enabled]);
+
+  placementsForHoverRef.current = visibleNativePlacements;
+
+  const probeSeatHover = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!sectorMode.enabled) return;
+      const vp = viewportRef.current;
+      const probe = hoverProbeRef.current;
+      const base = getLayerBase();
+      if (!vp || !probe || !base) return;
+      if (dragRef.current?.moved) return;
+      const z = Math.max(0.001, zoomRef.current);
+      const pan = panRef.current;
+      const vpRect = vp.getBoundingClientRect();
+      const layerX = (clientX - vpRect.left - base.x - pan.x) / z;
+      const layerY = (clientY - vpRect.top - base.y - pan.y) / z;
+      const hitR = 20 / z;
+      let best: SvgNativePlacement | null = null;
+      let bestD = Infinity;
+      for (const p of placementsForHoverRef.current) {
+        if (p.previewOnly || !p.offerId) continue;
+        const sx = (p.xPct / 100) * svgViewBox.width;
+        const sy = (p.yPct / 100) * svgViewBox.height;
+        const dist = Math.hypot(layerX - sx, layerY - sy);
+        if (dist < hitR && dist < bestD) {
+          bestD = dist;
+          best = p;
+        }
+      }
+      if (best) {
+        probe.style.left = `${clientX - vpRect.left}px`;
+        probe.style.top = `${clientY - vpRect.top}px`;
+        showSeatInfo(probe, {
+          key: best.key,
+          offerId: best.offerId,
+          sector: best.sectorLabel,
+          row: best.rowLabel,
+          seat: best.seat,
+          priceKey: best.priceKey,
+        });
+      } else {
+        hideSeatInfo();
+      }
+    },
+    [getLayerBase, hideSeatInfo, sectorMode.enabled, showSeatInfo, svgViewBox.height, svgViewBox.width],
+  );
+  probeSeatHoverRef.current = probeSeatHover;
+
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
@@ -1305,8 +1369,12 @@ export function TicketHallInteractiveBlock({
         onPointerMove={onPointerMovePan}
         onPointerUp={endPan}
         onPointerCancel={endPan}
+        onPointerLeave={() => {
+          if (pointersRef.current.size === 0) hideSeatInfo();
+        }}
         role="presentation"
       >
+        <div ref={hoverProbeRef} className={styles.hoverProbeAnchor} aria-hidden="true" />
         {useCanvasCompositing ? <canvas ref={canvasRef} className={styles.stadiumCanvas} aria-hidden="true" /> : null}
         <div ref={panInnerRef} className={styles.panInner}>
           <div
@@ -1701,7 +1769,7 @@ export function TicketHallInteractiveBlock({
         anchorEl={hoverAnchor}
         placement="top"
         modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
-        sx={{ zIndex: 20 }}
+        sx={{ zIndex: 1600 }}
       >
         {hoverSeat && (
           <Paper elevation={4} sx={{ p: 1.25, maxWidth: 280, borderRadius: 2 }}>

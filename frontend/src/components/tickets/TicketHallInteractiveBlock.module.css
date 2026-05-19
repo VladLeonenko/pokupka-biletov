@@ -248,14 +248,14 @@
 }
 
 .sectorLayerFocused {
-  pointer-events: auto;
+  pointer-events: none !important;
 }
 
 .sectorLayerFocused .sectorPath {
   fill: transparent !important;
   stroke: transparent !important;
   opacity: 0;
-  pointer-events: auto;
+  pointer-events: none !important;
 }
 
 /** Сектор выбран — клики/hover на sellable, не на невидимых path */
@@ -265,6 +265,17 @@
 
 .sectorLayerSeatPick .sectorPath {
   pointer-events: none !important;
+}
+
+.hoverProbeAnchor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  z-index: 30;
 }
 
 .sectorPath {
