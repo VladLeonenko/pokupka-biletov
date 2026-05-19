@@ -63,55 +63,47 @@ function sellablePickHitRadiusLayerPx(
   return Math.max(12 / z, (2 * r + 4) / z);
 }
 
-/** Те же координаты, что у canvas: xPct/yPct × viewBox (не % ширины слоя — меньше дрейфа на Лужниках). */
-function stadiumSeatDotLayerPosition(
-  xPct: number,
-  yPct: number,
-  viewBoxWidth: number,
-  viewBoxHeight: number,
-): Pick<React.CSSProperties, 'left' | 'top'> {
-  return {
-    left: `${(xPct / 100) * viewBoxWidth}px`,
-    top: `${(yPct / 100) * viewBoxHeight}px`,
-  };
-}
+type LayerScreenBox = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  screenW: number;
+  screenH: number;
+};
 
 type PlacementPickCtx = {
   viewport: HTMLDivElement;
-  getLayerBase: () => { x: number; y: number; width: number; height: number } | null;
+  getLayerScreenBox: () => LayerScreenBox | null;
   zoom: number;
-  pan: { x: number; y: number };
   placements: SvgNativePlacement[];
-  viewBoxW: number;
-  viewBoxH: number;
-  layerWidth: number;
   mapZoomed: boolean;
 };
 
-/** Hit-test sellable: base = layout origin (inner+offset), pan/zoom из transform слоя. */
+/** Hit-test sellable: координаты через getBoundingClientRect слоя (как canvas), не inner+offset. */
 function findNearestSellablePlacement(
   clientX: number,
   clientY: number,
   ctx: PlacementPickCtx,
 ): SvgNativePlacement | null {
-  const base = ctx.getLayerBase();
-  if (!base) return null;
-  const z = Math.max(0.001, ctx.zoom);
+  const box = ctx.getLayerScreenBox();
+  if (!box || box.screenW < 1 || box.screenH < 1) return null;
   const vpRect = ctx.viewport.getBoundingClientRect();
-  const layerX = (clientX - vpRect.left - base.x - ctx.pan.x) / z;
-  const layerY = (clientY - vpRect.top - base.y - ctx.pan.y) / z;
-  const hitR = Math.max(
-    48 / z,
-    sellablePickHitRadiusLayerPx(ctx.zoom, ctx.layerWidth, ctx.viewBoxW, ctx.mapZoomed),
+  const layerX = ((clientX - vpRect.left - box.left) / box.screenW) * box.width;
+  const layerY = ((clientY - vpRect.top - box.top) / box.screenH) * box.height;
+  const z = Math.max(0.001, ctx.zoom);
+  const hitRLayer = Math.max(
+    22 / z,
+    sellablePickHitRadiusLayerPx(ctx.zoom, box.width, box.width, ctx.mapZoomed),
   );
   let best: SvgNativePlacement | null = null;
   let bestD = Infinity;
   for (const p of ctx.placements) {
     if (p.previewOnly || !p.offerId) continue;
-    const sx = (p.xPct / 100) * ctx.viewBoxW;
-    const sy = (p.yPct / 100) * ctx.viewBoxH;
+    const sx = (p.xPct / 100) * box.width;
+    const sy = (p.yPct / 100) * box.height;
     const dist = Math.hypot(layerX - sx, layerY - sy);
-    if (dist < hitR && dist < bestD) {
+    if (dist < hitRLayer && dist < bestD) {
       bestD = dist;
       best = p;
     }
@@ -756,23 +748,35 @@ export function TicketHallInteractiveBlock({
     };
   }, []);
 
+  const getLayerScreenBox = useCallback((): LayerScreenBox | null => {
+    const vp = viewportRef.current;
+    const layers = layersRef.current;
+    if (!vp || !layers) return null;
+    const vpRect = vp.getBoundingClientRect();
+    const lr = layers.getBoundingClientRect();
+    return {
+      left: lr.left - vpRect.left,
+      top: lr.top - vpRect.top,
+      width: layers.offsetWidth,
+      height: layers.offsetHeight,
+      screenW: lr.width,
+      screenH: lr.height,
+    };
+  }, []);
+
   const buildPlacementPickCtx = useCallback(
     (mapZoomed: boolean): PlacementPickCtx | null => {
       const vp = viewportRef.current;
       if (!vp) return null;
       return {
         viewport: vp,
-        getLayerBase,
+        getLayerScreenBox,
         zoom: zoomRef.current,
-        pan: panRef.current,
         placements: placementsForHoverRef.current,
-        viewBoxW: svgViewBox.width,
-        viewBoxH: svgViewBox.height,
-        layerWidth: Math.round(svgViewBox.width),
         mapZoomed,
       };
     },
-    [getLayerBase, svgViewBox.height, svgViewBox.width],
+    [getLayerScreenBox],
   );
 
   const applyCamera = useCallback((nextZoom: number, nextPan: Point) => {
@@ -1087,12 +1091,7 @@ export function TicketHallInteractiveBlock({
     } catch {
       /* */
     }
-    if (
-      clicked
-      && !(e.target as HTMLElement).closest('button')
-      && !(e.target as HTMLElement).closest('[data-seat-dot="true"]')
-      && !(e.target as HTMLElement).closest('[data-sector-path="true"]')
-    ) {
+    if (clicked && !(e.target as HTMLElement).closest('[data-seat-dot="true"]')) {
       const pickCtx = buildPlacementPickCtx(zoomRef.current > fitZoom + 0.01);
       if (pickCtx && (stadiumCanvasEnabled || sectorMode.enabled)) {
         const picked = findNearestSellablePlacement(e.clientX, e.clientY, pickCtx);
@@ -1101,7 +1100,12 @@ export function TicketHallInteractiveBlock({
           return;
         }
       }
-      focusClickPoint(e.clientX, e.clientY);
+      if (
+        !(e.target as HTMLElement).closest('button')
+        && !(e.target as HTMLElement).closest('[data-sector-path="true"]')
+      ) {
+        focusClickPoint(e.clientX, e.clientY);
+      }
     }
   }, [buildPlacementPickCtx, fitZoom, focusClickPoint, sectorMode.enabled, stadiumCanvasEnabled]);
 
@@ -1261,6 +1265,15 @@ export function TicketHallInteractiveBlock({
   );
   probeSeatHoverRef.current = probeSeatHover;
 
+  const pickSellableAtClient = useCallback(
+    (clientX: number, clientY: number): SvgNativePlacement | null => {
+      const pickCtx = buildPlacementPickCtx(zoomRef.current > fitZoom + 0.01);
+      if (!pickCtx) return null;
+      return findNearestSellablePlacement(clientX, clientY, pickCtx);
+    },
+    [buildPlacementPickCtx, fitZoom],
+  );
+
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
@@ -1327,8 +1340,8 @@ export function TicketHallInteractiveBlock({
     if (!canvas || !viewport) return;
 
     let frame = requestAnimationFrame(() => {
-      const base = getLayerBase();
-      if (!base) return;
+      const box = getLayerScreenBox();
+      if (!box) return;
       const width = viewport.clientWidth;
       const height = viewport.clientHeight;
       if (width <= 0 || height <= 0) return;
@@ -1350,10 +1363,10 @@ export function TicketHallInteractiveBlock({
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, width, height);
 
-      const x = base.x + pan.x;
-      const y = base.y + pan.y;
-      const w = base.width * zoom;
-      const h = base.height * zoom;
+      const x = box.left;
+      const y = box.top;
+      const w = box.screenW;
+      const h = box.screenH;
 
       const img = canvasImageRef.current;
       if (img) {
@@ -1412,7 +1425,7 @@ export function TicketHallInteractiveBlock({
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
-            base.width,
+            box.width,
             svgViewBox.width,
             active,
             zoom > fitZoom + 0.01,
@@ -1436,7 +1449,7 @@ export function TicketHallInteractiveBlock({
     canvasImageVersion,
     colorForSeat,
     fitZoom,
-    getLayerBase,
+    getLayerScreenBox,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
     uniformHallSeatAppearance,
@@ -1503,6 +1516,8 @@ export function TicketHallInteractiveBlock({
             {sectorMode.enabled ? (
               <svg
                 className={`${styles.sectorLayer} ${
+                  useCanvasCompositing ? styles.sectorLayerUnderSeats : ''
+                } ${
                   hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : ''
                 }`}
                 viewBox={svgViewBox.value}
@@ -1535,6 +1550,26 @@ export function TicketHallInteractiveBlock({
                         showSectorInfo(ev.currentTarget, sector);
                       }}
                       onPointerEnter={(ev) => {
+                        const picked = pickSellableAtClient(ev.clientX, ev.clientY);
+                        if (picked) {
+                          const probe = hoverProbeRef.current;
+                          if (probe) {
+                            const vpRect = viewportRef.current?.getBoundingClientRect();
+                            if (vpRect) {
+                              probe.style.left = `${ev.clientX - vpRect.left}px`;
+                              probe.style.top = `${ev.clientY - vpRect.top}px`;
+                            }
+                            showSeatInfo(probe, {
+                              key: picked.key,
+                              offerId: picked.offerId,
+                              sector: picked.sectorLabel,
+                              row: picked.rowLabel,
+                              seat: picked.seat,
+                              priceKey: picked.priceKey,
+                            });
+                          }
+                          return;
+                        }
                         showSectorInfo(ev.currentTarget, sector);
                       }}
                       onPointerLeave={(ev) => {
@@ -1547,6 +1582,11 @@ export function TicketHallInteractiveBlock({
                       onClick={(ev) => {
                         ev.stopPropagation();
                         if (suppressMapClickRef.current) return;
+                        const picked = pickSellableAtClient(ev.clientX, ev.clientY);
+                        if (picked) {
+                          activatePlacementRef.current(picked);
+                          return;
+                        }
                         focusSector(sector);
                       }}
                     />
@@ -1555,7 +1595,7 @@ export function TicketHallInteractiveBlock({
               </svg>
             ) : null}
             <div
-              className={styles.seatLayer}
+              className={`${styles.seatLayer} ${useCanvasCompositing ? styles.seatLayerCanvasPick : ''}`}
               aria-hidden={useSvgNative ? nativePlacements.length === 0 : sorted.length === 0}
             >
               {!stadiumCanvasEnabled &&
@@ -1605,8 +1645,6 @@ export function TicketHallInteractiveBlock({
                       priceKey: p.priceKey,
                     };
                     const stadiumLayerWidth = Math.round(svgViewBox.width);
-                    const useStadiumViewBoxPx =
-                      sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
                     const syncCanvasHitbox =
                       sectorMode.enabled && useSvgNative && useCanvasCompositing;
                     const hitboxPx = syncCanvasHitbox
@@ -1618,14 +1656,7 @@ export function TicketHallInteractiveBlock({
                           mapZoomed,
                         )
                       : null;
-                    const seatPos = useStadiumViewBoxPx
-                      ? stadiumSeatDotLayerPosition(
-                          p.xPct,
-                          p.yPct,
-                          svgViewBox.width,
-                          svgViewBox.height,
-                        )
-                      : { left: `${p.xPct}%`, top: `${p.yPct}%` };
+                    const seatPos = { left: `${p.xPct}%`, top: `${p.yPct}%` };
                     if (p.previewOnly) {
                       return (
                         <span

@@ -224,6 +224,19 @@
   pointer-events: none;
 }
 
+/** Canvas рисует точки; DOM — невидимые хитбоксы поверх sectorLayer (z-index 4). */
+.seatLayerCanvasPick {
+  z-index: 20;
+}
+
+.seatLayerCanvasPick [data-seat-dot='true'] {
+  pointer-events: auto !important;
+}
+
+.sectorLayerUnderSeats {
+  z-index: 4;
+}
+
 .backgroundSeatLayer {
   position: absolute;
   z-index: 0;
