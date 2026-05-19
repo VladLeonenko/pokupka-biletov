@@ -41,6 +41,9 @@
 - **Файл:** `frontend/public/tools/luzhniki-gray-cloud-enriched-hover.html`
 - **Сохранение:** POST → `backend/routes/luzhnikiGrayCloudSvg.js` → `hand/bundle-luzhniki-gray-cloud-labeled-seats.json` + SVG (`data-source=manual*`).
 - **▶ Применить ряд → сервер:** после линии сразу POST; в тосте `Сектор B 147: N мест` — если 0, на checkout не попадёт.
+- **Полигон сектора:** при заполненном поле «Сектор» линия/▶ только внутри `path[data-sector]` (не утащит B262 на другой конец).
+- **Номера мест:** «Место с» = первое место из GetBilet в этом ряду (B262 ряд 41 → **7**, не 1).
+- **SVG gzip:** при save пишется `.svg.gz`; nginx `gzip_static` + `image/svg+xml` в gzip.
 - **Важно:** `git reset --hard` на деплое **стирает** bundle/SVG на VPS — `deploy-via-git.sh` бэкапит при `seatCount>0`. Иначе 💾 из редактора.
 - **Починка bundle на VPS:** `cd backend && node scripts/repair-luzhniki-bundle-sector-labels.js` (после старых save с entity-кодировкой).
 

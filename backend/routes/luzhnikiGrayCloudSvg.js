@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'url';
 
 import { extractLabeledSeatsFromSvgMarkup } from '../utils/luzhnikiExtractSeatsFromEnrichedSvg.js';
@@ -22,6 +23,11 @@ const SEATS_BUNDLE = path.join(
 );
 
 const router = express.Router();
+
+function writeSvgFiles(filePath, xml) {
+  fs.writeFileSync(filePath, xml, 'utf8');
+  fs.writeFileSync(`${filePath}.gz`, zlib.gzipSync(xml, { level: 9 }));
+}
 
 function readBundleMeta() {
   if (!fs.existsSync(SEATS_BUNDLE)) {
@@ -128,8 +134,8 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
     xml = sectorNorm.xml;
     fs.mkdirSync(path.dirname(HAND_SVG), { recursive: true });
     fs.mkdirSync(path.dirname(PUBLIC_SVG), { recursive: true });
-    fs.writeFileSync(HAND_SVG, xml, 'utf8');
-    fs.writeFileSync(PUBLIC_SVG, xml, 'utf8');
+    writeSvgFiles(HAND_SVG, xml);
+    writeSvgFiles(PUBLIC_SVG, xml);
 
     const extracted = extractLabeledSeatsFromSvgMarkup(xml);
     const labeledCount = extracted.labeledCount ?? extracted.seats.length;

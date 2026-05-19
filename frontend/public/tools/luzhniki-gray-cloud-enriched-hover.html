@@ -127,7 +127,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-20260519c</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-20260519d</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -227,6 +227,8 @@
     let paintSelection = [];
     /** @type {Element[]} */
     let paintPreviewList = [];
+    /** @type {Map<string, { x0: number, y0: number, x1: number, y1: number }>} */
+    let sectorBboxByNorm = new Map();
     /** @type {Set<Element>} */
     let paintPreviewMarked = new Set();
     let previewPolyline = null;
@@ -1288,6 +1290,41 @@
       return paintSector.value.trim();
     }
 
+    function rebuildSectorBboxCache() {
+      sectorBboxByNorm = new Map();
+      if (!svgRoot) return;
+      for (const p of svgRoot.querySelectorAll('path[data-sector]')) {
+        const label = decodeAttr(p.getAttribute('data-sector') || '');
+        const norm = normalizeSectorLabel(label);
+        if (!norm) continue;
+        try {
+          const bb = p.getBBox();
+          const pad = 6;
+          sectorBboxByNorm.set(norm, {
+            x0: bb.x - pad,
+            y0: bb.y - pad,
+            x1: bb.x + bb.width + pad,
+            y1: bb.y + bb.height + pad,
+          });
+        } catch {
+          /* path без layout */
+        }
+      }
+    }
+
+    /** Не давать линии утащить точки с противоположной трибуны (B262 vs …). */
+    function filterCirclesToSectorBbox(circles, sectorLabel) {
+      const norm = normalizeSectorLabel(sectorLabel);
+      const bb = sectorBboxByNorm.get(norm);
+      if (!bb) return { list: circles, dropped: 0 };
+      const list = circles.filter((c) => {
+        const cx = +c.getAttribute('cx');
+        const cy = +c.getAttribute('cy');
+        return cx >= bb.x0 && cx <= bb.x1 && cy >= bb.y0 && cy <= bb.y1;
+      });
+      return { list, dropped: circles.length - list.length };
+    }
+
     function inferSectorFromSelection(circles) {
       const counts = new Map();
       for (const c of circles) {
@@ -1352,7 +1389,28 @@
         }
         paintSector.value = normalizeSectorLabel(sector);
       }
-      const selection = paintSelection;
+      let selection = paintSelection;
+      const { list: inBbox, dropped: bboxDrop } = filterCirclesToSectorBbox(selection, sector);
+      if (bboxDrop > 0) {
+        showPaintToast(
+          'info',
+          'Вне полигона «' +
+            canonicalSectorLabel(sector) +
+            '»: −' +
+            bboxDrop +
+            ' (линия зацепила чужой сектор)',
+        );
+      }
+      selection = inBbox;
+      if (!selection.length) {
+        showPaintToast(
+          'err',
+          'Нет точек внутри «' +
+            canonicalSectorLabel(sector) +
+            '». Веди линию по ряду в этом секторе.',
+        );
+        return 0;
+      }
       const wantRow = normalizePaintRowNum(row);
       const cloudRowMismatch = selection.filter(
         (c) => normalizePaintRowNum(circleRow(c)) && normalizePaintRowNum(circleRow(c)) !== wantRow,
@@ -1469,11 +1527,18 @@
       if (paintDrag && paintPathPoints.length >= 1) {
         const corridor = paintCorridorPx();
         const dense = densifyPaintPath(paintPathPoints, corridor * 0.4);
-        const list = pickCirclesAlongPath(dense, corridor, '');
+        let list = pickCirclesAlongPath(dense, corridor, '');
+        const fieldSec = paintSectorForApply();
+        if (fieldSec && list.length) {
+          const { list: trimmed, dropped } = filterCirclesToSectorBbox(list, fieldSec);
+          list = trimmed;
+          if (dropped > 0 && !list.length) {
+            showPaintToast('err', 'Линия вне «' + canonicalSectorLabel(fieldSec) + '» — веди по нужному сектору');
+          }
+        }
         if (list.length) {
           if (additive) mergePaintSelection(list);
           else setPaintSelection(list);
-          const fieldSec = paintSectorForApply();
           const hintSec = fieldSec
             ? canonicalSectorLabel(fieldSec) + ' (из поля при ▶)'
             : inferSectorFromSelection(list);
@@ -1546,6 +1611,7 @@
       const embedded = svg.querySelector('script');
       if (embedded) embedded.remove();
       allCircles = Array.from(svg.querySelectorAll('circle'));
+      rebuildSectorBboxCache();
       rebuildCircleCoordIndex();
       circleGrid = buildCircleGrid(allCircles, 96);
       ensureOverlay();
