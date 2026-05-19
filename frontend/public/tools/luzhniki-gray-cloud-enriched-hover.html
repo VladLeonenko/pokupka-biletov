@@ -28,6 +28,19 @@
     }
     .bar button:hover { background: #475569; }
     .bar button.active { background: #2563eb; border-color: #3b82f6; }
+    @media (pointer: coarse), (max-width: 900px) {
+      .bar button {
+        min-height: 42px;
+        min-width: 42px;
+        padding: 8px 14px;
+        font-size: 15px;
+      }
+      .bar input[type='text'],
+      .bar input[type='number'] {
+        min-height: 40px;
+        font-size: 16px;
+      }
+    }
     .bar button.warn { background: #b45309; border-color: #d97706; }
     .bar .sep { width: 1px; height: 22px; background: #475569; margin: 0 2px; }
     .bar .group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -127,7 +140,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-20260519d</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-20260519e</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -223,6 +236,10 @@
     let paintCaptureId = -1;
     let paintPreviewRaf = 0;
     let paintSuppressClick = false;
+    /** @type {Map<number, { x: number, y: number }>} */
+    const activePointers = new Map();
+    /** @type {{ dist: number, zoom0: number, cx: number, cy: number } | null} */
+    let pinchStart = null;
     /** @type {Element[]} */
     let paintSelection = [];
     /** @type {Element[]} */
@@ -559,8 +576,49 @@
       refreshStatusHint();
     }
 
+    function isCoarsePointer() {
+      return (
+        window.matchMedia('(pointer: coarse)').matches ||
+        navigator.maxTouchPoints > 0 ||
+        window.innerWidth < 900
+      );
+    }
+
+    function maxZoomLevel() {
+      return isCoarsePointer() ? 32 : 12;
+    }
+
+    function clampZoom(z) {
+      return Math.min(maxZoomLevel(), Math.max(0.02, z));
+    }
+
+    /** Зум к точке под пальцем / колёсиком. */
+    function setZoomAt(newZoom, clientX, clientY) {
+      const r = stage.getBoundingClientRect();
+      if (!r.width || !r.height) {
+        zoom = clampZoom(newZoom);
+        applyTransform();
+        return;
+      }
+      const cx = r.left + r.width / 2 + panX;
+      const cy = r.top + r.height / 2 + panY;
+      const ux = (clientX - cx) / zoom;
+      const uy = (clientY - cy) / zoom;
+      zoom = clampZoom(newZoom);
+      panX = clientX - r.width / 2 - r.left - ux * zoom;
+      panY = clientY - r.height / 2 - r.top - uy * zoom;
+      applyTransform();
+    }
+
     function refreshStatusHint() {
-      const base = 'Zoom ' + (zoom * 100).toFixed(0) + '%';
+      const base =
+        'Zoom ' +
+        (zoom * 100).toFixed(0) +
+        '% (макс ' +
+        (maxZoomLevel() * 100).toFixed(0) +
+        '%' +
+        (isCoarsePointer() ? ' · pinch' : '') +
+        ')';
       if (appMode === 'paint') {
         status.textContent =
           base +
@@ -953,9 +1011,32 @@
       applyTransform();
     }
 
-    function zoomCenter(factor) {
-      zoom = Math.min(6, Math.max(0.02, zoom * factor));
-      applyTransform();
+    function zoomCenter(factor, clientX, clientY) {
+      const next = clampZoom(zoom * factor);
+      if (clientX != null && clientY != null) setZoomAt(next, clientX, clientY);
+      else {
+        zoom = next;
+        applyTransform();
+      }
+    }
+
+    function updatePinchZoom() {
+      if (activePointers.size !== 2) {
+        pinchStart = null;
+        return false;
+      }
+      const pts = [...activePointers.values()];
+      const dx = pts[1].x - pts[0].x;
+      const dy = pts[1].y - pts[0].y;
+      const dist = Math.hypot(dx, dy);
+      const cx = (pts[0].x + pts[1].x) / 2;
+      const cy = (pts[0].y + pts[1].y) / 2;
+      if (!pinchStart || pinchStart.dist < 8) {
+        pinchStart = { dist, zoom0: zoom, cx, cy };
+        return true;
+      }
+      setZoomAt(clampZoom(pinchStart.zoom0 * (dist / pinchStart.dist)), cx, cy);
+      return true;
     }
 
     function isPanActive() {
@@ -1026,7 +1107,8 @@
       const p = clientToSvg(clientX, clientY);
       if (!p) return null;
       const r = stage.getBoundingClientRect();
-      const hitSvg = Math.max(32, 26 * (vbW / Math.max(r.width, 1)));
+      const touchMul = isCoarsePointer() ? 2.75 : 1;
+      const hitSvg = Math.max(32, 26 * (vbW / Math.max(r.width, 1)) * touchMul);
       const pool = gridCandidatesForSegment(p.x, p.y, p.x, p.y, hitSvg);
       let best = null;
       let bestD = Infinity;
@@ -1656,6 +1738,17 @@
     viewport.addEventListener(
       'pointerdown',
       (e) => {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 2) {
+        cancelPaintDrag();
+        dragPan = false;
+        viewport.classList.remove('dragging');
+        pinchStart = null;
+        updatePinchZoom();
+        e.preventDefault();
+        return;
+      }
+
       if (e.button !== 0) return;
 
       if (appMode === 'paint' && svgRoot) {
@@ -1716,6 +1809,14 @@
     );
 
     viewport.addEventListener('pointermove', (e) => {
+      if (activePointers.has(e.pointerId)) {
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+      if (activePointers.size === 2 && updatePinchZoom()) {
+        e.preventDefault();
+        return;
+      }
+
       if (paintPending) {
         e.preventDefault();
         const moved = Math.hypot(e.clientX - paintPending.clientX, e.clientY - paintPending.clientY);
@@ -1747,12 +1848,21 @@
     viewport.addEventListener(
       'wheel',
       (e) => {
-        if (appMode === 'paint' && paintPending) e.preventDefault();
+        e.preventDefault();
+        if (paintPending) return;
+        const factor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
+        setZoomAt(clampZoom(zoom * factor), e.clientX, e.clientY);
       },
       { passive: false },
     );
 
+    function releaseTrackedPointer(e) {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size < 2) pinchStart = null;
+    }
+
     viewport.addEventListener('pointerup', (e) => {
+      releaseTrackedPointer(e);
       if (paintPending) {
         endPaintPointer(e);
         return;
@@ -1763,10 +1873,12 @@
     });
 
     window.addEventListener('pointerup', (e) => {
+      releaseTrackedPointer(e);
       if (paintPending) endPaintPointer(e);
     });
 
     viewport.addEventListener('pointercancel', (e) => {
+      releaseTrackedPointer(e);
       if (paintPending) cancelPaintDrag();
       dragPan = false;
       viewport.classList.remove('dragging');
@@ -1817,8 +1929,14 @@
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
     paintApply.addEventListener('click', () => applyPaintToSelection());
 
-    zoomInBtn.addEventListener('click', () => zoomCenter(1.25));
-    zoomOutBtn.addEventListener('click', () => zoomCenter(1 / 1.25));
+    zoomInBtn.addEventListener('click', () => {
+      const r = viewport.getBoundingClientRect();
+      zoomCenter(isCoarsePointer() ? 1.45 : 1.25, r.left + r.width / 2, r.top + r.height / 2);
+    });
+    zoomOutBtn.addEventListener('click', () => {
+      const r = viewport.getBoundingClientRect();
+      zoomCenter(isCoarsePointer() ? 1 / 1.45 : 1 / 1.25, r.left + r.width / 2, r.top + r.height / 2);
+    });
     zoomFitBtn.addEventListener('click', () => { if (svgRoot) fitToView(); });
     undoBtn.addEventListener('click', undo);
     saveSvgBtn.addEventListener('click', downloadSvg);
