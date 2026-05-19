@@ -12,7 +12,11 @@ import {
   adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
 } from '../services/luzhnikiFootballStageMap.js';
-import { getCachedGrayCloudLabeledIndex } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
+import {
+  getCachedGrayCloudLabeledIndex,
+  getGrayCloudBundleMode,
+  isEditorLabeledBundle,
+} from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 import { lookupLabeledSeat } from '../utils/hallSeatGeodesyMatch.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
@@ -29,7 +33,28 @@ async function main() {
     process.env.LUZHNIKI_GRAY_CLOUD_LABELED_SEATS_JSON ||
     path.join(REPO, 'backend/data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json');
 
-  console.log('bundle:', bundlePath, 'exists:', fs.existsSync(bundlePath), 'index:', idx?.size ?? 0);
+  let raw = null;
+  try {
+    if (fs.existsSync(bundlePath)) raw = JSON.parse(fs.readFileSync(bundlePath, 'utf8'));
+  } catch {
+    /* noop */
+  }
+  console.log(
+    'bundle:',
+    bundlePath,
+    'exists:',
+    fs.existsSync(bundlePath),
+    'fileMode:',
+    raw?.mode ?? null,
+    'fileSeats:',
+    Array.isArray(raw?.seats) ? raw.seats.length : 0,
+    'indexUsed:',
+    idx?.size ?? 0,
+    'editorBundleAccepted:',
+    raw ? isEditorLabeledBundle(raw) : false,
+    'indexBundleMode:',
+    getGrayCloudBundleMode(),
+  );
 
   const row = await loadLuzhnikiFootballStageMapRow();
   const { payload } = await getPublicOffersForRepertoire(REPERTOIRE);

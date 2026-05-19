@@ -15,8 +15,24 @@ const DEFAULT_BUNDLE = path.join(
   '../data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json',
 );
 
-/** @type {{ mtime: number, index: Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null, seatCount: number }} */
-const state = { mtime: 0, index: null, seatCount: 0 };
+/** @type {{ mtime: number, index: Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null, seatCount: number, bundleMode: string | null }} */
+const state = { mtime: 0, index: null, seatCount: 0, bundleMode: null };
+
+/** Автоген ~75k из fieldGrid — не для checkout; только editor-svg-extract после hover.html. */
+export function isEditorLabeledBundle(raw) {
+  if (!raw || typeof raw !== 'object') return false;
+  const mode = String(raw.mode ?? '').trim();
+  if (mode === 'editor-svg-extract') return true;
+  if (/fieldgrid|sector-axes|canonical-overlay/i.test(mode)) return false;
+  const n = Array.isArray(raw.seats) ? raw.seats.length : 0;
+  if (n > 8000) return false;
+  return n > 0;
+}
+
+function allowAutoGrayBundle() {
+  const v = process.env.LUZHNIKI_USE_AUTO_GRAY_BUNDLE?.trim();
+  return v === '1' || v === 'true';
+}
 
 function resolveBundlePath() {
   const fromEnv = process.env.LUZHNIKI_GRAY_CLOUD_LABELED_SEATS_JSON?.trim();
@@ -70,23 +86,36 @@ export function getCachedGrayCloudLabeledIndex() {
 
   try {
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    state.bundleMode = String(raw?.mode ?? '').trim() || null;
+
+    if (!isEditorLabeledBundle(raw) && !allowAutoGrayBundle()) {
+      state.index = new Map();
+      state.mtime = mtime;
+      state.seatCount = 0;
+      return state.index;
+    }
+
     const seats = Array.isArray(raw?.seats) ? raw.seats : Array.isArray(raw) ? raw : [];
-    state.index = buildLabeledSeatIndex(
-      seats.filter(
-        (s) =>
-          s?.sector &&
-          s?.row != null &&
-          s?.seat != null &&
-          Number.isFinite(Number(s.xPct)) &&
-          Number.isFinite(Number(s.yPct)),
-      ),
+    const filtered = seats.filter(
+      (s) =>
+        s?.sector &&
+        s?.row != null &&
+        s?.seat != null &&
+        Number.isFinite(Number(s.xPct)) &&
+        Number.isFinite(Number(s.yPct)),
     );
+    state.index = buildLabeledSeatIndex(filtered);
     state.mtime = mtime;
-    state.seatCount = seats.length;
+    state.seatCount = filtered.length;
     return state.index;
   } catch {
     return null;
   }
+}
+
+export function getGrayCloudBundleMode() {
+  getCachedGrayCloudLabeledIndex();
+  return state.bundleMode;
 }
 
 export function getGrayCloudLabeledSeatCount() {
@@ -98,4 +127,5 @@ export function resetGrayCloudLabeledIndexCache() {
   state.mtime = 0;
   state.index = null;
   state.seatCount = 0;
+  state.bundleMode = null;
 }

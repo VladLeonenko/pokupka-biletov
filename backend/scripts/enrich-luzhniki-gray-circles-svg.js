@@ -139,7 +139,7 @@ async function main() {
     'utf8',
   );
 
-  const seatsBundlePath = path.join(outDir, 'bundle-luzhniki-gray-cloud-labeled-seats.json');
+  const seatsBundlePath = path.join(outDir, 'bundle-luzhniki-gray-cloud-auto-lookup.json');
   const seatsForLookup = buildCanonicalLabeledSeatsForLookup();
   fs.writeFileSync(
     seatsBundlePath,
