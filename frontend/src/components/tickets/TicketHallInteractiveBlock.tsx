@@ -381,6 +381,8 @@ type Props = {
   onNavigateToList?: () => void;
   /** Глобальная плашка корзины вместо встроенной selectionBar */
   hideSelectionBar?: boolean;
+  /** Нормализованный сектор из фильтра списка (a101) — фокус карты */
+  focusSectorNorm?: string | null;
 };
 
 /**
@@ -406,6 +408,7 @@ export function TicketHallInteractiveBlock({
   reservePending = false,
   variant = 'page',
   hideSelectionBar = false,
+  focusSectorNorm = null,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -1118,7 +1121,7 @@ export function TicketHallInteractiveBlock({
 
   const probeSeatHover = useCallback(
     (clientX: number, clientY: number) => {
-      if (!sectorMode.enabled) return;
+      if (!stadiumCanvasEnabled && !sectorMode.enabled) return;
       const vp = viewportRef.current;
       const probe = hoverProbeRef.current;
       const base = getLayerBase();
@@ -1129,7 +1132,7 @@ export function TicketHallInteractiveBlock({
       const vpRect = vp.getBoundingClientRect();
       const layerX = (clientX - vpRect.left - base.x - pan.x) / z;
       const layerY = (clientY - vpRect.top - base.y - pan.y) / z;
-      const hitR = 20 / z;
+      const hitR = 32 / z;
       let best: SvgNativePlacement | null = null;
       let bestD = Infinity;
       for (const p of placementsForHoverRef.current) {
@@ -1157,9 +1160,25 @@ export function TicketHallInteractiveBlock({
         hideSeatInfo();
       }
     },
-    [getLayerBase, hideSeatInfo, sectorMode.enabled, showSeatInfo, svgViewBox.height, svgViewBox.width],
+    [
+      getLayerBase,
+      hideSeatInfo,
+      sectorMode.enabled,
+      showSeatInfo,
+      stadiumCanvasEnabled,
+      svgViewBox.height,
+      svgViewBox.width,
+    ],
   );
   probeSeatHoverRef.current = probeSeatHover;
+
+  useEffect(() => {
+    if (!focusSectorNorm) {
+      setSelectedSector(null);
+      return;
+    }
+    setSelectedSector(normalizeSectorLabel(focusSectorNorm));
+  }, [focusSectorNorm]);
 
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];

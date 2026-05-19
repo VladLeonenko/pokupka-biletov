@@ -21,6 +21,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Autocomplete,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -50,7 +51,10 @@ import {
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '@/utils/luzhnikiStadiumMap';
+import {
+  isLuzhnikiStadiumCheckoutLayout,
+  LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+} from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
   isNamedTicketOfferRow,
@@ -351,20 +355,35 @@ export function TicketCheckoutPage() {
     ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup?.trim() ?? '' : '';
   const svgDeferred = Boolean(ctx?.stageMap?.svg_markup_deferred);
   const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
-  const isLuzhnikiFootballStage = stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+  const isLuzhnikiFootballStageEarly = useMemo(() => {
+    if (stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) return true;
+    if (isLuzhnikiStadiumCheckoutLayout(ctx?.stageMap?.layout_json)) return true;
+    return false;
+  }, [stageIdEff, ctx?.stageMap?.layout_json]);
+
+  const stageMapQueryId =
+    stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY || isLuzhnikiFootballStageEarly
+      ? LUZHNIKI_FOOTBALL_STAGE_MAP_KEY
+      : stageIdEff;
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
-    queryKey: ['bilet-stage-map', stageIdEff, repertoireId ?? ''],
-    queryFn: () => fetchStageMap(stageIdEff!, repertoireId),
+    queryKey: ['bilet-stage-map', stageMapQueryId, repertoireId ?? ''],
+    queryFn: () => fetchStageMap(stageMapQueryId!, repertoireId),
     enabled:
-      Boolean(stageIdEff) &&
+      Boolean(stageMapQueryId) &&
       !ctxLoading &&
       (svgDeferred ||
         ctx?.stageId !== stageIdEff ||
         !hasUsableHallSvgFromContext ||
-        (isLuzhnikiFootballStage && Boolean(repertoireId?.trim()))),
-    staleTime: isLuzhnikiFootballStage ? 30_000 : 120_000,
+        (isLuzhnikiFootballStageEarly && Boolean(repertoireId?.trim()))),
+    staleTime: isLuzhnikiFootballStageEarly ? 30_000 : 120_000,
   });
+
+  const isLuzhnikiFootballStage = useMemo(() => {
+    if (isLuzhnikiFootballStageEarly) return true;
+    if (isLuzhnikiStadiumCheckoutLayout(mapByStageId?.layout_json)) return true;
+    return false;
+  }, [isLuzhnikiFootballStageEarly, mapByStageId?.layout_json]);
 
   const offers = useMemo(() => {
     const parsed = parseOffers(raw);
@@ -971,10 +990,17 @@ export function TicketCheckoutPage() {
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
     if (!hallMapSessionKey) return [];
-    return (listableOffers as OfferRow[]).filter(
+    let rows = (listableOffers as OfferRow[]).filter(
       (o) => (o.EventDateTime ?? '_') === hallMapSessionKey,
     );
-  }, [listableOffers, hallMapSessionKey]);
+    if (isLuzhnikiFootballStage && stadiumSectorFilter !== 'all') {
+      rows = rows.filter((o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter);
+    }
+    return rows;
+  }, [hallMapSessionKey, isLuzhnikiFootballStage, listableOffers, stadiumSectorFilter]);
+
+  const mapFocusSectorNorm =
+    isLuzhnikiFootballStage && stadiumSectorFilter !== 'all' ? stadiumSectorFilter : null;
 
   useEffect(() => {
     setMapSelectedPriceKey(null);
@@ -1460,6 +1486,7 @@ export function TicketCheckoutPage() {
                       onNavigateToList={navigateToPlacesList}
                       hideSelectionBar
                       showFanIdNotice={requiresFanId}
+                      focusSectorNorm={mapFocusSectorNorm}
                     />
                   </Suspense>
                 </>
@@ -1483,22 +1510,40 @@ export function TicketCheckoutPage() {
                 }}
               >
                 {isLuzhnikiFootballStage ? (
-                  <FormControl size="small" sx={{ minWidth: 220 }}>
-                    <InputLabel id="ticket-sector-label">Сектор</InputLabel>
-                    <Select
-                      labelId="ticket-sector-label"
-                      label="Сектор"
-                      value={stadiumSectorFilter}
-                      onChange={(e) => setStadiumSectorFilter(String(e.target.value))}
-                    >
-                      <MenuItem value="all">Все сектора</MenuItem>
-                      {stadiumSectorOptions.map((s) => (
-                        <MenuItem key={s.norm} value={s.norm}>
-                          {s.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    sx={{ minWidth: 280, flex: '1 1 280px', maxWidth: 420 }}
+                    options={[
+                      { norm: 'all', label: 'Все сектора' },
+                      ...stadiumSectorOptions,
+                    ]}
+                    getOptionLabel={(o) => o.label}
+                    isOptionEqualToValue={(a, b) => a.norm === b.norm}
+                    value={
+                      stadiumSectorOptions.find((s) => s.norm === stadiumSectorFilter) ??
+                      (stadiumSectorFilter === 'all'
+                        ? { norm: 'all', label: 'Все сектора' }
+                        : { norm: stadiumSectorFilter, label: stadiumSectorFilter })
+                    }
+                    onChange={(_, v) => setStadiumSectorFilter(v?.norm ?? 'all')}
+                    filterOptions={(options, { inputValue }) => {
+                      const q = inputValue.trim().toLowerCase();
+                      if (!q) return options;
+                      return options.filter(
+                        (o) =>
+                          o.norm === 'all' ||
+                          o.label.toLowerCase().includes(q) ||
+                          o.norm.includes(q.replace(/\s+/g, '')),
+                      );
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Поиск сектора"
+                        placeholder="A101, C143, D228…"
+                      />
+                    )}
+                  />
                 ) : (
                   <FormControl size="small" sx={{ minWidth: 200 }}>
                     <InputLabel id="ticket-zone-label">Зона</InputLabel>
@@ -1908,6 +1953,7 @@ export function TicketCheckoutPage() {
                         onNavigateToList={navigateToPlacesList}
                         hideSelectionBar
                         showFanIdNotice={requiresFanId}
+                        focusSectorNorm={mapFocusSectorNorm}
                       />
                     </Suspense>
                   </>
