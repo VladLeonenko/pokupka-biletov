@@ -118,6 +118,8 @@
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
       <label>Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
+      <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
+      <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
       <button type="button" id="paintApply" class="warn">▶ Применить ряд</button>
     </div>
     <span class="sep"></span>
@@ -154,6 +156,8 @@
     const paintSector = document.getElementById('paintSector');
     const paintRow = document.getElementById('paintRow');
     const paintStartSeat = document.getElementById('paintStartSeat');
+    const paintRenumber = document.getElementById('paintRenumber');
+    const paintSelectRow = document.getElementById('paintSelectRow');
     const paintCorridor = document.getElementById('paintCorridor');
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
@@ -1190,29 +1194,61 @@
           : paintSelection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
       const sortedSel = sortCirclesAlongPath(paintSelection, pathForSort);
       const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      const forceRenumber = paintRenumber.checked;
       let nextAuto = startSeat;
       let preserved = 0;
       for (const c of sortedSel) {
         const existing = circleSeatNum(c);
-        const seat = existing != null ? String(existing) : String(nextAuto);
-        if (existing != null) preserved++;
+        const seat =
+          forceRenumber || existing == null ? String(nextAuto) : String(existing);
+        if (!forceRenumber && existing != null) preserved++;
         applySeatToCircle(c, sector, row, seat, 'manual-row');
-        if (existing == null) nextAuto += 1;
-        else nextAuto = Math.max(nextAuto, existing + 1);
+        nextAuto += 1;
       }
       pushUndo(batch);
       persistCircleEdits(paintSelection);
       paintUnlabeled(svgRoot);
       recountStats();
-      const seatHint =
-        preserved > 0
-          ? ' · номера мест из облака: ' + preserved
+      const seatHint = forceRenumber
+        ? ' · места ' + startSeat + '…' + (nextAuto - 1)
+        : preserved > 0
+          ? ' · номера из облака: ' + preserved
           : ' · места с «Место с»=' + startSeat;
       showPaintToast(
         'ok',
         '✓ ' + sector + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' (сохранено)',
       );
       return paintSelection.length;
+    }
+
+    function selectPaintRowFromFields() {
+      if (!svgRoot) return;
+      const sector = paintSectorForApply().trim();
+      const row = getEffectivePaintRow();
+      if (!sector || !isValidPaintRow(row)) {
+        showPaintToast('err', 'Укажи сектор и ряд, затем ⊙ ряд');
+        return;
+      }
+      const wantRow = normalizePaintRowNum(row);
+      const sectorLo = sector.toLowerCase();
+      clearPaintSelection();
+      const hits = [];
+      for (const c of svgRoot.querySelectorAll('circle')) {
+        const s = circleSector(c);
+        const r = normalizePaintRowNum(circleRow(c));
+        if (!s || !r) continue;
+        if (r !== wantRow) continue;
+        if (s.toLowerCase() !== sectorLo && !s.toLowerCase().includes(sectorLo.replace(/\s+/g, ''))) {
+          if (!sectorLo.includes('a101') || !/a\s*101/i.test(s)) continue;
+        }
+        hits.push(c);
+      }
+      if (!hits.length) {
+        showPaintToast('info', 'Нет точек с data-row=' + row + ' в секторе — протяни линию');
+        return;
+      }
+      for (const c of hits) togglePaintCircle(c, true);
+      showPaintToast('ok', '⊙ ' + hits.length + ' точек · «с Место с» + ▶ перенумеровать');
     }
 
     function cancelPaintDrag() {
@@ -1523,6 +1559,7 @@
       clearPaintSelection();
       showPaintToast('info', 'Выделение сброшено');
     });
+    paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
     paintApply.addEventListener('click', () => applyPaintToSelection());
 
     zoomInBtn.addEventListener('click', () => zoomCenter(1.25));
