@@ -48,8 +48,9 @@ function stadiumSeatHitboxLayerPx(
   mapZoomed: boolean,
 ): number {
   const r = stadiumSeatCanvasRadiusPx(zoom, layerWidth, svgViewBoxWidth, active, mapZoomed);
-  /** Минимум ~12px в слое — иначе hover/клик не попадают в невидимый хитбокс при fit-zoom. */
-  return Math.max(12, (2 * r) / Math.max(0.001, zoom));
+  const z = Math.max(0.001, zoom);
+  /** Минимум ~12px на экране (в координатах слоя = 12/zoom). */
+  return Math.max(12 / z, (2 * r) / z);
 }
 
 /** Те же координаты, что у canvas: xPct/yPct × viewBox (не % ширины слоя — меньше дрейфа на Лужниках). */
@@ -529,7 +530,7 @@ export function TicketHallInteractiveBlock({
         });
       };
 
-      if (sellableFromLiveOffers && sellableFromApi.length > 0) {
+      if (sellableFromApi.length > 0) {
         for (const hit of sellableFromApi) {
           let matched: { offer: OfferLike; seat: string; list: string[] } | undefined;
           for (const key of labeledSeatLookupKeys(hit.sector, hit.row, hit.seat)) {
@@ -1117,6 +1118,14 @@ export function TicketHallInteractiveBlock({
     return nativePlacements;
   }, [nativePlacements, sectorMode.enabled]);
 
+  const hasSellableSeatPick = useMemo(
+    () => visibleNativePlacements.some((p) => !p.previewOnly && Boolean(p.offerId)),
+    [visibleNativePlacements],
+  );
+  const sectorPathsBlockSeatPick =
+    sectorMode.enabled &&
+    (Boolean(selectedSectorSummary) || mapZoomed || hasSellableSeatPick);
+
   placementsForHoverRef.current = visibleNativePlacements;
 
   const probeSeatHover = useCallback(
@@ -1132,7 +1141,7 @@ export function TicketHallInteractiveBlock({
       const vpRect = vp.getBoundingClientRect();
       const layerX = (clientX - vpRect.left - base.x - pan.x) / z;
       const layerY = (clientY - vpRect.top - base.y - pan.y) / z;
-      const hitR = 32 / z;
+      const hitR = 48 / z;
       let best: SvgNativePlacement | null = null;
       let bestD = Infinity;
       for (const p of placementsForHoverRef.current) {
@@ -1410,9 +1419,9 @@ export function TicketHallInteractiveBlock({
             />
             {sectorMode.enabled ? (
               <svg
-                className={`${styles.sectorLayer} ${selectedSectorSummary || mapZoomed ? styles.sectorLayerFocused : ''} ${
-                  selectedSectorSummary ? styles.sectorLayerSeatPick : ''
-                }`}
+                className={`${styles.sectorLayer} ${
+                  sectorPathsBlockSeatPick ? styles.sectorLayerSeatPick : ''
+                } ${mapZoomed && !sectorPathsBlockSeatPick ? styles.sectorLayerFocused : ''}`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
                 aria-label="Секторы стадиона"

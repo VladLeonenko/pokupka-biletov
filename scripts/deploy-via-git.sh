@@ -124,9 +124,9 @@ if [ -f "scripts/seed-mht-main-hall-stage-map.js" ]; then
   node scripts/seed-mht-main-hall-stage-map.js 2>/dev/null || echo "⚠️ seed MHT stage map: проверьте TICKET_* и ticket DB"
 fi
 
-if [ -f "backend/scripts/ensure-luzhniki-football-stage-map.js" ] && [ -f "tickets.json" ] && [ -f "luzhniki.txt" ]; then
+if [ -f "scripts/ensure-luzhniki-football-stage-map.js" ] && [ -f "$PROJECT_ROOT/tickets.json" ] && [ -f "$PROJECT_ROOT/luzhniki.txt" ]; then
   echo "⚽ Схема Лужников (футбол, luzhniki-football)..."
-  (cd backend && node scripts/ensure-luzhniki-football-stage-map.js) 2>/dev/null \
+  node scripts/ensure-luzhniki-football-stage-map.js 2>/dev/null \
     || echo "⚠️ luzhniki-football: проверьте TICKET_* в backend/.env и файлы tickets.json + luzhniki.txt в корне репо"
 fi
 

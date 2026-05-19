@@ -392,7 +392,9 @@ export function buildSellableSeatGeodesyPbiletAccurate(
   const grayCloudLabeledIndex = useGrayCloudLabeledSellable()
     ? getCachedGrayCloudLabeledIndex()
     : null;
-  const grayCloudOnly = grayCloudLabeledOnlyMode();
+  /** ONLY без мест в bundle → pbilet/cloud (иначе после deploy с пустым editor-bundle sellable=0). */
+  const grayCloudOnly =
+    grayCloudLabeledOnlyMode() && Boolean(grayCloudLabeledIndex?.size);
   const grayCloudRowZip = useGrayCloudRowZip();
 
   const offerByNorm = new Map();

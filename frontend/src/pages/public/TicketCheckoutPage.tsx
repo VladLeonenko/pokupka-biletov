@@ -511,11 +511,17 @@ export function TicketCheckoutPage() {
   }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
   const filteredOffers = useMemo(() => {
-    let rows = filterOffers(listableOffers as OfferRowLike[], filterState);
-    if (isLuzhnikiFootballStage && stadiumSectorFilter !== 'all') {
-      rows = rows.filter((o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter);
+    let rows = listableOffers as OfferRow[];
+    if (isLuzhnikiFootballStage) {
+      if (filterState.adjacent !== 0 || filterState.hidePassage) {
+        rows = filterOffers(rows, { ...filterState, zone: 'all' }) as OfferRow[];
+      }
+      if (stadiumSectorFilter !== 'all') {
+        rows = rows.filter((o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter);
+      }
+      return rows;
     }
-    return rows;
+    return filterOffers(listableOffers as OfferRowLike[], filterState) as OfferRow[];
   }, [isLuzhnikiFootballStage, listableOffers, filterState, stadiumSectorFilter]);
 
   const priceColorMap = useMemo(() => {
@@ -891,17 +897,16 @@ export function TicketCheckoutPage() {
 
     /** Лужники: sellableSeats с GET /map (adaptLuzhniki + live offers), тяжёлое — из контекста. */
     if (isLuzhnikiFootballStage && mapLayout && stageMapFetched) {
-      const sellable = mapLayout.sellableSeats;
-      if (Array.isArray(sellable) && sellable.length > 0) {
-        return {
-          ...(ctxLayout ?? mapLayout),
-          ...mapLayout,
-          allSeatCoordinates: ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates,
-          seats: ctxLayout?.seats ?? mapLayout.seats,
-          sectorMode: ctxLayout?.sectorMode ?? mapLayout.sectorMode,
-          svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,
-        };
-      }
+      return {
+        ...(ctxLayout ?? mapLayout),
+        ...mapLayout,
+        sellableSeats: Array.isArray(mapLayout.sellableSeats) ? mapLayout.sellableSeats : [],
+        sellableSeatsFromLiveOffers: mapLayout.sellableSeatsFromLiveOffers === true,
+        allSeatCoordinates: ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates,
+        seats: ctxLayout?.seats ?? mapLayout.seats,
+        sectorMode: ctxLayout?.sectorMode ?? mapLayout.sectorMode,
+        svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,
+      };
     }
 
     if (ctxLayout) return ctxLayout;
@@ -990,17 +995,13 @@ export function TicketCheckoutPage() {
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
     if (!hallMapSessionKey) return [];
-    let rows = (listableOffers as OfferRow[]).filter(
+    return (listableOffers as OfferRow[]).filter(
       (o) => (o.EventDateTime ?? '_') === hallMapSessionKey,
     );
-    if (isLuzhnikiFootballStage && stadiumSectorFilter !== 'all') {
-      rows = rows.filter((o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter);
-    }
-    return rows;
-  }, [hallMapSessionKey, isLuzhnikiFootballStage, listableOffers, stadiumSectorFilter]);
+  }, [hallMapSessionKey, listableOffers]);
 
-  const mapFocusSectorNorm =
-    isLuzhnikiFootballStage && stadiumSectorFilter !== 'all' ? stadiumSectorFilter : null;
+  /** Фокус карты — только клик по сектору на схеме, не фильтр списка. */
+  const mapFocusSectorNorm: string | null = null;
 
   useEffect(() => {
     setMapSelectedPriceKey(null);
@@ -1027,31 +1028,26 @@ export function TicketCheckoutPage() {
     (pk: string) => {
       if (mapSelectedPriceKey === pk) {
         setMapSelectedPriceKey(null);
-        setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
+        if (!isLuzhnikiFootballStage) {
+          setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
+        }
         return;
       }
       const n = Number(pk);
       setMapSelectedPriceKey(pk);
-      if (Number.isFinite(n)) {
+      if (!isLuzhnikiFootballStage && Number.isFinite(n)) {
         setFilterState((s) => ({ ...s, priceRange: [n, n] }));
       }
     },
-    [mapSelectedPriceKey, pb.min, pb.max],
+    [isLuzhnikiFootballStage, mapSelectedPriceKey, pb.min, pb.max],
   );
 
   const handleMapPriceReset = useCallback(() => {
     setMapSelectedPriceKey(null);
-    setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
-  }, [pb.min, pb.max]);
-
-  useEffect(() => {
-    if (mapSelectedPriceKey == null) return;
-    const [lo, hi] = filterState.priceRange;
-    const n = Number(mapSelectedPriceKey);
-    if (!Number.isFinite(n) || lo !== hi || lo !== n) {
-      setMapSelectedPriceKey(null);
+    if (!isLuzhnikiFootballStage) {
+      setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
     }
-  }, [filterState.priceRange, mapSelectedPriceKey]);
+  }, [isLuzhnikiFootballStage, pb.min, pb.max]);
 
   const hallSchemeSubtitle = useMemo(() => {
     if (seatSelectionDisabledUi) {
