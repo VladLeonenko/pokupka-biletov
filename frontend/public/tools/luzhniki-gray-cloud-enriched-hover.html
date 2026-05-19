@@ -1282,9 +1282,13 @@
       if (previewPolyline) previewPolyline.setAttribute('visibility', 'hidden');
     }
 
-    /** Сектор из поля — только для «Применить», не для геометрии линии. */
+    /** Сектор из поля (пусто = любой сектор вдоль линии). */
     function paintSectorForApply() {
       return paintSector.value.trim();
+    }
+
+    function paintSectorFilterForLine() {
+      return paintSectorForApply();
     }
 
     function inferSectorFromSelection(circles) {
@@ -1319,7 +1323,8 @@
       }
       const corridor = paintCorridorPx();
       const dense = path.length >= 1 ? densifyPaintPath(path, Math.max(4, corridor * 0.35)) : [];
-      paintPreviewList = dense.length >= 1 ? pickCirclesAlongPath(dense, corridor, '') : [];
+      paintPreviewList =
+        dense.length >= 1 ? pickCirclesAlongPath(dense, corridor, paintSectorFilterForLine()) : [];
       for (const c of paintPreviewList) {
         if (!paintPreviewMarked.has(c)) {
           c.classList.add('paint-preview');
@@ -1333,42 +1338,30 @@
         showPaintToast('err', 'Протяни линию вдоль ряда или Shift+клик по точкам');
         return 0;
       }
-      const inferred = inferSectorFromSelection(paintSelection);
-      let sector = paintSectorForApply();
       const row = getEffectivePaintRow();
       if (!isValidPaintRow(row)) {
         showPaintToast('err', 'Введи номер ряда и нажми «Применить ряд»');
         return 0;
       }
       const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
-      if (!sector) sector = inferred;
-      if (!sector) {
-        showPaintToast('err', 'Укажи сектор (или выдели места одного сектора)');
-        return 0;
+      const fieldSector = paintSectorForApply();
+      let sector;
+      if (fieldSector) {
+        sector = fieldSector;
+      } else {
+        sector = inferSectorFromSelection(paintSelection);
+        if (!sector) {
+          showPaintToast('err', 'Укажи сектор в поле или выдели места одного сектора');
+          return 0;
+        }
+        paintSector.value = normalizeSectorLabel(sector);
       }
-      if (
-        paintSectorForApply() &&
-        inferred &&
-        !sectorNormsMatch(paintSectorForApply(), inferred)
-      ) {
-        showPaintToast(
-          'err',
-          'Поле сектор «' +
-            canonicalSectorLabel(paintSectorForApply()) +
-            '» ≠ точки «' +
-            canonicalSectorLabel(inferred) +
-            '». Очисти поле или поставь ' +
-            normalizeSectorLabel(inferred),
-        );
-        return 0;
-      }
-      sector = inferred || sector;
-      if (!paintSectorForApply()) paintSector.value = normalizeSectorLabel(sector);
+      const selection = paintSelection;
       const wantRow = normalizePaintRowNum(row);
-      const cloudRowMismatch = paintSelection.filter(
+      const cloudRowMismatch = selection.filter(
         (c) => normalizePaintRowNum(circleRow(c)) && normalizePaintRowNum(circleRow(c)) !== wantRow,
       ).length;
-      if (cloudRowMismatch > paintSelection.length * 0.2) {
+      if (cloudRowMismatch > selection.length * 0.2) {
         showPaintToast(
           'info',
           '⚠ В выделении есть точки с другим row в облаке (' +
@@ -1379,8 +1372,8 @@
       const pathForSort =
         paintPathPoints.length >= 1
           ? paintPathPoints
-          : paintSelection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
-      const sortedSel = sortCirclesAlongPath(paintSelection, pathForSort);
+          : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
+      const sortedSel = sortCirclesAlongPath(selection, pathForSort);
       const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
       const forceRenumber = paintRenumber.checked;
       let nextAuto = startSeat;
@@ -1394,7 +1387,7 @@
         nextAuto += 1;
       }
       pushUndo(batch);
-      persistCircleEdits(paintSelection, { deferServer: true });
+      persistCircleEdits(sortedSel, { deferServer: true });
       paintUnlabeled(svgRoot);
       recountStats();
       const seatHint = forceRenumber
@@ -1480,17 +1473,20 @@
       if (paintDrag && paintPathPoints.length >= 1) {
         const corridor = paintCorridorPx();
         const dense = densifyPaintPath(paintPathPoints, corridor * 0.4);
-        const list = pickCirclesAlongPath(dense, corridor, '');
+        const sectorF = paintSectorFilterForLine();
+        const list = pickCirclesAlongPath(dense, corridor, sectorF);
         if (list.length) {
           if (additive) mergePaintSelection(list);
           else setPaintSelection(list);
-          const hintSec = inferSectorFromSelection(list);
+          const hintSec = sectorF
+            ? canonicalSectorLabel(sectorF)
+            : inferSectorFromSelection(list);
           showPaintToast(
             'info',
             'На линии ' +
               list.length +
               ' мест' +
-              (hintSec ? ' · сектор: ' + hintSec : '') +
+              (hintSec ? ' · ' + hintSec : '') +
               ' → ряд → ▶',
           );
         } else {
