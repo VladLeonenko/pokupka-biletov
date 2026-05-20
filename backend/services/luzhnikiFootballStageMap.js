@@ -91,6 +91,31 @@ export function shouldUseLuzhnikiFootballCanonicalMap(base, placeMapsVenue, stag
   return kind === 'football';
 }
 
+/** Клиенту: без ~77k allSeatCoordinates / seats — чаша = PNG + sellableSeats с API. */
+export function slimLuzhnikiStageMapForClient(row) {
+  if (!row) return row;
+  const layout = parseLayoutJson(row);
+  const {
+    allSeatCoordinates: _cloud,
+    seats: _seats,
+    seatPositions: _seatPositions,
+    backgroundSeats: _bg,
+    coordinates: _coords,
+    ...slimLayout
+  } = layout;
+
+  return {
+    ...row,
+    layout_json: {
+      ...slimLayout,
+      omitClientSeatCoordinateCloud: true,
+      hallBackgroundRasterUrl: '/hall-maps/luzhniki-football-gray-bowl.png',
+      stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+      luzhnikiStadiumCheckout: true,
+    },
+  };
+}
+
 export async function loadLuzhnikiFootballStageMapRow() {
   const key = LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
   const r = await ticketPool.query(

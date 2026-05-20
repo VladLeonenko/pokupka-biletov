@@ -870,6 +870,12 @@ export function TicketCheckoutPage() {
     listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
 
   const hallSvg = useMemo(() => {
+    if (isLuzhnikiFootballStageEarly) {
+      const fromMap = mapByStageId?.svg_markup?.trim();
+      if (fromMap) return fromMap;
+      if (!stageMapFetched) return null;
+      return mapByStageId?.svg_markup ?? ctx?.stageMap?.svg_markup ?? null;
+    }
     if (!stageIdEff) return ctx?.stageMap?.svg_markup ?? null;
     if (ctx?.stageId === stageIdEff && ctx?.stageMap?.svg_markup) {
       return ctx.stageMap.svg_markup;
@@ -882,6 +888,7 @@ export function TicketCheckoutPage() {
       (ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup ?? null : null)
     );
   }, [
+    isLuzhnikiFootballStageEarly,
     stageIdEff,
     stageMapFetched,
     mapByStageId?.svg_markup,
@@ -957,22 +964,32 @@ export function TicketCheckoutPage() {
   /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
   const hallMapLoadSettled = useMemo(() => {
     if (ctxLoading) return false;
+    if (isLuzhnikiFootballStageEarly && repertoireId.trim()) return stageMapFetched;
     if (!stageIdEff) return true;
     if (hasUsableHallSvgFromContext) return true;
     return stageMapFetched;
-  }, [ctxLoading, stageIdEff, hasUsableHallSvgFromContext, stageMapFetched]);
+  }, [
+    ctxLoading,
+    stageIdEff,
+    hasUsableHallSvgFromContext,
+    stageMapFetched,
+    isLuzhnikiFootballStageEarly,
+    repertoireId,
+  ]);
 
   const showHallMissingCard =
     Boolean(!hallSvg && !externalPlanUrl && hallMapLoadSettled);
 
   /** Блок схемы сразу, пока тянем SVG/layout (Лужники deferred и т.п.). */
   const showHallMapShell = useMemo(() => {
-    if (!stageIdEff || showHallMissingCard) return false;
+    if (showHallMissingCard) return false;
+    if (!stageIdEff && !isLuzhnikiFootballStageEarly) return false;
     if (hallMapLoadSettled && !hallSvg && externalPlanUrl) return false;
     return Boolean(hallSvg) || !hallMapLoadSettled || svgDeferred || isLuzhnikiFootballStage;
   }, [
-    stageIdEff,
     showHallMissingCard,
+    stageIdEff,
+    isLuzhnikiFootballStageEarly,
     hallMapLoadSettled,
     hallSvg,
     externalPlanUrl,

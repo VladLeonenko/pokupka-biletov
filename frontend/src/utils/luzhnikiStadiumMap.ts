@@ -57,3 +57,16 @@ export function parseHallBackgroundFromLabeledSeats(layout: unknown): boolean {
   if (r.hallBackgroundFromLabeledSeats === true) return true;
   return false;
 }
+
+/** ~77k точек не в JSON — серая чаша из hallBackgroundRasterUrl (PNG). */
+export function parseOmitClientSeatCoordinateCloud(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).omitClientSeatCoordinateCloud === true;
+}
+
+export function parseHallBackgroundRasterUrl(layout: unknown): string | null {
+  if (!layout || typeof layout !== 'object') return null;
+  const url = (layout as Record<string, unknown>).hallBackgroundRasterUrl;
+  if (typeof url !== 'string' || !url.trim()) return null;
+  return url.trim();
+}
