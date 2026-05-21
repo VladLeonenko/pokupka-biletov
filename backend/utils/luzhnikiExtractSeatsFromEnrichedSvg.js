@@ -23,6 +23,32 @@ function attr(tag, name) {
   return m ? decodeSvgAttr(m[1]) : '';
 }
 
+function parseMatrix(transform) {
+  if (!transform || !String(transform).includes('matrix')) return null;
+  const m = String(transform).match(/matrix\(\s*([^)]+)\)/i);
+  if (!m) return null;
+  const parts = m[1].split(/[\s,]+/).map((x) => Number.parseFloat(x.trim()));
+  if (parts.length !== 6 || parts.some((n) => !Number.isFinite(n))) return null;
+  return parts;
+}
+
+function applyMatrix(cx, cy, matrix) {
+  if (!matrix) return { x: cx, y: cy };
+  const [a, b, c, d, e, f] = matrix;
+  return {
+    x: a * cx + c * cy + e,
+    y: b * cx + d * cy + f,
+  };
+}
+
+function extractGlobalCircleMatrix(svgMarkup) {
+  const viewport =
+    svgMarkup.match(/<g\b[^>]*class=["'][^"']*\bsvg-pan-zoom_viewport\b[^"']*["'][^>]*>/i)?.[0] ||
+    svgMarkup.match(/<g\b[^>]*transform=["'][^"']*matrix\([^)]+\)[^"']*["'][^>]*>/i)?.[0] ||
+    '';
+  return parseMatrix(attr(viewport, 'transform'));
+}
+
 function isValidRowSeat(row, seat) {
   const r = String(row ?? '').trim();
   const s = String(seat ?? '').trim();
@@ -36,6 +62,7 @@ function isValidRowSeat(row, seat) {
  */
 export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
   const { w, h } = parseViewBox(svgMarkup);
+  const matrix = extractGlobalCircleMatrix(svgMarkup);
   const seats = [];
   const re = /<circle\b[^>]*\/?>/gi;
   let m;
@@ -44,6 +71,7 @@ export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
     const cx = Number(attr(tag, 'cx'));
     const cy = Number(attr(tag, 'cy'));
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+    const { x, y } = applyMatrix(cx, cy, matrix);
     const sectorRaw = attr(tag, 'data-sector') || attr(tag, 'place-name');
     const row = attr(tag, 'data-row') || attr(tag, 'row');
     const seat = attr(tag, 'data-seat') || attr(tag, 'place');
@@ -56,8 +84,8 @@ export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
       sector,
       row: String(row).trim(),
       seat: String(seat).trim(),
-      xPct: (cx / w) * 100,
-      yPct: (cy / h) * 100,
+      xPct: (x / w) * 100,
+      yPct: (y / h) * 100,
       geodesySource: source.startsWith('manual') ? 'manualEditor' : source,
     });
   }
