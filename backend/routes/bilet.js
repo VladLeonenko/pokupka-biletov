@@ -585,12 +585,12 @@ router.get('/stage/:stageId/map', async (req, res) => {
           repertoireId,
         ).ResultData ?? [];
         stageRow = adaptLuzhnikiStageMapForLiveOffers(stageRow, offerRows);
-        if (process.env.LUZHNIKI_SLIM_MAP_CLIENT === '1') {
-          stageRow = slimLuzhnikiStageMapForClient(stageRow);
-        }
       } catch (err) {
         console.warn('[bilet] stage map sellable geodesy', repertoireId, err?.message || err);
       }
+    }
+    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) {
+      stageRow = slimLuzhnikiStageMapForClient(stageRow);
     }
 
     return sendPublicJson(req, res, stageRow, { cacheSeconds: 60, staleSeconds: 120 });

@@ -77,45 +77,8 @@ type PlacementPickCtx = {
   getLayerScreenBox: () => LayerScreenBox | null;
   zoom: number;
   placements: SvgNativePlacement[];
-  pickIndex: PlacementPickIndex | null;
   mapZoomed: boolean;
 };
-
-type PlacementPickIndex = {
-  cols: number;
-  rows: number;
-  cells: SvgNativePlacement[][];
-};
-
-function buildPlacementPickIndex(placements: SvgNativePlacement[], cols = 72, rows = 72): PlacementPickIndex {
-  const cells = Array.from({ length: cols * rows }, () => [] as SvgNativePlacement[]);
-  for (const p of placements) {
-    if (p.previewOnly || !p.offerId) continue;
-    const col = Math.max(0, Math.min(cols - 1, Math.floor((p.xPct / 100) * cols)));
-    const row = Math.max(0, Math.min(rows - 1, Math.floor((p.yPct / 100) * rows)));
-    cells[row * cols + col].push(p);
-  }
-  return { cols, rows, cells };
-}
-
-function queryPlacementPickIndex(
-  index: PlacementPickIndex,
-  xPct: number,
-  yPct: number,
-  radiusPct: number,
-): SvgNativePlacement[] {
-  const col = Math.max(0, Math.min(index.cols - 1, Math.floor((xPct / 100) * index.cols)));
-  const row = Math.max(0, Math.min(index.rows - 1, Math.floor((yPct / 100) * index.rows)));
-  const rx = Math.max(1, Math.ceil((radiusPct / 100) * index.cols));
-  const ry = Math.max(1, Math.ceil((radiusPct / 100) * index.rows));
-  const out: SvgNativePlacement[] = [];
-  for (let y = Math.max(0, row - ry); y <= Math.min(index.rows - 1, row + ry); y += 1) {
-    for (let x = Math.max(0, col - rx); x <= Math.min(index.cols - 1, col + rx); x += 1) {
-      out.push(...index.cells[y * index.cols + x]);
-    }
-  }
-  return out;
-}
 
 /** Hit-test sellable: координаты через getBoundingClientRect слоя (как canvas), не inner+offset. */
 function findNearestSellablePlacement(
@@ -133,17 +96,9 @@ function findNearestSellablePlacement(
     22 / z,
     sellablePickHitRadiusLayerPx(ctx.zoom, box.width, box.width, ctx.mapZoomed),
   );
-  const candidates = ctx.pickIndex
-    ? queryPlacementPickIndex(
-        ctx.pickIndex,
-        (layerX / Math.max(1, box.width)) * 100,
-        (layerY / Math.max(1, box.height)) * 100,
-        (hitRLayer / Math.max(1, Math.min(box.width, box.height))) * 100,
-      )
-    : ctx.placements;
   let best: SvgNativePlacement | null = null;
   let bestD = Infinity;
-  for (const p of candidates) {
+  for (const p of ctx.placements) {
     if (p.previewOnly || !p.offerId) continue;
     const sx = (p.xPct / 100) * box.width;
     const sy = (p.yPct / 100) * box.height;
@@ -314,7 +269,6 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
 
 import {
   HALL_MAP_DELEGATED_HIT_MIN,
-  hallMapCanvasDevicePixelRatio,
 } from '@/utils/ticketHallMapInteraction';
 import {
   parseHallBackgroundRasterUrl,
@@ -594,27 +548,41 @@ export function TicketHallInteractiveBlock({
     if (omitClientSeatCoordinateCloud) return [];
     return parseBackgroundSeatCoordinates(layoutJson);
   }, [layoutJson, omitClientSeatCoordinateCloud]);
-  const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
+  const sellableSeatsFromLayout = useMemo(
+    () => parseLayoutSeatPositions(
+      layoutJson && typeof layoutJson === 'object'
+        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
+        : null,
+    ),
+    [layoutJson],
+  );
+  const nativeProcessed = useMemo(
+    () => (sectorMode.enabled ? null : processHallSvgForNative(hallSvgHtml)),
+    [hallSvgHtml, sectorMode.enabled],
+  );
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],
   );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (sectorMode.enabled && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed, sectorMode.enabled, sellableSeatsFromLayout]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
+    if (sectorMode.enabled) return false;
     if (preferLayoutSeatPositions) return false;
     return (nativeProcessed?.seats?.length ?? 0) >= 2;
-  }, [preferLayoutSeatPositions, nativeProcessed]);
+  }, [preferLayoutSeatPositions, nativeProcessed, sectorMode.enabled]);
   const useSvgNative =
     layoutMode !== 'grid' &&
+    (sectorMode.enabled ||
     (layoutMode === 'svgNative' ||
-      (layoutMode === 'auto' && nativeSeats.length >= 2));
+      (layoutMode === 'auto' && nativeSeats.length >= 2)));
 
   const svgHtmlSafe = useMemo(() => {
     if (!useSvgNative) return hallSvgHtml;
@@ -801,8 +769,6 @@ export function TicketHallInteractiveBlock({
   const layersRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const placementsForHoverRef = useRef<SvgNativePlacement[]>([]);
-  const placementPickIndexRef = useRef<PlacementPickIndex | null>(null);
-  const lastHoverProbeAtRef = useRef(0);
   const probeSeatHoverRef = useRef<(clientX: number, clientY: number) => void>(() => {});
   const activatePlacementRef = useRef<(p: SvgNativePlacement) => void>(() => {});
   const canvasImageRef = useRef<HTMLImageElement | null>(null);
@@ -936,7 +902,6 @@ export function TicketHallInteractiveBlock({
         getLayerScreenBox,
         zoom: zoomRef.current,
         placements: placementsForHoverRef.current,
-        pickIndex: placementPickIndexRef.current,
         mapZoomed,
       };
     },
@@ -977,10 +942,9 @@ export function TicketHallInteractiveBlock({
   }, []);
 
   const showSeatInfo = useCallback((anchor: HTMLElement, info: HoverSeatInfo) => {
-    if (isCoarsePointer) return;
     setHoverAnchor(anchor);
     setHoverSeat(info);
-  }, [isCoarsePointer]);
+  }, []);
 
   const hideSeatInfo = useCallback(() => {
     setHoverAnchor(null);
@@ -988,10 +952,9 @@ export function TicketHallInteractiveBlock({
   }, []);
 
   const showSectorInfo = useCallback((anchor: SVGPathElement, sector: SectorSummary) => {
-    if (isCoarsePointer) return;
     setHoverSectorAnchor(anchor);
     setHoverSector(sector);
-  }, [isCoarsePointer]);
+  }, []);
 
   const hideSectorInfo = useCallback(() => {
     setHoverSectorAnchor(null);
@@ -1053,7 +1016,7 @@ export function TicketHallInteractiveBlock({
     const currentFit = fitZoomRef.current;
     const ctxBag = canvasDrawContextRef.current;
 
-    const dpr = hallMapCanvasDevicePixelRatio();
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
     const pixelWidth = Math.max(1, Math.round(width * dpr));
     const pixelHeight = Math.max(1, Math.round(height * dpr));
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -1621,28 +1584,20 @@ export function TicketHallInteractiveBlock({
     () => visibleNativePlacements.filter((p) => !p.previewOnly && p.offerId).length,
     [visibleNativePlacements],
   );
-  const placementPickIndex = useMemo(
-    () => buildPlacementPickIndex(visibleNativePlacements),
-    [visibleNativePlacements],
-  );
   const useDelegatedSeatHits =
-    stadiumCanvasEnabled ||
-    (useCanvasCompositing && sellablePlacementCount >= HALL_MAP_DELEGATED_HIT_MIN);
+    useCanvasCompositing &&
+    stadiumCanvasEnabled &&
+    sellablePlacementCount >= HALL_MAP_DELEGATED_HIT_MIN;
 
   placementsForHoverRef.current = visibleNativePlacements;
-  placementPickIndexRef.current = placementPickIndex;
 
   const probeSeatHover = useCallback(
     (clientX: number, clientY: number) => {
-      if (isCoarsePointer) return;
       if (!stadiumCanvasEnabled && !sectorMode.enabled) return;
       if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) {
         hideSeatInfo();
         return;
       }
-      const now = performance.now();
-      if (now - lastHoverProbeAtRef.current < 48) return;
-      lastHoverProbeAtRef.current = now;
       const vp = viewportRef.current;
       const probe = hoverProbeRef.current;
       if (!vp || !probe) return;
@@ -1666,7 +1621,7 @@ export function TicketHallInteractiveBlock({
         hideSeatInfo();
       }
     },
-    [buildPlacementPickCtx, fitZoom, hideSeatInfo, isCoarsePointer, sectorMode.enabled, showSeatInfo, stadiumCanvasEnabled],
+    [buildPlacementPickCtx, fitZoom, hideSeatInfo, sectorMode.enabled, showSeatInfo, stadiumCanvasEnabled],
   );
   probeSeatHoverRef.current = probeSeatHover;
 
@@ -1679,6 +1634,17 @@ export function TicketHallInteractiveBlock({
     },
     [buildPlacementPickCtx, sectorMode.enabled],
   );
+
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onMove = (e: PointerEvent) => {
+      if (dragRef.current?.moved) return;
+      probeSeatHoverRef.current(e.clientX, e.clientY);
+    };
+    vp.addEventListener('pointermove', onMove, { passive: true });
+    return () => vp.removeEventListener('pointermove', onMove);
+  }, [hideSeatInfo]);
 
   useEffect(() => {
     if (!focusSectorNorm) {

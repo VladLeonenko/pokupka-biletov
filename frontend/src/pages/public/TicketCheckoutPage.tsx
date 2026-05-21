@@ -1472,11 +1472,7 @@ export function TicketCheckoutPage() {
                   На весь экран
                 </Button>
               </Box>
-              {hallMapReady && mapDialogOpen ? (
-                <Box sx={{ p: 2, color: 'text.secondary', fontSize: '0.9rem' }}>
-                  Схема открыта на весь экран.
-                </Box>
-              ) : hallMapReady ? (
+              {hallMapReady ? (
                 <>
                   {priceChipsForMap.length > 0 ? (
                     <TicketPriceFilterCarousel
