@@ -548,41 +548,27 @@ export function TicketHallInteractiveBlock({
     if (omitClientSeatCoordinateCloud) return [];
     return parseBackgroundSeatCoordinates(layoutJson);
   }, [layoutJson, omitClientSeatCoordinateCloud]);
-  const sellableSeatsFromLayout = useMemo(
-    () => parseLayoutSeatPositions(
-      layoutJson && typeof layoutJson === 'object'
-        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
-        : null,
-    ),
-    [layoutJson],
-  );
-  const nativeProcessed = useMemo(
-    () => (sectorMode.enabled ? null : processHallSvgForNative(hallSvgHtml)),
-    [hallSvgHtml, sectorMode.enabled],
-  );
+  const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],
   );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
-    if (sectorMode.enabled && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed, sectorMode.enabled, sellableSeatsFromLayout]);
+  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
-    if (sectorMode.enabled) return false;
     if (preferLayoutSeatPositions) return false;
     return (nativeProcessed?.seats?.length ?? 0) >= 2;
-  }, [preferLayoutSeatPositions, nativeProcessed, sectorMode.enabled]);
+  }, [preferLayoutSeatPositions, nativeProcessed]);
   const useSvgNative =
     layoutMode !== 'grid' &&
-    (sectorMode.enabled ||
     (layoutMode === 'svgNative' ||
-      (layoutMode === 'auto' && nativeSeats.length >= 2)));
+      (layoutMode === 'auto' && nativeSeats.length >= 2));
 
   const svgHtmlSafe = useMemo(() => {
     if (!useSvgNative) return hallSvgHtml;

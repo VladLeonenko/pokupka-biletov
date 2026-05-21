@@ -11,6 +11,7 @@ import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { mergeSellableSeatsIntoLayout } from '../utils/luzhnikiLayoutSeatPatch.js';
 import {
+  buildSellableSeatGeodesy,
   buildGrayCloudRowZipMap,
   lookupLabeledSeat,
 } from '../utils/hallSeatGeodesyMatch.js';
@@ -191,6 +192,15 @@ function buildSellableSeatsFromManualBundle(offers = []) {
   };
 }
 
+function buildSellableSeatsFromLayoutSeats(layout, offers = []) {
+  const layoutSeats = Array.isArray(layout?.seats) ? layout.seats : [];
+  if (layoutSeats.length < 1) return null;
+
+  const geodesy = buildSellableSeatGeodesy(layoutSeats, offers);
+  if (!geodesy?.seats?.length) return null;
+  return geodesy;
+}
+
 export async function loadLuzhnikiFootballStageMapRow() {
   const key = LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
   const r = await ticketPool.query(
@@ -243,6 +253,29 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
           grayCloudRowZipMatched: manualSellable.rowZipMatched,
           partialManualOnly: true,
           unmatchedSamples: manualSellable.unmatchedSamples,
+        },
+      },
+    };
+  }
+
+  const layoutSellable = buildSellableSeatsFromLayoutSeats(layoutForGeodesy, offers);
+  if (layoutSellable?.seats?.length) {
+    return {
+      ...row,
+      layout_json: {
+        ...base,
+        sellableSeats: layoutSellable.seats.map((seat) => ({
+          ...seat,
+          geodesySource: 'layoutStrictFast',
+        })),
+        sellableSeatsFromLiveOffers: true,
+        sellableGeodesyMode: 'layoutStrictFast',
+        offerSeatGeodesy: {
+          matched: layoutSellable.matched,
+          totalSellable: layoutSellable.totalSellable,
+          strictMatched: layoutSellable.matched,
+          partialManualOnly: false,
+          unmatchedSamples: layoutSellable.unmatchedSamples,
         },
       },
     };
