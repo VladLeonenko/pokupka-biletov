@@ -77,8 +77,6 @@ export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
     const seat = attr(tag, 'data-seat') || attr(tag, 'place');
     if (!sectorRaw || !isValidRowSeat(row, seat)) continue;
     const source = attr(tag, 'data-source') || 'svg';
-    /** fieldGrid/cloud (~75k) — не в checkout bundle; только hover-правки (manual-*). */
-    if (!source.startsWith('manual')) continue;
     const sector = resolveCanonicalSectorLabel(sectorRaw);
     seats.push({
       sector,
