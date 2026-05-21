@@ -576,6 +576,7 @@ export function TicketHallInteractiveBlock({
     if (svgGeometryFromParsedCircles && nativeProcessed?.svgHtml) return nativeProcessed.svgHtml;
     return hallSvgHtml;
   }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
+  const useRasterBackdrop = sectorMode.enabled && Boolean(hallBackgroundRasterUrl);
 
   const { nativePlacements } = useMemo(() => {
     if (!useSvgNative || nativeSeats.length < 2) {
@@ -1770,7 +1771,15 @@ export function TicketHallInteractiveBlock({
             className={`${styles.layers} ${stadiumCanvasEnabled ? styles.layersStadium : ''}`}
             style={layersStyle}
           >
-            {!useCanvasCompositing ? (
+            {useRasterBackdrop ? (
+              <img
+                src={hallBackgroundRasterUrl}
+                className={styles.rasterBackdrop}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+              />
+            ) : !useCanvasCompositing ? (
               <div
                 className={`${styles.svgLayer} ${
                   !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
