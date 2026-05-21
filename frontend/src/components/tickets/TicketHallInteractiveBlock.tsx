@@ -30,11 +30,12 @@ function stadiumSeatCanvasRadiusPx(
   mapZoomed: boolean,
 ): number {
   const w = layerWidth * zoom;
-  let r = active ? 5 : Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
+  const baseR = Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
+  let r = active ? baseR * 0.68 : baseR;
   /** На обзоре 100% (fit) — sellable в 2× меньше, при zoom-in — полный размер. */
   if (!mapZoomed) {
     r *= 0.5;
-    r = active ? Math.max(2.5, r) : Math.max(1.3, r);
+    r = Math.max(active ? 1.2 : 1.3, r);
   }
   return r;
 }
@@ -182,6 +183,16 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
   if (Array.isArray(raw) && raw.length > 0) {
     const out: BackgroundSeatCoordinate[] = [];
     for (const item of raw) {
+      if (Array.isArray(item)) {
+        const x = Number(item[0]);
+        const y = Number(item[1]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        const xPct = x >= 0 && x <= 1 ? x * 100 : x;
+        const yPct = y >= 0 && y <= 1 ? y * 100 : y;
+        if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) continue;
+        out.push({ xPct, yPct });
+        continue;
+      }
       if (!item || typeof item !== 'object') continue;
       const seat = item as Record<string, unknown>;
       const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
@@ -479,6 +490,14 @@ export function TicketHallInteractiveBlock({
   );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
+  const sellableSeatsFromLayout = useMemo(
+    () => parseLayoutSeatPositions(
+      layoutJson && typeof layoutJson === 'object'
+        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
+        : null,
+    ),
+    [layoutJson],
+  );
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
@@ -487,11 +506,12 @@ export function TicketHallInteractiveBlock({
   );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
+    if (sectorMode.enabled && layoutSeats.length < 2 && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  }, [preferLayoutSeatPositions, layoutSeats, sectorMode.enabled, sellableSeatsFromLayout, nativeProcessed]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
     if (preferLayoutSeatPositions) return false;
@@ -689,6 +709,7 @@ export function TicketHallInteractiveBlock({
   const placementsForHoverRef = useRef<SvgNativePlacement[]>([]);
   const probeSeatHoverRef = useRef<(clientX: number, clientY: number) => void>(() => {});
   const activatePlacementRef = useRef<(p: SvgNativePlacement) => void>(() => {});
+  const touchSeatToggleRef = useRef<{ key: string; at: number } | null>(null);
   const canvasImageRef = useRef<HTMLImageElement | null>(null);
   const [canvasImageVersion, setCanvasImageVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
@@ -1004,6 +1025,7 @@ export function TicketHallInteractiveBlock({
     hideSeatInfo();
     hideSectorInfo();
     if (e.button !== 0 && e.pointerType !== 'touch') return;
+    if (e.pointerType === 'touch') e.preventDefault();
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1022,6 +1044,7 @@ export function TicketHallInteractiveBlock({
 
   const onPointerMovePan = useCallback(
     (e: React.PointerEvent) => {
+      if (e.pointerType === 'touch') e.preventDefault();
       if (pointersRef.current.has(e.pointerId)) {
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
@@ -1531,6 +1554,12 @@ export function TicketHallInteractiveBlock({
         onPointerMove={onPointerMovePan}
         onPointerUp={endPan}
         onPointerCancel={endPan}
+        onTouchStart={(ev) => {
+          if (ev.touches.length > 1) ev.preventDefault();
+        }}
+        onTouchMove={(ev) => {
+          if (ev.touches.length > 1) ev.preventDefault();
+        }}
         onPointerLeave={() => {
           if (pointersRef.current.size === 0) hideSeatInfo();
         }}
@@ -1754,6 +1783,15 @@ export function TicketHallInteractiveBlock({
                           ev.stopPropagation();
                           showSeatInfo(ev.currentTarget, seatInfo);
                         }}
+                        onPointerUp={(ev) => {
+                          if (ev.pointerType !== 'touch') return;
+                          ev.stopPropagation();
+                          ev.preventDefault();
+                          touchSeatToggleRef.current = { key: visualKey, at: Date.now() };
+                          showSeatInfo(ev.currentTarget, seatInfo);
+                          updateSelectedDetails(seatInfo, p.available);
+                          if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
+                        }}
                         onPointerEnter={(ev) => {
                           showSeatInfo(ev.currentTarget, seatInfo);
                         }}
@@ -1766,6 +1804,8 @@ export function TicketHallInteractiveBlock({
                         onBlur={hideSeatInfo}
                         onClick={(ev) => {
                           ev.stopPropagation();
+                          const touchToggle = touchSeatToggleRef.current;
+                          if (touchToggle?.key === visualKey && Date.now() - touchToggle.at < 700) return;
                           if (sectorMode.enabled && !mapZoomed) {
                             focusClickPoint(ev.clientX, ev.clientY);
                             return;

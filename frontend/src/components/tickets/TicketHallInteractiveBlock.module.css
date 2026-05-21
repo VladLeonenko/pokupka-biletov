@@ -87,6 +87,7 @@
   justify-content: center;
   padding: 10px;
   touch-action: none;
+  overscroll-behavior: contain;
   cursor: default;
   user-select: none;
 }
@@ -544,7 +545,7 @@
 
 .seatDotOn {
   z-index: 4;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.68);
   border-width: 1px;
   background-color: var(--seat-accent, #555);
   color: #fff;
@@ -555,7 +556,7 @@
 }
 
 .seatDotOn:hover {
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.68);
 }
 
 .seatDotCheck {
