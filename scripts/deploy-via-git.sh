@@ -45,9 +45,11 @@ LUZHNIKI_PUBLIC_SVG="$PROJECT_ROOT/frontend/public/tools/luzhniki-gray-cloud-enr
 LUZHNIKI_BUNDLE_BACKUP=""
 LUZHNIKI_HAND_SVG_BACKUP=""
 LUZHNIKI_PUBLIC_SVG_BACKUP=""
+LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT=0
 if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
   LUZHNIKI_BUNDLE_BACKUP=$(mktemp)
   cp "$LUZHNIKI_EDITOR_BUNDLE" "$LUZHNIKI_BUNDLE_BACKUP"
+  LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT=$(node -e "const j=require(process.argv[1]);process.stdout.write(String(j.seatCount||j.seats?.length||0))" "$LUZHNIKI_BUNDLE_BACKUP" 2>/dev/null || echo 0)
   echo "✅ Luzhniki editor bundle сохранён"
 fi
 if [ -f "$LUZHNIKI_HAND_SVG" ]; then
@@ -60,6 +62,28 @@ if [ -f "$LUZHNIKI_PUBLIC_SVG" ]; then
   cp "$LUZHNIKI_PUBLIC_SVG" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
   echo "✅ Luzhniki public SVG сохранён"
 fi
+
+restore_luzhniki_editor_assets() {
+  if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
+    if [ "${LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+      mkdir -p "$(dirname "$LUZHNIKI_EDITOR_BUNDLE")"
+      cp "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_EDITOR_BUNDLE"
+      echo "✅ Luzhniki editor bundle восстановлен ($LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT мест)"
+      if [ -n "$LUZHNIKI_HAND_SVG_BACKUP" ] && [ -f "$LUZHNIKI_HAND_SVG_BACKUP" ]; then
+        mkdir -p "$(dirname "$LUZHNIKI_HAND_SVG")"
+        cp "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_HAND_SVG"
+        echo "✅ Luzhniki hand SVG восстановлен"
+      fi
+      if [ -n "$LUZHNIKI_PUBLIC_SVG_BACKUP" ] && [ -f "$LUZHNIKI_PUBLIC_SVG_BACKUP" ]; then
+        mkdir -p "$(dirname "$LUZHNIKI_PUBLIC_SVG")"
+        cp "$LUZHNIKI_PUBLIC_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG"
+        echo "✅ Luzhniki public SVG восстановлен"
+      fi
+    else
+      echo "ℹ️ Luzhniki editor bundle backup пустой — не восстанавливаем заглушку"
+    fi
+  fi
+}
 
 # Git pull (жёстко на origin/$BRANCH — иначе после экспериментов остаётся старый код)
 echo "📥 git fetch + checkout $BRANCH"
@@ -80,25 +104,7 @@ if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
   rm -f "$ENV_BACKUP"
 fi
 
-if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
-  seat_count=$(node -e "const j=require(process.argv[1]);process.stdout.write(String(j.seatCount||j.seats?.length||0))" "$LUZHNIKI_BUNDLE_BACKUP" 2>/dev/null || echo 0)
-  if [ "${seat_count:-0}" -gt 0 ] 2>/dev/null; then
-    cp "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_EDITOR_BUNDLE"
-    echo "✅ Luzhniki editor bundle восстановлен ($seat_count мест)"
-    if [ -n "$LUZHNIKI_HAND_SVG_BACKUP" ] && [ -f "$LUZHNIKI_HAND_SVG_BACKUP" ]; then
-      mkdir -p "$(dirname "$LUZHNIKI_HAND_SVG")"
-      cp "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_HAND_SVG"
-      echo "✅ Luzhniki hand SVG восстановлен"
-    fi
-    if [ -n "$LUZHNIKI_PUBLIC_SVG_BACKUP" ] && [ -f "$LUZHNIKI_PUBLIC_SVG_BACKUP" ]; then
-      mkdir -p "$(dirname "$LUZHNIKI_PUBLIC_SVG")"
-      cp "$LUZHNIKI_PUBLIC_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG"
-      echo "✅ Luzhniki public SVG восстановлен"
-    fi
-  fi
-  rm -f "$LUZHNIKI_BUNDLE_BACKUP"
-fi
-rm -f "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
+restore_luzhniki_editor_assets
 
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""
@@ -182,6 +188,11 @@ if [ -f "scripts/update-travel-cases-content.js" ]; then
   echo "🔄 Обновление travel-кейсов (цвета, шрифты, показатели)..."
   node scripts/update-travel-cases-content.js 2>/dev/null || true
 fi
+
+# Некоторые build/seed шаги зеркалят frontend/public/tools или hand/*.svg из git.
+# Повторно восстанавливаем runtime-разметку перед PM2, иначе checkout снова видит пустой bundle.
+restore_luzhniki_editor_assets
+rm -f "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
 
 # PM2 restart
 echo ""
