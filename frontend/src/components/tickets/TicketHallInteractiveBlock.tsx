@@ -562,9 +562,10 @@ export function TicketHallInteractiveBlock({
   }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
+    if (sectorMode.enabled) return false;
     if (preferLayoutSeatPositions) return false;
     return (nativeProcessed?.seats?.length ?? 0) >= 2;
-  }, [preferLayoutSeatPositions, nativeProcessed]);
+  }, [preferLayoutSeatPositions, nativeProcessed, sectorMode.enabled]);
   const useSvgNative =
     layoutMode !== 'grid' &&
     (layoutMode === 'svgNative' ||

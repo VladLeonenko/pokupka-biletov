@@ -100,7 +100,7 @@ export function partialManualEditorBundleActive() {
 
 export function useGrayCloudRowZipForBundle() {
   if (!useGrayCloudRowZip()) return false;
-  return grayCloudLabeledStrictOnlyMode();
+  return getGrayCloudLabeledSeatCount() > 0;
 }
 
 /** API seat 28..31 → N-я точка ряда в bundle (места 1..N из редактора). */
