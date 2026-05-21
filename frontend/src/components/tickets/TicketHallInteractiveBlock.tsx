@@ -479,6 +479,14 @@ export function TicketHallInteractiveBlock({
   );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
+  const sellableSeatsFromLayout = useMemo(
+    () => parseLayoutSeatPositions(
+      layoutJson && typeof layoutJson === 'object'
+        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
+        : null,
+    ),
+    [layoutJson],
+  );
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
@@ -486,12 +494,13 @@ export function TicketHallInteractiveBlock({
     [layoutJson],
   );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (sectorMode.enabled && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed, sectorMode.enabled, sellableSeatsFromLayout]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
     if (preferLayoutSeatPositions) return false;
@@ -499,7 +508,8 @@ export function TicketHallInteractiveBlock({
   }, [preferLayoutSeatPositions, nativeProcessed]);
   const useSvgNative =
     layoutMode !== 'grid' &&
-    (layoutMode === 'svgNative' ||
+    (sectorMode.enabled ||
+      layoutMode === 'svgNative' ||
       (layoutMode === 'auto' && nativeSeats.length >= 2));
 
   const svgHtmlSafe = useMemo(() => {
