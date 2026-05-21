@@ -100,6 +100,9 @@
     .stage svg circle.paint-preview { fill: #22d3ee !important; stroke: #fff; stroke-width: 2px; opacity: 0.85; }
     .stage svg circle.paint-selected { fill: #a78bfa !important; stroke: #fff; stroke-width: 2px; }
     .stage svg circle.persist-flash { stroke: #22c55e !important; stroke-width: 4px !important; }
+    .stage svg circle.audit-issue { fill: #ef4444 !important; stroke: #fff; stroke-width: 2.5px; }
+    .stage svg circle.audit-warn { fill: #f97316 !important; stroke: #fff; stroke-width: 2px; }
+    .stage svg circle.audit-proposed { fill: #14b8a6 !important; stroke: #fff; stroke-width: 2px; }
     /* Только в редакторе — в SVG на диск не попадает (снимается при serialize) */
     .stage svg circle.seat-edited-in-editor {
       fill: #fbbf24 !important;
@@ -110,6 +113,7 @@
     .stage svg circle.unlabeled-dot { fill: #7f1d1d; }
     .hint { font-size: 11px; opacity: 0.55; }
     #zoomSlider { width: min(120px, 22vw); vertical-align: middle; accent-color: #38bdf8; }
+    #paintTargetSector { width: 92px; }
   </style>
 </head>
 <body>
@@ -138,6 +142,11 @@
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
       <button type="button" id="paintApply" class="warn">▶ Применить ряд → сервер</button>
+      <button type="button" id="sectorApply" title="предложить все ряды сектора по размеченным рядам">↕ сектор</button>
+      <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
+      <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
+      <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
+      <button type="button" id="copySectorBtn" title="скопировать разметку сектора в другой сектор">⇄ копия</button>
     </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
@@ -181,6 +190,11 @@
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
     const paintApply = document.getElementById('paintApply');
+    const sectorApply = document.getElementById('sectorApply');
+    const auditBtn = document.getElementById('auditBtn');
+    const paintTargetSector = document.getElementById('paintTargetSector');
+    const copyReverse = document.getElementById('copyReverse');
+    const copySectorBtn = document.getElementById('copySectorBtn');
     const paintSelCount = document.getElementById('paintSelCount');
     const undoBtn = document.getElementById('undoBtn');
     const saveSvgBtn = document.getElementById('saveSvg');
@@ -257,6 +271,12 @@
     let sectorBboxByNorm = new Map();
     /** @type {Set<Element>} */
     let paintPreviewMarked = new Set();
+    /** @type {Set<Element>} */
+    let auditMarked = new Set();
+    /** @type {Set<Element>} */
+    let auditWarnMarked = new Set();
+    /** @type {Set<Element>} */
+    let proposedMarked = new Set();
     let previewPolyline = null;
     let serverSaveTimer = 0;
     let lastFileSaveOk = false;
@@ -479,9 +499,18 @@
       const ov = clone.querySelector('#editor-overlay');
       if (ov) ov.remove();
       clone.querySelectorAll(
-        'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor',
+        'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor, circle.audit-issue, circle.audit-warn, circle.audit-proposed',
       ).forEach((c) => {
-        c.classList.remove('hl', 'paint-preview', 'paint-selected', 'persist-flash', 'seat-edited-in-editor');
+        c.classList.remove(
+          'hl',
+          'paint-preview',
+          'paint-selected',
+          'persist-flash',
+          'seat-edited-in-editor',
+          'audit-issue',
+          'audit-warn',
+          'audit-proposed',
+        );
       });
       const decl = '<?xml version="1.0" encoding="UTF-8"?>\n';
       return decl + new XMLSerializer().serializeToString(clone);
@@ -626,21 +655,34 @@
       syncingZoomSlider = false;
     }
 
-    /** Зум к точке под пальцем / колёсиком. */
+    function clampPanToViewport() {
+      const vw = Math.max(1, viewport.clientWidth);
+      const vh = Math.max(1, viewport.clientHeight);
+      const scaledW = vbW * zoom;
+      const scaledH = vbH * zoom;
+      const limitX = Math.max(vw * 0.45, (scaledW - vw) / 2 + vw * 0.35);
+      const limitY = Math.max(vh * 0.45, (scaledH - vh) / 2 + vh * 0.35);
+      panX = Math.min(limitX, Math.max(-limitX, panX));
+      panY = Math.min(limitY, Math.max(-limitY, panY));
+    }
+
+    /** Зум к точке под пальцем / колёсиком без скачка центра в старый bbox. */
     function setZoomAt(newZoom, clientX, clientY) {
-      const r = stage.getBoundingClientRect();
-      if (!r.width || !r.height) {
+      const before = clientToSvg(clientX, clientY);
+      const vr = viewport.getBoundingClientRect();
+      if (!before || !vr.width || !vr.height) {
         zoom = clampZoom(newZoom);
+        clampPanToViewport();
         applyTransform();
+        syncZoomSlider();
         return;
       }
-      const cx = r.left + r.width / 2 + panX;
-      const cy = r.top + r.height / 2 + panY;
-      const ux = (clientX - cx) / zoom;
-      const uy = (clientY - cy) / zoom;
       zoom = clampZoom(newZoom);
-      panX = clientX - r.width / 2 - r.left - ux * zoom;
-      panY = clientY - r.height / 2 - r.top - uy * zoom;
+      const centerX = vr.left + vr.width / 2;
+      const centerY = vr.top + vr.height / 2;
+      panX = clientX - centerX - (before.x - vbW / 2) * zoom;
+      panY = clientY - centerY - (before.y - vbH / 2) * zoom;
+      clampPanToViewport();
       applyTransform();
       syncZoomSlider();
     }
@@ -850,7 +892,23 @@
       for (const a of TRACK_ATTRS) {
         attrs[a] = circle.hasAttribute(a) ? circle.getAttribute(a) : null;
       }
-      attrs['class'] = circle.getAttribute('class');
+      const cls = (circle.getAttribute('class') || '')
+        .split(/\s+/)
+        .filter(
+          (c) =>
+            c &&
+            ![
+              'hl',
+              'paint-preview',
+              'paint-selected',
+              'persist-flash',
+              'audit-issue',
+              'audit-warn',
+              'audit-proposed',
+            ].includes(c),
+        )
+        .join(' ');
+      attrs['class'] = cls || null;
       return attrs;
     }
 
@@ -1045,6 +1103,7 @@
       panX = 0;
       panY = 0;
       applyTransform();
+      syncZoomSlider();
     }
 
     function zoomCenter(factor, clientX, clientY) {
@@ -1052,7 +1111,9 @@
       if (clientX != null && clientY != null) setZoomAt(next, clientX, clientY);
       else {
         zoom = next;
+        clampPanToViewport();
         applyTransform();
+        syncZoomSlider();
       }
     }
 
@@ -1151,6 +1212,72 @@
       const s = decodeAttr(c.getAttribute('data-seat') || c.getAttribute('place') || '');
       const n = Number.parseInt(String(s).replace(/\D/g, ''), 10);
       return Number.isFinite(n) ? n : null;
+    }
+
+    function circleXY(c) {
+      return { x: +c.getAttribute('cx'), y: +c.getAttribute('cy') };
+    }
+
+    function median(nums) {
+      const xs = nums.filter((n) => Number.isFinite(n)).slice().sort((a, b) => a - b);
+      if (!xs.length) return 0;
+      const mid = Math.floor(xs.length / 2);
+      return xs.length % 2 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2;
+    }
+
+    function principalAxis(circles) {
+      const pts = circles.map(circleXY);
+      if (pts.length < 2) return { ux: 1, uy: 0, nx: 0, ny: 1, cx: pts[0]?.x || 0, cy: pts[0]?.y || 0 };
+      const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+      let xx = 0;
+      let xy = 0;
+      let yy = 0;
+      for (const p of pts) {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        xx += dx * dx;
+        xy += dx * dy;
+        yy += dy * dy;
+      }
+      const angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+      let ux = Math.cos(angle);
+      let uy = Math.sin(angle);
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      if ((last.x - first.x) * ux + (last.y - first.y) * uy < 0) {
+        ux = -ux;
+        uy = -uy;
+      }
+      return { ux, uy, nx: -uy, ny: ux, cx, cy };
+    }
+
+    function projection(c, ax) {
+      const p = circleXY(c);
+      return p.x * ax.ux + p.y * ax.uy;
+    }
+
+    function normalProjection(c, ax) {
+      const p = circleXY(c);
+      return p.x * ax.nx + p.y * ax.ny;
+    }
+
+    function clearAuditMarks() {
+      auditMarked.forEach((c) => c.classList.remove('audit-issue'));
+      auditWarnMarked.forEach((c) => c.classList.remove('audit-warn'));
+      proposedMarked.forEach((c) => c.classList.remove('audit-proposed'));
+      auditMarked.clear();
+      auditWarnMarked.clear();
+      proposedMarked.clear();
+    }
+
+    function markAudit(circles, kind) {
+      const cls = kind === 'warn' ? 'audit-warn' : kind === 'proposed' ? 'audit-proposed' : 'audit-issue';
+      const bucket = kind === 'warn' ? auditWarnMarked : kind === 'proposed' ? proposedMarked : auditMarked;
+      for (const c of circles) {
+        c.classList.add(cls);
+        bucket.add(c);
+      }
     }
 
     function paintCorridorPx() {
@@ -1481,6 +1608,321 @@
       return best;
     }
 
+    function circlesForSector(sectorLabel) {
+      const norm = normalizeSectorLabel(sectorLabel);
+      if (!norm) return [];
+      const bb = sectorBboxByNorm.get(norm);
+      const out = [];
+      for (const c of allCircles) {
+        const ownSector = circleSector(c);
+        if (ownSector && !sectorNormsMatch(ownSector, sectorLabel)) continue;
+        if (bb) {
+          const { x, y } = circleXY(c);
+          if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
+        } else if (!sectorNormsMatch(ownSector, sectorLabel)) {
+          continue;
+        }
+        out.push(c);
+      }
+      return out;
+    }
+
+    function groupedLabeledRows(sectorLabel) {
+      const rows = new Map();
+      for (const c of allCircles) {
+        if (sectorLabel && !sectorNormsMatch(circleSector(c), sectorLabel)) continue;
+        const row = normalizePaintRowNum(circleRow(c));
+        const seat = circleSeatNum(c);
+        if (!row || seat == null) continue;
+        if (!rows.has(row)) rows.set(row, []);
+        rows.get(row).push(c);
+      }
+      return rows;
+    }
+
+    function rowSeatDirection(circles, axis) {
+      const pairs = circles
+        .map((c) => ({ c, pos: projection(c, axis), seat: circleSeatNum(c) }))
+        .filter((o) => o.seat != null)
+        .sort((a, b) => a.pos - b.pos);
+      if (pairs.length < 2) return 1;
+      return pairs[pairs.length - 1].seat >= pairs[0].seat ? 1 : -1;
+    }
+
+    function validateCurrentSector() {
+      if (!svgRoot) return;
+      clearAuditMarks();
+      const sector = paintSectorForApply().trim();
+      const candidates = sector ? circlesForSector(sector) : allCircles.slice();
+      const rows = groupedLabeledRows(sector);
+      const issue = new Set();
+      const warn = new Set();
+      const duplicateKeys = new Map();
+      let missingNumbers = 0;
+      let jumpRows = 0;
+      let farPoints = 0;
+
+      for (const c of candidates) {
+        const hasSector = Boolean(circleSector(c));
+        const hasRow = isValidPaintRow(circleRow(c));
+        const hasSeat = circleSeatNum(c) != null;
+        if (c.getAttribute('data-unlabeled') === '1' || !hasSector || !hasRow || !hasSeat) {
+          issue.add(c);
+        }
+      }
+
+      for (const c of allCircles) {
+        const s = circleSector(c);
+        const row = normalizePaintRowNum(circleRow(c));
+        const seat = circleSeatNum(c);
+        if (!s || !row || seat == null) continue;
+        if (sector && !sectorNormsMatch(s, sector)) continue;
+        const key = normalizeSectorLabel(s) + ':' + row + ':' + seat;
+        if (!duplicateKeys.has(key)) duplicateKeys.set(key, []);
+        duplicateKeys.get(key).push(c);
+      }
+      for (const list of duplicateKeys.values()) {
+        if (list.length > 1) list.forEach((c) => issue.add(c));
+      }
+
+      const counts = [];
+      for (const list of rows.values()) counts.push(list.length);
+      const typicalCount = median(counts);
+
+      for (const [row, list] of rows) {
+        if (typicalCount && Math.abs(list.length - typicalCount) > Math.max(4, typicalCount * 0.45)) {
+          list.forEach((c) => warn.add(c));
+        }
+        const seats = list.map(circleSeatNum).filter((n) => n != null);
+        if (seats.length >= 2) {
+          const minSeat = Math.min(...seats);
+          const maxSeat = Math.max(...seats);
+          const unique = new Set(seats);
+          missingNumbers += Math.max(0, maxSeat - minSeat + 1 - unique.size);
+        }
+        if (list.length >= 4) {
+          const ax = principalAxis(list);
+          const ordered = list
+            .map((c) => ({ c, pos: projection(c, ax), seat: circleSeatNum(c) }))
+            .filter((o) => o.seat != null)
+            .sort((a, b) => a.pos - b.pos);
+          let inc = 0;
+          let dec = 0;
+          for (let i = 1; i < ordered.length; i++) {
+            const d = ordered[i].seat - ordered[i - 1].seat;
+            if (d > 0) inc++;
+            if (d < 0) dec++;
+          }
+          if (inc && dec && Math.min(inc, dec) >= 2) {
+            jumpRows++;
+            ordered.forEach((o) => warn.add(o.c));
+          }
+          const normalDists = list.map((c) => Math.abs((circleXY(c).x - ax.cx) * ax.nx + (circleXY(c).y - ax.cy) * ax.ny));
+          const med = median(normalDists);
+          const mad = median(normalDists.map((d) => Math.abs(d - med))) || 1;
+          for (let i = 0; i < list.length; i++) {
+            if (normalDists[i] > Math.max(paintCorridorPx() * 1.8, med + mad * 4)) {
+              farPoints++;
+              warn.add(list[i]);
+            }
+          }
+        }
+      }
+
+      markAudit(Array.from(issue), 'issue');
+      markAudit(Array.from(warn).filter((c) => !issue.has(c)), 'warn');
+      const dupCount = Array.from(duplicateKeys.values()).filter((list) => list.length > 1).length;
+      const scope = sector ? canonicalSectorLabel(sector) : 'весь SVG';
+      showPaintToast(
+        issue.size || warn.size ? 'info' : 'ok',
+        'Проверка ' +
+          scope +
+          ': красных ' +
+          issue.size +
+          ', оранжевых ' +
+          warn.size +
+          ' · дубли ' +
+          dupCount +
+          ' · пропуски ' +
+          missingNumbers +
+          ' · порядок ' +
+          jumpRows +
+          ' · далеко ' +
+          farPoints,
+      );
+    }
+
+    function buildSectorProposal(sectorLabel) {
+      const candidates = circlesForSector(sectorLabel);
+      const rows = groupedLabeledRows(sectorLabel);
+      const known = Array.from(rows.entries())
+        .map(([row, circles]) => ({ rowNum: Number(row), row, circles }))
+        .filter((r) => Number.isFinite(r.rowNum) && r.circles.length >= 3)
+        .sort((a, b) => a.rowNum - b.rowNum);
+      if (known.length < 2) {
+        throw new Error('Нужно минимум 2 уже размеченных ряда в секторе');
+      }
+      const baseRow = paintSelection.length >= 3 ? paintSelection : known.slice().sort((a, b) => b.circles.length - a.circles.length)[0].circles;
+      const axis = principalAxis(baseRow);
+      const knownProj = known.map((r) => ({
+        ...r,
+        proj: median(r.circles.map((c) => normalProjection(c, axis))),
+      }));
+      const projDiffs = knownProj
+        .map((r, i) => (i ? Math.abs(r.proj - knownProj[i - 1].proj) : 0))
+        .filter((n) => n > 1);
+      const rowStep = median(projDiffs) || 28;
+      const pts = candidates
+        .map((c) => ({ c, p: normalProjection(c, axis) }))
+        .sort((a, b) => a.p - b.p);
+      const clusters = [];
+      for (const item of pts) {
+        const last = clusters[clusters.length - 1];
+        if (!last || item.p - last[last.length - 1].p > Math.max(10, rowStep * 0.55)) clusters.push([item]);
+        else last.push(item);
+      }
+      const xs = knownProj.map((r) => r.proj);
+      const ys = knownProj.map((r) => r.rowNum);
+      const mx = median(xs);
+      const my = median(ys);
+      let num = 0;
+      let den = 0;
+      for (let i = 0; i < xs.length; i++) {
+        num += (xs[i] - mx) * (ys[i] - my);
+        den += (xs[i] - mx) * (xs[i] - mx);
+      }
+      const a = den ? num / den : 0;
+      const b = my - a * mx;
+      if (!a) throw new Error('Не получилось построить шкалу рядов');
+      const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      const proposal = [];
+      const suspicious = [];
+      const typicalCount = median(known.map((r) => r.circles.length));
+      for (const cluster of clusters) {
+        if (cluster.length < 3) continue;
+        const rowProj = median(cluster.map((o) => o.p));
+        const rowNum = Math.round(a * rowProj + b);
+        if (!Number.isFinite(rowNum) || rowNum < 1 || rowNum > 99) continue;
+        const nearest = knownProj.slice().sort((x, y) => Math.abs(x.proj - rowProj) - Math.abs(y.proj - rowProj))[0];
+        const dir = rowSeatDirection(nearest.circles, axis);
+        const sorted = cluster.map((o) => o.c).sort((c1, c2) => projection(c1, axis) - projection(c2, axis));
+        if (dir < 0) sorted.reverse();
+        if (typicalCount && Math.abs(sorted.length - typicalCount) > Math.max(5, typicalCount * 0.5)) {
+          suspicious.push('ряд ' + rowNum + ': ' + sorted.length + ' мест');
+        }
+        sorted.forEach((c, idx) => {
+          proposal.push({ circle: c, row: String(rowNum), seat: String(startSeat + idx) });
+        });
+      }
+      return { proposal, rows: new Set(proposal.map((p) => p.row)).size, suspicious };
+    }
+
+    async function applyWholeSectorProposal() {
+      if (!svgRoot) return;
+      clearAuditMarks();
+      const sector = paintSectorForApply().trim();
+      if (!sector) {
+        showPaintToast('err', 'Укажи сектор, например A116');
+        return;
+      }
+      let built;
+      try {
+        built = buildSectorProposal(sector);
+      } catch (e) {
+        showPaintToast('err', e.message);
+        return;
+      }
+      if (!built.proposal.length) {
+        showPaintToast('err', '0 предложений по сектору');
+        return;
+      }
+      markAudit(built.proposal.map((p) => p.circle), 'proposed');
+      const text =
+        'Применить ' +
+        canonicalSectorLabel(sector) +
+        ': ' +
+        built.proposal.length +
+        ' мест, ' +
+        built.rows +
+        ' рядов?' +
+        (built.suspicious.length ? '\n\nПодозрительно:\n' + built.suspicious.slice(0, 12).join('\n') : '');
+      if (!window.confirm(text)) {
+        showPaintToast('info', 'Предложение подсвечено бирюзовым, SVG не изменён');
+        return;
+      }
+      const batch = built.proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
+      for (const p of built.proposal) applySeatToCircle(p.circle, sector, p.row, p.seat, 'manual-sector-fill');
+      pushUndo(batch);
+      persistCircleEdits(built.proposal.map((p) => p.circle), { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(sector));
+      validateCurrentSector();
+    }
+
+    async function copySectorMarkup() {
+      const fromSector = paintSectorForApply().trim();
+      const toSector = paintTargetSector.value.trim();
+      if (!fromSector || !toSector) {
+        showPaintToast('err', 'Укажи исходный сектор и → сектор');
+        return;
+      }
+      clearAuditMarks();
+      const fromRows = groupedLabeledRows(fromSector);
+      const target = circlesForSector(toSector);
+      if (!fromRows.size || !target.length) {
+        showPaintToast('err', 'Нет размеченного исходного сектора или точек цели');
+        return;
+      }
+      const axis = principalAxis(Array.from(fromRows.values()).sort((a, b) => b.length - a.length)[0]);
+      const targetRows = new Map();
+      const rowNums = Array.from(fromRows.keys()).map(Number).sort((a, b) => a - b);
+      const targetSortedByNormal = target
+        .map((c) => ({ c, p: normalProjection(c, axis) }))
+        .sort((a, b) => a.p - b.p);
+      const step = median(rowNums.map((_, i) => (i ? i : 0)).filter(Boolean)) || 1;
+      const sourceCount = rowNums.length;
+      const chunkSize = Math.max(3, Math.round(target.length / Math.max(1, sourceCount)));
+      for (let i = 0; i < sourceCount; i++) {
+        targetRows.set(String(rowNums[i]), targetSortedByNormal.slice(i * chunkSize, i === sourceCount - 1 ? targetSortedByNormal.length : (i + 1) * chunkSize).map((o) => o.c));
+      }
+      const proposal = [];
+      for (const row of Array.from(fromRows.keys()).sort((a, b) => Number(a) - Number(b))) {
+        const src = fromRows.get(row).slice().sort((c1, c2) => circleSeatNum(c1) - circleSeatNum(c2));
+        let dst = (targetRows.get(row) || []).slice().sort((c1, c2) => projection(c1, axis) - projection(c2, axis));
+        if (copyReverse.checked) dst.reverse();
+        const n = Math.min(src.length, dst.length);
+        for (let i = 0; i < n; i++) proposal.push({ circle: dst[i], row, seat: String(circleSeatNum(src[i])) });
+      }
+      if (!proposal.length) {
+        showPaintToast('err', '0 мест для копирования');
+        return;
+      }
+      markAudit(proposal.map((p) => p.circle), 'proposed');
+      if (
+        !window.confirm(
+          'Скопировать ' +
+            canonicalSectorLabel(fromSector) +
+            ' → ' +
+            canonicalSectorLabel(toSector) +
+            ': ' +
+            proposal.length +
+            ' мест? Бирюзовое будет перезаписано.',
+        )
+      ) {
+        showPaintToast('info', 'Копия подсвечена бирюзовым, SVG не изменён');
+        return;
+      }
+      const batch = proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
+      for (const p of proposal) applySeatToCircle(p.circle, toSector, p.row, p.seat, 'manual-sector-copy');
+      pushUndo(batch);
+      persistCircleEdits(proposal.map((p) => p.circle), { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(toSector));
+      validateCurrentSector();
+    }
+
     function updatePaintPreview() {
       clearPaintHighlight();
       const path = paintPathForPreview();
@@ -1505,6 +1947,7 @@
     }
 
     async function applyPaintToSelection() {
+      clearAuditMarks();
       if (!paintSelection.length) {
         showPaintToast('err', 'Протяни линию вдоль ряда или Shift+клик по точкам');
         return 0;
@@ -1566,6 +2009,26 @@
           ? paintPathPoints
           : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
       const sortedSel = sortCirclesAlongPath(selection, pathForSort);
+      const endSeat = startSeat + sortedSel.length - 1;
+      markAudit(sortedSel, 'proposed');
+      if (
+        !window.confirm(
+          'Похоже, это ' +
+            canonicalSectorLabel(sector) +
+            ', ряд ' +
+            row +
+            ', места ' +
+            startSeat +
+            '-' +
+            endSeat +
+            ' (' +
+            sortedSel.length +
+            ' точек). Применить?',
+        )
+      ) {
+        showPaintToast('info', 'Ряд подсвечен бирюзовым, SVG не изменён');
+        return 0;
+      }
       const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
       const forceRenumber = paintRenumber.checked;
       let nextAuto = startSeat;
@@ -1901,6 +2364,7 @@
       if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
       panX = panStartX + (e.clientX - dragStartX);
       panY = panStartY + (e.clientY - dragStartY);
+      clampPanToViewport();
       applyTransform();
     });
 
@@ -2035,6 +2499,9 @@
     });
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
     paintApply.addEventListener('click', () => applyPaintToSelection());
+    sectorApply.addEventListener('click', () => applyWholeSectorProposal());
+    auditBtn.addEventListener('click', () => validateCurrentSector());
+    copySectorBtn.addEventListener('click', () => copySectorMarkup());
 
     zoomInBtn.addEventListener('click', () => {
       const r = viewport.getBoundingClientRect();
