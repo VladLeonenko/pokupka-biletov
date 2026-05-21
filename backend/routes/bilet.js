@@ -585,7 +585,7 @@ router.get('/stage/:stageId/map', async (req, res) => {
           repertoireId,
         ).ResultData ?? [];
         stageRow = adaptLuzhnikiStageMapForLiveOffers(stageRow, offerRows);
-        if (process.env.LUZHNIKI_SLIM_MAP_CLIENT !== '0') {
+        if (process.env.LUZHNIKI_SLIM_MAP_CLIENT === '1') {
           stageRow = slimLuzhnikiStageMapForClient(stageRow);
         }
       } catch (err) {
