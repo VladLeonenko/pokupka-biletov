@@ -11,6 +11,14 @@ import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { mergeSellableSeatsIntoLayout } from '../utils/luzhnikiLayoutSeatPatch.js';
 import {
+  buildGrayCloudRowZipMap,
+  lookupLabeledSeat,
+} from '../utils/hallSeatGeodesyMatch.js';
+import {
+  getCachedGrayCloudLabeledIndex,
+  useGrayCloudRowZipForBundle,
+} from '../utils/luzhnikiGrayCloudLabeledIndex.js';
+import {
   buildSellableSeatGeodesyPbiletAccurate,
   ensureLuzhnikiLayoutCloud,
 } from '../utils/luzhnikiPbiletSellableGeodesy.js';
@@ -116,6 +124,73 @@ export function slimLuzhnikiStageMapForClient(row) {
   };
 }
 
+function useFastManualSellable() {
+  const v = process.env.LUZHNIKI_FAST_MANUAL_SELLABLE?.trim();
+  return v !== '0' && v !== 'false';
+}
+
+function buildSellableSeatsFromManualBundle(offers = []) {
+  if (!useFastManualSellable()) return null;
+  const index = getCachedGrayCloudLabeledIndex();
+  if (!index?.size) return null;
+
+  const seats = [];
+  const seen = new Set();
+  let totalSellable = 0;
+  let directMatched = 0;
+  let rowZipMatched = 0;
+  const unmatchedSamples = [];
+  const allowRowZip = useGrayCloudRowZipForBundle();
+
+  for (const o of offers) {
+    const sector = String(o?.Sector ?? '');
+    const row = String(o?.Row ?? '');
+    const seatList = Array.isArray(o?.SeatList) ? o.SeatList.map(String) : [];
+    const rowZipMap = allowRowZip ? buildGrayCloudRowZipMap(index, sector, row, seatList) : null;
+
+    for (const seat of seatList) {
+      if (!seat.trim()) continue;
+      totalSellable += 1;
+      const dedupe = `${sector}|${row}|${seat}`;
+      if (seen.has(dedupe)) continue;
+
+      let hit = lookupLabeledSeat(index, sector, row, seat);
+      let geodesySource = 'grayCloudLabeledFast';
+      if (hit) {
+        directMatched += 1;
+      } else if (rowZipMap?.has(String(seat).trim())) {
+        hit = rowZipMap.get(String(seat).trim());
+        geodesySource = 'grayCloudLabeledFast+rowZip';
+        rowZipMatched += 1;
+      }
+
+      if (!hit) {
+        if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
+        continue;
+      }
+
+      seen.add(dedupe);
+      seats.push({
+        sector,
+        row,
+        seat,
+        xPct: Number(hit.xPct),
+        yPct: Number(hit.yPct),
+        geodesySource,
+      });
+    }
+  }
+
+  return {
+    seats,
+    totalSellable,
+    matched: seats.length,
+    directMatched,
+    rowZipMatched,
+    unmatchedSamples,
+  };
+}
+
 export async function loadLuzhnikiFootballStageMapRow() {
   const key = LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
   const r = await ticketPool.query(
@@ -150,6 +225,27 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   const offers = Array.isArray(offerRows) ? offerRows : [];
   if (offers.length < 1) {
     return { ...row, layout_json: { ...base, sellableSeats: [], sellableSeatsFromLiveOffers: true } };
+  }
+
+  const manualSellable = buildSellableSeatsFromManualBundle(offers);
+  if (manualSellable?.seats?.length) {
+    return {
+      ...row,
+      layout_json: {
+        ...base,
+        sellableSeats: manualSellable.seats,
+        sellableSeatsFromLiveOffers: true,
+        sellableGeodesyMode: 'manualBundleFast',
+        offerSeatGeodesy: {
+          matched: manualSellable.matched,
+          totalSellable: manualSellable.totalSellable,
+          grayCloudLabeledMatched: manualSellable.directMatched,
+          grayCloudRowZipMatched: manualSellable.rowZipMatched,
+          partialManualOnly: true,
+          unmatchedSamples: manualSellable.unmatchedSamples,
+        },
+      },
+    };
   }
 
   const ticketsPayload = loadTicketsPayload();

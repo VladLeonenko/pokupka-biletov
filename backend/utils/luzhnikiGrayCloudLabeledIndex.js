@@ -51,6 +51,17 @@ function resolveBundlePath() {
   return null;
 }
 
+export function getGrayCloudLabeledBundleVersion() {
+  const filePath = resolveBundlePath();
+  if (!filePath) return 'missing';
+  try {
+    const st = fs.statSync(filePath);
+    return `${Math.round(st.mtimeMs)}:${st.size}`;
+  } catch {
+    return 'missing';
+  }
+}
+
 export function useGrayCloudLabeledSellable() {
   const v = process.env.LUZHNIKI_SELLABLE_GRAY_CLOUD_LABELED?.trim();
   if (v === '0' || v === 'false') return false;
