@@ -277,6 +277,7 @@
     let auditWarnMarked = new Set();
     /** @type {Set<Element>} */
     let proposedMarked = new Set();
+    let rowLabelG = null;
     let previewPolyline = null;
     let serverSaveTimer = 0;
     let lastFileSaveOk = false;
@@ -1190,6 +1191,11 @@
       previewPolyline.setAttribute('opacity', '0.85');
       previewPolyline.setAttribute('visibility', 'hidden');
       overlayG.appendChild(previewPolyline);
+      rowLabelG = document.createElementNS(ns, 'g');
+      rowLabelG.setAttribute('id', 'editor-row-labels');
+      rowLabelG.setAttribute('pointer-events', 'none');
+      rowLabelG.setAttribute('style', 'pointer-events: none;');
+      overlayG.appendChild(rowLabelG);
       svgRoot.appendChild(overlayG);
     }
 
@@ -1640,6 +1646,52 @@
       return rows;
     }
 
+    function clearRowLabels() {
+      if (rowLabelG) rowLabelG.replaceChildren();
+    }
+
+    function renderRowLabels(sectorLabel) {
+      if (!svgRoot) return;
+      ensureOverlay();
+      clearRowLabels();
+      const sector = String(sectorLabel || '').trim();
+      if (!sector || !rowLabelG) return;
+      const rows = groupedLabeledRows(sector);
+      const entries = Array.from(rows.entries())
+        .map(([row, circles]) => ({ rowNum: Number(row), row, circles }))
+        .filter((r) => Number.isFinite(r.rowNum) && r.circles.length >= 2)
+        .sort((a, b) => a.rowNum - b.rowNum);
+      if (!entries.length) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      for (const entry of entries) {
+        const pts = entry.circles.map(circleXY);
+        const y = median(pts.map((p) => p.y));
+        const x = Math.min(...pts.map((p) => p.x)) - 34;
+        const t = document.createElementNS(ns, 'text');
+        t.textContent = entry.row;
+        t.setAttribute('x', String(x));
+        t.setAttribute('y', String(y));
+        t.setAttribute('fill', '#fbbf24');
+        t.setAttribute('stroke', '#0f172a');
+        t.setAttribute('stroke-width', '3');
+        t.setAttribute('paint-order', 'stroke');
+        t.setAttribute('font-size', '24');
+        t.setAttribute('font-weight', '700');
+        t.setAttribute('text-anchor', 'end');
+        t.setAttribute('dominant-baseline', 'middle');
+        t.setAttribute('vector-effect', 'non-scaling-stroke');
+        rowLabelG.appendChild(t);
+      }
+    }
+
+    function hasCompleteSeatLabel(circle) {
+      return Boolean(circleSector(circle) && isValidPaintRow(circleRow(circle)) && circleSeatNum(circle) != null);
+    }
+
+    function isProtectedSectorCircle(circle) {
+      return isManualEditedCircle(circle) || hasCompleteSeatLabel(circle);
+    }
+
     function rowSeatDirection(circles, axis) {
       const pairs = circles
         .map((c) => ({ c, pos: projection(c, axis), seat: circleSeatNum(c) }))
@@ -1750,6 +1802,7 @@
           ' · далеко ' +
           farPoints,
       );
+      if (sector) renderRowLabels(sector);
     }
 
     function buildSectorProposal(sectorLabel) {
@@ -1759,62 +1812,88 @@
         .map(([row, circles]) => ({ rowNum: Number(row), row, circles }))
         .filter((r) => Number.isFinite(r.rowNum) && r.circles.length >= 3)
         .sort((a, b) => a.rowNum - b.rowNum);
-      if (known.length < 2) {
-        throw new Error('Нужно минимум 2 уже размеченных ряда в секторе');
+      if (known.length < 3) {
+        throw new Error('Нужно минимум 3 уже размеченных ряда: верх, середина, низ');
       }
-      const baseRow = paintSelection.length >= 3 ? paintSelection : known.slice().sort((a, b) => b.circles.length - a.circles.length)[0].circles;
-      const axis = principalAxis(baseRow);
+      const axis = principalAxis(known.flatMap((r) => r.circles));
       const knownProj = known.map((r) => ({
         ...r,
         proj: median(r.circles.map((c) => normalProjection(c, axis))),
+        count: r.circles.length,
       }));
-      const projDiffs = knownProj
-        .map((r, i) => (i ? Math.abs(r.proj - knownProj[i - 1].proj) : 0))
-        .filter((n) => n > 1);
-      const rowStep = median(projDiffs) || 28;
-      const pts = candidates
-        .map((c) => ({ c, p: normalProjection(c, axis) }))
-        .sort((a, b) => a.p - b.p);
-      const clusters = [];
-      for (const item of pts) {
-        const last = clusters[clusters.length - 1];
-        if (!last || item.p - last[last.length - 1].p > Math.max(10, rowStep * 0.55)) clusters.push([item]);
-        else last.push(item);
-      }
-      const xs = knownProj.map((r) => r.proj);
-      const ys = knownProj.map((r) => r.rowNum);
-      const mx = median(xs);
-      const my = median(ys);
-      let num = 0;
-      let den = 0;
-      for (let i = 0; i < xs.length; i++) {
-        num += (xs[i] - mx) * (ys[i] - my);
-        den += (xs[i] - mx) * (xs[i] - mx);
-      }
-      const a = den ? num / den : 0;
-      const b = my - a * mx;
-      if (!a) throw new Error('Не получилось построить шкалу рядов');
       const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
       const proposal = [];
       const suspicious = [];
-      const typicalCount = median(known.map((r) => r.circles.length));
-      for (const cluster of clusters) {
-        if (cluster.length < 3) continue;
-        const rowProj = median(cluster.map((o) => o.p));
-        const rowNum = Math.round(a * rowProj + b);
-        if (!Number.isFinite(rowNum) || rowNum < 1 || rowNum > 99) continue;
-        const nearest = knownProj.slice().sort((x, y) => Math.abs(x.proj - rowProj) - Math.abs(y.proj - rowProj))[0];
-        const dir = rowSeatDirection(nearest.circles, axis);
-        const sorted = cluster.map((o) => o.c).sort((c1, c2) => projection(c1, axis) - projection(c2, axis));
-        if (dir < 0) sorted.reverse();
-        if (typicalCount && Math.abs(sorted.length - typicalCount) > Math.max(5, typicalCount * 0.5)) {
-          suspicious.push('ряд ' + rowNum + ': ' + sorted.length + ' мест');
+      const warnCircles = [];
+      const used = new Set();
+      let protectedSkipped = 0;
+      const writableCandidates = candidates
+        .filter((c) => {
+          if (!isProtectedSectorCircle(c)) return true;
+          protectedSkipped++;
+          return false;
+        })
+        .map((c) => ({ c, p: normalProjection(c, axis) }));
+
+      for (let i = 1; i < knownProj.length; i++) {
+        const lo = knownProj[i - 1];
+        const hi = knownProj[i];
+        const rowGap = hi.rowNum - lo.rowNum;
+        if (rowGap <= 1) continue;
+        const projGap = hi.proj - lo.proj;
+        if (Math.abs(projGap) < 1) {
+          suspicious.push('ряды ' + lo.row + '-' + hi.row + ': опоры почти на одной линии');
+          continue;
         }
-        sorted.forEach((c, idx) => {
-          proposal.push({ circle: c, row: String(rowNum), seat: String(startSeat + idx) });
-        });
+        const step = projGap / rowGap;
+        const band = Math.max(10, Math.min(36, Math.abs(step) * 0.42));
+        for (let rowNum = lo.rowNum + 1; rowNum < hi.rowNum; rowNum++) {
+          const rowKey = String(rowNum);
+          if ((rows.get(rowKey) || []).some(isProtectedSectorCircle)) {
+            protectedSkipped += rows.get(rowKey).length;
+            continue;
+          }
+          const t = (rowNum - lo.rowNum) / rowGap;
+          const expectedProj = lo.proj + projGap * t;
+          const expectedCount = Math.round(lo.count + (hi.count - lo.count) * t);
+          const nearestAnchor = t <= 0.5 ? lo : hi;
+          const dir = rowSeatDirection(nearestAnchor.circles, axis);
+          const hits = writableCandidates
+            .filter((o) => !used.has(o.c) && Math.abs(o.p - expectedProj) <= band)
+            .sort((a, b) => Math.abs(a.p - expectedProj) - Math.abs(b.p - expectedProj));
+          if (hits.length < 3) continue;
+          const countDelta = Math.abs(hits.length - expectedCount);
+          const medianDist = median(hits.map((o) => Math.abs(o.p - expectedProj)));
+          const confidence =
+            countDelta <= Math.max(4, expectedCount * 0.3) &&
+            medianDist <= band * 0.55 &&
+            hits.length >= Math.min(lo.count, hi.count) * 0.55;
+          const circles = hits.map((o) => o.c);
+          if (!confidence) {
+            suspicious.push(
+              'ряд ' +
+                rowNum +
+                ': ' +
+                hits.length +
+                ' точек, ожидалось ~' +
+                expectedCount +
+                ', dist ' +
+                medianDist.toFixed(1),
+            );
+            warnCircles.push(...circles);
+            continue;
+          }
+          let sorted = circles.sort((c1, c2) => projection(c1, axis) - projection(c2, axis));
+          if (dir < 0) sorted = sorted.reverse();
+          sorted.forEach((c, idx) => {
+            used.add(c);
+            proposal.push({ circle: c, row: rowKey, seat: String(startSeat + idx) });
+          });
+        }
       }
-      return { proposal, rows: new Set(proposal.map((p) => p.row)).size, suspicious };
+
+      const proposedRows = new Set(proposal.map((p) => p.row)).size;
+      return { proposal, rows: proposedRows, suspicious, warnCircles, protectedSkipped };
     }
 
     async function applyWholeSectorProposal() {
@@ -1832,8 +1911,15 @@
         showPaintToast('err', e.message);
         return;
       }
+      if (built.warnCircles?.length) markAudit(built.warnCircles, 'warn');
       if (!built.proposal.length) {
-        showPaintToast('err', '0 предложений по сектору');
+        showPaintToast(
+          'err',
+          built.suspicious.length
+            ? '0 надежных рядов. Оранжевые ряды требуют ручной проверки.'
+            : '0 предложений по сектору',
+        );
+        renderRowLabels(sector);
         return;
       }
       markAudit(built.proposal.map((p) => p.circle), 'proposed');
@@ -1845,6 +1931,7 @@
         ' мест, ' +
         built.rows +
         ' рядов?' +
+        (built.protectedSkipped ? '\n\nУже размеченные/manual места будут пропущены: ' + built.protectedSkipped : '') +
         (built.suspicious.length ? '\n\nПодозрительно:\n' + built.suspicious.slice(0, 12).join('\n') : '');
       if (!window.confirm(text)) {
         showPaintToast('info', 'Предложение подсвечено бирюзовым, SVG не изменён');
@@ -1858,6 +1945,7 @@
       recountStats();
       await pushEditsToServer(normalizeSectorLabel(sector));
       validateCurrentSector();
+      renderRowLabels(sector);
     }
 
     async function copySectorMarkup() {
@@ -2056,6 +2144,7 @@
         canonicalSectorLabel(sector) + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' → сервер…',
       );
       await pushEditsToServer(appliedNorm);
+      renderRowLabels(sector);
       return paintSelection.length;
     }
 
@@ -2201,6 +2290,7 @@
       overlayG = null;
       previewLine = null;
       previewPolyline = null;
+      rowLabelG = null;
       undoStack.length = 0;
       undoBtn.disabled = true;
       const vb = svg.viewBox.baseVal;
@@ -2225,6 +2315,7 @@
         showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
       }
       fitToView();
+      renderRowLabels(paintSectorForApply());
 
       svg.addEventListener('click', (e) => {
         if (didDrag || paintSuppressClick) {
@@ -2493,6 +2584,7 @@
     paintRow.addEventListener('input', () => {
       if (isValidPaintRow(paintRow.value)) paintRow.dataset.fallback = paintRow.value.trim();
     });
+    paintSector.addEventListener('input', () => renderRowLabels(paintSectorForApply()));
     paintClearSel.addEventListener('click', () => {
       clearPaintSelection();
       showPaintToast('info', 'Выделение сброшено');
