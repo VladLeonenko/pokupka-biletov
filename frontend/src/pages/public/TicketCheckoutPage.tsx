@@ -645,12 +645,13 @@ export function TicketCheckoutPage() {
       setOfferId(null);
       setSeats([]);
       setPurchaseOpen(false);
+      clearCart();
       return;
     }
     const primaryOfferId = details[0].offerId;
     setOfferId(primaryOfferId);
     setSeats(details.filter((d) => d.offerId === primaryOfferId).map((d) => d.seat));
-  }, []);
+  }, [clearCart, setPurchaseOpen]);
 
   const submitTicketRequest = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -710,6 +710,7 @@ export function TicketHallInteractiveBlock({
   const probeSeatHoverRef = useRef<(clientX: number, clientY: number) => void>(() => {});
   const activatePlacementRef = useRef<(p: SvgNativePlacement) => void>(() => {});
   const touchSeatToggleRef = useRef<{ key: string; at: number } | null>(null);
+  const touchSeatPressRef = useRef<{ key: string; x: number; y: number } | null>(null);
   const canvasImageRef = useRef<HTMLImageElement | null>(null);
   const [canvasImageVersion, setCanvasImageVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
@@ -1021,7 +1022,7 @@ export function TicketHallInteractiveBlock({
   const onPointerDownPan = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-sector-panel="true"]')) return;
     if ((e.target as HTMLElement).closest('[data-seat-dot="true"]')) return;
-    if ((e.target as HTMLElement).closest('[data-sector-path="true"]')) return;
+    if ((e.target as HTMLElement).closest('[data-sector-path="true"]') && zoomRef.current <= fitZoomRef.current + 0.01) return;
     hideSeatInfo();
     hideSectorInfo();
     if (e.button !== 0 && e.pointerType !== 'touch') return;
@@ -1781,12 +1782,24 @@ export function TicketHallInteractiveBlock({
                         aria-label={p.title}
                         onPointerDown={(ev) => {
                           ev.stopPropagation();
+                          if (ev.pointerType === 'touch') {
+                            touchSeatPressRef.current = { key: visualKey, x: ev.clientX, y: ev.clientY };
+                          }
                           showSeatInfo(ev.currentTarget, seatInfo);
                         }}
                         onPointerUp={(ev) => {
                           if (ev.pointerType !== 'touch') return;
                           ev.stopPropagation();
                           ev.preventDefault();
+                          const press = touchSeatPressRef.current;
+                          touchSeatPressRef.current = null;
+                          if (
+                            !press ||
+                            press.key !== visualKey ||
+                            Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > 10
+                          ) {
+                            return;
+                          }
                           touchSeatToggleRef.current = { key: visualKey, at: Date.now() };
                           showSeatInfo(ev.currentTarget, seatInfo);
                           updateSelectedDetails(seatInfo, p.available);

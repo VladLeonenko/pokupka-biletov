@@ -18,7 +18,7 @@ const DEFAULT_BUNDLE = path.join(
 /** @type {{ mtime: number, index: Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null, seatCount: number, bundleMode: string | null }} */
 const state = { mtime: 0, index: null, seatCount: 0, bundleMode: null };
 
-const MAX_EDITOR_BUNDLE_SEATS = 8000;
+const MAX_EDITOR_BUNDLE_SEATS = 120000;
 const MIN_STRICT_ONLY_BUNDLE_SEATS = 4000;
 
 function manualEditorSeats(seats) {
