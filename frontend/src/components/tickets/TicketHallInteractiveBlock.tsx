@@ -961,9 +961,9 @@ export function TicketHallInteractiveBlock({
 
   const stadiumCanvasEnabled = sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
 
-  /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
-  const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
-  const useCanvasCompositing = stadiumCanvasEnabled && canvasBackdropReady;
+  /** Canvas-compositing для Лужников пока выключен: он может дать вторую, искажённую копию поверх SVG. */
+  const [, setCanvasBackdropReady] = useState(false);
+  const useCanvasCompositing = false;
   useCanvasCompositingRef.current = useCanvasCompositing;
 
   const ensureBowlCache = useCallback(() => {
