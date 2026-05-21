@@ -137,14 +137,14 @@
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
+      <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
       <label>Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="первый" /></label>
       <label>по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" /></label>
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
-      <label>по <input type="number" id="paintEndSeat" min="1" value="" placeholder="последнее" /></label>
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
-      <button type="button" id="paintApply" class="warn">▶ Применить ряд → сервер</button>
-      <button type="button" id="sectorApply" title="заполнить сектор: первый/последний ряд + место с/по или крайние колонки">↕ сектор</button>
+      <button type="button" id="paintApply" class="warn">▶ Применить → сервер</button>
+      <button type="button" id="sectorApply" title="заполнить сектор по первому/последнему ряду и крайним колонкам мест">↕ сектор</button>
       <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
       <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
       <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
@@ -184,10 +184,10 @@
     const modePaintBtn = document.getElementById('modePaint');
     const paintBar = document.getElementById('paintBar');
     const paintSector = document.getElementById('paintSector');
+    const paintApplyMode = document.getElementById('paintApplyMode');
     const paintRow = document.getElementById('paintRow');
     const paintStartSeat = document.getElementById('paintStartSeat');
     const paintEndRow = document.getElementById('paintEndRow');
-    const paintEndSeat = document.getElementById('paintEndSeat');
     const paintRenumber = document.getElementById('paintRenumber');
     const paintSelectRow = document.getElementById('paintSelectRow');
     const paintCorridor = document.getElementById('paintCorridor');
@@ -888,7 +888,7 @@
 
     const TRACK_ATTRS = [
       'place-name', 'row', 'place', 'data-sector', 'data-row', 'data-seat',
-      'data-source', 'data-unlabeled', 'data-seat-uuid',
+      'data-source', 'data-unlabeled', 'data-seat-uuid', 'data-sector-edge',
     ];
 
     function snapshotCircle(circle) {
@@ -968,6 +968,7 @@
         circle.removeAttribute('data-seat');
       }
       circle.setAttribute('data-source', source || 'manual');
+      if (source !== 'manual-sector-edge') circle.removeAttribute('data-sector-edge');
       circle.removeAttribute('data-unlabeled');
       circle.classList.remove('unlabeled-dot');
       return true;
@@ -1688,13 +1689,9 @@
       }
     }
 
-    function hasCompleteSeatLabel(circle) {
-      return Boolean(circleSector(circle) && isValidPaintRow(circleRow(circle)) && circleSeatNum(circle) != null);
-    }
-
     /** Сектор: не трогаем только manual; облачные data-row/seat можно перезаписать. */
     function isWritableForSectorFill(circle) {
-      return !isManualEditedCircle(circle);
+      return !isManualEditedCircle(circle) || Boolean(circle.getAttribute('data-sector-edge'));
     }
 
     function clusterRowBands(circles, axis, bandGap) {
@@ -1720,84 +1717,114 @@
       return median(list.map((c) => normalProjection(c, axis)));
     }
 
-    function resolveSectorGridBounds(sectorLabel, rows, axis) {
-      const labeled = Array.from(rows.entries())
-        .map(([row, circles]) => ({ rowNum: Number(row), row, circles }))
-        .filter((r) => Number.isFinite(r.rowNum) && r.circles.length >= 2)
+    function buildRowEdgeAnchors(rows, axis) {
+      return Array.from(rows.entries())
+        .map(([row, circles]) => {
+          const withSeats = circles
+            .map((c) => ({
+              c,
+              seat: circleSeatNum(c),
+              along: projection(c, axis),
+              edge: c.getAttribute('data-sector-edge') || '',
+            }))
+            .filter((o) => o.seat != null);
+          if (withSeats.length < 2) return null;
+          const fallbackSeatMin = Math.min(...withSeats.map((o) => o.seat));
+          const fallbackSeatMax = Math.max(...withSeats.map((o) => o.seat));
+          const first = withSeats.filter((o) => o.edge === 'first');
+          const last = withSeats.filter((o) => o.edge === 'last');
+          const firstPts = first.length ? first : withSeats.filter((o) => o.seat === fallbackSeatMin);
+          const lastPts = last.length ? last : withSeats.filter((o) => o.seat === fallbackSeatMax);
+          const rowNum = Number(row);
+          if (!Number.isFinite(rowNum) || !firstPts.length || !lastPts.length) return null;
+          const firstSeat = Math.min(...firstPts.map((o) => o.seat));
+          const lastSeat = Math.max(...lastPts.map((o) => o.seat));
+          return {
+            row,
+            rowNum,
+            proj: median(circles.map((c) => normalProjection(c, axis))),
+            firstSeat,
+            lastSeat: Math.max(lastSeat, firstSeat + 1),
+            firstPos: median(firstPts.map((o) => o.along)),
+            lastPos: median(lastPts.map((o) => o.along)),
+          };
+        })
+        .filter(Boolean)
         .sort((a, b) => a.rowNum - b.rowNum);
+    }
+
+    function interpolateEdgeAnchor(edges, rowNum) {
+      if (!edges.length) return null;
+      const exact = edges.find((e) => e.rowNum === rowNum);
+      if (exact) return exact;
+      let lo = null;
+      let hi = null;
+      for (const edge of edges) {
+        if (edge.rowNum < rowNum) lo = edge;
+        if (edge.rowNum > rowNum) {
+          hi = edge;
+          break;
+        }
+      }
+      if (!lo && !hi) return null;
+      if (!lo) return hi;
+      if (!hi) return lo;
+      const t = (rowNum - lo.rowNum) / (hi.rowNum - lo.rowNum);
+      return {
+        row: String(rowNum),
+        rowNum,
+        proj: lo.proj + (hi.proj - lo.proj) * t,
+        firstSeat: Math.round(lo.firstSeat + (hi.firstSeat - lo.firstSeat) * t),
+        lastSeat: Math.round(lo.lastSeat + (hi.lastSeat - lo.lastSeat) * t),
+        firstPos: lo.firstPos + (hi.firstPos - lo.firstPos) * t,
+        lastPos: lo.lastPos + (hi.lastPos - lo.lastPos) * t,
+      };
+    }
+
+    function nearestFreeSeat(candidate, freeSeats) {
+      if (!freeSeats.length) return null;
+      let best = freeSeats[0];
+      let bestDist = Math.abs(best - candidate);
+      for (const seat of freeSeats) {
+        const dist = Math.abs(seat - candidate);
+        if (dist < bestDist) {
+          best = seat;
+          bestDist = dist;
+        }
+      }
+      return best;
+    }
+
+    function resolveSectorGridBounds(sectorLabel, rows, axis) {
+      const edges = buildRowEdgeAnchors(rows, axis);
       const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
       const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
       let rowMin = manualFirst ? Number(manualFirst) : null;
       let rowMax = manualLast ? Number(manualLast) : null;
       if (rowMin == null || rowMax == null) {
-        if (labeled.length < 2) {
+        if (edges.length < 2) {
           throw new Error(
-            'Укажи «Ряд» и «по» (первый/последний) или разметь ≥2 ряда с ≥2 местами в секторе',
+            'Укажи «Ряд»/«по» или разметь минимум 2 ряда с первым и последним местом',
           );
         }
-        if (rowMin == null) rowMin = labeled[0].rowNum;
-        if (rowMax == null) rowMax = labeled[labeled.length - 1].rowNum;
+        if (rowMin == null) rowMin = edges[0].rowNum;
+        if (rowMax == null) rowMax = edges[edges.length - 1].rowNum;
       }
       if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
       let projMin = rowProjectionMedian(rows, String(rowMin), axis);
       let projMax = rowProjectionMedian(rows, String(rowMax), axis);
       if (projMin == null || projMax == null) {
-        const projs = labeled.flatMap((r) => r.circles.map((c) => normalProjection(c, axis)));
-        projMin = projMin ?? Math.min(...projs);
-        projMax = projMax ?? Math.max(...projs);
+        const firstEdge = interpolateEdgeAnchor(edges, rowMin);
+        const lastEdge = interpolateEdgeAnchor(edges, rowMax);
+        projMin = projMin ?? firstEdge?.proj;
+        projMax = projMax ?? lastEdge?.proj;
       }
-      if (Math.abs(projMax - projMin) < 1) {
+      if (projMin == null || projMax == null || Math.abs(projMax - projMin) < 1) {
         throw new Error('Первый и последний ряд совпадают по геометрии — уточни «Ряд»/«по»');
       }
-
-      const seatStart = Math.max(1, parseInt(paintStartSeat?.value, 10) || 1);
-      const seatEndRaw = parseInt(paintEndSeat?.value, 10);
-      let seatMin = seatStart;
-      let seatMax = Number.isFinite(seatEndRaw) && seatEndRaw >= 1 ? seatEndRaw : null;
-      const colMinPts = [];
-      const colMaxPts = [];
-      let labeledSeatMin = Infinity;
-      let labeledSeatMax = -Infinity;
-      for (const [, list] of rows) {
-        const seats = list.map(circleSeatNum).filter((n) => n != null);
-        if (!seats.length) continue;
-        const minS = Math.min(...seats);
-        const maxS = Math.max(...seats);
-        labeledSeatMin = Math.min(labeledSeatMin, minS);
-        labeledSeatMax = Math.max(labeledSeatMax, maxS);
-        for (const c of list) {
-          const s = circleSeatNum(c);
-          if (s === minS) colMinPts.push(c);
-          if (s === maxS) colMaxPts.push(c);
-        }
-      }
-      if (seatMax == null) {
-        if (Number.isFinite(labeledSeatMax)) seatMax = labeledSeatMax;
-        else throw new Error('Укажи «Место по» или разметь крайние места (1-я и последняя колонки)');
-      }
-      if (seatMin > seatMax) [seatMin, seatMax] = [seatMax, seatMin];
-      let seatAxisMin =
-        colMinPts.length >= 2
-          ? median(colMinPts.map((c) => projection(c, axis)))
-          : null;
-      let seatAxisMax =
-        colMaxPts.length >= 2
-          ? median(colMaxPts.map((c) => projection(c, axis)))
-          : null;
-      if (seatAxisMin == null || seatAxisMax == null) {
-        const anchorRow = rows.get(String(rowMin)) || rows.get(String(rowMax)) || labeled[0]?.circles;
-        if (anchorRow?.length >= 2) {
-          const sorted = anchorRow
-            .map((c) => ({ c, p: projection(c, axis) }))
-            .sort((a, b) => a.p - b.p);
-          seatAxisMin = seatAxisMin ?? sorted[0].p;
-          seatAxisMax = seatAxisMax ?? sorted[sorted.length - 1].p;
-        }
-      }
-      if (seatAxisMin == null || seatAxisMax == null || Math.abs(seatAxisMax - seatAxisMin) < 1) {
-        throw new Error('Нет опоры по колонкам: разметь 1-е и последние места или укажи «Место с/по»');
-      }
-      if (seatAxisMin > seatAxisMax) [seatAxisMin, seatAxisMax] = [seatAxisMax, seatAxisMin];
+      if (edges.length < 2) throw new Error('Разметь колонку первых мест и колонку последних мест минимум на 2 рядах');
+      const seatMin = Math.min(...edges.map((e) => e.firstSeat));
+      const seatMax = Math.max(...edges.map((e) => e.lastSeat));
 
       return {
         rowMin,
@@ -1806,19 +1833,8 @@
         projMax,
         seatMin,
         seatMax,
-        seatAxisMin,
-        seatAxisMax,
-        labeledCount: labeled.length,
+        edges,
       };
-    }
-
-    function rowSeatDirection(circles, axis) {
-      const pairs = circles
-        .map((c) => ({ c, pos: projection(c, axis), seat: circleSeatNum(c) }))
-        .filter((o) => o.seat != null)
-        .sort((a, b) => a.pos - b.pos);
-      if (pairs.length < 2) return 1;
-      return pairs[pairs.length - 1].seat >= pairs[0].seat ? 1 : -1;
     }
 
     function validateCurrentSector() {
@@ -1929,7 +1945,7 @@
       const candidates = circlesForSector(sectorLabel);
       const rows = groupedLabeledRows(sectorLabel);
       const anchorCircles = Array.from(rows.values()).flat();
-      const axis = principalAxis(anchorCircles.length >= 4 ? anchorCircles : candidates);
+      const axis = principalAxis(candidates.length >= 4 ? candidates : anchorCircles);
       const grid = resolveSectorGridBounds(sectorLabel, rows, axis);
       const proposal = [];
       const suspicious = [];
@@ -1944,55 +1960,73 @@
         throw new Error('Нет свободных точек: все manual или сектор пуст');
       }
       const bandGap = Math.max(8, Math.min(14, paintCorridorPx() * 0.55));
-      const bands = clusterRowBands(writable, axis, bandGap);
+      const bands = clusterRowBands(candidates, axis, bandGap);
       const rowSpan = grid.rowMax - grid.rowMin;
-      const seatSpan = grid.seatMax - grid.seatMin;
-      const seatAxisSpan = grid.seatAxisMax - grid.seatAxisMin;
-      const dir = rowSeatDirection(
-        (rows.get(String(grid.rowMin)) || rows.get(String(grid.rowMax)) || anchorCircles).filter(
-          (c) => circleSeatNum(c) != null,
-        ),
-        axis,
-      );
 
       for (const band of bands) {
         const tRow = (band.proj - grid.projMin) / (grid.projMax - grid.projMin);
         const rowNum = Math.round(grid.rowMin + tRow * rowSpan);
         const rowKey = String(rowNum);
         if (rowNum < grid.rowMin || rowNum > grid.rowMax) continue;
-        let sorted = band.circles
-          .slice()
-          .sort((c1, c2) => projection(c1, axis) - projection(c2, axis));
-        if (dir < 0) sorted = sorted.reverse();
-        const n = sorted.length;
-        if (n < 2) continue;
-        for (let idx = 0; idx < sorted.length; idx++) {
-          const c = sorted[idx];
+        const edge = interpolateEdgeAnchor(grid.edges, rowNum);
+        if (!edge || Math.abs(edge.lastPos - edge.firstPos) < 1 || edge.lastSeat <= edge.firstSeat) {
+          suspicious.push('ряд ' + rowKey + ': нет пары крайних мест');
+          warnCircles.push(...band.circles);
+          continue;
+        }
+        const existing = rows.get(rowKey) || [];
+        const occupiedManual = new Set(
+          existing
+            .filter((c) => isManualEditedCircle(c) && !c.getAttribute('data-sector-edge'))
+            .map(circleSeatNum)
+            .filter((n) => n != null),
+        );
+        const spanItems = band.circles
+          .map((c) => ({
+            c,
+            t: (projection(c, axis) - edge.firstPos) / (edge.lastPos - edge.firstPos),
+          }))
+          .filter((o) => o.t >= -0.15 && o.t <= 1.15)
+          .sort((a, b) => a.t - b.t);
+        const firstSeat = Math.max(1, edge.firstSeat);
+        const lastSeat = Math.max(edge.lastSeat, firstSeat + Math.max(0, spanItems.length - 1));
+        const freeSeats = [];
+        for (let seat = firstSeat; seat <= lastSeat; seat++) {
+          if (!occupiedManual.has(seat)) freeSeats.push(seat);
+        }
+        const sorted = spanItems.filter((o) => isWritableForSectorFill(o.c));
+        if (sorted.length < 1) continue;
+        const available = freeSeats.slice();
+        for (const item of sorted) {
+          const c = item.c;
           const along = projection(c, axis);
-          let seat;
-          if (n === 1) seat = grid.seatMin;
-          else {
-            const tSeat = (along - grid.seatAxisMin) / seatAxisSpan;
-            seat = Math.round(grid.seatMin + tSeat * seatSpan);
+          const tSeat = (along - edge.firstPos) / (edge.lastPos - edge.firstPos);
+          const rawSeat = Math.round(firstSeat + tSeat * (lastSeat - firstSeat));
+          const seat = nearestFreeSeat(rawSeat, available);
+          if (seat == null) {
+            suspicious.push('ряд ' + rowKey + ': нет свободных мест между крайними колонками');
+            warnCircles.push(c);
+            continue;
           }
-          if (!Number.isFinite(seat) || seat < grid.seatMin || seat > grid.seatMax + 2) {
-            seat = grid.seatMin + Math.round((idx / Math.max(1, n - 1)) * seatSpan);
-          }
-          seat = Math.max(grid.seatMin, Math.min(grid.seatMax, seat));
-          const existing = rows.get(rowKey) || [];
-          const dup = existing.some(
-            (o) => o !== c && circleSeatNum(o) === seat && isManualEditedCircle(o),
-          );
-          if (dup) {
+          if (occupiedManual.has(seat)) {
             suspicious.push('ряд ' + rowKey + ' место ' + seat + ': занято manual');
             warnCircles.push(c);
             continue;
           }
+          available.splice(available.indexOf(seat), 1);
           proposal.push({ circle: c, row: rowKey, seat: String(seat) });
         }
       }
 
       const proposedRows = new Set(proposal.map((p) => p.row)).size;
+      const proposedSeats = proposal.map((p) => Number(p.seat)).filter(Number.isFinite);
+      const gridWithSeats = proposedSeats.length
+        ? {
+            ...grid,
+            seatMin: Math.min(grid.seatMin, ...proposedSeats),
+            seatMax: Math.max(grid.seatMax, ...proposedSeats),
+          }
+        : grid;
       if (!proposal.length && protectedSkipped > 0 && protectedSkipped >= candidates.length * 0.85) {
         suspicious.push('почти все точки manual — сектор уже размечен');
       }
@@ -2002,7 +2036,7 @@
         suspicious,
         warnCircles,
         protectedSkipped,
-        grid,
+        grid: gridWithSeats,
       };
     }
 
@@ -2150,6 +2184,57 @@
       }
     }
 
+    async function applyColumnAnchorToSelection(selection, sector, edgeKind) {
+      const firstRow = Number(normalizePaintRowNum(paintRow.value));
+      const lastRow = Number(normalizePaintRowNum(paintEndRow.value));
+      if (!Number.isFinite(firstRow) || !Number.isFinite(lastRow)) {
+        showPaintToast('err', 'Для колонки укажи «Ряд» и «по»');
+        return 0;
+      }
+      const pathForSort =
+        paintPathPoints.length >= 1
+          ? paintPathPoints
+          : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
+      const sortedSel = sortCirclesAlongPath(selection, pathForSort);
+      const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      const edgeLabel = edgeKind === 'first' ? 'первых мест' : 'последних мест';
+      markAudit(sortedSel, 'proposed');
+      if (
+        !window.confirm(
+          'Применить колонку ' +
+            edgeLabel +
+            ' для ' +
+            canonicalSectorLabel(sector) +
+            ': ряды ' +
+            firstRow +
+            '-' +
+            lastRow +
+            ', ' +
+            sortedSel.length +
+            ' точек?',
+        )
+      ) {
+        showPaintToast('info', 'Колонка подсвечена бирюзовым, SVG не изменён');
+        return 0;
+      }
+      const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      const rowSpan = lastRow - firstRow;
+      for (let i = 0; i < sortedSel.length; i++) {
+        const t = sortedSel.length <= 1 ? 0 : i / (sortedSel.length - 1);
+        const row = String(Math.round(firstRow + rowSpan * t));
+        applySeatToCircle(sortedSel[i], sector, row, String(startSeat), 'manual-sector-edge');
+        sortedSel[i].setAttribute('data-sector-edge', edgeKind);
+      }
+      pushUndo(batch);
+      persistCircleEdits(sortedSel, { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(sector));
+      showPaintToast('ok', 'Колонка ' + edgeLabel + ' применена: ' + sortedSel.length + ' точек');
+      renderRowLabels(sector);
+      return sortedSel.length;
+    }
+
     async function applyPaintToSelection() {
       clearAuditMarks();
       if (!paintSelection.length) {
@@ -2195,6 +2280,10 @@
             '». Веди линию по ряду в этом секторе.',
         );
         return 0;
+      }
+      const applyMode = paintApplyMode?.value || 'row';
+      if (applyMode === 'first-col' || applyMode === 'last-col') {
+        return applyColumnAnchorToSelection(selection, sector, applyMode === 'first-col' ? 'first' : 'last');
       }
       const wantRow = normalizePaintRowNum(row);
       const cloudRowMismatch = selection.filter(
