@@ -104,6 +104,9 @@ export function shouldUseLuzhnikiFootballCanonicalMap(base, placeMapsVenue, stag
 export function slimLuzhnikiStageMapForClient(row) {
   if (!row) return row;
   const layout = parseLayoutJson(row);
+  const manualSeats = Array.isArray(layout.seats) && layout.seats.length <= 8000
+    ? layout.seats.filter((s) => String(s?.geodesySource ?? '').includes('manual'))
+    : [];
   const {
     allSeatCoordinates: _cloud,
     seats: _seats,
@@ -117,6 +120,7 @@ export function slimLuzhnikiStageMapForClient(row) {
     ...row,
     layout_json: {
       ...slimLayout,
+      ...(manualSeats.length > 0 ? { seats: manualSeats } : null),
       omitClientSeatCoordinateCloud: true,
       hallBackgroundRasterUrl: '/hall-maps/luzhniki-football-gray-bowl.png',
       stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
@@ -134,6 +138,22 @@ function buildSellableSeatsFromManualBundle(offers = []) {
   if (!useFastManualSellable()) return null;
   const index = getCachedGrayCloudLabeledIndex();
   if (!index?.size) return null;
+
+  const allManualSeats = [];
+  const seenManual = new Set();
+  for (const s of index.values()) {
+    const key = `${s.sector}|${s.row}|${s.seat}|${Number(s.xPct).toFixed(4)}|${Number(s.yPct).toFixed(4)}`;
+    if (seenManual.has(key)) continue;
+    seenManual.add(key);
+    allManualSeats.push({
+      sector: s.sector,
+      row: String(s.row),
+      seat: String(s.seat),
+      xPct: Number(s.xPct),
+      yPct: Number(s.yPct),
+      geodesySource: 'manualEditor',
+    });
+  }
 
   const seats = [];
   const seen = new Set();
@@ -183,6 +203,7 @@ function buildSellableSeatsFromManualBundle(offers = []) {
   }
 
   return {
+    allManualSeats,
     seats,
     totalSellable,
     matched: seats.length,
@@ -243,6 +264,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
       ...row,
       layout_json: {
         ...base,
+        seats: manualSellable.allManualSeats,
         sellableSeats: manualSellable.seats,
         sellableSeatsFromLiveOffers: true,
         sellableGeodesyMode: 'manualBundleFast',
