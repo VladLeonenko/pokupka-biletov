@@ -24,9 +24,31 @@ const SEATS_BUNDLE = path.join(
 
 const router = express.Router();
 
+const ALLOWED_TOOL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+
+router.use((req, res, next) => {
+  const origin = String(req.headers.origin || '');
+  if (ALLOWED_TOOL_ORIGIN_RE.test(origin) || origin === 'https://biletvsem.com') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type,x-luzhniki-svg-save-token');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  return next();
+});
+
 function writeSvgFiles(filePath, xml) {
   fs.writeFileSync(filePath, xml, 'utf8');
   fs.writeFileSync(`${filePath}.gz`, zlib.gzipSync(xml, { level: 9 }));
+}
+
+function backupExistingFile(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = `${filePath}.${stamp}.bak`;
+  fs.copyFileSync(filePath, backupPath);
+  return backupPath;
 }
 
 function readBundleMeta() {
@@ -132,11 +154,6 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
   try {
     const sectorNorm = normalizeLuzhnikiGrayCloudSvgSectorAttrs(xml);
     xml = sectorNorm.xml;
-    fs.mkdirSync(path.dirname(HAND_SVG), { recursive: true });
-    fs.mkdirSync(path.dirname(PUBLIC_SVG), { recursive: true });
-    writeSvgFiles(HAND_SVG, xml);
-    writeSvgFiles(PUBLIC_SVG, xml);
-
     const extracted = extractLabeledSeatsFromSvgMarkup(xml);
     const labeledCount = extracted.labeledCount ?? extracted.seats.length;
 
@@ -147,10 +164,20 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
         error:
           'В SVG 0 мест с data-sector + data-row + data-seat. В редакторе: 〰 линия → ▶ Применить ряд (или ✎ + Применить на точке). Bundle не тронут.',
         labeledSeats: 0,
-        svgSaved: true,
+        svgSaved: false,
         previousBundleSeatCount: prev.seatCount ?? 0,
       });
     }
+
+    fs.mkdirSync(path.dirname(HAND_SVG), { recursive: true });
+    fs.mkdirSync(path.dirname(PUBLIC_SVG), { recursive: true });
+    const backups = {
+      hand: backupExistingFile(HAND_SVG),
+      public: backupExistingFile(PUBLIC_SVG),
+      seatsBundle: backupExistingFile(SEATS_BUNDLE),
+    };
+    writeSvgFiles(HAND_SVG, xml);
+    writeSvgFiles(PUBLIC_SVG, xml);
 
     const byNorm = getCachedTicketsSectorLabelByNorm();
     const seats = extracted.seats.map((s) => ({
@@ -187,6 +214,7 @@ router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application
       sectorLabelsNormalized: sectorNorm.changed,
       sectorNormCounts,
       svgManualAttrs: (xml.match(/data-source="manual/g) || []).length,
+      backups,
       paths: { hand: HAND_SVG, public: PUBLIC_SVG, seatsBundle: SEATS_BUNDLE },
     });
   } catch (e) {

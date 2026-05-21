@@ -436,9 +436,9 @@
       const result = await saveSvgToServer();
       if (!result.ok) return result;
       const norm = expectSectorNorm ? normalizeSectorLabel(expectSectorNorm) : '';
-      const n = norm && result.data?.sectorNormCounts ? result.data.sectorNormCounts[n] : null;
+      const savedSectorCount = norm && result.data?.sectorNormCounts ? result.data.sectorNormCounts[norm] : null;
       const label = norm ? canonicalSectorLabel(norm) : '';
-      if (norm && n === 0) {
+      if (norm && savedSectorCount === 0) {
         showPaintToast(
           'err',
           'Сервер принял SVG, но в bundle 0 мест для «' +
@@ -451,7 +451,7 @@
         'ok',
         'Сервер ✓ bundle ' +
           (result.data?.labeledSeats ?? '?') +
-          (norm && n != null ? ' · ' + label + ': ' + n + ' мест' : ''),
+          (norm && savedSectorCount != null ? ' · ' + label + ': ' + savedSectorCount + ' мест' : ''),
       );
       return result;
     }
