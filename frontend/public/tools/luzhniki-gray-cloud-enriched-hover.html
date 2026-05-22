@@ -144,7 +144,7 @@
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
       <button type="button" id="paintApply" class="warn">▶ Применить → сервер</button>
-      <button type="button" id="sectorApply" title="заполнить сектор по первому/последнему ряду и крайним колонкам мест">↕ сектор</button>
+      <button type="button" id="sectorApply" title="заполнить сектор: ряды по Y, места 1→N по X от 1-й колонки к последней">↕ сектор</button>
       <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
       <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
       <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
@@ -1999,11 +1999,113 @@
       if (sector) renderRowLabels(sector);
     }
 
+    /** Якоря колонки первых/последних мест; buildSectorProposal использует только marked. */
+    function collectColumnAnchors(candidates, rows, edgeKind) {
+      const byRow = new Map();
+      for (const c of candidates) {
+        const row = normalizePaintRowNum(circleRow(c));
+        if (!row) continue;
+        const seat = circleSeatNum(c);
+        if (seat == null) continue;
+        const edge = c.getAttribute('data-sector-edge') || '';
+        const hit = edgeKind === 'first' ? edge === 'first' : edge === 'last';
+        const p = circleXY(c);
+        const cur = byRow.get(row);
+        if (!cur) {
+          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: hit });
+          continue;
+        }
+        if (hit && !cur.marked) {
+          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
+          continue;
+        }
+        if (hit === cur.marked) {
+          if (edgeKind === 'first' && seat < cur.seat) byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: hit || cur.marked });
+          if (edgeKind === 'last' && seat > cur.seat) byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: hit || cur.marked });
+        }
+      }
+      return Array.from(byRow.values()).sort((a, b) => a.y - b.y);
+    }
+
+    function clusterBandsByY(circles, bandGap) {
+      const items = circles.map((c) => ({ c, y: circleXY(c).y })).sort((a, b) => a.y - b.y);
+      const bands = [];
+      let group = [];
+      for (const it of items) {
+        if (!group.length || it.y - group[group.length - 1].y <= bandGap) group.push(it);
+        else {
+          bands.push({ circles: group.map((x) => x.c), y: median(group.map((x) => x.y)) });
+          group = [it];
+        }
+      }
+      if (group.length) bands.push({ circles: group.map((x) => x.c), y: median(group.map((x) => x.y)) });
+      return bands;
+    }
+
+    function rowNumFromBandY(bandY, colAnchors, rowMin, rowMax) {
+      if (!colAnchors.length) return null;
+      if (bandY <= colAnchors[0].y) return colAnchors[0].rowNum;
+      if (bandY >= colAnchors[colAnchors.length - 1].y) return colAnchors[colAnchors.length - 1].rowNum;
+      for (let i = 1; i < colAnchors.length; i++) {
+        const lo = colAnchors[i - 1];
+        const hi = colAnchors[i];
+        if (bandY >= lo.y && bandY <= hi.y) {
+          const t = (bandY - lo.y) / (hi.y - lo.y || 1);
+          return Math.round(lo.rowNum + (hi.rowNum - lo.rowNum) * t);
+        }
+      }
+      return null;
+    }
+
+    function anchorForRow(anchors, rowNum) {
+      const exact = anchors.find((a) => a.rowNum === rowNum);
+      if (exact) return exact;
+      let lo = null;
+      let hi = null;
+      for (const anchor of anchors) {
+        if (anchor.rowNum < rowNum) lo = anchor;
+        if (anchor.rowNum > rowNum) {
+          hi = anchor;
+          break;
+        }
+      }
+      if (!lo && !hi) return null;
+      if (!lo) return hi;
+      if (!hi) return lo;
+      const t = (rowNum - lo.rowNum) / (hi.rowNum - lo.rowNum || 1);
+      return {
+        rowNum,
+        row: String(rowNum),
+        seat: Math.round(lo.seat + (hi.seat - lo.seat) * t),
+        x: lo.x + (hi.x - lo.x) * t,
+        y: lo.y + (hi.y - lo.y) * t,
+        marked: lo.marked || hi.marked,
+      };
+    }
+
+    function sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor) {
+      const dir = lastAnchor.x >= firstAnchor.x ? 1 : -1;
+      return circles
+        .slice()
+        .sort((a, b) => dir * (circleXY(a).x - circleXY(b).x));
+    }
+
     function buildSectorProposal(sectorLabel) {
       const candidates = circlesForSector(sectorLabel);
       const rows = groupedLabeledRows(sectorLabel);
-      const axis = chooseSectorRowAxis(rows, candidates);
-      const grid = resolveSectorGridBounds(sectorLabel, rows, axis);
+      const firstCol = collectColumnAnchors(candidates, rows, 'first').filter((a) => a.marked);
+      const lastCol = collectColumnAnchors(candidates, rows, 'last').filter((a) => a.marked);
+      if (firstCol.length < 2) {
+        throw new Error('Разметь колонку 1-х мест (Тип «1-я колонка») минимум на 2 рядах');
+      }
+      if (lastCol.length < 2) {
+        throw new Error('Разметь колонку последних мест (Тип «посл. колонка») минимум на 2 рядах');
+      }
+      const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
+      const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
+      let rowMin = manualFirst ? Number(manualFirst) : firstCol[0].rowNum;
+      let rowMax = manualLast ? Number(manualLast) : firstCol[firstCol.length - 1].rowNum;
+      if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
       const proposal = [];
       const suspicious = [];
       const warnCircles = [];
@@ -2027,25 +2129,43 @@
         );
       }
       const bandGap = Math.max(8, Math.min(14, paintCorridorPx() * 0.55));
-      const bands = clusterRowBands(candidates, axis, bandGap);
-
+      const bands = clusterBandsByY(candidates, bandGap);
       for (const band of bands) {
-        const rowNum = rowNumFromBandProj(band.proj, grid.edges, grid.rowMin, grid.rowMax);
+        const rowNum = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
+        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
+          bandsSkipped++;
+          continue;
+        }
         const rowKey = String(rowNum);
-        if (rowNum < grid.rowMin || rowNum > grid.rowMax) {
+        if (rowNum === rowMin) {
           bandsSkipped++;
           continue;
         }
-        const edge = normalizeRowEdge(interpolateEdgeAnchor(grid.edges, rowNum));
-        if (!edge || Math.abs(edge.lastPos - edge.firstPos) < 1) {
-          suspicious.push('ряд ' + rowKey + ': нет пары крайних колонок');
-          warnCircles.push(...band.circles);
+        const firstAnchor = anchorForRow(firstCol, rowNum);
+        if (!firstAnchor) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря 1-го места в колонке');
           bandsSkipped++;
           continue;
         }
-        const colLo = Math.min(edge.firstPos, edge.lastPos);
-        const colHi = Math.max(edge.firstPos, edge.lastPos);
-        const colMargin = Math.max(6, (colHi - colLo) * 0.08);
+        const lastAnchor = anchorForRow(lastCol, rowNum);
+        if (!lastAnchor || Math.abs(lastAnchor.x - firstAnchor.x) < 1) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря последнего места в колонке');
+          bandsSkipped++;
+          continue;
+        }
+        const xLo = Math.min(firstAnchor.x, lastAnchor.x);
+        const xHi = Math.max(firstAnchor.x, lastAnchor.x);
+        const xMargin = Math.max(8, Math.abs(xHi - xLo) * 0.06);
+        const rowDots = band.circles.filter((c) => {
+          const x = circleXY(c).x;
+          return x >= xLo - xMargin && x <= xHi + xMargin;
+        });
+        if (!rowDots.length) {
+          bandsSkipped++;
+          continue;
+        }
+        const sorted = sortSeatsByColumnDirection(rowDots, firstAnchor, lastAnchor);
+        const startSeat = Math.max(1, firstAnchor.seat || 1);
         const existing = rows.get(rowKey) || [];
         const occupiedManual = new Set(
           existing
@@ -2053,55 +2173,32 @@
             .map(circleSeatNum)
             .filter((n) => n != null),
         );
-        const sorted = band.circles
-          .filter((c) => shouldFillCircle(c))
-          .map((c) => {
-            const along = projection(c, axis);
-            return { c, along, t: (along - colLo) / (colHi - colLo || 1) };
-          })
-          .filter((o) => o.along >= colLo - colMargin && o.along <= colHi + colMargin)
-          .sort((a, b) => a.along - b.along);
-        if (!sorted.length) {
-          bandsSkipped++;
-          continue;
-        }
         bandsUsed++;
-        const firstSeat = Math.max(1, edge.firstSeat);
-        const lastSeat = firstSeat + sorted.length - 1;
-        const freeSeats = [];
-        for (let seat = firstSeat; seat <= lastSeat; seat++) {
-          if (!occupiedManual.has(seat)) freeSeats.push(seat);
-        }
-        const available = freeSeats.slice();
-        for (const item of sorted) {
-          const c = item.c;
-          const tSeat = Math.max(0, Math.min(1, item.t));
-          const rawSeat = Math.round(firstSeat + tSeat * Math.max(0, lastSeat - firstSeat));
-          const seat = nearestFreeSeat(rawSeat, available);
-          if (seat == null) {
-            suspicious.push('ряд ' + rowKey + ': нет свободных мест (' + sorted.length + ' точек)');
+        for (let i = 0; i < sorted.length; i++) {
+          const c = sorted[i];
+          const seatNum = startSeat + i;
+          const edgeKind = c.getAttribute('data-sector-edge') || '';
+          const manualLocked = isManualEditedCircle(c) && !edgeKind;
+          if (manualLocked) continue;
+          if (occupiedManual.has(seatNum)) {
+            suspicious.push('ряд ' + rowKey + ' место ' + seatNum + ': занято manual');
             warnCircles.push(c);
             continue;
           }
-          if (occupiedManual.has(seat)) {
-            suspicious.push('ряд ' + rowKey + ' место ' + seat + ': занято manual');
-            warnCircles.push(c);
-            continue;
-          }
-          available.splice(available.indexOf(seat), 1);
-          proposal.push({ circle: c, row: rowKey, seat: String(seat) });
+          if (edgeKind === 'first' && seatNum === circleSeatNum(c)) continue;
+          proposal.push({ circle: c, row: rowKey, seat: String(seatNum), edgeKind });
         }
       }
 
       const proposedRows = new Set(proposal.map((p) => p.row)).size;
       const proposedSeats = proposal.map((p) => Number(p.seat)).filter(Number.isFinite);
-      const gridWithSeats = proposedSeats.length
-        ? {
-            ...grid,
-            seatMin: Math.min(grid.seatMin, ...proposedSeats),
-            seatMax: Math.max(grid.seatMax, ...proposedSeats),
-          }
-        : grid;
+      const grid = {
+        rowMin,
+        rowMax,
+        seatMin: proposedSeats.length ? Math.min(...proposedSeats) : 1,
+        seatMax: proposedSeats.length ? Math.max(...proposedSeats) : 1,
+        edgeRows: firstCol.length,
+      };
       if (!proposal.length && protectedSkipped > 0 && protectedSkipped >= candidates.length * 0.85) {
         suspicious.push('почти все точки manual — сектор уже размечен');
       }
@@ -2111,7 +2208,7 @@
         suspicious,
         warnCircles,
         protectedSkipped,
-        grid: gridWithSeats,
+        grid,
         stats: {
           candidates: candidates.length,
           fillable,
@@ -2119,7 +2216,7 @@
           bands: bands.length,
           bandsUsed,
           bandsSkipped,
-          edgeRows: grid.edges.length,
+          edgeRows: firstCol.length,
         },
       };
     }
@@ -2185,7 +2282,10 @@
         return;
       }
       const batch = built.proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
-      for (const p of built.proposal) applySeatToCircle(p.circle, sector, p.row, p.seat, 'manual-sector-fill');
+      for (const p of built.proposal) {
+        applySeatToCircle(p.circle, sector, p.row, p.seat, p.edgeKind ? 'manual-sector-edge' : 'manual-sector-fill');
+        if (p.edgeKind) p.circle.setAttribute('data-sector-edge', p.edgeKind);
+      }
       pushUndo(batch);
       persistCircleEdits(built.proposal.map((p) => p.circle), { deferServer: true });
       paintUnlabeled(svgRoot);
