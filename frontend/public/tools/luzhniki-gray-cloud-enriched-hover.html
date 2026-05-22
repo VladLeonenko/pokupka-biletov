@@ -2202,6 +2202,80 @@
       return bestD <= half ? best : byY;
     }
 
+    function rowNumForCircle(c, firstCol, rowMin, rowMax, axis) {
+      const p = circleXY(c);
+      return rowNumFromBandNear({ circles: [c], y: p.y }, firstCol, rowMin, rowMax, axis);
+    }
+
+    /** Ряд C142 и др.: проход между блоками мест (aisle) — все сегменты от 1-й до посл. колонки. */
+    function filterRowDotsBetweenAnchors(rowDots, fa, la) {
+      if (!rowDots.length) return rowDots;
+      const sorted = sortSeatsByColumnDirection(rowDots, fa, la);
+      const pitches = [];
+      for (let i = 1; i < sorted.length; i++) {
+        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
+        if (dx > 4 && dx < 120) pitches.push(dx);
+      }
+      const pitch = median(pitches) || 20;
+      const aisleGap = Math.max(42, pitch * 2.35);
+      const segments = [];
+      let bucket = [sorted[0]];
+      for (let i = 1; i < sorted.length; i++) {
+        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
+        if (dx > aisleGap) {
+          segments.push(bucket);
+          bucket = [sorted[i]];
+        } else bucket.push(sorted[i]);
+      }
+      segments.push(bucket);
+      const spanLo = Math.min(fa.x, la.x) - 28;
+      const spanHi = Math.max(fa.x, la.x) + 28;
+      const kept = [];
+      for (const seg of segments) {
+        const xs = seg.map((c) => circleXY(c).x);
+        const segLo = Math.min(...xs);
+        const segHi = Math.max(...xs);
+        if (segHi < spanLo || segLo > spanHi) continue;
+        kept.push(...seg);
+      }
+      return kept.length ? kept : rowDots;
+    }
+
+    function snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum) {
+      if (!rowDots.length) return { fa, la };
+      const xs = rowDots.map((c) => circleXY(c).x);
+      const xMin = Math.min(...xs);
+      const xMax = Math.max(...xs);
+      const hasExactFirst = firstCol.some((a) => a.rowNum === rowNum);
+      const hasExactLast = lastCol.some((a) => a.rowNum === rowNum);
+      return {
+        fa: hasExactFirst ? fa : { ...fa, x: Math.min(fa.x, xMin) },
+        la: hasExactLast ? la : { ...la, x: Math.max(la.x, xMax) },
+      };
+    }
+
+    function resolveLastSlot(slots) {
+      let lastSlot = null;
+      let lastSlotX = -Infinity;
+      for (const slot of slots) {
+        const hasLastEdge = slot.members.some(
+          (c) => (c.getAttribute('data-sector-edge') || '') === 'last',
+        );
+        if (!hasLastEdge) continue;
+        const x = circleXY(slot.rep).x;
+        if (x >= lastSlotX) {
+          lastSlotX = x;
+          lastSlot = slot;
+        }
+      }
+      if (!lastSlot && slots.length) {
+        lastSlot = slots.reduce((best, slot) =>
+          circleXY(slot.rep).x >= circleXY(best.rep).x ? slot : best,
+        );
+      }
+      return lastSlot;
+    }
+
     function rowNumFromBandY(bandY, colAnchors, rowMin, rowMax) {
       if (!colAnchors.length) return null;
       const sorted = colAnchors.slice().sort((a, b) => a.y - b.y);
@@ -2503,18 +2577,21 @@
         candidates.filter((c) => !isNoiseGridDot(c)),
         bandGap,
       );
-      const bandByRow = new Map();
+      const dotsByRow = new Map();
       for (const band of yBands) {
-        const rowNum = rowNumFromBandNear(band, firstCol, rowMin, rowMax, rowAxis);
-        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
-          bandsSkipped++;
-          continue;
+        for (const c of band.circles) {
+          if (isNoiseGridDot(c)) continue;
+          const rowNum = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
+          if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
+            bandsSkipped++;
+            continue;
+          }
+          if (!dotsByRow.has(rowNum)) dotsByRow.set(rowNum, []);
+          dotsByRow.get(rowNum).push(c);
         }
-        const prev = bandByRow.get(rowNum);
-        if (!prev || band.circles.length > prev.circles.length) bandByRow.set(rowNum, band);
       }
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
-      for (const [rowNum, band] of bandByRow) {
+      for (const [rowNum, bandDots] of dotsByRow) {
         const rowKey = String(rowNum);
         const firstAnchor = anchorForRow(firstCol, rowNum);
         if (!firstAnchor) {
@@ -2540,17 +2617,19 @@
         }
         let xLo = Math.min(fa.x, la.x);
         let xHi = Math.max(fa.x, la.x);
-        const bandXs = band.circles.map((c) => circleXY(c).x);
+        const bandXs = bandDots.map((c) => circleXY(c).x);
         if (bandXs.length) {
           xLo = Math.min(xLo, Math.min(...bandXs));
           xHi = Math.max(xHi, Math.max(...bandXs));
         }
         const xMargin = Math.max(8, Math.abs(xHi - xLo) * 0.05);
-        const rowDots = band.circles.filter((c) => {
+        let rowDots = bandDots.filter((c) => {
           if (isNoiseGridDot(c)) return false;
           const x = circleXY(c).x;
           return x >= xLo - xMargin && x <= xHi + xMargin;
         });
+        rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
+        ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
         const slots = dedupeSeatDotsByX(rowDots, fa, la);
         if (!slots.length) {
           bandsSkipped++;
@@ -2565,19 +2644,7 @@
         );
         bandsUsed++;
         let seatNum = Math.max(1, fa.seat || 1);
-        let lastSlot = null;
-        let lastSlotX = -Infinity;
-        for (const slot of slots) {
-          const hasLastEdge = slot.members.some(
-            (c) => (c.getAttribute('data-sector-edge') || '') === 'last',
-          );
-          if (!hasLastEdge) continue;
-          const x = circleXY(slot.rep).x;
-          if (x >= lastSlotX) {
-            lastSlotX = x;
-            lastSlot = slot;
-          }
-        }
+        const lastSlot = resolveLastSlot(slots);
         for (const slot of slots) {
           if (slot === lastSlot) continue;
           const rep = slot.rep;
@@ -2631,7 +2698,7 @@
           fillable,
           fillTargets: fillTargets.length,
           bands: yBands.length,
-          rowBands: bandByRow.size,
+          rowBands: dotsByRow.size,
           rowsTotal,
           bandsUsed,
           bandsSkipped,
