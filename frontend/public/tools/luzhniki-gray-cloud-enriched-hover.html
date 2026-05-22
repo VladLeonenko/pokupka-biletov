@@ -2220,6 +2220,50 @@
       return circles.slice().sort((a, b) => dir * (circleXY(a).x - circleXY(b).x));
     }
 
+    function seatDotRank(circle) {
+      const src = circle.getAttribute('data-source') || '';
+      const edge = circle.getAttribute('data-sector-edge') || '';
+      let s = 0;
+      if (edge === 'first' || edge === 'last') s += 30;
+      if (src === 'strict') s += 12;
+      if (src === 'fieldGrid') s += 6;
+      if (src === 'manual-sector-fill' || src.startsWith('manual')) s += 4;
+      if (src === 'fieldGridNeighbor') s -= 15;
+      const seat = circleSeatNum(c);
+      if (seat != null && seat > 0 && seat < 80) s += 2;
+      return s;
+    }
+
+    /** На одном X в SVG часто 2 круга (fieldGrid + strict) — одно место на колонку. */
+    function dedupeSeatDotsByX(circles, firstAnchor, lastAnchor) {
+      const sorted = sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor);
+      if (!sorted.length) return [];
+      const pitches = [];
+      for (let i = 1; i < sorted.length; i++) {
+        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
+        if (dx > 4) pitches.push(dx);
+      }
+      const pitch = median(pitches) || 18;
+      const mergePx = Math.max(8, pitch * 0.42);
+      const slots = [];
+      let bucket = [sorted[0]];
+      const flush = () => {
+        if (!bucket.length) return;
+        bucket.sort((a, b) => seatDotRank(b) - seatDotRank(a));
+        slots.push(bucket[0]);
+        bucket = [];
+      };
+      for (let i = 1; i < sorted.length; i++) {
+        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
+        if (dx > mergePx) {
+          flush();
+          bucket = [sorted[i]];
+        } else bucket.push(sorted[i]);
+      }
+      flush();
+      return slots;
+    }
+
     function distanceToRowSegment(circle, firstAnchor, lastAnchor) {
       const p = circleXY(circle);
       const dx = lastAnchor.x - firstAnchor.x;
@@ -2359,15 +2403,14 @@
         const xHi = Math.max(fa.x, la.x);
         const xMargin = Math.max(10, Math.abs(xHi - xLo) * 0.08);
         const rowDots = band.circles.filter((c) => {
-          if (!shouldFillCircle(c)) return false;
           const x = circleXY(c).x;
           return x >= xLo - xMargin && x <= xHi + xMargin;
         });
-        if (!rowDots.length) {
+        const slots = dedupeSeatDotsByX(rowDots, fa, la);
+        if (!slots.length) {
           bandsSkipped++;
           continue;
         }
-        const sorted = sortSeatsByColumnDirection(rowDots, fa, la);
         const startSeat = Math.max(1, fa.seat || 1);
         const existing = rows.get(rowKey) || [];
         const occupiedManual = new Set(
@@ -2378,7 +2421,7 @@
         );
         bandsUsed++;
         let nextSeat = startSeat;
-        for (const c of sorted) {
+        for (const c of slots) {
           const edgeKind = c.getAttribute('data-sector-edge') || '';
           if (isHardManualSeat(c)) {
             const held = circleSeatNum(c);
@@ -2393,6 +2436,7 @@
             }
           }
           if (edgeKind === 'last') continue;
+          if (!shouldFillCircle(c)) continue;
           if (occupiedManual.has(nextSeat)) {
             suspicious.push('ряд ' + rowKey + ' место ' + nextSeat + ': занято manual');
             warnCircles.push(c);
