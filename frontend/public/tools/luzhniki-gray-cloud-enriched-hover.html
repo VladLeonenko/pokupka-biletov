@@ -1747,6 +1747,24 @@
       return median(list.map((c) => normalProjection(c, axis)));
     }
 
+    function chooseSectorRowAxis(rows, candidates) {
+      const rowLike = Array.from(rows.values())
+        .map((circles) => {
+          const inner = circles.filter((c) => !c.getAttribute('data-sector-edge'));
+          const list = inner.length >= 3 ? inner : circles;
+          if (list.length < 3) return null;
+          const xs = list.map((c) => circleXY(c).x);
+          const ys = list.map((c) => circleXY(c).y);
+          const spanX = Math.max(...xs) - Math.min(...xs);
+          const spanY = Math.max(...ys) - Math.min(...ys);
+          return { circles: list, score: list.length * Math.max(spanX, spanY) };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score);
+      if (rowLike.length) return principalAxis(rowLike[0].circles);
+      return principalAxis(candidates);
+    }
+
     function buildRowEdgeAnchors(rows, axis) {
       return Array.from(rows.entries())
         .map(([row, circles]) => {
@@ -1984,8 +2002,7 @@
     function buildSectorProposal(sectorLabel) {
       const candidates = circlesForSector(sectorLabel);
       const rows = groupedLabeledRows(sectorLabel);
-      const anchorCircles = Array.from(rows.values()).flat();
-      const axis = principalAxis(candidates.length >= 4 ? candidates : anchorCircles);
+      const axis = chooseSectorRowAxis(rows, candidates);
       const grid = resolveSectorGridBounds(sectorLabel, rows, axis);
       const proposal = [];
       const suspicious = [];
