@@ -2377,18 +2377,30 @@
             .filter((n) => n != null),
         );
         bandsUsed++;
-        for (let i = 0; i < sorted.length; i++) {
-          const c = sorted[i];
-          const seatNum = startSeat + i;
+        let nextSeat = startSeat;
+        for (const c of sorted) {
           const edgeKind = c.getAttribute('data-sector-edge') || '';
-          if (isHardManualSeat(c)) continue;
-          if (occupiedManual.has(seatNum)) {
-            suspicious.push('ряд ' + rowKey + ' место ' + seatNum + ': занято manual');
-            warnCircles.push(c);
+          if (isHardManualSeat(c)) {
+            const held = circleSeatNum(c);
+            if (held != null && held >= nextSeat) nextSeat = held + 1;
             continue;
           }
-          if (edgeKind === 'first' && seatNum === circleSeatNum(c)) continue;
-          proposal.push({ circle: c, row: rowKey, seat: String(seatNum), edgeKind });
+          if (edgeKind === 'first') {
+            const held = circleSeatNum(c);
+            if (held != null && held === nextSeat) {
+              nextSeat = held + 1;
+              continue;
+            }
+          }
+          if (edgeKind === 'last') continue;
+          if (occupiedManual.has(nextSeat)) {
+            suspicious.push('ряд ' + rowKey + ' место ' + nextSeat + ': занято manual');
+            warnCircles.push(c);
+            nextSeat++;
+            continue;
+          }
+          proposal.push({ circle: c, row: rowKey, seat: String(nextSeat), edgeKind });
+          nextSeat++;
         }
       }
 
