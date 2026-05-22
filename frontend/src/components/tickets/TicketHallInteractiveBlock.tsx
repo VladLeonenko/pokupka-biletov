@@ -284,6 +284,10 @@ import {
   lookupLabeledSeat,
 } from '@/utils/hallSeatSeatLookup';
 import {
+  parseHallBackgroundRasterUrl,
+  parseOmitClientSeatCoordinateCloud,
+} from '@/utils/luzhnikiStadiumMap';
+import {
   normalizeRowLabel,
   normalizeSeatToken,
   normalizeSectorLabel,
@@ -499,6 +503,18 @@ export function TicketHallInteractiveBlock({
     [layoutJson],
   );
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
+  const hallBackgroundRasterUrl = useMemo(
+    () => parseHallBackgroundRasterUrl(layoutJson),
+    [layoutJson],
+  );
+  const omitClientSeatCoordinateCloud = useMemo(
+    () => parseOmitClientSeatCoordinateCloud(layoutJson),
+    [layoutJson],
+  );
+  const useHallBackgroundRaster = Boolean(
+    hallBackgroundRasterUrl
+    && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
+  );
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
@@ -712,7 +728,9 @@ export function TicketHallInteractiveBlock({
   const touchSeatToggleRef = useRef<{ key: string; at: number } | null>(null);
   const touchSeatPressRef = useRef<{ key: string; x: number; y: number } | null>(null);
   const canvasImageRef = useRef<HTMLImageElement | null>(null);
+  const hallRasterImageRef = useRef<HTMLImageElement | null>(null);
   const [canvasImageVersion, setCanvasImageVersion] = useState(0);
+  const [hallRasterVersion, setHallRasterVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
 
   const isCoarsePointer = useMemo(() => {
@@ -940,6 +958,42 @@ export function TicketHallInteractiveBlock({
       setCanvasBackdropReady(false);
     };
   }, [stadiumCanvasEnabled, svgHtmlSafe]);
+
+  useEffect(() => {
+    if (!useHallBackgroundRaster || !hallBackgroundRasterUrl) {
+      hallRasterImageRef.current = null;
+      setHallRasterVersion((v) => v + 1);
+      return;
+    }
+
+    hallRasterImageRef.current = null;
+    const img = new Image();
+    img.decoding = 'async';
+    let cancelled = false;
+
+    const finalize = () => {
+      if (cancelled) return;
+      setHallRasterVersion((v) => v + 1);
+    };
+
+    img.onload = () => {
+      if (cancelled) return;
+      const ok = img.naturalWidth > 0 && img.naturalHeight > 0;
+      hallRasterImageRef.current = ok ? img : null;
+      finalize();
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      hallRasterImageRef.current = null;
+      finalize();
+    };
+    img.src = hallBackgroundRasterUrl;
+
+    return () => {
+      cancelled = true;
+      if (hallRasterImageRef.current === img) hallRasterImageRef.current = null;
+    };
+  }, [hallBackgroundRasterUrl, useHallBackgroundRaster]);
 
   useEffect(() => {
     if (!activeOfferId || selectedSeats.length === 0) {
@@ -1282,7 +1336,7 @@ export function TicketHallInteractiveBlock({
     return nativePlacements;
   }, [nativePlacements, sectorMode.enabled]);
 
-  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
+  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
   const uniformDomOverlayGhost =
@@ -1358,7 +1412,7 @@ export function TicketHallInteractiveBlock({
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
-      if (backgroundSeatCoordinates.length > 0) return [];
+      if (backgroundSeatCoordinates.length > 0 || useHallBackgroundRaster) return [];
       if (!selectedSectorSummary) return [];
       return nativeSeats.filter(
         (seat) =>
@@ -1369,9 +1423,20 @@ export function TicketHallInteractiveBlock({
     return showUnavailableSeats
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
-  }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
+  }, [
+    backgroundSeatCoordinates.length,
+    matchedNativeSeatKeys,
+    nativeSeats,
+    sectorMode.enabled,
+    selectedSector,
+    selectedSectorSummary,
+    showUnavailableSeats,
+    useHallBackgroundRaster,
+    useSvgNative,
+  ]);
 
   const visibleBackgroundSeatCoordinates = useMemo(() => {
+    if (useHallBackgroundRaster) return [];
     if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
     if (mapZoomed || denseBackgroundHall) return backgroundSeatCoordinates;
     return [];
@@ -1380,6 +1445,7 @@ export function TicketHallInteractiveBlock({
     denseBackgroundHall,
     mapZoomed,
     sectorMode.enabled,
+    useHallBackgroundRaster,
   ]);
 
   const layersStyle = useMemo<React.CSSProperties>(() => {
@@ -1438,10 +1504,16 @@ export function TicketHallInteractiveBlock({
         ctx.restore();
       }
 
+      const hallRaster = hallRasterImageRef.current;
+      if (useHallBackgroundRaster && hallRaster) {
+        ctx.drawImage(hallRaster, x, y, w, h);
+      }
+
       const bg = backgroundSeatCoordinates;
       if (
-        bg.length > 0 &&
-        (zoom > fitZoom + 0.01 || bg.length >= 8000)
+        !useHallBackgroundRaster
+        && bg.length > 0
+        && (zoom > fitZoom + 0.01 || bg.length >= 8000)
       ) {
         ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
         const scalePx = w / Math.max(1, svgViewBox.width);
@@ -1512,10 +1584,12 @@ export function TicketHallInteractiveBlock({
     colorForSeat,
     fitZoom,
     getLayerScreenBox,
+    hallRasterVersion,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
     uniformHallSeatAppearance,
     svgViewBox.width,
+    useHallBackgroundRaster,
     visibleNativePlacements,
     zoom,
     pan.x,
@@ -1581,6 +1655,15 @@ export function TicketHallInteractiveBlock({
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
             />
+            {useHallBackgroundRaster && !useCanvasCompositing && hallBackgroundRasterUrl ? (
+              <img
+                className={styles.hallBackgroundRaster}
+                src={hallBackgroundRasterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+              />
+            ) : null}
             {sectorMode.enabled ? (
               <svg
                 className={`${styles.sectorLayer} ${
