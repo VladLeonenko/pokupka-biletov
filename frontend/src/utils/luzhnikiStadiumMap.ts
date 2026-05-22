@@ -70,3 +70,9 @@ export function parseHallBackgroundRasterUrl(layout: unknown): string | null {
   if (typeof url !== 'string' || !url.trim()) return null;
   return url.trim();
 }
+
+/** Lazy-load ~77k x/y для vector-кружков при zoom-in (рядом с PNG чаши). */
+export function hallBackgroundDotsUrlFromRaster(rasterUrl: string | null | undefined): string | null {
+  if (!rasterUrl?.trim()) return null;
+  return rasterUrl.trim().replace(/\.png(\?.*)?$/i, '-dots.bin$1');
+}

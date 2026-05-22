@@ -55,6 +55,7 @@ import {
   isLuzhnikiFootballRepertoire,
   isLuzhnikiStadiumCheckoutLayout,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+  parseOmitClientSeatCoordinateCloud,
 } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
@@ -906,12 +907,15 @@ export function TicketCheckoutPage() {
 
     /** Лужники: sellableSeats с GET /map (adaptLuzhniki + live offers), тяжёлое — из контекста. */
     if (isLuzhnikiFootballStage && mapLayout && stageMapFetched) {
+      const omitSeatCloud = parseOmitClientSeatCoordinateCloud(mapLayout);
       return {
         ...(ctxLayout ?? mapLayout),
         ...mapLayout,
         sellableSeats: Array.isArray(mapLayout.sellableSeats) ? mapLayout.sellableSeats : [],
         sellableSeatsFromLiveOffers: mapLayout.sellableSeatsFromLiveOffers === true,
-        allSeatCoordinates: ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates,
+        allSeatCoordinates: omitSeatCloud
+          ? undefined
+          : (ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates),
         seats: ctxLayout?.seats ?? mapLayout.seats,
         sectorMode: ctxLayout?.sectorMode ?? mapLayout.sectorMode,
         svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,

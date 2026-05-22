@@ -294,7 +294,7 @@ export async function seoRenderer(req, res, next) {
   // Не уводить /manifest.json в next() (ниже сработал бы общий 404) — обрабатывается блоком выше
   if (
     req.path !== '/manifest.json' &&
-    req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2|ttf|eot|pdf|zip|json|xml|yml)$/i)
+    req.path.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2|ttf|eot|pdf|zip|json|xml|yml|bin)$/i)
   ) {
     return next();
   }

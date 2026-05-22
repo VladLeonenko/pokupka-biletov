@@ -428,6 +428,24 @@ app.get('/robots.txt', (req, res) => {
   res.status(404).type('text/plain').send('Not found');
 });
 
+app.get('/hall-maps/luzhniki-football-gray-bowl.png', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/luzhniki-football-gray-bowl.png', (r) => {
+    r.setHeader('Content-Type', 'image/png');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/hall-maps/luzhniki-football-gray-bowl-dots.bin', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/luzhniki-football-gray-bowl-dots.bin', (r) => {
+    r.setHeader('Content-Type', 'application/octet-stream');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
 const LUZHNIKI_GRID_DIAG_HTML = [
   'luzhniki-grid-diagnostic.html',
   'luzhniki-grid-diagnostic-d230.html',
@@ -463,6 +481,9 @@ if (existingDistRoots.length) {
         res.setHeader('Cache-Control', 'public, max-age=3600');
       } else if (filePath.endsWith('favicon.svg')) {
         res.setHeader('Content-Type', 'image/svg+xml');
+      } else if (filePath.endsWith('.bin')) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       } else if (filePath.includes(`${path.sep}tools${path.sep}`) && filePath.endsWith('.html')) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
