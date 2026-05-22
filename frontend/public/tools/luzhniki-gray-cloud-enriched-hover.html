@@ -2207,6 +2207,26 @@
       return median(gaps) || 18;
     }
 
+    /** Диапазон рядов для ↕: из якорей колонок; UI «ряд с/по» только если по > с. */
+    function resolveSectorFillRowSpan(firstCol, lastCol) {
+      const marked = [...firstCol, ...lastCol].filter((a) => a.marked);
+      if (marked.length < 2) return null;
+      let rowMin = Math.min(...marked.map((a) => a.rowNum));
+      let rowMax = Math.max(...marked.map((a) => a.rowNum));
+      const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
+      const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
+      if (manualFirst && manualLast) {
+        const mf = Number(manualFirst);
+        const ml = Number(manualLast);
+        if (ml > mf) {
+          rowMin = Math.max(rowMin, mf);
+          rowMax = Math.min(rowMax, ml);
+        }
+      }
+      if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
+      return { rowMin, rowMax };
+    }
+
     function buildSectorProposal(sectorLabel) {
       const candidates = circlesForSector(sectorLabel);
       const rows = groupedLabeledRows(sectorLabel);
@@ -2218,11 +2238,11 @@
       if (lastCol.length < 2) {
         throw new Error('Разметь колонку последних мест (Тип «посл. колонка») минимум на 2 рядах');
       }
-      const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
-      const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
-      let rowMin = manualFirst ? Number(manualFirst) : firstCol[0].rowNum;
-      let rowMax = manualLast ? Number(manualLast) : firstCol[firstCol.length - 1].rowNum;
-      if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
+      const span = resolveSectorFillRowSpan(firstCol, lastCol);
+      if (!span) {
+        throw new Error('Недостаточно якорей колонок для диапазона рядов');
+      }
+      let { rowMin, rowMax } = span;
       const proposal = [];
       const suspicious = [];
       const warnCircles = [];
@@ -2251,15 +2271,12 @@
             : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
       }
-      const rowBand = Math.max(7, Math.min(18, medianRowStep(firstCol) * 0.45, paintCorridorPx() * 0.8));
+      const rowStep = medianRowStep(firstCol);
+      const rowBand = Math.max(10, Math.min(32, rowStep * 0.55, (paintCorridorPx() || 24) * 1.1));
       const used = new Set();
-      const rowsTotal = Math.max(0, rowMax - rowMin);
-      for (let rowNum = rowMin + 1; rowNum <= rowMax; rowNum++) {
+      const rowsTotal = Math.max(0, rowMax - rowMin + 1);
+      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
-        if (rowNum === rowMin || rowNum === rowMax) {
-          bandsSkipped++;
-          continue;
-        }
         const firstAnchor = anchorForRow(firstCol, rowNum);
         if (!firstAnchor) {
           suspicious.push('ряд ' + rowKey + ': нет якоря 1-го места в колонке');
@@ -2275,7 +2292,7 @@
         const rowDots = candidates
           .filter((c) => !used.has(c))
           .map((c) => ({ c, meta: distanceToRowSegment(c, firstAnchor, lastAnchor) }))
-          .filter((o) => o.meta.t >= -0.08 && o.meta.t <= 1.08 && o.meta.dist <= rowBand)
+          .filter((o) => o.meta.t >= -0.12 && o.meta.t <= 1.12 && o.meta.dist <= rowBand)
           .sort((a, b) => a.meta.t - b.meta.t)
           .map((o) => o.c);
         if (!rowDots.length) {
