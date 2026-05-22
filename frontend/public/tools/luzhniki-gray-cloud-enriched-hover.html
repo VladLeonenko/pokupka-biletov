@@ -134,6 +134,7 @@
       <label title="макс. захват вокруг линии">Коридор <input type="number" id="paintCorridor" min="8" max="60" value="20" /></label>
       <label title="отсечь соседние ряды по ⊥ расстоянию"><input type="checkbox" id="paintOneRow" checked /> 1 ряд</label>
       <button type="button" id="paintClearSel">✕ выделение</button>
+      <button type="button" id="rectSelectBtn" title="протянуть рамку и выделить все точки внутри">▢ область</button>
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
@@ -195,6 +196,7 @@
     const paintCorridor = document.getElementById('paintCorridor');
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
+    const rectSelectBtn = document.getElementById('rectSelectBtn');
     const paintApply = document.getElementById('paintApply');
     const sectorApply = document.getElementById('sectorApply');
     const auditBtn = document.getElementById('auditBtn');
@@ -232,6 +234,7 @@
     let svgRoot = null;
     let overlayG = null;
     let previewLine = null;
+    let rectSelectEl = null;
     let allCircles = [];
     /** @type {{ grid: Map<string, Element[]>, cellSize: number } | null} */
     let circleGrid = null;
@@ -261,6 +264,9 @@
     let paintCaptureId = -1;
     let paintPreviewRaf = 0;
     let paintSuppressClick = false;
+    let rectSelectMode = false;
+    /** @type {{ start: { x: number, y: number }, current: { x: number, y: number }, additive: boolean, clientX: number, clientY: number } | null} */
+    let rectSelectPending = null;
     /** @type {Map<number, { x: number, y: number }>} */
     const activePointers = new Map();
     /** @type {{ dist: number, zoom0: number, cx: number, cy: number } | null} */
@@ -605,7 +611,11 @@
       viewport.classList.toggle('mode-paint', mode === 'paint');
       viewport.classList.toggle('mode-edit', mode === 'edit');
       cancelPaintDrag();
-      if (mode !== 'paint') clearPaintSelection();
+      if (mode !== 'paint') {
+        rectSelectMode = false;
+        rectSelectBtn?.classList.remove('active');
+        clearPaintSelection();
+      }
       if (mode === 'paint') {
         panMode = false;
         dragPan = false;
@@ -704,11 +714,14 @@
         (isCoarsePointer() ? ' · pinch' : '') +
         ')';
       if (appMode === 'paint') {
+        const paintAction = rectSelectMode ? '▢ протяни рамку' : '〰 тяни линию';
         status.textContent =
           base +
-          ' · 〰 тяни линию (Space — сдвиг карты) · ' +
+          ' · ' +
+          paintAction +
+          ' (Space — сдвиг карты) · ' +
           paintSelection.length +
-          ' точек → ряд → ▶';
+          ' точек → ряд/⌫ → ▶';
       } else if (appMode === 'edit') {
         status.textContent = base + ' · ✎: клик — карточка, правка row/place, Применить';
       } else {
@@ -1201,6 +1214,14 @@
       previewLine.setAttribute('opacity', '0.9');
       previewLine.setAttribute('visibility', 'hidden');
       overlayG.appendChild(previewLine);
+      rectSelectEl = document.createElementNS(ns, 'rect');
+      rectSelectEl.setAttribute('fill', 'rgba(34, 211, 238, 0.12)');
+      rectSelectEl.setAttribute('stroke', '#22d3ee');
+      rectSelectEl.setAttribute('stroke-width', '2');
+      rectSelectEl.setAttribute('stroke-dasharray', '8 6');
+      rectSelectEl.setAttribute('vector-effect', 'non-scaling-stroke');
+      rectSelectEl.setAttribute('visibility', 'hidden');
+      overlayG.appendChild(rectSelectEl);
       previewPolyline = document.createElementNS(ns, 'polyline');
       previewPolyline.setAttribute('fill', 'none');
       previewPolyline.setAttribute('stroke', '#38bdf8');
@@ -1372,6 +1393,37 @@
         if (d <= radius) out.push(c);
       }
       return out;
+    }
+
+    function circlesInSvgRect(a, b, sectorFilter) {
+      const x0 = Math.min(a.x, b.x);
+      const x1 = Math.max(a.x, b.x);
+      const y0 = Math.min(a.y, b.y);
+      const y1 = Math.max(a.y, b.y);
+      const out = [];
+      for (const c of allCircles) {
+        if (sectorFilter && !sectorMatches(c, sectorFilter)) continue;
+        const { x, y } = circleXY(c);
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push(c);
+      }
+      return out;
+    }
+
+    function showRectSelect(a, b) {
+      if (!rectSelectEl) return;
+      const x = Math.min(a.x, b.x);
+      const y = Math.min(a.y, b.y);
+      const w = Math.abs(a.x - b.x);
+      const h = Math.abs(a.y - b.y);
+      rectSelectEl.setAttribute('x', String(x));
+      rectSelectEl.setAttribute('y', String(y));
+      rectSelectEl.setAttribute('width', String(w));
+      rectSelectEl.setAttribute('height', String(h));
+      rectSelectEl.setAttribute('visibility', 'visible');
+    }
+
+    function hideRectSelect() {
+      if (rectSelectEl) rectSelectEl.setAttribute('visibility', 'hidden');
     }
 
     function positionAlongPath(pathPoints, cx, cy) {
@@ -1574,6 +1626,17 @@
     function hidePaintLine() {
       if (previewLine) previewLine.setAttribute('visibility', 'hidden');
       if (previewPolyline) previewPolyline.setAttribute('visibility', 'hidden');
+    }
+
+    function setRectSelectMode(on) {
+      rectSelectMode = Boolean(on);
+      rectSelectBtn?.classList.toggle('active', rectSelectMode);
+      if (rectSelectMode) {
+        showPaintToast('info', '▢ область: протяни рамку по точкам, затем ⌫ ряд/место');
+      } else {
+        hideRectSelect();
+      }
+      refreshStatusHint();
     }
 
     /** Сектор из поля (пусто = любой сектор вдоль линии). */
@@ -2688,11 +2751,13 @@
       paintDrag = false;
       dragPan = false;
       paintPending = null;
+      rectSelectPending = null;
       paintPathPoints = [];
       paintCursor = null;
       paintPreviewList = [];
       clearPaintHighlight();
       hidePaintLine();
+      hideRectSelect();
       viewport.classList.remove('dragging');
       try { viewport.releasePointerCapture(paintCaptureId); } catch (_) { /* noop */ }
       paintCaptureId = -1;
@@ -2701,6 +2766,38 @@
     function releasePaintPointer() {
       try { viewport.releasePointerCapture(paintCaptureId); } catch (_) { /* noop */ }
       paintCaptureId = -1;
+    }
+
+    function endRectSelectPointer(e) {
+      if (!rectSelectPending) return;
+      const pending = rectSelectPending;
+      releasePaintPointer();
+      hideRectSelect();
+      const current = pending.current;
+      const moved = Math.hypot(e.clientX - pending.clientX, e.clientY - pending.clientY);
+      rectSelectPending = null;
+      paintSuppressClick = true;
+      if (moved < 4) {
+        showPaintToast('info', 'Рамка слишком маленькая');
+        return;
+      }
+      const fieldSec = paintSectorForApply();
+      const list = circlesInSvgRect(pending.start, current, fieldSec);
+      if (list.length) {
+        if (pending.additive) mergePaintSelection(list);
+        else setPaintSelection(list);
+        showPaintToast(
+          'ok',
+          '▢ выделено ' +
+            list.length +
+            ' точек' +
+            (fieldSec ? ' · ' + canonicalSectorLabel(fieldSec) : '') +
+            ' → ⌫ ряд/место',
+        );
+      } else {
+        showPaintToast('err', '0 точек в рамке' + (fieldSec ? ' для ' + canonicalSectorLabel(fieldSec) : ''));
+      }
+      refreshStatusHint();
     }
 
     function endPaintPointer(e) {
@@ -2789,6 +2886,7 @@
       svgRoot = svg;
       overlayG = null;
       previewLine = null;
+      rectSelectEl = null;
       previewPolyline = null;
       rowLabelG = null;
       undoStack.length = 0;
@@ -2879,6 +2977,32 @@
           e.preventDefault();
           return;
         }
+        if (rectSelectMode) {
+          dragPan = false;
+          viewport.classList.remove('dragging');
+          rectSelectPending = {
+            start: p,
+            current: p,
+            additive: e.shiftKey || e.metaKey,
+            clientX: e.clientX,
+            clientY: e.clientY,
+          };
+          paintDrag = false;
+          didDrag = false;
+          infoPanel.classList.remove('visible');
+          showRectSelect(p, p);
+          if (viewport.setPointerCapture) {
+            try {
+              viewport.setPointerCapture(e.pointerId);
+              paintCaptureId = e.pointerId;
+            } catch (_) {
+              /* noop */
+            }
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         dragPan = false;
         viewport.classList.remove('dragging');
         paintPathPoints = [{ x: p.x, y: p.y }];
@@ -2919,6 +3043,18 @@
       }
       if (activePointers.size === 2 && updatePinchZoom()) {
         e.preventDefault();
+        return;
+      }
+
+      if (rectSelectPending) {
+        e.preventDefault();
+        const p = clientToSvg(e.clientX, e.clientY);
+        if (p) {
+          rectSelectPending.current = p;
+          showRectSelect(rectSelectPending.start, p);
+          const count = circlesInSvgRect(rectSelectPending.start, p, paintSectorForApply()).length;
+          status.textContent = '▢ ' + count + ' в рамке · отпусти → выделить';
+        }
         return;
       }
 
@@ -2977,6 +3113,10 @@
 
     viewport.addEventListener('pointerup', (e) => {
       releaseTrackedPointer(e);
+      if (rectSelectPending) {
+        endRectSelectPointer(e);
+        return;
+      }
       if (paintPending) {
         endPaintPointer(e);
         return;
@@ -3053,7 +3193,7 @@
         e.preventDefault();
       }
       if (e.code === 'Escape') {
-        if (paintPending) cancelPaintDrag();
+        if (rectSelectPending || paintPending) cancelPaintDrag();
         else if (paintSelection.length) clearPaintSelection();
         else clearSelection();
       }
@@ -3105,6 +3245,7 @@
       clearPaintSelection();
       showPaintToast('info', 'Выделение сброшено');
     });
+    rectSelectBtn.addEventListener('click', () => setRectSelectMode(!rectSelectMode));
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
     clearRowSeatBtn.addEventListener('click', () => clearRowSeatForSelection());
     paintApply.addEventListener('click', () => applyPaintToSelection());
