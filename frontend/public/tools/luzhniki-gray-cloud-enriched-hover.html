@@ -2111,8 +2111,10 @@
     }
 
     function rowAnchorsForRowNum(firstCol, lastCol, rowNum) {
-      let firstAnchor = anchorForRow(firstCol, rowNum);
-      let lastAnchor = anchorForRow(lastCol, rowNum);
+      const firstExact = firstCol.find((a) => a.rowNum === rowNum);
+      const lastExact = lastCol.find((a) => a.rowNum === rowNum);
+      let firstAnchor = firstExact || anchorForRow(firstCol, rowNum);
+      let lastAnchor = lastExact || anchorForRow(lastCol, rowNum);
       if (!firstAnchor || !lastAnchor) return null;
       if (firstAnchor.x > lastAnchor.x) {
         const tmp = firstAnchor;
@@ -2123,12 +2125,45 @@
       return { firstAnchor, lastAnchor };
     }
 
-    function filterDotsBetweenAnchorsX(dots, firstAnchor, lastAnchor) {
-      const x0 = Math.min(firstAnchor.x, lastAnchor.x) - 3;
-      const x1 = Math.max(firstAnchor.x, lastAnchor.x) + 3;
+    /** Террасы VIP: несколько рядов с одним Y — ряд по близости к якорю 1-й колонки (X+Y). */
+    function assignFillCirclesByColumnAnchors(fillCircles, firstCol, rowMin, rowMax) {
+      const byRow = new Map();
+      for (const a of firstCol) {
+        if (a.rowNum < rowMin || a.rowNum > rowMax) continue;
+        byRow.set(a.rowNum, []);
+      }
+      if (!byRow.size) return byRow;
+      const step = medianRowStep(firstCol);
+      const maxScore = step * 1.35;
+      for (const c of fillCircles) {
+        const p = circleXY(c);
+        let bestRow = null;
+        let bestScore = Infinity;
+        for (const a of firstCol) {
+          if (a.rowNum < rowMin || a.rowNum > rowMax) continue;
+          const dy = Math.abs(p.y - a.y);
+          const dx = Math.abs(p.x - a.x) * 0.42;
+          const score = dy + dx;
+          if (score < bestScore) {
+            bestScore = score;
+            bestRow = a.rowNum;
+          }
+        }
+        if (bestRow == null || bestScore > maxScore) continue;
+        byRow.get(bestRow).push(c);
+      }
+      return byRow;
+    }
+
+    function filterDotsAlongRowSpan(dots, firstAnchor, lastAnchor) {
+      const xPad = 14;
+      const x0 = Math.min(firstAnchor.x, lastAnchor.x) - xPad;
+      const x1 = Math.max(firstAnchor.x, lastAnchor.x) + xPad;
       return dots.filter((c) => {
         const x = circleXY(c).x;
-        return x >= x0 && x <= x1;
+        if (x < x0 || x > x1) return false;
+        const m = distanceToRowSegment(c, firstAnchor, lastAnchor);
+        return m.t >= -0.2 && m.t <= 1.2;
       });
     }
 
@@ -2235,20 +2270,6 @@
       return Number.isFinite(minG) ? minG : medianRowStep(anchors);
     }
 
-    /** Ряд по Y-полосе (ступени/смещения); якоря колонок задают X-границы мест. */
-    function assignFillCirclesToRowsByY(fillCircles, colAnchorsY, rowAnchors, rowMin, rowMax) {
-      const byRow = new Map();
-      if (!colAnchorsY.length || !fillCircles.length) return byRow;
-      const gap = Math.max(8, minAdjacentRowGapY(colAnchorsY) * 0.52);
-      const bands = clusterBandsByY(fillCircles, gap);
-      for (const band of bands) {
-        const rowNum = rowNumFromBandY(band.y, colAnchorsY, rowMin, rowMax);
-        if (rowNum == null || !rowAnchors.has(rowNum)) continue;
-        if (!byRow.has(rowNum)) byRow.set(rowNum, []);
-        byRow.get(rowNum).push(...band.circles);
-      }
-      return byRow;
-    }
 
     /** Диапазон рядов для ↕: из якорей колонок; UI «ряд с/по» только если по > с. */
     function resolveSectorFillRowSpan(firstCol, lastCol) {
@@ -2319,8 +2340,7 @@
         const ra = rowAnchorsForRowNum(firstCol, lastCol, rowNum);
         if (ra) rowAnchors.set(rowNum, ra);
       }
-      const colAnchorsY = firstCol.slice().sort((a, b) => a.y - b.y);
-      const byRowDots = assignFillCirclesToRowsByY(fillTargets, colAnchorsY, rowAnchors, rowMin, rowMax);
+      const byRowDots = assignFillCirclesByColumnAnchors(fillTargets, firstCol, rowMin, rowMax);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
@@ -2336,7 +2356,7 @@
           continue;
         }
         const sorted = sortSeatsByColumnDirection(
-          filterDotsBetweenAnchorsX(rowDots, ra.firstAnchor, ra.lastAnchor),
+          filterDotsAlongRowSpan(rowDots, ra.firstAnchor, ra.lastAnchor),
           ra.firstAnchor,
           ra.lastAnchor,
         );
