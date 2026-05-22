@@ -2207,6 +2207,23 @@
       return rowNumFromBandNear({ circles: [c], y: p.y }, firstCol, rowMin, rowMax, axis);
     }
 
+    /** Террасы (C136 VIP): несколько рядов на одном Y в якорях — тогда ряд по точке, не по полосе. */
+    function columnAnchorsShareY(colAnchors) {
+      const sorted = colAnchors.slice().sort((a, b) => a.y - b.y || a.rowNum - b.rowNum);
+      for (let i = 1; i < sorted.length; i++) {
+        if (Math.abs(sorted[i].y - sorted[i - 1].y) < 3 && sorted[i].rowNum !== sorted[i - 1].rowNum) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function pushDotsToRow(map, rowNum, circles) {
+      if (rowNum == null || !circles.length) return;
+      if (!map.has(rowNum)) map.set(rowNum, []);
+      map.get(rowNum).push(...circles);
+    }
+
     /** Ряд C142 и др.: проход между блоками мест (aisle) — все сегменты от 1-й до посл. колонки. */
     function filterRowDotsBetweenAnchors(rowDots, fa, la) {
       if (!rowDots.length) return rowDots;
@@ -2577,18 +2594,28 @@
         candidates.filter((c) => !isNoiseGridDot(c)),
         bandGap,
       );
+      const terraceRows = columnAnchorsShareY(firstCol);
       const dotsByRow = new Map();
       for (const band of yBands) {
-        for (const c of band.circles) {
-          if (isNoiseGridDot(c)) continue;
-          const rowNum = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
-          if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
-            bandsSkipped++;
-            continue;
+        const pool = band.circles.filter((c) => !isNoiseGridDot(c));
+        if (!pool.length) continue;
+        if (terraceRows) {
+          for (const c of pool) {
+            const rowNum = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
+            if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
+              bandsSkipped++;
+              continue;
+            }
+            pushDotsToRow(dotsByRow, rowNum, [c]);
           }
-          if (!dotsByRow.has(rowNum)) dotsByRow.set(rowNum, []);
-          dotsByRow.get(rowNum).push(c);
+          continue;
         }
+        const rowNum = rowNumFromBandNear(band, firstCol, rowMin, rowMax, rowAxis);
+        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
+          bandsSkipped++;
+          continue;
+        }
+        pushDotsToRow(dotsByRow, rowNum, pool);
       }
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (const [rowNum, bandDots] of dotsByRow) {
