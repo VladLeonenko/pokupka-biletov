@@ -1767,20 +1767,20 @@
       }
     }
 
-    /** Заполняем только «внутренность»: не контур (data-sector-edge) и не manual-ряды. */
+    /** Якоря 1-й / посл. колонки — не трогаем при ↕ сектор. */
+    function isSectorEdgeAnchor(circle) {
+      const edge = circle.getAttribute('data-sector-edge') || '';
+      if (edge === 'first' || edge === 'last') return true;
+      return (circle.getAttribute('data-source') || '') === 'manual-sector-edge';
+    }
+
+    /** Заполняем всё, кроме якорей колонок (старые manual-row/↕ внутри можно перезаписать). */
     function shouldFillCircle(circle) {
-      if (circle.getAttribute('data-sector-edge')) return false;
-      const src = circle.getAttribute('data-source') || '';
-      if (src === 'manual-sector-fill') return true;
-      if (isManualEditedCircle(circle)) return false;
-      return true;
+      return !isSectorEdgeAnchor(circle);
     }
 
     function isHardManualSeat(circle) {
-      if (circle.getAttribute('data-sector-edge')) return false;
-      const src = circle.getAttribute('data-source') || '';
-      if (src === 'manual-sector-fill') return false;
-      return isManualEditedCircle(circle);
+      return isSectorEdgeAnchor(circle);
     }
 
     function normalizeRowEdge(edge) {
@@ -2239,10 +2239,16 @@
         return false;
       });
       if (!fillable) {
+        let edgeOnly = 0;
+        for (const c of candidates) {
+          if (isSectorEdgeAnchor(c)) edgeOnly++;
+        }
         throw new Error(
-          'Нет точек для заполнения: контур/manual уже везде (' +
-            protectedSkipped +
-            ' защищено). Нужны красные/облачные точки внутри сектора',
+          edgeOnly >= candidates.length
+            ? 'Все ' +
+              candidates.length +
+              ' точек — якоря колонок (1-я/посл.). ↕ заполняет только между ними: нужны точки внутри (красные/облачные или сбрось ряд/место — ⌫ ряд/место)'
+            : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
       }
       const rowBand = Math.max(7, Math.min(18, medianRowStep(firstCol) * 0.45, paintCorridorPx() * 0.8));
