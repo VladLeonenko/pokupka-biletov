@@ -138,8 +138,8 @@
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
       <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
-      <label>Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="первый" /></label>
-      <label>по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" /></label>
+      <label id="paintRowWrap">Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
+      <label id="paintEndRowWrap" hidden>ряд по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" title="только для колонок: номер последнего ряда сектора" /></label>
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
@@ -1689,9 +1689,39 @@
       }
     }
 
-    /** Сектор: не трогаем только manual; облачные data-row/seat можно перезаписать. */
-    function isWritableForSectorFill(circle) {
-      return !isManualEditedCircle(circle) || Boolean(circle.getAttribute('data-sector-edge'));
+    /** Заполняем только «внутренность»: не контур (data-sector-edge) и не manual-ряды. */
+    function shouldFillCircle(circle) {
+      if (circle.getAttribute('data-sector-edge')) return false;
+      if (isManualEditedCircle(circle)) return false;
+      return true;
+    }
+
+    function normalizeRowEdge(edge) {
+      if (!edge || Math.abs(edge.lastPos - edge.firstPos) < 1) return edge;
+      if (edge.firstPos <= edge.lastPos) return edge;
+      return {
+        ...edge,
+        firstPos: edge.lastPos,
+        lastPos: edge.firstPos,
+        firstSeat: edge.lastSeat,
+        lastSeat: edge.firstSeat,
+      };
+    }
+
+    function rowNumFromBandProj(bandProj, edges, rowMin, rowMax) {
+      if (!edges.length) return rowMin;
+      if (bandProj <= edges[0].proj) return edges[0].rowNum;
+      if (bandProj >= edges[edges.length - 1].proj) return edges[edges.length - 1].rowNum;
+      for (let i = 1; i < edges.length; i++) {
+        const lo = edges[i - 1];
+        const hi = edges[i];
+        if (bandProj >= lo.proj && bandProj <= hi.proj) {
+          const t = (bandProj - lo.proj) / (hi.proj - lo.proj || 1);
+          return Math.round(lo.rowNum + (hi.rowNum - lo.rowNum) * t);
+        }
+      }
+      const t = (bandProj - edges[0].proj) / (edges[edges.length - 1].proj - edges[0].proj || 1);
+      return Math.round(rowMin + t * (rowMax - rowMin));
     }
 
     function clusterRowBands(circles, axis, bandGap) {
@@ -1738,15 +1768,20 @@
           const rowNum = Number(row);
           if (!Number.isFinite(rowNum) || !firstPts.length || !lastPts.length) return null;
           const firstSeat = Math.min(...firstPts.map((o) => o.seat));
-          const lastSeat = Math.max(...lastPts.map((o) => o.seat));
+          let lastSeat = Math.max(...lastPts.map((o) => o.seat));
+          if (last.length && lastPts.every((o) => o.seat === firstSeat)) {
+            lastSeat = firstSeat;
+          }
           return {
             row,
             rowNum,
             proj: median(circles.map((c) => normalProjection(c, axis))),
             firstSeat,
-            lastSeat: Math.max(lastSeat, firstSeat + 1),
+            lastSeat,
             firstPos: median(firstPts.map((o) => o.along)),
             lastPos: median(lastPts.map((o) => o.along)),
+            hasFirstEdge: first.length > 0,
+            hasLastEdge: last.length > 0,
           };
         })
         .filter(Boolean)
@@ -1822,7 +1857,12 @@
       if (projMin == null || projMax == null || Math.abs(projMax - projMin) < 1) {
         throw new Error('Первый и последний ряд совпадают по геометрии — уточни «Ряд»/«по»');
       }
-      if (edges.length < 2) throw new Error('Разметь колонку первых мест и колонку последних мест минимум на 2 рядах');
+      if (edges.length < 2) {
+        throw new Error('Разметь минимум 2 ряда: обе колонки (Тип «1-я» и «посл.») + «Ряд»/«по»');
+      }
+      if (!edges.some((e) => e.hasFirstEdge) || !edges.some((e) => e.hasLastEdge)) {
+        throw new Error('Нужны обе колонки через Тип: «1-я колонка» и «посл. колонка» (не только ряды)');
+      }
       const seatMin = Math.min(...edges.map((e) => e.firstSeat));
       const seatMax = Math.max(...edges.map((e) => e.lastSeat));
 
@@ -1951,29 +1991,44 @@
       const suspicious = [];
       const warnCircles = [];
       let protectedSkipped = 0;
-      const writable = candidates.filter((c) => {
-        if (isWritableForSectorFill(c)) return true;
+      let fillable = 0;
+      let bandsUsed = 0;
+      let bandsSkipped = 0;
+      const fillTargets = candidates.filter((c) => {
+        if (shouldFillCircle(c)) {
+          fillable++;
+          return true;
+        }
         protectedSkipped++;
         return false;
       });
-      if (!writable.length) {
-        throw new Error('Нет свободных точек: все manual или сектор пуст');
+      if (!fillable) {
+        throw new Error(
+          'Нет точек для заполнения: контур/manual уже везде (' +
+            protectedSkipped +
+            ' защищено). Нужны красные/облачные точки внутри сектора',
+        );
       }
       const bandGap = Math.max(8, Math.min(14, paintCorridorPx() * 0.55));
       const bands = clusterRowBands(candidates, axis, bandGap);
-      const rowSpan = grid.rowMax - grid.rowMin;
 
       for (const band of bands) {
-        const tRow = (band.proj - grid.projMin) / (grid.projMax - grid.projMin);
-        const rowNum = Math.round(grid.rowMin + tRow * rowSpan);
+        const rowNum = rowNumFromBandProj(band.proj, grid.edges, grid.rowMin, grid.rowMax);
         const rowKey = String(rowNum);
-        if (rowNum < grid.rowMin || rowNum > grid.rowMax) continue;
-        const edge = interpolateEdgeAnchor(grid.edges, rowNum);
-        if (!edge || Math.abs(edge.lastPos - edge.firstPos) < 1 || edge.lastSeat <= edge.firstSeat) {
-          suspicious.push('ряд ' + rowKey + ': нет пары крайних мест');
-          warnCircles.push(...band.circles);
+        if (rowNum < grid.rowMin || rowNum > grid.rowMax) {
+          bandsSkipped++;
           continue;
         }
+        const edge = normalizeRowEdge(interpolateEdgeAnchor(grid.edges, rowNum));
+        if (!edge || Math.abs(edge.lastPos - edge.firstPos) < 1) {
+          suspicious.push('ряд ' + rowKey + ': нет пары крайних колонок');
+          warnCircles.push(...band.circles);
+          bandsSkipped++;
+          continue;
+        }
+        const colLo = Math.min(edge.firstPos, edge.lastPos);
+        const colHi = Math.max(edge.firstPos, edge.lastPos);
+        const colMargin = Math.max(6, (colHi - colLo) * 0.08);
         const existing = rows.get(rowKey) || [];
         const occupiedManual = new Set(
           existing
@@ -1981,30 +2036,33 @@
             .map(circleSeatNum)
             .filter((n) => n != null),
         );
-        const spanItems = band.circles
-          .map((c) => ({
-            c,
-            t: (projection(c, axis) - edge.firstPos) / (edge.lastPos - edge.firstPos),
-          }))
-          .filter((o) => o.t >= -0.15 && o.t <= 1.15)
-          .sort((a, b) => a.t - b.t);
+        const sorted = band.circles
+          .filter((c) => shouldFillCircle(c))
+          .map((c) => {
+            const along = projection(c, axis);
+            return { c, along, t: (along - colLo) / (colHi - colLo || 1) };
+          })
+          .filter((o) => o.along >= colLo - colMargin && o.along <= colHi + colMargin)
+          .sort((a, b) => a.along - b.along);
+        if (!sorted.length) {
+          bandsSkipped++;
+          continue;
+        }
+        bandsUsed++;
         const firstSeat = Math.max(1, edge.firstSeat);
-        const lastSeat = Math.max(edge.lastSeat, firstSeat + Math.max(0, spanItems.length - 1));
+        const lastSeat = firstSeat + sorted.length - 1;
         const freeSeats = [];
         for (let seat = firstSeat; seat <= lastSeat; seat++) {
           if (!occupiedManual.has(seat)) freeSeats.push(seat);
         }
-        const sorted = spanItems.filter((o) => isWritableForSectorFill(o.c));
-        if (sorted.length < 1) continue;
         const available = freeSeats.slice();
         for (const item of sorted) {
           const c = item.c;
-          const along = projection(c, axis);
-          const tSeat = (along - edge.firstPos) / (edge.lastPos - edge.firstPos);
-          const rawSeat = Math.round(firstSeat + tSeat * (lastSeat - firstSeat));
+          const tSeat = Math.max(0, Math.min(1, item.t));
+          const rawSeat = Math.round(firstSeat + tSeat * Math.max(0, lastSeat - firstSeat));
           const seat = nearestFreeSeat(rawSeat, available);
           if (seat == null) {
-            suspicious.push('ряд ' + rowKey + ': нет свободных мест между крайними колонками');
+            suspicious.push('ряд ' + rowKey + ': нет свободных мест (' + sorted.length + ' точек)');
             warnCircles.push(c);
             continue;
           }
@@ -2037,6 +2095,15 @@
         warnCircles,
         protectedSkipped,
         grid: gridWithSeats,
+        stats: {
+          candidates: candidates.length,
+          fillable,
+          fillTargets: fillTargets.length,
+          bands: bands.length,
+          bandsUsed,
+          bandsSkipped,
+          edgeRows: grid.edges.length,
+        },
       };
     }
 
@@ -2060,11 +2127,24 @@
         const hint = built.grid
           ? ' ряды ' + built.grid.rowMin + '–' + built.grid.rowMax + ', места ' + built.grid.seatMin + '–' + built.grid.seatMax
           : '';
+        const st = built.stats;
+        const statHint = st
+          ? ' · в секторе ' +
+            st.candidates +
+            ', к заполнению ' +
+            st.fillable +
+            ', полос ' +
+            st.bandsUsed +
+            '/' +
+            st.bands +
+            ', опорных рядов ' +
+            st.edgeRows
+          : '';
         showPaintToast(
           'err',
           built.suspicious.length
-            ? '0 предложений' + hint + '. ' + built.suspicious.slice(0, 2).join(' · ')
-            : '0 предложений по сектору' + hint + ' — нет неразмеченных точек между опорами',
+            ? '0 предложений' + hint + statHint + '. ' + built.suspicious.slice(0, 2).join(' · ')
+            : '0 предложений' + hint + statHint + ' — внутри нет точек для заполнения (контур не считается)',
         );
         renderRowLabels(sector);
         return;
@@ -2197,6 +2277,7 @@
           : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
       const sortedSel = sortCirclesAlongPath(selection, pathForSort);
       const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      const lastSeatHint = Math.max(startSeat, sortedSel.length);
       const edgeLabel = edgeKind === 'first' ? 'первых мест' : 'последних мест';
       markAudit(sortedSel, 'proposed');
       if (
@@ -2222,7 +2303,11 @@
       for (let i = 0; i < sortedSel.length; i++) {
         const t = sortedSel.length <= 1 ? 0 : i / (sortedSel.length - 1);
         const row = String(Math.round(firstRow + rowSpan * t));
-        applySeatToCircle(sortedSel[i], sector, row, String(startSeat), 'manual-sector-edge');
+        const seat =
+          edgeKind === 'last'
+            ? String(lastSeatHint)
+            : String(startSeat);
+        applySeatToCircle(sortedSel[i], sector, row, seat, 'manual-sector-edge');
         sortedSel[i].setAttribute('data-sector-edge', edgeKind);
       }
       pushUndo(batch);
@@ -2786,6 +2871,22 @@
     modeViewBtn.addEventListener('click', () => setAppMode('view'));
     modeEditBtn.addEventListener('click', () => setAppMode('edit'));
     modePaintBtn.addEventListener('click', () => setAppMode('paint'));
+    function syncPaintApplyModeUi() {
+      const mode = paintApplyMode?.value || 'row';
+      const isColumn = mode === 'first-col' || mode === 'last-col';
+      if (paintEndRowWrap) paintEndRowWrap.hidden = !isColumn;
+      if (paintRowWrap) {
+        const label = paintRowWrap.firstChild;
+        if (label && label.nodeType === Node.TEXT_NODE) {
+          label.textContent = isColumn ? 'ряд с ' : 'Ряд ';
+        }
+      }
+      if (paintRow) paintRow.placeholder = isColumn ? 'первый ряд' : '№ ряда';
+    }
+
+    paintApplyMode?.addEventListener('change', syncPaintApplyModeUi);
+    syncPaintApplyModeUi();
+
     paintRow.addEventListener('input', () => {
       if (isValidPaintRow(paintRow.value)) paintRow.dataset.fallback = paintRow.value.trim();
     });
