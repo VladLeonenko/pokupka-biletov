@@ -2086,32 +2086,50 @@
       if (sector) renderRowLabels(sector);
     }
 
-    /** Якоря колонки первых/последних мест; buildSectorProposal использует только marked. */
-    function collectColumnAnchors(candidates, rows, edgeKind) {
+    /** Якоря колонки: только data-sector-edge; 1-я = min X в ряду, посл. = max X (не по номеру места). */
+    function collectColumnAnchors(candidates, _rows, edgeKind) {
+      const wantEdge = edgeKind === 'first' ? 'first' : 'last';
       const byRow = new Map();
       for (const c of candidates) {
+        if ((c.getAttribute('data-sector-edge') || '') !== wantEdge) continue;
         const row = normalizePaintRowNum(circleRow(c));
         if (!row) continue;
-        const seat = circleSeatNum(c);
-        if (seat == null) continue;
-        const edge = c.getAttribute('data-sector-edge') || '';
-        const hit = edgeKind === 'first' ? edge === 'first' : edge === 'last';
         const p = circleXY(c);
+        const seat = circleSeatNum(c) ?? (edgeKind === 'first' ? 1 : 0);
         const cur = byRow.get(row);
         if (!cur) {
-          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: hit });
-          continue;
-        }
-        if (hit && !cur.marked) {
           byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
           continue;
         }
-        if (hit === cur.marked) {
-          if (edgeKind === 'first' && seat < cur.seat) byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: hit || cur.marked });
-          if (edgeKind === 'last' && seat > cur.seat) byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: hit || cur.marked });
+        if (edgeKind === 'first' && p.x < cur.x) {
+          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
+        } else if (edgeKind === 'last' && p.x > cur.x) {
+          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
         }
       }
       return Array.from(byRow.values()).sort((a, b) => a.y - b.y);
+    }
+
+    function rowAnchorsForRowNum(firstCol, lastCol, rowNum) {
+      let firstAnchor = anchorForRow(firstCol, rowNum);
+      let lastAnchor = anchorForRow(lastCol, rowNum);
+      if (!firstAnchor || !lastAnchor) return null;
+      if (firstAnchor.x > lastAnchor.x) {
+        const tmp = firstAnchor;
+        firstAnchor = lastAnchor;
+        lastAnchor = tmp;
+      }
+      if (Math.abs(lastAnchor.x - firstAnchor.x) < 1) return null;
+      return { firstAnchor, lastAnchor };
+    }
+
+    function filterDotsBetweenAnchorsX(dots, firstAnchor, lastAnchor) {
+      const x0 = Math.min(firstAnchor.x, lastAnchor.x) - 3;
+      const x1 = Math.max(firstAnchor.x, lastAnchor.x) + 3;
+      return dots.filter((c) => {
+        const x = circleXY(c).x;
+        return x >= x0 && x <= x1;
+      });
     }
 
     function clusterBandsByY(circles, bandGap) {
@@ -2217,43 +2235,17 @@
       return Number.isFinite(minG) ? minG : medianRowStep(anchors);
     }
 
-    /** Каждую точку — в ряд с минимальным ⊥ к сегменту якорей; без used (иначе верх сектора пустой). */
-    function assignFillCirclesToRows(fillCircles, rowAnchors, rowBand, rowMin, rowMax, colAnchorsY) {
+    /** Ряд по Y-полосе (ступени/смещения); якоря колонок задают X-границы мест. */
+    function assignFillCirclesToRowsByY(fillCircles, colAnchorsY, rowAnchors, rowMin, rowMax) {
       const byRow = new Map();
-      const unassigned = [];
-      for (const c of fillCircles) {
-        let bestRow = null;
-        let bestScore = Infinity;
-        for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
-          const ra = rowAnchors.get(rowNum);
-          if (!ra) continue;
-          const meta = distanceToRowSegment(c, ra.firstAnchor, ra.lastAnchor);
-          if (meta.t < -0.18 || meta.t > 1.18) continue;
-          if (meta.dist > rowBand) continue;
-          const cy = circleXY(c).y;
-          const midY = (ra.firstAnchor.y + ra.lastAnchor.y) * 0.5;
-          const score = meta.dist + Math.abs(cy - midY) * 0.12;
-          if (score < bestScore) {
-            bestScore = score;
-            bestRow = rowNum;
-          }
-        }
-        if (bestRow == null) {
-          unassigned.push(c);
-          continue;
-        }
-        if (!byRow.has(bestRow)) byRow.set(bestRow, []);
-        byRow.get(bestRow).push(c);
-      }
-      if (unassigned.length && colAnchorsY.length >= 2) {
-        const gap = Math.max(6, minAdjacentRowGapY(colAnchorsY) * 0.48);
-        const bands = clusterBandsByY(unassigned, gap);
-        for (const band of bands) {
-          const rowNum = rowNumFromBandY(band.y, colAnchorsY, rowMin, rowMax);
-          if (rowNum == null || !rowAnchors.has(rowNum)) continue;
-          if (!byRow.has(rowNum)) byRow.set(rowNum, []);
-          byRow.get(rowNum).push(...band.circles);
-        }
+      if (!colAnchorsY.length || !fillCircles.length) return byRow;
+      const gap = Math.max(8, minAdjacentRowGapY(colAnchorsY) * 0.52);
+      const bands = clusterBandsByY(fillCircles, gap);
+      for (const band of bands) {
+        const rowNum = rowNumFromBandY(band.y, colAnchorsY, rowMin, rowMax);
+        if (rowNum == null || !rowAnchors.has(rowNum)) continue;
+        if (!byRow.has(rowNum)) byRow.set(rowNum, []);
+        byRow.get(rowNum).push(...band.circles);
       }
       return byRow;
     }
@@ -2322,19 +2314,13 @@
             : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
       }
-      const rowStep = medianRowStep(firstCol);
-      const minGapY = minAdjacentRowGapY(firstCol);
-      const rowBand = Math.max(12, Math.min(44, rowStep * 0.62, minGapY * 0.52, (paintCorridorPx() || 24) * 1.2));
       const rowAnchors = new Map();
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
-        const firstAnchor = anchorForRow(firstCol, rowNum);
-        const lastAnchor = anchorForRow(lastCol, rowNum);
-        if (!firstAnchor) continue;
-        if (!lastAnchor || Math.abs(lastAnchor.x - firstAnchor.x) < 1) continue;
-        rowAnchors.set(rowNum, { firstAnchor, lastAnchor });
+        const ra = rowAnchorsForRowNum(firstCol, lastCol, rowNum);
+        if (ra) rowAnchors.set(rowNum, ra);
       }
       const colAnchorsY = firstCol.slice().sort((a, b) => a.y - b.y);
-      const byRowDots = assignFillCirclesToRows(fillTargets, rowAnchors, rowBand, rowMin, rowMax, colAnchorsY);
+      const byRowDots = assignFillCirclesToRowsByY(fillTargets, colAnchorsY, rowAnchors, rowMin, rowMax);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
@@ -2349,10 +2335,11 @@
           bandsSkipped++;
           continue;
         }
-        const sorted = sortSeatsByColumnDirection(rowDots, ra.firstAnchor, ra.lastAnchor).filter((c) => {
-          const m = distanceToRowSegment(c, ra.firstAnchor, ra.lastAnchor);
-          return m.t >= -0.06 && m.t <= 1.06;
-        });
+        const sorted = sortSeatsByColumnDirection(
+          filterDotsBetweenAnchorsX(rowDots, ra.firstAnchor, ra.lastAnchor),
+          ra.firstAnchor,
+          ra.lastAnchor,
+        );
         if (!sorted.length) {
           bandsSkipped++;
           continue;
