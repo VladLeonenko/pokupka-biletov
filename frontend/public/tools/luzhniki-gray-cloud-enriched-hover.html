@@ -3169,12 +3169,14 @@
       }
       const frame = buildSectorLocalFrame(sectorLabel, firstCol, lastCol);
       const rowAxis = rowAxisFromColumnAnchors(firstCol, frame);
-      const terraceRows = !frame.corner && columnAnchorsShareRadial(firstCol, frame);
+      // Углы и террасы: ряд по проекции на radial (одна точка — один ряд).
+      // collectRowDotsBySegment на клиньях даёт перекрывающиеся ⊥-коридоры → ряды вперемешку.
+      const perCircleRows = frame.corner || columnAnchorsShareRadial(firstCol, frame);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
         let bandDots;
-        if (terraceRows) {
+        if (perCircleRows) {
           bandDots = candidates.filter((c) => {
             if (isNoiseGridDot(c)) return false;
             const rn = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
@@ -3207,7 +3209,7 @@
         }
         const seatAxis = seatAxisFromAnchors(fa, la);
         let rowDots = bandDots.filter((c) => !isNoiseGridDot(c));
-        if (terraceRows) {
+        if (perCircleRows) {
           let alongLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
           let alongHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
           const bandAlongs = rowDots.map((c) => seatAlongCircle(c, seatAxis));
