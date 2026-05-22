@@ -2343,7 +2343,7 @@
       if (src === 'fieldGrid') s += 6;
       if (src === 'manual-sector-fill' || src.startsWith('manual')) s += 4;
       if (src === 'fieldGridNeighbor') s -= 15;
-      const seat = circleSeatNum(c);
+      const seat = circleSeatNum(circle);
       if (seat != null && seat > 0 && seat < 80) s += 2;
       return s;
     }
