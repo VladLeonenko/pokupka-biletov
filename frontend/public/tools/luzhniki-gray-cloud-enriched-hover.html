@@ -2234,7 +2234,7 @@
       return s;
     }
 
-    /** На одном X в SVG часто 2 круга (fieldGrid + strict) — одно место на колонку. */
+    /** На одном X в SVG часто 2 круга (fieldGrid + strict) — одна колонка, пишем во все fillable. */
     function dedupeSeatDotsByX(circles, firstAnchor, lastAnchor) {
       const sorted = sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor);
       if (!sorted.length) return [];
@@ -2249,8 +2249,17 @@
       let bucket = [sorted[0]];
       const flush = () => {
         if (!bucket.length) return;
-        bucket.sort((a, b) => seatDotRank(b) - seatDotRank(a));
-        slots.push(bucket[0]);
+        const hasStrict = bucket.some((c) => (c.getAttribute('data-source') || '') === 'strict');
+        bucket.sort((a, b) => {
+          let ra = seatDotRank(a);
+          let rb = seatDotRank(b);
+          if (hasStrict) {
+            if ((a.getAttribute('data-source') || '') === 'fieldGrid') ra -= 25;
+            if ((b.getAttribute('data-source') || '') === 'fieldGrid') rb -= 25;
+          }
+          return rb - ra;
+        });
+        slots.push({ rep: bucket[0], members: bucket.slice() });
         bucket = [];
       };
       for (let i = 1; i < sorted.length; i++) {
@@ -2262,6 +2271,18 @@
       }
       flush();
       return slots;
+    }
+
+    function proposalTargetsForSeatSlot(slot) {
+      const out = [];
+      const seen = new Set();
+      for (const c of slot.members) {
+        if (seen.has(c)) continue;
+        seen.add(c);
+        if (!shouldFillCircle(c)) continue;
+        out.push(c);
+      }
+      return out;
     }
 
     function distanceToRowSegment(circle, firstAnchor, lastAnchor) {
@@ -2421,29 +2442,39 @@
         );
         bandsUsed++;
         let nextSeat = startSeat;
-        for (const c of slots) {
-          const edgeKind = c.getAttribute('data-sector-edge') || '';
-          if (isHardManualSeat(c)) {
-            const held = circleSeatNum(c);
+        for (const slot of slots) {
+          const rep = slot.rep;
+          const edgeKind = rep.getAttribute('data-sector-edge') || '';
+          if (isHardManualSeat(rep)) {
+            const held = circleSeatNum(rep);
             if (held != null && held >= nextSeat) nextSeat = held + 1;
             continue;
           }
           if (edgeKind === 'first') {
-            const held = circleSeatNum(c);
+            const held = circleSeatNum(rep);
             if (held != null && held === nextSeat) {
               nextSeat = held + 1;
               continue;
             }
           }
           if (edgeKind === 'last') continue;
-          if (!shouldFillCircle(c)) continue;
           if (occupiedManual.has(nextSeat)) {
             suspicious.push('ряд ' + rowKey + ' место ' + nextSeat + ': занято manual');
-            warnCircles.push(c);
+            warnCircles.push(rep);
             nextSeat++;
             continue;
           }
-          proposal.push({ circle: c, row: rowKey, seat: String(nextSeat), edgeKind });
+          const targets = proposalTargetsForSeatSlot(slot);
+          if (!targets.length) {
+            nextSeat++;
+            continue;
+          }
+          const seatStr = String(nextSeat);
+          for (const c of targets) {
+            const ek = c.getAttribute('data-sector-edge') || '';
+            if (ek === 'last') continue;
+            proposal.push({ circle: c, row: rowKey, seat: seatStr, edgeKind: ek });
+          }
           nextSeat++;
         }
       }
