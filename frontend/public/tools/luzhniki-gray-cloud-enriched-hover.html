@@ -2319,7 +2319,7 @@
       if (sector) renderRowLabels(sector);
     }
 
-    /** Якоря колонки: только data-sector-edge; 1-я = min X в ряду, посл. = max X (не по номеру места). */
+    /** Якоря колонки: только data-sector-edge; при дублях в ряду — по номеру места, не min/max X. */
     function collectColumnAnchors(candidates, _rows, edgeKind) {
       const wantEdge = edgeKind === 'first' ? 'first' : 'last';
       const byRow = new Map();
@@ -2328,19 +2328,22 @@
         const row = normalizePaintRowNum(circleRow(c));
         if (!row) continue;
         const p = circleXY(c);
-        const seat = circleSeatNum(c) ?? (edgeKind === 'first' ? 1 : 0);
+        const seat = circleSeatNum(c);
+        const entry = { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true };
         const cur = byRow.get(row);
         if (!cur) {
-          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
+          byRow.set(row, entry);
           continue;
         }
-        if (edgeKind === 'first' && p.x < cur.x) {
-          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
-        } else if (edgeKind === 'last' && p.x > cur.x) {
-          byRow.set(row, { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true });
+        const curSeat = cur.seat;
+        const newSeat = seat;
+        if (edgeKind === 'first') {
+          if (newSeat != null && (curSeat == null || newSeat < curSeat)) byRow.set(row, entry);
+        } else if (newSeat != null && (curSeat == null || newSeat > curSeat)) {
+          byRow.set(row, entry);
         }
       }
-      return Array.from(byRow.values()).sort((a, b) => a.y - b.y);
+      return Array.from(byRow.values()).sort((a, b) => a.rowNum - b.rowNum);
     }
 
     function clusterBandsByY(circles, bandGap) {
@@ -2504,36 +2507,44 @@
       return kept.length ? kept : rowDots;
     }
 
+    function moveAnchorAlongSeatAxis(anchor, along, seatAxis) {
+      const cur = seatAlongPoint(anchor, seatAxis);
+      const delta = along - cur;
+      return { ...anchor, x: anchor.x + seatAxis.ux * delta, y: anchor.y + seatAxis.uy * delta };
+    }
+
     function snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum) {
       if (!rowDots.length) return { fa, la };
-      const xs = rowDots.map((c) => circleXY(c).x);
-      const xMin = Math.min(...xs);
-      const xMax = Math.max(...xs);
+      const seatAxis = seatAxisFromAnchors(fa, la);
+      const alongs = rowDots.map((c) => seatAlongCircle(c, seatAxis));
+      const alongMin = Math.min(...alongs);
+      const alongMax = Math.max(...alongs);
       const hasExactFirst = firstCol.some((a) => a.rowNum === rowNum);
       const hasExactLast = lastCol.some((a) => a.rowNum === rowNum);
       return {
-        fa: hasExactFirst ? fa : { ...fa, x: Math.min(fa.x, xMin) },
-        la: hasExactLast ? la : { ...la, x: Math.max(la.x, xMax) },
+        fa: hasExactFirst ? fa : moveAnchorAlongSeatAxis(fa, alongMin, seatAxis),
+        la: hasExactLast ? la : moveAnchorAlongSeatAxis(la, alongMax, seatAxis),
       };
     }
 
-    function resolveLastSlot(slots) {
+    function resolveLastSlot(slots, fa, la) {
+      const seatAxis = seatAxisFromAnchors(fa, la);
       let lastSlot = null;
-      let lastSlotX = -Infinity;
+      let lastAlong = -Infinity;
       for (const slot of slots) {
         const hasLastEdge = slot.members.some(
           (c) => (c.getAttribute('data-sector-edge') || '') === 'last',
         );
         if (!hasLastEdge) continue;
-        const x = circleXY(slot.rep).x;
-        if (x >= lastSlotX) {
-          lastSlotX = x;
+        const along = seatAlongCircle(slot.rep, seatAxis);
+        if (along >= lastAlong) {
+          lastAlong = along;
           lastSlot = slot;
         }
       }
       if (!lastSlot && slots.length) {
         lastSlot = slots.reduce((best, slot) =>
-          circleXY(slot.rep).x >= circleXY(best.rep).x ? slot : best,
+          seatAlongCircle(slot.rep, seatAxis) >= seatAlongCircle(best.rep, seatAxis) ? slot : best,
         );
       }
       return lastSlot;
@@ -2765,7 +2776,7 @@
         gaps.push(Math.hypot(mid.x - nm.x, mid.y - nm.y));
       }
       const gap = median(gaps.filter((g) => g > 2)) || minAdjacentRowGapY(firstCol) || 18;
-      return Math.max(7, Math.min(20, gap * 0.4));
+      return Math.max(8, Math.min(22, gap * 0.45));
     }
 
     /** Точки ряда: ⊥ к хорде якорей 1-й↔посл. колонки (угловые/радиальные сектора). */
@@ -2916,11 +2927,6 @@
         }
         let fa = firstAnchor;
         let la = lastAnchor;
-        const seatAxis0 = seatAxisFromAnchors(fa, la);
-        if (seatAlongPoint(la, seatAxis0) < seatAlongPoint(fa, seatAxis0)) {
-          fa = lastAnchor;
-          la = firstAnchor;
-        }
         if (Math.hypot(la.x - fa.x, la.y - fa.y) < 1) {
           bandsSkipped++;
           continue;
@@ -2956,7 +2962,7 @@
             .filter((n) => n != null),
         );
         let seatNum = Math.max(1, fa.seat || 1);
-        const lastSlot = resolveLastSlot(slots);
+        const lastSlot = resolveLastSlot(slots, fa, la);
         for (const slot of slots) {
           if (slot === lastSlot) continue;
           const rep = slot.rep;
