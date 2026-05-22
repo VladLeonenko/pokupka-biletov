@@ -151,6 +151,7 @@
       <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
       <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
       <button type="button" id="copySectorBtn" title="скопировать разметку сектора в другой сектор">⇄ копия</button>
+      <button type="button" id="copyMirrorSectorBtn" title="скопировать в зеркальный сектор через центр поля (верх↔низ)">⇄ зеркало</button>
     </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
@@ -203,6 +204,7 @@
     const paintTargetSector = document.getElementById('paintTargetSector');
     const copyReverse = document.getElementById('copyReverse');
     const copySectorBtn = document.getElementById('copySectorBtn');
+    const copyMirrorSectorBtn = document.getElementById('copyMirrorSectorBtn');
     const paintSelCount = document.getElementById('paintSelCount');
     const undoBtn = document.getElementById('undoBtn');
     const saveSvgBtn = document.getElementById('saveSvg');
@@ -1725,6 +1727,186 @@
       return { list, dropped: circles.length - list.length };
     }
 
+    function fieldCenterPoint() {
+      return { cx: vbW / 2, cy: vbH / 2 };
+    }
+
+    function iterateUniqueSectorBboxes() {
+      const seen = new Set();
+      const out = [];
+      for (const norm of sectorBboxByNorm.keys()) {
+        const base = sectorBaseCode(norm);
+        if (!base || seen.has(base)) continue;
+        seen.add(base);
+        const bb = getSectorBbox(base);
+        if (bb) out.push({ norm: base, bb });
+      }
+      return out;
+    }
+
+    /** Зеркальный сектор через центр viewBox (верхняя трибуна ↔ нижняя). */
+    function findMirrorSectorLabel(fromSector) {
+      const fromNorm = sectorBaseCode(normalizeSectorLabel(fromSector));
+      const fromBb = getSectorBbox(fromNorm);
+      if (!fromBb) return null;
+      const fcx = (fromBb.x0 + fromBb.x1) / 2;
+      const fcy = (fromBb.y0 + fromBb.y1) / 2;
+      const { cy: fcy0 } = fieldCenterPoint();
+      const mcx = fcx;
+      const mcy = 2 * fcy0 - fcy;
+      let bestNorm = null;
+      let bestScore = Infinity;
+      for (const { norm, bb } of iterateUniqueSectorBboxes()) {
+        if (norm === fromNorm) continue;
+        const cx = (bb.x0 + bb.x1) / 2;
+        const cy = (bb.y0 + bb.y1) / 2;
+        const d = Math.hypot(cx - mcx, cy - mcy);
+        const dw = Math.abs(bb.x1 - bb.x0 - (fromBb.x1 - fromBb.x0));
+        const dh = Math.abs(bb.y1 - bb.y0 - (fromBb.y1 - fromBb.y0));
+        const score = d + (dw + dh) * 0.12;
+        if (score < bestScore) {
+          bestScore = score;
+          bestNorm = norm;
+        }
+      }
+      const maxD = Math.max(fromBb.x1 - fromBb.x0, fromBb.y1 - fromBb.y0) * 1.25;
+      return bestNorm && bestScore <= maxD ? bestNorm : null;
+    }
+
+    function mirrorFieldPointY(x, y) {
+      const { cy } = fieldCenterPoint();
+      return { x, y: 2 * cy - y };
+    }
+
+    function mapRelPointBetweenBboxes(rx, ry, fromBb, toBb) {
+      return {
+        x: toBb.x0 + rx * (toBb.x1 - toBb.x0),
+        y: toBb.y0 + ry * (toBb.y1 - toBb.y0),
+      };
+    }
+
+    function seatForCopy(srcSeat, rowKey, fromRows, reverseSeats) {
+      if (!reverseSeats || srcSeat == null) return srcSeat;
+      const rowCircles = fromRows.get(rowKey) || [];
+      const seats = rowCircles.map(circleSeatNum).filter((n) => n != null);
+      if (seats.length < 2) return srcSeat;
+      const maxSeat = Math.max(...seats);
+      const minSeat = Math.min(...seats);
+      return maxSeat + minSeat - srcSeat;
+    }
+
+    function buildSectorCopyProposal(fromSector, toSector, opts) {
+      const mirror = opts?.mirror === true;
+      const reverseSeats = opts?.reverseSeats === true;
+      const fromNorm = sectorBaseCode(normalizeSectorLabel(fromSector));
+      const toNorm = sectorBaseCode(normalizeSectorLabel(toSector));
+      const fromBb = getSectorBbox(fromNorm);
+      const toBb = getSectorBbox(toNorm);
+      if (!fromBb || !toBb) return { proposal: [], skipped: 0, reason: 'нет bbox сектора' };
+      const fromRows = groupedLabeledRows(fromSector);
+      if (!fromRows.size) return { proposal: [], skipped: 0, reason: 'исходный сектор без row/place' };
+      const targetPool = circlesForSector(toSector);
+      if (!targetPool.length) return { proposal: [], skipped: 0, reason: '0 точек в целевом секторе' };
+
+      const fromW = fromBb.x1 - fromBb.x0 || 1;
+      const fromH = fromBb.y1 - fromBb.y0 || 1;
+      const used = new Set();
+      const proposal = [];
+      let skipped = 0;
+      const matchRadius = Math.max(14, Math.min(42, median([fromW, fromH]) * 0.04));
+
+      for (const [rowKey, rowCircles] of fromRows) {
+        for (const src of rowCircles) {
+          const srcSeat = circleSeatNum(src);
+          if (!srcSeat) continue;
+          const p = circleXY(src);
+          let tx;
+          let ty;
+          if (mirror) {
+            ({ x: tx, y: ty } = mirrorFieldPointY(p.x, p.y));
+          } else {
+            const rx = (p.x - fromBb.x0) / fromW;
+            const ry = (p.y - fromBb.y0) / fromH;
+            ({ x: tx, y: ty } = mapRelPointBetweenBboxes(rx, ry, fromBb, toBb));
+          }
+          const hits = [];
+          for (const c of targetPool) {
+            if (used.has(c)) continue;
+            const q = circleXY(c);
+            const d = Math.hypot(q.x - tx, q.y - ty);
+            if (d <= matchRadius) hits.push({ c, d });
+          }
+          if (!hits.length) {
+            skipped++;
+            continue;
+          }
+          hits.sort((a, b) => a.d - b.d);
+          const seatStr = String(seatForCopy(srcSeat, rowKey, fromRows, reverseSeats));
+          const edgeKind = src.getAttribute('data-sector-edge') || '';
+          for (const hit of hits) {
+            if (hit.d > matchRadius * 0.55 && hits[0].d < matchRadius * 0.25) break;
+            used.add(hit.c);
+            proposal.push({ circle: hit.c, row: rowKey, seat: seatStr, edgeKind });
+          }
+        }
+      }
+      return { proposal, skipped, reason: proposal.length ? '' : '0 совпадений по геометрии' };
+    }
+
+    async function executeSectorCopy(fromSector, toSector, opts) {
+      const built = buildSectorCopyProposal(fromSector, toSector, opts);
+      if (!built.proposal.length) {
+        showPaintToast('err', built.reason || '0 мест для копирования');
+        return false;
+      }
+      const toApplyLabel = inferSectorLabelForApply(toSector);
+      markAudit(built.proposal.map((p) => p.circle), 'proposed');
+      const reverseHint = opts?.reverseSeats ? ', реверс мест' : '';
+      const mirrorHint = opts?.mirror ? ' (зеркало поля)' : '';
+      if (
+        !window.confirm(
+          'Скопировать ' +
+            canonicalSectorLabel(fromSector) +
+            ' → ' +
+            canonicalSectorLabel(toApplyLabel) +
+            mirrorHint +
+            ': ' +
+            built.proposal.length +
+            ' мест' +
+            reverseHint +
+            '?' +
+            (built.skipped ? '\n\nНе сопоставлено: ' + built.skipped : '') +
+            '\n\nБирюзовое будет перезаписано.',
+        )
+      ) {
+        showPaintToast('info', 'Копия подсвечена бирюзовым, SVG не изменён');
+        return false;
+      }
+      const batch = built.proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
+      for (const p of built.proposal) {
+        applySeatToCircle(
+          p.circle,
+          toApplyLabel,
+          p.row,
+          p.seat,
+          p.edgeKind ? 'manual-sector-edge' : 'manual-sector-copy',
+        );
+        if (p.edgeKind) p.circle.setAttribute('data-sector-edge', p.edgeKind);
+      }
+      pushUndo(batch);
+      persistCircleEdits(built.proposal.map((p) => p.circle), { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(toSector));
+      validateCurrentSector();
+      renderRowLabels(toApplyLabel);
+      showPaintToast(
+        'ok',
+        '⇄ ' + built.proposal.length + ' мест → ' + canonicalSectorLabel(toApplyLabel) + mirrorHint,
+      );
+      return true;
+    }
+
     function inferSectorFromSelection(circles) {
       const counts = new Map();
       for (const c of circles) {
@@ -2568,6 +2750,42 @@
       return { t, dist: Math.hypot(p.x - projX, p.y - projY) };
     }
 
+    /** Половина коридора ряда: до середины зазора с соседним рядом (дуги и прямоугольники). */
+    function rowCorridorHalfForSegment(rowNum, firstCol, lastCol) {
+      const fa = anchorForRow(firstCol, rowNum);
+      const la = anchorForRow(lastCol, rowNum);
+      if (!fa || !la) return 12;
+      const mid = { x: (fa.x + la.x) / 2, y: (fa.y + la.y) / 2 };
+      const gaps = [];
+      for (const neighbor of [rowNum - 1, rowNum + 1]) {
+        const nf = anchorForRow(firstCol, neighbor);
+        const nl = anchorForRow(lastCol, neighbor);
+        if (!nf || !nl) continue;
+        const nm = { x: (nf.x + nl.x) / 2, y: (nf.y + nl.y) / 2 };
+        gaps.push(Math.hypot(mid.x - nm.x, mid.y - nm.y));
+      }
+      const gap = median(gaps.filter((g) => g > 2)) || minAdjacentRowGapY(firstCol) || 18;
+      return Math.max(7, Math.min(20, gap * 0.4));
+    }
+
+    /** Точки ряда: ⊥ к хорде якорей 1-й↔посл. колонки (угловые/радиальные сектора). */
+    function collectRowDotsBySegment(candidates, rowNum, firstCol, lastCol) {
+      const fa = anchorForRow(firstCol, rowNum);
+      const la = anchorForRow(lastCol, rowNum);
+      if (!fa || !la) return [];
+      if (Math.hypot(la.x - fa.x, la.y - fa.y) < 1) return [];
+      const half = rowCorridorHalfForSegment(rowNum, firstCol, lastCol);
+      const out = [];
+      for (const c of candidates) {
+        if (isNoiseGridDot(c)) continue;
+        const { dist, t } = distanceToRowSegment(c, fa, la);
+        if (dist > half) continue;
+        if (t < -0.12 || t > 1.12) continue;
+        out.push(c);
+      }
+      return out;
+    }
+
     function medianRowStep(anchors) {
       const ys = anchors.map((a) => a.y).sort((a, b) => a - b);
       const gaps = [];
@@ -2666,41 +2884,24 @@
         );
       }
       const rowAxis = rowAxisFromColumnAnchors(firstCol);
-      const bandGap = Math.max(
-        6,
-        Math.min(16, (minAdjacentRowGapN(firstCol, rowAxis) || medianRowStep(firstCol)) * 0.44),
-      );
-      const rowBands = clusterRowBands(
-        candidates.filter((c) => !isNoiseGridDot(c)),
-        rowAxis,
-        bandGap,
-      );
       const terraceRows = columnAnchorsShareY(firstCol);
-      const dotsByRow = new Map();
-      for (const band of rowBands) {
-        const pool = band.circles.filter((c) => !isNoiseGridDot(c));
-        if (!pool.length) continue;
+      const rowsTotal = Math.max(0, rowMax - rowMin + 1);
+      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
+        const rowKey = String(rowNum);
+        let bandDots;
         if (terraceRows) {
-          for (const c of pool) {
-            const rowNum = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
-            if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
-              bandsSkipped++;
-              continue;
-            }
-            pushDotsToRow(dotsByRow, rowNum, [c]);
-          }
-          continue;
+          bandDots = candidates.filter((c) => {
+            if (isNoiseGridDot(c)) return false;
+            const rn = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
+            return rn === rowNum;
+          });
+        } else {
+          bandDots = collectRowDotsBySegment(candidates, rowNum, firstCol, lastCol);
         }
-        const rowNum = rowNumFromBandNear(band, firstCol, rowMin, rowMax, rowAxis);
-        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
+        if (!bandDots.length) {
           bandsSkipped++;
           continue;
         }
-        pushDotsToRow(dotsByRow, rowNum, pool);
-      }
-      const rowsTotal = Math.max(0, rowMax - rowMin + 1);
-      for (const [rowNum, bandDots] of dotsByRow) {
-        const rowKey = String(rowNum);
         const firstAnchor = anchorForRow(firstCol, rowNum);
         if (!firstAnchor) {
           suspicious.push('ряд ' + rowKey + ': нет якоря 1-го места в колонке');
@@ -2725,19 +2926,21 @@
           continue;
         }
         const seatAxis = seatAxisFromAnchors(fa, la);
-        let alongLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
-        let alongHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
-        const bandAlongs = bandDots.map((c) => seatAlongCircle(c, seatAxis));
-        if (bandAlongs.length) {
-          alongLo = Math.min(alongLo, Math.min(...bandAlongs));
-          alongHi = Math.max(alongHi, Math.max(...bandAlongs));
+        let rowDots = bandDots.filter((c) => !isNoiseGridDot(c));
+        if (terraceRows) {
+          let alongLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
+          let alongHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
+          const bandAlongs = rowDots.map((c) => seatAlongCircle(c, seatAxis));
+          if (bandAlongs.length) {
+            alongLo = Math.min(alongLo, Math.min(...bandAlongs));
+            alongHi = Math.max(alongHi, Math.max(...bandAlongs));
+          }
+          const alongMargin = Math.max(8, Math.abs(alongHi - alongLo) * 0.05);
+          rowDots = rowDots.filter((c) => {
+            const t = seatAlongCircle(c, seatAxis);
+            return t >= alongLo - alongMargin && t <= alongHi + alongMargin;
+          });
         }
-        const alongMargin = Math.max(8, Math.abs(alongHi - alongLo) * 0.05);
-        let rowDots = bandDots.filter((c) => {
-          if (isNoiseGridDot(c)) return false;
-          const t = seatAlongCircle(c, seatAxis);
-          return t >= alongLo - alongMargin && t <= alongHi + alongMargin;
-        });
         rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
         ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
         const slots = dedupeSeatDotsByX(rowDots, fa, la);
@@ -2752,7 +2955,6 @@
             .map(circleSeatNum)
             .filter((n) => n != null),
         );
-        bandsUsed++;
         let seatNum = Math.max(1, fa.seat || 1);
         const lastSlot = resolveLastSlot(slots);
         for (const slot of slots) {
@@ -2782,6 +2984,7 @@
           const lastSeat = Math.max(1, seatNum);
           appendSeatToSlot(proposal, rowKey, String(lastSeat), lastSlot, { allowLastTwin: true });
         }
+        bandsUsed++;
       }
 
       const proposedRows = new Set(proposal.map((p) => p.row)).size;
@@ -2807,8 +3010,8 @@
           candidates: candidates.length,
           fillable,
           fillTargets: fillTargets.length,
-          bands: rowBands.length,
-          rowBands: dotsByRow.size,
+          bands: rowsTotal,
+          rowBands: bandsUsed,
           rowsTotal,
           bandsUsed,
           bandsSkipped,
@@ -2900,6 +3103,22 @@
         'ok',
         '↕ ' + built.proposal.length + ' мест · ' + canonicalSectorLabel(sectorApplyLabel),
       );
+      const mirrorNorm = findMirrorSectorLabel(sector);
+      if (mirrorNorm) {
+        paintTargetSector.value = canonicalSectorLabel(mirrorNorm);
+        if (
+          window.confirm(
+            'Скопировать разметку в зеркальный сектор ' +
+              canonicalSectorLabel(mirrorNorm) +
+              '?\n\n(⇄ зеркало — то же в любой момент)',
+          )
+        ) {
+          await executeSectorCopy(sector, mirrorNorm, {
+            mirror: true,
+            reverseSeats: copyReverse.checked,
+          });
+        }
+      }
     }
 
     async function copySectorMarkup() {
@@ -2910,59 +3129,29 @@
         return;
       }
       clearAuditMarks();
-      const fromRows = groupedLabeledRows(fromSector);
-      const target = circlesForSector(toSector);
-      if (!fromRows.size || !target.length) {
-        showPaintToast('err', 'Нет размеченного исходного сектора или точек цели');
+      await executeSectorCopy(fromSector, toSector, {
+        mirror: false,
+        reverseSeats: copyReverse.checked,
+      });
+    }
+
+    async function copyMirrorSectorMarkup() {
+      const fromSector = paintSectorForApply().trim();
+      if (!fromSector) {
+        showPaintToast('err', 'Укажи исходный сектор в поле «Сектор»');
         return;
       }
-      const axis = principalAxis(Array.from(fromRows.values()).sort((a, b) => b.length - a.length)[0]);
-      const targetRows = new Map();
-      const rowNums = Array.from(fromRows.keys()).map(Number).sort((a, b) => a - b);
-      const targetSortedByNormal = target
-        .map((c) => ({ c, p: normalProjection(c, axis) }))
-        .sort((a, b) => a.p - b.p);
-      const step = median(rowNums.map((_, i) => (i ? i : 0)).filter(Boolean)) || 1;
-      const sourceCount = rowNums.length;
-      const chunkSize = Math.max(3, Math.round(target.length / Math.max(1, sourceCount)));
-      for (let i = 0; i < sourceCount; i++) {
-        targetRows.set(String(rowNums[i]), targetSortedByNormal.slice(i * chunkSize, i === sourceCount - 1 ? targetSortedByNormal.length : (i + 1) * chunkSize).map((o) => o.c));
-      }
-      const proposal = [];
-      for (const row of Array.from(fromRows.keys()).sort((a, b) => Number(a) - Number(b))) {
-        const src = fromRows.get(row).slice().sort((c1, c2) => circleSeatNum(c1) - circleSeatNum(c2));
-        let dst = (targetRows.get(row) || []).slice().sort((c1, c2) => projection(c1, axis) - projection(c2, axis));
-        if (copyReverse.checked) dst.reverse();
-        const n = Math.min(src.length, dst.length);
-        for (let i = 0; i < n; i++) proposal.push({ circle: dst[i], row, seat: String(circleSeatNum(src[i])) });
-      }
-      if (!proposal.length) {
-        showPaintToast('err', '0 мест для копирования');
+      clearAuditMarks();
+      const mirrorNorm = findMirrorSectorLabel(fromSector);
+      if (!mirrorNorm) {
+        showPaintToast('err', 'Не найден зеркальный сектор для «' + canonicalSectorLabel(fromSector) + '»');
         return;
       }
-      markAudit(proposal.map((p) => p.circle), 'proposed');
-      if (
-        !window.confirm(
-          'Скопировать ' +
-            canonicalSectorLabel(fromSector) +
-            ' → ' +
-            canonicalSectorLabel(toSector) +
-            ': ' +
-            proposal.length +
-            ' мест? Бирюзовое будет перезаписано.',
-        )
-      ) {
-        showPaintToast('info', 'Копия подсвечена бирюзовым, SVG не изменён');
-        return;
-      }
-      const batch = proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
-      for (const p of proposal) applySeatToCircle(p.circle, toSector, p.row, p.seat, 'manual-sector-copy');
-      pushUndo(batch);
-      persistCircleEdits(proposal.map((p) => p.circle), { deferServer: true });
-      paintUnlabeled(svgRoot);
-      recountStats();
-      await pushEditsToServer(normalizeSectorLabel(toSector));
-      validateCurrentSector();
+      paintTargetSector.value = canonicalSectorLabel(mirrorNorm);
+      await executeSectorCopy(fromSector, mirrorNorm, {
+        mirror: true,
+        reverseSeats: copyReverse.checked,
+      });
     }
 
     function updatePaintPreview() {
@@ -3742,6 +3931,7 @@
     sectorApply.addEventListener('click', () => applyWholeSectorProposal());
     auditBtn.addEventListener('click', () => validateCurrentSector());
     copySectorBtn.addEventListener('click', () => copySectorMarkup());
+    copyMirrorSectorBtn.addEventListener('click', () => copyMirrorSectorMarkup());
 
     zoomInBtn.addEventListener('click', () => {
       const r = viewport.getBoundingClientRect();
