@@ -792,9 +792,27 @@
       return stripped.replace(/\s+/g, '');
     }
 
+    function sectorBaseCode(norm) {
+      return String(norm || '').replace(/^vip/i, '');
+    }
+
+    /** C136 = VIP C136 в SVG (vipc136 vs c136). */
     function sectorNormsMatch(a, b) {
       if (!a || !b) return false;
-      return normalizeSectorLabel(a) === normalizeSectorLabel(b);
+      const na = normalizeSectorLabel(a);
+      const nb = normalizeSectorLabel(b);
+      if (na === nb) return true;
+      return sectorBaseCode(na) === sectorBaseCode(nb);
+    }
+
+    function getSectorBbox(norm) {
+      if (!norm) return null;
+      const keys = [norm, sectorBaseCode(norm), 'vip' + sectorBaseCode(norm)];
+      for (const k of keys) {
+        const bb = sectorBboxByNorm.get(k);
+        if (bb) return bb;
+      }
+      return null;
     }
 
     function canonicalSectorLabel(sector) {
@@ -804,6 +822,16 @@
       const m = n.match(/^([a-d])(\d{2,4})$/i);
       if (m) return 'Сектор ' + m[1].toUpperCase() + ' ' + m[2];
       return String(sector || '').trim();
+    }
+
+    /** Подпись сектора как в SVG (VIP C136 vs «Сектор C 136»). */
+    function inferSectorLabelForApply(sectorInput) {
+      const trimmed = String(sectorInput || '').trim();
+      if (!trimmed) return trimmed;
+      const hit = circlesForSector(trimmed)
+        .map((c) => circleSector(c))
+        .find((s) => s && sectorNormsMatch(s, trimmed));
+      return hit || canonicalSectorLabel(trimmed);
     }
 
     function circleSector(circle) {
@@ -1654,12 +1682,16 @@
         try {
           const bb = p.getBBox();
           const pad = 6;
-          sectorBboxByNorm.set(norm, {
+          const box = {
             x0: bb.x - pad,
             y0: bb.y - pad,
             x1: bb.x + bb.width + pad,
             y1: bb.y + bb.height + pad,
-          });
+          };
+          sectorBboxByNorm.set(norm, box);
+          const base = sectorBaseCode(norm);
+          sectorBboxByNorm.set(base, box);
+          sectorBboxByNorm.set('vip' + base, box);
         } catch {
           /* path без layout */
         }
@@ -1669,7 +1701,7 @@
     /** Не давать линии утащить точки с противоположной трибуны (B262 vs …). */
     function filterCirclesToSectorBbox(circles, sectorLabel) {
       const norm = normalizeSectorLabel(sectorLabel);
-      const bb = sectorBboxByNorm.get(norm);
+      const bb = getSectorBbox(norm);
       if (!bb) return { list: circles, dropped: 0 };
       const list = circles.filter((c) => {
         const cx = +c.getAttribute('cx');
@@ -1700,16 +1732,21 @@
     function circlesForSector(sectorLabel) {
       const norm = normalizeSectorLabel(sectorLabel);
       if (!norm) return [];
-      const bb = sectorBboxByNorm.get(norm);
+      const bb = getSectorBbox(norm);
       const out = [];
       for (const c of allCircles) {
         const ownSector = circleSector(c);
-        if (ownSector && !sectorNormsMatch(ownSector, sectorLabel)) continue;
+        if (ownSector) {
+          if (!sectorNormsMatch(ownSector, sectorLabel)) continue;
+        } else if (bb) {
+          const { x, y } = circleXY(c);
+          if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
+        } else {
+          continue;
+        }
         if (bb) {
           const { x, y } = circleXY(c);
           if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
-        } else if (!sectorNormsMatch(ownSector, sectorLabel)) {
-          continue;
         }
         out.push(c);
       }
@@ -2237,6 +2274,13 @@
 
     function buildSectorProposal(sectorLabel) {
       const candidates = circlesForSector(sectorLabel);
+      if (!candidates.length) {
+        throw new Error(
+          '0 точек в секторе «' +
+            sectorLabel +
+            '». Для VIP укажи C136 VIP (или Сектор C 136 VIP) — без VIP точки не попадали в выборку',
+        );
+      }
       const rows = groupedLabeledRows(sectorLabel);
       const firstCol = collectColumnAnchors(candidates, rows, 'first').filter((a) => a.marked);
       const lastCol = collectColumnAnchors(candidates, rows, 'last').filter((a) => a.marked);
@@ -2280,8 +2324,7 @@
         );
       }
       const bandGap = Math.max(8, Math.min(14, (paintCorridorPx() || 20) * 0.55));
-      const clusterPool = candidates.filter((c) => !isSectorEdgeAnchor(c));
-      const bands = clusterBandsByY(clusterPool.length ? clusterPool : candidates, bandGap);
+      const bands = clusterBandsByY(candidates, bandGap);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (const band of bands) {
         const rowNum = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
@@ -2388,6 +2431,7 @@
         showPaintToast('err', 'Укажи сектор, например A116');
         return;
       }
+      const sectorApplyLabel = inferSectorLabelForApply(sector);
       let built;
       try {
         built = buildSectorProposal(sector);
@@ -2442,7 +2486,13 @@
       }
       const batch = built.proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
       for (const p of built.proposal) {
-        applySeatToCircle(p.circle, sector, p.row, p.seat, p.edgeKind ? 'manual-sector-edge' : 'manual-sector-fill');
+        applySeatToCircle(
+          p.circle,
+          sectorApplyLabel,
+          p.row,
+          p.seat,
+          p.edgeKind ? 'manual-sector-edge' : 'manual-sector-fill',
+        );
         if (p.edgeKind) p.circle.setAttribute('data-sector-edge', p.edgeKind);
       }
       pushUndo(batch);
@@ -2452,6 +2502,10 @@
       await pushEditsToServer(normalizeSectorLabel(sector));
       validateCurrentSector();
       renderRowLabels(sector);
+      showPaintToast(
+        'ok',
+        '↕ ' + built.proposal.length + ' мест · ' + canonicalSectorLabel(sectorApplyLabel),
+      );
     }
 
     async function copySectorMarkup() {
