@@ -843,6 +843,17 @@
       return sectorNormsMatch(circleSector(circle), filter);
     }
 
+    /** Как circlesForSector: без place-name — по bbox полигона сектора. */
+    function circleMatchesSectorFilter(circle, filter) {
+      if (!filter) return true;
+      const own = circleSector(circle);
+      if (own) return sectorNormsMatch(own, filter);
+      const bb = getSectorBbox(normalizeSectorLabel(filter));
+      if (!bb) return false;
+      const { x, y } = circleXY(circle);
+      return x >= bb.x0 && x <= bb.x1 && y >= bb.y0 && y <= bb.y1;
+    }
+
     function isValidPaintRow(row) {
       const r = String(row ?? '').trim();
       return /^\d+$/.test(r);
@@ -1433,7 +1444,7 @@
       const y1 = Math.max(a.y, b.y);
       const out = [];
       for (const c of allCircles) {
-        if (sectorFilter && !sectorMatches(c, sectorFilter)) continue;
+        if (sectorFilter && !circleMatchesSectorFilter(c, sectorFilter)) continue;
         const { x, y } = circleXY(c);
         if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push(c);
       }
@@ -2177,17 +2188,67 @@
       return (anchor.x - axis.cx) * axis.nx + (anchor.y - axis.cy) * axis.ny;
     }
 
+    function minAdjacentRowGapN(anchors, axis) {
+      if (!axis || !anchors.length) return minAdjacentRowGapY(anchors);
+      const ps = anchors.map((a) => anchorNormalProj(a, axis)).sort((a, b) => a - b);
+      let minG = Infinity;
+      for (let i = 1; i < ps.length; i++) {
+        const g = Math.abs(ps[i] - ps[i - 1]);
+        if (g > 0.5) minG = Math.min(minG, g);
+      }
+      return Number.isFinite(minG) ? minG : minAdjacentRowGapY(anchors);
+    }
+
+    function rowNumFromColumnProj(bandProj, colAnchors, rowMin, rowMax, axis) {
+      if (!colAnchors.length || !axis) return null;
+      const sorted = colAnchors.slice().sort((a, b) => anchorNormalProj(a, axis) - anchorNormalProj(b, axis));
+      const p = bandProj;
+      const p0 = anchorNormalProj(sorted[0], axis);
+      const pN = anchorNormalProj(sorted[sorted.length - 1], axis);
+      if (p <= p0) return sorted[0].rowNum;
+      if (p >= pN) return sorted[sorted.length - 1].rowNum;
+      for (let i = 1; i < sorted.length; i++) {
+        const lo = sorted[i - 1];
+        const hi = sorted[i];
+        const loP = anchorNormalProj(lo, axis);
+        const hiP = anchorNormalProj(hi, axis);
+        if (p >= loP && p <= hiP) {
+          const t = (p - loP) / (hiP - loP || 1);
+          return Math.round(lo.rowNum + (hi.rowNum - lo.rowNum) * t);
+        }
+      }
+      let best = sorted[0];
+      let bestD = Math.abs(p - anchorNormalProj(best, axis));
+      for (const a of sorted) {
+        const d = Math.abs(p - anchorNormalProj(a, axis));
+        if (d < bestD) {
+          bestD = d;
+          best = a;
+        }
+      }
+      const rn = best.rowNum;
+      return rn >= rowMin && rn <= rowMax ? rn : null;
+    }
+
     /** Террасы на одном Y: уточняем ряд по нормали к линии якорей 1-й колонки. */
     function rowNumFromBandNear(band, firstCol, rowMin, rowMax, axis) {
-      const byY = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
-      if (!axis || firstCol.length < 3) return byY;
-      const bandProj = median(
-        band.circles.map((c) => {
-          const p = circleXY(c);
-          return (p.x - axis.cx) * axis.nx + (p.y - axis.cy) * axis.ny;
-        }),
-      );
-      let best = byY;
+      const bandY = band.y ?? median(band.circles.map((c) => circleXY(c).y));
+      if (!axis || firstCol.length < 2) {
+        return rowNumFromBandY(bandY, firstCol, rowMin, rowMax);
+      }
+      const bandProj =
+        band.proj ??
+        median(
+          band.circles.map((c) => {
+            const p = circleXY(c);
+            return (p.x - axis.cx) * axis.nx + (p.y - axis.cy) * axis.ny;
+          }),
+        );
+      const byProj = rowNumFromColumnProj(bandProj, firstCol, rowMin, rowMax, axis);
+      if (firstCol.length < 3) {
+        return byProj ?? rowNumFromBandY(bandY, firstCol, rowMin, rowMax);
+      }
+      let best = byProj;
       let bestD = Infinity;
       for (let rn = rowMin; rn <= rowMax; rn++) {
         const a = anchorForRow(firstCol, rn);
@@ -2198,13 +2259,15 @@
           best = rn;
         }
       }
-      const half = Math.max(7, minAdjacentRowGapY(firstCol) * 0.46);
-      return bestD <= half ? best : byY;
+      const half = Math.max(7, minAdjacentRowGapN(firstCol, axis) * 0.46);
+      return bestD <= half ? best : byProj ?? rowNumFromBandY(bandY, firstCol, rowMin, rowMax);
     }
 
     function rowNumForCircle(c, firstCol, rowMin, rowMax, axis) {
       const p = circleXY(c);
-      return rowNumFromBandNear({ circles: [c], y: p.y }, firstCol, rowMin, rowMax, axis);
+      if (!axis) return rowNumFromBandNear({ circles: [c], y: p.y }, firstCol, rowMin, rowMax, axis);
+      const proj = (p.x - axis.cx) * axis.nx + (p.y - axis.cy) * axis.ny;
+      return rowNumFromBandNear({ circles: [c], y: p.y, proj }, firstCol, rowMin, rowMax, axis);
     }
 
     /** Террасы (C136 VIP): несколько рядов на одном Y в якорях — тогда ряд по точке, не по полосе. */
@@ -2227,31 +2290,32 @@
     /** Ряд C142 и др.: проход между блоками мест (aisle) — все сегменты от 1-й до посл. колонки. */
     function filterRowDotsBetweenAnchors(rowDots, fa, la) {
       if (!rowDots.length) return rowDots;
+      const seatAxis = seatAxisFromAnchors(fa, la);
       const sorted = sortSeatsByColumnDirection(rowDots, fa, la);
       const pitches = [];
       for (let i = 1; i < sorted.length; i++) {
-        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
-        if (dx > 4 && dx < 120) pitches.push(dx);
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > 4 && d < 120) pitches.push(d);
       }
       const pitch = median(pitches) || 20;
       const aisleGap = Math.max(42, pitch * 2.35);
       const segments = [];
       let bucket = [sorted[0]];
       for (let i = 1; i < sorted.length; i++) {
-        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
-        if (dx > aisleGap) {
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > aisleGap) {
           segments.push(bucket);
           bucket = [sorted[i]];
         } else bucket.push(sorted[i]);
       }
       segments.push(bucket);
-      const spanLo = Math.min(fa.x, la.x) - 28;
-      const spanHi = Math.max(fa.x, la.x) + 28;
+      const spanLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis)) - 28;
+      const spanHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis)) + 28;
       const kept = [];
       for (const seg of segments) {
-        const xs = seg.map((c) => circleXY(c).x);
-        const segLo = Math.min(...xs);
-        const segHi = Math.max(...xs);
+        const alongs = seg.map((c) => seatAlongCircle(c, seatAxis));
+        const segLo = Math.min(...alongs);
+        const segHi = Math.max(...alongs);
         if (segHi < spanLo || segLo > spanHi) continue;
         kept.push(...seg);
       }
@@ -2346,9 +2410,24 @@
       };
     }
 
+    function seatAxisFromAnchors(firstAnchor, lastAnchor) {
+      const dx = lastAnchor.x - firstAnchor.x;
+      const dy = lastAnchor.y - firstAnchor.y;
+      const len = Math.hypot(dx, dy) || 1;
+      return { ux: dx / len, uy: dy / len, ox: firstAnchor.x, oy: firstAnchor.y };
+    }
+
+    function seatAlongPoint(p, axis) {
+      return (p.x - axis.ox) * axis.ux + (p.y - axis.oy) * axis.uy;
+    }
+
+    function seatAlongCircle(c, axis) {
+      return seatAlongPoint(circleXY(c), axis);
+    }
+
     function sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor) {
-      const dir = lastAnchor.x >= firstAnchor.x ? 1 : -1;
-      return circles.slice().sort((a, b) => dir * (circleXY(a).x - circleXY(b).x));
+      const axis = seatAxisFromAnchors(firstAnchor, lastAnchor);
+      return circles.slice().sort((a, b) => seatAlongCircle(a, axis) - seatAlongCircle(b, axis));
     }
 
     function seatDotRank(circle) {
@@ -2367,12 +2446,13 @@
 
     /** На одном X в SVG часто 2 круга (fieldGrid + strict) — одна колонка, пишем во все fillable. */
     function dedupeSeatDotsByX(circles, firstAnchor, lastAnchor) {
+      const seatAxis = seatAxisFromAnchors(firstAnchor, lastAnchor);
       const sorted = sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor);
       if (!sorted.length) return [];
       const pitches = [];
       for (let i = 1; i < sorted.length; i++) {
-        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
-        if (dx > 4) pitches.push(dx);
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > 4) pitches.push(d);
       }
       const pitch = median(pitches) || 18;
       const mergePx = Math.max(11, pitch * 0.5);
@@ -2394,8 +2474,8 @@
         bucket = [];
       };
       for (let i = 1; i < sorted.length; i++) {
-        const dx = Math.abs(circleXY(sorted[i]).x - circleXY(sorted[i - 1]).x);
-        if (dx > mergePx) {
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > mergePx) {
           flush();
           bucket = [sorted[i]];
         } else bucket.push(sorted[i]);
@@ -2588,15 +2668,16 @@
       const rowAxis = rowAxisFromColumnAnchors(firstCol);
       const bandGap = Math.max(
         6,
-        Math.min(16, (minAdjacentRowGapY(firstCol) || medianRowStep(firstCol)) * 0.44),
+        Math.min(16, (minAdjacentRowGapN(firstCol, rowAxis) || medianRowStep(firstCol)) * 0.44),
       );
-      const yBands = clusterBandsByY(
+      const rowBands = clusterRowBands(
         candidates.filter((c) => !isNoiseGridDot(c)),
+        rowAxis,
         bandGap,
       );
       const terraceRows = columnAnchorsShareY(firstCol);
       const dotsByRow = new Map();
-      for (const band of yBands) {
+      for (const band of rowBands) {
         const pool = band.circles.filter((c) => !isNoiseGridDot(c));
         if (!pool.length) continue;
         if (terraceRows) {
@@ -2634,26 +2715,28 @@
         }
         let fa = firstAnchor;
         let la = lastAnchor;
-        if (fa.x > la.x) {
+        const seatAxis0 = seatAxisFromAnchors(fa, la);
+        if (seatAlongPoint(la, seatAxis0) < seatAlongPoint(fa, seatAxis0)) {
           fa = lastAnchor;
           la = firstAnchor;
         }
-        if (Math.abs(la.x - fa.x) < 1) {
+        if (Math.hypot(la.x - fa.x, la.y - fa.y) < 1) {
           bandsSkipped++;
           continue;
         }
-        let xLo = Math.min(fa.x, la.x);
-        let xHi = Math.max(fa.x, la.x);
-        const bandXs = bandDots.map((c) => circleXY(c).x);
-        if (bandXs.length) {
-          xLo = Math.min(xLo, Math.min(...bandXs));
-          xHi = Math.max(xHi, Math.max(...bandXs));
+        const seatAxis = seatAxisFromAnchors(fa, la);
+        let alongLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
+        let alongHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
+        const bandAlongs = bandDots.map((c) => seatAlongCircle(c, seatAxis));
+        if (bandAlongs.length) {
+          alongLo = Math.min(alongLo, Math.min(...bandAlongs));
+          alongHi = Math.max(alongHi, Math.max(...bandAlongs));
         }
-        const xMargin = Math.max(8, Math.abs(xHi - xLo) * 0.05);
+        const alongMargin = Math.max(8, Math.abs(alongHi - alongLo) * 0.05);
         let rowDots = bandDots.filter((c) => {
           if (isNoiseGridDot(c)) return false;
-          const x = circleXY(c).x;
-          return x >= xLo - xMargin && x <= xHi + xMargin;
+          const t = seatAlongCircle(c, seatAxis);
+          return t >= alongLo - alongMargin && t <= alongHi + alongMargin;
         });
         rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
         ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
@@ -2724,7 +2807,7 @@
           candidates: candidates.length,
           fillable,
           fillTargets: fillTargets.length,
-          bands: yBands.length,
+          bands: rowBands.length,
           rowBands: dotsByRow.size,
           rowsTotal,
           bandsUsed,
@@ -3180,7 +3263,7 @@
       const pending = rectSelectPending;
       releasePaintPointer();
       hideRectSelect();
-      const current = pending.current;
+      const current = clientToSvg(e.clientX, e.clientY) || pending.current;
       const moved = Math.hypot(e.clientX - pending.clientX, e.clientY - pending.clientY);
       rectSelectPending = null;
       paintSuppressClick = true;
