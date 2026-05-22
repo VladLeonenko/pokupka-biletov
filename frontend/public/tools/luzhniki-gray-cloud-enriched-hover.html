@@ -1692,8 +1692,17 @@
     /** Заполняем только «внутренность»: не контур (data-sector-edge) и не manual-ряды. */
     function shouldFillCircle(circle) {
       if (circle.getAttribute('data-sector-edge')) return false;
+      const src = circle.getAttribute('data-source') || '';
+      if (src === 'manual-sector-fill') return true;
       if (isManualEditedCircle(circle)) return false;
       return true;
+    }
+
+    function isHardManualSeat(circle) {
+      if (circle.getAttribute('data-sector-edge')) return false;
+      const src = circle.getAttribute('data-source') || '';
+      if (src === 'manual-sector-fill') return false;
+      return isManualEditedCircle(circle);
     }
 
     function normalizeRowEdge(edge) {
@@ -2058,11 +2067,12 @@
     }
 
     function anchorForRow(anchors, rowNum) {
-      const exact = anchors.find((a) => a.rowNum === rowNum);
+      const ordered = anchors.slice().sort((a, b) => a.rowNum - b.rowNum);
+      const exact = ordered.find((a) => a.rowNum === rowNum);
       if (exact) return exact;
       let lo = null;
       let hi = null;
-      for (const anchor of anchors) {
+      for (const anchor of ordered) {
         if (anchor.rowNum < rowNum) lo = anchor;
         if (anchor.rowNum > rowNum) {
           hi = anchor;
@@ -2084,10 +2094,39 @@
     }
 
     function sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor) {
-      const dir = lastAnchor.x >= firstAnchor.x ? 1 : -1;
+      const dx = lastAnchor.x - firstAnchor.x;
+      const dy = lastAnchor.y - firstAnchor.y;
+      const len2 = dx * dx + dy * dy || 1;
       return circles
         .slice()
-        .sort((a, b) => dir * (circleXY(a).x - circleXY(b).x));
+        .sort((a, b) => {
+          const pa = circleXY(a);
+          const pb = circleXY(b);
+          const ta = ((pa.x - firstAnchor.x) * dx + (pa.y - firstAnchor.y) * dy) / len2;
+          const tb = ((pb.x - firstAnchor.x) * dx + (pb.y - firstAnchor.y) * dy) / len2;
+          return ta - tb;
+        });
+    }
+
+    function distanceToRowSegment(circle, firstAnchor, lastAnchor) {
+      const p = circleXY(circle);
+      const dx = lastAnchor.x - firstAnchor.x;
+      const dy = lastAnchor.y - firstAnchor.y;
+      const len2 = dx * dx + dy * dy || 1;
+      const t = ((p.x - firstAnchor.x) * dx + (p.y - firstAnchor.y) * dy) / len2;
+      const projX = firstAnchor.x + dx * t;
+      const projY = firstAnchor.y + dy * t;
+      return { t, dist: Math.hypot(p.x - projX, p.y - projY) };
+    }
+
+    function medianRowStep(anchors) {
+      const ys = anchors.map((a) => a.y).sort((a, b) => a - b);
+      const gaps = [];
+      for (let i = 1; i < ys.length; i++) {
+        const gap = Math.abs(ys[i] - ys[i - 1]);
+        if (gap > 1) gaps.push(gap);
+      }
+      return median(gaps) || 18;
     }
 
     function buildSectorProposal(sectorLabel) {
@@ -2128,16 +2167,12 @@
             ' защищено). Нужны красные/облачные точки внутри сектора',
         );
       }
-      const bandGap = Math.max(8, Math.min(14, paintCorridorPx() * 0.55));
-      const bands = clusterBandsByY(candidates, bandGap);
-      for (const band of bands) {
-        const rowNum = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
-        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
-          bandsSkipped++;
-          continue;
-        }
+      const rowBand = Math.max(7, Math.min(18, medianRowStep(firstCol) * 0.45, paintCorridorPx() * 0.8));
+      const used = new Set();
+      const rowsTotal = Math.max(0, rowMax - rowMin);
+      for (let rowNum = rowMin + 1; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
-        if (rowNum === rowMin) {
+        if (rowNum === rowMin || rowNum === rowMax) {
           bandsSkipped++;
           continue;
         }
@@ -2153,13 +2188,12 @@
           bandsSkipped++;
           continue;
         }
-        const xLo = Math.min(firstAnchor.x, lastAnchor.x);
-        const xHi = Math.max(firstAnchor.x, lastAnchor.x);
-        const xMargin = Math.max(8, Math.abs(xHi - xLo) * 0.06);
-        const rowDots = band.circles.filter((c) => {
-          const x = circleXY(c).x;
-          return x >= xLo - xMargin && x <= xHi + xMargin;
-        });
+        const rowDots = candidates
+          .filter((c) => !used.has(c))
+          .map((c) => ({ c, meta: distanceToRowSegment(c, firstAnchor, lastAnchor) }))
+          .filter((o) => o.meta.t >= -0.08 && o.meta.t <= 1.08 && o.meta.dist <= rowBand)
+          .sort((a, b) => a.meta.t - b.meta.t)
+          .map((o) => o.c);
         if (!rowDots.length) {
           bandsSkipped++;
           continue;
@@ -2169,16 +2203,17 @@
         const existing = rows.get(rowKey) || [];
         const occupiedManual = new Set(
           existing
-            .filter((c) => isManualEditedCircle(c) && !c.getAttribute('data-sector-edge'))
+            .filter(isHardManualSeat)
             .map(circleSeatNum)
             .filter((n) => n != null),
         );
         bandsUsed++;
         for (let i = 0; i < sorted.length; i++) {
           const c = sorted[i];
+          used.add(c);
           const seatNum = startSeat + i;
           const edgeKind = c.getAttribute('data-sector-edge') || '';
-          const manualLocked = isManualEditedCircle(c) && !edgeKind;
+          const manualLocked = isHardManualSeat(c);
           if (manualLocked) continue;
           if (occupiedManual.has(seatNum)) {
             suspicious.push('ряд ' + rowKey + ' место ' + seatNum + ': занято manual');
@@ -2213,7 +2248,7 @@
           candidates: candidates.length,
           fillable,
           fillTargets: fillTargets.length,
-          bands: bands.length,
+          bands: rowsTotal,
           bandsUsed,
           bandsSkipped,
           edgeRows: firstCol.length,
