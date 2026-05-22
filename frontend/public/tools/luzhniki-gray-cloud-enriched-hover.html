@@ -96,6 +96,11 @@
     .stage svg circle { pointer-events: all; cursor: pointer; }
     /* Paint: круги не перехватывают touch — pinch на viewport и линия по grid */
     .viewport.mode-paint .stage svg circle { pointer-events: none; }
+    #rectSelectHud {
+      position: absolute; z-index: 5; pointer-events: none;
+      border: 2px dashed #22d3ee; background: rgba(34, 211, 238, 0.12);
+      box-sizing: border-box;
+    }
     .stage svg circle.hl { fill: #f59e0b !important; stroke: #fff; stroke-width: 3px; }
     .stage svg circle.paint-preview { fill: #22d3ee !important; stroke: #fff; stroke-width: 2px; opacity: 0.85; }
     .stage svg circle.paint-selected { fill: #a78bfa !important; stroke: #fff; stroke-width: 2px; }
@@ -162,7 +167,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-fieldframe</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-rotatefix</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -170,6 +175,7 @@
   <div id="infoPanel" aria-live="polite"></div>
   <div id="paintToast" role="status"></div>
   <div class="viewport" id="viewport">
+    <div id="rectSelectHud" hidden></div>
     <div class="stage" id="stage"></div>
   </div>
   <script>
@@ -690,7 +696,15 @@
       panY = Math.min(limitY, Math.max(-limitY, panY));
     }
 
-    /** Зум к точке под пальцем / колёсиком без скачка центра в старый bbox. */
+    function stageCenterClient() {
+      const vr = viewport.getBoundingClientRect();
+      return {
+        x: vr.left + vr.width / 2 + panX,
+        y: vr.top + vr.height / 2 + panY,
+      };
+    }
+
+    /** Зум к точке под пальцем / колёсиком (учитывает pan, zoom, rotate). */
     function setZoomAt(newZoom, clientX, clientY) {
       const before = clientToSvg(clientX, clientY);
       const vr = viewport.getBoundingClientRect();
@@ -704,8 +718,15 @@
       zoom = clampZoom(newZoom);
       const centerX = vr.left + vr.width / 2;
       const centerY = vr.top + vr.height / 2;
-      panX = clientX - centerX - (before.x - vbW / 2) * zoom;
-      panY = clientY - centerY - (before.y - vbH / 2) * zoom;
+      const dx = (before.x - vbW / 2) * zoom;
+      const dy = (before.y - vbH / 2) * zoom;
+      const rad = (viewRotateDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+      panX = clientX - centerX - rx;
+      panY = clientY - centerY - ry;
       clampPanToViewport();
       applyTransform();
       syncZoomSlider();
@@ -1295,15 +1316,19 @@
       svgRoot.appendChild(overlayG);
     }
 
-    /** Экран → viewBox: только через stage.getBoundingClientRect (учитывает pan/zoom CSS). */
+    /** Экран → viewBox: inverse pan + rotate + scale (bbox при rotate врёт). */
     function clientToSvg(clientX, clientY) {
       if (!svgRoot) return null;
-      const r = stage.getBoundingClientRect();
-      if (!r.width || !r.height) return null;
-      return {
-        x: ((clientX - r.left) / r.width) * vbW,
-        y: ((clientY - r.top) / r.height) * vbH,
-      };
+      const sc = stageCenterClient();
+      const z = zoom || 1;
+      let dx = clientX - sc.x;
+      let dy = clientY - sc.y;
+      const rad = (-viewRotateDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+      return { x: rx / z + vbW / 2, y: ry / z + vbH / 2 };
     }
 
     function circleRow(c) {
@@ -1453,6 +1478,36 @@
       return out;
     }
 
+    /** viewBox → экран (пара clientToSvg). */
+    function svgToClient(sx, sy) {
+      const sc = stageCenterClient();
+      const z = zoom || 1;
+      let dx = (sx - vbW / 2) * z;
+      let dy = (sy - vbH / 2) * z;
+      const rad = (viewRotateDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      return {
+        x: sc.x + (dx * cos - dy * sin),
+        y: sc.y + (dx * sin + dy * cos),
+      };
+    }
+
+    function circlesInClientRect(clientX0, clientY0, clientX1, clientY1, sectorFilter) {
+      const x0 = Math.min(clientX0, clientX1);
+      const x1 = Math.max(clientX0, clientX1);
+      const y0 = Math.min(clientY0, clientY1);
+      const y1 = Math.max(clientY0, clientY1);
+      const out = [];
+      for (const c of allCircles) {
+        if (sectorFilter && !circleMatchesSectorFilter(c, sectorFilter)) continue;
+        const p = circleXY(c);
+        const sc = svgToClient(p.x, p.y);
+        if (sc.x >= x0 && sc.x <= x1 && sc.y >= y0 && sc.y <= y1) out.push(c);
+      }
+      return out;
+    }
+
     function circlesInSvgRect(a, b, sectorFilter) {
       const x0 = Math.min(a.x, b.x);
       const x1 = Math.max(a.x, b.x);
@@ -1467,8 +1522,27 @@
       return out;
     }
 
+    function showClientRectSelect(clientX0, clientY0, clientX1, clientY1) {
+      const hud = document.getElementById('rectSelectHud');
+      if (!hud) return;
+      const vr = viewport.getBoundingClientRect();
+      const left = Math.min(clientX0, clientX1) - vr.left;
+      const top = Math.min(clientY0, clientY1) - vr.top;
+      hud.hidden = false;
+      hud.style.left = left + 'px';
+      hud.style.top = top + 'px';
+      hud.style.width = Math.abs(clientX1 - clientX0) + 'px';
+      hud.style.height = Math.abs(clientY1 - clientY0) + 'px';
+    }
+
+    function hideRectSelect() {
+      const hud = document.getElementById('rectSelectHud');
+      if (hud) hud.hidden = true;
+      if (rectSelectEl) rectSelectEl.setAttribute('visibility', 'hidden');
+    }
+
     function showRectSelect(a, b) {
-      if (!rectSelectEl) return;
+      if (!rectSelectEl || viewRotateDeg) return;
       const x = Math.min(a.x, b.x);
       const y = Math.min(a.y, b.y);
       const w = Math.abs(a.x - b.x);
@@ -1478,10 +1552,6 @@
       rectSelectEl.setAttribute('width', String(w));
       rectSelectEl.setAttribute('height', String(h));
       rectSelectEl.setAttribute('visibility', 'visible');
-    }
-
-    function hideRectSelect() {
-      if (rectSelectEl) rectSelectEl.setAttribute('visibility', 'hidden');
     }
 
     function positionAlongPath(pathPoints, cx, cy) {
@@ -1690,7 +1760,10 @@
       rectSelectMode = Boolean(on);
       rectSelectBtn?.classList.toggle('active', rectSelectMode);
       if (rectSelectMode) {
-        showPaintToast('info', '▢ область: протяни рамку по точкам, затем ⌫ ряд/место');
+        showPaintToast(
+          'info',
+          '▢ область: протяни рамку (работает и при ↻ rotate), затем ⌫ ряд/место',
+        );
       } else {
         hideRectSelect();
       }
@@ -1771,40 +1844,71 @@
       return (px - ox) * ux + (py - oy) * uy;
     }
 
-    /** Локальная система сектора: radial от центра поля, tangential вдоль рядов. */
+    /**
+     * Локальные оси сектора:
+     * radial — стек рядов (1-я колонка, якоря по rowNum);
+     * tangential — места в ряду (1-я → посл. колонка).
+     * Угловые: якоря, не «голый» вектор от центра поля.
+     */
     function buildSectorLocalFrame(sectorLabel, firstCol, lastCol) {
       const { cx: fcx, cy: fcy } = fieldCenterPoint();
-      const cen = sectorCentroid(sectorLabel);
-      let radial = normalizeVec2(cen.x - fcx, cen.y - fcy);
-      let tangential = { ux: -radial.uy, uy: radial.ux };
-
+      const fieldRadial = normalizeVec2(sectorCentroid(sectorLabel).x - fcx, sectorCentroid(sectorLabel).y - fcy);
       const cols = (firstCol || []).filter((a) => a.marked);
-      if (cols.length >= 2) {
-        const sorted = cols.slice().sort((a, b) => a.rowNum - b.rowNum);
-        const lo = sorted[0];
-        const hi = sorted[sorted.length - 1];
-        const dr = hi.x - lo.x;
-        const dy = hi.y - lo.y;
-        if (Math.hypot(dr, dy) > 1 && dr * radial.ux + dy * radial.uy < 0) {
-          radial = { ux: -radial.ux, uy: -radial.uy };
-          tangential = { ux: -tangential.ux, uy: -tangential.uy };
+      if (cols.length < 2) {
+        return {
+          fcx,
+          fcy,
+          cx: fcx,
+          cy: fcy,
+          radial: fieldRadial,
+          tangential: { ux: -fieldRadial.uy, uy: fieldRadial.ux },
+          corner: false,
+        };
+      }
+      const sorted = cols.slice().sort((a, b) => a.rowNum - b.rowNum);
+      let radial = normalizeVec2(
+        sorted[sorted.length - 1].x - sorted[0].x,
+        sorted[sorted.length - 1].y - sorted[0].y,
+      );
+      const cx = median(sorted.map((a) => a.x));
+      const cy = median(sorted.map((a) => a.y));
+      const lc = (lastCol || []).filter((a) => a.marked);
+      const midRow = sorted[Math.floor(sorted.length / 2)]?.rowNum ?? sorted[0].rowNum;
+      const fa = sorted.find((a) => a.rowNum === midRow) || sorted[0];
+      const la = lc.find((a) => a.rowNum === midRow) || lc[0];
+      let tangential =
+        la && Math.hypot(la.x - fa.x, la.y - fa.y) > 1
+          ? normalizeVec2(la.x - fa.x, la.y - fa.y)
+          : { ux: -radial.uy, uy: radial.ux };
+      const stackFieldAlign = Math.abs(radial.ux * fieldRadial.ux + radial.uy * fieldRadial.uy);
+      const corner = stackFieldAlign < 0.78;
+      if (!corner && stackFieldAlign >= 0.78) {
+        radial = fieldRadial;
+        if (Math.hypot(la.x - fa.x, la.y - fa.y) > 1) {
+          tangential = normalizeVec2(la.x - fa.x, la.y - fa.y);
+        } else {
+          tangential = { ux: -radial.uy, uy: radial.ux };
         }
       }
+      return { fcx, fcy, cx, cy, radial, tangential, corner };
+    }
 
-      const fc = firstCol || [];
-      const lc = lastCol || [];
-      if (fc.length && lc.length) {
-        const midRow = fc[Math.floor(fc.length / 2)]?.rowNum ?? fc[0].rowNum;
-        const fa = fc.find((a) => a.rowNum === midRow) || fc[0];
-        const la = lc.find((a) => a.rowNum === midRow) || lc[0];
-        const tdx = la.x - fa.x;
-        const tdy = la.y - fa.y;
-        if (Math.hypot(tdx, tdy) > 1 && tdx * tangential.ux + tdy * tangential.uy < 0) {
-          tangential = { ux: -tangential.ux, uy: -tangential.uy };
-        }
-      }
-
-      return { fcx, fcy, radial, tangential };
+    function rowLabelPoint(circles, frame) {
+      const pts = circles.map(circleXY);
+      const ox = frame.cx ?? frame.fcx;
+      const oy = frame.cy ?? frame.fcy;
+      const seatProjs = pts.map(
+        (p) => (p.x - ox) * frame.tangential.ux + (p.y - oy) * frame.tangential.uy,
+      );
+      const stackProjs = pts.map((p) => (p.x - ox) * frame.radial.ux + (p.y - oy) * frame.radial.uy);
+      const minSeat = Math.min(...seatProjs);
+      const stackMed = median(stackProjs);
+      const towardField = localDotPx(ox, oy, frame.fcx, frame.fcy, frame.radial.ux, frame.radial.uy);
+      const stackSign = towardField >= 0 ? -1 : 1;
+      return {
+        x: ox + minSeat * frame.tangential.ux + (stackMed + stackSign * 34) * frame.radial.ux,
+        y: oy + minSeat * frame.tangential.uy + (stackMed + stackSign * 34) * frame.radial.uy,
+      };
     }
 
     function radialProjPoint(p, frame) {
@@ -1816,7 +1920,9 @@
     }
 
     function radialProjAnchor(a, frame) {
-      return localDotPx(a.x, a.y, frame.fcx, frame.fcy, frame.radial.ux, frame.radial.uy);
+      const ox = frame.cx ?? frame.fcx;
+      const oy = frame.cy ?? frame.fcy;
+      return localDotPx(a.x, a.y, ox, oy, frame.radial.ux, frame.radial.uy);
     }
 
     function localPointToSvg(r, t, frame) {
@@ -1838,9 +1944,15 @@
       const frame = buildSectorLocalFrame(sector, firstCol, lastCol);
       viewRotateDeg = (-Math.atan2(frame.tangential.uy, frame.tangential.ux) * 180) / Math.PI;
       applyTransform();
+      const modeHint = frame.corner ? ' · угол (оси по якорям)' : '';
       showPaintToast(
         'info',
-        '⟲ ' + canonicalSectorLabel(sector) + ' · ряды горизонтально · ' + viewRotateDeg.toFixed(0) + '°',
+        '⟲ ' +
+          canonicalSectorLabel(sector) +
+          ' · ряды горизонтально · ' +
+          viewRotateDeg.toFixed(0) +
+          '°' +
+          modeHint,
       );
     }
 
@@ -2107,10 +2219,7 @@
       const frame = buildSectorLocalFrame(sector, firstCol, lastCol);
       const ns = 'http://www.w3.org/2000/svg';
       for (const entry of entries) {
-        const pts = entry.circles.map(circleXY);
-        const r = median(pts.map((p) => radialProjPoint(p, frame)));
-        const tMin = Math.min(...pts.map((p) => tangentialProjPoint(p, frame)));
-        const labelPt = localPointToSvg(r, tMin - 34, frame);
+        const labelPt = rowLabelPoint(entry.circles, frame);
         const t = document.createElementNS(ns, 'text');
         t.textContent = entry.row;
         t.setAttribute('x', String(labelPt.x));
@@ -2496,15 +2605,23 @@
           uy: frame.tangential.uy,
           nx: frame.radial.ux,
           ny: frame.radial.uy,
-          cx: frame.fcx,
-          cy: frame.fcy,
+          cx: frame.cx ?? frame.fcx,
+          cy: frame.cy ?? frame.fcy,
         };
       }
       const pts = firstCol
         .slice()
         .sort((a, b) => a.rowNum - b.rowNum)
         .map((a) => ({ x: a.x, y: a.y }));
-      return principalAxisFromPoints(pts);
+      const pca = principalAxisFromPoints(pts);
+      return {
+        ux: pca.nx,
+        uy: pca.ny,
+        nx: pca.ux,
+        ny: pca.uy,
+        cx: pca.cx,
+        cy: pca.cy,
+      };
     }
 
     function anchorNormalProj(anchor, axis) {
@@ -3052,7 +3169,7 @@
       }
       const frame = buildSectorLocalFrame(sectorLabel, firstCol, lastCol);
       const rowAxis = rowAxisFromColumnAnchors(firstCol, frame);
-      const terraceRows = columnAnchorsShareRadial(firstCol, frame);
+      const terraceRows = !frame.corner && columnAnchorsShareRadial(firstCol, frame);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
@@ -3615,8 +3732,9 @@
       const pending = rectSelectPending;
       releasePaintPointer();
       hideRectSelect();
-      const current = clientToSvg(e.clientX, e.clientY) || pending.current;
-      const moved = Math.hypot(e.clientX - pending.clientX, e.clientY - pending.clientY);
+      const moved = Math.hypot(e.clientX - pending.clientX0, e.clientY - pending.clientY0);
+      pending.clientX1 = e.clientX;
+      pending.clientY1 = e.clientY;
       rectSelectPending = null;
       paintSuppressClick = true;
       if (moved < 4) {
@@ -3624,7 +3742,13 @@
         return;
       }
       const fieldSec = paintSectorForApply();
-      const list = circlesInSvgRect(pending.start, current, fieldSec);
+      const list = circlesInClientRect(
+        pending.clientX0,
+        pending.clientY0,
+        pending.clientX1,
+        pending.clientY1,
+        fieldSec,
+      );
       if (list.length) {
         if (pending.additive) mergePaintSelection(list);
         else setPaintSelection(list);
@@ -3823,16 +3947,16 @@
           dragPan = false;
           viewport.classList.remove('dragging');
           rectSelectPending = {
-            start: p,
-            current: p,
+            clientX0: e.clientX,
+            clientY0: e.clientY,
+            clientX1: e.clientX,
+            clientY1: e.clientY,
             additive: e.shiftKey || e.metaKey,
-            clientX: e.clientX,
-            clientY: e.clientY,
           };
           paintDrag = false;
           didDrag = false;
           infoPanel.classList.remove('visible');
-          showRectSelect(p, p);
+          showClientRectSelect(e.clientX, e.clientY, e.clientX, e.clientY);
           if (viewport.setPointerCapture) {
             try {
               viewport.setPointerCapture(e.pointerId);
@@ -3890,13 +4014,22 @@
 
       if (rectSelectPending) {
         e.preventDefault();
-        const p = clientToSvg(e.clientX, e.clientY);
-        if (p) {
-          rectSelectPending.current = p;
-          showRectSelect(rectSelectPending.start, p);
-          const count = circlesInSvgRect(rectSelectPending.start, p, paintSectorForApply()).length;
-          status.textContent = '▢ ' + count + ' в рамке · отпусти → выделить';
-        }
+        rectSelectPending.clientX1 = e.clientX;
+        rectSelectPending.clientY1 = e.clientY;
+        showClientRectSelect(
+          rectSelectPending.clientX0,
+          rectSelectPending.clientY0,
+          e.clientX,
+          e.clientY,
+        );
+        const count = circlesInClientRect(
+          rectSelectPending.clientX0,
+          rectSelectPending.clientY0,
+          e.clientX,
+          e.clientY,
+          paintSectorForApply(),
+        ).length;
+        status.textContent = '▢ ' + count + ' в рамке · отпусти → выделить';
         return;
       }
 
