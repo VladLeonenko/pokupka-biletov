@@ -124,6 +124,10 @@
     <button type="button" id="zoomIn" title="Увеличить">+</button>
     <button type="button" id="zoomFit" title="Вписать в экран">⊡</button>
     <button type="button" id="panMode" title="Перетаскивание (Space+drag)">✋</button>
+    <button type="button" id="rotateLeft" title="Повернуть карту ↺">↺</button>
+    <button type="button" id="rotateRight" title="Повернуть карту ↻">↻</button>
+    <button type="button" id="rotateAlignSector" title="Повернуть: ряды горизонтально (оси от центра поля)">⟲ сектор</button>
+    <button type="button" id="rotateReset" title="Сброс поворота">0°</button>
     <span class="sep"></span>
     <div class="group">
       <button type="button" id="modeView" class="active" title="Только просмотр">👁</button>
@@ -146,7 +150,7 @@
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
       <button type="button" id="clearRowSeatBtn" title="очистить row/place у выделенных точек, сектор оставить">⌫ ряд/место</button>
       <button type="button" id="paintApply" class="warn">▶ Применить → сервер</button>
-      <button type="button" id="sectorApply" title="заполнить сектор: ряды по Y, места 1→N по X от 1-й колонки к последней">↕ сектор</button>
+      <button type="button" id="sectorApply" title="заполнить сектор: ряды от центра поля, места вдоль ряда (1-я→посл. колонка)">↕ сектор</button>
       <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
       <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
       <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
@@ -158,7 +162,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-mzoom</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-fieldframe</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -276,6 +280,7 @@
     /** @type {{ dist: number, zoom0: number, cx: number, cy: number } | null} */
     let touchPinch = null;
     let fitZoom = 0.08;
+    let viewRotateDeg = 0;
     let syncingZoomSlider = false;
     /** @type {Element[]} */
     let paintSelection = [];
@@ -714,6 +719,7 @@
         (maxZoomLevel() * 100).toFixed(0) +
         '%' +
         (isCoarsePointer() ? ' · pinch' : '') +
+        (viewRotateDeg ? ' · ↻' + viewRotateDeg.toFixed(0) + '°' : '') +
         ')';
       if (appMode === 'paint') {
         const paintAction = rectSelectMode ? '▢ протяни рамку' : '〰 тяни линию';
@@ -733,7 +739,15 @@
 
     function applyTransform() {
       stage.style.transform =
-        'translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + zoom + ')';
+        'translate(calc(-50% + ' +
+        panX +
+        'px), calc(-50% + ' +
+        panY +
+        'px)) rotate(' +
+        viewRotateDeg +
+        'deg) scale(' +
+        zoom +
+        ')';
       refreshStatusHint();
     }
 
@@ -1731,6 +1745,115 @@
       return { cx: vbW / 2, cy: vbH / 2 };
     }
 
+    function sectorCentroid(sectorLabel) {
+      const norm = normalizeSectorLabel(sectorLabel);
+      const bb = getSectorBbox(norm);
+      if (bb) {
+        return { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+      }
+      const circles = circlesForSector(sectorLabel);
+      if (!circles.length) {
+        const fc = fieldCenterPoint();
+        return { x: fc.cx, y: fc.cy };
+      }
+      return {
+        x: median(circles.map((c) => circleXY(c).x)),
+        y: median(circles.map((c) => circleXY(c).y)),
+      };
+    }
+
+    function normalizeVec2(x, y) {
+      const len = Math.hypot(x, y) || 1;
+      return { ux: x / len, uy: y / len };
+    }
+
+    function localDotPx(px, py, ox, oy, ux, uy) {
+      return (px - ox) * ux + (py - oy) * uy;
+    }
+
+    /** Локальная система сектора: radial от центра поля, tangential вдоль рядов. */
+    function buildSectorLocalFrame(sectorLabel, firstCol, lastCol) {
+      const { cx: fcx, cy: fcy } = fieldCenterPoint();
+      const cen = sectorCentroid(sectorLabel);
+      let radial = normalizeVec2(cen.x - fcx, cen.y - fcy);
+      let tangential = { ux: -radial.uy, uy: radial.ux };
+
+      const cols = (firstCol || []).filter((a) => a.marked);
+      if (cols.length >= 2) {
+        const sorted = cols.slice().sort((a, b) => a.rowNum - b.rowNum);
+        const lo = sorted[0];
+        const hi = sorted[sorted.length - 1];
+        const dr = hi.x - lo.x;
+        const dy = hi.y - lo.y;
+        if (Math.hypot(dr, dy) > 1 && dr * radial.ux + dy * radial.uy < 0) {
+          radial = { ux: -radial.ux, uy: -radial.uy };
+          tangential = { ux: -tangential.ux, uy: -tangential.uy };
+        }
+      }
+
+      const fc = firstCol || [];
+      const lc = lastCol || [];
+      if (fc.length && lc.length) {
+        const midRow = fc[Math.floor(fc.length / 2)]?.rowNum ?? fc[0].rowNum;
+        const fa = fc.find((a) => a.rowNum === midRow) || fc[0];
+        const la = lc.find((a) => a.rowNum === midRow) || lc[0];
+        const tdx = la.x - fa.x;
+        const tdy = la.y - fa.y;
+        if (Math.hypot(tdx, tdy) > 1 && tdx * tangential.ux + tdy * tangential.uy < 0) {
+          tangential = { ux: -tangential.ux, uy: -tangential.uy };
+        }
+      }
+
+      return { fcx, fcy, radial, tangential };
+    }
+
+    function radialProjPoint(p, frame) {
+      return localDotPx(p.x, p.y, frame.fcx, frame.fcy, frame.radial.ux, frame.radial.uy);
+    }
+
+    function tangentialProjPoint(p, frame) {
+      return localDotPx(p.x, p.y, frame.fcx, frame.fcy, frame.tangential.ux, frame.tangential.uy);
+    }
+
+    function radialProjAnchor(a, frame) {
+      return localDotPx(a.x, a.y, frame.fcx, frame.fcy, frame.radial.ux, frame.radial.uy);
+    }
+
+    function localPointToSvg(r, t, frame) {
+      return {
+        x: frame.fcx + r * frame.radial.ux + t * frame.tangential.ux,
+        y: frame.fcy + r * frame.radial.uy + t * frame.tangential.uy,
+      };
+    }
+
+    function alignViewToSector(sectorLabel) {
+      const sector = String(sectorLabel || '').trim();
+      if (!sector) {
+        showPaintToast('err', 'Укажи сектор для ⟲');
+        return;
+      }
+      const candidates = circlesForSector(sector);
+      const firstCol = collectColumnAnchors(candidates, null, 'first');
+      const lastCol = collectColumnAnchors(candidates, null, 'last');
+      const frame = buildSectorLocalFrame(sector, firstCol, lastCol);
+      viewRotateDeg = (-Math.atan2(frame.tangential.uy, frame.tangential.ux) * 180) / Math.PI;
+      applyTransform();
+      showPaintToast(
+        'info',
+        '⟲ ' + canonicalSectorLabel(sector) + ' · ряды горизонтально · ' + viewRotateDeg.toFixed(0) + '°',
+      );
+    }
+
+    function bumpViewRotate(deltaDeg) {
+      viewRotateDeg = ((viewRotateDeg + deltaDeg + 180) % 360 + 360) % 360 - 180;
+      applyTransform();
+    }
+
+    function resetViewRotate() {
+      viewRotateDeg = 0;
+      applyTransform();
+    }
+
     function iterateUniqueSectorBboxes() {
       const seen = new Set();
       const out = [];
@@ -1978,15 +2101,20 @@
         .filter((r) => Number.isFinite(r.rowNum) && r.circles.length >= 2)
         .sort((a, b) => a.rowNum - b.rowNum);
       if (!entries.length) return;
+      const candidates = circlesForSector(sector);
+      const firstCol = collectColumnAnchors(candidates, null, 'first');
+      const lastCol = collectColumnAnchors(candidates, null, 'last');
+      const frame = buildSectorLocalFrame(sector, firstCol, lastCol);
       const ns = 'http://www.w3.org/2000/svg';
       for (const entry of entries) {
         const pts = entry.circles.map(circleXY);
-        const y = median(pts.map((p) => p.y));
-        const x = Math.min(...pts.map((p) => p.x)) - 34;
+        const r = median(pts.map((p) => radialProjPoint(p, frame)));
+        const tMin = Math.min(...pts.map((p) => tangentialProjPoint(p, frame)));
+        const labelPt = localPointToSvg(r, tMin - 34, frame);
         const t = document.createElementNS(ns, 'text');
         t.textContent = entry.row;
-        t.setAttribute('x', String(x));
-        t.setAttribute('y', String(y));
+        t.setAttribute('x', String(labelPt.x));
+        t.setAttribute('y', String(labelPt.y));
         t.setAttribute('fill', '#fbbf24');
         t.setAttribute('stroke', '#0f172a');
         t.setAttribute('stroke-width', '3');
@@ -2361,7 +2489,17 @@
       return bands;
     }
 
-    function rowAxisFromColumnAnchors(firstCol) {
+    function rowAxisFromColumnAnchors(firstCol, frame) {
+      if (frame) {
+        return {
+          ux: frame.tangential.ux,
+          uy: frame.tangential.uy,
+          nx: frame.radial.ux,
+          ny: frame.radial.uy,
+          cx: frame.fcx,
+          cy: frame.fcy,
+        };
+      }
       const pts = firstCol
         .slice()
         .sort((a, b) => a.rowNum - b.rowNum)
@@ -2455,7 +2593,23 @@
       return rowNumFromBandNear({ circles: [c], y: p.y, proj }, firstCol, rowMin, rowMax, axis);
     }
 
-    /** Террасы (C136 VIP): несколько рядов на одном Y в якорях — тогда ряд по точке, не по полосе. */
+    /** Террасы: несколько рядов на одном radial — тогда ряд по точке, не по полосе. */
+    function columnAnchorsShareRadial(colAnchors, frame) {
+      if (!frame || !colAnchors.length) return columnAnchorsShareY(colAnchors);
+      const sorted = colAnchors
+        .slice()
+        .sort((a, b) => radialProjAnchor(a, frame) - radialProjAnchor(b, frame) || a.rowNum - b.rowNum);
+      for (let i = 1; i < sorted.length; i++) {
+        if (
+          Math.abs(radialProjAnchor(sorted[i], frame) - radialProjAnchor(sorted[i - 1], frame)) < 3 &&
+          sorted[i].rowNum !== sorted[i - 1].rowNum
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     function columnAnchorsShareY(colAnchors) {
       const sorted = colAnchors.slice().sort((a, b) => a.y - b.y || a.rowNum - b.rowNum);
       for (let i = 1; i < sorted.length; i++) {
@@ -2797,24 +2951,26 @@
       return out;
     }
 
-    function medianRowStep(anchors) {
-      const ys = anchors.map((a) => a.y).sort((a, b) => a - b);
+    function medianRowStep(anchors, frame) {
+      const vals = frame ? anchors.map((a) => radialProjAnchor(a, frame)) : anchors.map((a) => a.y);
+      vals.sort((a, b) => a - b);
       const gaps = [];
-      for (let i = 1; i < ys.length; i++) {
-        const gap = Math.abs(ys[i] - ys[i - 1]);
+      for (let i = 1; i < vals.length; i++) {
+        const gap = Math.abs(vals[i] - vals[i - 1]);
         if (gap > 1) gaps.push(gap);
       }
       return median(gaps) || 18;
     }
 
-    function minAdjacentRowGapY(anchors) {
-      const ys = anchors.map((a) => a.y).sort((a, b) => a - b);
+    function minAdjacentRowGapY(anchors, frame) {
+      const vals = frame ? anchors.map((a) => radialProjAnchor(a, frame)) : anchors.map((a) => a.y);
+      vals.sort((a, b) => a - b);
       let minG = Infinity;
-      for (let i = 1; i < ys.length; i++) {
-        const g = Math.abs(ys[i] - ys[i - 1]);
+      for (let i = 1; i < vals.length; i++) {
+        const g = Math.abs(vals[i] - vals[i - 1]);
         if (g > 0.5) minG = Math.min(minG, g);
       }
-      return Number.isFinite(minG) ? minG : medianRowStep(anchors);
+      return Number.isFinite(minG) ? minG : medianRowStep(anchors, frame);
     }
 
 
@@ -2894,8 +3050,9 @@
             : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
       }
-      const rowAxis = rowAxisFromColumnAnchors(firstCol);
-      const terraceRows = columnAnchorsShareY(firstCol);
+      const frame = buildSectorLocalFrame(sectorLabel, firstCol, lastCol);
+      const rowAxis = rowAxisFromColumnAnchors(firstCol, frame);
+      const terraceRows = columnAnchorsShareRadial(firstCol, frame);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
@@ -3948,6 +4105,15 @@
       zoomCenter(isCoarsePointer() ? 1 / 1.45 : 1 / 1.25, r.left + r.width / 2, r.top + r.height / 2);
     });
     zoomFitBtn.addEventListener('click', () => { if (svgRoot) fitToView(); });
+    document.getElementById('rotateLeft')?.addEventListener('click', () => bumpViewRotate(-15));
+    document.getElementById('rotateRight')?.addEventListener('click', () => bumpViewRotate(15));
+    document.getElementById('rotateAlignSector')?.addEventListener('click', () => {
+      alignViewToSector(paintSectorForApply().trim());
+    });
+    document.getElementById('rotateReset')?.addEventListener('click', () => {
+      resetViewRotate();
+      showPaintToast('info', 'Поворот сброшен');
+    });
     undoBtn.addEventListener('click', undo);
     saveSvgBtn.addEventListener('click', downloadSvg);
 
