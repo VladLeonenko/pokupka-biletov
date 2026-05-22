@@ -143,6 +143,7 @@
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
+      <button type="button" id="clearRowSeatBtn" title="очистить row/place у выделенных точек, сектор оставить">⌫ ряд/место</button>
       <button type="button" id="paintApply" class="warn">▶ Применить → сервер</button>
       <button type="button" id="sectorApply" title="заполнить сектор: ряды по Y, места 1→N по X от 1-й колонки к последней">↕ сектор</button>
       <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
@@ -190,6 +191,7 @@
     const paintEndRow = document.getElementById('paintEndRow');
     const paintRenumber = document.getElementById('paintRenumber');
     const paintSelectRow = document.getElementById('paintSelectRow');
+    const clearRowSeatBtn = document.getElementById('clearRowSeatBtn');
     const paintCorridor = document.getElementById('paintCorridor');
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
@@ -971,6 +973,19 @@
       if (source !== 'manual-sector-edge') circle.removeAttribute('data-sector-edge');
       circle.removeAttribute('data-unlabeled');
       circle.classList.remove('unlabeled-dot');
+      return true;
+    }
+
+    function clearRowSeatFromCircle(circle) {
+      circle.removeAttribute('row');
+      circle.removeAttribute('data-row');
+      circle.removeAttribute('place');
+      circle.removeAttribute('data-seat');
+      circle.removeAttribute('data-seat-uuid');
+      circle.removeAttribute('data-sector-edge');
+      circle.setAttribute('data-source', 'cleared-row-seat');
+      circle.setAttribute('data-unlabeled', '1');
+      if (markUnlabeled.checked) circle.classList.add('unlabeled-dot');
       return true;
     }
 
@@ -2416,6 +2431,49 @@
       }
     }
 
+    async function clearRowSeatForSelection() {
+      clearAuditMarks();
+      if (!paintSelection.length) {
+        showPaintToast('err', 'Выдели область/точки, потом ⌫ ряд/место');
+        return 0;
+      }
+      const sectors = Array.from(
+        new Set(paintSelection.map((c) => normalizeSectorLabel(circleSector(c))).filter(Boolean)),
+      );
+      const scope =
+        sectors.length === 1
+          ? canonicalSectorLabel(sectors[0])
+          : sectors.length > 1
+            ? sectors.length + ' секторов'
+            : 'без сектора';
+      markAudit(paintSelection, 'proposed');
+      if (
+        !window.confirm(
+          'Очистить ряд/место у ' +
+            paintSelection.length +
+            ' точек (' +
+            scope +
+            ')?\\n\\nСектор останется, row/place/data-sector-edge будут удалены.',
+        )
+      ) {
+        showPaintToast('info', 'Очистка отменена');
+        return 0;
+      }
+      const batch = paintSelection.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      const touched = paintSelection.slice();
+      for (const c of touched) clearRowSeatFromCircle(c);
+      pushUndo(batch);
+      persistCircleEdits(touched, { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      clearPaintSelection();
+      await pushEditsToServer('');
+      showPaintToast('ok', 'Очищено ряд/место: ' + touched.length);
+      if (selectedCircle && touched.includes(selectedCircle)) renderInfo(readCircleMeta(selectedCircle));
+      if (sectors.length === 1) renderRowLabels(sectors[0]);
+      return touched.length;
+    }
+
     async function applyColumnAnchorToSelection(selection, sector, edgeKind) {
       const firstRow = Number(normalizePaintRowNum(paintRow.value));
       const lastRow = Number(normalizePaintRowNum(paintEndRow.value));
@@ -3048,6 +3106,7 @@
       showPaintToast('info', 'Выделение сброшено');
     });
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
+    clearRowSeatBtn.addEventListener('click', () => clearRowSeatForSelection());
     paintApply.addEventListener('click', () => applyPaintToSelection());
     sectorApply.addEventListener('click', () => applyWholeSectorProposal());
     auditBtn.addEventListener('click', () => validateCurrentSector());
