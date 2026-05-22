@@ -1300,8 +1300,7 @@
       return xs.length % 2 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2;
     }
 
-    function principalAxis(circles) {
-      const pts = circles.map(circleXY);
+    function principalAxisFromPoints(pts) {
       if (pts.length < 2) return { ux: 1, uy: 0, nx: 0, ny: 1, cx: pts[0]?.x || 0, cy: pts[0]?.y || 0 };
       const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
       const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
@@ -1325,6 +1324,10 @@
         uy = -uy;
       }
       return { ux, uy, nx: -uy, ny: ux, cx, cy };
+    }
+
+    function principalAxis(circles) {
+      return principalAxisFromPoints(circles.map(circleXY));
     }
 
     function projection(c, ax) {
@@ -2162,6 +2165,43 @@
       return bands;
     }
 
+    function rowAxisFromColumnAnchors(firstCol) {
+      const pts = firstCol
+        .slice()
+        .sort((a, b) => a.rowNum - b.rowNum)
+        .map((a) => ({ x: a.x, y: a.y }));
+      return principalAxisFromPoints(pts);
+    }
+
+    function anchorNormalProj(anchor, axis) {
+      return (anchor.x - axis.cx) * axis.nx + (anchor.y - axis.cy) * axis.ny;
+    }
+
+    /** Террасы на одном Y: уточняем ряд по нормали к линии якорей 1-й колонки. */
+    function rowNumFromBandNear(band, firstCol, rowMin, rowMax, axis) {
+      const byY = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
+      if (!axis || firstCol.length < 3) return byY;
+      const bandProj = median(
+        band.circles.map((c) => {
+          const p = circleXY(c);
+          return (p.x - axis.cx) * axis.nx + (p.y - axis.cy) * axis.ny;
+        }),
+      );
+      let best = byY;
+      let bestD = Infinity;
+      for (let rn = rowMin; rn <= rowMax; rn++) {
+        const a = anchorForRow(firstCol, rn);
+        if (!a) continue;
+        const d = Math.abs(bandProj - anchorNormalProj(a, axis));
+        if (d < bestD) {
+          bestD = d;
+          best = rn;
+        }
+      }
+      const half = Math.max(7, minAdjacentRowGapY(firstCol) * 0.46);
+      return bestD <= half ? best : byY;
+    }
+
     function rowNumFromBandY(bandY, colAnchors, rowMin, rowMax) {
       if (!colAnchors.length) return null;
       const sorted = colAnchors.slice().sort((a, b) => a.y - b.y);
@@ -2454,8 +2494,27 @@
             : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
       }
+      const rowAxis = rowAxisFromColumnAnchors(firstCol);
+      const bandGap = Math.max(
+        6,
+        Math.min(16, (minAdjacentRowGapY(firstCol) || medianRowStep(firstCol)) * 0.44),
+      );
+      const yBands = clusterBandsByY(
+        candidates.filter((c) => !isNoiseGridDot(c)),
+        bandGap,
+      );
+      const bandByRow = new Map();
+      for (const band of yBands) {
+        const rowNum = rowNumFromBandNear(band, firstCol, rowMin, rowMax, rowAxis);
+        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
+          bandsSkipped++;
+          continue;
+        }
+        const prev = bandByRow.get(rowNum);
+        if (!prev || band.circles.length > prev.circles.length) bandByRow.set(rowNum, band);
+      }
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
-      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
+      for (const [rowNum, band] of bandByRow) {
         const rowKey = String(rowNum);
         const firstAnchor = anchorForRow(firstCol, rowNum);
         if (!firstAnchor) {
@@ -2479,12 +2538,16 @@
           bandsSkipped++;
           continue;
         }
-        const xLo = Math.min(fa.x, la.x);
-        const xHi = Math.max(fa.x, la.x);
-        const xMargin = Math.max(10, Math.abs(xHi - xLo) * 0.08);
-        const rowDots = candidates.filter((c) => {
+        let xLo = Math.min(fa.x, la.x);
+        let xHi = Math.max(fa.x, la.x);
+        const bandXs = band.circles.map((c) => circleXY(c).x);
+        if (bandXs.length) {
+          xLo = Math.min(xLo, Math.min(...bandXs));
+          xHi = Math.max(xHi, Math.max(...bandXs));
+        }
+        const xMargin = Math.max(8, Math.abs(xHi - xLo) * 0.05);
+        const rowDots = band.circles.filter((c) => {
           if (isNoiseGridDot(c)) return false;
-          if (!circleBelongsToRowBand(c, rowNum, firstCol, rowMin, rowMax)) return false;
           const x = circleXY(c).x;
           return x >= xLo - xMargin && x <= xHi + xMargin;
         });
@@ -2567,7 +2630,9 @@
           candidates: candidates.length,
           fillable,
           fillTargets: fillTargets.length,
-          bands: rowsTotal,
+          bands: yBands.length,
+          rowBands: bandByRow.size,
+          rowsTotal,
           bandsUsed,
           bandsSkipped,
           edgeRows: firstCol.length,
