@@ -2244,7 +2244,7 @@
         if (dx > 4) pitches.push(dx);
       }
       const pitch = median(pitches) || 18;
-      const mergePx = Math.max(8, pitch * 0.42);
+      const mergePx = Math.max(11, pitch * 0.5);
       const slots = [];
       let bucket = [sorted[0]];
       const flush = () => {
@@ -2355,7 +2355,7 @@
     }
 
 
-    /** Диапазон рядов для ↕: из якорей колонок; UI «ряд с/по» только если по > с. */
+    /** Диапазон рядов для ↕: якоря колонок; «ряд с/по» задаёт полный диапазон (вкл. 1-й ряд). */
     function resolveSectorFillRowSpan(firstCol, lastCol) {
       const marked = [...firstCol, ...lastCol].filter((a) => a.marked);
       if (marked.length < 2) return null;
@@ -2363,16 +2363,21 @@
       let rowMax = Math.max(...marked.map((a) => a.rowNum));
       const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
       const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
-      if (manualFirst && manualLast) {
-        const mf = Number(manualFirst);
-        const ml = Number(manualLast);
-        if (ml > mf) {
-          rowMin = Math.max(rowMin, mf);
-          rowMax = Math.min(rowMax, ml);
-        }
+      const mf = manualFirst ? Number(manualFirst) : null;
+      const ml = manualLast ? Number(manualLast) : null;
+      if (mf != null && ml != null && ml > mf) {
+        rowMin = mf;
+        rowMax = ml;
+      } else {
+        if (mf != null) rowMin = Math.min(rowMin, mf);
+        if (ml != null) rowMax = Math.max(rowMax, ml);
       }
       if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
       return { rowMin, rowMax };
+    }
+
+    function isNoiseGridDot(circle) {
+      return (circle.getAttribute('data-source') || '') === 'fieldGridNeighbor';
     }
 
     function buildSectorProposal(sectorLabel) {
@@ -2455,6 +2460,7 @@
         const xHi = Math.max(fa.x, la.x);
         const xMargin = Math.max(10, Math.abs(xHi - xLo) * 0.08);
         const rowDots = candidates.filter((c) => {
+          if (isNoiseGridDot(c)) return false;
           if (!circleBelongsToRowBand(c, rowNum, firstCol, rowMin, rowMax)) return false;
           const x = circleXY(c).x;
           return x >= xLo - xMargin && x <= xHi + xMargin;
@@ -2756,7 +2762,6 @@
           : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
       const sortedSel = sortCirclesAlongPath(selection, pathForSort);
       const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
-      const lastSeatHint = Math.max(startSeat, sortedSel.length);
       const edgeLabel = edgeKind === 'first' ? 'первых мест' : 'последних мест';
       markAudit(sortedSel, 'proposed');
       if (
@@ -2782,10 +2787,7 @@
       for (let i = 0; i < sortedSel.length; i++) {
         const t = sortedSel.length <= 1 ? 0 : i / (sortedSel.length - 1);
         const row = String(Math.round(firstRow + rowSpan * t));
-        const seat =
-          edgeKind === 'last'
-            ? String(lastSeatHint)
-            : String(startSeat);
+        const seat = edgeKind === 'last' ? '' : String(startSeat);
         applySeatToCircle(sortedSel[i], sector, row, seat, 'manual-sector-edge');
         sortedSel[i].setAttribute('data-sector-edge', edgeKind);
       }
