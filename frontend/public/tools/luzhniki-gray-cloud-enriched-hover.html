@@ -2314,11 +2314,14 @@
 
     function appendSeatToSlot(proposal, rowKey, seatStr, slot, opts) {
       const allowFirstTwin = opts?.allowFirstTwin === true;
+      const allowLastTwin = opts?.allowLastTwin === true;
       for (const c of proposalTargetsForSeatSlot(slot)) {
         const ek = c.getAttribute('data-sector-edge') || '';
-        if (ek === 'last') continue;
+        if (ek === 'last' && !allowLastTwin) continue;
+        if (ek === 'first' && !allowFirstTwin) continue;
         if (isHardManualSeat(c) && ek === 'first') continue;
-        if (!allowFirstTwin && isHardManualSeat(c)) continue;
+        if (isHardManualSeat(c) && ek === 'last') continue;
+        if (!allowFirstTwin && !allowLastTwin && isHardManualSeat(c)) continue;
         proposal.push({ circle: c, row: rowKey, seat: seatStr, edgeKind: ek });
       }
     }
@@ -2479,10 +2482,14 @@
         );
         bandsUsed++;
         let seatNum = Math.max(1, fa.seat || 1);
+        let lastSlot = null;
         for (const slot of slots) {
+          if ((slot.rep.getAttribute('data-sector-edge') || '') === 'last') {
+            lastSlot = slot;
+            continue;
+          }
           const rep = slot.rep;
           const edgeKind = rep.getAttribute('data-sector-edge') || '';
-          if (edgeKind === 'last') continue;
           if (edgeKind === 'first' && isHardManualSeat(rep)) {
             const held = Math.max(1, circleSeatNum(rep) || 1);
             appendSeatToSlot(proposal, rowKey, String(held), slot, { allowFirstTwin: true });
@@ -2501,6 +2508,10 @@
           }
           appendSeatToSlot(proposal, rowKey, String(seatNum), slot);
           seatNum++;
+        }
+        if (lastSlot) {
+          const lastSeat = Math.max(1, seatNum - 1);
+          appendSeatToSlot(proposal, rowKey, String(lastSeat), lastSlot, { allowLastTwin: true });
         }
       }
 
