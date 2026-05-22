@@ -2285,6 +2285,44 @@
       return out;
     }
 
+    function yBandHalfForRow(rowNum, colAnchors) {
+      const ordered = colAnchors.slice().sort((a, b) => a.rowNum - b.rowNum);
+      const i = ordered.findIndex((a) => a.rowNum === rowNum);
+      if (i < 0) return medianRowStep(colAnchors) * 0.55;
+      let half = Infinity;
+      if (i > 0) half = Math.min(half, Math.abs(ordered[i].y - ordered[i - 1].y) * 0.46);
+      if (i < ordered.length - 1) half = Math.min(half, Math.abs(ordered[i + 1].y - ordered[i].y) * 0.46);
+      return Math.max(9, Math.min(half, medianRowStep(colAnchors) * 0.62));
+    }
+
+    /** Террасы: несколько рядов на одном Y — ближайший якорь 1-й колонки по X. */
+    function circleBelongsToRowBand(c, rowNum, firstCol, rowMin, rowMax) {
+      const anchor = anchorForRow(firstCol, rowNum);
+      if (!anchor) return false;
+      const p = circleXY(c);
+      if (Math.abs(p.y - anchor.y) > yBandHalfForRow(rowNum, firstCol)) return false;
+      for (let other = rowMin; other <= rowMax; other++) {
+        if (other === rowNum) continue;
+        const oa = anchorForRow(firstCol, other);
+        if (!oa || Math.abs(oa.y - anchor.y) > 3) continue;
+        const dThis = Math.hypot(p.x - anchor.x, p.y - anchor.y);
+        const dOther = Math.hypot(p.x - oa.x, p.y - oa.y);
+        if (dOther + 0.5 < dThis) return false;
+      }
+      return true;
+    }
+
+    function appendSeatToSlot(proposal, rowKey, seatStr, slot, opts) {
+      const allowFirstTwin = opts?.allowFirstTwin === true;
+      for (const c of proposalTargetsForSeatSlot(slot)) {
+        const ek = c.getAttribute('data-sector-edge') || '';
+        if (ek === 'last') continue;
+        if (isHardManualSeat(c) && ek === 'first') continue;
+        if (!allowFirstTwin && isHardManualSeat(c)) continue;
+        proposal.push({ circle: c, row: rowKey, seat: seatStr, edgeKind: ek });
+      }
+    }
+
     function distanceToRowSegment(circle, firstAnchor, lastAnchor) {
       const p = circleXY(circle);
       const dx = lastAnchor.x - firstAnchor.x;
@@ -2388,15 +2426,8 @@
             : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
       }
-      const bandGap = Math.max(8, Math.min(14, (paintCorridorPx() || 20) * 0.55));
-      const bands = clusterBandsByY(candidates, bandGap);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
-      for (const band of bands) {
-        const rowNum = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
-        if (rowNum == null || rowNum < rowMin || rowNum > rowMax) {
-          bandsSkipped++;
-          continue;
-        }
+      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
         const firstAnchor = anchorForRow(firstCol, rowNum);
         if (!firstAnchor) {
@@ -2423,7 +2454,8 @@
         const xLo = Math.min(fa.x, la.x);
         const xHi = Math.max(fa.x, la.x);
         const xMargin = Math.max(10, Math.abs(xHi - xLo) * 0.08);
-        const rowDots = band.circles.filter((c) => {
+        const rowDots = candidates.filter((c) => {
+          if (!circleBelongsToRowBand(c, rowNum, firstCol, rowMin, rowMax)) return false;
           const x = circleXY(c).x;
           return x >= xLo - xMargin && x <= xHi + xMargin;
         });
@@ -2432,7 +2464,6 @@
           bandsSkipped++;
           continue;
         }
-        const startSeat = Math.max(1, fa.seat || 1);
         const existing = rows.get(rowKey) || [];
         const occupiedManual = new Set(
           existing
@@ -2441,41 +2472,29 @@
             .filter((n) => n != null),
         );
         bandsUsed++;
-        let nextSeat = startSeat;
+        let seatNum = Math.max(1, fa.seat || 1);
         for (const slot of slots) {
           const rep = slot.rep;
           const edgeKind = rep.getAttribute('data-sector-edge') || '';
-          if (isHardManualSeat(rep)) {
-            const held = circleSeatNum(rep);
-            if (held != null && held >= nextSeat) nextSeat = held + 1;
-            continue;
-          }
-          if (edgeKind === 'first') {
-            const held = circleSeatNum(rep);
-            if (held != null && held === nextSeat) {
-              nextSeat = held + 1;
-              continue;
-            }
-          }
           if (edgeKind === 'last') continue;
-          if (occupiedManual.has(nextSeat)) {
-            suspicious.push('ряд ' + rowKey + ' место ' + nextSeat + ': занято manual');
+          if (edgeKind === 'first' && isHardManualSeat(rep)) {
+            const held = Math.max(1, circleSeatNum(rep) || 1);
+            appendSeatToSlot(proposal, rowKey, String(held), slot, { allowFirstTwin: true });
+            seatNum = held + 1;
+            continue;
+          }
+          if (occupiedManual.has(seatNum)) {
+            suspicious.push('ряд ' + rowKey + ' место ' + seatNum + ': занято manual');
             warnCircles.push(rep);
-            nextSeat++;
+            seatNum++;
             continue;
           }
-          const targets = proposalTargetsForSeatSlot(slot);
-          if (!targets.length) {
-            nextSeat++;
+          if (!proposalTargetsForSeatSlot(slot).length) {
+            seatNum++;
             continue;
           }
-          const seatStr = String(nextSeat);
-          for (const c of targets) {
-            const ek = c.getAttribute('data-sector-edge') || '';
-            if (ek === 'last') continue;
-            proposal.push({ circle: c, row: rowKey, seat: seatStr, edgeKind: ek });
-          }
-          nextSeat++;
+          appendSeatToSlot(proposal, rowKey, String(seatNum), slot);
+          seatNum++;
         }
       }
 
