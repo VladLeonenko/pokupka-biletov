@@ -2125,46 +2125,35 @@
       return { firstAnchor, lastAnchor };
     }
 
-    /** Террасы VIP: несколько рядов с одним Y — ряд по близости к якорю 1-й колонки (X+Y). */
-    function assignFillCirclesByColumnAnchors(fillCircles, firstCol, rowMin, rowMax) {
+    /** Ряд = ближайший сегмент 1-е↔посл. место; ⊥-полоса по ширине ряда (террасы с общим Y). */
+    function assignFillCirclesToRowSegments(fillCircles, rowAnchors, firstCol) {
       const byRow = new Map();
-      for (const a of firstCol) {
-        if (a.rowNum < rowMin || a.rowNum > rowMax) continue;
-        byRow.set(a.rowNum, []);
-      }
-      if (!byRow.size) return byRow;
+      for (const rowNum of rowAnchors.keys()) byRow.set(rowNum, []);
+      if (!fillCircles.length || !rowAnchors.size) return byRow;
       const step = medianRowStep(firstCol);
-      const maxScore = step * 1.35;
+      const owner = new Map();
       for (const c of fillCircles) {
         const p = circleXY(c);
-        let bestRow = null;
-        let bestScore = Infinity;
-        for (const a of firstCol) {
-          if (a.rowNum < rowMin || a.rowNum > rowMax) continue;
-          const dy = Math.abs(p.y - a.y);
-          const dx = Math.abs(p.x - a.x) * 0.42;
-          const score = dy + dx;
-          if (score < bestScore) {
-            bestScore = score;
-            bestRow = a.rowNum;
-          }
+        let pick = null;
+        for (const [rowNum, ra] of rowAnchors) {
+          const midY = (ra.firstAnchor.y + ra.lastAnchor.y) / 2;
+          const dy = Math.abs(p.y - midY);
+          const yBand = Math.max(14, step * 0.75);
+          if (dy > yBand) continue;
+          const m = distanceToRowSegment(c, ra.firstAnchor, ra.lastAnchor);
+          const span =
+            Math.hypot(ra.lastAnchor.x - ra.firstAnchor.x, ra.lastAnchor.y - ra.firstAnchor.y) || 1;
+          const perpBand = Math.max(18, step * 0.65, span * 0.14);
+          if (m.t < -0.12 || m.t > 1.12) continue;
+          if (m.dist > perpBand) continue;
+          if (!pick || m.dist < pick.dist) pick = { rowNum, dist: m.dist };
         }
-        if (bestRow == null || bestScore > maxScore) continue;
-        byRow.get(bestRow).push(c);
+        if (!pick) continue;
+        const prev = owner.get(c);
+        if (!prev || pick.dist < prev.dist) owner.set(c, pick);
       }
+      for (const [c, { rowNum }] of owner) byRow.get(rowNum).push(c);
       return byRow;
-    }
-
-    function filterDotsAlongRowSpan(dots, firstAnchor, lastAnchor) {
-      const xPad = 14;
-      const x0 = Math.min(firstAnchor.x, lastAnchor.x) - xPad;
-      const x1 = Math.max(firstAnchor.x, lastAnchor.x) + xPad;
-      return dots.filter((c) => {
-        const x = circleXY(c).x;
-        if (x < x0 || x > x1) return false;
-        const m = distanceToRowSegment(c, firstAnchor, lastAnchor);
-        return m.t >= -0.2 && m.t <= 1.2;
-      });
     }
 
     function clusterBandsByY(circles, bandGap) {
@@ -2340,7 +2329,7 @@
         const ra = rowAnchorsForRowNum(firstCol, lastCol, rowNum);
         if (ra) rowAnchors.set(rowNum, ra);
       }
-      const byRowDots = assignFillCirclesByColumnAnchors(fillTargets, firstCol, rowMin, rowMax);
+      const byRowDots = assignFillCirclesToRowSegments(fillTargets, rowAnchors, firstCol);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
@@ -2355,11 +2344,7 @@
           bandsSkipped++;
           continue;
         }
-        const sorted = sortSeatsByColumnDirection(
-          filterDotsAlongRowSpan(rowDots, ra.firstAnchor, ra.lastAnchor),
-          ra.firstAnchor,
-          ra.lastAnchor,
-        );
+        const sorted = sortSeatsByColumnDirection(rowDots, ra.firstAnchor, ra.lastAnchor);
         if (!sorted.length) {
           bandsSkipped++;
           continue;
