@@ -2207,6 +2207,57 @@
       return median(gaps) || 18;
     }
 
+    function minAdjacentRowGapY(anchors) {
+      const ys = anchors.map((a) => a.y).sort((a, b) => a - b);
+      let minG = Infinity;
+      for (let i = 1; i < ys.length; i++) {
+        const g = Math.abs(ys[i] - ys[i - 1]);
+        if (g > 0.5) minG = Math.min(minG, g);
+      }
+      return Number.isFinite(minG) ? minG : medianRowStep(anchors);
+    }
+
+    /** Каждую точку — в ряд с минимальным ⊥ к сегменту якорей; без used (иначе верх сектора пустой). */
+    function assignFillCirclesToRows(fillCircles, rowAnchors, rowBand, rowMin, rowMax, colAnchorsY) {
+      const byRow = new Map();
+      const unassigned = [];
+      for (const c of fillCircles) {
+        let bestRow = null;
+        let bestScore = Infinity;
+        for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
+          const ra = rowAnchors.get(rowNum);
+          if (!ra) continue;
+          const meta = distanceToRowSegment(c, ra.firstAnchor, ra.lastAnchor);
+          if (meta.t < -0.18 || meta.t > 1.18) continue;
+          if (meta.dist > rowBand) continue;
+          const cy = circleXY(c).y;
+          const midY = (ra.firstAnchor.y + ra.lastAnchor.y) * 0.5;
+          const score = meta.dist + Math.abs(cy - midY) * 0.12;
+          if (score < bestScore) {
+            bestScore = score;
+            bestRow = rowNum;
+          }
+        }
+        if (bestRow == null) {
+          unassigned.push(c);
+          continue;
+        }
+        if (!byRow.has(bestRow)) byRow.set(bestRow, []);
+        byRow.get(bestRow).push(c);
+      }
+      if (unassigned.length && colAnchorsY.length >= 2) {
+        const gap = Math.max(6, minAdjacentRowGapY(colAnchorsY) * 0.48);
+        const bands = clusterBandsByY(unassigned, gap);
+        for (const band of bands) {
+          const rowNum = rowNumFromBandY(band.y, colAnchorsY, rowMin, rowMax);
+          if (rowNum == null || !rowAnchors.has(rowNum)) continue;
+          if (!byRow.has(rowNum)) byRow.set(rowNum, []);
+          byRow.get(rowNum).push(...band.circles);
+        }
+      }
+      return byRow;
+    }
+
     /** Диапазон рядов для ↕: из якорей колонок; UI «ряд с/по» только если по > с. */
     function resolveSectorFillRowSpan(firstCol, lastCol) {
       const marked = [...firstCol, ...lastCol].filter((a) => a.marked);
@@ -2272,35 +2323,41 @@
         );
       }
       const rowStep = medianRowStep(firstCol);
-      const rowBand = Math.max(10, Math.min(32, rowStep * 0.55, (paintCorridorPx() || 24) * 1.1));
-      const used = new Set();
+      const minGapY = minAdjacentRowGapY(firstCol);
+      const rowBand = Math.max(12, Math.min(44, rowStep * 0.62, minGapY * 0.52, (paintCorridorPx() || 24) * 1.2));
+      const rowAnchors = new Map();
+      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
+        const firstAnchor = anchorForRow(firstCol, rowNum);
+        const lastAnchor = anchorForRow(lastCol, rowNum);
+        if (!firstAnchor) continue;
+        if (!lastAnchor || Math.abs(lastAnchor.x - firstAnchor.x) < 1) continue;
+        rowAnchors.set(rowNum, { firstAnchor, lastAnchor });
+      }
+      const colAnchorsY = firstCol.slice().sort((a, b) => a.y - b.y);
+      const byRowDots = assignFillCirclesToRows(fillTargets, rowAnchors, rowBand, rowMin, rowMax, colAnchorsY);
       const rowsTotal = Math.max(0, rowMax - rowMin + 1);
       for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
         const rowKey = String(rowNum);
-        const firstAnchor = anchorForRow(firstCol, rowNum);
-        if (!firstAnchor) {
-          suspicious.push('ряд ' + rowKey + ': нет якоря 1-го места в колонке');
+        const ra = rowAnchors.get(rowNum);
+        if (!ra) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря 1-го/посл. места в колонке');
           bandsSkipped++;
           continue;
         }
-        const lastAnchor = anchorForRow(lastCol, rowNum);
-        if (!lastAnchor || Math.abs(lastAnchor.x - firstAnchor.x) < 1) {
-          suspicious.push('ряд ' + rowKey + ': нет якоря последнего места в колонке');
-          bandsSkipped++;
-          continue;
-        }
-        const rowDots = candidates
-          .filter((c) => !used.has(c))
-          .map((c) => ({ c, meta: distanceToRowSegment(c, firstAnchor, lastAnchor) }))
-          .filter((o) => o.meta.t >= -0.12 && o.meta.t <= 1.12 && o.meta.dist <= rowBand)
-          .sort((a, b) => a.meta.t - b.meta.t)
-          .map((o) => o.c);
+        const rowDots = byRowDots.get(rowNum) || [];
         if (!rowDots.length) {
           bandsSkipped++;
           continue;
         }
-        const sorted = sortSeatsByColumnDirection(rowDots, firstAnchor, lastAnchor);
-        const startSeat = Math.max(1, firstAnchor.seat || 1);
+        const sorted = sortSeatsByColumnDirection(rowDots, ra.firstAnchor, ra.lastAnchor).filter((c) => {
+          const m = distanceToRowSegment(c, ra.firstAnchor, ra.lastAnchor);
+          return m.t >= -0.06 && m.t <= 1.06;
+        });
+        if (!sorted.length) {
+          bandsSkipped++;
+          continue;
+        }
+        const startSeat = Math.max(1, ra.firstAnchor.seat || 1);
         const existing = rows.get(rowKey) || [];
         const occupiedManual = new Set(
           existing
@@ -2311,7 +2368,6 @@
         bandsUsed++;
         for (let i = 0; i < sorted.length; i++) {
           const c = sorted[i];
-          used.add(c);
           const seatNum = startSeat + i;
           const edgeKind = c.getAttribute('data-sector-edge') || '';
           const manualLocked = isHardManualSeat(c);
