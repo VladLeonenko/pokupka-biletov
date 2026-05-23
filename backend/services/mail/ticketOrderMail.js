@@ -1,4 +1,4 @@
-import { sendTransactionalMail } from './transporter.js';
+import { sendTransactionalMail, ticketOrderMailBcc } from './transporter.js';
 
 function siteName() {
   return process.env.SITE_NAME || process.env.SENDER_NAME || 'Покупка билетов';
@@ -117,7 +117,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
       <p style="margin: 24px 0 0; font-size: 13px; color: #888;">${escapeHtml(siteName())}</p>
     </div>`;
 
-  const r = await sendTransactionalMail({ to, subject: subj, text, html });
+  const r = await sendTransactionalMail({ to, subject: subj, text, html, bcc: ticketOrderMailBcc() });
   if (!r.ok) console.warn('[ticketOrderMail] письмо об оплате:', r.reason);
 }
 
