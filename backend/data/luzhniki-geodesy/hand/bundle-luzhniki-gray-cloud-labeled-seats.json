@@ -1,8 +1,0 @@
-{
-  "builtAt": null,
-  "mode": "editor-svg-extract",
-  "seatCount": 0,
-  "labeledSeatCount": 0,
-  "seats": [],
-  "_note": "Только места из hover-редактора (POST save). Автоген fieldGrid не используется для sellable."
-}

@@ -562,6 +562,17 @@ export function TicketHallInteractiveBlock({
     () => parseOmitClientSeatCoordinateCloud(layoutJson),
     [layoutJson],
   );
+  /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
+  const preferBundleBackgroundDots = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return false;
+    const rec = layoutJson as Record<string, unknown>;
+    return (
+      omitClientSeatCoordinateCloud &&
+      backgroundSeatCoordinates.length >= 100 &&
+      rec.sellableSeatsFromLiveOffers === true &&
+      rec.sellableGeodesyMode === 'manualBundleFast'
+    );
+  }, [layoutJson, omitClientSeatCoordinateCloud, backgroundSeatCoordinates.length]);
   const useHallBackgroundRaster = Boolean(
     hallBackgroundRasterUrl
     && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
@@ -1385,10 +1396,11 @@ export function TicketHallInteractiveBlock({
     bowlDotsRef.current = null;
     bowlDotsLoadRef.current = null;
     setBowlDotsVersion((v) => v + 1);
-  }, [hallBackgroundDotsUrl]);
+  }, [hallBackgroundDotsUrl, preferBundleBackgroundDots]);
 
   useEffect(() => {
     if (!useHallBackgroundRaster || !hallBackgroundDotsUrl || !mapZoomed) return;
+    if (preferBundleBackgroundDots) return;
     if (bowlDotsRef.current || bowlDotsLoadRef.current) return;
 
     let cancelled = false;
@@ -1414,7 +1426,7 @@ export function TicketHallInteractiveBlock({
     return () => {
       cancelled = true;
     };
-  }, [hallBackgroundDotsUrl, mapZoomed, useHallBackgroundRaster]);
+  }, [hallBackgroundDotsUrl, mapZoomed, preferBundleBackgroundDots, useHallBackgroundRaster]);
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -1599,12 +1611,22 @@ export function TicketHallInteractiveBlock({
 
       const hallRaster = hallRasterImageRef.current;
       const mapZoomedNow = zoom > fitZoom + 0.01;
-      const bowlDots = bowlDotsRef.current;
-      if (useHallBackgroundRaster && hallRaster && (!mapZoomedNow || !bowlDots)) {
+      const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
+      if (useHallBackgroundRaster && hallRaster && (!mapZoomedNow || (!bowlDots && !preferBundleBackgroundDots))) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }
 
-      if (useHallBackgroundRaster && mapZoomedNow && bowlDots) {
+      if (preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
+        drawHallBackgroundArcs(
+          ctx,
+          backgroundSeatCoordinates,
+          { left: x, top: y, screenW: w, screenH: h },
+          width,
+          height,
+          svgViewBox.width,
+          backgroundSeatCoordinates.length >= 8000,
+        );
+      } else if (useHallBackgroundRaster && mapZoomedNow && bowlDots) {
         drawHallBackgroundArcs(
           ctx,
           bowlDots,
@@ -1672,6 +1694,7 @@ export function TicketHallInteractiveBlock({
     fitZoom,
     getLayerScreenBox,
     hallRasterVersion,
+    preferBundleBackgroundDots,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
     uniformHallSeatAppearance,

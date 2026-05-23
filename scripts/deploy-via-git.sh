@@ -65,10 +65,15 @@ fi
 
 restore_luzhniki_editor_assets() {
   if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
-    if [ "${LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+    CURRENT_SEAT_COUNT=0
+    if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
+      CURRENT_SEAT_COUNT=$(node -e "try{const j=require(process.argv[1]);process.stdout.write(String(j.seatCount||j.seats?.length||0))}catch{process.stdout.write('0')}" "$LUZHNIKI_EDITOR_BUNDLE" 2>/dev/null || echo 0)
+    fi
+    if [ "${LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT:-0}" -gt 0 ] 2>/dev/null \
+      && [ "${LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT:-0}" -ge "${CURRENT_SEAT_COUNT:-0}" ] 2>/dev/null; then
       mkdir -p "$(dirname "$LUZHNIKI_EDITOR_BUNDLE")"
       cp "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_EDITOR_BUNDLE"
-      echo "✅ Luzhniki editor bundle восстановлен ($LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT мест)"
+      echo "✅ Luzhniki editor bundle восстановлен ($LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT мест, git had $CURRENT_SEAT_COUNT)"
       if [ -n "$LUZHNIKI_HAND_SVG_BACKUP" ] && [ -f "$LUZHNIKI_HAND_SVG_BACKUP" ]; then
         mkdir -p "$(dirname "$LUZHNIKI_HAND_SVG")"
         cp "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_HAND_SVG"
@@ -81,6 +86,12 @@ restore_luzhniki_editor_assets() {
       fi
     else
       echo "ℹ️ Luzhniki editor bundle backup пустой — не восстанавливаем заглушку"
+    fi
+  fi
+  if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
+    POST_COUNT=$(node -e "try{const j=require(process.argv[1]);process.stdout.write(String(j.seatCount||j.seats?.length||0))}catch{process.stdout.write('0')}" "$LUZHNIKI_EDITOR_BUNDLE" 2>/dev/null || echo 0)
+    if [ "${POST_COUNT:-0}" -lt 1 ] 2>/dev/null; then
+      echo "⚠️  Luzhniki bundle на диске пустой — checkout будет без manualBundleFast. Сохраните hover.html или восстановите .bak"
     fi
   fi
 }
