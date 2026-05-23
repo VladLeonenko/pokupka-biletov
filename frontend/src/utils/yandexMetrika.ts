@@ -3,6 +3,8 @@
  * Счётчик инициализируется в index.html (официальный сниппет).
  */
 
+import { reachMailRuGoal } from '@/utils/mailRuCounter';
+
 const COUNTER_ID = 109119282;
 
 declare global {
@@ -19,10 +21,12 @@ export function hitYandexMetrika(url?: string): void {
 
 /** Отправка JS-цели в Метрику (Настройки -> Цели -> JavaScript-событие). */
 export function reachMetrikaGoal(goal: string, params?: Record<string, unknown>): void {
-  if (typeof window === 'undefined' || !window.ym) return;
-  if (params) {
-    window.ym(COUNTER_ID, 'reachGoal', goal, params);
-    return;
+  if (typeof window !== 'undefined' && window.ym) {
+    if (params) {
+      window.ym(COUNTER_ID, 'reachGoal', goal, params);
+    } else {
+      window.ym(COUNTER_ID, 'reachGoal', goal);
+    }
   }
-  window.ym(COUNTER_ID, 'reachGoal', goal);
+  reachMailRuGoal(goal, params);
 }
