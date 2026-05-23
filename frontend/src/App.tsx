@@ -18,6 +18,7 @@ import { FaviconNotificationTracker } from '@/components/common/FaviconNotificat
 // import { GlobalPreloader } from '@/components/common/GlobalPreloader'; // Закомментировано - preloader не работает
 import { useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
+import { hitMailRuCounter, setMailRuUserId } from '@/utils/mailRuCounter';
 import { hitYandexMetrika } from '@/utils/yandexMetrika';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
@@ -83,7 +84,7 @@ export default function App() {
     }
   }, [isAdminRoute, isLoginPage, useTicketsChrome]);
 
-  // Yandex.Metrika: hit при смене SPA-маршрута (пропускаем первый рендер — init уже отправил)
+  // Yandex.Metrika + Top.Mail.Ru: hit при смене SPA-маршрута (пропускаем первый рендер — init уже отправил)
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
@@ -92,7 +93,14 @@ export default function App() {
     }
     const url = `${window.location.origin}${location.pathname}${location.search || ''}`;
     hitYandexMetrika(url);
-  }, [location.pathname, location.search]);
+    hitMailRuCounter(url, user?.id);
+  }, [location.pathname, location.search, user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      setMailRuUserId(user.id);
+    }
+  }, [user?.id]);
 
   return (
     <ThemeModeProvider>

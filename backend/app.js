@@ -165,6 +165,7 @@ app.use(helmet({
         "https://api.openai.com",
         "https://mc.yandex.ru", // Яндекс.Метрика
         "wss://mc.yandex.ru",  // Яндекс.Метрика Webvisor
+        "https://top-fwz1.mail.ru", // Top.Mail.Ru (VK)
         "https://www.google-analytics.com", // Google Analytics
         "https://cc.calltracking.ru", // Коллтрекинг
         "http://localhost:3000",
