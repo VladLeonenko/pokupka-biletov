@@ -22,9 +22,10 @@ export function buildTbankEacqToken(params, password) {
 
 function getTerminalAndPassword() {
   const terminalKey = process.env.TBANK_TERMINAL_KEY?.trim() || process.env.TINKOFF_TERMINAL_KEY?.trim();
+  // TBANK_KEY первым: в .env часто только он; у PM2 может остаться старый TBANK_PASSWORD (dotenv без override).
   const password =
-    process.env.TBANK_PASSWORD?.trim() ||
     process.env.TBANK_KEY?.trim() ||
+    process.env.TBANK_PASSWORD?.trim() ||
     process.env.TINKOFF_PASSWORD?.trim();
   return { terminalKey, password };
 }
