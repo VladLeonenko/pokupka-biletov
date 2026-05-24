@@ -606,6 +606,7 @@ export type Order = {
   paymentCheckoutUrl?: string | null;
   externalTickets?: OrderExternalTicket[];
   notes?: string;
+  fanId?: string | null;
   items?: OrderItem[];
   /** legacy / совместимость с шаблонами, где ожидается total в копейках */
   total?: number;

@@ -8,6 +8,7 @@ import { createDealForClient } from '../utils/funnelHelper.js';
 import { sendOrderCreatedEmail, sendOrderStatusChangedEmail } from '../services/mail/orderNotifications.js';
 import { fetchRemotePaymentState } from '../services/payment/remotePaymentStatus.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
+import { extractFanIdFromOrder } from '../utils/orderFanId.js';
 
 const router = express.Router();
 
@@ -333,6 +334,7 @@ router.get('/admin', requireAuth, requireAdminOrSalesManager, async (req, res) =
       paymentMethod: row.payment_method,
       paymentStatus: row.payment_status,
       notes: row.notes,
+      fanId: extractFanIdFromOrder(row),
       items: row.items || [],
       clientId: row.client_id,
       charityPreference: row.charity_preference || null,
@@ -409,6 +411,7 @@ router.get('/my', requireAuth, async (req, res) => {
       paymentMethod: row.payment_method,
       paymentStatus: row.payment_status,
       notes: row.notes,
+      fanId: extractFanIdFromOrder(row),
       items: row.items || [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -529,6 +532,7 @@ router.get('/:orderNumber', async (req, res) => {
         externalOrderRef: order.external_order_ref,
         paymentCheckoutUrl: order.payment_checkout_url,
         notes: order.notes,
+        fanId: extractFanIdFromOrder(order),
         items: itemsResult.rows.map(row => ({
           id: row.id,
           productSlug: row.product_slug,

@@ -1,4 +1,5 @@
 import { sendTransactionalMail, ticketOrderMailBcc } from './transporter.js';
+import { extractFanIdFromOrder } from '../../utils/orderFanId.js';
 
 function siteName() {
   return process.env.SITE_NAME || process.env.SENDER_NAME || 'Покупка билетов';
@@ -70,6 +71,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
   if (!meta || typeof meta !== 'object') meta = {};
   const eventTitle = meta.eventTitle || 'Мероприятие';
   const seats = Array.isArray(meta.seats) ? meta.seats.join(', ') : String(meta.seats || '—');
+  const fanId = extractFanIdFromOrder(orderRow);
   const deliveryLine = ticketDeliveryPromiseLine();
   const showAccount = Boolean(isNew && initialPassword);
   const loginEmail = to;
@@ -85,6 +87,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
     `Заказ: ${orderNumber}`,
     `Событие: ${eventTitle}`,
     `Места: ${seats}`,
+    ...(fanId ? [`FAN ID: ${fanId}`] : []),
     `Сумма: ${formatMoney(orderRow.total_cents)}`,
     ``,
     deliveryLine,
@@ -108,6 +111,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
       <table style="border-collapse: collapse; width: 100%; font-size: 15px; margin-bottom: 16px;">
         <tr><td style="padding: 6px 12px 6px 0; color: #666;">Заказ</td><td><strong>${escapeHtml(orderNumber)}</strong></td></tr>
         <tr><td style="padding: 6px 12px 6px 0; color: #666;">Места</td><td><strong>${escapeHtml(seats)}</strong></td></tr>
+        ${fanId ? `<tr><td style="padding: 6px 12px 6px 0; color: #666;">FAN ID</td><td><strong style="font-family: monospace; letter-spacing: 0.04em;">${escapeHtml(fanId)}</strong></td></tr>` : ''}
         <tr><td style="padding: 6px 12px 6px 0; color: #666;">Сумма</td><td><strong>${escapeHtml(formatMoney(orderRow.total_cents))}</strong></td></tr>
       </table>
       <p style="margin: 0 0 20px; font-size: 14px; color: #333;">${escapeHtml(deliveryLine)}</p>

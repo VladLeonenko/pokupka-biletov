@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { HallSelectedSeat } from '@/components/tickets/TicketHallInteractiveBlock';
+import { isFanIdRequiredForRepertoire } from '@/utils/fanIdRequiredEvents';
 
 const STORAGE_KEY = 'ticket-cart-v1';
 
@@ -44,6 +45,9 @@ function readStoredCart(): TicketCartSnapshot | null {
     const parsed = JSON.parse(raw) as TicketCartSnapshot;
     if (!parsed?.repertoireId || !parsed.offerId || !Array.isArray(parsed.seats) || parsed.seats.length === 0) {
       return null;
+    }
+    if (!parsed.requiresFanId && isFanIdRequiredForRepertoire(parsed.repertoireId)) {
+      parsed.requiresFanId = true;
     }
     return parsed;
   } catch {

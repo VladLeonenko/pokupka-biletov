@@ -5,6 +5,7 @@ import { createLoginToken, PURPOSE_MAGIC_LINK } from './loginTokens.js';
 import { sendMagicLinkEmail } from './mail/authMail.js';
 import { createDealForClient } from '../utils/funnelHelper.js';
 import { generateInitialPassword } from '../utils/generateInitialPassword.js';
+import { extractFanIdFromOrder } from '../utils/orderFanId.js';
 
 async function storeTicketRefs(orderRow, provider, ticketRefs) {
   if (!ticketRefs?.length) return;
@@ -189,6 +190,7 @@ async function ensureTicketBookingDeal(orderRow, paymentMeta) {
   const clientId = await ensureClientForPaidOrder(orderRow);
   const eventTitle = paymentMeta?.eventTitle || 'Билеты';
   const seats = Array.isArray(paymentMeta?.seats) ? paymentMeta.seats.join(', ') : String(paymentMeta?.seats || '');
+  const fanId = extractFanIdFromOrder(orderRow);
   return createDealForClient(
     clientId,
     orderRow.customer_name,
@@ -201,6 +203,7 @@ async function ensureTicketBookingDeal(orderRow, paymentMeta) {
       description: [
         `Оплаченный билетный заказ ${orderNumber}`,
         seats ? `Места: ${seats}` : null,
+        fanId ? `FAN ID: ${fanId}` : null,
         `Сумма: ${Number(orderRow.total_cents || 0) / 100} ${orderRow.currency || 'RUB'}`,
       ].filter(Boolean).join('\n'),
       stageColor: '#ff4e18',
@@ -240,6 +243,7 @@ export async function finalizePaidOrder(orderRow, { ticketRefs = [], runPaidHook
       const { createNotification } = await import('../routes/notifications.js');
       const totalRub = (Number(orderRow.total_cents || 0) / 100).toFixed(2);
       const cur = orderRow.currency || 'RUB';
+      const fanId = extractFanIdFromOrder(orderRow);
       await createNotification({
         userId: 0,
         type: 'ticket_order_paid',
@@ -247,6 +251,7 @@ export async function finalizePaidOrder(orderRow, { ticketRefs = [], runPaidHook
         message: [
           orderRow.customer_email ? `Покупатель: ${orderRow.customer_email}` : null,
           pm?.eventTitle ? `Событие: ${pm.eventTitle}` : null,
+          fanId ? `FAN ID: ${fanId}` : null,
           `Сумма: ${totalRub} ${cur}`,
         ]
           .filter(Boolean)
