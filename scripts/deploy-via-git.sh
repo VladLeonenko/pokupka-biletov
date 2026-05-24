@@ -134,6 +134,14 @@ FRONTEND_OK=1
   printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
   chown -R www-data:www-data dist 2>/dev/null || true
 ) || FRONTEND_OK=0
+if [ "$FRONTEND_OK" = 1 ] && grep -q '%PUBLIC_URL%' "$PROJECT_ROOT/frontend/dist/index.html" 2>/dev/null; then
+  echo "❌ dist/index.html содержит %PUBLIC_URL% — удалите frontend/public/index.html и пересоберите"
+  FRONTEND_OK=0
+fi
+if [ "$FRONTEND_OK" = 1 ] && ! grep -qE '/assets/[^"]+\.js' "$PROJECT_ROOT/frontend/dist/index.html" 2>/dev/null; then
+  echo "❌ dist/index.html без /assets/*.js — SPA не загрузится"
+  FRONTEND_OK=0
+fi
 if [ "$FRONTEND_OK" = 1 ]; then
   echo "✅ Frontend собран"
   if [ -f "$PROJECT_ROOT/luzhniki.txt" ] && [ -f "$PROJECT_ROOT/tickets.json" ]; then

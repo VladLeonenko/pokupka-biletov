@@ -46,6 +46,22 @@ if (fs.existsSync(indexHtml)) {
     );
     ok = false;
   }
+  if (idx.includes('%PUBLIC_URL%')) {
+    console.error(
+      '[verify-seo-dist] ❌ dist/index.html содержит %PUBLIC_URL% — public/index.html перезаписал Vite build. Удалите frontend/public/index.html',
+    );
+    ok = false;
+  }
+  if (!/\/assets\/[^"']+\.js/.test(idx)) {
+    console.error(
+      '[verify-seo-dist] ❌ dist/index.html без /assets/*.js — SPA не загрузится (пересоберите: npm run build)',
+    );
+    ok = false;
+  }
+  if (!idx.includes('href="/manifest.json"')) {
+    console.error('[verify-seo-dist] ❌ dist/index.html: ожидается link rel="manifest" href="/manifest.json"');
+    ok = false;
+  }
 }
 
 if (!ok) process.exit(1);
