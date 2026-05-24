@@ -35,6 +35,23 @@ jobs:
           # На проде при другом домене бэка задать VITE_API_URL
           VITE_API_URL: ${{ vars.VITE_API_URL || '' }}
 
+      - name: Verify dist (no CRA / broken SPA)
+        run: |
+          set -euo pipefail
+          if [ -f frontend/public/index.html ]; then
+            echo "❌ frontend/public/index.html must not exist (Vite overwrites dist/index.html)"
+            exit 1
+          fi
+          if grep -q '%PUBLIC_URL%' frontend/dist/index.html; then
+            echo "❌ dist/index.html contains %PUBLIC_URL%"
+            exit 1
+          fi
+          if ! grep -qE '/assets/[^"]+\.js' frontend/dist/index.html; then
+            echo "❌ dist/index.html has no /assets/*.js"
+            exit 1
+          fi
+          echo "✅ dist/index.html OK"
+
       - name: Install backend deps
         run: cd backend && npm ci
 
