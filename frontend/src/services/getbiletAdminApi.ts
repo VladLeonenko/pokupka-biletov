@@ -273,7 +273,10 @@ export async function batchFetchPostersWeb(body?: {
 export type CatalogStageRow = {
   stage_id: string;
   events_in_cache: number;
-  sample_title: string | null;
+  sample_venue: string | null;
+  sample_event: string | null;
+  /** @deprecated используйте sample_event */
+  sample_title?: string | null;
 };
 
 export async function listCatalogStageIds(): Promise<{ stages: CatalogStageRow[] }> {
@@ -498,8 +501,21 @@ export async function listHallMapEditors(): Promise<{
 export async function importStageMapsFromCatalog(): Promise<{
   inserted: number;
   distinct_stages_in_catalog: number;
+  titlesPatched?: number;
 }> {
   const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-maps/import-from-catalog`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
+export async function syncStageMapTitlesFromVenues(): Promise<{
+  updated: number;
+  skipped: number;
+  total: number;
+}> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-maps/sync-titles-from-venues`, {
     method: 'POST',
     headers: authHeaders(),
   });

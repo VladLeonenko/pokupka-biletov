@@ -15,6 +15,23 @@ import { sanitizeStageMapLayoutJson } from '../utils/sanitizeStageMapLayoutJson.
 import { resolveHallMapSaveToken } from '../utils/hallMapSaveToken.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 import { RAMT_BIG_STAGE_MAP_KEY } from '../services/ramtBigStageMap.js';
+import { getVenueLookupMaps } from '../services/getbiletVenueLabels.js';
+
+/** SQL: название площадки из payload кэша (не спектакль). */
+const CATALOG_STAGE_VENUE_SQL = `
+  MAX(NULLIF(TRIM(COALESCE(
+    payload_json->>'PlaceName',
+    payload_json->>'placeName',
+    payload_json->>'VenueName',
+    payload_json->>'venueName',
+    payload_json->>'BuildingName',
+    payload_json->>'buildingName',
+    ''
+  )), ''))`;
+
+/** SQL: пример спектакля для ориентира в админке. */
+const CATALOG_STAGE_EVENT_SQL = `
+  MAX(NULLIF(TRIM(COALESCE(payload_json->>'Name', payload_json->>'name', '')), ''))`;
 
 /**
  * @param {string} externalId
@@ -756,7 +773,8 @@ router.get('/catalog-stage-ids', async (req, res) => {
       SELECT
         stage_id,
         COUNT(*)::int AS events_in_cache,
-        MAX(TRIM(COALESCE(payload_json->>'Name', payload_json->>'name', ''))) AS sample_title
+        ${CATALOG_STAGE_VENUE_SQL} AS sample_venue,
+        ${CATALOG_STAGE_EVENT_SQL} AS sample_event
       FROM getbilet_catalog_cache
       WHERE stage_id IS NOT NULL AND trim(stage_id) <> ''
       GROUP BY stage_id
@@ -1261,26 +1279,56 @@ router.post('/stage-maps/import-from-catalog', async (req, res) => {
       WITH src AS (
         SELECT
           trim(stage_id::text) AS stage_id,
-          MAX(NULLIF(TRIM(COALESCE(payload_json->>'Name', payload_json->>'name', '')), '')) AS sample_title
+          ${CATALOG_STAGE_VENUE_SQL} AS sample_venue,
+          ${CATALOG_STAGE_EVENT_SQL} AS sample_event
         FROM getbilet_catalog_cache
         WHERE stage_id IS NOT NULL AND trim(stage_id::text) <> ''
         GROUP BY trim(stage_id::text)
       ),
       ins AS (
         INSERT INTO getbilet_stage_maps (stage_external_id, title, layout_json, updated_at)
-        SELECT stage_id, NULLIF(TRIM(sample_title), ''), '{}'::jsonb, NOW()
+        SELECT
+          stage_id,
+          NULLIF(TRIM(COALESCE(sample_venue, sample_event)), ''),
+          '{}'::jsonb,
+          NOW()
         FROM src
         ON CONFLICT (stage_external_id) DO NOTHING
-        RETURNING id
+        RETURNING stage_external_id
       )
       SELECT
         (SELECT count(*)::int FROM ins) AS inserted,
-        (SELECT count(*)::int FROM src) AS distinct_stages_in_catalog
+        (SELECT count(*)::int FROM src) AS distinct_stages_in_catalog,
+        COALESCE((SELECT array_agg(stage_external_id) FROM ins), ARRAY[]::text[]) AS inserted_ids
     `);
     const row = r.rows[0];
+    let titlesPatched = 0;
+    const insertedIds = Array.isArray(row?.inserted_ids) ? row.inserted_ids : [];
+    if (insertedIds.length > 0) {
+      try {
+        const { stageIdToParentVenue } = await getVenueLookupMaps();
+        for (const sid of insertedIds) {
+          const venue = stageIdToParentVenue.get(String(sid).trim());
+          if (!venue) continue;
+          const ur = await ticketPool.query(
+            `UPDATE getbilet_stage_maps SET title = $2, updated_at = NOW()
+             WHERE stage_external_id = $1
+               AND (
+                 title IS NULL OR trim(title) = ''
+                 OR title = stage_external_id
+               )`,
+            [sid, venue],
+          );
+          titlesPatched += ur.rowCount || 0;
+        }
+      } catch (e) {
+        console.warn('[getbiletAdmin] import-from-catalog venue titles:', e instanceof Error ? e.message : e);
+      }
+    }
     res.json({
       inserted: row?.inserted ?? 0,
       distinct_stages_in_catalog: row?.distinct_stages_in_catalog ?? 0,
+      titlesPatched,
     });
   } catch (e) {
     if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
@@ -1288,6 +1336,59 @@ router.post('/stage-maps/import-from-catalog', async (req, res) => {
         error: 'Нет таблицы getbilet_catalog_cache или getbilet_stage_maps — примените миграции',
       });
     }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+/** Перезаписать title схем залов из PlaceName кэша / GetPlaceList (не из названия спектакля). */
+router.post('/stage-maps/sync-titles-from-venues', async (req, res) => {
+  try {
+    const mapsR = await ticketPool.query(`
+      SELECT stage_external_id, title
+      FROM getbilet_stage_maps
+      ORDER BY id
+    `);
+    const cacheR = await ticketPool.query(`
+      SELECT
+        trim(stage_id::text) AS stage_id,
+        ${CATALOG_STAGE_VENUE_SQL} AS sample_venue
+      FROM getbilet_catalog_cache
+      WHERE stage_id IS NOT NULL AND trim(stage_id::text) <> ''
+      GROUP BY trim(stage_id::text)
+    `);
+    const venueFromCache = new Map();
+    for (const row of cacheR.rows) {
+      const sid = String(row.stage_id || '').trim();
+      const v = row.sample_venue != null ? String(row.sample_venue).trim() : '';
+      if (sid && v) venueFromCache.set(sid, v);
+    }
+    const { stageIdToParentVenue } = await getVenueLookupMaps();
+    let updated = 0;
+    let skipped = 0;
+    for (const row of mapsR.rows) {
+      const sid = String(row.stage_external_id || '').trim();
+      if (!sid) continue;
+      const next =
+        venueFromCache.get(sid) ||
+        stageIdToParentVenue.get(sid) ||
+        '';
+      if (!next) {
+        skipped += 1;
+        continue;
+      }
+      const cur = row.title != null ? String(row.title).trim() : '';
+      if (cur === next) {
+        skipped += 1;
+        continue;
+      }
+      const ur = await ticketPool.query(
+        `UPDATE getbilet_stage_maps SET title = $2, updated_at = NOW() WHERE stage_external_id = $1`,
+        [sid, next],
+      );
+      updated += ur.rowCount || 0;
+    }
+    res.json({ updated, skipped, total: mapsR.rows.length });
+  } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
   }
 });

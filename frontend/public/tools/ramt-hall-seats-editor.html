@@ -52,6 +52,11 @@
     <button type="button" id="modeEdit">✎</button>
     <button type="button" id="modePaint">〰</button>
     <span class="sep"></span>
+    <label title="Клик по полигону сектора на карте">Сектор
+      <select id="sectorFilter" style="max-width:160px"></select>
+    </label>
+    <button type="button" id="selectSectorDots" title="Выделить все точки активного сектора">▢ сектор</button>
+    <span class="sep"></span>
     <div id="paintBar">
       <label>Коридор <input type="number" id="corridor" min="6" max="80" value="18" style="width:52px" /></label>
       <label><input type="checkbox" id="oneRow" checked /> 1 ряд</label>
@@ -86,6 +91,7 @@
     </div>
   </div>
   <div id="toast"></div>
+  <script src="/tools/theater-hall-sector-overlay.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
@@ -114,6 +120,8 @@
     let paintPath = [];
     let paintLine = null;
     let activeCircle = null;
+    /** @type {ReturnType<typeof TheaterHallSectorOverlay.mount> | null} */
+    let sectorOverlay = null;
 
     function showToast(kind, msg) {
       toastEl.className = kind;
@@ -160,6 +168,8 @@
         const has = meta.sector && meta.row && meta.seat;
         c.classList.add(has ? (meta.manual ? 'manual' : 'labeled') : 'bg');
         if (!has) c.classList.add('bg');
+        const inSector = !sectorOverlay || sectorOverlay.dotInActiveSector(xPct, yPct, meta.sector);
+        c.style.opacity = inSector ? '1' : '0.15';
         c.addEventListener('pointerdown', onDotDown);
         svg.appendChild(c);
         dots.push({ xPct, yPct, el: c });
@@ -223,6 +233,21 @@
         const o = document.createElement('option');
         o.value = label;
         sectorList.appendChild(o);
+      }
+      if (window.TheaterHallSectorOverlay) {
+        sectorOverlay = TheaterHallSectorOverlay.mount({
+          stage,
+          hallW,
+          hallH,
+          sectors: bundle.sectors || [],
+          filterSelect: document.getElementById('sectorFilter'),
+          onSelect(label) {
+            if (label) document.getElementById('paintSector').value = label;
+            rebuildDots();
+          },
+        });
+      } else {
+        sectorOverlay = null;
       }
       zoomFit();
       statusEl.textContent = `Точек: ${labels.size}, подписано: ${countLabeled()} · ${bundle.title || 'РАМТ'}`;
@@ -326,6 +351,8 @@
       const oneRow = document.getElementById('oneRow').checked;
       const hits = [];
       for (const d of dots) {
+        const meta = labels.get(d.el.dataset.key) || {};
+        if (sectorOverlay && !sectorOverlay.dotInActiveSector(d.xPct, d.yPct, meta.sector)) continue;
         const sx = d.xPct / 100 * hallW, sy = d.yPct / 100 * hallH;
         let minD = Infinity;
         for (let i = 1; i < paintPath.length; i++) {
@@ -386,6 +413,17 @@
     document.getElementById('modeView').onclick = () => setMode('view');
     document.getElementById('modeEdit').onclick = () => setMode('edit');
     document.getElementById('modePaint').onclick = () => setMode('paint');
+    document.getElementById('selectSectorDots').onclick = () => {
+      if (!sectorOverlay || !sectorOverlay.getActive()) {
+        showToast('err', 'Выберите сектор на карте или в списке');
+        return;
+      }
+      if (appMode !== 'paint') setMode('paint');
+      document.getElementById('paintSector').value = sectorOverlay.getActive();
+      const n = sectorOverlay.selectAllDotsInActiveSector(dots, labels, selected);
+      refreshSelUi();
+      showToast(n ? 'ok' : 'info', n ? 'Выделено ' + n + ' точек' : '0 точек в секторе');
+    };
     document.getElementById('applyRow').onclick = applyRowToSelection;
     document.getElementById('clearSel').onclick = clearPaint;
     document.getElementById('saveBtn').onclick = saveToServer;
@@ -399,7 +437,7 @@
     };
 
     viewport.addEventListener('pointerdown', (e) => {
-      if ((e.target).closest && (e.target).closest('circle')) return;
+      if ((e.target).closest && ((e.target).closest('circle') || (e.target).closest('svg.sector-overlay path'))) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (appMode === 'paint' && !panMode) {
         paintShift = e.shiftKey;

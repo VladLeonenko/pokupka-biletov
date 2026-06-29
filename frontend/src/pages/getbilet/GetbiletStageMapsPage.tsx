@@ -32,6 +32,7 @@ import {
   importStageMapsFromCatalog,
   listGetbiletStageMaps,
   listHallMapEditors,
+  syncStageMapTitlesFromVenues,
   updateGetbiletStageMap,
   type GetbiletStageMapListRow,
   type HallMapEditorLink,
@@ -189,10 +190,19 @@ export function GetbiletStageMapsPage() {
       }
       showToast(
         n > 0
-          ? `Добавлено схем: ${n} (всего разных сцен в каталоге: ${total}).`
+          ? `Добавлено схем: ${n} (всего разных сцен в каталоге: ${total})${data.titlesPatched ? `, названия площадок: ${data.titlesPatched}` : ''}.`
           : `Все ${total} сцен из каталога уже есть в таблице — правьте SVG по кнопке «Редактировать».`,
         'success',
       );
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+
+  const syncTitlesMut = useMutation({
+    mutationFn: syncStageMapTitlesFromVenues,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['getbilet-stage-maps'] });
+      showToast(`Названия площадок обновлены: ${data.updated} из ${data.total}`, 'success');
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -233,6 +243,18 @@ export function GetbiletStageMapsPage() {
               sx={{ mr: 1 }}
             >
               Подтянуть залы из каталога
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title="Исправить колонку «Название» по PlaceName из каталога / GetPlaceList (не спектакль)">
+          <span>
+            <Button
+              variant="outlined"
+              onClick={() => syncTitlesMut.mutate()}
+              disabled={syncTitlesMut.isPending}
+              sx={{ mr: 1 }}
+            >
+              Обновить названия площадок
             </Button>
           </span>
         </Tooltip>
@@ -303,7 +325,8 @@ export function GetbiletStageMapsPage() {
             StageId из кэша каталога
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Счётчик — сколько карточек в кэше с этим <code>stage_id</code>; пример названия — для ориентира.
+            Счётчик — сколько карточек в кэше с этим <code>stage_id</code>; «Площадка» — из PlaceName, не название
+            спектакля.
           </Typography>
         </Box>
         {catalogStagesLoading ? (
@@ -316,13 +339,14 @@ export function GetbiletStageMapsPage() {
               <TableRow>
                 <TableCell>stage_id (вставить в схему зала)</TableCell>
                 <TableCell align="right">Карточек в кэше</TableCell>
+                <TableCell>Площадка</TableCell>
                 <TableCell>Пример спектакля</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {(catalogStages?.stages?.length ?? 0) === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3}>
+                  <TableCell colSpan={4}>
                     <Typography color="text.secondary" sx={{ py: 2 }}>
                       Пока пусто. Выполните синхронизацию каталога в разделе мероприятий GetBilet — сюда
                       попадут все <code>stage_id</code> из ответа API.
@@ -336,7 +360,8 @@ export function GetbiletStageMapsPage() {
                       <code style={{ wordBreak: 'break-all' }}>{s.stage_id}</code>
                     </TableCell>
                     <TableCell align="right">{s.events_in_cache}</TableCell>
-                    <TableCell>{s.sample_title || '—'}</TableCell>
+                    <TableCell>{s.sample_venue || s.sample_title || '—'}</TableCell>
+                    <TableCell>{s.sample_event || '—'}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -349,7 +374,7 @@ export function GetbiletStageMapsPage() {
           <TableHead>
             <TableRow>
               <TableCell>StageId</TableCell>
-              <TableCell>Название</TableCell>
+              <TableCell>Название (площадка)</TableCell>
               <TableCell>Схема</TableCell>
               <TableCell align="right">Действия</TableCell>
             </TableRow>

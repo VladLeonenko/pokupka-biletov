@@ -527,11 +527,6 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
     }
   }
 
-  const venueFromStageMap =
-    stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
-      ? stageMap.title.trim()
-      : null;
-
   const manualVenue =
     base.venueManual != null && String(base.venueManual).trim() ? String(base.venueManual).trim() : null;
   const manualAddress =
@@ -666,15 +661,8 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       /* таблицы схем может не быть */
     }
   }
-  const venueFromFallbackStageMap =
-    stageMap && typeof stageMap.title === 'string' && stageMap.title.trim()
-      ? stageMap.title.trim()
-      : null;
-  if (!venueFromCatalogOrMaps && venueFromFallbackStageMap) {
-    venueFromCatalogOrMaps = venueFromFallbackStageMap;
-  }
   const addressFromMaps = placeFromMaps.address;
-  const venueForRichText = venueFromCatalogOrMaps || venueFromStageMap || null;
+  const venueForRichText = venueFromCatalogOrMaps || null;
   const addressForUi =
     manualAddress ||
     (addressFromPayload && String(addressFromPayload).trim()) ||
