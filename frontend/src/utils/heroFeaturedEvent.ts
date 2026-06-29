@@ -10,6 +10,29 @@ export const LEGACY_FEATURED_HERO_REPERTOIRE_ID = '6a05d17b46a4d000309ecf4e';
 /** После этой даты (локально) — обычный слайдер без закрепа. */
 const FEATURED_HERO_UNTIL_MS = new Date(2026, 6, 19, 0, 0, 0, 0).getTime();
 
+/** Официальная афиша (РФС, матч Зенит — Спартак / Суперкубок 2026). */
+export const FEATURED_HERO_IMAGE_URL =
+  'https://hb.bizmrg.com/websiterfs/news/224597/6a424b6fbd659_582x388.jpg';
+export const FEATURED_HERO_BANNER_URL = FEATURED_HERO_IMAGE_URL;
+
+export function featuredHeroImageUrl(
+  ev?: { bannerUrl?: string | null; imageUrl?: string | null } | null,
+): string {
+  const fromEv = ev?.bannerUrl?.trim() || ev?.imageUrl?.trim();
+  return fromEv || FEATURED_HERO_BANNER_URL;
+}
+
+export function heroSlideImageUrl(
+  ev?: { bannerUrl?: string | null; imageUrl?: string | null } | null,
+  cmsOrSlideUrl?: string | null,
+): string | null {
+  const manual = cmsOrSlideUrl?.trim();
+  if (manual) return manual;
+  const fromEv = ev?.bannerUrl?.trim() || ev?.imageUrl?.trim();
+  if (fromEv) return fromEv;
+  return null;
+}
+
 export function isFeaturedHeroActive(): boolean {
   return Date.now() < FEATURED_HERO_UNTIL_MS;
 }

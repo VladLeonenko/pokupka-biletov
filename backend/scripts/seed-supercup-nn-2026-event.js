@@ -31,10 +31,19 @@ const TITLE = 'OLIMPBET Суперкубок России — Спартак / �
 const CARD_TITLE = 'Матч Спартак — Зенит, Суперкубок России по футболу 2026';
 const STAGE_MAP_TITLE = 'Совкомбанк Арена — Суперкубок России 2026';
 
+/** РФС — матч Зенит / Спартак, Суперкубок 2026 */
+const HERO_POSTER_URL =
+  process.env.SUPERKUP_HERO_POSTER_URL?.trim() ||
+  'https://hb.bizmrg.com/websiterfs/news/224597/6a424b6fbd659_582x388.jpg';
+const HERO_POSTER_PAGE_URL =
+  process.env.SUPERKUP_HERO_POSTER_PAGE_URL?.trim() || 'https://www.rfs.ru/news/224597';
+
 const catalogPayload = {
   Id: REPERTOIRE_ID,
   RepertoireId: REPERTOIRE_ID,
   Name: CARD_TITLE,
+  ImageUrl: HERO_POSTER_URL,
+  BannerUrl: HERO_POSTER_URL,
   ShortDescription:
     'Футбол · Суперкубок России · Совкомбанк Арена, Нижний Новгород · 18 июля 2026, 19:30 · FAN ID обязателен.',
   Description:
@@ -160,9 +169,10 @@ async function main() {
     `INSERT INTO getbilet_events (
        getbilet_external_id, title_manual, description_manual, description_pack_json,
        venue_manual, venue_address_manual, card_subtitle_manual, notes_internal,
+       poster_url_manual, banner_url_manual, poster_page_url,
        is_published, storefront_hidden, sort_order, updated_at
      )
-     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, TRUE, FALSE, $9, NOW())
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, TRUE, FALSE, $12, NOW())
      ON CONFLICT (getbilet_external_id) DO UPDATE SET
        title_manual = EXCLUDED.title_manual,
        description_manual = EXCLUDED.description_manual,
@@ -171,6 +181,9 @@ async function main() {
        venue_address_manual = EXCLUDED.venue_address_manual,
        card_subtitle_manual = EXCLUDED.card_subtitle_manual,
        notes_internal = EXCLUDED.notes_internal,
+       poster_url_manual = EXCLUDED.poster_url_manual,
+       banner_url_manual = EXCLUDED.banner_url_manual,
+       poster_page_url = EXCLUDED.poster_page_url,
        is_published = TRUE,
        storefront_hidden = FALSE,
        sort_order = EXCLUDED.sort_order,
@@ -184,6 +197,9 @@ async function main() {
       catalogPayload.PlaceAddress,
       'сб 18 июля · 19:30 · 0+',
       'OFFERS_CACHE_ONLY · ручной Суперкубок NN; живые офферы GetBilet подключить позже.',
+      HERO_POSTER_URL,
+      HERO_POSTER_URL,
+      HERO_POSTER_PAGE_URL,
       -500,
     ],
   );

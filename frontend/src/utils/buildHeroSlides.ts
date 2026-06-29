@@ -5,6 +5,8 @@ import {
   FEATURED_HERO_HREF,
   FEATURED_HERO_REPERTOIRE_ID,
   FEATURED_HERO_SLUG,
+  featuredHeroImageUrl,
+  heroSlideImageUrl,
   isFeaturedHeroActive,
   isFeaturedHeroEventTitle,
   isFeaturedHeroHref,
@@ -75,7 +77,7 @@ function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView
   return {
     id: ev.id,
     title: ev.title.toUpperCase(),
-    imageUrl: ev.imageUrl ?? ev.bannerUrl ?? null,
+    imageUrl: heroSlideImageUrl(ev),
     tags,
     venueLabel,
     venueAddress: venueAddress || null,
@@ -104,7 +106,7 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
   const tags = c.tags?.trim() || autoTags;
   const lineLeft = c.lineLeft ?? lines.lineLeft;
   const lineRight = c.lineRight ?? lines.lineRight;
-  const imageUrl = c.imageUrl || ev?.imageUrl || ev?.bannerUrl || null;
+  const imageUrl = heroSlideImageUrl(ev, c.imageUrl) ?? heroSlideImageUrl(ev);
   const id = c.ticketId ? String(c.ticketId) : `cms-${i}`;
   const ticketHref = c.ctaHref || (ev ? ticketCheckoutHref(ev) : '/events');
   const shape: HeroVisualShape = c.visualShape ?? SHAPES[i % SHAPES.length];
@@ -163,6 +165,7 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
   const featuredFromEv = featuredEv
     ? {
         ...eventToSlide(featuredEv, 0),
+        imageUrl: featuredHeroImageUrl(featuredEv),
         ticketHref: featuredEv.repertoireId ? ticketCheckoutHref(featuredEv) : FEATURED_HERO_HREF,
       }
     : null;
@@ -170,13 +173,17 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
   const pinnedIdx = slides.findIndex(
     (s) => isFeaturedHeroSlideId(s.id) || isFeaturedHeroHref(s.ticketHref),
   );
-  const pinned = pinnedIdx >= 0 ? { ...slides[pinnedIdx], ticketHref: FEATURED_HERO_HREF } : null;
+  const pinnedRaw = pinnedIdx >= 0 ? { ...slides[pinnedIdx], ticketHref: FEATURED_HERO_HREF } : null;
+  const pinned =
+    pinnedRaw && !pinnedRaw.imageUrl?.trim()
+      ? { ...pinnedRaw, imageUrl: featuredHeroImageUrl(featuredEv) }
+      : pinnedRaw;
   const featured = featuredFromEv ?? pinned;
   if (!featured) {
     const fallback: HeroSlideView = {
       id: FEATURED_HERO_SLUG,
       title: 'OLIMPBET СУПЕРКУБОК РОССИИ — ЗЕНИТ / СПАРТАК',
-      imageUrl: null,
+      imageUrl: featuredHeroImageUrl(null),
       tags: 'СБ · 18.07.2026 · 19:30 · СПОРТ',
       venueLabel: 'СТАДИОН «НИЖНИЙ НОВГОРОД»',
       venueAddress: 'Нижний Новгород',
