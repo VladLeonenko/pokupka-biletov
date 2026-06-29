@@ -6,6 +6,8 @@
  * Идентификатор цели = тот же, что в pushReachGoal / ecommerce action.
  */
 
+import { reachMailRuGoal } from '@/utils/mailRuCounter';
+
 const COUNTER_ID = 109119282;
 const CURRENCY = 'RUB';
 
@@ -127,6 +129,7 @@ export function pushReachGoal(
       window.ym(COUNTER_ID, 'reachGoal', target);
     }
   }
+  reachMailRuGoal(target, params);
   // Для GTM/логирования — событие в dataLayer (Метрика ecommerce это не обрабатывает)
   getDataLayer().push({
     event: 'ym_reach_goal',

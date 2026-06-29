@@ -96,10 +96,18 @@
     .stage svg circle { pointer-events: all; cursor: pointer; }
     /* Paint: круги не перехватывают touch — pinch на viewport и линия по grid */
     .viewport.mode-paint .stage svg circle { pointer-events: none; }
+    #rectSelectHud {
+      position: absolute; z-index: 5; pointer-events: none;
+      border: 2px dashed #22d3ee; background: rgba(34, 211, 238, 0.12);
+      box-sizing: border-box;
+    }
     .stage svg circle.hl { fill: #f59e0b !important; stroke: #fff; stroke-width: 3px; }
     .stage svg circle.paint-preview { fill: #22d3ee !important; stroke: #fff; stroke-width: 2px; opacity: 0.85; }
     .stage svg circle.paint-selected { fill: #a78bfa !important; stroke: #fff; stroke-width: 2px; }
     .stage svg circle.persist-flash { stroke: #22c55e !important; stroke-width: 4px !important; }
+    .stage svg circle.audit-issue { fill: #ef4444 !important; stroke: #fff; stroke-width: 2.5px; }
+    .stage svg circle.audit-warn { fill: #f97316 !important; stroke: #fff; stroke-width: 2px; }
+    .stage svg circle.audit-proposed { fill: #14b8a6 !important; stroke: #fff; stroke-width: 2px; }
     /* Только в редакторе — в SVG на диск не попадает (снимается при serialize) */
     .stage svg circle.seat-edited-in-editor {
       fill: #fbbf24 !important;
@@ -110,6 +118,7 @@
     .stage svg circle.unlabeled-dot { fill: #7f1d1d; }
     .hint { font-size: 11px; opacity: 0.55; }
     #zoomSlider { width: min(120px, 22vw); vertical-align: middle; accent-color: #38bdf8; }
+    #paintTargetSector { width: 92px; }
   </style>
 </head>
 <body>
@@ -120,6 +129,10 @@
     <button type="button" id="zoomIn" title="Увеличить">+</button>
     <button type="button" id="zoomFit" title="Вписать в экран">⊡</button>
     <button type="button" id="panMode" title="Перетаскивание (Space+drag)">✋</button>
+    <button type="button" id="rotateLeft" title="Повернуть карту ↺">↺</button>
+    <button type="button" id="rotateRight" title="Повернуть карту ↻">↻</button>
+    <button type="button" id="rotateAlignSector" title="Повернуть: ряды горизонтально (оси от центра поля)">⟲ сектор</button>
+    <button type="button" id="rotateReset" title="Сброс поворота">0°</button>
     <span class="sep"></span>
     <div class="group">
       <button type="button" id="modeView" class="active" title="Только просмотр">👁</button>
@@ -130,21 +143,31 @@
       <label title="макс. захват вокруг линии">Коридор <input type="number" id="paintCorridor" min="8" max="60" value="20" /></label>
       <label title="отсечь соседние ряды по ⊥ расстоянию"><input type="checkbox" id="paintOneRow" checked /> 1 ряд</label>
       <button type="button" id="paintClearSel">✕ выделение</button>
+      <button type="button" id="rectSelectBtn" title="протянуть рамку и выделить все точки внутри">▢ область</button>
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
-      <label>Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
+      <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
+      <label id="paintRowWrap">Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
+      <label id="paintEndRowWrap" hidden>ряд по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" title="только для колонок: номер последнего ряда сектора" /></label>
       <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
-      <button type="button" id="paintApply" class="warn">▶ Применить ряд → сервер</button>
+      <button type="button" id="clearRowSeatBtn" title="очистить row/place у выделенных точек, сектор оставить">⌫ ряд/место</button>
+      <button type="button" id="paintApply" class="warn">▶ Применить → сервер</button>
+      <button type="button" id="sectorApply" title="заполнить сектор: ряды от центра поля, места вдоль ряда (1-я→посл. колонка)">↕ сектор</button>
+      <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
+      <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
+      <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
+      <button type="button" id="copySectorBtn" title="скопировать разметку сектора в другой сектор">⇄ копия</button>
+      <button type="button" id="copyMirrorSectorBtn" title="скопировать в зеркальный сектор через центр поля (верх↔низ)">⇄ зеркало</button>
     </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-mzoom</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-rotatefix</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -152,6 +175,7 @@
   <div id="infoPanel" aria-live="polite"></div>
   <div id="paintToast" role="status"></div>
   <div class="viewport" id="viewport">
+    <div id="rectSelectHud" hidden></div>
     <div class="stage" id="stage"></div>
   </div>
   <script>
@@ -173,14 +197,24 @@
     const modePaintBtn = document.getElementById('modePaint');
     const paintBar = document.getElementById('paintBar');
     const paintSector = document.getElementById('paintSector');
+    const paintApplyMode = document.getElementById('paintApplyMode');
     const paintRow = document.getElementById('paintRow');
     const paintStartSeat = document.getElementById('paintStartSeat');
+    const paintEndRow = document.getElementById('paintEndRow');
     const paintRenumber = document.getElementById('paintRenumber');
     const paintSelectRow = document.getElementById('paintSelectRow');
+    const clearRowSeatBtn = document.getElementById('clearRowSeatBtn');
     const paintCorridor = document.getElementById('paintCorridor');
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
+    const rectSelectBtn = document.getElementById('rectSelectBtn');
     const paintApply = document.getElementById('paintApply');
+    const sectorApply = document.getElementById('sectorApply');
+    const auditBtn = document.getElementById('auditBtn');
+    const paintTargetSector = document.getElementById('paintTargetSector');
+    const copyReverse = document.getElementById('copyReverse');
+    const copySectorBtn = document.getElementById('copySectorBtn');
+    const copyMirrorSectorBtn = document.getElementById('copyMirrorSectorBtn');
     const paintSelCount = document.getElementById('paintSelCount');
     const undoBtn = document.getElementById('undoBtn');
     const saveSvgBtn = document.getElementById('saveSvg');
@@ -212,6 +246,7 @@
     let svgRoot = null;
     let overlayG = null;
     let previewLine = null;
+    let rectSelectEl = null;
     let allCircles = [];
     /** @type {{ grid: Map<string, Element[]>, cellSize: number } | null} */
     let circleGrid = null;
@@ -241,6 +276,9 @@
     let paintCaptureId = -1;
     let paintPreviewRaf = 0;
     let paintSuppressClick = false;
+    let rectSelectMode = false;
+    /** @type {{ start: { x: number, y: number }, current: { x: number, y: number }, additive: boolean, clientX: number, clientY: number } | null} */
+    let rectSelectPending = null;
     /** @type {Map<number, { x: number, y: number }>} */
     const activePointers = new Map();
     /** @type {{ dist: number, zoom0: number, cx: number, cy: number } | null} */
@@ -248,6 +286,7 @@
     /** @type {{ dist: number, zoom0: number, cx: number, cy: number } | null} */
     let touchPinch = null;
     let fitZoom = 0.08;
+    let viewRotateDeg = 0;
     let syncingZoomSlider = false;
     /** @type {Element[]} */
     let paintSelection = [];
@@ -257,6 +296,13 @@
     let sectorBboxByNorm = new Map();
     /** @type {Set<Element>} */
     let paintPreviewMarked = new Set();
+    /** @type {Set<Element>} */
+    let auditMarked = new Set();
+    /** @type {Set<Element>} */
+    let auditWarnMarked = new Set();
+    /** @type {Set<Element>} */
+    let proposedMarked = new Set();
+    let rowLabelG = null;
     let previewPolyline = null;
     let serverSaveTimer = 0;
     let lastFileSaveOk = false;
@@ -415,9 +461,9 @@
       const result = await saveSvgToServer();
       if (!result.ok) return result;
       const norm = expectSectorNorm ? normalizeSectorLabel(expectSectorNorm) : '';
-      const n = norm && result.data?.sectorNormCounts ? result.data.sectorNormCounts[n] : null;
+      const savedSectorCount = norm && result.data?.sectorNormCounts ? result.data.sectorNormCounts[norm] : null;
       const label = norm ? canonicalSectorLabel(norm) : '';
-      if (norm && n === 0) {
+      if (norm && savedSectorCount === 0) {
         showPaintToast(
           'err',
           'Сервер принял SVG, но в bundle 0 мест для «' +
@@ -430,7 +476,7 @@
         'ok',
         'Сервер ✓ bundle ' +
           (result.data?.labeledSeats ?? '?') +
-          (norm && n != null ? ' · ' + label + ': ' + n + ' мест' : ''),
+          (norm && savedSectorCount != null ? ' · ' + label + ': ' + savedSectorCount + ' мест' : ''),
       );
       return result;
     }
@@ -479,9 +525,18 @@
       const ov = clone.querySelector('#editor-overlay');
       if (ov) ov.remove();
       clone.querySelectorAll(
-        'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor',
+        'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor, circle.audit-issue, circle.audit-warn, circle.audit-proposed',
       ).forEach((c) => {
-        c.classList.remove('hl', 'paint-preview', 'paint-selected', 'persist-flash', 'seat-edited-in-editor');
+        c.classList.remove(
+          'hl',
+          'paint-preview',
+          'paint-selected',
+          'persist-flash',
+          'seat-edited-in-editor',
+          'audit-issue',
+          'audit-warn',
+          'audit-proposed',
+        );
       });
       const decl = '<?xml version="1.0" encoding="UTF-8"?>\n';
       return decl + new XMLSerializer().serializeToString(clone);
@@ -569,7 +624,11 @@
       viewport.classList.toggle('mode-paint', mode === 'paint');
       viewport.classList.toggle('mode-edit', mode === 'edit');
       cancelPaintDrag();
-      if (mode !== 'paint') clearPaintSelection();
+      if (mode !== 'paint') {
+        rectSelectMode = false;
+        rectSelectBtn?.classList.remove('active');
+        clearPaintSelection();
+      }
       if (mode === 'paint') {
         panMode = false;
         dragPan = false;
@@ -626,21 +685,49 @@
       syncingZoomSlider = false;
     }
 
-    /** Зум к точке под пальцем / колёсиком. */
+    function clampPanToViewport() {
+      const vw = Math.max(1, viewport.clientWidth);
+      const vh = Math.max(1, viewport.clientHeight);
+      const scaledW = vbW * zoom;
+      const scaledH = vbH * zoom;
+      const limitX = Math.max(vw * 0.45, (scaledW - vw) / 2 + vw * 0.35);
+      const limitY = Math.max(vh * 0.45, (scaledH - vh) / 2 + vh * 0.35);
+      panX = Math.min(limitX, Math.max(-limitX, panX));
+      panY = Math.min(limitY, Math.max(-limitY, panY));
+    }
+
+    function stageCenterClient() {
+      const vr = viewport.getBoundingClientRect();
+      return {
+        x: vr.left + vr.width / 2 + panX,
+        y: vr.top + vr.height / 2 + panY,
+      };
+    }
+
+    /** Зум к точке под пальцем / колёсиком (учитывает pan, zoom, rotate). */
     function setZoomAt(newZoom, clientX, clientY) {
-      const r = stage.getBoundingClientRect();
-      if (!r.width || !r.height) {
+      const before = clientToSvg(clientX, clientY);
+      const vr = viewport.getBoundingClientRect();
+      if (!before || !vr.width || !vr.height) {
         zoom = clampZoom(newZoom);
+        clampPanToViewport();
         applyTransform();
+        syncZoomSlider();
         return;
       }
-      const cx = r.left + r.width / 2 + panX;
-      const cy = r.top + r.height / 2 + panY;
-      const ux = (clientX - cx) / zoom;
-      const uy = (clientY - cy) / zoom;
       zoom = clampZoom(newZoom);
-      panX = clientX - r.width / 2 - r.left - ux * zoom;
-      panY = clientY - r.height / 2 - r.top - uy * zoom;
+      const centerX = vr.left + vr.width / 2;
+      const centerY = vr.top + vr.height / 2;
+      const dx = (before.x - vbW / 2) * zoom;
+      const dy = (before.y - vbH / 2) * zoom;
+      const rad = (viewRotateDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+      panX = clientX - centerX - rx;
+      panY = clientY - centerY - ry;
+      clampPanToViewport();
       applyTransform();
       syncZoomSlider();
     }
@@ -653,13 +740,17 @@
         (maxZoomLevel() * 100).toFixed(0) +
         '%' +
         (isCoarsePointer() ? ' · pinch' : '') +
+        (viewRotateDeg ? ' · ↻' + viewRotateDeg.toFixed(0) + '°' : '') +
         ')';
       if (appMode === 'paint') {
+        const paintAction = rectSelectMode ? '▢ протяни рамку' : '〰 тяни линию';
         status.textContent =
           base +
-          ' · 〰 тяни линию (Space — сдвиг карты) · ' +
+          ' · ' +
+          paintAction +
+          ' (Space — сдвиг карты) · ' +
           paintSelection.length +
-          ' точек → ряд → ▶';
+          ' точек → ряд/⌫ → ▶';
       } else if (appMode === 'edit') {
         status.textContent = base + ' · ✎: клик — карточка, правка row/place, Применить';
       } else {
@@ -669,7 +760,15 @@
 
     function applyTransform() {
       stage.style.transform =
-        'translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + zoom + ')';
+        'translate(calc(-50% + ' +
+        panX +
+        'px), calc(-50% + ' +
+        panY +
+        'px)) rotate(' +
+        viewRotateDeg +
+        'deg) scale(' +
+        zoom +
+        ')';
       refreshStatusHint();
     }
 
@@ -730,9 +829,27 @@
       return stripped.replace(/\s+/g, '');
     }
 
+    function sectorBaseCode(norm) {
+      return String(norm || '').replace(/^vip/i, '');
+    }
+
+    /** C136 = VIP C136 в SVG (vipc136 vs c136). */
     function sectorNormsMatch(a, b) {
       if (!a || !b) return false;
-      return normalizeSectorLabel(a) === normalizeSectorLabel(b);
+      const na = normalizeSectorLabel(a);
+      const nb = normalizeSectorLabel(b);
+      if (na === nb) return true;
+      return sectorBaseCode(na) === sectorBaseCode(nb);
+    }
+
+    function getSectorBbox(norm) {
+      if (!norm) return null;
+      const keys = [norm, sectorBaseCode(norm), 'vip' + sectorBaseCode(norm)];
+      for (const k of keys) {
+        const bb = sectorBboxByNorm.get(k);
+        if (bb) return bb;
+      }
+      return null;
     }
 
     function canonicalSectorLabel(sector) {
@@ -744,6 +861,16 @@
       return String(sector || '').trim();
     }
 
+    /** Подпись сектора как в SVG (VIP C136 vs «Сектор C 136»). */
+    function inferSectorLabelForApply(sectorInput) {
+      const trimmed = String(sectorInput || '').trim();
+      if (!trimmed) return trimmed;
+      const hit = circlesForSector(trimmed)
+        .map((c) => circleSector(c))
+        .find((s) => s && sectorNormsMatch(s, trimmed));
+      return hit || canonicalSectorLabel(trimmed);
+    }
+
     function circleSector(circle) {
       return decodeAttr(circle.getAttribute('data-sector') || circle.getAttribute('place-name') || '');
     }
@@ -751,6 +878,17 @@
     function sectorMatches(circle, filter) {
       if (!filter) return true;
       return sectorNormsMatch(circleSector(circle), filter);
+    }
+
+    /** Как circlesForSector: без place-name — по bbox полигона сектора. */
+    function circleMatchesSectorFilter(circle, filter) {
+      if (!filter) return true;
+      const own = circleSector(circle);
+      if (own) return sectorNormsMatch(own, filter);
+      const bb = getSectorBbox(normalizeSectorLabel(filter));
+      if (!bb) return false;
+      const { x, y } = circleXY(circle);
+      return x >= bb.x0 && x <= bb.x1 && y >= bb.y0 && y <= bb.y1;
     }
 
     function isValidPaintRow(row) {
@@ -841,7 +979,7 @@
 
     const TRACK_ATTRS = [
       'place-name', 'row', 'place', 'data-sector', 'data-row', 'data-seat',
-      'data-source', 'data-unlabeled', 'data-seat-uuid',
+      'data-source', 'data-unlabeled', 'data-seat-uuid', 'data-sector-edge',
     ];
 
     function snapshotCircle(circle) {
@@ -850,7 +988,23 @@
       for (const a of TRACK_ATTRS) {
         attrs[a] = circle.hasAttribute(a) ? circle.getAttribute(a) : null;
       }
-      attrs['class'] = circle.getAttribute('class');
+      const cls = (circle.getAttribute('class') || '')
+        .split(/\s+/)
+        .filter(
+          (c) =>
+            c &&
+            ![
+              'hl',
+              'paint-preview',
+              'paint-selected',
+              'persist-flash',
+              'audit-issue',
+              'audit-warn',
+              'audit-proposed',
+            ].includes(c),
+        )
+        .join(' ');
+      attrs['class'] = cls || null;
       return attrs;
     }
 
@@ -905,8 +1059,22 @@
         circle.removeAttribute('data-seat');
       }
       circle.setAttribute('data-source', source || 'manual');
+      if (source !== 'manual-sector-edge') circle.removeAttribute('data-sector-edge');
       circle.removeAttribute('data-unlabeled');
       circle.classList.remove('unlabeled-dot');
+      return true;
+    }
+
+    function clearRowSeatFromCircle(circle) {
+      circle.removeAttribute('row');
+      circle.removeAttribute('data-row');
+      circle.removeAttribute('place');
+      circle.removeAttribute('data-seat');
+      circle.removeAttribute('data-seat-uuid');
+      circle.removeAttribute('data-sector-edge');
+      circle.setAttribute('data-source', 'cleared-row-seat');
+      circle.setAttribute('data-unlabeled', '1');
+      if (markUnlabeled.checked) circle.classList.add('unlabeled-dot');
       return true;
     }
 
@@ -1045,6 +1213,7 @@
       panX = 0;
       panY = 0;
       applyTransform();
+      syncZoomSlider();
     }
 
     function zoomCenter(factor, clientX, clientY) {
@@ -1052,7 +1221,9 @@
       if (clientX != null && clientY != null) setZoomAt(next, clientX, clientY);
       else {
         zoom = next;
+        clampPanToViewport();
         applyTransform();
+        syncZoomSlider();
       }
     }
 
@@ -1119,6 +1290,14 @@
       previewLine.setAttribute('opacity', '0.9');
       previewLine.setAttribute('visibility', 'hidden');
       overlayG.appendChild(previewLine);
+      rectSelectEl = document.createElementNS(ns, 'rect');
+      rectSelectEl.setAttribute('fill', 'rgba(34, 211, 238, 0.12)');
+      rectSelectEl.setAttribute('stroke', '#22d3ee');
+      rectSelectEl.setAttribute('stroke-width', '2');
+      rectSelectEl.setAttribute('stroke-dasharray', '8 6');
+      rectSelectEl.setAttribute('vector-effect', 'non-scaling-stroke');
+      rectSelectEl.setAttribute('visibility', 'hidden');
+      overlayG.appendChild(rectSelectEl);
       previewPolyline = document.createElementNS(ns, 'polyline');
       previewPolyline.setAttribute('fill', 'none');
       previewPolyline.setAttribute('stroke', '#38bdf8');
@@ -1129,18 +1308,27 @@
       previewPolyline.setAttribute('opacity', '0.85');
       previewPolyline.setAttribute('visibility', 'hidden');
       overlayG.appendChild(previewPolyline);
+      rowLabelG = document.createElementNS(ns, 'g');
+      rowLabelG.setAttribute('id', 'editor-row-labels');
+      rowLabelG.setAttribute('pointer-events', 'none');
+      rowLabelG.setAttribute('style', 'pointer-events: none;');
+      overlayG.appendChild(rowLabelG);
       svgRoot.appendChild(overlayG);
     }
 
-    /** Экран → viewBox: только через stage.getBoundingClientRect (учитывает pan/zoom CSS). */
+    /** Экран → viewBox: inverse pan + rotate + scale (bbox при rotate врёт). */
     function clientToSvg(clientX, clientY) {
       if (!svgRoot) return null;
-      const r = stage.getBoundingClientRect();
-      if (!r.width || !r.height) return null;
-      return {
-        x: ((clientX - r.left) / r.width) * vbW,
-        y: ((clientY - r.top) / r.height) * vbH,
-      };
+      const sc = stageCenterClient();
+      const z = zoom || 1;
+      let dx = clientX - sc.x;
+      let dy = clientY - sc.y;
+      const rad = (-viewRotateDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+      return { x: rx / z + vbW / 2, y: ry / z + vbH / 2 };
     }
 
     function circleRow(c) {
@@ -1151,6 +1339,75 @@
       const s = decodeAttr(c.getAttribute('data-seat') || c.getAttribute('place') || '');
       const n = Number.parseInt(String(s).replace(/\D/g, ''), 10);
       return Number.isFinite(n) ? n : null;
+    }
+
+    function circleXY(c) {
+      return { x: +c.getAttribute('cx'), y: +c.getAttribute('cy') };
+    }
+
+    function median(nums) {
+      const xs = nums.filter((n) => Number.isFinite(n)).slice().sort((a, b) => a - b);
+      if (!xs.length) return 0;
+      const mid = Math.floor(xs.length / 2);
+      return xs.length % 2 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2;
+    }
+
+    function principalAxisFromPoints(pts) {
+      if (pts.length < 2) return { ux: 1, uy: 0, nx: 0, ny: 1, cx: pts[0]?.x || 0, cy: pts[0]?.y || 0 };
+      const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+      let xx = 0;
+      let xy = 0;
+      let yy = 0;
+      for (const p of pts) {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        xx += dx * dx;
+        xy += dx * dy;
+        yy += dy * dy;
+      }
+      const angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+      let ux = Math.cos(angle);
+      let uy = Math.sin(angle);
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      if ((last.x - first.x) * ux + (last.y - first.y) * uy < 0) {
+        ux = -ux;
+        uy = -uy;
+      }
+      return { ux, uy, nx: -uy, ny: ux, cx, cy };
+    }
+
+    function principalAxis(circles) {
+      return principalAxisFromPoints(circles.map(circleXY));
+    }
+
+    function projection(c, ax) {
+      const p = circleXY(c);
+      return p.x * ax.ux + p.y * ax.uy;
+    }
+
+    function normalProjection(c, ax) {
+      const p = circleXY(c);
+      return p.x * ax.nx + p.y * ax.ny;
+    }
+
+    function clearAuditMarks() {
+      auditMarked.forEach((c) => c.classList.remove('audit-issue'));
+      auditWarnMarked.forEach((c) => c.classList.remove('audit-warn'));
+      proposedMarked.forEach((c) => c.classList.remove('audit-proposed'));
+      auditMarked.clear();
+      auditWarnMarked.clear();
+      proposedMarked.clear();
+    }
+
+    function markAudit(circles, kind) {
+      const cls = kind === 'warn' ? 'audit-warn' : kind === 'proposed' ? 'audit-proposed' : 'audit-issue';
+      const bucket = kind === 'warn' ? auditWarnMarked : kind === 'proposed' ? proposedMarked : auditMarked;
+      for (const c of circles) {
+        c.classList.add(cls);
+        bucket.add(c);
+      }
     }
 
     function paintCorridorPx() {
@@ -1219,6 +1476,82 @@
         if (d <= radius) out.push(c);
       }
       return out;
+    }
+
+    /** viewBox → экран (пара clientToSvg). */
+    function svgToClient(sx, sy) {
+      const sc = stageCenterClient();
+      const z = zoom || 1;
+      let dx = (sx - vbW / 2) * z;
+      let dy = (sy - vbH / 2) * z;
+      const rad = (viewRotateDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      return {
+        x: sc.x + (dx * cos - dy * sin),
+        y: sc.y + (dx * sin + dy * cos),
+      };
+    }
+
+    function circlesInClientRect(clientX0, clientY0, clientX1, clientY1, sectorFilter) {
+      const x0 = Math.min(clientX0, clientX1);
+      const x1 = Math.max(clientX0, clientX1);
+      const y0 = Math.min(clientY0, clientY1);
+      const y1 = Math.max(clientY0, clientY1);
+      const out = [];
+      for (const c of allCircles) {
+        if (sectorFilter && !circleMatchesSectorFilter(c, sectorFilter)) continue;
+        const p = circleXY(c);
+        const sc = svgToClient(p.x, p.y);
+        if (sc.x >= x0 && sc.x <= x1 && sc.y >= y0 && sc.y <= y1) out.push(c);
+      }
+      return out;
+    }
+
+    function circlesInSvgRect(a, b, sectorFilter) {
+      const x0 = Math.min(a.x, b.x);
+      const x1 = Math.max(a.x, b.x);
+      const y0 = Math.min(a.y, b.y);
+      const y1 = Math.max(a.y, b.y);
+      const out = [];
+      for (const c of allCircles) {
+        if (sectorFilter && !circleMatchesSectorFilter(c, sectorFilter)) continue;
+        const { x, y } = circleXY(c);
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push(c);
+      }
+      return out;
+    }
+
+    function showClientRectSelect(clientX0, clientY0, clientX1, clientY1) {
+      const hud = document.getElementById('rectSelectHud');
+      if (!hud) return;
+      const vr = viewport.getBoundingClientRect();
+      const left = Math.min(clientX0, clientX1) - vr.left;
+      const top = Math.min(clientY0, clientY1) - vr.top;
+      hud.hidden = false;
+      hud.style.left = left + 'px';
+      hud.style.top = top + 'px';
+      hud.style.width = Math.abs(clientX1 - clientX0) + 'px';
+      hud.style.height = Math.abs(clientY1 - clientY0) + 'px';
+    }
+
+    function hideRectSelect() {
+      const hud = document.getElementById('rectSelectHud');
+      if (hud) hud.hidden = true;
+      if (rectSelectEl) rectSelectEl.setAttribute('visibility', 'hidden');
+    }
+
+    function showRectSelect(a, b) {
+      if (!rectSelectEl || viewRotateDeg) return;
+      const x = Math.min(a.x, b.x);
+      const y = Math.min(a.y, b.y);
+      const w = Math.abs(a.x - b.x);
+      const h = Math.abs(a.y - b.y);
+      rectSelectEl.setAttribute('x', String(x));
+      rectSelectEl.setAttribute('y', String(y));
+      rectSelectEl.setAttribute('width', String(w));
+      rectSelectEl.setAttribute('height', String(h));
+      rectSelectEl.setAttribute('visibility', 'visible');
     }
 
     function positionAlongPath(pathPoints, cx, cy) {
@@ -1423,6 +1756,20 @@
       if (previewPolyline) previewPolyline.setAttribute('visibility', 'hidden');
     }
 
+    function setRectSelectMode(on) {
+      rectSelectMode = Boolean(on);
+      rectSelectBtn?.classList.toggle('active', rectSelectMode);
+      if (rectSelectMode) {
+        showPaintToast(
+          'info',
+          '▢ область: протяни рамку (работает и при ↻ rotate), затем ⌫ ряд/место',
+        );
+      } else {
+        hideRectSelect();
+      }
+      refreshStatusHint();
+    }
+
     /** Сектор из поля (пусто = любой сектор вдоль линии). */
     function paintSectorForApply() {
       return paintSector.value.trim();
@@ -1438,12 +1785,16 @@
         try {
           const bb = p.getBBox();
           const pad = 6;
-          sectorBboxByNorm.set(norm, {
+          const box = {
             x0: bb.x - pad,
             y0: bb.y - pad,
             x1: bb.x + bb.width + pad,
             y1: bb.y + bb.height + pad,
-          });
+          };
+          sectorBboxByNorm.set(norm, box);
+          const base = sectorBaseCode(norm);
+          sectorBboxByNorm.set(base, box);
+          sectorBboxByNorm.set('vip' + base, box);
         } catch {
           /* path без layout */
         }
@@ -1453,7 +1804,7 @@
     /** Не давать линии утащить точки с противоположной трибуны (B262 vs …). */
     function filterCirclesToSectorBbox(circles, sectorLabel) {
       const norm = normalizeSectorLabel(sectorLabel);
-      const bb = sectorBboxByNorm.get(norm);
+      const bb = getSectorBbox(norm);
       if (!bb) return { list: circles, dropped: 0 };
       const list = circles.filter((c) => {
         const cx = +c.getAttribute('cx');
@@ -1461,6 +1812,334 @@
         return cx >= bb.x0 && cx <= bb.x1 && cy >= bb.y0 && cy <= bb.y1;
       });
       return { list, dropped: circles.length - list.length };
+    }
+
+    function fieldCenterPoint() {
+      return { cx: vbW / 2, cy: vbH / 2 };
+    }
+
+    function sectorCentroid(sectorLabel) {
+      const norm = normalizeSectorLabel(sectorLabel);
+      const bb = getSectorBbox(norm);
+      if (bb) {
+        return { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+      }
+      const circles = circlesForSector(sectorLabel);
+      if (!circles.length) {
+        const fc = fieldCenterPoint();
+        return { x: fc.cx, y: fc.cy };
+      }
+      return {
+        x: median(circles.map((c) => circleXY(c).x)),
+        y: median(circles.map((c) => circleXY(c).y)),
+      };
+    }
+
+    function normalizeVec2(x, y) {
+      const len = Math.hypot(x, y) || 1;
+      return { ux: x / len, uy: y / len };
+    }
+
+    function localDotPx(px, py, ox, oy, ux, uy) {
+      return (px - ox) * ux + (py - oy) * uy;
+    }
+
+    /**
+     * Локальные оси сектора:
+     * radial — стек рядов (1-я колонка, якоря по rowNum);
+     * tangential — места в ряду (1-я → посл. колонка).
+     * Угловые: якоря, не «голый» вектор от центра поля.
+     */
+    function buildSectorLocalFrame(sectorLabel, firstCol, lastCol) {
+      const { cx: fcx, cy: fcy } = fieldCenterPoint();
+      const fieldRadial = normalizeVec2(sectorCentroid(sectorLabel).x - fcx, sectorCentroid(sectorLabel).y - fcy);
+      const cols = (firstCol || []).filter((a) => a.marked);
+      if (cols.length < 2) {
+        return {
+          fcx,
+          fcy,
+          cx: fcx,
+          cy: fcy,
+          radial: fieldRadial,
+          tangential: { ux: -fieldRadial.uy, uy: fieldRadial.ux },
+          corner: false,
+        };
+      }
+      const sorted = cols.slice().sort((a, b) => a.rowNum - b.rowNum);
+      let radial = normalizeVec2(
+        sorted[sorted.length - 1].x - sorted[0].x,
+        sorted[sorted.length - 1].y - sorted[0].y,
+      );
+      const cx = median(sorted.map((a) => a.x));
+      const cy = median(sorted.map((a) => a.y));
+      const lc = (lastCol || []).filter((a) => a.marked);
+      const midRow = sorted[Math.floor(sorted.length / 2)]?.rowNum ?? sorted[0].rowNum;
+      const fa = sorted.find((a) => a.rowNum === midRow) || sorted[0];
+      const la = lc.find((a) => a.rowNum === midRow) || lc[0];
+      let tangential =
+        la && Math.hypot(la.x - fa.x, la.y - fa.y) > 1
+          ? normalizeVec2(la.x - fa.x, la.y - fa.y)
+          : { ux: -radial.uy, uy: radial.ux };
+      const stackFieldAlign = Math.abs(radial.ux * fieldRadial.ux + radial.uy * fieldRadial.uy);
+      const corner = stackFieldAlign < 0.78;
+      if (!corner && stackFieldAlign >= 0.78) {
+        radial = fieldRadial;
+        if (Math.hypot(la.x - fa.x, la.y - fa.y) > 1) {
+          tangential = normalizeVec2(la.x - fa.x, la.y - fa.y);
+        } else {
+          tangential = { ux: -radial.uy, uy: radial.ux };
+        }
+      }
+      return { fcx, fcy, cx, cy, radial, tangential, corner };
+    }
+
+    function rowLabelPoint(circles, frame) {
+      const pts = circles.map(circleXY);
+      const ox = frame.cx ?? frame.fcx;
+      const oy = frame.cy ?? frame.fcy;
+      const seatProjs = pts.map(
+        (p) => (p.x - ox) * frame.tangential.ux + (p.y - oy) * frame.tangential.uy,
+      );
+      const stackProjs = pts.map((p) => (p.x - ox) * frame.radial.ux + (p.y - oy) * frame.radial.uy);
+      const minSeat = Math.min(...seatProjs);
+      const stackMed = median(stackProjs);
+      const towardField = localDotPx(ox, oy, frame.fcx, frame.fcy, frame.radial.ux, frame.radial.uy);
+      const stackSign = towardField >= 0 ? -1 : 1;
+      return {
+        x: ox + minSeat * frame.tangential.ux + (stackMed + stackSign * 34) * frame.radial.ux,
+        y: oy + minSeat * frame.tangential.uy + (stackMed + stackSign * 34) * frame.radial.uy,
+      };
+    }
+
+    function radialProjPoint(p, frame) {
+      return localDotPx(p.x, p.y, frame.fcx, frame.fcy, frame.radial.ux, frame.radial.uy);
+    }
+
+    function tangentialProjPoint(p, frame) {
+      return localDotPx(p.x, p.y, frame.fcx, frame.fcy, frame.tangential.ux, frame.tangential.uy);
+    }
+
+    function radialProjAnchor(a, frame) {
+      const ox = frame.cx ?? frame.fcx;
+      const oy = frame.cy ?? frame.fcy;
+      return localDotPx(a.x, a.y, ox, oy, frame.radial.ux, frame.radial.uy);
+    }
+
+    function localPointToSvg(r, t, frame) {
+      return {
+        x: frame.fcx + r * frame.radial.ux + t * frame.tangential.ux,
+        y: frame.fcy + r * frame.radial.uy + t * frame.tangential.uy,
+      };
+    }
+
+    function alignViewToSector(sectorLabel) {
+      const sector = String(sectorLabel || '').trim();
+      if (!sector) {
+        showPaintToast('err', 'Укажи сектор для ⟲');
+        return;
+      }
+      const candidates = circlesForSector(sector);
+      const firstCol = collectColumnAnchors(candidates, null, 'first');
+      const lastCol = collectColumnAnchors(candidates, null, 'last');
+      const frame = buildSectorLocalFrame(sector, firstCol, lastCol);
+      viewRotateDeg = (-Math.atan2(frame.tangential.uy, frame.tangential.ux) * 180) / Math.PI;
+      applyTransform();
+      const modeHint = frame.corner ? ' · угол (оси по якорям)' : '';
+      showPaintToast(
+        'info',
+        '⟲ ' +
+          canonicalSectorLabel(sector) +
+          ' · ряды горизонтально · ' +
+          viewRotateDeg.toFixed(0) +
+          '°' +
+          modeHint,
+      );
+    }
+
+    function bumpViewRotate(deltaDeg) {
+      viewRotateDeg = ((viewRotateDeg + deltaDeg + 180) % 360 + 360) % 360 - 180;
+      applyTransform();
+    }
+
+    function resetViewRotate() {
+      viewRotateDeg = 0;
+      applyTransform();
+    }
+
+    function iterateUniqueSectorBboxes() {
+      const seen = new Set();
+      const out = [];
+      for (const norm of sectorBboxByNorm.keys()) {
+        const base = sectorBaseCode(norm);
+        if (!base || seen.has(base)) continue;
+        seen.add(base);
+        const bb = getSectorBbox(base);
+        if (bb) out.push({ norm: base, bb });
+      }
+      return out;
+    }
+
+    /** Зеркальный сектор через центр viewBox (верхняя трибуна ↔ нижняя). */
+    function findMirrorSectorLabel(fromSector) {
+      const fromNorm = sectorBaseCode(normalizeSectorLabel(fromSector));
+      const fromBb = getSectorBbox(fromNorm);
+      if (!fromBb) return null;
+      const fcx = (fromBb.x0 + fromBb.x1) / 2;
+      const fcy = (fromBb.y0 + fromBb.y1) / 2;
+      const { cy: fcy0 } = fieldCenterPoint();
+      const mcx = fcx;
+      const mcy = 2 * fcy0 - fcy;
+      let bestNorm = null;
+      let bestScore = Infinity;
+      for (const { norm, bb } of iterateUniqueSectorBboxes()) {
+        if (norm === fromNorm) continue;
+        const cx = (bb.x0 + bb.x1) / 2;
+        const cy = (bb.y0 + bb.y1) / 2;
+        const d = Math.hypot(cx - mcx, cy - mcy);
+        const dw = Math.abs(bb.x1 - bb.x0 - (fromBb.x1 - fromBb.x0));
+        const dh = Math.abs(bb.y1 - bb.y0 - (fromBb.y1 - fromBb.y0));
+        const score = d + (dw + dh) * 0.12;
+        if (score < bestScore) {
+          bestScore = score;
+          bestNorm = norm;
+        }
+      }
+      const maxD = Math.max(fromBb.x1 - fromBb.x0, fromBb.y1 - fromBb.y0) * 1.25;
+      return bestNorm && bestScore <= maxD ? bestNorm : null;
+    }
+
+    function mirrorFieldPointY(x, y) {
+      const { cy } = fieldCenterPoint();
+      return { x, y: 2 * cy - y };
+    }
+
+    function mapRelPointBetweenBboxes(rx, ry, fromBb, toBb) {
+      return {
+        x: toBb.x0 + rx * (toBb.x1 - toBb.x0),
+        y: toBb.y0 + ry * (toBb.y1 - toBb.y0),
+      };
+    }
+
+    function seatForCopy(srcSeat, rowKey, fromRows, reverseSeats) {
+      if (!reverseSeats || srcSeat == null) return srcSeat;
+      const rowCircles = fromRows.get(rowKey) || [];
+      const seats = rowCircles.map(circleSeatNum).filter((n) => n != null);
+      if (seats.length < 2) return srcSeat;
+      const maxSeat = Math.max(...seats);
+      const minSeat = Math.min(...seats);
+      return maxSeat + minSeat - srcSeat;
+    }
+
+    function buildSectorCopyProposal(fromSector, toSector, opts) {
+      const mirror = opts?.mirror === true;
+      const reverseSeats = opts?.reverseSeats === true;
+      const fromNorm = sectorBaseCode(normalizeSectorLabel(fromSector));
+      const toNorm = sectorBaseCode(normalizeSectorLabel(toSector));
+      const fromBb = getSectorBbox(fromNorm);
+      const toBb = getSectorBbox(toNorm);
+      if (!fromBb || !toBb) return { proposal: [], skipped: 0, reason: 'нет bbox сектора' };
+      const fromRows = groupedLabeledRows(fromSector);
+      if (!fromRows.size) return { proposal: [], skipped: 0, reason: 'исходный сектор без row/place' };
+      const targetPool = circlesForSector(toSector);
+      if (!targetPool.length) return { proposal: [], skipped: 0, reason: '0 точек в целевом секторе' };
+
+      const fromW = fromBb.x1 - fromBb.x0 || 1;
+      const fromH = fromBb.y1 - fromBb.y0 || 1;
+      const used = new Set();
+      const proposal = [];
+      let skipped = 0;
+      const matchRadius = Math.max(14, Math.min(42, median([fromW, fromH]) * 0.04));
+
+      for (const [rowKey, rowCircles] of fromRows) {
+        for (const src of rowCircles) {
+          const srcSeat = circleSeatNum(src);
+          if (!srcSeat) continue;
+          const p = circleXY(src);
+          let tx;
+          let ty;
+          if (mirror) {
+            ({ x: tx, y: ty } = mirrorFieldPointY(p.x, p.y));
+          } else {
+            const rx = (p.x - fromBb.x0) / fromW;
+            const ry = (p.y - fromBb.y0) / fromH;
+            ({ x: tx, y: ty } = mapRelPointBetweenBboxes(rx, ry, fromBb, toBb));
+          }
+          const hits = [];
+          for (const c of targetPool) {
+            if (used.has(c)) continue;
+            const q = circleXY(c);
+            const d = Math.hypot(q.x - tx, q.y - ty);
+            if (d <= matchRadius) hits.push({ c, d });
+          }
+          if (!hits.length) {
+            skipped++;
+            continue;
+          }
+          hits.sort((a, b) => a.d - b.d);
+          const seatStr = String(seatForCopy(srcSeat, rowKey, fromRows, reverseSeats));
+          const edgeKind = src.getAttribute('data-sector-edge') || '';
+          for (const hit of hits) {
+            if (hit.d > matchRadius * 0.55 && hits[0].d < matchRadius * 0.25) break;
+            used.add(hit.c);
+            proposal.push({ circle: hit.c, row: rowKey, seat: seatStr, edgeKind });
+          }
+        }
+      }
+      return { proposal, skipped, reason: proposal.length ? '' : '0 совпадений по геометрии' };
+    }
+
+    async function executeSectorCopy(fromSector, toSector, opts) {
+      const built = buildSectorCopyProposal(fromSector, toSector, opts);
+      if (!built.proposal.length) {
+        showPaintToast('err', built.reason || '0 мест для копирования');
+        return false;
+      }
+      const toApplyLabel = inferSectorLabelForApply(toSector);
+      markAudit(built.proposal.map((p) => p.circle), 'proposed');
+      const reverseHint = opts?.reverseSeats ? ', реверс мест' : '';
+      const mirrorHint = opts?.mirror ? ' (зеркало поля)' : '';
+      if (
+        !window.confirm(
+          'Скопировать ' +
+            canonicalSectorLabel(fromSector) +
+            ' → ' +
+            canonicalSectorLabel(toApplyLabel) +
+            mirrorHint +
+            ': ' +
+            built.proposal.length +
+            ' мест' +
+            reverseHint +
+            '?' +
+            (built.skipped ? '\n\nНе сопоставлено: ' + built.skipped : '') +
+            '\n\nБирюзовое будет перезаписано.',
+        )
+      ) {
+        showPaintToast('info', 'Копия подсвечена бирюзовым, SVG не изменён');
+        return false;
+      }
+      const batch = built.proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
+      for (const p of built.proposal) {
+        applySeatToCircle(
+          p.circle,
+          toApplyLabel,
+          p.row,
+          p.seat,
+          p.edgeKind ? 'manual-sector-edge' : 'manual-sector-copy',
+        );
+        if (p.edgeKind) p.circle.setAttribute('data-sector-edge', p.edgeKind);
+      }
+      pushUndo(batch);
+      persistCircleEdits(built.proposal.map((p) => p.circle), { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(toSector));
+      validateCurrentSector();
+      renderRowLabels(toApplyLabel);
+      showPaintToast(
+        'ok',
+        '⇄ ' + built.proposal.length + ' мест → ' + canonicalSectorLabel(toApplyLabel) + mirrorHint,
+      );
+      return true;
     }
 
     function inferSectorFromSelection(circles) {
@@ -1479,6 +2158,1282 @@
         }
       }
       return best;
+    }
+
+    function circlesForSector(sectorLabel) {
+      const norm = normalizeSectorLabel(sectorLabel);
+      if (!norm) return [];
+      const bb = getSectorBbox(norm);
+      const out = [];
+      for (const c of allCircles) {
+        const ownSector = circleSector(c);
+        if (ownSector) {
+          if (!sectorNormsMatch(ownSector, sectorLabel)) continue;
+        } else if (bb) {
+          const { x, y } = circleXY(c);
+          if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
+        } else {
+          continue;
+        }
+        if (bb) {
+          const { x, y } = circleXY(c);
+          if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
+        }
+        out.push(c);
+      }
+      return out;
+    }
+
+    function groupedLabeledRows(sectorLabel) {
+      const rows = new Map();
+      for (const c of allCircles) {
+        if (sectorLabel && !sectorNormsMatch(circleSector(c), sectorLabel)) continue;
+        const row = normalizePaintRowNum(circleRow(c));
+        const seat = circleSeatNum(c);
+        if (!row || seat == null) continue;
+        if (!rows.has(row)) rows.set(row, []);
+        rows.get(row).push(c);
+      }
+      return rows;
+    }
+
+    function clearRowLabels() {
+      if (rowLabelG) rowLabelG.replaceChildren();
+    }
+
+    function renderRowLabels(sectorLabel) {
+      if (!svgRoot) return;
+      ensureOverlay();
+      clearRowLabels();
+      const sector = String(sectorLabel || '').trim();
+      if (!sector || !rowLabelG) return;
+      const rows = groupedLabeledRows(sector);
+      const entries = Array.from(rows.entries())
+        .map(([row, circles]) => ({ rowNum: Number(row), row, circles }))
+        .filter((r) => Number.isFinite(r.rowNum) && r.circles.length >= 2)
+        .sort((a, b) => a.rowNum - b.rowNum);
+      if (!entries.length) return;
+      const candidates = circlesForSector(sector);
+      const firstCol = collectColumnAnchors(candidates, null, 'first');
+      const lastCol = collectColumnAnchors(candidates, null, 'last');
+      const frame = buildSectorLocalFrame(sector, firstCol, lastCol);
+      const ns = 'http://www.w3.org/2000/svg';
+      for (const entry of entries) {
+        const labelPt = rowLabelPoint(entry.circles, frame);
+        const t = document.createElementNS(ns, 'text');
+        t.textContent = entry.row;
+        t.setAttribute('x', String(labelPt.x));
+        t.setAttribute('y', String(labelPt.y));
+        t.setAttribute('fill', '#fbbf24');
+        t.setAttribute('stroke', '#0f172a');
+        t.setAttribute('stroke-width', '3');
+        t.setAttribute('paint-order', 'stroke');
+        t.setAttribute('font-size', '24');
+        t.setAttribute('font-weight', '700');
+        t.setAttribute('text-anchor', 'end');
+        t.setAttribute('dominant-baseline', 'middle');
+        t.setAttribute('vector-effect', 'non-scaling-stroke');
+        rowLabelG.appendChild(t);
+      }
+    }
+
+    /** Якоря 1-й / посл. колонки — не трогаем при ↕ сектор. */
+    function isSectorEdgeAnchor(circle) {
+      const edge = circle.getAttribute('data-sector-edge') || '';
+      if (edge === 'first' || edge === 'last') return true;
+      return (circle.getAttribute('data-source') || '') === 'manual-sector-edge';
+    }
+
+    /** Заполняем всё, кроме якорей колонок (старые manual-row/↕ внутри можно перезаписать). */
+    function shouldFillCircle(circle) {
+      return !isSectorEdgeAnchor(circle);
+    }
+
+    function isHardManualSeat(circle) {
+      return isSectorEdgeAnchor(circle);
+    }
+
+    function normalizeRowEdge(edge) {
+      if (!edge || Math.abs(edge.lastPos - edge.firstPos) < 1) return edge;
+      if (edge.firstPos <= edge.lastPos) return edge;
+      return {
+        ...edge,
+        firstPos: edge.lastPos,
+        lastPos: edge.firstPos,
+        firstSeat: edge.lastSeat,
+        lastSeat: edge.firstSeat,
+      };
+    }
+
+    function rowNumFromBandProj(bandProj, edges, rowMin, rowMax) {
+      if (!edges.length) return rowMin;
+      if (bandProj <= edges[0].proj) return edges[0].rowNum;
+      if (bandProj >= edges[edges.length - 1].proj) return edges[edges.length - 1].rowNum;
+      for (let i = 1; i < edges.length; i++) {
+        const lo = edges[i - 1];
+        const hi = edges[i];
+        if (bandProj >= lo.proj && bandProj <= hi.proj) {
+          const t = (bandProj - lo.proj) / (hi.proj - lo.proj || 1);
+          return Math.round(lo.rowNum + (hi.rowNum - lo.rowNum) * t);
+        }
+      }
+      const t = (bandProj - edges[0].proj) / (edges[edges.length - 1].proj - edges[0].proj || 1);
+      return Math.round(rowMin + t * (rowMax - rowMin));
+    }
+
+    function clusterRowBands(circles, axis, bandGap) {
+      const items = circles
+        .map((c) => ({ c, n: normalProjection(c, axis) }))
+        .sort((a, b) => a.n - b.n);
+      const bands = [];
+      let group = [];
+      for (const it of items) {
+        if (!group.length || it.n - group[group.length - 1].n <= bandGap) group.push(it);
+        else {
+          bands.push({ circles: group.map((x) => x.c), proj: median(group.map((x) => x.n)) });
+          group = [it];
+        }
+      }
+      if (group.length) bands.push({ circles: group.map((x) => x.c), proj: median(group.map((x) => x.n)) });
+      return bands;
+    }
+
+    function rowProjectionMedian(rows, rowKey, axis) {
+      const list = rows.get(rowKey) || [];
+      if (!list.length) return null;
+      return median(list.map((c) => normalProjection(c, axis)));
+    }
+
+    function chooseSectorRowAxis(rows, candidates) {
+      const rowLike = Array.from(rows.values())
+        .map((circles) => {
+          const inner = circles.filter((c) => !c.getAttribute('data-sector-edge'));
+          const list = inner.length >= 3 ? inner : circles;
+          if (list.length < 3) return null;
+          const xs = list.map((c) => circleXY(c).x);
+          const ys = list.map((c) => circleXY(c).y);
+          const spanX = Math.max(...xs) - Math.min(...xs);
+          const spanY = Math.max(...ys) - Math.min(...ys);
+          return { circles: list, score: list.length * Math.max(spanX, spanY) };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score);
+      if (rowLike.length) return principalAxis(rowLike[0].circles);
+      return principalAxis(candidates);
+    }
+
+    function buildRowEdgeAnchors(rows, axis) {
+      return Array.from(rows.entries())
+        .map(([row, circles]) => {
+          const withSeats = circles
+            .map((c) => ({
+              c,
+              seat: circleSeatNum(c),
+              along: projection(c, axis),
+              edge: c.getAttribute('data-sector-edge') || '',
+            }))
+            .filter((o) => o.seat != null);
+          if (withSeats.length < 2) return null;
+          const fallbackSeatMin = Math.min(...withSeats.map((o) => o.seat));
+          const fallbackSeatMax = Math.max(...withSeats.map((o) => o.seat));
+          const first = withSeats.filter((o) => o.edge === 'first');
+          const last = withSeats.filter((o) => o.edge === 'last');
+          const firstPts = first.length ? first : withSeats.filter((o) => o.seat === fallbackSeatMin);
+          const lastPts = last.length ? last : withSeats.filter((o) => o.seat === fallbackSeatMax);
+          const rowNum = Number(row);
+          if (!Number.isFinite(rowNum) || !firstPts.length || !lastPts.length) return null;
+          const firstSeat = Math.min(...firstPts.map((o) => o.seat));
+          let lastSeat = Math.max(...lastPts.map((o) => o.seat));
+          if (last.length && lastPts.every((o) => o.seat === firstSeat)) {
+            lastSeat = firstSeat;
+          }
+          return {
+            row,
+            rowNum,
+            proj: median(circles.map((c) => normalProjection(c, axis))),
+            firstSeat,
+            lastSeat,
+            firstPos: median(firstPts.map((o) => o.along)),
+            lastPos: median(lastPts.map((o) => o.along)),
+            hasFirstEdge: first.length > 0,
+            hasLastEdge: last.length > 0,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.rowNum - b.rowNum);
+    }
+
+    function interpolateEdgeAnchor(edges, rowNum) {
+      if (!edges.length) return null;
+      const exact = edges.find((e) => e.rowNum === rowNum);
+      if (exact) return exact;
+      let lo = null;
+      let hi = null;
+      for (const edge of edges) {
+        if (edge.rowNum < rowNum) lo = edge;
+        if (edge.rowNum > rowNum) {
+          hi = edge;
+          break;
+        }
+      }
+      if (!lo && !hi) return null;
+      if (!lo) return hi;
+      if (!hi) return lo;
+      const t = (rowNum - lo.rowNum) / (hi.rowNum - lo.rowNum);
+      return {
+        row: String(rowNum),
+        rowNum,
+        proj: lo.proj + (hi.proj - lo.proj) * t,
+        firstSeat: Math.round(lo.firstSeat + (hi.firstSeat - lo.firstSeat) * t),
+        lastSeat: Math.round(lo.lastSeat + (hi.lastSeat - lo.lastSeat) * t),
+        firstPos: lo.firstPos + (hi.firstPos - lo.firstPos) * t,
+        lastPos: lo.lastPos + (hi.lastPos - lo.lastPos) * t,
+      };
+    }
+
+    function nearestFreeSeat(candidate, freeSeats) {
+      if (!freeSeats.length) return null;
+      let best = freeSeats[0];
+      let bestDist = Math.abs(best - candidate);
+      for (const seat of freeSeats) {
+        const dist = Math.abs(seat - candidate);
+        if (dist < bestDist) {
+          best = seat;
+          bestDist = dist;
+        }
+      }
+      return best;
+    }
+
+    function resolveSectorGridBounds(sectorLabel, rows, axis) {
+      const edges = buildRowEdgeAnchors(rows, axis);
+      const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
+      const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
+      let rowMin = manualFirst ? Number(manualFirst) : null;
+      let rowMax = manualLast ? Number(manualLast) : null;
+      if (rowMin == null || rowMax == null) {
+        if (edges.length < 2) {
+          throw new Error(
+            'Укажи «Ряд»/«по» или разметь минимум 2 ряда с первым и последним местом',
+          );
+        }
+        if (rowMin == null) rowMin = edges[0].rowNum;
+        if (rowMax == null) rowMax = edges[edges.length - 1].rowNum;
+      }
+      if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
+      let projMin = rowProjectionMedian(rows, String(rowMin), axis);
+      let projMax = rowProjectionMedian(rows, String(rowMax), axis);
+      if (projMin == null || projMax == null) {
+        const firstEdge = interpolateEdgeAnchor(edges, rowMin);
+        const lastEdge = interpolateEdgeAnchor(edges, rowMax);
+        projMin = projMin ?? firstEdge?.proj;
+        projMax = projMax ?? lastEdge?.proj;
+      }
+      if (projMin == null || projMax == null || Math.abs(projMax - projMin) < 1) {
+        throw new Error('Первый и последний ряд совпадают по геометрии — уточни «Ряд»/«по»');
+      }
+      if (edges.length < 2) {
+        throw new Error('Разметь минимум 2 ряда: обе колонки (Тип «1-я» и «посл.») + «Ряд»/«по»');
+      }
+      if (!edges.some((e) => e.hasFirstEdge) || !edges.some((e) => e.hasLastEdge)) {
+        throw new Error('Нужны обе колонки через Тип: «1-я колонка» и «посл. колонка» (не только ряды)');
+      }
+      const seatMin = Math.min(...edges.map((e) => e.firstSeat));
+      const seatMax = Math.max(...edges.map((e) => e.lastSeat));
+
+      return {
+        rowMin,
+        rowMax,
+        projMin,
+        projMax,
+        seatMin,
+        seatMax,
+        edges,
+      };
+    }
+
+    function validateCurrentSector() {
+      if (!svgRoot) return;
+      clearAuditMarks();
+      const sector = paintSectorForApply().trim();
+      const candidates = sector ? circlesForSector(sector) : allCircles.slice();
+      const rows = groupedLabeledRows(sector);
+      const issue = new Set();
+      const warn = new Set();
+      const duplicateKeys = new Map();
+      let missingNumbers = 0;
+      let jumpRows = 0;
+      let farPoints = 0;
+
+      for (const c of candidates) {
+        const hasSector = Boolean(circleSector(c));
+        const hasRow = isValidPaintRow(circleRow(c));
+        const hasSeat = circleSeatNum(c) != null;
+        if (c.getAttribute('data-unlabeled') === '1' || !hasSector || !hasRow || !hasSeat) {
+          issue.add(c);
+        }
+      }
+
+      for (const c of allCircles) {
+        const s = circleSector(c);
+        const row = normalizePaintRowNum(circleRow(c));
+        const seat = circleSeatNum(c);
+        if (!s || !row || seat == null) continue;
+        if (sector && !sectorNormsMatch(s, sector)) continue;
+        const key = normalizeSectorLabel(s) + ':' + row + ':' + seat;
+        if (!duplicateKeys.has(key)) duplicateKeys.set(key, []);
+        duplicateKeys.get(key).push(c);
+      }
+      for (const list of duplicateKeys.values()) {
+        if (list.length > 1) list.forEach((c) => issue.add(c));
+      }
+
+      const counts = [];
+      for (const list of rows.values()) counts.push(list.length);
+      const typicalCount = median(counts);
+
+      for (const [row, list] of rows) {
+        if (typicalCount && Math.abs(list.length - typicalCount) > Math.max(4, typicalCount * 0.45)) {
+          list.forEach((c) => warn.add(c));
+        }
+        const seats = list.map(circleSeatNum).filter((n) => n != null);
+        if (seats.length >= 2) {
+          const minSeat = Math.min(...seats);
+          const maxSeat = Math.max(...seats);
+          const unique = new Set(seats);
+          missingNumbers += Math.max(0, maxSeat - minSeat + 1 - unique.size);
+        }
+        if (list.length >= 4) {
+          const ax = principalAxis(list);
+          const ordered = list
+            .map((c) => ({ c, pos: projection(c, ax), seat: circleSeatNum(c) }))
+            .filter((o) => o.seat != null)
+            .sort((a, b) => a.pos - b.pos);
+          let inc = 0;
+          let dec = 0;
+          for (let i = 1; i < ordered.length; i++) {
+            const d = ordered[i].seat - ordered[i - 1].seat;
+            if (d > 0) inc++;
+            if (d < 0) dec++;
+          }
+          if (inc && dec && Math.min(inc, dec) >= 2) {
+            jumpRows++;
+            ordered.forEach((o) => warn.add(o.c));
+          }
+          const normalDists = list.map((c) => Math.abs((circleXY(c).x - ax.cx) * ax.nx + (circleXY(c).y - ax.cy) * ax.ny));
+          const med = median(normalDists);
+          const mad = median(normalDists.map((d) => Math.abs(d - med))) || 1;
+          for (let i = 0; i < list.length; i++) {
+            if (normalDists[i] > Math.max(paintCorridorPx() * 1.8, med + mad * 4)) {
+              farPoints++;
+              warn.add(list[i]);
+            }
+          }
+        }
+      }
+
+      markAudit(Array.from(issue), 'issue');
+      markAudit(Array.from(warn).filter((c) => !issue.has(c)), 'warn');
+      const dupCount = Array.from(duplicateKeys.values()).filter((list) => list.length > 1).length;
+      const scope = sector ? canonicalSectorLabel(sector) : 'весь SVG';
+      showPaintToast(
+        issue.size || warn.size ? 'info' : 'ok',
+        'Проверка ' +
+          scope +
+          ': красных ' +
+          issue.size +
+          ', оранжевых ' +
+          warn.size +
+          ' · дубли ' +
+          dupCount +
+          ' · пропуски ' +
+          missingNumbers +
+          ' · порядок ' +
+          jumpRows +
+          ' · далеко ' +
+          farPoints,
+      );
+      if (sector) renderRowLabels(sector);
+    }
+
+    /** Якоря колонки: только data-sector-edge; при дублях в ряду — по номеру места, не min/max X. */
+    function collectColumnAnchors(candidates, _rows, edgeKind) {
+      const wantEdge = edgeKind === 'first' ? 'first' : 'last';
+      const byRow = new Map();
+      for (const c of candidates) {
+        if ((c.getAttribute('data-sector-edge') || '') !== wantEdge) continue;
+        const row = normalizePaintRowNum(circleRow(c));
+        if (!row) continue;
+        const p = circleXY(c);
+        const seat = circleSeatNum(c);
+        const entry = { rowNum: Number(row), row, c, seat, x: p.x, y: p.y, marked: true };
+        const cur = byRow.get(row);
+        if (!cur) {
+          byRow.set(row, entry);
+          continue;
+        }
+        const curSeat = cur.seat;
+        const newSeat = seat;
+        if (edgeKind === 'first') {
+          if (newSeat != null && (curSeat == null || newSeat < curSeat)) byRow.set(row, entry);
+        } else if (newSeat != null && (curSeat == null || newSeat > curSeat)) {
+          byRow.set(row, entry);
+        }
+      }
+      return Array.from(byRow.values()).sort((a, b) => a.rowNum - b.rowNum);
+    }
+
+    function clusterBandsByY(circles, bandGap) {
+      const items = circles.map((c) => ({ c, y: circleXY(c).y })).sort((a, b) => a.y - b.y);
+      const bands = [];
+      let group = [];
+      for (const it of items) {
+        if (!group.length || it.y - group[group.length - 1].y <= bandGap) group.push(it);
+        else {
+          bands.push({ circles: group.map((x) => x.c), y: median(group.map((x) => x.y)) });
+          group = [it];
+        }
+      }
+      if (group.length) bands.push({ circles: group.map((x) => x.c), y: median(group.map((x) => x.y)) });
+      return bands;
+    }
+
+    function rowAxisFromColumnAnchors(firstCol, frame) {
+      if (frame) {
+        return {
+          ux: frame.tangential.ux,
+          uy: frame.tangential.uy,
+          nx: frame.radial.ux,
+          ny: frame.radial.uy,
+          cx: frame.cx ?? frame.fcx,
+          cy: frame.cy ?? frame.fcy,
+        };
+      }
+      const pts = firstCol
+        .slice()
+        .sort((a, b) => a.rowNum - b.rowNum)
+        .map((a) => ({ x: a.x, y: a.y }));
+      const pca = principalAxisFromPoints(pts);
+      return {
+        ux: pca.nx,
+        uy: pca.ny,
+        nx: pca.ux,
+        ny: pca.uy,
+        cx: pca.cx,
+        cy: pca.cy,
+      };
+    }
+
+    function anchorNormalProj(anchor, axis) {
+      return (anchor.x - axis.cx) * axis.nx + (anchor.y - axis.cy) * axis.ny;
+    }
+
+    function minAdjacentRowGapN(anchors, axis) {
+      if (!axis || !anchors.length) return minAdjacentRowGapY(anchors);
+      const ps = anchors.map((a) => anchorNormalProj(a, axis)).sort((a, b) => a - b);
+      let minG = Infinity;
+      for (let i = 1; i < ps.length; i++) {
+        const g = Math.abs(ps[i] - ps[i - 1]);
+        if (g > 0.5) minG = Math.min(minG, g);
+      }
+      return Number.isFinite(minG) ? minG : minAdjacentRowGapY(anchors);
+    }
+
+    function rowNumFromColumnProj(bandProj, colAnchors, rowMin, rowMax, axis) {
+      if (!colAnchors.length || !axis) return null;
+      const sorted = colAnchors.slice().sort((a, b) => anchorNormalProj(a, axis) - anchorNormalProj(b, axis));
+      const p = bandProj;
+      const p0 = anchorNormalProj(sorted[0], axis);
+      const pN = anchorNormalProj(sorted[sorted.length - 1], axis);
+      if (p <= p0) return sorted[0].rowNum;
+      if (p >= pN) return sorted[sorted.length - 1].rowNum;
+      for (let i = 1; i < sorted.length; i++) {
+        const lo = sorted[i - 1];
+        const hi = sorted[i];
+        const loP = anchorNormalProj(lo, axis);
+        const hiP = anchorNormalProj(hi, axis);
+        if (p >= loP && p <= hiP) {
+          const t = (p - loP) / (hiP - loP || 1);
+          return Math.round(lo.rowNum + (hi.rowNum - lo.rowNum) * t);
+        }
+      }
+      let best = sorted[0];
+      let bestD = Math.abs(p - anchorNormalProj(best, axis));
+      for (const a of sorted) {
+        const d = Math.abs(p - anchorNormalProj(a, axis));
+        if (d < bestD) {
+          bestD = d;
+          best = a;
+        }
+      }
+      const rn = best.rowNum;
+      return rn >= rowMin && rn <= rowMax ? rn : null;
+    }
+
+    /** Террасы на одном Y: уточняем ряд по нормали к линии якорей 1-й колонки. */
+    function rowNumFromBandNear(band, firstCol, rowMin, rowMax, axis) {
+      const bandY = band.y ?? median(band.circles.map((c) => circleXY(c).y));
+      if (!axis || firstCol.length < 2) {
+        return rowNumFromBandY(bandY, firstCol, rowMin, rowMax);
+      }
+      const bandProj =
+        band.proj ??
+        median(
+          band.circles.map((c) => {
+            const p = circleXY(c);
+            return (p.x - axis.cx) * axis.nx + (p.y - axis.cy) * axis.ny;
+          }),
+        );
+      const byProj = rowNumFromColumnProj(bandProj, firstCol, rowMin, rowMax, axis);
+      if (firstCol.length < 3) {
+        return byProj ?? rowNumFromBandY(bandY, firstCol, rowMin, rowMax);
+      }
+      let best = byProj;
+      let bestD = Infinity;
+      for (let rn = rowMin; rn <= rowMax; rn++) {
+        const a = anchorForRow(firstCol, rn);
+        if (!a) continue;
+        const d = Math.abs(bandProj - anchorNormalProj(a, axis));
+        if (d < bestD) {
+          bestD = d;
+          best = rn;
+        }
+      }
+      const half = Math.max(7, minAdjacentRowGapN(firstCol, axis) * 0.46);
+      return bestD <= half ? best : byProj ?? rowNumFromBandY(bandY, firstCol, rowMin, rowMax);
+    }
+
+    function rowNumForCircle(c, firstCol, rowMin, rowMax, axis) {
+      const p = circleXY(c);
+      if (!axis) return rowNumFromBandNear({ circles: [c], y: p.y }, firstCol, rowMin, rowMax, axis);
+      const proj = (p.x - axis.cx) * axis.nx + (p.y - axis.cy) * axis.ny;
+      return rowNumFromBandNear({ circles: [c], y: p.y, proj }, firstCol, rowMin, rowMax, axis);
+    }
+
+    /** Террасы: несколько рядов на одном radial — тогда ряд по точке, не по полосе. */
+    function columnAnchorsShareRadial(colAnchors, frame) {
+      if (!frame || !colAnchors.length) return columnAnchorsShareY(colAnchors);
+      const sorted = colAnchors
+        .slice()
+        .sort((a, b) => radialProjAnchor(a, frame) - radialProjAnchor(b, frame) || a.rowNum - b.rowNum);
+      for (let i = 1; i < sorted.length; i++) {
+        if (
+          Math.abs(radialProjAnchor(sorted[i], frame) - radialProjAnchor(sorted[i - 1], frame)) < 3 &&
+          sorted[i].rowNum !== sorted[i - 1].rowNum
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function columnAnchorsShareY(colAnchors) {
+      const sorted = colAnchors.slice().sort((a, b) => a.y - b.y || a.rowNum - b.rowNum);
+      for (let i = 1; i < sorted.length; i++) {
+        if (Math.abs(sorted[i].y - sorted[i - 1].y) < 3 && sorted[i].rowNum !== sorted[i - 1].rowNum) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function pushDotsToRow(map, rowNum, circles) {
+      if (rowNum == null || !circles.length) return;
+      if (!map.has(rowNum)) map.set(rowNum, []);
+      map.get(rowNum).push(...circles);
+    }
+
+    /** Ряд C142 и др.: проход между блоками мест (aisle) — все сегменты от 1-й до посл. колонки. */
+    function filterRowDotsBetweenAnchors(rowDots, fa, la) {
+      if (!rowDots.length) return rowDots;
+      const seatAxis = seatAxisFromAnchors(fa, la);
+      const sorted = sortSeatsByColumnDirection(rowDots, fa, la);
+      const pitches = [];
+      for (let i = 1; i < sorted.length; i++) {
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > 4 && d < 120) pitches.push(d);
+      }
+      const pitch = median(pitches) || 20;
+      const aisleGap = Math.max(42, pitch * 2.35);
+      const segments = [];
+      let bucket = [sorted[0]];
+      for (let i = 1; i < sorted.length; i++) {
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > aisleGap) {
+          segments.push(bucket);
+          bucket = [sorted[i]];
+        } else bucket.push(sorted[i]);
+      }
+      segments.push(bucket);
+      const spanLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis)) - 28;
+      const spanHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis)) + 28;
+      const kept = [];
+      for (const seg of segments) {
+        const alongs = seg.map((c) => seatAlongCircle(c, seatAxis));
+        const segLo = Math.min(...alongs);
+        const segHi = Math.max(...alongs);
+        if (segHi < spanLo || segLo > spanHi) continue;
+        kept.push(...seg);
+      }
+      return kept.length ? kept : rowDots;
+    }
+
+    function moveAnchorAlongSeatAxis(anchor, along, seatAxis) {
+      const cur = seatAlongPoint(anchor, seatAxis);
+      const delta = along - cur;
+      return { ...anchor, x: anchor.x + seatAxis.ux * delta, y: anchor.y + seatAxis.uy * delta };
+    }
+
+    function snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum) {
+      if (!rowDots.length) return { fa, la };
+      const seatAxis = seatAxisFromAnchors(fa, la);
+      const alongs = rowDots.map((c) => seatAlongCircle(c, seatAxis));
+      const alongMin = Math.min(...alongs);
+      const alongMax = Math.max(...alongs);
+      const hasExactFirst = firstCol.some((a) => a.rowNum === rowNum);
+      const hasExactLast = lastCol.some((a) => a.rowNum === rowNum);
+      return {
+        fa: hasExactFirst ? fa : moveAnchorAlongSeatAxis(fa, alongMin, seatAxis),
+        la: hasExactLast ? la : moveAnchorAlongSeatAxis(la, alongMax, seatAxis),
+      };
+    }
+
+    function resolveLastSlot(slots, fa, la) {
+      const seatAxis = seatAxisFromAnchors(fa, la);
+      let lastSlot = null;
+      let lastAlong = -Infinity;
+      for (const slot of slots) {
+        const hasLastEdge = slot.members.some(
+          (c) => (c.getAttribute('data-sector-edge') || '') === 'last',
+        );
+        if (!hasLastEdge) continue;
+        const along = seatAlongCircle(slot.rep, seatAxis);
+        if (along >= lastAlong) {
+          lastAlong = along;
+          lastSlot = slot;
+        }
+      }
+      if (!lastSlot && slots.length) {
+        lastSlot = slots.reduce((best, slot) =>
+          seatAlongCircle(slot.rep, seatAxis) >= seatAlongCircle(best.rep, seatAxis) ? slot : best,
+        );
+      }
+      return lastSlot;
+    }
+
+    function rowNumFromBandY(bandY, colAnchors, rowMin, rowMax) {
+      if (!colAnchors.length) return null;
+      const sorted = colAnchors.slice().sort((a, b) => a.y - b.y);
+      if (bandY <= sorted[0].y) return sorted[0].rowNum;
+      if (bandY >= sorted[sorted.length - 1].y) return sorted[sorted.length - 1].rowNum;
+      for (let i = 1; i < sorted.length; i++) {
+        const lo = sorted[i - 1];
+        const hi = sorted[i];
+        if (bandY >= lo.y && bandY <= hi.y) {
+          const t = (bandY - lo.y) / (hi.y - lo.y || 1);
+          return Math.round(lo.rowNum + (hi.rowNum - lo.rowNum) * t);
+        }
+      }
+      let best = sorted[0];
+      let bestD = Math.abs(bandY - best.y);
+      for (const a of sorted) {
+        const d = Math.abs(bandY - a.y);
+        if (d < bestD) {
+          bestD = d;
+          best = a;
+        }
+      }
+      const rn = best.rowNum;
+      return rn >= rowMin && rn <= rowMax ? rn : null;
+    }
+
+    function anchorForRow(anchors, rowNum) {
+      const ordered = anchors.slice().sort((a, b) => a.rowNum - b.rowNum);
+      const exact = ordered.find((a) => a.rowNum === rowNum);
+      if (exact) return exact;
+      let lo = null;
+      let hi = null;
+      for (const anchor of ordered) {
+        if (anchor.rowNum < rowNum) lo = anchor;
+        if (anchor.rowNum > rowNum) {
+          hi = anchor;
+          break;
+        }
+      }
+      if (!lo && !hi) return null;
+      if (!lo) return hi;
+      if (!hi) return lo;
+      const t = (rowNum - lo.rowNum) / (hi.rowNum - lo.rowNum || 1);
+      return {
+        rowNum,
+        row: String(rowNum),
+        seat: Math.round(lo.seat + (hi.seat - lo.seat) * t),
+        x: lo.x + (hi.x - lo.x) * t,
+        y: lo.y + (hi.y - lo.y) * t,
+        marked: lo.marked || hi.marked,
+      };
+    }
+
+    function seatAxisFromAnchors(firstAnchor, lastAnchor) {
+      const dx = lastAnchor.x - firstAnchor.x;
+      const dy = lastAnchor.y - firstAnchor.y;
+      const len = Math.hypot(dx, dy) || 1;
+      return { ux: dx / len, uy: dy / len, ox: firstAnchor.x, oy: firstAnchor.y };
+    }
+
+    function seatAlongPoint(p, axis) {
+      return (p.x - axis.ox) * axis.ux + (p.y - axis.oy) * axis.uy;
+    }
+
+    function seatAlongCircle(c, axis) {
+      return seatAlongPoint(circleXY(c), axis);
+    }
+
+    function sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor) {
+      const axis = seatAxisFromAnchors(firstAnchor, lastAnchor);
+      return circles.slice().sort((a, b) => seatAlongCircle(a, axis) - seatAlongCircle(b, axis));
+    }
+
+    function seatDotRank(circle) {
+      const src = circle.getAttribute('data-source') || '';
+      const edge = circle.getAttribute('data-sector-edge') || '';
+      let s = 0;
+      if (edge === 'first' || edge === 'last') s += 30;
+      if (src === 'strict') s += 12;
+      if (src === 'fieldGrid') s += 6;
+      if (src === 'manual-sector-fill' || src.startsWith('manual')) s += 4;
+      if (src === 'fieldGridNeighbor') s -= 15;
+      const seat = circleSeatNum(circle);
+      if (seat != null && seat > 0 && seat < 80) s += 2;
+      return s;
+    }
+
+    /** На одном X в SVG часто 2 круга (fieldGrid + strict) — одна колонка, пишем во все fillable. */
+    function dedupeSeatDotsByX(circles, firstAnchor, lastAnchor) {
+      const seatAxis = seatAxisFromAnchors(firstAnchor, lastAnchor);
+      const sorted = sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor);
+      if (!sorted.length) return [];
+      const pitches = [];
+      for (let i = 1; i < sorted.length; i++) {
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > 4) pitches.push(d);
+      }
+      const pitch = median(pitches) || 18;
+      const mergePx = Math.max(11, pitch * 0.5);
+      const slots = [];
+      let bucket = [sorted[0]];
+      const flush = () => {
+        if (!bucket.length) return;
+        const hasStrict = bucket.some((c) => (c.getAttribute('data-source') || '') === 'strict');
+        bucket.sort((a, b) => {
+          let ra = seatDotRank(a);
+          let rb = seatDotRank(b);
+          if (hasStrict) {
+            if ((a.getAttribute('data-source') || '') === 'fieldGrid') ra -= 25;
+            if ((b.getAttribute('data-source') || '') === 'fieldGrid') rb -= 25;
+          }
+          return rb - ra;
+        });
+        slots.push({ rep: bucket[0], members: bucket.slice() });
+        bucket = [];
+      };
+      for (let i = 1; i < sorted.length; i++) {
+        const d = Math.abs(seatAlongCircle(sorted[i], seatAxis) - seatAlongCircle(sorted[i - 1], seatAxis));
+        if (d > mergePx) {
+          flush();
+          bucket = [sorted[i]];
+        } else bucket.push(sorted[i]);
+      }
+      flush();
+      return slots;
+    }
+
+    function proposalTargetsForSeatSlot(slot) {
+      const out = [];
+      const seen = new Set();
+      for (const c of slot.members) {
+        if (seen.has(c)) continue;
+        seen.add(c);
+        if (!shouldFillCircle(c)) continue;
+        out.push(c);
+      }
+      return out;
+    }
+
+    /** Якоря колонок в proposal только при явном allow*Twin (↕ последнее/первое место в ряду). */
+    function circlesForSeatAssign(slot, opts) {
+      const allowFirstTwin = opts?.allowFirstTwin === true;
+      const allowLastTwin = opts?.allowLastTwin === true;
+      const out = [];
+      const seen = new Set();
+      for (const c of slot.members) {
+        if (seen.has(c)) continue;
+        seen.add(c);
+        const ek = c.getAttribute('data-sector-edge') || '';
+        if (shouldFillCircle(c)) {
+          out.push(c);
+          continue;
+        }
+        if (allowFirstTwin && ek === 'first') out.push(c);
+        else if (allowLastTwin && ek === 'last') out.push(c);
+      }
+      return out;
+    }
+
+    function yBandHalfForRow(rowNum, colAnchors) {
+      const ordered = colAnchors.slice().sort((a, b) => a.rowNum - b.rowNum);
+      const i = ordered.findIndex((a) => a.rowNum === rowNum);
+      if (i < 0) return medianRowStep(colAnchors) * 0.55;
+      let half = Infinity;
+      if (i > 0) half = Math.min(half, Math.abs(ordered[i].y - ordered[i - 1].y) * 0.46);
+      if (i < ordered.length - 1) half = Math.min(half, Math.abs(ordered[i + 1].y - ordered[i].y) * 0.46);
+      return Math.max(9, Math.min(half, medianRowStep(colAnchors) * 0.62));
+    }
+
+    /** Террасы: несколько рядов на одном Y — ближайший якорь 1-й колонки по X. */
+    function circleBelongsToRowBand(c, rowNum, firstCol, rowMin, rowMax) {
+      const anchor = anchorForRow(firstCol, rowNum);
+      if (!anchor) return false;
+      const p = circleXY(c);
+      if (Math.abs(p.y - anchor.y) > yBandHalfForRow(rowNum, firstCol)) return false;
+      for (let other = rowMin; other <= rowMax; other++) {
+        if (other === rowNum) continue;
+        const oa = anchorForRow(firstCol, other);
+        if (!oa || Math.abs(oa.y - anchor.y) > 3) continue;
+        const dThis = Math.hypot(p.x - anchor.x, p.y - anchor.y);
+        const dOther = Math.hypot(p.x - oa.x, p.y - oa.y);
+        if (dOther + 0.5 < dThis) return false;
+      }
+      return true;
+    }
+
+    function appendSeatToSlot(proposal, rowKey, seatStr, slot, opts) {
+      const allowFirstTwin = opts?.allowFirstTwin === true;
+      const allowLastTwin = opts?.allowLastTwin === true;
+      for (const c of circlesForSeatAssign(slot, opts)) {
+        const ek = c.getAttribute('data-sector-edge') || '';
+        if (ek === 'last' && !allowLastTwin) continue;
+        if (ek === 'first' && !allowFirstTwin) continue;
+        if (isHardManualSeat(c) && ek === 'first' && !allowFirstTwin) continue;
+        if (isHardManualSeat(c) && ek === 'last' && !allowLastTwin) continue;
+        if (!allowFirstTwin && !allowLastTwin && isHardManualSeat(c)) continue;
+        proposal.push({ circle: c, row: rowKey, seat: seatStr, edgeKind: ek });
+      }
+    }
+
+    function distanceToRowSegment(circle, firstAnchor, lastAnchor) {
+      const p = circleXY(circle);
+      const dx = lastAnchor.x - firstAnchor.x;
+      const dy = lastAnchor.y - firstAnchor.y;
+      const len2 = dx * dx + dy * dy || 1;
+      const t = ((p.x - firstAnchor.x) * dx + (p.y - firstAnchor.y) * dy) / len2;
+      const projX = firstAnchor.x + dx * t;
+      const projY = firstAnchor.y + dy * t;
+      return { t, dist: Math.hypot(p.x - projX, p.y - projY) };
+    }
+
+    /** Половина коридора ряда: до середины зазора с соседним рядом (дуги и прямоугольники). */
+    function rowCorridorHalfForSegment(rowNum, firstCol, lastCol) {
+      const fa = anchorForRow(firstCol, rowNum);
+      const la = anchorForRow(lastCol, rowNum);
+      if (!fa || !la) return 12;
+      const mid = { x: (fa.x + la.x) / 2, y: (fa.y + la.y) / 2 };
+      const gaps = [];
+      for (const neighbor of [rowNum - 1, rowNum + 1]) {
+        const nf = anchorForRow(firstCol, neighbor);
+        const nl = anchorForRow(lastCol, neighbor);
+        if (!nf || !nl) continue;
+        const nm = { x: (nf.x + nl.x) / 2, y: (nf.y + nl.y) / 2 };
+        gaps.push(Math.hypot(mid.x - nm.x, mid.y - nm.y));
+      }
+      const gap = median(gaps.filter((g) => g > 2)) || minAdjacentRowGapY(firstCol) || 18;
+      return Math.max(8, Math.min(22, gap * 0.45));
+    }
+
+    /** Точки ряда: ⊥ к хорде якорей 1-й↔посл. колонки (угловые/радиальные сектора). */
+    function collectRowDotsBySegment(candidates, rowNum, firstCol, lastCol) {
+      const fa = anchorForRow(firstCol, rowNum);
+      const la = anchorForRow(lastCol, rowNum);
+      if (!fa || !la) return [];
+      if (Math.hypot(la.x - fa.x, la.y - fa.y) < 1) return [];
+      const half = rowCorridorHalfForSegment(rowNum, firstCol, lastCol);
+      const out = [];
+      for (const c of candidates) {
+        if (isNoiseGridDot(c)) continue;
+        const { dist, t } = distanceToRowSegment(c, fa, la);
+        if (dist > half) continue;
+        if (t < -0.12 || t > 1.12) continue;
+        out.push(c);
+      }
+      return out;
+    }
+
+    function medianRowStep(anchors, frame) {
+      const vals = frame ? anchors.map((a) => radialProjAnchor(a, frame)) : anchors.map((a) => a.y);
+      vals.sort((a, b) => a - b);
+      const gaps = [];
+      for (let i = 1; i < vals.length; i++) {
+        const gap = Math.abs(vals[i] - vals[i - 1]);
+        if (gap > 1) gaps.push(gap);
+      }
+      return median(gaps) || 18;
+    }
+
+    function minAdjacentRowGapY(anchors, frame) {
+      const vals = frame ? anchors.map((a) => radialProjAnchor(a, frame)) : anchors.map((a) => a.y);
+      vals.sort((a, b) => a - b);
+      let minG = Infinity;
+      for (let i = 1; i < vals.length; i++) {
+        const g = Math.abs(vals[i] - vals[i - 1]);
+        if (g > 0.5) minG = Math.min(minG, g);
+      }
+      return Number.isFinite(minG) ? minG : medianRowStep(anchors, frame);
+    }
+
+
+    /** Диапазон рядов для ↕: якоря колонок; «ряд с/по» задаёт полный диапазон (вкл. 1-й ряд). */
+    function resolveSectorFillRowSpan(firstCol, lastCol) {
+      const marked = [...firstCol, ...lastCol].filter((a) => a.marked);
+      if (marked.length < 2) return null;
+      let rowMin = Math.min(...marked.map((a) => a.rowNum));
+      let rowMax = Math.max(...marked.map((a) => a.rowNum));
+      const manualFirst = normalizePaintRowNum(paintRow?.value ?? '');
+      const manualLast = normalizePaintRowNum(paintEndRow?.value ?? '');
+      const mf = manualFirst ? Number(manualFirst) : null;
+      const ml = manualLast ? Number(manualLast) : null;
+      if (mf != null && ml != null && ml > mf) {
+        rowMin = mf;
+        rowMax = ml;
+      } else {
+        if (mf != null) rowMin = Math.min(rowMin, mf);
+        if (ml != null) rowMax = Math.max(rowMax, ml);
+      }
+      if (rowMin > rowMax) [rowMin, rowMax] = [rowMax, rowMin];
+      return { rowMin, rowMax };
+    }
+
+    function isNoiseGridDot(circle) {
+      return (circle.getAttribute('data-source') || '') === 'fieldGridNeighbor';
+    }
+
+    function buildSectorProposal(sectorLabel) {
+      const candidates = circlesForSector(sectorLabel);
+      if (!candidates.length) {
+        throw new Error(
+          '0 точек в секторе «' +
+            sectorLabel +
+            '». Для VIP укажи C136 VIP (или Сектор C 136 VIP) — без VIP точки не попадали в выборку',
+        );
+      }
+      const rows = groupedLabeledRows(sectorLabel);
+      const firstCol = collectColumnAnchors(candidates, rows, 'first').filter((a) => a.marked);
+      const lastCol = collectColumnAnchors(candidates, rows, 'last').filter((a) => a.marked);
+      if (firstCol.length < 2) {
+        throw new Error('Разметь колонку 1-х мест (Тип «1-я колонка») минимум на 2 рядах');
+      }
+      if (lastCol.length < 2) {
+        throw new Error('Разметь колонку последних мест (Тип «посл. колонка») минимум на 2 рядах');
+      }
+      const span = resolveSectorFillRowSpan(firstCol, lastCol);
+      if (!span) {
+        throw new Error('Недостаточно якорей колонок для диапазона рядов');
+      }
+      let { rowMin, rowMax } = span;
+      const proposal = [];
+      const suspicious = [];
+      const warnCircles = [];
+      let protectedSkipped = 0;
+      let fillable = 0;
+      let bandsUsed = 0;
+      let bandsSkipped = 0;
+      const fillTargets = candidates.filter((c) => {
+        if (shouldFillCircle(c)) {
+          fillable++;
+          return true;
+        }
+        protectedSkipped++;
+        return false;
+      });
+      if (!fillable) {
+        let edgeOnly = 0;
+        for (const c of candidates) {
+          if (isSectorEdgeAnchor(c)) edgeOnly++;
+        }
+        throw new Error(
+          edgeOnly >= candidates.length
+            ? 'Все ' +
+              candidates.length +
+              ' точек — якоря колонок (1-я/посл.). ↕ заполняет только между ними: нужны точки внутри (красные/облачные или сбрось ряд/место — ⌫ ряд/место)'
+            : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
+        );
+      }
+      const frame = buildSectorLocalFrame(sectorLabel, firstCol, lastCol);
+      const rowAxis = rowAxisFromColumnAnchors(firstCol, frame);
+      // Углы и террасы: ряд по проекции на radial (одна точка — один ряд).
+      // collectRowDotsBySegment на клиньях даёт перекрывающиеся ⊥-коридоры → ряды вперемешку.
+      const perCircleRows = frame.corner || columnAnchorsShareRadial(firstCol, frame);
+      const rowsTotal = Math.max(0, rowMax - rowMin + 1);
+      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
+        const rowKey = String(rowNum);
+        let bandDots;
+        if (perCircleRows) {
+          bandDots = candidates.filter((c) => {
+            if (isNoiseGridDot(c)) return false;
+            const rn = rowNumForCircle(c, firstCol, rowMin, rowMax, rowAxis);
+            return rn === rowNum;
+          });
+        } else {
+          bandDots = collectRowDotsBySegment(candidates, rowNum, firstCol, lastCol);
+        }
+        if (!bandDots.length) {
+          bandsSkipped++;
+          continue;
+        }
+        const firstAnchor = anchorForRow(firstCol, rowNum);
+        if (!firstAnchor) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря 1-го места в колонке');
+          bandsSkipped++;
+          continue;
+        }
+        let lastAnchor = anchorForRow(lastCol, rowNum);
+        if (!lastAnchor) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря последнего места в колонке');
+          bandsSkipped++;
+          continue;
+        }
+        let fa = firstAnchor;
+        let la = lastAnchor;
+        if (Math.hypot(la.x - fa.x, la.y - fa.y) < 1) {
+          bandsSkipped++;
+          continue;
+        }
+        const seatAxis = seatAxisFromAnchors(fa, la);
+        let rowDots = bandDots.filter((c) => !isNoiseGridDot(c));
+        if (perCircleRows) {
+          let alongLo = Math.min(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
+          let alongHi = Math.max(seatAlongPoint(fa, seatAxis), seatAlongPoint(la, seatAxis));
+          const bandAlongs = rowDots.map((c) => seatAlongCircle(c, seatAxis));
+          if (bandAlongs.length) {
+            alongLo = Math.min(alongLo, Math.min(...bandAlongs));
+            alongHi = Math.max(alongHi, Math.max(...bandAlongs));
+          }
+          const alongMargin = Math.max(8, Math.abs(alongHi - alongLo) * 0.05);
+          rowDots = rowDots.filter((c) => {
+            const t = seatAlongCircle(c, seatAxis);
+            return t >= alongLo - alongMargin && t <= alongHi + alongMargin;
+          });
+        }
+        rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
+        ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
+        const slots = dedupeSeatDotsByX(rowDots, fa, la);
+        if (!slots.length) {
+          bandsSkipped++;
+          continue;
+        }
+        const existing = rows.get(rowKey) || [];
+        const occupiedManual = new Set(
+          existing
+            .filter(isHardManualSeat)
+            .map(circleSeatNum)
+            .filter((n) => n != null),
+        );
+        let seatNum = Math.max(1, fa.seat || 1);
+        const lastSlot = resolveLastSlot(slots, fa, la);
+        for (const slot of slots) {
+          if (slot === lastSlot) continue;
+          const rep = slot.rep;
+          const edgeKind = rep.getAttribute('data-sector-edge') || '';
+          if (edgeKind === 'first' && isHardManualSeat(rep)) {
+            const held = Math.max(1, circleSeatNum(rep) || 1);
+            appendSeatToSlot(proposal, rowKey, String(held), slot, { allowFirstTwin: true });
+            seatNum = held + 1;
+            continue;
+          }
+          if (occupiedManual.has(seatNum)) {
+            suspicious.push('ряд ' + rowKey + ' место ' + seatNum + ': занято manual');
+            warnCircles.push(rep);
+            seatNum++;
+            continue;
+          }
+          if (!proposalTargetsForSeatSlot(slot).length) {
+            seatNum++;
+            continue;
+          }
+          appendSeatToSlot(proposal, rowKey, String(seatNum), slot);
+          seatNum++;
+        }
+        if (lastSlot) {
+          const lastSeat = Math.max(1, seatNum);
+          appendSeatToSlot(proposal, rowKey, String(lastSeat), lastSlot, { allowLastTwin: true });
+        }
+        bandsUsed++;
+      }
+
+      const proposedRows = new Set(proposal.map((p) => p.row)).size;
+      const proposedSeats = proposal.map((p) => Number(p.seat)).filter(Number.isFinite);
+      const grid = {
+        rowMin,
+        rowMax,
+        seatMin: proposedSeats.length ? Math.min(...proposedSeats) : 1,
+        seatMax: proposedSeats.length ? Math.max(...proposedSeats) : 1,
+        edgeRows: firstCol.length,
+      };
+      if (!proposal.length && protectedSkipped > 0 && protectedSkipped >= candidates.length * 0.85) {
+        suspicious.push('почти все точки manual — сектор уже размечен');
+      }
+      return {
+        proposal,
+        rows: proposedRows,
+        suspicious,
+        warnCircles,
+        protectedSkipped,
+        grid,
+        stats: {
+          candidates: candidates.length,
+          fillable,
+          fillTargets: fillTargets.length,
+          bands: rowsTotal,
+          rowBands: bandsUsed,
+          rowsTotal,
+          bandsUsed,
+          bandsSkipped,
+          edgeRows: firstCol.length,
+        },
+      };
+    }
+
+    async function applyWholeSectorProposal() {
+      if (!svgRoot) return;
+      clearAuditMarks();
+      const sector = paintSectorForApply().trim();
+      if (!sector) {
+        showPaintToast('err', 'Укажи сектор, например A116');
+        return;
+      }
+      const sectorApplyLabel = inferSectorLabelForApply(sector);
+      let built;
+      try {
+        built = buildSectorProposal(sector);
+      } catch (e) {
+        showPaintToast('err', e.message);
+        return;
+      }
+      if (built.warnCircles?.length) markAudit(built.warnCircles, 'warn');
+      if (!built.proposal.length) {
+        const hint = built.grid
+          ? ' ряды ' + built.grid.rowMin + '–' + built.grid.rowMax + ', места ' + built.grid.seatMin + '–' + built.grid.seatMax
+          : '';
+        const st = built.stats;
+        const statHint = st
+          ? ' · в секторе ' +
+            st.candidates +
+            ', к заполнению ' +
+            st.fillable +
+            ', полос ' +
+            st.bandsUsed +
+            '/' +
+            st.bands +
+            ', опорных рядов ' +
+            st.edgeRows
+          : '';
+        showPaintToast(
+          'err',
+          built.suspicious.length
+            ? '0 предложений' + hint + statHint + '. ' + built.suspicious.slice(0, 2).join(' · ')
+            : '0 предложений' + hint + statHint + ' — внутри нет точек для заполнения (контур не считается)',
+        );
+        renderRowLabels(sector);
+        return;
+      }
+      markAudit(built.proposal.map((p) => p.circle), 'proposed');
+      const g = built.grid;
+      const gridHint = g ? '\nСетка: ряды ' + g.rowMin + '–' + g.rowMax + ', места ' + g.seatMin + '–' + g.seatMax : '';
+      const text =
+        'Применить ' +
+        canonicalSectorLabel(sector) +
+        ': ' +
+        built.proposal.length +
+        ' мест, ' +
+        built.rows +
+        ' рядов?' +
+        gridHint +
+        (built.protectedSkipped ? '\n\nУже размеченные/manual места будут пропущены: ' + built.protectedSkipped : '') +
+        (built.suspicious.length ? '\n\nПодозрительно:\n' + built.suspicious.slice(0, 12).join('\n') : '');
+      if (!window.confirm(text)) {
+        showPaintToast('info', 'Предложение подсвечено бирюзовым, SVG не изменён');
+        return;
+      }
+      const batch = built.proposal.map((p) => ({ el: p.circle, attrs: snapshotCircle(p.circle) }));
+      for (const p of built.proposal) {
+        applySeatToCircle(
+          p.circle,
+          sectorApplyLabel,
+          p.row,
+          p.seat,
+          p.edgeKind ? 'manual-sector-edge' : 'manual-sector-fill',
+        );
+        if (p.edgeKind) p.circle.setAttribute('data-sector-edge', p.edgeKind);
+      }
+      pushUndo(batch);
+      persistCircleEdits(built.proposal.map((p) => p.circle), { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(sector));
+      validateCurrentSector();
+      renderRowLabels(sector);
+      showPaintToast(
+        'ok',
+        '↕ ' + built.proposal.length + ' мест · ' + canonicalSectorLabel(sectorApplyLabel),
+      );
+      const mirrorNorm = findMirrorSectorLabel(sector);
+      if (mirrorNorm) {
+        paintTargetSector.value = canonicalSectorLabel(mirrorNorm);
+        if (
+          window.confirm(
+            'Скопировать разметку в зеркальный сектор ' +
+              canonicalSectorLabel(mirrorNorm) +
+              '?\n\n(⇄ зеркало — то же в любой момент)',
+          )
+        ) {
+          await executeSectorCopy(sector, mirrorNorm, {
+            mirror: true,
+            reverseSeats: copyReverse.checked,
+          });
+        }
+      }
+    }
+
+    async function copySectorMarkup() {
+      const fromSector = paintSectorForApply().trim();
+      const toSector = paintTargetSector.value.trim();
+      if (!fromSector || !toSector) {
+        showPaintToast('err', 'Укажи исходный сектор и → сектор');
+        return;
+      }
+      clearAuditMarks();
+      await executeSectorCopy(fromSector, toSector, {
+        mirror: false,
+        reverseSeats: copyReverse.checked,
+      });
+    }
+
+    async function copyMirrorSectorMarkup() {
+      const fromSector = paintSectorForApply().trim();
+      if (!fromSector) {
+        showPaintToast('err', 'Укажи исходный сектор в поле «Сектор»');
+        return;
+      }
+      clearAuditMarks();
+      const mirrorNorm = findMirrorSectorLabel(fromSector);
+      if (!mirrorNorm) {
+        showPaintToast('err', 'Не найден зеркальный сектор для «' + canonicalSectorLabel(fromSector) + '»');
+        return;
+      }
+      paintTargetSector.value = canonicalSectorLabel(mirrorNorm);
+      await executeSectorCopy(fromSector, mirrorNorm, {
+        mirror: true,
+        reverseSeats: copyReverse.checked,
+      });
     }
 
     function updatePaintPreview() {
@@ -1504,7 +3459,103 @@
       }
     }
 
+    async function clearRowSeatForSelection() {
+      clearAuditMarks();
+      if (!paintSelection.length) {
+        showPaintToast('err', 'Выдели область/точки, потом ⌫ ряд/место');
+        return 0;
+      }
+      const sectors = Array.from(
+        new Set(paintSelection.map((c) => normalizeSectorLabel(circleSector(c))).filter(Boolean)),
+      );
+      const scope =
+        sectors.length === 1
+          ? canonicalSectorLabel(sectors[0])
+          : sectors.length > 1
+            ? sectors.length + ' секторов'
+            : 'без сектора';
+      markAudit(paintSelection, 'proposed');
+      if (
+        !window.confirm(
+          'Очистить ряд/место у ' +
+            paintSelection.length +
+            ' точек (' +
+            scope +
+            ')?\\n\\nСектор останется, row/place/data-sector-edge будут удалены.',
+        )
+      ) {
+        showPaintToast('info', 'Очистка отменена');
+        return 0;
+      }
+      const batch = paintSelection.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      const touched = paintSelection.slice();
+      for (const c of touched) clearRowSeatFromCircle(c);
+      pushUndo(batch);
+      persistCircleEdits(touched, { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      clearPaintSelection();
+      await pushEditsToServer('');
+      showPaintToast('ok', 'Очищено ряд/место: ' + touched.length);
+      if (selectedCircle && touched.includes(selectedCircle)) renderInfo(readCircleMeta(selectedCircle));
+      if (sectors.length === 1) renderRowLabels(sectors[0]);
+      return touched.length;
+    }
+
+    async function applyColumnAnchorToSelection(selection, sector, edgeKind) {
+      const firstRow = Number(normalizePaintRowNum(paintRow.value));
+      const lastRow = Number(normalizePaintRowNum(paintEndRow.value));
+      if (!Number.isFinite(firstRow) || !Number.isFinite(lastRow)) {
+        showPaintToast('err', 'Для колонки укажи «Ряд» и «по»');
+        return 0;
+      }
+      const pathForSort =
+        paintPathPoints.length >= 1
+          ? paintPathPoints
+          : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
+      const sortedSel = sortCirclesAlongPath(selection, pathForSort);
+      const startSeat = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      const edgeLabel = edgeKind === 'first' ? 'первых мест' : 'последних мест';
+      markAudit(sortedSel, 'proposed');
+      if (
+        !window.confirm(
+          'Применить колонку ' +
+            edgeLabel +
+            ' для ' +
+            canonicalSectorLabel(sector) +
+            ': ряды ' +
+            firstRow +
+            '-' +
+            lastRow +
+            ', ' +
+            sortedSel.length +
+            ' точек?',
+        )
+      ) {
+        showPaintToast('info', 'Колонка подсвечена бирюзовым, SVG не изменён');
+        return 0;
+      }
+      const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
+      const rowSpan = lastRow - firstRow;
+      for (let i = 0; i < sortedSel.length; i++) {
+        const t = sortedSel.length <= 1 ? 0 : i / (sortedSel.length - 1);
+        const row = String(Math.round(firstRow + rowSpan * t));
+        const seat = edgeKind === 'last' ? '' : String(startSeat);
+        applySeatToCircle(sortedSel[i], sector, row, seat, 'manual-sector-edge');
+        sortedSel[i].setAttribute('data-sector-edge', edgeKind);
+      }
+      pushUndo(batch);
+      persistCircleEdits(sortedSel, { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      await pushEditsToServer(normalizeSectorLabel(sector));
+      showPaintToast('ok', 'Колонка ' + edgeLabel + ' применена: ' + sortedSel.length + ' точек');
+      renderRowLabels(sector);
+      return sortedSel.length;
+    }
+
     async function applyPaintToSelection() {
+      clearAuditMarks();
       if (!paintSelection.length) {
         showPaintToast('err', 'Протяни линию вдоль ряда или Shift+клик по точкам');
         return 0;
@@ -1549,6 +3600,10 @@
         );
         return 0;
       }
+      const applyMode = paintApplyMode?.value || 'row';
+      if (applyMode === 'first-col' || applyMode === 'last-col') {
+        return applyColumnAnchorToSelection(selection, sector, applyMode === 'first-col' ? 'first' : 'last');
+      }
       const wantRow = normalizePaintRowNum(row);
       const cloudRowMismatch = selection.filter(
         (c) => normalizePaintRowNum(circleRow(c)) && normalizePaintRowNum(circleRow(c)) !== wantRow,
@@ -1566,6 +3621,26 @@
           ? paintPathPoints
           : selection.map((c) => ({ x: +c.getAttribute('cx'), y: +c.getAttribute('cy') }));
       const sortedSel = sortCirclesAlongPath(selection, pathForSort);
+      const endSeat = startSeat + sortedSel.length - 1;
+      markAudit(sortedSel, 'proposed');
+      if (
+        !window.confirm(
+          'Похоже, это ' +
+            canonicalSectorLabel(sector) +
+            ', ряд ' +
+            row +
+            ', места ' +
+            startSeat +
+            '-' +
+            endSeat +
+            ' (' +
+            sortedSel.length +
+            ' точек). Применить?',
+        )
+      ) {
+        showPaintToast('info', 'Ряд подсвечен бирюзовым, SVG не изменён');
+        return 0;
+      }
       const batch = sortedSel.map((c) => ({ el: c, attrs: snapshotCircle(c) }));
       const forceRenumber = paintRenumber.checked;
       let nextAuto = startSeat;
@@ -1593,6 +3668,7 @@
         canonicalSectorLabel(sector) + ' ряд ' + row + ': ' + sortedSel.length + ' мест' + seatHint + ' → сервер…',
       );
       await pushEditsToServer(appliedNorm);
+      renderRowLabels(sector);
       return paintSelection.length;
     }
 
@@ -1636,11 +3712,13 @@
       paintDrag = false;
       dragPan = false;
       paintPending = null;
+      rectSelectPending = null;
       paintPathPoints = [];
       paintCursor = null;
       paintPreviewList = [];
       clearPaintHighlight();
       hidePaintLine();
+      hideRectSelect();
       viewport.classList.remove('dragging');
       try { viewport.releasePointerCapture(paintCaptureId); } catch (_) { /* noop */ }
       paintCaptureId = -1;
@@ -1649,6 +3727,45 @@
     function releasePaintPointer() {
       try { viewport.releasePointerCapture(paintCaptureId); } catch (_) { /* noop */ }
       paintCaptureId = -1;
+    }
+
+    function endRectSelectPointer(e) {
+      if (!rectSelectPending) return;
+      const pending = rectSelectPending;
+      releasePaintPointer();
+      hideRectSelect();
+      const moved = Math.hypot(e.clientX - pending.clientX0, e.clientY - pending.clientY0);
+      pending.clientX1 = e.clientX;
+      pending.clientY1 = e.clientY;
+      rectSelectPending = null;
+      paintSuppressClick = true;
+      if (moved < 4) {
+        showPaintToast('info', 'Рамка слишком маленькая');
+        return;
+      }
+      const fieldSec = paintSectorForApply();
+      const list = circlesInClientRect(
+        pending.clientX0,
+        pending.clientY0,
+        pending.clientX1,
+        pending.clientY1,
+        fieldSec,
+      );
+      if (list.length) {
+        if (pending.additive) mergePaintSelection(list);
+        else setPaintSelection(list);
+        showPaintToast(
+          'ok',
+          '▢ выделено ' +
+            list.length +
+            ' точек' +
+            (fieldSec ? ' · ' + canonicalSectorLabel(fieldSec) : '') +
+            ' → ⌫ ряд/место',
+        );
+      } else {
+        showPaintToast('err', '0 точек в рамке' + (fieldSec ? ' для ' + canonicalSectorLabel(fieldSec) : ''));
+      }
+      refreshStatusHint();
     }
 
     function endPaintPointer(e) {
@@ -1737,7 +3854,9 @@
       svgRoot = svg;
       overlayG = null;
       previewLine = null;
+      rectSelectEl = null;
       previewPolyline = null;
+      rowLabelG = null;
       undoStack.length = 0;
       undoBtn.disabled = true;
       const vb = svg.viewBox.baseVal;
@@ -1762,6 +3881,7 @@
         showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
       }
       fitToView();
+      renderRowLabels(paintSectorForApply());
 
       svg.addEventListener('click', (e) => {
         if (didDrag || paintSuppressClick) {
@@ -1825,6 +3945,32 @@
           e.preventDefault();
           return;
         }
+        if (rectSelectMode) {
+          dragPan = false;
+          viewport.classList.remove('dragging');
+          rectSelectPending = {
+            clientX0: e.clientX,
+            clientY0: e.clientY,
+            clientX1: e.clientX,
+            clientY1: e.clientY,
+            additive: e.shiftKey || e.metaKey,
+          };
+          paintDrag = false;
+          didDrag = false;
+          infoPanel.classList.remove('visible');
+          showClientRectSelect(e.clientX, e.clientY, e.clientX, e.clientY);
+          if (viewport.setPointerCapture) {
+            try {
+              viewport.setPointerCapture(e.pointerId);
+              paintCaptureId = e.pointerId;
+            } catch (_) {
+              /* noop */
+            }
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         dragPan = false;
         viewport.classList.remove('dragging');
         paintPathPoints = [{ x: p.x, y: p.y }];
@@ -1868,6 +4014,27 @@
         return;
       }
 
+      if (rectSelectPending) {
+        e.preventDefault();
+        rectSelectPending.clientX1 = e.clientX;
+        rectSelectPending.clientY1 = e.clientY;
+        showClientRectSelect(
+          rectSelectPending.clientX0,
+          rectSelectPending.clientY0,
+          e.clientX,
+          e.clientY,
+        );
+        const count = circlesInClientRect(
+          rectSelectPending.clientX0,
+          rectSelectPending.clientY0,
+          e.clientX,
+          e.clientY,
+          paintSectorForApply(),
+        ).length;
+        status.textContent = '▢ ' + count + ' в рамке · отпусти → выделить';
+        return;
+      }
+
       if (paintPending) {
         e.preventDefault();
         const moved = Math.hypot(e.clientX - paintPending.clientX, e.clientY - paintPending.clientY);
@@ -1901,6 +4068,7 @@
       if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
       panX = panStartX + (e.clientX - dragStartX);
       panY = panStartY + (e.clientY - dragStartY);
+      clampPanToViewport();
       applyTransform();
     });
 
@@ -1922,6 +4090,10 @@
 
     viewport.addEventListener('pointerup', (e) => {
       releaseTrackedPointer(e);
+      if (rectSelectPending) {
+        endRectSelectPointer(e);
+        return;
+      }
       if (paintPending) {
         endPaintPointer(e);
         return;
@@ -1998,7 +4170,7 @@
         e.preventDefault();
       }
       if (e.code === 'Escape') {
-        if (paintPending) cancelPaintDrag();
+        if (rectSelectPending || paintPending) cancelPaintDrag();
         else if (paintSelection.length) clearPaintSelection();
         else clearSelection();
       }
@@ -2026,15 +4198,38 @@
     modeViewBtn.addEventListener('click', () => setAppMode('view'));
     modeEditBtn.addEventListener('click', () => setAppMode('edit'));
     modePaintBtn.addEventListener('click', () => setAppMode('paint'));
+    function syncPaintApplyModeUi() {
+      const mode = paintApplyMode?.value || 'row';
+      const isColumn = mode === 'first-col' || mode === 'last-col';
+      if (paintEndRowWrap) paintEndRowWrap.hidden = !isColumn;
+      if (paintRowWrap) {
+        const label = paintRowWrap.firstChild;
+        if (label && label.nodeType === Node.TEXT_NODE) {
+          label.textContent = isColumn ? 'ряд с ' : 'Ряд ';
+        }
+      }
+      if (paintRow) paintRow.placeholder = isColumn ? 'первый ряд' : '№ ряда';
+    }
+
+    paintApplyMode?.addEventListener('change', syncPaintApplyModeUi);
+    syncPaintApplyModeUi();
+
     paintRow.addEventListener('input', () => {
       if (isValidPaintRow(paintRow.value)) paintRow.dataset.fallback = paintRow.value.trim();
     });
+    paintSector.addEventListener('input', () => renderRowLabels(paintSectorForApply()));
     paintClearSel.addEventListener('click', () => {
       clearPaintSelection();
       showPaintToast('info', 'Выделение сброшено');
     });
+    rectSelectBtn.addEventListener('click', () => setRectSelectMode(!rectSelectMode));
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
+    clearRowSeatBtn.addEventListener('click', () => clearRowSeatForSelection());
     paintApply.addEventListener('click', () => applyPaintToSelection());
+    sectorApply.addEventListener('click', () => applyWholeSectorProposal());
+    auditBtn.addEventListener('click', () => validateCurrentSector());
+    copySectorBtn.addEventListener('click', () => copySectorMarkup());
+    copyMirrorSectorBtn.addEventListener('click', () => copyMirrorSectorMarkup());
 
     zoomInBtn.addEventListener('click', () => {
       const r = viewport.getBoundingClientRect();
@@ -2045,6 +4240,15 @@
       zoomCenter(isCoarsePointer() ? 1 / 1.45 : 1 / 1.25, r.left + r.width / 2, r.top + r.height / 2);
     });
     zoomFitBtn.addEventListener('click', () => { if (svgRoot) fitToView(); });
+    document.getElementById('rotateLeft')?.addEventListener('click', () => bumpViewRotate(-15));
+    document.getElementById('rotateRight')?.addEventListener('click', () => bumpViewRotate(15));
+    document.getElementById('rotateAlignSector')?.addEventListener('click', () => {
+      alignViewToSector(paintSectorForApply().trim());
+    });
+    document.getElementById('rotateReset')?.addEventListener('click', () => {
+      resetViewRotate();
+      showPaintToast('info', 'Поворот сброшен');
+    });
     undoBtn.addEventListener('click', undo);
     saveSvgBtn.addEventListener('click', downloadSvg);
 

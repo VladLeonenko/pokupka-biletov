@@ -14,7 +14,7 @@ import {
 } from '../../utils/svgNativeSeatLayout';
 import styles from './TicketHallInteractiveBlock.module.css';
 
-/** Совпадает с фоновой заливкой точек чаши на canvas (dense rects). */
+/** Совпадает с фоновой заливкой точек чаши на canvas (dense hall). */
 const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
 /** Маркер без оффера / превью схемы в DOM (slate ≈ rgb(148,163,184)); офферы — colorForSeat. */
 const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
@@ -30,11 +30,12 @@ function stadiumSeatCanvasRadiusPx(
   mapZoomed: boolean,
 ): number {
   const w = layerWidth * zoom;
-  let r = active ? 5 : Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
+  const baseR = Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
+  let r = active ? baseR * 0.68 : baseR;
   /** На обзоре 100% (fit) — sellable в 2× меньше, при zoom-in — полный размер. */
   if (!mapZoomed) {
     r *= 0.5;
-    r = active ? Math.max(2.5, r) : Math.max(1.3, r);
+    r = Math.max(active ? 1.2 : 1.3, r);
   }
   return r;
 }
@@ -151,6 +152,56 @@ type BackgroundSeatCoordinate = {
   yPct: number;
 };
 
+function hallBackgroundSeatRadiusPx(scalePx: number, dense: boolean): number {
+  return dense
+    ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
+    : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+}
+
+type BackgroundArcLayout = {
+  left: number;
+  top: number;
+  screenW: number;
+  screenH: number;
+};
+
+function drawHallBackgroundArcs(
+  ctx: CanvasRenderingContext2D,
+  seats: BackgroundSeatCoordinate[] | Float32Array,
+  layout: BackgroundArcLayout,
+  viewportWidth: number,
+  viewportHeight: number,
+  svgViewBoxWidth: number,
+  dense: boolean,
+): void {
+  const { left, top, screenW, screenH } = layout;
+  const scalePx = screenW / Math.max(1, svgViewBoxWidth);
+  const r = hallBackgroundSeatRadiusPx(scalePx, dense);
+  ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
+  ctx.beginPath();
+  const limW = viewportWidth + 14;
+  const limH = viewportHeight + 14;
+
+  if (seats instanceof Float32Array) {
+    for (let i = 0; i < seats.length; i += 2) {
+      const sx = left + (seats[i] / 100) * screenW;
+      const sy = top + (seats[i + 1] / 100) * screenH;
+      if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    }
+  } else {
+    for (const seat of seats) {
+      const sx = left + (seat.xPct / 100) * screenW;
+      const sy = top + (seat.yPct / 100) * screenH;
+      if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill();
+}
+
 function parseOverlayRect(layout: unknown): OverlayRect {
   if (!layout || typeof layout !== 'object') {
     return { x: 0.06, y: 0.14, w: 0.88, h: 0.72 };
@@ -182,6 +233,16 @@ function parseBackgroundSeatCoordinates(layout: unknown): BackgroundSeatCoordina
   if (Array.isArray(raw) && raw.length > 0) {
     const out: BackgroundSeatCoordinate[] = [];
     for (const item of raw) {
+      if (Array.isArray(item)) {
+        const x = Number(item[0]);
+        const y = Number(item[1]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        const xPct = x >= 0 && x <= 1 ? x * 100 : x;
+        const yPct = y >= 0 && y <= 1 ? y * 100 : y;
+        if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) continue;
+        out.push({ xPct, yPct });
+        continue;
+      }
       if (!item || typeof item !== 'object') continue;
       const seat = item as Record<string, unknown>;
       const x = Number(seat.xPct ?? seat.x_percent ?? seat.xPercent ?? seat.left ?? seat.x);
@@ -237,6 +298,41 @@ function parseGrayHallWhenNoOffers(
   return seatSelectionDisabled;
 }
 
+/** Стадион (Лужники): тысячи фоновых точек; театр — компактная схема. */
+function isStadiumScaleHallLayout(layout: unknown): boolean {
+  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
+  if (!r) return false;
+  if (r.stadiumMapKey === 'luzhniki-football') return true;
+  const bg = r.allSeatCoordinates;
+  if (Array.isArray(bg) && bg.length > 8000) return true;
+  return false;
+}
+
+/** Макс. zoom относительно fit (2 = 200%). layout_json.maxZoomMultiplier; театры — 2× по умолчанию. */
+function parseMaxZoomMultiplier(
+  layout: unknown,
+  sectorModeEnabled: boolean,
+  isCoarsePointer: boolean,
+): number {
+  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
+  const raw = r?.maxZoomMultiplier;
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+  if (Number.isFinite(n) && n >= 1) return n;
+  if (sectorModeEnabled && !isStadiumScaleHallLayout(layout)) return 2;
+  if (sectorModeEnabled) return isCoarsePointer ? 28 : 12;
+  return isCoarsePointer ? 18 : 8;
+}
+
+/** Zoom при клике по сектору (не zoom-to-fill bbox). */
+function parseSectorFocusZoomMultiplier(layout: unknown, maxZoomMultiplier: number): number {
+  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
+  const raw = r?.sectorFocusZoomMultiplier;
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+  if (Number.isFinite(n) && n >= 1) return Math.min(n, maxZoomMultiplier);
+  if (!isStadiumScaleHallLayout(layout)) return Math.min(2, maxZoomMultiplier);
+  return maxZoomMultiplier;
+}
+
 function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMeta[] } {
   if (!layout || typeof layout !== 'object') return { enabled: false, sectors: [] };
   const raw = (layout as Record<string, unknown>).sectorMode;
@@ -272,6 +368,11 @@ import {
   labeledSeatLookupKeys,
   lookupLabeledSeat,
 } from '@/utils/hallSeatSeatLookup';
+import {
+  hallBackgroundDotsUrlFromRaster,
+  parseHallBackgroundRasterUrl,
+  parseOmitClientSeatCoordinateCloud,
+} from '@/utils/luzhnikiStadiumMap';
 import {
   normalizeRowLabel,
   normalizeSeatToken,
@@ -479,7 +580,42 @@ export function TicketHallInteractiveBlock({
   );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
+  const sellableSeatsFromLayout = useMemo(
+    () => parseLayoutSeatPositions(
+      layoutJson && typeof layoutJson === 'object'
+        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
+        : null,
+    ),
+    [layoutJson],
+  );
   const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
+  const hallBackgroundRasterUrl = useMemo(
+    () => parseHallBackgroundRasterUrl(layoutJson),
+    [layoutJson],
+  );
+  const omitClientSeatCoordinateCloud = useMemo(
+    () => parseOmitClientSeatCoordinateCloud(layoutJson),
+    [layoutJson],
+  );
+  /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
+  const preferBundleBackgroundDots = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return false;
+    const rec = layoutJson as Record<string, unknown>;
+    return (
+      omitClientSeatCoordinateCloud &&
+      backgroundSeatCoordinates.length >= 100 &&
+      rec.sellableSeatsFromLiveOffers === true &&
+      rec.sellableGeodesyMode === 'manualBundleFast'
+    );
+  }, [layoutJson, omitClientSeatCoordinateCloud, backgroundSeatCoordinates.length]);
+  const useHallBackgroundRaster = Boolean(
+    hallBackgroundRasterUrl
+    && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
+  );
+  const hallBackgroundDotsUrl = useMemo(
+    () => hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl),
+    [hallBackgroundRasterUrl],
+  );
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
@@ -487,11 +623,12 @@ export function TicketHallInteractiveBlock({
   );
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
+    if (sectorMode.enabled && layoutSeats.length < 2 && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
     const fromSvg = nativeProcessed?.seats ?? [];
     if (fromSvg.length >= 2) return fromSvg;
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
-  }, [preferLayoutSeatPositions, layoutSeats, nativeProcessed]);
+  }, [preferLayoutSeatPositions, layoutSeats, sectorMode.enabled, sellableSeatsFromLayout, nativeProcessed]);
   /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
   const svgGeometryFromParsedCircles = useMemo(() => {
     if (preferLayoutSeatPositions) return false;
@@ -689,8 +826,15 @@ export function TicketHallInteractiveBlock({
   const placementsForHoverRef = useRef<SvgNativePlacement[]>([]);
   const probeSeatHoverRef = useRef<(clientX: number, clientY: number) => void>(() => {});
   const activatePlacementRef = useRef<(p: SvgNativePlacement) => void>(() => {});
+  const touchSeatToggleRef = useRef<{ key: string; at: number } | null>(null);
+  const touchSeatPressRef = useRef<{ key: string; x: number; y: number } | null>(null);
   const canvasImageRef = useRef<HTMLImageElement | null>(null);
+  const hallRasterImageRef = useRef<HTMLImageElement | null>(null);
+  const bowlDotsRef = useRef<Float32Array | null>(null);
+  const bowlDotsLoadRef = useRef<Promise<void> | null>(null);
   const [canvasImageVersion, setCanvasImageVersion] = useState(0);
+  const [hallRasterVersion, setHallRasterVersion] = useState(0);
+  const [bowlDotsVersion, setBowlDotsVersion] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
 
   const isCoarsePointer = useMemo(() => {
@@ -703,27 +847,33 @@ export function TicketHallInteractiveBlock({
   }, []);
 
   const [zoom, setZoom] = useState(1);
-  const maxZoomMultiplier = sectorMode.enabled
-    ? isCoarsePointer
-      ? 28
-      : 12
-    : isCoarsePointer
-      ? 18
-      : 8;
+  const maxZoomMultiplier = useMemo(
+    () => parseMaxZoomMultiplier(layoutJson, sectorMode.enabled, isCoarsePointer),
+    [isCoarsePointer, layoutJson, sectorMode.enabled],
+  );
+  const sectorFocusZoomMultiplier = useMemo(
+    () => parseSectorFocusZoomMultiplier(layoutJson, maxZoomMultiplier),
+    [layoutJson, maxZoomMultiplier],
+  );
   const maxZoom = fitZoom * maxZoomMultiplier;
+  const sectorFocusZoom = fitZoom * sectorFocusZoomMultiplier;
   const clampZoom = useCallback((z: number) => Math.min(maxZoom || 4, Math.max(0.03, z)), [maxZoom]);
   const discreteZoomLevels = useMemo(
     () => {
-      const multipliers = sectorMode.enabled
+      const baseMultipliers = sectorMode.enabled
         ? isCoarsePointer
           ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 28]
           : [1, 2, 3, 4, 6, 8, 10, 12]
         : isCoarsePointer
           ? [1, 2, 3, 4, 6, 8, 12, 16, 18]
           : [1, 2, 3, 4, 6, 8];
+      const multipliers = baseMultipliers.filter((m) => m <= maxZoomMultiplier + 0.001);
+      if (!multipliers.length || multipliers[multipliers.length - 1] < maxZoomMultiplier - 0.001) {
+        multipliers.push(maxZoomMultiplier);
+      }
       return multipliers.map((multiplier) => fitZoom * multiplier).map(clampZoom);
     },
-    [clampZoom, fitZoom, isCoarsePointer, sectorMode.enabled],
+    [clampZoom, fitZoom, isCoarsePointer, maxZoomMultiplier, sectorMode.enabled],
   );
   const getNextZoomLevel = useCallback((current: number, direction: 1 | -1) => {
     const ordered = [...new Set(discreteZoomLevels.map((level) => Number(level.toFixed(4))))].sort((a, b) => a - b);
@@ -920,6 +1070,42 @@ export function TicketHallInteractiveBlock({
   }, [stadiumCanvasEnabled, svgHtmlSafe]);
 
   useEffect(() => {
+    if (!useHallBackgroundRaster || !hallBackgroundRasterUrl) {
+      hallRasterImageRef.current = null;
+      setHallRasterVersion((v) => v + 1);
+      return;
+    }
+
+    hallRasterImageRef.current = null;
+    const img = new Image();
+    img.decoding = 'async';
+    let cancelled = false;
+
+    const finalize = () => {
+      if (cancelled) return;
+      setHallRasterVersion((v) => v + 1);
+    };
+
+    img.onload = () => {
+      if (cancelled) return;
+      const ok = img.naturalWidth > 0 && img.naturalHeight > 0;
+      hallRasterImageRef.current = ok ? img : null;
+      finalize();
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      hallRasterImageRef.current = null;
+      finalize();
+    };
+    img.src = hallBackgroundRasterUrl;
+
+    return () => {
+      cancelled = true;
+      if (hallRasterImageRef.current === img) hallRasterImageRef.current = null;
+    };
+  }, [hallBackgroundRasterUrl, useHallBackgroundRaster]);
+
+  useEffect(() => {
     if (!activeOfferId || selectedSeats.length === 0) {
       setSelectedSeatDetails([]);
     }
@@ -1000,10 +1186,11 @@ export function TicketHallInteractiveBlock({
   const onPointerDownPan = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-sector-panel="true"]')) return;
     if ((e.target as HTMLElement).closest('[data-seat-dot="true"]')) return;
-    if ((e.target as HTMLElement).closest('[data-sector-path="true"]')) return;
+    if ((e.target as HTMLElement).closest('[data-sector-path="true"]') && zoomRef.current <= fitZoomRef.current + 0.01) return;
     hideSeatInfo();
     hideSectorInfo();
     if (e.button !== 0 && e.pointerType !== 'touch') return;
+    if (e.pointerType === 'touch') e.preventDefault();
     const t = e.currentTarget as HTMLElement;
     t.setPointerCapture(e.pointerId);
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1022,6 +1209,7 @@ export function TicketHallInteractiveBlock({
 
   const onPointerMovePan = useCallback(
     (e: React.PointerEvent) => {
+      if (e.pointerType === 'touch') e.preventDefault();
       if (pointersRef.current.has(e.pointerId)) {
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
@@ -1167,8 +1355,8 @@ export function TicketHallInteractiveBlock({
 
     const centerX = ((bbox.minX + bbox.maxX) / 2 / svgViewBox.width) * layers.offsetWidth;
     const centerY = ((bbox.minY + bbox.maxY) / 2 / svgViewBox.height) * layers.offsetHeight;
-    focusLayerPoint(centerX, centerY, maxZoom, sector.meta.label);
-  }, [focusLayerPoint, maxZoom, svgViewBox.height, svgViewBox.width]);
+    focusLayerPoint(centerX, centerY, sectorFocusZoom, sector.meta.label);
+  }, [focusLayerPoint, sectorFocusZoom, svgViewBox.height, svgViewBox.width]);
 
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
@@ -1244,6 +1432,42 @@ export function TicketHallInteractiveBlock({
 
   const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
   const mapZoomed = zoom > fitZoom + 0.01;
+
+  useEffect(() => {
+    bowlDotsRef.current = null;
+    bowlDotsLoadRef.current = null;
+    setBowlDotsVersion((v) => v + 1);
+  }, [hallBackgroundDotsUrl, preferBundleBackgroundDots]);
+
+  useEffect(() => {
+    if (!useHallBackgroundRaster || !hallBackgroundDotsUrl || !mapZoomed) return;
+    if (preferBundleBackgroundDots) return;
+    if (bowlDotsRef.current || bowlDotsLoadRef.current) return;
+
+    let cancelled = false;
+    bowlDotsLoadRef.current = fetch(hallBackgroundDotsUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`dots ${response.status}`);
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('text/html')) throw new Error('dots html fallback');
+        return response.arrayBuffer();
+      })
+      .then((buffer) => {
+        if (cancelled || buffer.byteLength < 100_000) return;
+        bowlDotsRef.current = new Float32Array(buffer);
+        setBowlDotsVersion((v) => v + 1);
+      })
+      .catch(() => {
+        /* zoom без vector dots — останется PNG fallback */
+      })
+      .finally(() => {
+        bowlDotsLoadRef.current = null;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hallBackgroundDotsUrl, mapZoomed, preferBundleBackgroundDots, useHallBackgroundRaster]);
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -1258,7 +1482,7 @@ export function TicketHallInteractiveBlock({
     return nativePlacements;
   }, [nativePlacements, sectorMode.enabled]);
 
-  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000;
+  const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
   const uniformDomOverlayGhost =
@@ -1334,7 +1558,7 @@ export function TicketHallInteractiveBlock({
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
-      if (backgroundSeatCoordinates.length > 0) return [];
+      if (backgroundSeatCoordinates.length > 0 || useHallBackgroundRaster) return [];
       if (!selectedSectorSummary) return [];
       return nativeSeats.filter(
         (seat) =>
@@ -1345,9 +1569,20 @@ export function TicketHallInteractiveBlock({
     return showUnavailableSeats
       ? nativeSeats.filter((seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)))
       : [];
-  }, [backgroundSeatCoordinates.length, matchedNativeSeatKeys, nativeSeats, sectorMode.enabled, selectedSector, selectedSectorSummary, showUnavailableSeats, useSvgNative]);
+  }, [
+    backgroundSeatCoordinates.length,
+    matchedNativeSeatKeys,
+    nativeSeats,
+    sectorMode.enabled,
+    selectedSector,
+    selectedSectorSummary,
+    showUnavailableSeats,
+    useHallBackgroundRaster,
+    useSvgNative,
+  ]);
 
   const visibleBackgroundSeatCoordinates = useMemo(() => {
+    if (useHallBackgroundRaster) return [];
     if (!sectorMode.enabled || backgroundSeatCoordinates.length === 0) return [];
     if (mapZoomed || denseBackgroundHall) return backgroundSeatCoordinates;
     return [];
@@ -1356,6 +1591,7 @@ export function TicketHallInteractiveBlock({
     denseBackgroundHall,
     mapZoomed,
     sectorMode.enabled,
+    useHallBackgroundRaster,
   ]);
 
   const layersStyle = useMemo<React.CSSProperties>(() => {
@@ -1414,41 +1650,50 @@ export function TicketHallInteractiveBlock({
         ctx.restore();
       }
 
+      const hallRaster = hallRasterImageRef.current;
+      const mapZoomedNow = zoom > fitZoom + 0.01;
+      const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
+      if (useHallBackgroundRaster && hallRaster && (!mapZoomedNow || (!bowlDots && !preferBundleBackgroundDots))) {
+        ctx.drawImage(hallRaster, x, y, w, h);
+      }
+
+      if (preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
+        drawHallBackgroundArcs(
+          ctx,
+          backgroundSeatCoordinates,
+          { left: x, top: y, screenW: w, screenH: h },
+          width,
+          height,
+          svgViewBox.width,
+          backgroundSeatCoordinates.length >= 8000,
+        );
+      } else if (useHallBackgroundRaster && mapZoomedNow && bowlDots) {
+        drawHallBackgroundArcs(
+          ctx,
+          bowlDots,
+          { left: x, top: y, screenW: w, screenH: h },
+          width,
+          height,
+          svgViewBox.width,
+          true,
+        );
+      }
+
       const bg = backgroundSeatCoordinates;
       if (
-        bg.length > 0 &&
-        (zoom > fitZoom + 0.01 || bg.length >= 8000)
+        !useHallBackgroundRaster
+        && bg.length > 0
+        && (mapZoomedNow || bg.length >= 8000)
       ) {
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.72)';
-        const scalePx = w / Math.max(1, svgViewBox.width);
-        const useRects = bg.length >= 2500;
-        if (useRects) {
-          const dense = bg.length >= 8000;
-          const r = dense
-            ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
-            : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
-          ctx.beginPath();
-          const limW = width + 14;
-          const limH = height + 14;
-          for (const seat of bg) {
-            const sx = x + (seat.xPct / 100) * w;
-            const sy = y + (seat.yPct / 100) * h;
-            if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-            ctx.rect(sx - r * 0.5, sy - r * 0.5, r, r);
-          }
-          ctx.fill();
-        } else {
-          ctx.beginPath();
-          const r = Math.max(1.15, Math.min(3.2, scalePx * 7));
-          for (const seat of bg) {
-            const sx = x + (seat.xPct / 100) * w;
-            const sy = y + (seat.yPct / 100) * h;
-            if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
-            ctx.moveTo(sx + r, sy);
-            ctx.arc(sx, sy, r, 0, Math.PI * 2);
-          }
-          ctx.fill();
-        }
+        drawHallBackgroundArcs(
+          ctx,
+          bg,
+          { left: x, top: y, screenW: w, screenH: h },
+          width,
+          height,
+          svgViewBox.width,
+          bg.length >= 8000,
+        );
       }
 
       if (visibleNativePlacements.length > 0) {
@@ -1484,14 +1729,18 @@ export function TicketHallInteractiveBlock({
     return () => cancelAnimationFrame(frame);
   }, [
     backgroundSeatCoordinates,
+    bowlDotsVersion,
     canvasImageVersion,
     colorForSeat,
     fitZoom,
     getLayerScreenBox,
+    hallRasterVersion,
+    preferBundleBackgroundDots,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
     uniformHallSeatAppearance,
     svgViewBox.width,
+    useHallBackgroundRaster,
     visibleNativePlacements,
     zoom,
     pan.x,
@@ -1531,6 +1780,12 @@ export function TicketHallInteractiveBlock({
         onPointerMove={onPointerMovePan}
         onPointerUp={endPan}
         onPointerCancel={endPan}
+        onTouchStart={(ev) => {
+          if (ev.touches.length > 1) ev.preventDefault();
+        }}
+        onTouchMove={(ev) => {
+          if (ev.touches.length > 1) ev.preventDefault();
+        }}
         onPointerLeave={() => {
           if (pointersRef.current.size === 0) hideSeatInfo();
         }}
@@ -1551,12 +1806,21 @@ export function TicketHallInteractiveBlock({
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
             />
+            {useHallBackgroundRaster && !useCanvasCompositing && hallBackgroundRasterUrl ? (
+              <img
+                className={styles.hallBackgroundRaster}
+                src={hallBackgroundRasterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+              />
+            ) : null}
             {sectorMode.enabled ? (
               <svg
                 className={`${styles.sectorLayer} ${
                   useCanvasCompositing ? styles.sectorLayerUnderSeats : ''
                 } ${
-                  hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : ''
+                  hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : styles.sectorLayerFitOverview
                 }`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
@@ -1752,7 +2016,28 @@ export function TicketHallInteractiveBlock({
                         aria-label={p.title}
                         onPointerDown={(ev) => {
                           ev.stopPropagation();
+                          if (ev.pointerType === 'touch') {
+                            touchSeatPressRef.current = { key: visualKey, x: ev.clientX, y: ev.clientY };
+                          }
                           showSeatInfo(ev.currentTarget, seatInfo);
+                        }}
+                        onPointerUp={(ev) => {
+                          if (ev.pointerType !== 'touch') return;
+                          ev.stopPropagation();
+                          ev.preventDefault();
+                          const press = touchSeatPressRef.current;
+                          touchSeatPressRef.current = null;
+                          if (
+                            !press ||
+                            press.key !== visualKey ||
+                            Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > 10
+                          ) {
+                            return;
+                          }
+                          touchSeatToggleRef.current = { key: visualKey, at: Date.now() };
+                          showSeatInfo(ev.currentTarget, seatInfo);
+                          updateSelectedDetails(seatInfo, p.available);
+                          if (!onSelectionChange) onToggleSeat(p.offerId, p.seat, p.available);
                         }}
                         onPointerEnter={(ev) => {
                           showSeatInfo(ev.currentTarget, seatInfo);
@@ -1766,6 +2051,8 @@ export function TicketHallInteractiveBlock({
                         onBlur={hideSeatInfo}
                         onClick={(ev) => {
                           ev.stopPropagation();
+                          const touchToggle = touchSeatToggleRef.current;
+                          if (touchToggle?.key === visualKey && Date.now() - touchToggle.at < 700) return;
                           if (sectorMode.enabled && !mapZoomed) {
                             focusClickPoint(ev.clientX, ev.clientY);
                             return;

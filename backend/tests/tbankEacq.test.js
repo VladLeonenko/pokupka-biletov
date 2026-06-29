@@ -47,6 +47,23 @@ describe('tbankEacq', () => {
     assert.notEqual(token, tokenWithOtherAmount);
   });
 
+  it('prefers TBANK_KEY over TBANK_PASSWORD when both are set', () => {
+    process.env.TBANK_TERMINAL_KEY = '1777563012175DEMO';
+    process.env.TBANK_PASSWORD = 'stale-wrong-password';
+    process.env.TBANK_KEY = 'secret';
+
+    const body = {
+      TerminalKey: '1777563012175DEMO',
+      OrderId: 'ORD-1',
+      Success: true,
+      Status: 'CONFIRMED',
+      PaymentId: '123',
+    };
+    const Token = buildTbankEacqToken(body, 'secret');
+
+    assert.equal(verifyTbankNotificationToken({ ...body, Token }), true);
+  });
+
   it('verifies notification token with TBANK_KEY', () => {
     process.env.TBANK_TERMINAL_KEY = '1777563012175DEMO';
     delete process.env.TBANK_PASSWORD;

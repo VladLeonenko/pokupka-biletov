@@ -87,6 +87,7 @@
   justify-content: center;
   padding: 10px;
   touch-action: none;
+  overscroll-behavior: contain;
   cursor: default;
   user-select: none;
 }
@@ -243,6 +244,16 @@
   z-index: 4;
 }
 
+.hallBackgroundRaster {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .backgroundSeatLayer {
   position: absolute;
   z-index: 0;
@@ -307,9 +318,52 @@
 .sectorPath {
   fill: rgba(148, 163, 184, 0.16);
   stroke: rgba(148, 163, 184, 0.46);
-  stroke-width: 24;
+  stroke-width: 12;
   pointer-events: auto;
   transition: fill 0.14s ease, stroke 0.14s ease, opacity 0.14s ease;
+}
+
+/** Обзор 100% (fit): тонкие контуры в px экрана, не «колбаса» из viewBox. */
+.sectorLayerFitOverview .sectorPath {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.15px;
+  fill-opacity: 0.72;
+  stroke-opacity: 0.42;
+}
+
+.sectorLayerFitOverview .sectorPathUnavailable {
+  fill: rgba(148, 163, 184, 0.1);
+  stroke: rgba(100, 116, 139, 0.38);
+}
+
+.sectorLayerFitOverview .sectorPathAvailable {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 12%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 48%, transparent);
+}
+
+.sectorLayerFitOverview .sectorPathInteractive {
+  opacity: 0.88;
+}
+
+.sectorLayerFitOverview .sectorPathInteractive:hover,
+.sectorLayerFitOverview .sectorPathInteractive:focus {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 20%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 62%, #fff);
+  stroke-width: 1.5px;
+  opacity: 1;
+}
+
+.sectorLayerFitOverview .sectorPathUnavailable:hover,
+.sectorLayerFitOverview .sectorPathUnavailable:focus {
+  fill: rgba(100, 116, 139, 0.16);
+  stroke: rgba(71, 85, 105, 0.55);
+}
+
+.sectorLayerFitOverview .sectorPathActive {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 22%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 65%, #fff);
+  stroke-width: 1.5px;
+  opacity: 1;
 }
 
 .sectorPathInteractive {
@@ -544,7 +598,7 @@
 
 .seatDotOn {
   z-index: 4;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.68);
   border-width: 1px;
   background-color: var(--seat-accent, #555);
   color: #fff;
@@ -555,7 +609,7 @@
 }
 
 .seatDotOn:hover {
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.68);
 }
 
 .seatDotCheck {

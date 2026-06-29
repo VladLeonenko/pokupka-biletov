@@ -20,7 +20,7 @@ function escapeHtmlPlain(s) {
 }
 
 /**
- * @param {{ to: string; subject: string; text: string; html?: string }} p
+ * @param {{ to: string; subject: string; text: string; html?: string; bcc?: string | string[] }} p
  * @returns {Promise<{ ok: boolean; via?: string; reason?: string }>}
  */
 export async function sendTransactionalMail(p) {
@@ -29,6 +29,7 @@ export async function sendTransactionalMail(p) {
   const subject = p.subject || 'Уведомление';
   const text = p.text || '';
   const html = p.html || `<pre style="font-family:system-ui,sans-serif;white-space:pre-wrap">${escapeHtmlPlain(text)}</pre>`;
+  const bcc = normalizeMailList(p.bcc);
 
   if (isMailConfigured()) {
     try {
@@ -36,6 +37,7 @@ export async function sendTransactionalMail(p) {
       await transporter.sendMail({
         from: mailFromAddress(),
         to: toAddr,
+        ...(bcc.length ? { bcc: bcc.join(', ') } : {}),
         subject,
         text,
         html,
@@ -92,4 +94,23 @@ export async function getMailTransporter() {
 
 export function mailFromAddress() {
   return process.env.EMAIL_FROM || process.env.SENDER_EMAIL || process.env.EMAIL_USER;
+}
+
+/** Список адресов из env (запятая/точка с запятой) или аргумента. */
+export function parseMailList(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((s) => String(s).trim()).filter(Boolean);
+  return String(raw)
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function normalizeMailList(raw) {
+  return parseMailList(raw);
+}
+
+/** BCC для писем после оплаты билетного заказа (TICKET_ORDER_BCC). */
+export function ticketOrderMailBcc() {
+  return parseMailList(process.env.TICKET_ORDER_BCC?.trim());
 }

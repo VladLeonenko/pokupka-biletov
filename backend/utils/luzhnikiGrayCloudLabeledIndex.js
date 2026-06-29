@@ -18,7 +18,7 @@ const DEFAULT_BUNDLE = path.join(
 /** @type {{ mtime: number, index: Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null, seatCount: number, bundleMode: string | null }} */
 const state = { mtime: 0, index: null, seatCount: 0, bundleMode: null };
 
-const MAX_EDITOR_BUNDLE_SEATS = 8000;
+const MAX_EDITOR_BUNDLE_SEATS = 120000;
 const MIN_STRICT_ONLY_BUNDLE_SEATS = 4000;
 
 function manualEditorSeats(seats) {
@@ -49,6 +49,17 @@ function resolveBundlePath() {
   if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
   if (fs.existsSync(DEFAULT_BUNDLE)) return DEFAULT_BUNDLE;
   return null;
+}
+
+export function getGrayCloudLabeledBundleVersion() {
+  const filePath = resolveBundlePath();
+  if (!filePath) return 'missing';
+  try {
+    const st = fs.statSync(filePath);
+    return `${Math.round(st.mtimeMs)}:${st.size}`;
+  } catch {
+    return 'missing';
+  }
 }
 
 export function useGrayCloudLabeledSellable() {
@@ -89,7 +100,7 @@ export function partialManualEditorBundleActive() {
 
 export function useGrayCloudRowZipForBundle() {
   if (!useGrayCloudRowZip()) return false;
-  return grayCloudLabeledStrictOnlyMode();
+  return getGrayCloudLabeledSeatCount() > 0;
 }
 
 /** API seat 28..31 → N-я точка ряда в bundle (места 1..N из редактора). */

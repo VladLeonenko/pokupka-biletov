@@ -1,4 +1,5 @@
 import type { TicketsVitrineContent } from '@/types/ticketsVitrine';
+import { OPERATOR } from './operatorLegalInfo';
 import { TICKETS_VITRINE_LEGAL_HTML } from './ticketsVitrineLegalHtml';
 
 const DEFAULTS: TicketsVitrineContent = {
@@ -29,17 +30,17 @@ const DEFAULTS: TicketsVitrineContent = {
   },
   contacts: {
     pageTitle: 'Контакты',
-    intro: 'Свяжитесь с нами по вопросам заказа билетов и работы сервиса.',
-    address: '',
-    phone: '',
-    email: '',
-    hours: 'Пн–Вс 10:00–20:00',
-    formTitle: 'Написать нам',
+    intro: `${OPERATOR.shortName} — поддержка по заказам билетов, оплате и возвратам. Ответим на почту в рабочее время; по срочным вопросам звоните.`,
+    address: `Почтовый адрес: ${OPERATOR.postalAddress}`,
+    phone: OPERATOR.phone,
+    email: OPERATOR.email,
+    hours: OPERATOR.hours,
+    formTitle: 'Написать в поддержку',
   },
   footer: {
     brand: 'Афиша',
     tagline: 'Подбор и покупка билетов на концерты, театр и спорт.',
-    copy: '',
+    copy: `© ${new Date().getFullYear()} ${OPERATOR.shortName}. ИНН ${OPERATOR.inn}`,
   },
   ...TICKETS_VITRINE_LEGAL_HTML,
 };

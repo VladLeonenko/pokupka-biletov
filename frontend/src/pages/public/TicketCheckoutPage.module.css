@@ -8,35 +8,38 @@
 
 .hero {
   position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 100svh;
   background: #0e0c0a;
   overflow: hidden;
 }
 
 .heroMedia {
-  position: relative;
-  min-height: min(72vw, 420px);
-  max-height: 520px;
+  position: absolute;
+  inset: 0;
+  min-height: 100%;
+  height: 100%;
+  max-height: none;
 }
 
 @media (min-width: 900px) {
   .heroMedia {
-    min-height: 320px;
+    min-height: 100%;
+    aspect-ratio: auto;
     max-height: none;
-    aspect-ratio: 21 / 9;
-    max-height: min(42vw, 520px);
   }
 }
 
 .heroImg {
   width: 100%;
   height: 100%;
-  min-height: min(58vw, 380px);
   object-fit: cover;
   object-position: center top;
   display: block;
 }
 
-.heroMedia > .heroImg:first-child {
+.heroMedia > .heroImg {
   position: absolute;
   inset: 0;
 }
@@ -79,11 +82,9 @@
 }
 
 .heroShell {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
   z-index: 2;
+  width: 100%;
   max-width: 1080px;
   margin: 0 auto;
   padding: clamp(16px, 4vw, 28px) clamp(16px, 4vw, 28px) clamp(22px, 4vw, 36px);
@@ -233,6 +234,64 @@
 .heroChipAccent {
   background: rgba(255, 78, 24, 0.92);
   border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Суперкубок / футбольный стадион — компактный hero в духе Portalbilet */
+.heroSport {
+  min-height: min(72vh, 640px);
+}
+
+@media (min-width: 900px) {
+  .heroSport {
+    min-height: min(58vh, 560px);
+  }
+}
+
+.heroSport .heroVignette {
+  background: linear-gradient(
+    105deg,
+    rgba(6, 18, 12, 0.94) 0%,
+    rgba(8, 28, 18, 0.62) 44%,
+    rgba(10, 32, 22, 0.28) 68%,
+    rgba(6, 16, 10, 0.5) 100%
+  );
+}
+
+.heroSport .heroGradientBottom {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 36%,
+    rgba(4, 12, 8, 0.62) 86%,
+    rgba(4, 10, 7, 0.88) 100%
+  );
+}
+
+.heroSport .heroKicker {
+  color: rgba(196, 255, 214, 0.95) !important;
+}
+
+.heroSportMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.heroChipSport {
+  background: rgba(22, 120, 72, 0.88);
+  border-color: rgba(196, 255, 214, 0.28);
+}
+
+.heroChipSportPrice {
+  background: rgba(22, 120, 72, 0.95);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.heroChipFanId {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 214, 120, 0.45);
+  color: rgba(255, 236, 180, 0.98);
 }
 
 .heroPosterWrap {

@@ -6,8 +6,34 @@
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY = 'luzhniki-football';
 
+export const SUPERKUP_NN_REPERTOIRE_ID = 'olimpbet-superkubok-rossii';
+export const SUPERKUP_NN_STAGE_MAP_KEY = 'supercup-nn-football';
+
 /** Синхронно с backend/utils/luzhnikiFootballRepertoires.js */
 const DEFAULT_LUZHNIKI_FOOTBALL_REPERTOIRE_IDS = new Set(['6a05d17b46a4d000309ecf4e']);
+
+export function isSupercupNnRepertoire(repertoireId: string | null | undefined): boolean {
+  return String(repertoireId || '').trim().toLowerCase() === SUPERKUP_NN_REPERTOIRE_ID;
+}
+
+export function isFootballStadiumRepertoire(repertoireId: string | null | undefined): boolean {
+  return isLuzhnikiFootballRepertoire(repertoireId) || isSupercupNnRepertoire(repertoireId);
+}
+
+export function isFootballStadiumCheckoutLayout(layout: unknown): boolean {
+  if (isLuzhnikiStadiumCheckoutLayout(layout)) return true;
+  if (!layout || typeof layout !== 'object') return false;
+  const r = layout as Record<string, unknown>;
+  return r.stadiumMapKey === SUPERKUP_NN_STAGE_MAP_KEY;
+}
+
+export function footballStadiumStageMapKeyForRepertoire(
+  repertoireId: string | null | undefined,
+): string | null {
+  if (isLuzhnikiFootballRepertoire(repertoireId)) return LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+  if (isSupercupNnRepertoire(repertoireId)) return SUPERKUP_NN_STAGE_MAP_KEY;
+  return null;
+}
 
 export function isLuzhnikiFootballRepertoire(repertoireId: string | null | undefined): boolean {
   const id = String(repertoireId || '').trim().toLowerCase();
@@ -56,4 +82,23 @@ export function parseHallBackgroundFromLabeledSeats(layout: unknown): boolean {
   if (r.hallBackgroundFromLabeledSeats === false) return false;
   if (r.hallBackgroundFromLabeledSeats === true) return true;
   return false;
+}
+
+/** ~77k точек не в JSON — серая чаша из hallBackgroundRasterUrl (PNG). */
+export function parseOmitClientSeatCoordinateCloud(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).omitClientSeatCoordinateCloud === true;
+}
+
+export function parseHallBackgroundRasterUrl(layout: unknown): string | null {
+  if (!layout || typeof layout !== 'object') return null;
+  const url = (layout as Record<string, unknown>).hallBackgroundRasterUrl;
+  if (typeof url !== 'string' || !url.trim()) return null;
+  return url.trim();
+}
+
+/** Lazy-load ~77k x/y для vector-кружков при zoom-in (рядом с PNG чаши). */
+export function hallBackgroundDotsUrlFromRaster(rasterUrl: string | null | undefined): string | null {
+  if (!rasterUrl?.trim()) return null;
+  return rasterUrl.trim().replace(/\.png(\?.*)?$/i, '-dots.bin$1');
 }

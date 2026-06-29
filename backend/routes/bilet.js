@@ -46,8 +46,9 @@ import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+  slimLuzhnikiStageMapForClient,
 } from '../services/luzhnikiFootballStageMap.js';
-import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
+import { footballStadiumStageMapKeyForRepertoire } from '../utils/footballStadiumRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
@@ -67,8 +68,14 @@ import {
   buildLuzhnikiFootballStadiumInkscapePreview,
   buildLuzhnikiFootballStadiumPreview,
 } from '../services/pbiletLuzhnikiFootballPreview.js';
+import { getGrayCloudLabeledBundleVersion } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 
 const router = express.Router();
+const luzhnikiStageMapResponseCache = new Map();
+const LUZHNIKI_STAGE_MAP_CACHE_TTL_MS = Math.max(
+  15_000,
+  Number(process.env.LUZHNIKI_STAGE_MAP_CACHE_TTL_MS || 180_000),
+);
 
 /**
  * @param {unknown} err
@@ -550,9 +557,20 @@ router.get('/stage/:stageId/map', async (req, res) => {
     const stageId = requireNonEmptyString(req.params.stageId, 'stageId');
     const repertoireId =
       typeof req.query.repertoireId === 'string' ? req.query.repertoireId.trim() : '';
-    const forcedMapKey = luzhnikiFootballStageMapKeyForRepertoire(repertoireId);
+    const forcedMapKey = footballStadiumStageMapKeyForRepertoire(repertoireId);
     const lookupKey =
       forcedMapKey || (await resolveStageMapLookupExternalId(stageId, repertoireId));
+    const isLuzhnikiMap = lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+    const bypassCache = req.query.refresh === '1' || req.query.fresh === '1';
+    const bundleVersion = isLuzhnikiMap ? getGrayCloudLabeledBundleVersion() : '';
+    const cacheKey = isLuzhnikiMap ? `${lookupKey}|${repertoireId || '_'}|${bundleVersion}` : '';
+    if (isLuzhnikiMap && !bypassCache) {
+      const cached = luzhnikiStageMapResponseCache.get(cacheKey);
+      if (cached && Date.now() - cached.createdAt < LUZHNIKI_STAGE_MAP_CACHE_TTL_MS) {
+        res.setHeader('X-Luzhniki-Map-Cache', 'hit');
+        return sendPublicJson(req, res, cached.stageRow, { cacheSeconds: 60, staleSeconds: 120 });
+      }
+    }
     let r = await ticketPool.query(
       `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
        FROM getbilet_stage_maps WHERE stage_external_id = $1`,
@@ -576,7 +594,7 @@ router.get('/stage/:stageId/map', async (req, res) => {
     if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
 
     let stageRow = r.rows[0];
-    if (lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY && repertoireId) {
+    if (isLuzhnikiMap && repertoireId) {
       try {
         const { payload } = await getPublicOffersForRepertoire(repertoireId);
         const offerRows = filterPublicOffersPayload(
@@ -587,6 +605,14 @@ router.get('/stage/:stageId/map', async (req, res) => {
       } catch (err) {
         console.warn('[bilet] stage map sellable geodesy', repertoireId, err?.message || err);
       }
+    }
+    if (isLuzhnikiMap) {
+      stageRow = slimLuzhnikiStageMapForClient(stageRow);
+      luzhnikiStageMapResponseCache.set(cacheKey, {
+        createdAt: Date.now(),
+        stageRow,
+      });
+      res.setHeader('X-Luzhniki-Map-Cache', bypassCache ? 'refresh' : 'miss');
     }
 
     return sendPublicJson(req, res, stageRow, { cacheSeconds: 60, staleSeconds: 120 });

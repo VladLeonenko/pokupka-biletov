@@ -21,6 +21,15 @@ backend/logs/
 # Luzhniki full pilot seats sidecar (генерится build:luzhniki-stadium-pilot)
 backend/data/luzhniki-geodesy/hand/bundle-luzhniki-stadium-pilot-seats.json
 
+# Luzhniki editor runtime (hover.html → POST save), не в git — только на VPS
+backend/data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json
+backend/data/luzhniki-geodesy/hand/bundle-*.json
+backend/data/luzhniki-geodesy/hand/*.svg
+backend/data/luzhniki-geodesy/hand/*.svg.gz
+!backend/data/luzhniki-geodesy/hand/.gitkeep
+frontend/public/tools/luzhniki-gray-cloud-enriched.svg
+frontend/public/tools/luzhniki-gray-cloud-enriched.svg.gz
+
 # Build outputs
 dist/
 build/

@@ -222,6 +222,14 @@ export function OrderDetailPage() {
                     <Typography variant="body1">{order.customerPhone}</Typography>
                   </Box>
                 )}
+                {order.fanId ? (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">FAN ID</Typography>
+                    <Typography variant="body1" sx={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                      {order.fanId}
+                    </Typography>
+                  </Box>
+                ) : null}
                 {order.shippingAddress && (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">Адрес доставки</Typography>

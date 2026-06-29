@@ -129,6 +129,17 @@ export default function OrdersAdminPage() {
                     <Typography variant="caption" color="text.secondary">
                       {order.customerPhone || '—'}
                     </Typography>
+                    {order.fanId ? (
+                      <Chip
+                        label={`FAN ID: ${order.fanId}`}
+                        size="small"
+                        sx={{ mt: 0.5, bgcolor: 'rgba(255,78,24,0.12)', color: '#c45c2a', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                      />
+                    ) : order.notes?.includes('FAN ID') ? (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        {order.notes}
+                      </Typography>
+                    ) : null}
                     {order.charityPreference && order.charityPreference.length > 0 ? (
                       <Chip
                         label={order.charityPreference.map((a) => `${a.fund_name} ${a.percent}%`).join(' + ')}

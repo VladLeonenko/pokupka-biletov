@@ -193,6 +193,22 @@
   background: rgba(255, 78, 24, 0.05);
 }
 
+.faqSection {
+  margin-bottom: 28px;
+}
+
+.faqSection:last-of-type {
+  margin-bottom: 0;
+}
+
+.faqCategory {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #141414;
+}
+
 /* FAQ: native details */
 .faqList {
   display: flex;

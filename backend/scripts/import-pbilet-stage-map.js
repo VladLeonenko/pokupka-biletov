@@ -29,8 +29,16 @@
  * отдельная строка в getbilet_stage_maps на каждый StageId.
  */
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import ticketPool from '../ticketDb.js';
 import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
+import { buildTheaterHallSectorMode } from '../utils/theaterHallSvgSectorMode.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '../..');
 
 const DEFAULT_SOURCE_ID = '2';
 const DEFAULT_CURRENCY = 'RUB';
@@ -44,6 +52,11 @@ function requiredEnv(name) {
 
 function optionalEnv(name, fallback = null) {
   return process.env[name]?.trim() || fallback;
+}
+
+function truthyEnv(name) {
+  const v = process.env[name]?.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
 }
 
 async function fetchJson(url) {
@@ -188,18 +201,36 @@ function collectSectorMeta(ticketsPayload) {
     .filter(Boolean);
 }
 
+function readSvgMarkupOverride() {
+  const rawPath = optionalEnv('STAGE_MAP_SVG_PATH');
+  if (!rawPath) return null;
+  const abs = path.isAbsolute(rawPath) ? rawPath : path.join(REPO_ROOT, rawPath);
+  if (!fs.existsSync(abs)) throw new Error(`STAGE_MAP_SVG_PATH не найден: ${abs}`);
+  return fs.readFileSync(abs, 'utf8').trim();
+}
+
 async function main() {
   const stageId = requiredEnv('STAGE_MAP_STAGE_ID');
   const title = requiredEnv('STAGE_MAP_TITLE');
   const layoutId = requiredEnv('PBILET_LAYOUT_ID');
-  const eventSourceId = requiredEnv('PBILET_EVENT_SOURCE_ID');
-  const eventDateId = requiredEnv('PBILET_EVENT_DATE_ID');
+  const eventSourceId = optionalEnv('PBILET_EVENT_SOURCE_ID');
+  const eventDateId = optionalEnv('PBILET_EVENT_DATE_ID');
+  const coordinatesOnly = truthyEnv('STAGE_MAP_COORDINATES_ONLY');
   const sourceId = optionalEnv('PBILET_SOURCE_ID', DEFAULT_SOURCE_ID);
   const currency = optionalEnv('PBILET_CURRENCY', DEFAULT_CURRENCY);
   const lang = optionalEnv('PBILET_LANG', DEFAULT_LANG);
 
+  if (!coordinatesOnly && (!eventSourceId || !eventDateId)) {
+    throw new Error(
+      'PBILET_EVENT_SOURCE_ID и PBILET_EVENT_DATE_ID обязательны (или STAGE_MAP_COORDINATES_ONLY=1 для только облака точек)',
+    );
+  }
+
   const coordinatesUrl = `https://tickets.api.pbilet.net/public/v1/hall-layouts/${encodeURIComponent(layoutId)}/coordinates`;
-  const ticketsUrl = `https://api.pbilet.net/public/v2/tickets?currency_code=${encodeURIComponent(currency)}&lang=${encodeURIComponent(lang)}&event_source_id=${encodeURIComponent(eventSourceId)}&event_date_id=${encodeURIComponent(eventDateId)}&source_id=${encodeURIComponent(sourceId)}`;
+  const ticketsUrl =
+    eventSourceId && eventDateId
+      ? `https://api.pbilet.net/public/v2/tickets?currency_code=${encodeURIComponent(currency)}&lang=${encodeURIComponent(lang)}&event_source_id=${encodeURIComponent(eventSourceId)}&event_date_id=${encodeURIComponent(eventDateId)}&source_id=${encodeURIComponent(sourceId)}`
+      : null;
 
   const coordinatesPayload = await fetchJson(coordinatesUrl);
   const width = Number(coordinatesPayload?.width);
@@ -208,41 +239,80 @@ async function main() {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     throw new Error('Некорректные размеры схемы pbilet');
   }
-  if (!bgUrl) throw new Error('В pbilet coordinates нет bg SVG');
 
-  const [ticketsPayload, svgMarkupRaw] = await Promise.all([
-    fetchJson(ticketsUrl),
-    fetchText(bgUrl),
-  ]);
-  let svgMarkup = svgMarkupRaw.trim();
+  const svgOverride = readSvgMarkupOverride();
+  if (!svgOverride && !bgUrl) throw new Error('В pbilet coordinates нет bg SVG и STAGE_MAP_SVG_PATH не задан');
+
+  const ticketsPayload =
+    ticketsUrl != null ? await fetchJson(ticketsUrl) : { sectors: [] };
+  let svgMarkup = svgOverride;
+  if (!svgMarkup) {
+    svgMarkup = (await fetchText(bgUrl)).trim();
+  }
   svgMarkup = normalizeHallSvgDataIds(svgMarkup);
-  if (!svgMarkup.includes('<svg')) throw new Error(`bg не похож на SVG: ${bgUrl}`);
+  if (!svgMarkup.includes('<svg')) {
+    throw new Error(svgOverride ? 'STAGE_MAP_SVG_PATH не похож на SVG' : `bg не похож на SVG: ${bgUrl}`);
+  }
 
   const seats = collectLayoutSeats(ticketsPayload, width, height);
   const allSeatCoordinates = collectAllSeatCoordinates(coordinatesPayload, width, height);
-  const sectors = collectSectorMeta(ticketsPayload);
-  if (seats.length === 0) throw new Error('Не удалось извлечь координаты мест из pbilet tickets');
+  const pbiletSectors = collectSectorMeta(ticketsPayload);
+  if (seats.length === 0 && !coordinatesOnly) {
+    throw new Error('Не удалось извлечь координаты мест из pbilet tickets');
+  }
+  if (allSeatCoordinates.length < 2 && seats.length === 0) {
+    throw new Error('Нет координат: ни allSeatCoordinates, ни seats');
+  }
+
+  const displayHallWidthRaw = optionalEnv('STAGE_MAP_HALL_WIDTH');
+  const displayHallHeightRaw = optionalEnv('STAGE_MAP_HALL_HEIGHT');
+  const displayHallWidth = displayHallWidthRaw ? Number(displayHallWidthRaw) : width;
+  const displayHallHeight = displayHallHeightRaw ? Number(displayHallHeightRaw) : height;
+  const sectorModeFromSvg = truthyEnv('STAGE_MAP_SECTOR_MODE_FROM_SVG');
+  let sectorMode;
+  if (sectorModeFromSvg) {
+    sectorMode = buildTheaterHallSectorMode(svgMarkup, { source: 'theater-svg' });
+    if (!sectorMode.enabled) {
+      throw new Error('STAGE_MAP_SECTOR_MODE_FROM_SVG: в SVG нет path[data-id][data-name]');
+    }
+  } else {
+    sectorMode = {
+      enabled: true,
+      source: 'pbilet',
+      sectors: pbiletSectors,
+    };
+  }
+
+  const maxZoomMultiplierRaw = optionalEnv('STAGE_MAP_MAX_ZOOM_MULTIPLIER');
+  const maxZoomMultiplier = maxZoomMultiplierRaw ? Number(maxZoomMultiplierRaw) : NaN;
+  const hallKind = optionalEnv('STAGE_MAP_HALL_KIND');
+  const preferLayoutSeats = truthyEnv('STAGE_MAP_PREFER_LAYOUT_SEATS');
 
   const layoutJson = {
     layoutMode: 'svgNative',
     showUnavailableSeats: false,
     grayHallWhenNoOffers: true,
-    seats,
     allSeatCoordinates,
-    sectorMode: {
-      enabled: true,
-      source: 'pbilet',
-      sectors,
-    },
+    ...(seats.length > 0 ? { seats } : {}),
+    ...(Number.isFinite(maxZoomMultiplier) && maxZoomMultiplier >= 1
+      ? { maxZoomMultiplier, sectorFocusZoomMultiplier: maxZoomMultiplier }
+      : {}),
+    ...(hallKind ? { hallKind } : {}),
+    ...(preferLayoutSeats ? { preferLayoutSeatPositions: true } : {}),
+    sectorMode,
     pbilet: {
       layoutId,
-      eventSourceId,
-      eventDateId,
+      ...(eventSourceId ? { eventSourceId } : {}),
+      ...(eventDateId ? { eventDateId } : {}),
       sourceId,
       currency,
       coordinatesUrl,
-      ticketsUrl,
-      bgUrl,
+      ...(ticketsUrl ? { ticketsUrl } : {}),
+      ...(bgUrl ? { bgUrl } : {}),
+      coordinateWidth: width,
+      coordinateHeight: height,
+      hallWidth: displayHallWidth,
+      hallHeight: displayHallHeight,
       importedAt: new Date().toISOString(),
     },
     note:
@@ -268,8 +338,8 @@ async function main() {
       title,
       svgMarkup,
       JSON.stringify(layoutJson),
-      `Импортировано из pbilet layout ${layoutId}; seats=${seats.length}; allSeatCoordinates=${allSeatCoordinates.length}; sectors=${sectors.length}`,
-      'https://sm-tickets.com/events/290778',
+      `Импортировано из pbilet layout ${layoutId}; seats=${seats.length}; allSeatCoordinates=${allSeatCoordinates.length}; sectors=${sectorMode.sectors?.length ?? pbiletSectors.length}`,
+      optionalEnv('STAGE_MAP_EXTERNAL_PLAN_URL', 'https://sm-tickets.com/events/290778'),
     ],
   );
 
@@ -279,7 +349,7 @@ async function main() {
         saved: result.rows[0],
         seats: seats.length,
         allSeatCoordinates: allSeatCoordinates.length,
-        sectors: sectors.length,
+        sectors: sectorMode.sectors?.length ?? pbiletSectors.length,
         bgUrl,
       },
       null,

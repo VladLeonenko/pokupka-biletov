@@ -10,6 +10,7 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { ContactFormSection } from '@/components/contacts/ContactFormSection';
 import { fetchPublicTicketsVitrine } from '@/services/ticketsVitrineApi';
 import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
+import { OPERATOR } from '@/utils/operatorLegalInfo';
 import styles from './ContactsPage.module.css';
 
 export function ContactsPage() {
@@ -127,8 +128,9 @@ export function ContactsPage() {
           />
 
           <footer className={styles.legal}>
-            Возврат и обмен билетов регулирует правила организатора и площадки; мы помогаем оформить обращение через
-            сервис.
+            {OPERATOR.shortName}, ИНН {OPERATOR.inn}, ОГРНИП {OPERATOR.ogrnip}. Возврат и обмен — по правилам
+            организатора; помогаем оформить обращение через сервис.{' '}
+            <Link to="/requisites">Реквизиты</Link>, <Link to="/offer">оферта</Link>.
           </footer>
         </div>
       </main>

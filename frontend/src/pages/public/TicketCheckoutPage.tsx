@@ -52,9 +52,13 @@ import {
 } from '@/services/biletPublicApi';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 import {
-  isLuzhnikiFootballRepertoire,
-  isLuzhnikiStadiumCheckoutLayout,
+  footballStadiumStageMapKeyForRepertoire,
+  isFootballStadiumCheckoutLayout,
+  isFootballStadiumRepertoire,
+  isSupercupNnRepertoire,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+  SUPERKUP_NN_STAGE_MAP_KEY,
+  parseOmitClientSeatCoordinateCloud,
 } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
@@ -357,17 +361,25 @@ export function TicketCheckoutPage() {
     ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup?.trim() ?? '' : '';
   const svgDeferred = Boolean(ctx?.stageMap?.svg_markup_deferred);
   const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
-  const isLuzhnikiFootballStageEarly = useMemo(() => {
-    if (isLuzhnikiFootballRepertoire(repertoireId)) return true;
+  const isFootballStadiumStageEarly = useMemo(() => {
+    if (isFootballStadiumRepertoire(repertoireId)) return true;
     if (stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) return true;
-    if (isLuzhnikiStadiumCheckoutLayout(ctx?.stageMap?.layout_json)) return true;
+    if (stageIdEff === SUPERKUP_NN_STAGE_MAP_KEY) return true;
+    if (isFootballStadiumCheckoutLayout(ctx?.stageMap?.layout_json)) return true;
     return false;
   }, [repertoireId, stageIdEff, ctx?.stageMap?.layout_json]);
 
-  const stageMapQueryId =
-    stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY || isLuzhnikiFootballStageEarly
-      ? LUZHNIKI_FOOTBALL_STAGE_MAP_KEY
-      : stageIdEff;
+  const stageMapQueryId = useMemo(() => {
+    const fromRepertoire = footballStadiumStageMapKeyForRepertoire(repertoireId);
+    if (fromRepertoire) return fromRepertoire;
+    if (stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) return LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+    if (stageIdEff === SUPERKUP_NN_STAGE_MAP_KEY) return SUPERKUP_NN_STAGE_MAP_KEY;
+    if (isFootballStadiumCheckoutLayout(ctx?.stageMap?.layout_json)) {
+      const key = (ctx?.stageMap?.layout_json as Record<string, unknown> | undefined)?.stadiumMapKey;
+      if (typeof key === 'string' && key.trim()) return key.trim();
+    }
+    return stageIdEff;
+  }, [repertoireId, stageIdEff, ctx?.stageMap?.layout_json]);
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
     queryKey: ['bilet-stage-map', stageMapQueryId, repertoireId ?? ''],
@@ -378,15 +390,15 @@ export function TicketCheckoutPage() {
       (svgDeferred ||
         ctx?.stageId !== stageIdEff ||
         !hasUsableHallSvgFromContext ||
-        (isLuzhnikiFootballStageEarly && Boolean(repertoireId?.trim()))),
-    staleTime: isLuzhnikiFootballStageEarly ? 30_000 : 120_000,
+        (isFootballStadiumStageEarly && Boolean(repertoireId?.trim()))),
+    staleTime: isFootballStadiumStageEarly ? 30_000 : 120_000,
   });
 
-  const isLuzhnikiFootballStage = useMemo(() => {
-    if (isLuzhnikiFootballStageEarly) return true;
-    if (isLuzhnikiStadiumCheckoutLayout(mapByStageId?.layout_json)) return true;
+  const isFootballStadiumStage = useMemo(() => {
+    if (isFootballStadiumStageEarly) return true;
+    if (isFootballStadiumCheckoutLayout(mapByStageId?.layout_json)) return true;
     return false;
-  }, [isLuzhnikiFootballStageEarly, mapByStageId?.layout_json]);
+  }, [isFootballStadiumStageEarly, mapByStageId?.layout_json]);
 
   /** Все офферы GetBilet как пришли — без среза по сеансу/цене на фронте (сеанс → выбор даты, сектор → только список). */
   const offers = useMemo(() => parseOffers(raw), [raw]);
@@ -477,7 +489,7 @@ export function TicketCheckoutPage() {
   }, [repertoireId]);
 
   const stadiumSectorOptions = useMemo(() => {
-    if (!isLuzhnikiFootballStage) return [];
+    if (!isFootballStadiumStage) return [];
     const byNorm = new Map<string, string>();
     for (const o of listableOffers as OfferRow[]) {
       const raw = String(o.Sector ?? '').trim();
@@ -488,7 +500,7 @@ export function TicketCheckoutPage() {
     return [...byNorm.entries()]
       .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
       .map(([norm, label]) => ({ norm, label }));
-  }, [isLuzhnikiFootballStage, listableOffers]);
+  }, [isFootballStadiumStage, listableOffers]);
 
   useEffect(() => {
     if (!isSuccess || !repertoireId) return;
@@ -512,14 +524,14 @@ export function TicketCheckoutPage() {
   }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
   const filteredOffers = useMemo(() => {
-    if (isLuzhnikiFootballStage) {
+    if (isFootballStadiumStage) {
       if (stadiumSectorFilter === 'all') return listableOffers as OfferRow[];
       return (listableOffers as OfferRow[]).filter(
         (o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter,
       );
     }
     return filterOffers(listableOffers as OfferRowLike[], filterState) as OfferRow[];
-  }, [isLuzhnikiFootballStage, listableOffers, filterState, stadiumSectorFilter]);
+  }, [isFootballStadiumStage, listableOffers, filterState, stadiumSectorFilter]);
 
   const priceColorMap = useMemo(() => {
     const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
@@ -591,7 +603,7 @@ export function TicketCheckoutPage() {
     return out;
   }, [sessionEntriesSorted, selectedSessionKey, defaultSessionKey]);
 
-  const offerRowsPreviewLimit = isLuzhnikiFootballStage ? LUZHNIKI_OFFER_ROWS_PREVIEW : OFFER_ROWS_PREVIEW;
+  const offerRowsPreviewLimit = isFootballStadiumStage ? LUZHNIKI_OFFER_ROWS_PREVIEW : OFFER_ROWS_PREVIEW;
 
   const groupedOfferRowsForList = useMemo(() => {
     const sliced = showAllOfferRows
@@ -645,12 +657,13 @@ export function TicketCheckoutPage() {
       setOfferId(null);
       setSeats([]);
       setPurchaseOpen(false);
+      clearCart();
       return;
     }
     const primaryOfferId = details[0].offerId;
     setOfferId(primaryOfferId);
     setSeats(details.filter((d) => d.offerId === primaryOfferId).map((d) => d.seat));
-  }, []);
+  }, [clearCart, setPurchaseOpen]);
 
   const submitTicketRequest = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -869,7 +882,37 @@ export function TicketCheckoutPage() {
   const minPriceHero =
     listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
 
+  const isSupercupSportCheckout = isSupercupNnRepertoire(repertoireId);
+
+  const supercupDaysLeftLabel = useMemo(() => {
+    if (!isSupercupSportCheckout) return null;
+    const dt = allSessionsSorted[0]?.[0];
+    if (!dt || dt === '_') return null;
+    const eventDay = new Date(dt);
+    if (Number.isNaN(eventDay.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(eventDay);
+    target.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((target.getTime() - today.getTime()) / 86400000);
+    if (diff < 0) return 'Матч прошёл';
+    if (diff === 0) return 'Сегодня';
+    if (diff === 1) return 'Остался 1 день';
+    const mod10 = diff % 10;
+    const mod100 = diff % 100;
+    let word = 'дней';
+    if (mod10 === 1 && mod100 !== 11) word = 'день';
+    else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'дня';
+    return `Осталось ${diff} ${word}`;
+  }, [isSupercupSportCheckout, allSessionsSorted]);
+
   const hallSvg = useMemo(() => {
+    if (isFootballStadiumStageEarly) {
+      const fromMap = mapByStageId?.svg_markup?.trim();
+      if (fromMap) return fromMap;
+      if (!stageMapFetched) return null;
+      return mapByStageId?.svg_markup ?? ctx?.stageMap?.svg_markup ?? null;
+    }
     if (!stageIdEff) return ctx?.stageMap?.svg_markup ?? null;
     if (ctx?.stageId === stageIdEff && ctx?.stageMap?.svg_markup) {
       return ctx.stageMap.svg_markup;
@@ -882,6 +925,7 @@ export function TicketCheckoutPage() {
       (ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup ?? null : null)
     );
   }, [
+    isFootballStadiumStageEarly,
     stageIdEff,
     stageMapFetched,
     mapByStageId?.svg_markup,
@@ -897,13 +941,16 @@ export function TicketCheckoutPage() {
     const mapLayout = mapByStageId?.layout_json as Record<string, unknown> | undefined;
 
     /** Лужники: sellableSeats с GET /map (adaptLuzhniki + live offers), тяжёлое — из контекста. */
-    if (isLuzhnikiFootballStage && mapLayout && stageMapFetched) {
+    if (isFootballStadiumStage && mapLayout && stageMapFetched) {
+      const omitSeatCloud = parseOmitClientSeatCoordinateCloud(mapLayout);
       return {
         ...(ctxLayout ?? mapLayout),
         ...mapLayout,
         sellableSeats: Array.isArray(mapLayout.sellableSeats) ? mapLayout.sellableSeats : [],
         sellableSeatsFromLiveOffers: mapLayout.sellableSeatsFromLiveOffers === true,
-        allSeatCoordinates: ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates,
+        allSeatCoordinates: omitSeatCloud
+          ? undefined
+          : (ctxLayout?.allSeatCoordinates ?? mapLayout.allSeatCoordinates),
         seats: ctxLayout?.seats ?? mapLayout.seats,
         sectorMode: ctxLayout?.sectorMode ?? mapLayout.sectorMode,
         svg_markup: ctxLayout?.svg_markup ?? mapLayout.svg_markup,
@@ -918,7 +965,7 @@ export function TicketCheckoutPage() {
   }, [
     stageIdEff,
     stageMapFetched,
-    isLuzhnikiFootballStage,
+    isFootballStadiumStage,
     mapByStageId?.layout_json,
     ctx?.stageId,
     ctx?.stageMap,
@@ -957,27 +1004,37 @@ export function TicketCheckoutPage() {
   /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
   const hallMapLoadSettled = useMemo(() => {
     if (ctxLoading) return false;
+    if (isFootballStadiumStageEarly && repertoireId.trim()) return stageMapFetched;
     if (!stageIdEff) return true;
     if (hasUsableHallSvgFromContext) return true;
     return stageMapFetched;
-  }, [ctxLoading, stageIdEff, hasUsableHallSvgFromContext, stageMapFetched]);
+  }, [
+    ctxLoading,
+    stageIdEff,
+    hasUsableHallSvgFromContext,
+    stageMapFetched,
+    isFootballStadiumStageEarly,
+    repertoireId,
+  ]);
 
   const showHallMissingCard =
     Boolean(!hallSvg && !externalPlanUrl && hallMapLoadSettled);
 
   /** Блок схемы сразу, пока тянем SVG/layout (Лужники deferred и т.п.). */
   const showHallMapShell = useMemo(() => {
-    if (!stageIdEff || showHallMissingCard) return false;
+    if (showHallMissingCard) return false;
+    if (!stageIdEff && !isFootballStadiumStageEarly) return false;
     if (hallMapLoadSettled && !hallSvg && externalPlanUrl) return false;
-    return Boolean(hallSvg) || !hallMapLoadSettled || svgDeferred || isLuzhnikiFootballStage;
+    return Boolean(hallSvg) || !hallMapLoadSettled || svgDeferred || isFootballStadiumStage;
   }, [
-    stageIdEff,
     showHallMissingCard,
+    stageIdEff,
+    isFootballStadiumStageEarly,
     hallMapLoadSettled,
     hallSvg,
     externalPlanUrl,
     svgDeferred,
-    isLuzhnikiFootballStage,
+    isFootballStadiumStage,
   ]);
 
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
@@ -1029,26 +1086,26 @@ export function TicketCheckoutPage() {
     (pk: string) => {
       if (mapSelectedPriceKey === pk) {
         setMapSelectedPriceKey(null);
-        if (!isLuzhnikiFootballStage) {
+        if (!isFootballStadiumStage) {
           setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
         }
         return;
       }
       const n = Number(pk);
       setMapSelectedPriceKey(pk);
-      if (!isLuzhnikiFootballStage && Number.isFinite(n)) {
+      if (!isFootballStadiumStage && Number.isFinite(n)) {
         setFilterState((s) => ({ ...s, priceRange: [n, n] }));
       }
     },
-    [isLuzhnikiFootballStage, mapSelectedPriceKey, pb.min, pb.max],
+    [isFootballStadiumStage, mapSelectedPriceKey, pb.min, pb.max],
   );
 
   const handleMapPriceReset = useCallback(() => {
     setMapSelectedPriceKey(null);
-    if (!isLuzhnikiFootballStage) {
+    if (!isFootballStadiumStage) {
       setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
     }
-  }, [isLuzhnikiFootballStage, pb.min, pb.max]);
+  }, [isFootballStadiumStage, pb.min, pb.max]);
 
   const hallSchemeSubtitle = useMemo(() => {
     if (seatSelectionDisabledUi) {
@@ -1215,7 +1272,7 @@ export function TicketCheckoutPage() {
         url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
       />
       <Box className={styles.page}>
-        <div className={styles.hero}>
+        <div className={`${styles.hero} ${isSupercupSportCheckout ? styles.heroSport : ''}`}>
           <div className={styles.heroMedia}>
             {coverUrl ? (
               <TicketEventPosterImg
@@ -1242,6 +1299,22 @@ export function TicketCheckoutPage() {
                   ← К афише
                 </Link>
                 {heroKickerDisplay ? <p className={styles.heroKicker}>{heroKickerDisplay}</p> : null}
+                {isSupercupSportCheckout ? (
+                  <div className={styles.heroSportMeta}>
+                    <span className={styles.heroChip}>0+</span>
+                    {heroDateSublineOnly ? (
+                      <span className={styles.heroChip}>{heroDateSublineOnly}</span>
+                    ) : null}
+                    {supercupDaysLeftLabel ? (
+                      <span className={`${styles.heroChip} ${styles.heroChipSport}`}>
+                        {supercupDaysLeftLabel}
+                      </span>
+                    ) : null}
+                    {requiresFanId ? (
+                      <span className={`${styles.heroChip} ${styles.heroChipFanId}`}>FAN ID</span>
+                    ) : null}
+                  </div>
+                ) : null}
                 <Typography variant="h4" component="h1" className={styles.heroTitle}>
                   {displayTitle}
                 </Typography>
@@ -1275,7 +1348,11 @@ export function TicketCheckoutPage() {
                 {(minPriceHero != null || sessionChipLabel) && (
                   <div className={styles.heroChips}>
                     {minPriceHero != null ? (
-                      <span className={`${styles.heroChip} ${styles.heroChipAccent}`}>
+                      <span
+                        className={`${styles.heroChip} ${
+                          isSupercupSportCheckout ? styles.heroChipSportPrice : styles.heroChipAccent
+                        }`}
+                      >
                         от {minPriceHero.toLocaleString('ru-RU')} ₽
                       </span>
                     ) : null}
@@ -1439,7 +1516,7 @@ export function TicketCheckoutPage() {
               <Box className={styles.primaryHallMapHead}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                    Схема зала
+                    {isFootballStadiumStage ? 'Схема стадиона' : 'Схема зала'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {hallMapReady ? hallSchemeSubtitle : 'Загрузка схемы…'}
@@ -1506,7 +1583,7 @@ export function TicketCheckoutPage() {
                   alignItems: 'flex-end',
                 }}
               >
-                {isLuzhnikiFootballStage ? (
+                {isFootballStadiumStage ? (
                   <Autocomplete
                     size="small"
                     sx={{ minWidth: 280, flex: '1 1 280px', maxWidth: 420 }}
@@ -1563,7 +1640,7 @@ export function TicketCheckoutPage() {
                     </Select>
                   </FormControl>
                 )}
-                {!isLuzhnikiFootballStage ? (
+                {!isFootballStadiumStage ? (
                   <>
                     <Box sx={{ flex: '1 1 260px', minWidth: 200, px: 0.5 }}>
                       <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>

@@ -11,6 +11,15 @@ import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { mergeSellableSeatsIntoLayout } from '../utils/luzhnikiLayoutSeatPatch.js';
 import {
+  buildSellableSeatGeodesy,
+  buildGrayCloudRowZipMap,
+  lookupLabeledSeat,
+} from '../utils/hallSeatGeodesyMatch.js';
+import {
+  getCachedGrayCloudLabeledIndex,
+  useGrayCloudRowZipForBundle,
+} from '../utils/luzhnikiGrayCloudLabeledIndex.js';
+import {
   buildSellableSeatGeodesyPbiletAccurate,
   ensureLuzhnikiLayoutCloud,
 } from '../utils/luzhnikiPbiletSellableGeodesy.js';
@@ -91,6 +100,144 @@ export function shouldUseLuzhnikiFootballCanonicalMap(base, placeMapsVenue, stag
   return kind === 'football';
 }
 
+/** Клиенту: без ~77k allSeatCoordinates / seats — чаша = PNG + sellableSeats с API. */
+export function slimLuzhnikiStageMapForClient(row) {
+  if (!row) return row;
+  const layout = parseLayoutJson(row);
+  const manualSeats = Array.isArray(layout.seats) && layout.seats.length <= 8000
+    ? layout.seats.filter((s) => String(s?.geodesySource ?? '').includes('manual'))
+    : [];
+  const manualBackgroundSeats = Array.isArray(layout.backgroundSeats) ? layout.backgroundSeats : [];
+  const {
+    allSeatCoordinates: _cloud,
+    seats: _seats,
+    seatPositions: _seatPositions,
+    backgroundSeats: _bg,
+    coordinates: _coords,
+    ...slimLayout
+  } = layout;
+
+  return {
+    ...row,
+    layout_json: {
+      ...slimLayout,
+      ...(manualSeats.length > 0 ? { seats: manualSeats } : null),
+      ...(manualBackgroundSeats.length > 0 ? { backgroundSeats: manualBackgroundSeats } : null),
+      omitClientSeatCoordinateCloud: true,
+      hallBackgroundRasterUrl: '/hall-maps/luzhniki-football-gray-bowl.png',
+      stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+      luzhnikiStadiumCheckout: true,
+    },
+  };
+}
+
+function useFastManualSellable() {
+  const v = process.env.LUZHNIKI_FAST_MANUAL_SELLABLE?.trim();
+  return v !== '0' && v !== 'false';
+}
+
+function buildSellableSeatsFromManualBundle(offers = []) {
+  if (!useFastManualSellable()) return null;
+  const index = getCachedGrayCloudLabeledIndex();
+  if (!index?.size) return null;
+
+  const allManualSeats = [];
+  const backgroundSeats = [];
+  const seenManual = new Set();
+  const seenBackground = new Set();
+  const pushManualSeat = (s) => {
+    const key = `${s.sector}|${s.row}|${s.seat}|${Number(s.xPct).toFixed(4)}|${Number(s.yPct).toFixed(4)}`;
+    const xPct = Number(s.xPct);
+    const yPct = Number(s.yPct);
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return;
+
+    const bgKey = `${xPct.toFixed(4)}|${yPct.toFixed(4)}`;
+    if (!seenBackground.has(bgKey)) {
+      seenBackground.add(bgKey);
+      backgroundSeats.push([Number(xPct.toFixed(4)), Number(yPct.toFixed(4))]);
+    }
+
+    if (index.size > 8000 || seenManual.has(key)) return;
+    seenManual.add(key);
+    allManualSeats.push({
+      sector: s.sector,
+      row: String(s.row),
+      seat: String(s.seat),
+      xPct,
+      yPct,
+      geodesySource: 'manualEditor',
+    });
+  };
+  for (const s of index.values()) pushManualSeat(s);
+
+  const seats = [];
+  const seen = new Set();
+  let totalSellable = 0;
+  let directMatched = 0;
+  let rowZipMatched = 0;
+  const unmatchedSamples = [];
+  const allowRowZip = useGrayCloudRowZipForBundle();
+
+  for (const o of offers) {
+    const sector = String(o?.Sector ?? '');
+    const row = String(o?.Row ?? '');
+    const seatList = Array.isArray(o?.SeatList) ? o.SeatList.map(String) : [];
+    const rowZipMap = allowRowZip ? buildGrayCloudRowZipMap(index, sector, row, seatList) : null;
+
+    for (const seat of seatList) {
+      if (!seat.trim()) continue;
+      totalSellable += 1;
+      const dedupe = `${sector}|${row}|${seat}`;
+      if (seen.has(dedupe)) continue;
+
+      let hit = lookupLabeledSeat(index, sector, row, seat);
+      let geodesySource = 'grayCloudLabeledFast';
+      if (hit) {
+        directMatched += 1;
+      } else if (rowZipMap?.has(String(seat).trim())) {
+        hit = rowZipMap.get(String(seat).trim());
+        geodesySource = 'grayCloudLabeledFast+rowZip';
+        rowZipMatched += 1;
+      }
+
+      if (!hit) {
+        if (unmatchedSamples.length < 24) unmatchedSamples.push({ sector, row, seat });
+        continue;
+      }
+
+      seen.add(dedupe);
+      seats.push({
+        sector,
+        row,
+        seat,
+        xPct: Number(hit.xPct),
+        yPct: Number(hit.yPct),
+        geodesySource,
+      });
+    }
+  }
+
+  return {
+    allManualSeats,
+    backgroundSeats,
+    seats,
+    totalSellable,
+    matched: seats.length,
+    directMatched,
+    rowZipMatched,
+    unmatchedSamples,
+  };
+}
+
+function buildSellableSeatsFromLayoutSeats(layout, offers = []) {
+  const layoutSeats = Array.isArray(layout?.seats) ? layout.seats : [];
+  if (layoutSeats.length < 1) return null;
+
+  const geodesy = buildSellableSeatGeodesy(layoutSeats, offers);
+  if (!geodesy?.seats?.length) return null;
+  return geodesy;
+}
+
 export async function loadLuzhnikiFootballStageMapRow() {
   const key = LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
   const r = await ticketPool.query(
@@ -125,6 +272,52 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   const offers = Array.isArray(offerRows) ? offerRows : [];
   if (offers.length < 1) {
     return { ...row, layout_json: { ...base, sellableSeats: [], sellableSeatsFromLiveOffers: true } };
+  }
+
+  const manualSellable = buildSellableSeatsFromManualBundle(offers);
+  if (manualSellable?.seats?.length) {
+    return {
+      ...row,
+      layout_json: {
+        ...base,
+        ...(manualSellable.allManualSeats.length > 0 ? { seats: manualSellable.allManualSeats } : null),
+        backgroundSeats: manualSellable.backgroundSeats,
+        sellableSeats: manualSellable.seats,
+        sellableSeatsFromLiveOffers: true,
+        sellableGeodesyMode: 'manualBundleFast',
+        offerSeatGeodesy: {
+          matched: manualSellable.matched,
+          totalSellable: manualSellable.totalSellable,
+          grayCloudLabeledMatched: manualSellable.directMatched,
+          grayCloudRowZipMatched: manualSellable.rowZipMatched,
+          partialManualOnly: true,
+          unmatchedSamples: manualSellable.unmatchedSamples,
+        },
+      },
+    };
+  }
+
+  const layoutSellable = buildSellableSeatsFromLayoutSeats(layoutForGeodesy, offers);
+  if (layoutSellable?.seats?.length) {
+    return {
+      ...row,
+      layout_json: {
+        ...base,
+        sellableSeats: layoutSellable.seats.map((seat) => ({
+          ...seat,
+          geodesySource: 'layoutStrictFast',
+        })),
+        sellableSeatsFromLiveOffers: true,
+        sellableGeodesyMode: 'layoutStrictFast',
+        offerSeatGeodesy: {
+          matched: layoutSellable.matched,
+          totalSellable: layoutSellable.totalSellable,
+          strictMatched: layoutSellable.matched,
+          partialManualOnly: false,
+          unmatchedSamples: layoutSellable.unmatchedSamples,
+        },
+      },
+    };
   }
 
   const ticketsPayload = loadTicketsPayload();

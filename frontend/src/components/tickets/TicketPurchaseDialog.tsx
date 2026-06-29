@@ -4,7 +4,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
-import { FAN_ID_NOTICE, isValidFanId, normalizeFanId } from '@/utils/fanIdRequiredEvents';
+import { FAN_ID_NOTICE, isValidFanId, isFanIdRequiredForRepertoire, normalizeFanId } from '@/utils/fanIdRequiredEvents';
 import styles from './TicketPurchaseDialog.module.css';
 
 export type TicketPurchaseDialogProps = {
@@ -44,6 +44,10 @@ export function TicketPurchaseDialog({
   descriptionLead,
   requiresFanId = false,
 }: TicketPurchaseDialogProps) {
+  const requiresFanIdEffective = useMemo(
+    () => requiresFanId || isFanIdRequiredForRepertoire(repertoireId),
+    [requiresFanId, repertoireId],
+  );
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -110,7 +114,7 @@ export function TicketPurchaseDialog({
         customerPhone: phone.trim(),
         customerEmail: email.trim(),
         promoCode: promo.trim() || undefined,
-        fanId: requiresFanId ? normalizeFanId(fanId) : undefined,
+        fanId: requiresFanIdEffective ? normalizeFanId(fanId) : undefined,
       });
     },
     onSuccess: (data) => {
@@ -131,7 +135,7 @@ export function TicketPurchaseDialog({
     phone.replace(/\D/g, '').length >= 10 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
     seats.length > 0 &&
-    (!requiresFanId || isValidFanId(fanId));
+    (!requiresFanIdEffective || isValidFanId(fanId));
 
   const handleClose = useCallback(() => {
     if (checkoutMut.isPending) return;
@@ -185,7 +189,7 @@ export function TicketPurchaseDialog({
           </div>
         </div>
 
-        {requiresFanId ? (
+        {requiresFanIdEffective ? (
           <div className={styles.fanIdBlock} role="note">
             <p className={styles.fanIdBlockTitle}>FAN ID обязателен</p>
             <p className={styles.fanIdBlockHint}>{FAN_ID_NOTICE}</p>
@@ -194,7 +198,7 @@ export function TicketPurchaseDialog({
 
         <p className={styles.sectionLabel}>Контакты</p>
         <div className={styles.formGrid}>
-          {requiresFanId ? (
+          {requiresFanIdEffective ? (
             <TextField
               required
               label="Номер FAN ID"

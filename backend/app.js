@@ -23,6 +23,8 @@ import carouselsRouter from './routes/carousels.js';
 import publicCarouselsRouter from './routes/publicCarousels.js';
 import errorsRouter from './routes/errors.js';
 import luzhnikiGrayCloudSvgRouter from './routes/luzhnikiGrayCloudSvg.js';
+import vakhtangovHallSeatEditorRouter from './routes/vakhtangovHallSeatEditor.js';
+import ramtHallSeatEditorRouter from './routes/ramtHallSeatEditor.js';
 import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
@@ -112,7 +114,7 @@ app.use(cors({
   origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token', 'x-hall-map-save-token', 'x-vakhtangov-seats-save-token'],
 }));
 
 // Compression middleware - сжимаем все ответы (gzip/brotli)
@@ -165,6 +167,7 @@ app.use(helmet({
         "https://api.openai.com",
         "https://mc.yandex.ru", // Яндекс.Метрика
         "wss://mc.yandex.ru",  // Яндекс.Метрика Webvisor
+        "https://top-fwz1.mail.ru", // Top.Mail.Ru (VK)
         "https://www.google-analytics.com", // Google Analytics
         "https://cc.calltracking.ru", // Коллтрекинг
         "http://localhost:3000",
@@ -252,6 +255,8 @@ app.use('/api/ai-team', authenticatedLimiter);
 // public endpoints
 app.use('/api/errors', errorsRouter); // Логирование ошибок с фронтенда (публичный)
 app.use('/api/tools/luzhniki-gray-cloud-svg', luzhnikiGrayCloudSvgRouter);
+app.use('/api/tools/vakhtangov-hall-seats', vakhtangovHallSeatEditorRouter);
+app.use('/api/tools/ramt-hall-seats', ramtHallSeatEditorRouter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);
@@ -428,6 +433,24 @@ app.get('/robots.txt', (req, res) => {
   res.status(404).type('text/plain').send('Not found');
 });
 
+app.get('/hall-maps/luzhniki-football-gray-bowl.png', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/luzhniki-football-gray-bowl.png', (r) => {
+    r.setHeader('Content-Type', 'image/png');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/hall-maps/luzhniki-football-gray-bowl-dots.bin', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/luzhniki-football-gray-bowl-dots.bin', (r) => {
+    r.setHeader('Content-Type', 'application/octet-stream');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
 const LUZHNIKI_GRID_DIAG_HTML = [
   'luzhniki-grid-diagnostic.html',
   'luzhniki-grid-diagnostic-d230.html',
@@ -463,6 +486,9 @@ if (existingDistRoots.length) {
         res.setHeader('Cache-Control', 'public, max-age=3600');
       } else if (filePath.endsWith('favicon.svg')) {
         res.setHeader('Content-Type', 'image/svg+xml');
+      } else if (filePath.endsWith('.bin')) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       } else if (filePath.includes(`${path.sep}tools${path.sep}`) && filePath.endsWith('.html')) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
