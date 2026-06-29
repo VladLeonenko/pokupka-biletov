@@ -12,7 +12,7 @@
  */
 
 import ticketPool from '../ticketDb.js';
-import { buildLuzhnikiFootballStadiumPreview } from '../services/pbiletLuzhnikiFootballPreview.js';
+import { buildPbiletCategoryStadiumPreview } from '../services/pbiletLuzhnikiFootballPreview.js';
 import { footballStadiumCheckoutLayoutFlags } from '../utils/footballStadiumCheckoutLayout.js';
 import {
   SUPERKUP_NN_REPERTOIRE_ID,
@@ -106,9 +106,7 @@ function demoOffersPayload(offers) {
 }
 
 async function main() {
-  process.env.LUZHNIKI_ALLOW_SYNTHETIC_SEATS = process.env.LUZHNIKI_ALLOW_SYNTHETIC_SEATS || '1';
-
-  const preview = await buildLuzhnikiFootballStadiumPreview({
+  const preview = await buildPbiletCategoryStadiumPreview({
     layoutId: PBILET_LAYOUT_ID,
     eventSourceId: process.env.PBILET_EVENT_SOURCE_ID?.trim() || '',
     eventDateId: process.env.PBILET_EVENT_DATE_ID?.trim() || '',
@@ -151,7 +149,7 @@ async function main() {
       preview.svg_markup,
       JSON.stringify(layoutJson),
       `seed seed-supercup-nn-2026-event.js · pbilet ${PBILET_LAYOUT_ID} · ${preview.meta?.mode ?? 'preview'}`,
-      'https://portalbilet.ru/nizhnijnovgorod/superkubok-rossii-po-futbolu',
+      null,
     ],
   );
 

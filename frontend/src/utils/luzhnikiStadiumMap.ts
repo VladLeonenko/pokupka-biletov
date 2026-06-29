@@ -90,6 +90,11 @@ export function parseOmitClientSeatCoordinateCloud(layout: unknown): boolean {
   return (layout as Record<string, unknown>).omitClientSeatCoordinateCloud === true;
 }
 
+export function parsePbiletCategoryCheckout(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).pbiletCategoryCheckout === true;
+}
+
 export function parseHallBackgroundRasterUrl(layout: unknown): string | null {
   if (!layout || typeof layout !== 'object') return null;
   const url = (layout as Record<string, unknown>).hallBackgroundRasterUrl;

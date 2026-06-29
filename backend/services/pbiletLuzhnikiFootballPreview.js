@@ -361,6 +361,190 @@ export async function buildLuzhnikiFootballStadiumInkscapePreview(opts = {}) {
   };
 }
 
+/** Демо-цены Portalbilet для layout 1800 (Совкомбанк Арена, 9 категорий). */
+const PBILET_CATEGORY_DEMO_TIERS = [
+  [{ price: 275000, qty: 12, row: 'VIP' }],
+  [{ price: 66000, qty: 24, row: '100-101' }],
+  [{ price: 44000, qty: 40, row: '200-201' }],
+  [{ price: 16500, qty: 120, row: '300-301' }],
+  [
+    { price: 15500, qty: 4, row: '220-221' },
+    { price: 16500, qty: 256, row: '220-221' },
+  ],
+  [{ price: 15500, qty: 80, row: '400-401' }],
+  [{ price: 11000, qty: 200, row: '500-501' }],
+  [{ price: 8800, qty: 300, row: '600-601' }],
+  [{ price: 7600, qty: 400, row: '700-701' }],
+];
+
+function sortCategoryLabel(label) {
+  const m = String(label || '').match(/(\d+)/);
+  return m ? Number(m[1]) : 999;
+}
+
+/**
+ * Офферы по категориям pbilet без координат мест (автовыбор мест, как Portalbilet).
+ * @param {{ label: string }[]} sectors
+ */
+export function demoOffersFromPbiletCategories(sectors, eventIso, priceDefault = '1500') {
+  const sorted = [...sectors].sort((a, b) => sortCategoryLabel(a.label) - sortCategoryLabel(b.label));
+  const offers = [];
+  let idx = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const sector = sorted[i];
+    const tiers =
+      PBILET_CATEGORY_DEMO_TIERS[i] || [{ price: Number(priceDefault) || 1500, qty: 20, row: 'Авто' }];
+    for (const tier of tiers) {
+      const seats = Array.from({ length: tier.qty }, (_, j) => String(j + 1));
+      offers.push({
+        Id: `supercup-cat-${idx++}`,
+        Sector: sector.label,
+        Row: tier.row,
+        SeatList: seats,
+        NominalPrice: String(tier.price),
+        AgentPrice: String(tier.price),
+        EventDateTime: eventIso,
+      });
+    }
+  }
+  return offers;
+}
+
+function enrichSectorsWithOfferMeta(sectors, offers) {
+  return sectors.map((sector) => {
+    const related = offers.filter((o) => normalizeText(o.Sector) === normalizeText(sector.label));
+    const prices = related
+      .map((o) => Number(o.NominalPrice ?? o.AgentPrice))
+      .filter((n) => Number.isFinite(n));
+    const seatCount = related.reduce(
+      (sum, o) => sum + (Array.isArray(o.SeatList) ? o.SeatList.length : 0),
+      0,
+    );
+    return {
+      ...sector,
+      availableSeats: seatCount,
+      minPrice: prices.length ? Math.min(...prices) : null,
+      maxPrice: prices.length ? Math.max(...prices) : null,
+    };
+  });
+}
+
+/**
+ * Схема pbilet по категориям (Совкомбанк Арена / Portalbilet): SVG-подложка + сектора path, без точек мест.
+ *
+ * @param {{
+ *   layoutId?: string,
+ *   eventSourceId?: string | null,
+ *   eventDateId?: string | null,
+ *   sourceId?: string,
+ *   currency?: string,
+ *   lang?: string,
+ *   demoEventIso?: string,
+ *   ticketsSnapshotPath?: string,
+ * }} opts
+ */
+export async function buildPbiletCategoryStadiumPreview(opts = {}) {
+  const layoutId = String(opts.layoutId || '1800').trim();
+  const sourceId = String(opts.sourceId || DEFAULT_SOURCE_ID).trim();
+  const currency = String(opts.currency || DEFAULT_CURRENCY).trim();
+  const lang = String(opts.lang || DEFAULT_LANG).trim();
+  const eventSourceId = opts.eventSourceId?.trim() || '';
+  const eventDateId = opts.eventDateId?.trim() || '';
+  const demoEventIso = opts.demoEventIso?.trim() || '2026-07-18T16:30:00.000Z';
+
+  const coordinatesUrl = `https://tickets.api.pbilet.net/public/v1/hall-layouts/${encodeURIComponent(layoutId)}/coordinates`;
+  const coordinatesPayload = await fetchJson(coordinatesUrl);
+  const width = Number(coordinatesPayload?.width);
+  const height = Number(coordinatesPayload?.height);
+  const bgUrl = normalizeText(coordinatesPayload?.bg);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new Error('Некорректные размеры схемы pbilet');
+  }
+  if (!bgUrl) throw new Error('В pbilet coordinates нет bg SVG');
+
+  const svgMarkupRaw = (await fetchText(bgUrl)).trim();
+  let svgMarkup = normalizeHallSvgDataIds(svgMarkupRaw);
+  if (!svgMarkup.includes('<svg')) throw new Error('bg не похож на SVG');
+
+  let sectors = sectorsFromCoordinateCategories(coordinatesPayload);
+  let mode = 'pbilet_category';
+  let demoOffers = demoOffersFromPbiletCategories(sectors, demoEventIso);
+
+  const snapshotRel =
+    String(opts.ticketsSnapshotPath || process.env.LUZHNIKI_PBILET_TICKETS_JSON || '').trim();
+  if (snapshotRel) {
+    try {
+      const ticketsPayloadFromFile = loadTicketsSnapshotFromRepo(snapshotRel);
+      if (ticketsPayloadFromFile && !ticketsPayloadFromFile?.detail) {
+        const ticketSectors = collectSectorMeta(ticketsPayloadFromFile);
+        if (ticketSectors.length > 0) {
+          sectors = ticketSectors;
+          mode = 'pbilet_tickets_category';
+        }
+      }
+    } catch (e) {
+      console.warn('[buildPbiletCategoryStadiumPreview] snapshot:', e?.message || e);
+    }
+  }
+
+  if (mode !== 'pbilet_tickets_category' && eventSourceId && eventDateId) {
+    const ticketsUrl = `https://api.pbilet.net/public/v2/tickets?currency_code=${encodeURIComponent(currency)}&lang=${encodeURIComponent(lang)}&event_source_id=${encodeURIComponent(eventSourceId)}&event_date_id=${encodeURIComponent(eventDateId)}&source_id=${encodeURIComponent(sourceId)}`;
+    try {
+      const ticketsPayload = await fetchJson(ticketsUrl);
+      if (!ticketsPayload?.detail) {
+        const ticketSectors = collectSectorMeta(ticketsPayload);
+        if (ticketSectors.length > 0) {
+          sectors = ticketSectors;
+          mode = 'pbilet_tickets_category';
+        }
+      }
+    } catch {
+      /* демо-офферы по категориям */
+    }
+  }
+
+  sectors = enrichSectorsWithOfferMeta(sectors, demoOffers);
+
+  const layoutJson = {
+    layoutMode: 'auto',
+    showUnavailableSeats: false,
+    seats: [],
+    allSeatCoordinates: [],
+    pbiletCategoryCheckout: true,
+    sectorMode: {
+      enabled: sectors.length > 0,
+      source: 'pbilet_category',
+      sectors,
+    },
+    pbilet: {
+      layoutId,
+      previewMode: mode,
+      coordinatesUrl,
+      bgUrl,
+      coordinateWidth: width,
+      coordinateHeight: height,
+      generatedAt: new Date().toISOString(),
+    },
+    note:
+      'Portalbilet category checkout: цветные сектора, выбор количества без точек мест на обзоре.',
+  };
+
+  return {
+    svg_markup: svgMarkup,
+    layout_json: layoutJson,
+    demoOffers,
+    meta: {
+      mode,
+      layoutId,
+      width,
+      height,
+      sectorCount: sectors.length,
+      seatCount: 0,
+      demoEventIso,
+    },
+  };
+}
+
 /**
  * @param {{
  *   layoutId?: string,

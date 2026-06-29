@@ -372,6 +372,7 @@ import {
   hallBackgroundDotsUrlFromRaster,
   parseHallBackgroundRasterUrl,
   parseOmitClientSeatCoordinateCloud,
+  parsePbiletCategoryCheckout,
 } from '@/utils/luzhnikiStadiumMap';
 import {
   normalizeRowLabel,
@@ -595,6 +596,10 @@ export function TicketHallInteractiveBlock({
   );
   const omitClientSeatCoordinateCloud = useMemo(
     () => parseOmitClientSeatCoordinateCloud(layoutJson),
+    [layoutJson],
+  );
+  const pbiletCategoryCheckout = useMemo(
+    () => parsePbiletCategoryCheckout(layoutJson),
     [layoutJson],
   );
   /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
@@ -1409,6 +1414,36 @@ export function TicketHallInteractiveBlock({
     });
   }, [onSelectionChange]);
 
+  const setCategoryOfferQty = useCallback(
+    (offer: OfferLike, targetQty: number) => {
+      const oid = String(offer.Id ?? '');
+      const seats = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+      const priceKey = getPriceKey(offer);
+      const rowLabel = String(offer.Row ?? '');
+      const sectorLabel = String(offer.Sector ?? selectedSector ?? '');
+      const prefix = `${oid}|${rowLabel}|`;
+      const clamped = Math.max(0, Math.min(targetQty, seats.length));
+      setSelectedSeatDetails((prev) => {
+        const kept = prev.filter((d) => !d.key.startsWith(prefix));
+        const next = [...kept];
+        for (let i = 0; i < clamped; i++) {
+          const seat = seats[i];
+          next.push({
+            key: selectionSeatKey(oid, rowLabel, seat),
+            offerId: oid,
+            sector: sectorLabel,
+            row: rowLabel,
+            seat,
+            priceKey,
+          });
+        }
+        onSelectionChange?.(next);
+        return next;
+      });
+    },
+    [getPriceKey, onSelectionChange, selectedSector],
+  );
+
   activatePlacementRef.current = (p: SvgNativePlacement) => {
     if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) return;
     const seatInfo: HallSelectedSeat = {
@@ -1476,11 +1511,12 @@ export function TicketHallInteractiveBlock({
     () => selectedSectorOffers.filter((offer) => Array.isArray(offer.SeatList) && offer.SeatList.length > 0),
     [selectedSectorOffers],
   );
-  /** Все sellable на карте при любом zoom — после приближения можно панорамировать к соседним секторам. */
+  /** Portalbilet category mode: только сектора, без точек мест. */
   const visibleNativePlacements = useMemo(() => {
+    if (pbiletCategoryCheckout && sectorMode.enabled) return [];
     if (!sectorMode.enabled) return nativePlacements;
     return nativePlacements;
-  }, [nativePlacements, sectorMode.enabled]);
+  }, [nativePlacements, pbiletCategoryCheckout, sectorMode.enabled]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
@@ -2145,19 +2181,69 @@ export function TicketHallInteractiveBlock({
               </div>
               <div className={styles.sectorPanelTitle}>{selectedSectorSummary.meta.label}</div>
               <div className={styles.sectorPanelMeta}>
-                {selectedSectorSummary.seatCount > 0
-                  ? `${selectedSectorSummary.seatCount} мест`
-                  : 'Нет мест в наличии'}{' '}
-                {selectedSectorSummary.minPrice != null
-                  ? `· ${formatRub(selectedSectorSummary.minPrice)}${
-                      selectedSectorSummary.maxPrice && selectedSectorSummary.maxPrice !== selectedSectorSummary.minPrice
-                        ? ` - ${formatRub(selectedSectorSummary.maxPrice)}`
-                        : ''
-                    }`
-                  : ''}
+                {pbiletCategoryCheckout ? (
+                  <>
+                    {selectedSectorSummary.meta.label}. Выберите количество билетов. Система автоматически подберёт
+                    лучшие места в выбранных зонах.
+                  </>
+                ) : (
+                  <>
+                    {selectedSectorSummary.seatCount > 0
+                      ? `${selectedSectorSummary.seatCount} мест`
+                      : 'Нет мест в наличии'}{' '}
+                    {selectedSectorSummary.minPrice != null
+                      ? `· ${formatRub(selectedSectorSummary.minPrice)}${
+                          selectedSectorSummary.maxPrice &&
+                          selectedSectorSummary.maxPrice !== selectedSectorSummary.minPrice
+                            ? ` - ${formatRub(selectedSectorSummary.maxPrice)}`
+                            : ''
+                        }`
+                      : ''}
+                  </>
+                )}
               </div>
               <div className={styles.sectorOfferList}>
-                {selectedSectorOffersWithSeats.length > 0 ? selectedSectorOffersWithSeats.map((offer) => {
+                {selectedSectorOffersWithSeats.length > 0 ? (
+                  pbiletCategoryCheckout ? (
+                    selectedSectorOffersWithSeats.map((offer) => {
+                      const oid = String(offer.Id ?? '');
+                      const seats = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+                      const priceKey = getPriceKey(offer);
+                      const rowLabel = String(offer.Row ?? '');
+                      const prefix = `${oid}|${rowLabel}|`;
+                      const selectedCount = selectedSeatDetails.filter((d) => d.key.startsWith(prefix)).length;
+                      return (
+                        <div key={`${oid}-${rowLabel}-${priceKey}`} className={styles.sectorOfferRow}>
+                          <div className={styles.sectorOfferHead}>
+                            <span>{formatRub(Number(priceKey))}/шт</span>
+                            <span className={styles.sectorOfferAvail}>Свободно {seats.length} шт</span>
+                          </div>
+                          <div className={styles.categoryQtyRow}>
+                            <button
+                              type="button"
+                              className={styles.categoryQtyBtn}
+                              aria-label="Меньше"
+                              disabled={selectedCount <= 0}
+                              onClick={() => setCategoryOfferQty(offer, selectedCount - 1)}
+                            >
+                              −
+                            </button>
+                            <span className={styles.categoryQtyValue}>{selectedCount}</span>
+                            <button
+                              type="button"
+                              className={styles.categoryQtyBtn}
+                              aria-label="Больше"
+                              disabled={selectedCount >= seats.length}
+                              onClick={() => setCategoryOfferQty(offer, selectedCount + 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    selectedSectorOffersWithSeats.map((offer) => {
                   const oid = String(offer.Id ?? '');
                   const seats = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
                   const priceKey = getPriceKey(offer);
@@ -2192,7 +2278,9 @@ export function TicketHallInteractiveBlock({
                       </div>
                     </div>
                   );
-                }) : (
+                    })
+                  )
+                ) : (
                   <div className={styles.sectorOfferEmpty}>
                     Сейчас в этом секторе нет доступных мест для бронирования.
                   </div>

@@ -774,6 +774,41 @@
   font-size: 0.8rem;
 }
 
+.sectorOfferAvail {
+  font-size: 0.78rem;
+  color: rgba(0, 0, 0, 0.52);
+}
+
+.categoryQtyRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.categoryQtyBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.categoryQtyBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.categoryQtyValue {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+}
+
 .selectionBar {
   display: flex;
   align-items: center;

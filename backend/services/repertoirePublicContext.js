@@ -14,12 +14,17 @@ import {
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 import { isLuzhnikiFootballRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
+import { isSupercupNnRepertoire } from '../utils/footballStadiumRepertoires.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
+import {
+  loadSupercupNnFootballStageMapRow,
+  SUPERKUP_NN_STAGE_MAP_KEY,
+} from './supercupNnFootballStageMap.js';
 import { slugify } from '../utils/eventSlug.js';
 import {
   isFanIdRequiredForRepertoire,
@@ -576,6 +581,28 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         if (lzRow) {
           stageMap = adaptLuzhnikiStageMapForLiveOffers(lzRow);
         }
+      }
+    }
+  } catch {
+    /* таблицы схем может не быть */
+  }
+
+  try {
+    if (isSupercupNnRepertoire(repertoireId)) {
+      if (deferStageHeavyFields) {
+        const peek = await loadSupercupNnFootballStageMapRow();
+        if (peek?.svg_markup) {
+          stageMap = {
+            stage_external_id: SUPERKUP_NN_STAGE_MAP_KEY,
+            title: peek.title || 'Совкомбанк Арена',
+            svg_markup: null,
+            layout_json: null,
+            svg_markup_deferred: true,
+          };
+        }
+      } else {
+        const row = await loadSupercupNnFootballStageMapRow();
+        if (row) stageMap = row;
       }
     }
   } catch {
