@@ -37,6 +37,7 @@ rsync -avz --progress \
   frontend/dist/manifest.json \
   frontend/dist/robots.txt \
   frontend/dist/favicon.svg \
+  frontend/dist/favicon.ico \
   frontend/dist/sw.js \
   "$HOST:$REMOTE/"
 
@@ -46,7 +47,7 @@ if [ -d frontend/dist/hall-maps ]; then
   rsync -avz --progress frontend/dist/hall-maps/ "$HOST:$REMOTE/hall-maps/"
 fi
 
-ssh "$HOST" "chown -R www-data:www-data '$REMOTE/index.html' '$REMOTE/assets' '$REMOTE/manifest.json' '$REMOTE/robots.txt' '$REMOTE/favicon.svg' '$REMOTE/sw.js' '$REMOTE/hall-maps' 2>/dev/null || chown -R www-data:www-data '$REMOTE'"
+ssh "$HOST" "chown -R www-data:www-data '$REMOTE/index.html' '$REMOTE/assets' '$REMOTE/manifest.json' '$REMOTE/robots.txt' '$REMOTE/favicon.svg' '$REMOTE/favicon.ico' '$REMOTE/sw.js' '$REMOTE/hall-maps' 2>/dev/null || chown -R www-data:www-data '$REMOTE'"
 
 echo ""
 echo "✅ Залито. Проверка:"

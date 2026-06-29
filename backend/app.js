@@ -486,6 +486,9 @@ if (existingDistRoots.length) {
         res.setHeader('Cache-Control', 'public, max-age=3600');
       } else if (filePath.endsWith('favicon.svg')) {
         res.setHeader('Content-Type', 'image/svg+xml');
+      } else if (filePath.endsWith('favicon.ico')) {
+        res.setHeader('Content-Type', 'image/x-icon');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
       } else if (filePath.endsWith('.bin')) {
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

@@ -1,4 +1,4 @@
-// PrimeCoder SW v2: только сеть, без cache-first по /assets (хэши меняются при каждом билде).
+// Biletvsem SW: passthrough, без cache-first по /assets.
 // Старый cache-first ломал загрузку CSS/JS после деплоя.
 
 const SW_VERSION = 'v2-passthrough';

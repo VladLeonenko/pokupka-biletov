@@ -269,6 +269,10 @@ export async function seoRenderer(req, res, next) {
       if (sendDistFile(res, 'sw.js', 'application/javascript; charset=utf-8', 'no-cache')) return;
       return res.status(404).type('text/plain').send('Not found');
     }
+    if (req.path === '/favicon.ico') {
+      if (sendDistFile(res, 'favicon.ico', 'image/x-icon', 'public, max-age=86400')) return;
+      return res.status(404).type('text/plain').send('Not found');
+    }
   }
 
   // Резерв: sitemap/feeds/llms — если запрос дошёл сюда (например, порядок middleware),

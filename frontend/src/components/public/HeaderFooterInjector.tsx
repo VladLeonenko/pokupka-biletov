@@ -195,10 +195,18 @@ export function HeaderFooterInjector() {
         }
       });
       
-      // Исправляем пути в link для favicon и других ресурсов
+      // Favicon — билетная витрина, не legacy PrimeCoder
       const links = element.querySelectorAll('link[href]');
       links.forEach((link) => {
         const href = link.getAttribute('href');
+        const rel = (link.getAttribute('rel') || '').toLowerCase();
+        if (!href) return;
+        if (rel.includes('icon') || rel.includes('apple-touch-icon')) {
+          if (href.includes('favicon') || href.includes('@img') || href.includes('apple-touch')) {
+            link.setAttribute('href', href.endsWith('.svg') ? '/favicon.svg' : '/favicon.ico');
+            return;
+          }
+        }
         if (href && !href.startsWith('http') && !href.startsWith('//')) {
           if (href.startsWith('img/') || href.includes('@img')) {
             link.setAttribute('href', `/legacy/${href.replace(/^\.?\//, '').replace('@img/', 'img/')}`);
