@@ -62,8 +62,15 @@
       <label><input type="checkbox" id="oneRow" checked /> 1 ряд</label>
       <label>Сектор <input type="text" id="paintSector" class="wide" list="sectorList" placeholder="Бельэтаж" /></label>
       <label>Ряд <input type="text" id="paintRow" placeholder="4" style="width:52px" /></label>
+      <label>ряд с <input type="number" id="rowFrom" value="1" style="width:52px" /></label>
       <label>Место с <input type="number" id="seatFrom" value="1" style="width:52px" /></label>
-      <button type="button" id="applyRow">▶ Применить ряд</button>
+      <button type="button" id="paintSelectRow" title="Выделить ряд по полю «Ряд»">⊙ ряд</button>
+      <button type="button" id="selectFirstRow" title="Выделить первый (верхний) ряд">1-й ряд</button>
+      <button type="button" id="selectLastRow" title="Выделить последний ряд">посл. ряд</button>
+      <button type="button" id="selectFirstCol" title="Первая колонка во всех рядах">1-я кол.</button>
+      <button type="button" id="selectLastCol" title="Последняя колонка во всех рядах">посл. кол.</button>
+      <button type="button" id="sectorApply" title="Заполнить весь сектор: ряды сверху вниз, места слева направо">↕ сектор</button>
+      <button type="button" id="applyRow">▶ Применить</button>
       <button type="button" id="clearSel">✕</button>
       <span class="hint" id="selCount">0 точек</span>
     </div>
@@ -92,6 +99,7 @@
   </div>
   <div id="toast"></div>
   <script src="/tools/theater-hall-sector-overlay.js"></script>
+  <script src="/tools/theater-hall-seat-selection.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
@@ -372,22 +380,57 @@
       refreshSelUi();
     }
 
+    function selectionCtx() {
+      const paintSector = document.getElementById('paintSector').value.trim();
+      return {
+        dots,
+        labels,
+        sectorOverlay,
+        hallW,
+        hallH,
+        sectorLabel: paintSector || sectorOverlay?.getActive?.() || '',
+        corridorPx: +document.getElementById('corridor').value || 18,
+        row: document.getElementById('paintRow').value.trim(),
+        rowStart: +document.getElementById('rowFrom').value || 1,
+        seatStart: +document.getElementById('seatFrom').value || 1,
+      };
+    }
+
+    function applySelectionResult(result) {
+      if (result.error) {
+        showToast('err', result.error);
+        return false;
+      }
+      if (result.keys?.length) {
+        selected.clear();
+        for (const key of result.keys) selected.add(key);
+        refreshSelUi();
+        showToast('ok', result.info || 'Выделено ' + result.keys.length);
+        return true;
+      }
+      return false;
+    }
+
+    function ensurePaintMode() {
+      if (appMode !== 'paint') setMode('paint');
+    }
+
     function applyRowToSelection() {
-      const sector = document.getElementById('paintSector').value.trim();
-      const row = document.getElementById('paintRow').value.trim();
-      let seatN = +document.getElementById('seatFrom').value || 1;
-      if (!sector || !row) { showToast('err', 'Сектор и ряд обязательны'); return; }
-      if (!selected.size) { showToast('err', 'Нет выделенных точек'); return; }
-      const keys = [...selected].sort((a, b) => {
-        const [ax] = a.split('|').map(Number);
-        const [bx] = b.split('|').map(Number);
-        return ax - bx;
+      const ctx = selectionCtx();
+      const result = TheaterHallSeatSelection.applySelectionLabels({
+        ...ctx,
+        selected,
+        sector: ctx.sectorLabel,
       });
-      for (const key of keys) {
-        labels.set(key, { sector, row, seat: String(seatN++), manual: true });
+      if (result.error) {
+        showToast('err', result.error);
+        return;
+      }
+      for (const u of result.updates) {
+        labels.set(u.key, { sector: u.sector, row: u.row, seat: u.seat, manual: true });
       }
       rebuildDots();
-      showToast('ok', 'Ряд «' + row + '»: ' + keys.length + ' мест');
+      showToast('ok', result.info);
       clearPaint();
     }
 
@@ -423,6 +466,49 @@
       const n = sectorOverlay.selectAllDotsInActiveSector(dots, labels, selected);
       refreshSelUi();
       showToast(n ? 'ok' : 'info', n ? 'Выделено ' + n + ' точек' : '0 точек в секторе');
+    };
+    document.getElementById('paintSelectRow').onclick = () => {
+      ensurePaintMode();
+      applySelectionResult(TheaterHallSeatSelection.selectRowByFields(selectionCtx()));
+    };
+    document.getElementById('selectFirstRow').onclick = () => {
+      ensurePaintMode();
+      applySelectionResult(TheaterHallSeatSelection.selectFirstRow(selectionCtx()));
+    };
+    document.getElementById('selectLastRow').onclick = () => {
+      ensurePaintMode();
+      applySelectionResult(TheaterHallSeatSelection.selectLastRow(selectionCtx()));
+    };
+    document.getElementById('selectFirstCol').onclick = () => {
+      ensurePaintMode();
+      applySelectionResult(TheaterHallSeatSelection.selectFirstColumn(selectionCtx()));
+    };
+    document.getElementById('selectLastCol').onclick = () => {
+      ensurePaintMode();
+      applySelectionResult(TheaterHallSeatSelection.selectLastColumn(selectionCtx()));
+    };
+    document.getElementById('sectorApply').onclick = () => {
+      ensurePaintMode();
+      const ctx = selectionCtx();
+      const built = TheaterHallSeatSelection.buildSectorFillPlan(ctx);
+      if (built.error) {
+        showToast('err', built.error);
+        return;
+      }
+      const text =
+        built.info +
+        '\nРяды с ' +
+        ctx.rowStart +
+        ', места с ' +
+        ctx.seatStart +
+        '. Применить?';
+      if (!window.confirm(text)) return;
+      for (const p of built.plan) {
+        labels.set(p.key, { sector: p.sector, row: p.row, seat: p.seat, manual: true });
+      }
+      rebuildDots();
+      showToast('ok', built.info);
+      clearPaint();
     };
     document.getElementById('applyRow').onclick = applyRowToSelection;
     document.getElementById('clearSel').onclick = clearPaint;
