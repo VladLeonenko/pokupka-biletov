@@ -29,6 +29,9 @@ backend/data/luzhniki-geodesy/hand/*.svg.gz
 !backend/data/luzhniki-geodesy/hand/.gitkeep
 frontend/public/tools/luzhniki-gray-cloud-enriched.svg
 frontend/public/tools/luzhniki-gray-cloud-enriched.svg.gz
+frontend/public/tools/luzhniki-gray-cloud-enriched-cloud-sector.svg
+frontend/public/tools/luzhniki-gray-cloud-full-labeled.svg
+frontend/public/tools/luzhniki-gray-cloud-strict-polygon.svg
 
 # Build outputs
 dist/
