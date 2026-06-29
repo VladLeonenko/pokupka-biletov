@@ -602,6 +602,12 @@ export function TicketHallInteractiveBlock({
     () => parsePbiletCategoryCheckout(layoutJson),
     [layoutJson],
   );
+  const theaterSectorCheckout = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return false;
+    const r = layoutJson as Record<string, unknown>;
+    if (r.luzhnikiStadiumCheckout === true || r.pbiletCategoryCheckout === true) return false;
+    return String(r.hallKind || '').trim().toLowerCase() === 'theater' && sectorMode.enabled;
+  }, [layoutJson, sectorMode.enabled]);
   /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
   const preferBundleBackgroundDots = useMemo(() => {
     if (!layoutJson || typeof layoutJson !== 'object') return false;
@@ -1511,12 +1517,19 @@ export function TicketHallInteractiveBlock({
     () => selectedSectorOffers.filter((offer) => Array.isArray(offer.SeatList) && offer.SeatList.length > 0),
     [selectedSectorOffers],
   );
-  /** Portalbilet category mode: только сектора, без точек мест. */
+  /** На обзоре: категории стадиона и театр pbilet — только сектора, без точек. */
   const visibleNativePlacements = useMemo(() => {
     if (pbiletCategoryCheckout && sectorMode.enabled) return [];
+    if (theaterSectorCheckout && !mapZoomed) return [];
     if (!sectorMode.enabled) return nativePlacements;
     return nativePlacements;
-  }, [nativePlacements, pbiletCategoryCheckout, sectorMode.enabled]);
+  }, [
+    mapZoomed,
+    nativePlacements,
+    pbiletCategoryCheckout,
+    sectorMode.enabled,
+    theaterSectorCheckout,
+  ]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =

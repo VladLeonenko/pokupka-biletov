@@ -1208,7 +1208,7 @@ router.get('/stage-map-editors', (_req, res) => {
       description: 'JSON bundle секторов и координат',
       path: '/tools/vakhtangov-hall-seats-editor.html',
       url: buildHallMapEditorUrl('/tools/vakhtangov-hall-seats-editor.html', saveToken),
-      stageMapKeys: ['vakhtangov-main-hall'],
+      stageMapKeys: ['5f3dedaa08192a003157dc6d', '5f3dee4f08192a003157dc71'],
     },
     {
       id: 'ramt-big-stage',

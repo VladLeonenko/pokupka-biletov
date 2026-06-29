@@ -16,6 +16,12 @@ import {
   ramtBigStageMapKeyForRepertoire,
   shouldUseRamtBigStageCanonicalMap,
 } from './ramtBigStageMap.js';
+import {
+  VAKHTANGOV_MAIN_STAGE_MAP_KEY,
+  isVakhtangovMainStageId,
+  vakhtangovMainStageMapKeyForRepertoire,
+  shouldUseVakhtangovMainStageCanonicalMap,
+} from './vakhtangovMainStageMap.js';
 
 function pickHallLabelFromPayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
@@ -40,6 +46,11 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
 
   const forcedRamt = ramtBigStageMapKeyForRepertoire(rid);
   if (forcedRamt) return forcedRamt;
+
+  const forcedVakhtangov = vakhtangovMainStageMapKeyForRepertoire(rid);
+  if (forcedVakhtangov) return forcedVakhtangov;
+
+  if (isVakhtangovMainStageId(sid)) return VAKHTANGOV_MAIN_STAGE_MAP_KEY;
 
   if (!rid || !sid) return sid;
 
@@ -78,6 +89,22 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
       )
     ) {
       return RAMT_BIG_STAGE_MAP_KEY;
+    }
+    if (
+      shouldUseVakhtangovMainStageCanonicalMap(
+        {
+          title: base.title,
+          repertoireId: rid,
+          stageId: sid,
+          venueManual: manualVenue,
+          venueFromPayload: base.venueFromPayload,
+          hall,
+        },
+        placeFromMaps.venue,
+        hall,
+      )
+    ) {
+      return VAKHTANGOV_MAIN_STAGE_MAP_KEY;
     }
   } catch (e) {
     console.warn('[stageMapLookup] resolveStageMapLookupExternalId:', e instanceof Error ? e.message : e);

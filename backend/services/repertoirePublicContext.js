@@ -25,6 +25,11 @@ import {
   loadSupercupNnFootballStageMapRow,
   SUPERKUP_NN_STAGE_MAP_KEY,
 } from './supercupNnFootballStageMap.js';
+import {
+  loadVakhtangovMainStageMapRow,
+  shouldUseVakhtangovMainStageCanonicalMap,
+  VAKHTANGOV_MAIN_STAGE_MAP_KEY,
+} from './vakhtangovMainStageMap.js';
 import { slugify } from '../utils/eventSlug.js';
 import {
   isFanIdRequiredForRepertoire,
@@ -602,6 +607,41 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         }
       } else {
         const row = await loadSupercupNnFootballStageMapRow();
+        if (row) stageMap = row;
+      }
+    }
+  } catch {
+    /* таблицы схем может не быть */
+  }
+
+  try {
+    if (
+      shouldUseVakhtangovMainStageCanonicalMap(
+        {
+          title,
+          repertoireId,
+          stageId,
+          venueManual: manualVenue,
+          venueFromPayload,
+          hall: stageHallLabel,
+        },
+        placeFromMaps.venue,
+        stageHallLabel,
+      )
+    ) {
+      if (deferStageHeavyFields) {
+        const peek = await loadVakhtangovMainStageMapRow();
+        if (peek?.svg_markup) {
+          stageMap = {
+            stage_external_id: VAKHTANGOV_MAIN_STAGE_MAP_KEY,
+            title: peek.title || 'Театр им. Вахтангова',
+            svg_markup: null,
+            layout_json: null,
+            svg_markup_deferred: true,
+          };
+        }
+      } else {
+        const row = await loadVakhtangovMainStageMapRow();
         if (row) stageMap = row;
       }
     }
