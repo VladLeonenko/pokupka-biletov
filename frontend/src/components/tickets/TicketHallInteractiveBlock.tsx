@@ -298,6 +298,41 @@ function parseGrayHallWhenNoOffers(
   return seatSelectionDisabled;
 }
 
+/** Стадион (Лужники): тысячи фоновых точек; театр — компактная схема. */
+function isStadiumScaleHallLayout(layout: unknown): boolean {
+  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
+  if (!r) return false;
+  if (r.stadiumMapKey === 'luzhniki-football') return true;
+  const bg = r.allSeatCoordinates;
+  if (Array.isArray(bg) && bg.length > 8000) return true;
+  return false;
+}
+
+/** Макс. zoom относительно fit (2 = 200%). layout_json.maxZoomMultiplier; театры — 2× по умолчанию. */
+function parseMaxZoomMultiplier(
+  layout: unknown,
+  sectorModeEnabled: boolean,
+  isCoarsePointer: boolean,
+): number {
+  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
+  const raw = r?.maxZoomMultiplier;
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+  if (Number.isFinite(n) && n >= 1) return n;
+  if (sectorModeEnabled && !isStadiumScaleHallLayout(layout)) return 2;
+  if (sectorModeEnabled) return isCoarsePointer ? 28 : 12;
+  return isCoarsePointer ? 18 : 8;
+}
+
+/** Zoom при клике по сектору (не zoom-to-fill bbox). */
+function parseSectorFocusZoomMultiplier(layout: unknown, maxZoomMultiplier: number): number {
+  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
+  const raw = r?.sectorFocusZoomMultiplier;
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+  if (Number.isFinite(n) && n >= 1) return Math.min(n, maxZoomMultiplier);
+  if (!isStadiumScaleHallLayout(layout)) return Math.min(2, maxZoomMultiplier);
+  return maxZoomMultiplier;
+}
+
 function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMeta[] } {
   if (!layout || typeof layout !== 'object') return { enabled: false, sectors: [] };
   const raw = (layout as Record<string, unknown>).sectorMode;
@@ -812,27 +847,33 @@ export function TicketHallInteractiveBlock({
   }, []);
 
   const [zoom, setZoom] = useState(1);
-  const maxZoomMultiplier = sectorMode.enabled
-    ? isCoarsePointer
-      ? 28
-      : 12
-    : isCoarsePointer
-      ? 18
-      : 8;
+  const maxZoomMultiplier = useMemo(
+    () => parseMaxZoomMultiplier(layoutJson, sectorMode.enabled, isCoarsePointer),
+    [isCoarsePointer, layoutJson, sectorMode.enabled],
+  );
+  const sectorFocusZoomMultiplier = useMemo(
+    () => parseSectorFocusZoomMultiplier(layoutJson, maxZoomMultiplier),
+    [layoutJson, maxZoomMultiplier],
+  );
   const maxZoom = fitZoom * maxZoomMultiplier;
+  const sectorFocusZoom = fitZoom * sectorFocusZoomMultiplier;
   const clampZoom = useCallback((z: number) => Math.min(maxZoom || 4, Math.max(0.03, z)), [maxZoom]);
   const discreteZoomLevels = useMemo(
     () => {
-      const multipliers = sectorMode.enabled
+      const baseMultipliers = sectorMode.enabled
         ? isCoarsePointer
           ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 28]
           : [1, 2, 3, 4, 6, 8, 10, 12]
         : isCoarsePointer
           ? [1, 2, 3, 4, 6, 8, 12, 16, 18]
           : [1, 2, 3, 4, 6, 8];
+      const multipliers = baseMultipliers.filter((m) => m <= maxZoomMultiplier + 0.001);
+      if (!multipliers.length || multipliers[multipliers.length - 1] < maxZoomMultiplier - 0.001) {
+        multipliers.push(maxZoomMultiplier);
+      }
       return multipliers.map((multiplier) => fitZoom * multiplier).map(clampZoom);
     },
-    [clampZoom, fitZoom, isCoarsePointer, sectorMode.enabled],
+    [clampZoom, fitZoom, isCoarsePointer, maxZoomMultiplier, sectorMode.enabled],
   );
   const getNextZoomLevel = useCallback((current: number, direction: 1 | -1) => {
     const ordered = [...new Set(discreteZoomLevels.map((level) => Number(level.toFixed(4))))].sort((a, b) => a - b);
@@ -1314,8 +1355,8 @@ export function TicketHallInteractiveBlock({
 
     const centerX = ((bbox.minX + bbox.maxX) / 2 / svgViewBox.width) * layers.offsetWidth;
     const centerY = ((bbox.minY + bbox.maxY) / 2 / svgViewBox.height) * layers.offsetHeight;
-    focusLayerPoint(centerX, centerY, maxZoom, sector.meta.label);
-  }, [focusLayerPoint, maxZoom, svgViewBox.height, svgViewBox.width]);
+    focusLayerPoint(centerX, centerY, sectorFocusZoom, sector.meta.label);
+  }, [focusLayerPoint, sectorFocusZoom, svgViewBox.height, svgViewBox.width]);
 
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
@@ -1779,7 +1820,7 @@ export function TicketHallInteractiveBlock({
                 className={`${styles.sectorLayer} ${
                   useCanvasCompositing ? styles.sectorLayerUnderSeats : ''
                 } ${
-                  hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : ''
+                  hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : styles.sectorLayerFitOverview
                 }`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"

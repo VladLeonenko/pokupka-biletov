@@ -23,6 +23,8 @@ import carouselsRouter from './routes/carousels.js';
 import publicCarouselsRouter from './routes/publicCarousels.js';
 import errorsRouter from './routes/errors.js';
 import luzhnikiGrayCloudSvgRouter from './routes/luzhnikiGrayCloudSvg.js';
+import vakhtangovHallSeatEditorRouter from './routes/vakhtangovHallSeatEditor.js';
+import ramtHallSeatEditorRouter from './routes/ramtHallSeatEditor.js';
 import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
@@ -112,7 +114,7 @@ app.use(cors({
   origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token', 'x-hall-map-save-token', 'x-vakhtangov-seats-save-token'],
 }));
 
 // Compression middleware - сжимаем все ответы (gzip/brotli)
@@ -253,6 +255,8 @@ app.use('/api/ai-team', authenticatedLimiter);
 // public endpoints
 app.use('/api/errors', errorsRouter); // Логирование ошибок с фронтенда (публичный)
 app.use('/api/tools/luzhniki-gray-cloud-svg', luzhnikiGrayCloudSvgRouter);
+app.use('/api/tools/vakhtangov-hall-seats', vakhtangovHallSeatEditorRouter);
+app.use('/api/tools/ramt-hall-seats', ramtHallSeatEditorRouter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);

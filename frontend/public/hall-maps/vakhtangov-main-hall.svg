@@ -1,14 +1,392 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1494 1292" width="1494" height="1292">
-  <title>0EB0=3>2  >A=>2=0O AF5=0 (703;CH:0)</title>
-  <desc>
-    0<5=8B5 D09; ?>;=K< SVG 70;0 (=0?@8<5@ M:A?>@B A pbilet-?>4>1=>3> D@>=B0 A path data-id="'!_uuid").
-    0;82:0: npm run seed:vakhtangov-stage-map (=>@<0;87C5B ?@5D8:AK data-id 8 ?8H5B 2 getbilet_stage_maps).
-  </desc>
-  <path
-    data-id="385480_placeholder-sector"
-    d="M327 722 L1169 722 L1169 1133 L327 1133 Z"
-    fill="rgba(15, 23, 42, 0.06)"
-    stroke="rgba(15, 23, 42, 0.15)"
-    stroke-width="2"
-  />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1494px" height="1292px" viewBox="0 0 1494 1292" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Untitled 26</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <text id="Сцена" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="21" font-weight="normal">
+            <tspan x="717.000148" y="1288">Сцена</tspan>
+        </text>
+        <path d="M881.614148,1266.9 C881.031148,1266.808 880.341148,1266.701 879.546148,1266.582 C877.277148,1266.239 874.626148,1265.857 871.616148,1265.447 C861.955729,1264.13746 852.274036,1262.98997 842.575148,1262.005 C811.995148,1258.877 779.853148,1257 748.000148,1257 C715.470148,1257 683.328148,1258.877 652.749148,1262.005 C643.049926,1262.98996 633.367899,1264.13745 623.707148,1265.447 C620.697148,1265.857 618.047148,1266.239 615.777148,1266.582 C614.983148,1266.702 614.292148,1266.808 613.709148,1266.9 C613.359148,1266.955 613.121148,1266.993 613.000148,1267 L613.000148,1269 C613.000148,1269 615.285148,1268.678 616.076148,1268.56 C618.336148,1268.218 620.977148,1267.838 623.977148,1267.428 C633.615951,1266.12182 643.275975,1264.97732 652.953148,1263.995 C683.468148,1260.873 715.544148,1259 748.000148,1259 C779.780148,1259 811.855148,1260.873 842.371148,1263.995 C852.047987,1264.97734 861.707677,1266.12183 871.346148,1267.428 C874.346148,1267.838 876.988148,1268.218 879.248148,1268.559 C880.038148,1268.679 880.724148,1268.784 881.303148,1268.876 C881.650148,1268.93 881.896148,1268.981 882.000148,1269 L882.000148,1267 C881.879148,1266.98 881.965148,1266.955 881.614148,1266.9 L881.614148,1266.9 Z" id="Path" fill="#E0E0DC" fill-rule="nonzero"></path>
+        <path d="M1291.00015,1036.18 L1291.00015,1144 C1291.00015,1150.627 1285.62715,1156 1279.00015,1156 L1204.00015,1156 C1197.37215,1156 1192.00015,1150.627 1192.00015,1144 L1192.00015,1130.47 C1192.00015,885.97 991.660148,698 747.000148,698 C502.340148,698 302.000148,885.97 302.000148,1130.47 L302.000148,1144 C302.000148,1150.627 296.627148,1156 290.000148,1156 L215.000148,1156 C208.373148,1156 203.000148,1150.627 203.000148,1144 L203.000148,1036.18 C203.000148,727.39 438.010148,464 747.000148,464 C1055.99015,464 1291.00015,727.39 1291.00015,1036.18 L1291.00015,1036.18 Z" id="Path" fill="#FFFFFF" fill-rule="nonzero"></path>
+        <path d="M1402.99615,1027 L1326.44915,1027 C1319.97315,1027 1314.68915,1021.857 1314.46415,1015.384 C1303.58915,702.582 1062.17215,440 747.020148,440 C431.870148,440 190.453148,702.582 179.577148,1015.384 C179.352148,1021.857 174.069148,1027 167.593148,1027 L91.0031479,1027 C84.2701479,1027 78.8561479,1021.457 78.9992629,1014.723 C88.3381479,585.644 333.786148,232 746.520148,232 C1158.60715,232 1404.89015,586.453 1414.99956,1014.702 C1415.15515,1021.443 1409.73615,1027 1402.99615,1027 Z" id="Path" fill="#FFFFFF" fill-rule="nonzero"></path>
+        <path d="M1482.42715,761.499 L1413.44715,763.992 C1407.8914,764.196184 1402.9252,760.551347 1401.45415,755.19 C1314.94815,439.17 1084.63415,209.038 746.696148,209.038 C408.131148,209.038 178.214148,438.768 92.3631479,755.143 C90.9008861,760.516884 85.9286956,764.174759 80.3631479,763.971 L11.5711479,761.479 C4.43414795,761.22 -0.904852053,754.81 0.128147947,747.74 C69.0181479,276.075 379.548148,0 746.536148,0 C1112.86615,0 1423.96815,277.14 1493.86815,747.733 C1494.91915,754.813 1489.57715,761.241 1482.42815,761.499 L1482.42715,761.499 Z" id="Path" fill="#FFFFFF" fill-rule="nonzero"></path>
+        <path d="M1168.00015,1220 C1168.00015,1226.627 1162.62715,1232 1156.00015,1232 L338.000148,1232 C331.373148,1232 326.000148,1226.627 326.000148,1220 L326.000148,1132 C326.000148,899.64 514.488148,721 747.000148,721 C979.512148,721 1168.00015,899.64 1168.00015,1132 L1168.00015,1220 Z" id="Path" fill="#FFFFFF" fill-rule="nonzero"></path>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="249.000148" y="1052">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="275.000148" y="924">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="368.000148" y="772">3</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1238.00015" y="1052">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1204.00015" y="924">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1116.00015" y="772">3</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="90.0001479" y="641">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="156.000148" y="502">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="272.000148" y="357">4</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1399.00015" y="641">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1330.00015" y="502">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1216.00015" y="357">4</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1193.00015" y="601">4</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="11" font-weight="normal">
+            <tspan x="1289.00015" y="757">3</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="11" font-weight="normal">
+            <tspan x="1337.00015" y="902">2</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="297.000148" y="601">4</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="11" font-weight="normal">
+            <tspan x="197.000148" y="757">3</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="11" font-weight="normal">
+            <tspan x="148.000148" y="902">2</tspan>
+        </text>
+        <text id="Партер" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="725.000148" y="754">Партер</tspan>
+        </text>
+        <text id="Амфитеатр" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="713.134148" y="498">Амфитеатр</tspan>
+        </text>
+        <text id="Ложи-бенуара" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1050.03115" y="715">Ложи бенуара</tspan>
+        </text>
+        <text id="Ложи-бельэтажа" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1122.02315" y="520">Ложи бельэтажа</tspan>
+        </text>
+        <text id="Ложи-балкона" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="1142.19015" y="278">Ложи балкона</tspan>
+        </text>
+        <text id="Ложи-бенуара" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="364.031148" y="715">Ложи бенуара</tspan>
+        </text>
+        <text id="Ложи-бельэтажа" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="268.023148" y="520">Ложи бельэтажа</tspan>
+        </text>
+        <text id="Ложи-балкона" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="262.190148" y="278">Ложи балкона</tspan>
+        </text>
+        <text id="Бельэтаж" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="718.115148" y="267">Бельэтаж</tspan>
+        </text>
+        <text id="Балкон" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="13" font-weight="normal">
+            <tspan x="725.205148" y="34">Балкон</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="744.275148" y="1197">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="744.275148" y="1174">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="744.275148" y="1152">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="744.275148" y="1130">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="744.275148" y="1108">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="744.275148" y="1086">6</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="497.551148" y="1197">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="457.551148" y="1174">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="477.551148" y="1152">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="477.551148" y="1130">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="457.551148" y="1108">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="457.551148" y="1086">6</tspan>
+        </text>
+        <text id="7" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="626.551148" y="1031">7</tspan>
+        </text>
+        <text id="8" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="626.551148" y="1009">8</tspan>
+        </text>
+        <text id="9" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="626.551148" y="987">9</tspan>
+        </text>
+        <text id="10" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="614.102148" y="965">10</tspan>
+        </text>
+        <text id="11" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="614.695148" y="943">11</tspan>
+        </text>
+        <text id="12" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="614.102148" y="921">12</tspan>
+        </text>
+        <text id="13" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="604.102148" y="899">13</tspan>
+        </text>
+        <text id="14" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="604.102148" y="877">14</tspan>
+        </text>
+        <text id="15" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="604.102148" y="855">15</tspan>
+        </text>
+        <text id="16" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="574.102148" y="833">16</tspan>
+        </text>
+        <text id="17" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="614.102148" y="811">17</tspan>
+        </text>
+        <text id="18" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="584.102148" y="789">18</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1036.00015" y="1198">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1056.00015" y="1175">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1056.00015" y="1153">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1056.00015" y="1131">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1056.00015" y="1109">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1056.00015" y="1087">6</tspan>
+        </text>
+        <text id="7" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="883.000148" y="1031">7</tspan>
+        </text>
+        <text id="8" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="883.000148" y="1009">8</tspan>
+        </text>
+        <text id="9" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="883.000148" y="987">9</tspan>
+        </text>
+        <text id="10" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="891.000148" y="965">10</tspan>
+        </text>
+        <text id="11" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="891.000148" y="943">11</tspan>
+        </text>
+        <text id="12" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="891.000148" y="921">12</tspan>
+        </text>
+        <text id="13" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="901.000148" y="899">13</tspan>
+        </text>
+        <text id="14" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="901.000148" y="877">14</tspan>
+        </text>
+        <text id="15" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="901.000148" y="855">15</tspan>
+        </text>
+        <text id="7" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1120.00015" y="1031">7</tspan>
+        </text>
+        <text id="8" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1080.00015" y="1009">8</tspan>
+        </text>
+        <text id="9" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1080.00015" y="987">9</tspan>
+        </text>
+        <text id="10" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1080.00015" y="965">10</tspan>
+        </text>
+        <text id="11" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1060.00015" y="943">11</tspan>
+        </text>
+        <text id="12" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1060.00015" y="921">12</tspan>
+        </text>
+        <text id="13" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1040.00015" y="899">13</tspan>
+        </text>
+        <text id="14" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1020.00015" y="877">14</tspan>
+        </text>
+        <text id="15" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1000.00015" y="855">15</tspan>
+        </text>
+        <text id="16" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="911.000148" y="833">16</tspan>
+        </text>
+        <text id="17" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="891.000148" y="811">17</tspan>
+        </text>
+        <text id="18" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="921.000148" y="789">18</tspan>
+        </text>
+        <text id="7" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="368.000148" y="1031">7</tspan>
+        </text>
+        <text id="8" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="428.000148" y="1009">8</tspan>
+        </text>
+        <text id="9" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="428.000148" y="987">9</tspan>
+        </text>
+        <text id="10" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="424.000148" y="965">10</tspan>
+        </text>
+        <text id="11" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="444.000148" y="943">11</tspan>
+        </text>
+        <text id="12" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="444.000148" y="921">12</tspan>
+        </text>
+        <text id="13" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="464.000148" y="899">13</tspan>
+        </text>
+        <text id="14" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="484.000148" y="877">14</tspan>
+        </text>
+        <text id="15" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="504.000148" y="855">15</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="533.551148" y="709">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="504.551148" y="698">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="512.551148" y="668">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="511.551148" y="644">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="510.551148" y="621">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="510.551148" y="599">6</tspan>
+        </text>
+        <text id="7" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="499.551148" y="578">7</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="952.551148" y="708">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="981.551148" y="697">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="973.551148" y="667">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="974.551148" y="643">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="975.551148" y="620">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="975.551148" y="598">6</tspan>
+        </text>
+        <text id="7" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="986.551148" y="577">7</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="456.551148" y="477">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="464.551148" y="452">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="456.551148" y="431">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="419.551148" y="425">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="427.551148" y="396">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="416.551148" y="377">6</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1031.55115" y="474">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1021.55115" y="448">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1029.55115" y="427">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1068.55115" y="422">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1058.55115" y="392">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1067.55115" y="373">6</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="454.551148" y="236">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="463.551148" y="209">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="462.551148" y="187">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="443.551148" y="171">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="406.551148" y="161">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="423.551148" y="131">6</tspan>
+        </text>
+        <text id="1" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1033.55115" y="234">1</tspan>
+        </text>
+        <text id="2" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1024.55115" y="207">2</tspan>
+        </text>
+        <text id="3" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1025.55115" y="185">3</tspan>
+        </text>
+        <text id="4" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1044.55115" y="169">4</tspan>
+        </text>
+        <text id="5" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1081.55115" y="159">5</tspan>
+        </text>
+        <text id="6" fill="#888888" fill-rule="nonzero" font-family="ArialMT, Arial" font-size="8" font-weight="normal">
+            <tspan x="1063.55115" y="129">6</tspan>
+        </text>
+    </g>
 </svg>

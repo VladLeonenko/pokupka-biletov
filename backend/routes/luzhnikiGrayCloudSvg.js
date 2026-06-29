@@ -8,6 +8,11 @@ import { extractLabeledSeatsFromSvgMarkup } from '../utils/luzhnikiExtractSeatsF
 import { resetGrayCloudLabeledIndexCache } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 import { normalizeLuzhnikiGrayCloudSvgSectorAttrs } from '../utils/luzhnikiNormalizeGrayCloudSvgSectors.js';
 import {
+  checkHallMapSaveAuth,
+  HALL_MAP_SAVE_CORS_HEADERS,
+  isHallMapSaveTokenRequired,
+} from '../utils/hallMapSaveToken.js';
+import {
   getCachedTicketsSectorLabelByNorm,
   resolveCanonicalSectorLabel,
 } from '../utils/luzhnikiSectorDisplayLabel.js';
@@ -31,7 +36,7 @@ router.use((req, res, next) => {
   if (ALLOWED_TOOL_ORIGIN_RE.test(origin) || origin === 'https://biletvsem.com') {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Headers', 'content-type,x-luzhniki-svg-save-token');
+    res.setHeader('Access-Control-Allow-Headers', HALL_MAP_SAVE_CORS_HEADERS);
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   }
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -131,17 +136,12 @@ router.get('/status', (_req, res) => {
     },
     checkoutHint:
       'Checkout показывает цветные точки только для мест с билетами в GetBilet; разметка редактора задаёт ряд/место/координаты.',
-    saveTokenRequired: Boolean(process.env.LUZHNIKI_SVG_SAVE_TOKEN?.trim()),
+    saveTokenRequired: isHallMapSaveTokenRequired(),
   });
 });
 
 function checkSaveAuth(req, res) {
-  const expected = process.env.LUZHNIKI_SVG_SAVE_TOKEN?.trim();
-  if (!expected) return true;
-  const got = String(req.headers['x-luzhniki-svg-save-token'] || '').trim();
-  if (got === expected) return true;
-  res.status(403).json({ ok: false, error: 'invalid save token' });
-  return false;
+  return checkHallMapSaveAuth(req, res);
 }
 
 router.post('/', express.text({ type: ['image/svg+xml', 'text/xml', 'application/xml', 'text/plain', '*/*'], limit: '64mb' }), (req, res) => {
