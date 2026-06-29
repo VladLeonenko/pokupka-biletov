@@ -946,6 +946,10 @@ export function TicketCheckoutPage() {
       return {
         ...(ctxLayout ?? mapLayout),
         ...mapLayout,
+        pbiletCategoryCheckout:
+          mapLayout.pbiletCategoryCheckout === true || ctxLayout?.pbiletCategoryCheckout === true,
+        omitClientSeatCoordinateCloud:
+          mapLayout.omitClientSeatCoordinateCloud === true || omitSeatCloud,
         sellableSeats: Array.isArray(mapLayout.sellableSeats) ? mapLayout.sellableSeats : [],
         sellableSeatsFromLiveOffers: mapLayout.sellableSeatsFromLiveOffers === true,
         allSeatCoordinates: omitSeatCloud

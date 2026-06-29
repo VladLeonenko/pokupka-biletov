@@ -602,6 +602,8 @@ export function TicketHallInteractiveBlock({
     () => parsePbiletCategoryCheckout(layoutJson),
     [layoutJson],
   );
+  /** Portalbilet NN / pbilet 1800: только полигоны категорий, без grid-точек по офферам. */
+  const categorySectorOnlyCheckout = pbiletCategoryCheckout && sectorMode.enabled;
   const theaterSectorCheckout = useMemo(() => {
     if (!layoutJson || typeof layoutJson !== 'object') return false;
     const r = layoutJson as Record<string, unknown>;
@@ -1949,7 +1951,13 @@ export function TicketHallInteractiveBlock({
             ) : null}
             <div
               className={`${styles.seatLayer} ${useCanvasCompositing ? styles.seatLayerCanvasPick : ''}`}
-              aria-hidden={useSvgNative ? nativePlacements.length === 0 : sorted.length === 0}
+              aria-hidden={
+                categorySectorOnlyCheckout
+                  ? true
+                  : useSvgNative
+                    ? nativePlacements.length === 0
+                    : sorted.length === 0
+              }
             >
               {!stadiumCanvasEnabled &&
               visibleBackgroundSeatCoordinates.length > 0 &&
@@ -2116,6 +2124,8 @@ export function TicketHallInteractiveBlock({
                       </button>
                     );
                   })
+                : categorySectorOnlyCheckout
+                  ? null
                 : sorted.map((row, rowIdx) => {
                     const oid = String(row.Id ?? '');
                     const seats = Array.isArray(row.SeatList) ? row.SeatList.map(String) : [];
