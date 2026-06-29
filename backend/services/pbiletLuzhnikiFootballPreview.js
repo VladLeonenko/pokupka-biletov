@@ -361,7 +361,7 @@ export async function buildLuzhnikiFootballStadiumInkscapePreview(opts = {}) {
   };
 }
 
-/** Демо-цены Portalbilet для layout 1800 (Совкомбанк Арена, 9 категорий). */
+/** Демо-цены Portalbilet для layout 488 (Совкомбанк Арена, 9 категорий + ложи). */
 const PBILET_CATEGORY_DEMO_TIERS = [
   [{ price: 275000, qty: 12, row: 'VIP' }],
   [{ price: 66000, qty: 24, row: '100-101' }],
@@ -410,6 +410,49 @@ export function demoOffersFromPbiletCategories(sectors, eventIso, priceDefault =
   return offers;
 }
 
+/**
+ * Живые категории Portalbilet (Суперкубок NN и др.) — GET …/v2/category_tickets.
+ * @param {string} eventSourceId
+ * @param {string} eventDateId
+ * @param {string} sourceId
+ * @param {string} currency
+ * @param {string} eventIso
+ */
+export async function demoOffersFromPbiletCategoryTickets(
+  eventSourceId,
+  eventDateId,
+  sourceId = '1',
+  currency = DEFAULT_CURRENCY,
+  eventIso = '',
+) {
+  const url = `https://tickets.api.pbilet.net/public/v2/category_tickets?event_source_id=${encodeURIComponent(eventSourceId)}&event_date_id=${encodeURIComponent(eventDateId)}&currency_code=${encodeURIComponent(currency)}&source_id=${encodeURIComponent(sourceId)}`;
+  const payload = await fetchJson(url);
+  if (!Array.isArray(payload) || payload.length === 0) return [];
+
+  const offers = [];
+  let idx = 0;
+  for (const item of payload) {
+    const label =
+      normalizeText(item?.fragment?.attributes?.label) ||
+      normalizeText(item?.tickets?.[0]?.k?.c) ||
+      '';
+    const price = Number(item?.price);
+    const count = Number(item?.count);
+    if (!label || !Number.isFinite(price) || !Number.isFinite(count) || count < 1) continue;
+    const seats = Array.from({ length: Math.min(count, 500) }, (_, j) => String(j + 1));
+    offers.push({
+      Id: `supercup-cat-${idx++}`,
+      Sector: label,
+      Row: 'Авто',
+      SeatList: seats,
+      NominalPrice: String(price),
+      AgentPrice: String(price),
+      EventDateTime: eventIso,
+    });
+  }
+  return offers;
+}
+
 function enrichSectorsWithOfferMeta(sectors, offers) {
   return sectors.map((sector) => {
     const related = offers.filter((o) => normalizeText(o.Sector) === normalizeText(sector.label));
@@ -444,8 +487,8 @@ function enrichSectorsWithOfferMeta(sectors, offers) {
  * }} opts
  */
 export async function buildPbiletCategoryStadiumPreview(opts = {}) {
-  const layoutId = String(opts.layoutId || '1800').trim();
-  const sourceId = String(opts.sourceId || DEFAULT_SOURCE_ID).trim();
+  const layoutId = String(opts.layoutId || '488').trim();
+  const sourceId = String(opts.sourceId || '1').trim();
   const currency = String(opts.currency || DEFAULT_CURRENCY).trim();
   const lang = String(opts.lang || DEFAULT_LANG).trim();
   const eventSourceId = opts.eventSourceId?.trim() || '';
@@ -469,6 +512,24 @@ export async function buildPbiletCategoryStadiumPreview(opts = {}) {
   let sectors = sectorsFromCoordinateCategories(coordinatesPayload);
   let mode = 'pbilet_category';
   let demoOffers = demoOffersFromPbiletCategories(sectors, demoEventIso);
+
+  if (eventSourceId && eventDateId) {
+    try {
+      const liveOffers = await demoOffersFromPbiletCategoryTickets(
+        eventSourceId,
+        eventDateId,
+        sourceId,
+        currency,
+        demoEventIso,
+      );
+      if (liveOffers.length > 0) {
+        demoOffers = liveOffers;
+        mode = 'pbilet_category_tickets';
+      }
+    } catch (e) {
+      console.warn('[buildPbiletCategoryStadiumPreview] category_tickets:', e?.message || e);
+    }
+  }
 
   const snapshotRel =
     String(opts.ticketsSnapshotPath || process.env.LUZHNIKI_PBILET_TICKETS_JSON || '').trim();

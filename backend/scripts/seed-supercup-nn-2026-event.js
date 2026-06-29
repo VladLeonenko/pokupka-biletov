@@ -5,10 +5,10 @@
  *   cd backend && npm run seed:supercup-nn-2026
  *
  * Страница: /ticket/olimpbet-superkubok-rossii
- * Схема: pbilet layout 1800 (Совкомбанк Арена), демо-места до живых офферов GetBilet.
+ * Схема: pbilet layout 488 (Совкомбанк Арена, как Portalbilet), не 1800.
  *
- * Живые tickets pbilet (когда появятся в Network portalbilet):
- *   PBILET_EVENT_SOURCE_ID=… PBILET_EVENT_DATE_ID=… PBILET_LAYOUT_ID=1800 npm run seed:supercup-nn-2026
+ * Живые категории/цены: PBILET_EVENT_SOURCE_ID=231463 PBILET_EVENT_DATE_ID=397105 PBILET_SOURCE_ID=1
+ *   npm run seed:supercup-nn-2026
  */
 
 import ticketPool from '../ticketDb.js';
@@ -17,12 +17,17 @@ import { footballStadiumCheckoutLayoutFlags } from '../utils/footballStadiumChec
 import {
   SUPERKUP_NN_REPERTOIRE_ID,
   SUPERKUP_NN_STAGE_MAP_KEY,
+  SUPERKUP_NN_PBILET_LAYOUT_ID,
+  SUPERKUP_NN_PBILET_EVENT_SOURCE_ID,
+  SUPERKUP_NN_PBILET_EVENT_DATE_ID,
+  SUPERKUP_NN_PBILET_SOURCE_ID,
 } from '../utils/footballStadiumRepertoires.js';
 
 const REPERTOIRE_ID = process.env.SUPERKUP_REP_ID?.trim() || SUPERKUP_NN_REPERTOIRE_ID;
 const STAGE_ID = process.env.SUPERKUP_STAGE_ID?.trim() || 'supercup-nn-2026-stage';
 const STAGE_MAP_KEY = process.env.SUPERKUP_STAGE_MAP_KEY?.trim() || SUPERKUP_NN_STAGE_MAP_KEY;
-const PBILET_LAYOUT_ID = process.env.PBILET_LAYOUT_ID?.trim() || '1800';
+const PBILET_LAYOUT_ID = process.env.PBILET_LAYOUT_ID?.trim() || SUPERKUP_NN_PBILET_LAYOUT_ID;
+const PBILET_SOURCE_ID = process.env.PBILET_SOURCE_ID?.trim() || SUPERKUP_NN_PBILET_SOURCE_ID;
 
 /** Сб 18.07.2026, 19:30 МСК */
 const EVENT_ISO = '2026-07-18T16:30:00.000Z';
@@ -108,8 +113,10 @@ function demoOffersPayload(offers) {
 async function main() {
   const preview = await buildPbiletCategoryStadiumPreview({
     layoutId: PBILET_LAYOUT_ID,
-    eventSourceId: process.env.PBILET_EVENT_SOURCE_ID?.trim() || '',
-    eventDateId: process.env.PBILET_EVENT_DATE_ID?.trim() || '',
+    sourceId: PBILET_SOURCE_ID,
+    eventSourceId:
+      process.env.PBILET_EVENT_SOURCE_ID?.trim() || SUPERKUP_NN_PBILET_EVENT_SOURCE_ID,
+    eventDateId: process.env.PBILET_EVENT_DATE_ID?.trim() || SUPERKUP_NN_PBILET_EVENT_DATE_ID,
     ticketsSnapshotPath: process.env.SUPERKUP_PBILET_TICKETS_JSON?.trim() || '',
     demoEventIso: EVENT_ISO,
   });

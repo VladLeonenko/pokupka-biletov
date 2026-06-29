@@ -10,6 +10,11 @@ import {
 
 export const SUPERKUP_NN_REPERTOIRE_ID = 'olimpbet-superkubok-rossii';
 export const SUPERKUP_NN_STAGE_MAP_KEY = 'supercup-nn-football';
+/** Portalbilet Суперкубок NN 2026 — hall-layouts/488 (не 1800). */
+export const SUPERKUP_NN_PBILET_LAYOUT_ID = '488';
+export const SUPERKUP_NN_PBILET_EVENT_SOURCE_ID = '231463';
+export const SUPERKUP_NN_PBILET_EVENT_DATE_ID = '397105';
+export const SUPERKUP_NN_PBILET_SOURCE_ID = '1';
 
 const DEFAULT_FOOTBALL_STADIUM_REPERTOIRE_IDS = new Set([SUPERKUP_NN_REPERTOIRE_ID]);
 
