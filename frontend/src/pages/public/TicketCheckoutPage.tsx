@@ -978,29 +978,6 @@ export function TicketCheckoutPage() {
     return (lj as Record<string, unknown>).seatSelectionDisabled === true;
   }, [layoutJsonForStage]);
 
-  const externalPlanUrl = useMemo(() => {
-    const t = (s: string | null | undefined) =>
-      s != null && String(s).trim() ? String(s).trim() : null;
-    if (!stageIdEff) return t(ctx?.externalPlanUrl);
-    if (ctx?.stageId === stageIdEff && ctx?.stageMap) {
-      return t(ctx.externalPlanUrl);
-    }
-    if (!stageMapFetched) {
-      return ctx?.stageId === stageIdEff ? t(ctx?.externalPlanUrl) : null;
-    }
-    return (
-      t(mapByStageId?.external_plan_url) ??
-      (ctx?.stageId === stageIdEff ? t(ctx?.externalPlanUrl) : null)
-    );
-  }, [
-    stageIdEff,
-    stageMapFetched,
-    mapByStageId?.external_plan_url,
-    ctx?.stageId,
-    ctx?.stageMap,
-    ctx?.externalPlanUrl,
-  ]);
-
   /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
   const hallMapLoadSettled = useMemo(() => {
     if (ctxLoading) return false;
@@ -1017,14 +994,12 @@ export function TicketCheckoutPage() {
     repertoireId,
   ]);
 
-  const showHallMissingCard =
-    Boolean(!hallSvg && !externalPlanUrl && hallMapLoadSettled);
+  const showHallMissingCard = Boolean(!hallSvg && hallMapLoadSettled);
 
   /** Блок схемы сразу, пока тянем SVG/layout (Лужники deferred и т.п.). */
   const showHallMapShell = useMemo(() => {
     if (showHallMissingCard) return false;
     if (!stageIdEff && !isFootballStadiumStageEarly) return false;
-    if (hallMapLoadSettled && !hallSvg && externalPlanUrl) return false;
     return Boolean(hallSvg) || !hallMapLoadSettled || svgDeferred || isFootballStadiumStage;
   }, [
     showHallMissingCard,
@@ -1032,7 +1007,6 @@ export function TicketCheckoutPage() {
     isFootballStadiumStageEarly,
     hallMapLoadSettled,
     hallSvg,
-    externalPlanUrl,
     svgDeferred,
     isFootballStadiumStage,
   ]);
@@ -1459,24 +1433,6 @@ export function TicketCheckoutPage() {
                   </div>
                 </>
               ) : null}
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', mt: 2 }}>
-                {!hallSvg && externalPlanUrl ? (
-                  <Button
-                    variant="contained"
-                    size="large"
-                    href={externalPlanUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Схема на сайте театра
-                  </Button>
-                ) : null}
-                {hallSvg && externalPlanUrl ? (
-                  <Button size="small" variant="text" href={externalPlanUrl} target="_blank" rel="noopener noreferrer">
-                    Схема залов на сайте организатора
-                  </Button>
-                ) : null}
-              </Box>
             </Box>
           )}
 

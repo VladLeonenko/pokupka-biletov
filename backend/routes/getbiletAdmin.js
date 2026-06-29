@@ -12,6 +12,9 @@ import {
 } from '../services/eventPosterWebSearch.js';
 import { buildResolvedForForm } from '../services/getbiletAdminResolvedForm.js';
 import { sanitizeStageMapLayoutJson } from '../utils/sanitizeStageMapLayoutJson.js';
+import { resolveHallMapSaveToken } from '../utils/hallMapSaveToken.js';
+import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
+import { RAMT_BIG_STAGE_MAP_KEY } from '../services/ramtBigStageMap.js';
 
 /**
  * @param {string} externalId
@@ -1181,6 +1184,46 @@ function parseOptionalDate(v) {
 }
 
 // --- Схемы залов (StageId из GetBilet) ---
+
+function buildHallMapEditorUrl(path, saveToken) {
+  if (!saveToken) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}saveToken=${encodeURIComponent(saveToken)}`;
+}
+
+router.get('/stage-map-editors', (_req, res) => {
+  const saveToken = resolveHallMapSaveToken();
+  const editors = [
+    {
+      id: 'luzhniki-gray-cloud',
+      label: 'Лужники — разметка мест',
+      description: 'Серая чаша, ряды, сектора (checkout luzhniki-football)',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildHallMapEditorUrl('/tools/luzhniki-gray-cloud-enriched-hover.html', saveToken),
+      stageMapKeys: [LUZHNIKI_FOOTBALL_STAGE_MAP_KEY],
+    },
+    {
+      id: 'vakhtangov-hall',
+      label: 'Вахтангов — места',
+      description: 'JSON bundle секторов и координат',
+      path: '/tools/vakhtangov-hall-seats-editor.html',
+      url: buildHallMapEditorUrl('/tools/vakhtangov-hall-seats-editor.html', saveToken),
+      stageMapKeys: ['vakhtangov-main-hall'],
+    },
+    {
+      id: 'ramt-big-stage',
+      label: 'РАМТ — Большая сцена',
+      description: 'Облако точек pbilet + sectorMode',
+      path: '/tools/ramt-hall-seats-editor.html',
+      url: buildHallMapEditorUrl('/tools/ramt-hall-seats-editor.html', saveToken),
+      stageMapKeys: [RAMT_BIG_STAGE_MAP_KEY],
+    },
+  ];
+  res.json({
+    editors,
+    saveTokenConfigured: Boolean(saveToken),
+  });
+});
 
 router.get('/stage-maps', async (req, res) => {
   try {

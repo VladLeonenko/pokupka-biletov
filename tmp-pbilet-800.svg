@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="766px" height="906px" viewBox="0 0 766 906" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 58 (84663) - https://sketch.com -->
+    <title>Untitled</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect id="BG" fill="#FFFFFF" x="0" y="83" width="766" height="823" rx="120"></rect>
+        <path d="M388.025,-117.578708 C387.871354,-116.825629 387.720841,-116.072168 387.57348,-115.318314 C387.011426,-112.432467 386.475569,-109.543523 385.96596,-106.651705 C384.30404,-97.2575537 382.64212,-86.6085729 381.09036,-74.9103581 C376.6588,-41.489165 374,-6.35988995 374,28.45354 C374,64.0062401 376.6588,99.1360447 381.09036,132.557238 C382.64212,144.254927 384.30404,154.904433 385.96596,164.298053 C386.54804,167.586913 387.08864,170.484304 387.57348,172.964662 C387.74348,173.832814 387.89444,174.587523 388.025,175.225054 C388.1032,175.608534 388.15692,175.86738 388.16644,176 L391,176 C391,176 390.5444,173.502067 390.37508,172.638172 C389.89228,170.168468 389.35372,167.281197 388.77368,164.002456 C387.11516,154.63227 385.45732,144.00726 383.90964,132.33461 C379.48692,98.9826532 376.83356,63.9263481 376.83356,28.45354 C376.83356,-6.27947002 379.48692,-41.3363049 383.90964,-74.6877301 C385.45732,-86.360912 387.11516,-96.9859221 388.77368,-106.356108 C389.35372,-109.634848 389.89228,-112.522119 390.37508,-114.991823 C390.5444,-115.855718 390.69468,-116.605628 390.82388,-117.23837 C390.90072,-117.616523 390.9728,-117.886554 391,-118 L388.16644,-118 C388.13856,-117.86738 388.1032,-117.96165 388.025,-117.578708 L388.025,-117.578708 Z" id="Path" fill="#E0E0DC" fill-rule="nonzero" transform="translate(382.500000, 29.000000) scale(-1, 1) rotate(-90.000000) translate(-382.500000, -29.000000) "></path>
+        <text id="Сцена" transform="translate(382.000000, 14.500000) scale(-1, -1) rotate(180.000000) translate(-382.000000, -14.500000) " font-family="ArialMT, Arial" font-size="25.025" font-weight="normal" fill="#000000">
+            <tspan x="345" y="23">Сцена</tspan>
+        </text>
+        <ellipse id="Oval" stroke="#979797" cx="608" cy="126.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="458" cy="126.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="308" cy="126.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="158" cy="126.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="608" cy="258.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="458" cy="258.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="308" cy="258.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="538" cy="747.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="388" cy="747.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="238" cy="747.5" rx="29.5" ry="28"></ellipse>
+        <ellipse id="Oval" stroke="#979797" cx="158" cy="258.5" rx="29.5" ry="28"></ellipse>
+        <circle id="Oval" stroke="#979797" cx="182" cy="384" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="316" cy="384" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="450" cy="384" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="584" cy="384" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="182" cy="503" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="316" cy="503" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="450" cy="503" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="584" cy="503" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="182" cy="622" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="316" cy="622" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="450" cy="622" r="21.5"></circle>
+        <circle id="Oval" stroke="#979797" cx="584" cy="622" r="21.5"></circle>
+    </g>
+</svg>

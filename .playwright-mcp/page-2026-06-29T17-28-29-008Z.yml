@@ -1,0 +1,380 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - banner [ref=e6]:
+        - generic [ref=e7]:
+          - text: Данный ресурс не является официальным сайтом Театра Вахтангова. Мы — консьерж-сервис, предоставляющий услуги по бронированию и доставке билетов на мероприятия.
+          - button [ref=e8] [cursor=pointer]:
+            - img [ref=e9]
+        - generic [ref=e15]:
+          - paragraph [ref=e16]:
+            - generic [ref=e17]: Театр Вахтангова
+            - generic [ref=e18]: · Москва, ул. Арбат, д. 26
+          - link "+7 (495) 545-46-93" [ref=e20] [cursor=pointer]:
+            - /url: tel:+74955454693
+        - generic [ref=e24]:
+          - link "Театр Вахтангова" [ref=e26] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e28]:
+            - searchbox "Поиск по мероприятиям" [ref=e30]
+            - button [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+          - link "Корзина:0" [ref=e34] [cursor=pointer]:
+            - /url: /cart
+            - img [ref=e35]
+            - generic [ref=e37]:
+              - generic [ref=e38]: "Корзина:"
+              - text: "0"
+        - navigation [ref=e40]:
+          - list [ref=e41]:
+            - listitem [ref=e42]:
+              - button "Календарь" [ref=e44] [cursor=pointer]:
+                - text: Календарь
+                - img [ref=e46]
+            - listitem [ref=e48]:
+              - link "Расписание спектаклей и билеты" [ref=e49] [cursor=pointer]:
+                - /url: /events
+            - listitem [ref=e50]:
+              - link "Артисты театра" [ref=e51] [cursor=pointer]:
+                - /url: /persons
+            - listitem [ref=e52]:
+              - generic [ref=e53]:
+                - button "Ещё" [ref=e54] [cursor=pointer]:
+                  - text: Ещё
+                  - img [ref=e56]
+                - list:
+                  - listitem:
+                    - link "Подарочные сертификаты":
+                      - /url: /sertifikaty
+                  - listitem:
+                    - link "Мёртвые души":
+                      - /url: /spektakl-myortvye-dushi-v-moskve
+                  - listitem:
+                    - link "Мадемуазель Нитуш":
+                      - /url: /bilety-na-mademuazel-nitush
+                  - listitem:
+                    - link "Война и мир":
+                      - /url: /voyna-i-mir-bilety
+      - generic [ref=e58]:
+        - list [ref=e61]:
+          - listitem [ref=e62]:
+            - link "Главная" [ref=e63] [cursor=pointer]:
+              - /url: /
+              - text: Главная
+              - img [ref=e65]
+          - listitem [ref=e67]:
+            - link "Расписание спектаклей и билеты" [ref=e68] [cursor=pointer]:
+              - /url: /events
+              - text: Расписание спектаклей и билеты
+              - img [ref=e70]
+          - listitem [ref=e72]:
+            - link "Мёртвые души":
+              - /url: /events/37886
+              - text: Мёртвые души
+        - generic [ref=e73]:
+          - img "Спектакль «МЁРТВЫЕ ДУШИ» в Москве — купить билеты на представление" [ref=e76]
+          - generic [ref=e77]:
+            - list [ref=e78]:
+              - listitem [ref=e79]: Популярное
+            - heading "Постановка «Мёртвые души»" [level=1] [ref=e80]
+            - generic [ref=e81]:
+              - link "Театр Вахтангова" [ref=e82] [cursor=pointer]:
+                - /url: /places/637
+              - text: Пьеса 16+
+            - generic [ref=e84]: 25 сент. - 26 сент.
+      - list [ref=e88]:
+        - listitem [ref=e89]:
+          - button "Выбор даты и места" [ref=e90] [cursor=pointer]
+        - listitem [ref=e91]:
+          - button "О мероприятии" [ref=e92] [cursor=pointer]
+        - listitem [ref=e93]:
+          - button "Наши преимущества" [ref=e94] [cursor=pointer]
+        - listitem [ref=e95]:
+          - button "Ближайшие мероприятия" [ref=e96] [cursor=pointer]
+      - generic [ref=e99]:
+        - button "пт, 25 сент, 19:00 Купить билет" [ref=e100] [cursor=pointer]:
+          - generic [ref=e102]: пт, 25 сент, 19:00
+          - generic [ref=e103]: Купить билет
+        - button "сб, 26 сент, 19:00 Купить билет" [ref=e104] [cursor=pointer]:
+          - generic [ref=e106]: сб, 26 сент, 19:00
+          - generic [ref=e107]: Купить билет
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e113]:
+              - button "Таблица" [ref=e114] [cursor=pointer]:
+                - generic [ref=e116]: Таблица
+              - generic:
+                - generic:
+                  - generic [ref=e123]:
+                    - button [ref=e124]:
+                      - img [ref=e126]
+                    - button [disabled] [ref=e127]:
+                      - img [ref=e129]
+                  - button [ref=e131]:
+                    - img [ref=e133]
+              - button [ref=e135]:
+                - img [ref=e137]
+            - generic [ref=e140]:
+              - img [ref=e141]
+              - paragraph [ref=e144]: Рисуем схему...
+          - paragraph [ref=e145]: Время брони - 30 минут.
+          - img [ref=e147]
+        - generic [ref=e149]:
+          - heading "О мероприятии" [level=2] [ref=e150]
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - generic [ref=e153]:
+                - heading "Дата" [level=3] [ref=e154]
+                - paragraph [ref=e155]: 25 сентября
+              - generic [ref=e156]:
+                - heading "Время" [level=3] [ref=e157]
+                - paragraph [ref=e158]: 19:00
+              - generic [ref=e159]:
+                - heading "Длительность" [level=3] [ref=e160]
+                - paragraph [ref=e161]: ~ 2 часа
+              - generic [ref=e162]:
+                - heading "Площадка" [level=3] [ref=e163]
+                - paragraph [ref=e164]: Театр Вахтангова
+            - generic [ref=e165]:
+              - generic [ref=e166]:
+                - paragraph [ref=e167]:
+                  - text: Спектакль «Мертвые души» в Театре имени Вахтангова — новый взгляд на знакомое всем произведение школьной программы. Здесь реальность и фантазия переплетаются в захватывающем водовороте, смешиваясь в бездонной пропасти.
+                  - strong [ref=e168]: Билеты на спектакль «Мертвые души»
+                  - text: откроют новые грани произведения и позволят на короткий миг ощутить себя вовлеченным в его события.
+                - paragraph [ref=e169]: "Удивительные события здесь начинаются еще до того, как поднимется занавес. В этом спектакле вас ждет нечто невообразимое, совсем не похожее на обычные интерпретации гоголевской комедии. Жанр спектакля называется галопадом, что означает быстрый танец с прыжками, и в нем участвуют всего два актера: народная артистка России Мария Аронова (Она) и ее сын Владислав Гандрабура (Он). Один из особых моментов в этой постановке — охватывается весь роман, показывая жизнь Чичикова с самого рождения и вплоть до момента покупки мертвых душ."
+                - paragraph [ref=e170]: На сцене легкая, задорная, яркая комедия, в которой Владимир Иванов объединил вечный сюжет с современным чувством юмора.
+                - paragraph [ref=e171]
+                - heading "Какая цена билета на спектакль «Мертвые души» в Театре Вахтангова" [level=3] [ref=e172]
+                - paragraph [ref=e173]: На нашем сайте есть удобная интерактивная схема зала, которая поможет вам быстро определить, есть ли свободные места, и узнать цены на билеты.
+                - paragraph [ref=e174]
+                - heading "Купить билеты на спектакль «Мертвые души»" [level=3] [ref=e175]
+                - paragraph [ref=e176]: "Не тратьте время на поиск билетов на спектакль «Мертвые души» в Вахтанговском театре: мы предлагаем широкий ассортимент билетов, которые можно приобрести на нашем сайте. Мы гарантируем 100% подлинность билетов, что делает наше предложение выгодным и безопасным. Позаботьтесь заранее о приобретении билетов, так как спектакль пользуется огромной популярностью, и свободные места быстро заканчиваются."
+                - paragraph [ref=e177]
+                - paragraph [ref=e178]: Обратите внимание, возможна смена актёрского состава.
+                - paragraph [ref=e179]:
+                  - strong [ref=e180]: "Режиссёр:"
+                  - text: Владимир Иванов
+                - paragraph [ref=e181]:
+                  - strong [ref=e182]: "Актёрский состав:"
+                  - text: Мария Аронова, Владислав Гандрабура
+              - button "Читать дальше..." [ref=e183] [cursor=pointer]
+        - generic [ref=e184]:
+          - generic [ref=e186]:
+            - generic [ref=e187]:
+              - generic [ref=e188]:
+                - generic [ref=e189]: Почему выбирают нас
+                - generic [ref=e190]: Нам важно, чтобы у вас остались только яркие впечатления
+              - button "Выбрать билеты" [ref=e191] [cursor=pointer]
+            - generic [ref=e192]:
+              - img [ref=e194]
+              - generic [ref=e196]: Уникальные предложения
+              - generic [ref=e197]: Находим уникальные предложения от организаторов и проверенных продавцов — даже те, которых уже нет в официальной продаже.
+            - generic [ref=e198]:
+              - img [ref=e200]
+              - generic [ref=e202]: Безопасная оплата и защита данных
+              - generic [ref=e203]: Все платежи проходят через защищённые шлюзы, данные не сохраняются и остаются в безопасности.
+            - generic [ref=e204]:
+              - img [ref=e206]
+              - generic [ref=e208]: Поддержка на каждом шаге
+              - generic [ref=e209]: От выбора билета до входа на мероприятие — поддержим в чате и по телефону.
+          - generic [ref=e210]:
+            - heading "Адрес" [level=2] [ref=e211]
+            - generic [ref=e212]:
+              - strong [ref=e213]: Город
+              - text: ": Москва"
+            - generic [ref=e214]:
+              - strong [ref=e215]: Адрес
+              - text: ": Москва, ул. Арбат, д. 26"
+            - generic [ref=e216]:
+              - strong [ref=e217]: Станция метро
+              - text: ": Арбатская"
+            - paragraph [ref=e218]:
+              - link "+7 (495) 545-46-93" [ref=e220] [cursor=pointer]:
+                - /url: tel:+74955454693
+          - generic [ref=e222]:
+            - heading "Вопросы и ответы" [level=2] [ref=e223]
+            - generic [ref=e224]:
+              - generic [ref=e225]:
+                - button "Где пройдет постановка «Мёртвые души»?" [ref=e226] [cursor=pointer]
+                - paragraph [ref=e229]: Постановка «Мёртвые души» состоится в Театре имени Евгения Вахтангова. Знаменитая сцена на Арбате примет зрителей, чтобы погрузить их в атмосферу гоголевской поэмы, наполненной сатирой, гротеском и неподражаемой игрой актёров. Не пропустите этот театральный шедевр!
+              - generic [ref=e230]:
+                - button "Когда пройдет спектакль?" [ref=e231] [cursor=pointer]
+                - paragraph [ref=e234]: Постановка «Мёртвые души» состоится 25 сентября 2026. Зрителей ждёт захватывающая адаптация гоголевской поэмы с сатирой, яркими характерами и виртуозной актёрской игрой. Не пропустите возможность увидеть эту уникальную сценическую интерпретацию!
+              - generic [ref=e235]:
+                - button "Во сколько обойдется билет на «Мёртвые души»?" [ref=e236] [cursor=pointer]
+                - paragraph [ref=e239]: "Цена билета на спектакль «Мёртвые души» в Театре Вахтангова зависит от категории мест: есть эконом‑варианты и премиум‑места с лучшим обзором и комфортом. Стоимость варьируется в зависимости от ряда и сектора. Рекомендуем выбрать подходящий уровень и бронировать заранее — лучшие билеты быстро раскупаются!"
+              - generic [ref=e240]:
+                - button "Где продаются билеты на спектакль Мёртвые души?" [ref=e241] [cursor=pointer]
+                - paragraph [ref=e244]: Билеты на спектакль Мёртвые души в Театре имени Евгения Вахтангова продаются на нашем сайте. Выбирайте удобную дату, места в зале и оформляйте покупку онлайн — быстро, безопасно и без очередей. Электронные билеты сразу поступают на почту. Не откладывайте — лучшие места разбирают первыми!
+          - heading "Галерея" [level=2] [ref=e246]
+          - generic [ref=e261]:
+            - heading "Участники" [level=2] [ref=e262]
+            - generic [ref=e263]:
+              - link "Владислав Гандрабура" [ref=e265] [cursor=pointer]:
+                - /url: /persons/person/639
+                - heading "Владислав Гандрабура" [level=3] [ref=e269]
+              - link "Мария Аронова" [ref=e271] [cursor=pointer]:
+                - /url: /persons/person/735
+                - heading "Мария Аронова" [level=3] [ref=e275]
+              - link "Владимир Иванов" [ref=e277] [cursor=pointer]:
+                - /url: /persons/person/4525
+                - heading "Владимир Иванов" [level=3] [ref=e281]
+        - generic [ref=e282]:
+          - heading "Ближайшие мероприятия" [level=2] [ref=e283]
+          - generic [ref=e284]:
+            - paragraph [ref=e288]: 16+
+            - generic [ref=e289]:
+              - list [ref=e290]:
+                - listitem [ref=e291]: Драма
+              - link "Крик лангусты" [ref=e292] [cursor=pointer]:
+                - /url: /events/8983
+                - heading "Крик лангусты" [level=3] [ref=e293]
+              - paragraph [ref=e294]: Москва Театр Вахтангова Новая сцена
+            - generic [ref=e295]:
+              - generic [ref=e297]:
+                - paragraph [ref=e298]:
+                  - generic [ref=e299]: "5"
+                  - generic [ref=e300]:
+                    - generic [ref=e301]: сб, 19:30
+                    - generic [ref=e302]: сент
+                - paragraph [ref=e304]:
+                  - generic [ref=e305]: "17"
+                  - generic [ref=e306]:
+                    - generic [ref=e307]: чт, 19:30
+                    - generic [ref=e308]: сент
+              - link "Билеты от2700 ₽" [ref=e310] [cursor=pointer]:
+                - /url: /events/8983
+                - text: Билеты от
+                - generic [ref=e311]: 2700 ₽
+          - generic [ref=e312]:
+            - paragraph [ref=e316]: 6+
+            - generic [ref=e317]:
+              - list [ref=e318]:
+                - listitem [ref=e319]: Детский спектакль
+              - link "Волшебный театр Андерсена" [ref=e320] [cursor=pointer]:
+                - /url: /events/8973
+                - heading "Волшебный театр Андерсена" [level=3] [ref=e321]
+              - paragraph [ref=e322]: Москва Театр Вахтангова Симоновская сцена №2 (Амфитеатр)
+            - generic [ref=e323]:
+              - paragraph [ref=e325]:
+                - generic [ref=e326]: "6"
+                - generic [ref=e327]:
+                  - generic [ref=e328]: вс, 12:00
+                  - generic [ref=e329]: сент
+              - link "Билеты от2400 ₽" [ref=e331] [cursor=pointer]:
+                - /url: /events/8973
+                - text: Билеты от
+                - generic [ref=e332]: 2400 ₽
+          - generic [ref=e333]:
+            - paragraph [ref=e337]: 16+
+            - generic [ref=e338]:
+              - list [ref=e339]:
+                - listitem [ref=e340]: Музыкальный спектакль
+              - link "Бовари" [ref=e341] [cursor=pointer]:
+                - /url: /events/8965
+                - heading "Бовари" [level=3] [ref=e342]
+              - paragraph [ref=e343]: Москва Театр Вахтангова Симоновская сцена №1 (Камерный зал)
+            - generic [ref=e344]:
+              - generic [ref=e346]:
+                - paragraph [ref=e347]:
+                  - generic [ref=e348]: "8"
+                  - generic [ref=e349]:
+                    - generic [ref=e350]: вт, 19:30
+                    - generic [ref=e351]: сент
+                - paragraph [ref=e353]:
+                  - generic [ref=e354]: "22"
+                  - generic [ref=e355]:
+                    - generic [ref=e356]: вт, 19:30
+                    - generic [ref=e357]: сент
+              - link "Билеты от2600 ₽" [ref=e359] [cursor=pointer]:
+                - /url: /events/8965
+                - text: Билеты от
+                - generic [ref=e360]: 2600 ₽
+      - contentinfo [ref=e361]:
+        - button "Наверх" [ref=e362] [cursor=pointer]
+        - generic [ref=e363]:
+          - link "Театр Вахтангова" [ref=e365] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e366]:
+            - list [ref=e367]:
+              - listitem [ref=e368]:
+                - link "Расписание спектаклей и билеты" [ref=e369] [cursor=pointer]:
+                  - /url: /events
+              - listitem [ref=e370]:
+                - link "Артисты театра" [ref=e371] [cursor=pointer]:
+                  - /url: /persons
+            - list [ref=e372]:
+              - listitem [ref=e373]:
+                - link "О нас" [ref=e374] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e375]:
+                - link "Оплата и доставка" [ref=e376] [cursor=pointer]:
+                  - /url: /pay-and-delivery
+              - listitem [ref=e377]:
+                - link "Правила оказания услуг" [ref=e378] [cursor=pointer]:
+                  - /url: /offer
+              - listitem [ref=e379]:
+                - link "Политика конфиденциальности" [ref=e380] [cursor=pointer]:
+                  - /url: /privacy-policy
+              - listitem [ref=e381]:
+                - link "Гарантия подлинности" [ref=e382] [cursor=pointer]:
+                  - /url: /guarantee
+              - listitem [ref=e383]:
+                - link "Контакты" [ref=e384] [cursor=pointer]:
+                  - /url: /contacts
+              - listitem [ref=e385]:
+                - link "+7 (495) 545-46-93" [ref=e386] [cursor=pointer]:
+                  - /url: tel:+74955454693
+            - generic [ref=e387]:
+              - img [ref=e388]
+              - img [ref=e389]
+              - img [ref=e390]
+              - img [ref=e391]
+              - img [ref=e392]
+          - paragraph [ref=e393]: Внимание! Консьерж-сервис. Оказание услуг по подбору, бронированию и доставке билетов на мероприятия. Не является официальным сайтом «Театр Вахтангова». Все права защищены. © 2026
+    - button "Scroll to top" [ref=e394] [cursor=pointer]:
+      - img [ref=e395]
+  - generic [ref=e403]:
+    - generic [ref=e404]:
+      - img [ref=e406] [cursor=pointer]
+      - generic [ref=e410]:
+        - generic [ref=e411]: Введите номер телефона и мы перезвоним.
+        - generic [ref=e412]:
+          - textbox [ref=e413]
+          - button [ref=e414] [cursor=pointer]:
+            - img [ref=e415]
+          - button "Закрыть" [ref=e420] [cursor=pointer]
+      - generic [ref=e422]:
+        - generic [ref=e423]: Онлайн чат
+        - generic [ref=e424]:
+          - img [ref=e425]
+          - text: Мы здесь с 10:00 до 21:00
+        - generic [ref=e432]: На связи и готовы помочь
+      - generic [ref=e434]:
+        - link "integ" [ref=e435] [cursor=pointer]:
+          - /url: https://t.me/yourticket_support
+          - img "integ" [ref=e436]
+        - link "integ" [ref=e437] [cursor=pointer]:
+          - /url: https://wa.me/79202914661
+          - img "integ" [ref=e438]
+        - link "integ" [ref=e439] [cursor=pointer]:
+          - /url: https://max.ru/u/f9LHodD0cOJoOAvYrXWCgDmzyKg-CEUGBB7N4TUvuxGac-29bRKFrmeAzTY
+          - img "integ" [ref=e440]
+    - generic [ref=e441]:
+      - generic [ref=e443]:
+        - tablist [ref=e444]
+        - generic [ref=e446]:
+          - paragraph [ref=e449]: Здравствуйте! Благодарим за обращение. Чем мы можем Вам помочь?🙂
+          - paragraph [ref=e450]: 20:28
+      - generic [ref=e452]:
+        - img [ref=e454]
+        - generic [ref=e457]: печатает...
+    - generic [ref=e459]:
+      - textbox "Введите сообщение..." [ref=e460]
+      - generic [ref=e461]:
+        - button [ref=e462] [cursor=pointer]:
+          - img [ref=e463]
+        - button [ref=e465] [cursor=pointer]:
+          - img [ref=e466]
+  - text:   

@@ -478,6 +478,23 @@ export async function listGetbiletStageMaps(): Promise<GetbiletStageMapListRow[]
   return handle(res);
 }
 
+export type HallMapEditorLink = {
+  id: string;
+  label: string;
+  description: string;
+  path: string;
+  url: string;
+  stageMapKeys: string[];
+};
+
+export async function listHallMapEditors(): Promise<{
+  editors: HallMapEditorLink[];
+  saveTokenConfigured: boolean;
+}> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-map-editors`, { headers: authHeaders() });
+  return handle(res);
+}
+
 export async function importStageMapsFromCatalog(): Promise<{
   inserted: number;
   distinct_stages_in_catalog: number;

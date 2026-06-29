@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   createGetbiletStageMap,
   deleteGetbiletStageMap,
@@ -30,8 +31,10 @@ import {
   listCatalogStageIds,
   importStageMapsFromCatalog,
   listGetbiletStageMaps,
+  listHallMapEditors,
   updateGetbiletStageMap,
   type GetbiletStageMapListRow,
+  type HallMapEditorLink,
 } from '@/services/getbiletAdminApi';
 import { useToast } from '@/components/common/ToastProvider';
 
@@ -74,6 +77,12 @@ function stageMapStatus(row: GetbiletStageMapListRow): { label: string; color: '
   return { label: 'нет координат', color: 'default' };
 }
 
+function editorForStageId(editors: HallMapEditorLink[], stageExternalId: string): HallMapEditorLink | null {
+  const sid = stageExternalId.trim().toLowerCase();
+  if (!sid) return null;
+  return editors.find((e) => e.stageMapKeys.some((k) => k.toLowerCase() === sid)) ?? null;
+}
+
 export function GetbiletStageMapsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -91,6 +100,14 @@ export function GetbiletStageMapsPage() {
     queryFn: listCatalogStageIds,
     staleTime: 60_000,
   });
+
+  const { data: hallMapEditors } = useQuery({
+    queryKey: ['getbilet-hall-map-editors'],
+    queryFn: listHallMapEditors,
+    staleTime: 60_000,
+  });
+
+  const editors = hallMapEditors?.editors ?? [];
 
   const openNew = () => {
     setEditingId(null);
@@ -223,6 +240,32 @@ export function GetbiletStageMapsPage() {
           Добавить вручную
         </Button>
       </Box>
+      {editors.length > 0 ? (
+        <Paper variant="outlined" sx={{ mb: 2, p: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
+            Редакторы схем
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Открываются в новой вкладке. Сохранение на сервер работает при{' '}
+            <code>LUZHNIKI_SVG_SAVE_TOKEN</code> в backend/.env
+            {hallMapEditors?.saveTokenConfigured ? '' : ' — токен не задан, saveToken в URL не подставится'}.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {editors.map((editor) => (
+              <Button
+                key={editor.id}
+                variant="outlined"
+                endIcon={<OpenInNewIcon />}
+                href={editor.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {editor.label}
+              </Button>
+            ))}
+          </Box>
+        </Paper>
+      ) : null}
       <Alert severity="info" sx={{ mb: 2 }}>
         Здесь только то, что уже лежит в PostgreSQL (<code>getbilet_stage_maps</code>). Ручные мероприятия вроде
         финала Кубка на Лужниках с <code>luzhniki-cup-final-2026-stage</code> на проде нужно один раз записать
@@ -325,6 +368,7 @@ export function GetbiletStageMapsPage() {
             ) : (
               rows.map((r) => {
                 const status = stageMapStatus(r);
+                const rowEditor = editorForStageId(editors, r.stage_external_id);
                 return (
                   <TableRow key={r.id} hover>
                     <TableCell>
@@ -346,6 +390,21 @@ export function GetbiletStageMapsPage() {
                       </Box>
                     </TableCell>
                     <TableCell align="right">
+                      {rowEditor ? (
+                        <Tooltip title={rowEditor.description}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            sx={{ mr: 0.5 }}
+                            href={rowEditor.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            endIcon={<OpenInNewIcon sx={{ fontSize: 16 }} />}
+                          >
+                            Редактор
+                          </Button>
+                        </Tooltip>
+                      ) : null}
                       <Tooltip title="Редактировать">
                         <IconButton size="small" onClick={() => openEdit(r)}>
                           <EditIcon fontSize="small" />
