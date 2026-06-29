@@ -9,11 +9,14 @@ const DEFAULT_FAN_ID_REPERTOIRE_IDS = new Set([
 
 const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
+  'olimpbet-superkubok-rossii',
 ]);
 
 /** Маркетинговые ЧПУ → repertoire id (РК, Директ), если slug не в compact /events. */
 const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
+  'olimpbet-superkubok-rossii': 'olimpbet-superkubok-rossii',
+  'superkubok-rossii-po-futbolu': 'olimpbet-superkubok-rossii',
 });
 
 /** @param {string | null | undefined} slug */

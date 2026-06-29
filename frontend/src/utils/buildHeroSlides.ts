@@ -5,8 +5,12 @@ import {
   FEATURED_HERO_HREF,
   FEATURED_HERO_REPERTOIRE_ID,
   FEATURED_HERO_SLUG,
+  isFeaturedHeroActive,
+  isFeaturedHeroEventTitle,
   isFeaturedHeroHref,
   isFeaturedHeroSlideId,
+  isLegacyFeaturedHeroHref,
+  isLegacyFeaturedHeroSlideId,
 } from '@/utils/heroFeaturedEvent';
 import { slugify } from '@/utils/slugify';
 import { venueFromApiOnly } from '@/utils/venueHint';
@@ -129,11 +133,15 @@ function padSlides(slides: HeroSlideView[]): HeroSlideView[] {
 }
 
 function findFeaturedEvent(events: NormalizedBiletEvent[]): NormalizedBiletEvent | undefined {
+  if (!isFeaturedHeroActive()) return undefined;
   return events.find((ev) => {
     const rep = String(ev.repertoireId ?? '').trim().toLowerCase();
-    if (rep === FEATURED_HERO_REPERTOIRE_ID) return true;
-    if (String(ev.id).toLowerCase().includes(FEATURED_HERO_REPERTOIRE_ID)) return true;
+    if (FEATURED_HERO_REPERTOIRE_ID && rep === FEATURED_HERO_REPERTOIRE_ID.toLowerCase()) return true;
+    if (FEATURED_HERO_REPERTOIRE_ID && String(ev.id).toLowerCase().includes(FEATURED_HERO_REPERTOIRE_ID.toLowerCase())) {
+      return true;
+    }
     if (slugify(ev.title) === FEATURED_HERO_SLUG) return true;
+    if (isFeaturedHeroEventTitle(ev.title)) return true;
     return false;
   });
 }
@@ -142,16 +150,21 @@ function isDuplicateFeatured(slide: HeroSlideView, featuredId: string): boolean 
   if (slide.id === featuredId) return true;
   if (isFeaturedHeroSlideId(slide.id)) return true;
   if (isFeaturedHeroHref(slide.ticketHref)) return true;
+  if (isLegacyFeaturedHeroSlideId(slide.id)) return true;
+  if (isLegacyFeaturedHeroHref(slide.ticketHref)) return true;
   return false;
 }
 
-/** Суперфинал — всегда первый слайд, если событие есть в каталоге. */
+/** OLIMPBET Суперкубок — первый слайд, пока мероприятие в продаже / до 19.07.2026. */
 function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent[]): HeroSlideView[] {
-  if (slides.length === 0) return slides;
+  if (slides.length === 0 || !isFeaturedHeroActive()) return slides;
 
   const featuredEv = findFeaturedEvent(events);
   const featuredFromEv = featuredEv
-    ? { ...eventToSlide(featuredEv, 0), ticketHref: FEATURED_HERO_HREF }
+    ? {
+        ...eventToSlide(featuredEv, 0),
+        ticketHref: featuredEv.repertoireId ? ticketCheckoutHref(featuredEv) : FEATURED_HERO_HREF,
+      }
     : null;
 
   const pinnedIdx = slides.findIndex(
@@ -161,14 +174,14 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
   const featured = featuredFromEv ?? pinned;
   if (!featured) {
     const fallback: HeroSlideView = {
-      id: FEATURED_HERO_REPERTOIRE_ID,
-      title: 'СУПЕРФИНАЛ ФОНБЕТ КУБКА РОССИИ — СПАРТАК / КРАСНОДАР',
+      id: FEATURED_HERO_SLUG,
+      title: 'OLIMPBET СУПЕРКУБОК РОССИИ — ЗЕНИТ / СПАРТАК',
       imageUrl: null,
-      tags: 'ВС · 24.05.2026 · 18:00 · СПОРТ',
-      venueLabel: 'ЛУЖНИКИ',
-      venueAddress: null,
-      lineLeft: '24',
-      lineRight: '05.2026',
+      tags: 'СБ · 18.07.2026 · 19:30 · СПОРТ',
+      venueLabel: 'СТАДИОН «НИЖНИЙ НОВГОРОД»',
+      venueAddress: 'Нижний Новгород',
+      lineLeft: '18',
+      lineRight: '07.2026',
       visualShape: 'shard',
       ticketHref: FEATURED_HERO_HREF,
       ctaLabel: 'КУПИТЬ БИЛЕТ',

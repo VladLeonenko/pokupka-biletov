@@ -236,6 +236,64 @@
   border-color: rgba(255, 255, 255, 0.28);
 }
 
+/* Суперкубок / футбольный стадион — компактный hero в духе Portalbilet */
+.heroSport {
+  min-height: min(72vh, 640px);
+}
+
+@media (min-width: 900px) {
+  .heroSport {
+    min-height: min(58vh, 560px);
+  }
+}
+
+.heroSport .heroVignette {
+  background: linear-gradient(
+    105deg,
+    rgba(6, 18, 12, 0.94) 0%,
+    rgba(8, 28, 18, 0.62) 44%,
+    rgba(10, 32, 22, 0.28) 68%,
+    rgba(6, 16, 10, 0.5) 100%
+  );
+}
+
+.heroSport .heroGradientBottom {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 36%,
+    rgba(4, 12, 8, 0.62) 86%,
+    rgba(4, 10, 7, 0.88) 100%
+  );
+}
+
+.heroSport .heroKicker {
+  color: rgba(196, 255, 214, 0.95) !important;
+}
+
+.heroSportMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.heroChipSport {
+  background: rgba(22, 120, 72, 0.88);
+  border-color: rgba(196, 255, 214, 0.28);
+}
+
+.heroChipSportPrice {
+  background: rgba(22, 120, 72, 0.95);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.heroChipFanId {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 214, 120, 0.45);
+  color: rgba(255, 236, 180, 0.98);
+}
+
 .heroPosterWrap {
   justify-self: center;
   width: 100%;

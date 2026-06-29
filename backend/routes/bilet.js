@@ -48,7 +48,7 @@ import {
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   slimLuzhnikiStageMapForClient,
 } from '../services/luzhnikiFootballStageMap.js';
-import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
+import { footballStadiumStageMapKeyForRepertoire } from '../utils/footballStadiumRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
@@ -557,7 +557,7 @@ router.get('/stage/:stageId/map', async (req, res) => {
     const stageId = requireNonEmptyString(req.params.stageId, 'stageId');
     const repertoireId =
       typeof req.query.repertoireId === 'string' ? req.query.repertoireId.trim() : '';
-    const forcedMapKey = luzhnikiFootballStageMapKeyForRepertoire(repertoireId);
+    const forcedMapKey = footballStadiumStageMapKeyForRepertoire(repertoireId);
     const lookupKey =
       forcedMapKey || (await resolveStageMapLookupExternalId(stageId, repertoireId));
     const isLuzhnikiMap = lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;

@@ -6,11 +6,16 @@ import {
   loadRepertoireBase,
   resolvePlaceFromGetbiletMaps,
 } from './repertoirePublicContext.js';
-import { luzhnikiFootballStageMapKeyForRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
+import { footballStadiumStageMapKeyForRepertoire } from '../utils/footballStadiumRepertoires.js';
 import {
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
+import {
+  RAMT_BIG_STAGE_MAP_KEY,
+  ramtBigStageMapKeyForRepertoire,
+  shouldUseRamtBigStageCanonicalMap,
+} from './ramtBigStageMap.js';
 
 function pickHallLabelFromPayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
@@ -30,8 +35,11 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
   const sid = String(stageId || '').trim();
   const rid = String(repertoireId || '').trim();
 
-  const forced = luzhnikiFootballStageMapKeyForRepertoire(rid);
-  if (forced) return forced;
+  const forcedFootballStadium = footballStadiumStageMapKeyForRepertoire(rid);
+  if (forcedFootballStadium) return forcedFootballStadium;
+
+  const forcedRamt = ramtBigStageMapKeyForRepertoire(rid);
+  if (forcedRamt) return forcedRamt;
 
   if (!rid || !sid) return sid;
 
@@ -55,6 +63,21 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
       )
     ) {
       return LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+    }
+    if (
+      shouldUseRamtBigStageCanonicalMap(
+        {
+          title: base.title,
+          repertoireId: rid,
+          venueManual: manualVenue,
+          venueFromPayload: base.venueFromPayload,
+          hall,
+        },
+        placeFromMaps.venue,
+        hall,
+      )
+    ) {
+      return RAMT_BIG_STAGE_MAP_KEY;
     }
   } catch (e) {
     console.warn('[stageMapLookup] resolveStageMapLookupExternalId:', e instanceof Error ? e.message : e);
