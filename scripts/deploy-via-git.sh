@@ -117,6 +117,23 @@ fi
 
 restore_luzhniki_editor_assets
 
+# SVG редактора (gitignore) — если потерялся при deploy, собрать из luzhniki.txt
+if [ ! -f "$LUZHNIKI_PUBLIC_SVG" ] && [ -f "$PROJECT_ROOT/luzhniki.txt" ] && [ -f "$PROJECT_ROOT/tickets.json" ]; then
+  echo "📐 Luzhniki editor SVG отсутствует — генерация из luzhniki.txt…"
+  if (
+    cd "$PROJECT_ROOT/backend"
+    npm run enrich:luzhniki-gray-circles-svg -- --merge ../frontend/public/hall-maps/luzhniki-football-stadium.svg
+  ); then
+    if [ -f "$LUZHNIKI_HAND_SVG" ] && [ ! -f "$LUZHNIKI_PUBLIC_SVG" ]; then
+      mkdir -p "$(dirname "$LUZHNIKI_PUBLIC_SVG")"
+      cp "$LUZHNIKI_HAND_SVG" "$LUZHNIKI_PUBLIC_SVG"
+      echo "✅ Luzhniki public SVG создан из hand/"
+    fi
+  else
+    echo "⚠️  Не удалось сгенерировать Luzhniki SVG — редактор подтянет через GET /enriched.svg при первом открытии"
+  fi
+fi
+
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""
 echo "📦 Сборка frontend..."

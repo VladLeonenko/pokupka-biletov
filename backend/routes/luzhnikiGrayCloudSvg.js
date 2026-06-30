@@ -16,6 +16,7 @@ import {
   getCachedTicketsSectorLabelByNorm,
   resolveCanonicalSectorLabel,
 } from '../utils/luzhnikiSectorDisplayLabel.js';
+import { readLuzhnikiGrayCloudEnrichedSvgMarkup } from '../utils/ensureLuzhnikiGrayCloudEnrichedSvg.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -84,6 +85,21 @@ function readBundleMeta() {
     };
   }
 }
+
+/** SVG для редактора (диск → автогенерация из luzhniki.txt). */
+router.get('/enriched.svg', async (_req, res) => {
+  try {
+    const xml = await readLuzhnikiGrayCloudEnrichedSvgMarkup();
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(xml);
+  } catch (e) {
+    return res.status(e.message?.includes('не найден') ? 404 : 500).json({
+      ok: false,
+      error: e.message,
+    });
+  }
+});
 
 /** Проверка: доехала ли разметка редактора до checkout (bundle на диске VPS). */
 router.get('/status', (_req, res) => {

@@ -403,13 +403,42 @@
       }
     }
 
-    async function reloadSvgFromServer() {
+    function luzhnikiSvgLoadUrls() {
       const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
-      const base = svgFetchBase ? svgFetchBase + '/tools/' : '/tools/';
-      const svgUrl = base + defaultSvg + '?_=' + Date.now();
-      const r = await fetch(svgUrl, { cache: 'no-store' });
-      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-      loadSvgText(await r.text());
+      const staticUrl = (svgFetchBase ? svgFetchBase + '/tools/' : '/tools/') + defaultSvg;
+      const apiRel = '/api/tools/luzhniki-gray-cloud-svg/enriched.svg';
+      const apiUrl = (saveApiBase || '') + apiRel;
+      if (hallApi !== 'luzhniki-gray-cloud-svg') return [saveApiUrl() + '/enriched.svg'];
+      const urls = [];
+      if (apiUrl) urls.push(apiUrl);
+      if (!urls.includes(apiRel)) urls.push(apiRel);
+      if (isLocalEditor && saveApiBase) {
+        const prodApi = PROD_ORIGIN + apiRel;
+        if (!urls.includes(prodApi)) urls.push(prodApi);
+      }
+      if (!urls.includes(staticUrl)) urls.push(staticUrl);
+      return urls;
+    }
+
+    async function fetchSvgFromCandidates(urls) {
+      let lastErr = null;
+      for (const base of urls) {
+        const url = base + (base.includes('?') ? '&' : '?') + '_=' + Date.now();
+        try {
+          const r = await fetch(url, { cache: 'no-store' });
+          if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+          const text = await r.text();
+          if (!text.includes('<svg')) throw new Error('ответ не SVG');
+          return text;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error('нет источников SVG');
+    }
+
+    async function reloadSvgFromServer() {
+      loadSvgText(await fetchSvgFromCandidates(luzhnikiSvgLoadUrls()));
     }
 
     function flashPersisted(circles) {
@@ -4826,24 +4855,20 @@
 
     window.addEventListener('resize', () => { if (svgRoot) fitToView(); });
 
-    const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
     const svgUrlParam = urlParams.get('svgUrl')?.trim();
-    const svgUrl =
-      svgUrlParam ||
-      (hallApi !== 'luzhniki-gray-cloud-svg'
-        ? saveApiUrl() + '/enriched.svg'
-        : (svgFetchBase ? svgFetchBase + '/tools/' : '/tools/') + defaultSvg);
-    status.textContent = 'Загрузка ' + svgUrl + '…';
+    const svgLoadUrls = svgUrlParam ? [svgUrlParam] : luzhnikiSvgLoadUrls();
+    status.textContent = 'Загрузка ' + svgLoadUrls[0] + (svgLoadUrls.length > 1 ? '…' : '') + '…';
     updateFillNextRowHint();
     refreshServerBundleStatus();
-    fetch(svgUrl + '?_=' + Date.now(), { cache: 'no-store' })
-      .then((r) => {
-        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-        return r.text();
-      })
+    fetchSvgFromCandidates(svgLoadUrls)
       .then(loadSvgText)
       .catch((err) => {
-        status.textContent = 'Не удалось загрузить ' + svgUrl + ' — выбери файл (' + err.message + ')';
+        status.textContent =
+          'Не удалось загрузить SVG (' +
+          svgLoadUrls.join(' → ') +
+          ') — выбери файл вручную (' +
+          err.message +
+          ')';
       });
   </script>
 </body>
