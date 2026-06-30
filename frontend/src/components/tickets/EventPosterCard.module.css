@@ -239,14 +239,14 @@
   line-height: 1.35;
 }
 
-/* Компактная сетка на главной — выше постер, чтобы блок не казался «пустым» */
+/* Компактная карусель на главной — крупнее постер под широкие слоты */
 .compact .imageWrap {
-  aspect-ratio: 3 / 4.2;
-  min-height: 220px;
+  aspect-ratio: 3 / 4;
+  min-height: clamp(240px, 38vw, 360px);
 }
 
 .compact .title {
-  font-size: 1.1rem;
+  font-size: clamp(1.05rem, 2.2vw, 1.22rem);
 }
 
 .compact .subtitle {

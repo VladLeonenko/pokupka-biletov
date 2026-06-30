@@ -58,14 +58,17 @@
 }
 
 .strip {
+  --cat-gap: clamp(12px, 1.4vw, 20px);
+  --cat-pad: max(16px, env(safe-area-inset-left));
   display: flex;
-  gap: 16px;
+  gap: var(--cat-gap);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   padding: 4px 0 18px;
-  padding-left: max(16px, env(safe-area-inset-left));
+  padding-left: var(--cat-pad);
   padding-right: max(16px, env(safe-area-inset-right));
   scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--cat-pad);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -79,24 +82,40 @@
 
 .cardSlot {
   flex: 0 0 auto;
-  width: min(200px, 72vw);
-  max-width: 220px;
+  /* ~1.15 карточки на мобиле — виден «хвост» следующей */
+  width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 0.15) / 1.15);
   scroll-snap-align: start;
 }
 
+@media (min-width: 640px) {
+  .cardSlot {
+    /* планшет: ~2.5 карточки */
+    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 1.5) / 2.5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .cardSlot {
+    /* десктоп: ~3.5 карточки в поле зрения */
+    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 2.5) / 3.5);
+    max-width: 400px;
+  }
+}
+
 .skeletonStrip {
+  --cat-gap: clamp(12px, 1.4vw, 20px);
+  --cat-pad: max(16px, env(safe-area-inset-left));
   display: flex;
-  gap: 16px;
+  gap: var(--cat-gap);
   overflow: hidden;
-  padding-left: 20px;
-  padding-right: 20px;
+  padding-left: var(--cat-pad);
+  padding-right: max(16px, env(safe-area-inset-right));
 }
 
 .skelCard {
   flex: 0 0 auto;
-  width: min(200px, 72vw);
-  max-width: 220px;
-  height: 280px;
+  width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 0.15) / 1.15);
+  height: clamp(320px, 52vw, 420px);
   border-radius: 12px;
   background: linear-gradient(
     90deg,
@@ -106,6 +125,19 @@
   );
   background-size: 200% 100%;
   animation: catShimmer 1.2s ease-in-out infinite;
+}
+
+@media (min-width: 640px) {
+  .skelCard {
+    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 1.5) / 2.5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .skelCard {
+    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 2.5) / 3.5);
+    max-width: 400px;
+  }
 }
 
 @keyframes catShimmer {
