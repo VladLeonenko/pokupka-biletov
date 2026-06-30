@@ -172,7 +172,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-parter-straight</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-parter-band</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -3261,27 +3261,62 @@
     }
 
     function theaterStraightRowDots(rowNum, ctx) {
-      const { firstCol, lastCol, fillTargets } = ctx;
+      const { firstCol, lastCol, span, fillTargets } = ctx;
+      const { rowMin, rowMax } = span;
       const fa0 = anchorForRow(firstCol, rowNum);
       const la0 = anchorForRow(lastCol, rowNum);
       if (!fa0 || !la0) return null;
-      if (Math.hypot(la0.x - fa0.x, la0.y - fa0.y) < 1) return null;
-      const yHalf = yBandHalfForRow(rowNum, firstCol);
-      const yRow = fa0.y;
-      const xMargin = Math.max(14, Math.abs(la0.x - fa0.x) * 0.04);
-      const xLo = Math.min(fa0.x, la0.x) - xMargin;
-      const xHi = Math.max(fa0.x, la0.x) + xMargin;
-      let rowDots = fillTargets.filter((c) => {
-        if (isNoiseGridDot(c)) return false;
-        const p = circleXY(c);
-        if (Math.abs(p.y - yRow) > yHalf) return false;
-        return p.x >= xLo && p.x <= xHi;
-      });
-      let fa = { ...fa0, y: yRow };
-      let la = { ...la0, y: yRow };
-      const seatAxis = seatAxisForTheaterRow(fa, la, true);
-      rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
+
+      // Партер: ряд = Y-полоса по кластерам (все 27 мест), не узкий фильтр по fa.y (центр ряда пропадал → 4 точки).
+      const bandGap = Math.max(10, minAdjacentRowGapY(firstCol) * 0.82);
+      const bands = clusterBandsByY(fillTargets, bandGap);
+      let rowDots = [];
+      for (const band of bands) {
+        const rn = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
+        if (rn !== rowNum) continue;
+        for (const c of band.circles) {
+          if (!isNoiseGridDot(c)) rowDots.push(c);
+        }
+      }
+
+      if (rowDots.length < 3) {
+        const yHalf = yBandHalfForRow(rowNum, firstCol) * 1.35;
+        const seen = new Set(rowDots);
+        for (const c of fillTargets) {
+          if (isNoiseGridDot(c) || seen.has(c)) continue;
+          if (Math.abs(circleXY(c).y - fa0.y) <= yHalf) {
+            seen.add(c);
+            rowDots.push(c);
+          }
+        }
+      }
+
+      if (!rowDots.length) return null;
+
+      const rowY = median(rowDots.map((c) => circleXY(c).y));
+      let fa = { ...fa0, y: rowY };
+      let la = { ...la0, y: rowY };
+      let seatAxis = seatAxisForTheaterRow(fa, la, true);
+
+      const alongs = rowDots.map((c) => seatAlongCircle(c, seatAxis));
+      const dotLo = Math.min(...alongs);
+      const dotHi = Math.max(...alongs);
+      const hasExactFirst = firstCol.some((a) => a.rowNum === rowNum);
+      const hasExactLast = lastCol.some((a) => a.rowNum === rowNum);
+      if (!hasExactFirst) fa = moveAnchorAlongSeatAxis(fa, dotLo, seatAxis);
+      if (!hasExactLast) la = moveAnchorAlongSeatAxis(la, dotHi, seatAxis);
+      fa.y = rowY;
+      la.y = rowY;
+      seatAxis = seatAxisForTheaterRow(fa, la, true);
+
+      if (rowDots.length > 6) {
+        rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
+      }
+
       ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
+      fa.y = rowY;
+      la.y = rowY;
+      seatAxis = seatAxisForTheaterRow(fa, la, true);
       const slots = dedupeSeatDotsByX(rowDots, fa, la, seatAxis);
       if (!slots.length) return null;
       return { fa, la, slots, rowDots, straight: true };

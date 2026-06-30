@@ -59,7 +59,7 @@
 
 .strip {
   --cat-gap: clamp(12px, 1.4vw, 20px);
-  --cat-pad: max(16px, env(safe-area-inset-left));
+  --cat-pad: max(16px, calc((100vw - min(100vw, 1200px)) / 2 + 16px));
   display: flex;
   gap: var(--cat-gap);
   overflow-x: auto;
