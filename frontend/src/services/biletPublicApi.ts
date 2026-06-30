@@ -1169,7 +1169,39 @@ export type BiletCheckoutPayload = {
   fanId?: string;
   heldGetbiletOrderIds?: string[];
   heldMakeData?: unknown;
+  sessionLabel?: string;
+  seatLabels?: string[];
+  gift?: {
+    isGift: true;
+    recipientEmail: string;
+    recipientName?: string;
+    message?: string;
+  };
 };
+
+export type GiftTicketView = {
+  ok: boolean;
+  orderNumber: string;
+  eventTitle: string;
+  sessionLabel?: string | null;
+  seats: string[];
+  seatLabels?: string[] | null;
+  fromName?: string | null;
+  recipientName?: string | null;
+  message?: string | null;
+};
+
+export async function fetchGiftTicketView(orderNumber: string, token: string): Promise<GiftTicketView> {
+  const q = new URLSearchParams({ token });
+  const res = await fetch(`${getApiBase()}/api/bilet/gift/${encodeURIComponent(orderNumber)}?${q}`, {
+    headers: { Accept: 'application/json' },
+  });
+  const data = (await res.json().catch(() => ({}))) as GiftTicketView & { error?: string; message?: string };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
 
 export async function checkoutBiletTickets(payload: BiletCheckoutPayload): Promise<{
   ok: boolean;

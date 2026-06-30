@@ -412,6 +412,24 @@
   background: var(--neg-orange, #ff4e18) !important;
 }
 
+.giftBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 14px 16px;
+  border: 1px dashed rgba(255, 78, 24, 0.35);
+  border-radius: 2px;
+  background: #fffaf7;
+}
+
+.giftHint {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.62);
+}
+
 .btnPrimary:hover:not(:disabled) {
   background: #e64514 !important;
   box-shadow: 0 10px 32px rgba(255, 78, 24, 0.42) !important;

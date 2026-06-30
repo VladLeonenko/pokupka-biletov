@@ -30,6 +30,9 @@ const EventsSearchPage = lazy(() =>
 const TicketCheckoutPage = lazy(() =>
   import('@/pages/public/TicketCheckoutPage').then((m) => ({ default: m.TicketCheckoutPage }))
 );
+const GiftTicketPage = lazy(() =>
+  import('@/pages/public/GiftTicketPage').then((m) => ({ default: m.GiftTicketPage }))
+);
 const LuzhnikiCupFinalSchemeTestPage = lazy(() =>
   import('@/pages/test/LuzhnikiCupFinalSchemeTestPage').then((m) => ({ default: m.LuzhnikiCupFinalSchemeTestPage }))
 );
@@ -216,6 +219,7 @@ export function AppRoutes() {
       <Route path="/tools/technical-audit" element={<TechnicalAuditPage />} />
       <Route path="/tools/reputation-monitor" element={<ReputationMonitorPage />} />
       <Route path="/tools/roi-calculator" element={<RoiCalculatorPage />} />
+      <Route path="/gift/:orderNumber" element={<GiftTicketPage />} />
       <Route path="/orders/:orderNumber" element={<OrderDetailPage />} />
       <Route path="/charity" element={<CharityPage />} />
       <Route path="/ai-chat" element={<PublicAIChatPage />} />

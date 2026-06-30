@@ -20,6 +20,8 @@ import {
   RepertoireNotAvailableError,
 } from '../services/repertoireStorefrontAccess.js';
 import { registerTicketPriceAlertRoutes } from './ticketPriceAlerts.js';
+import { registerTicketGiftRoutes } from './ticketGift.js';
+import { parseTicketGiftFromCheckoutBody } from '../utils/ticketGift.js';
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -55,6 +57,7 @@ function parseHeldMakeData(raw) {
  */
 export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
   registerTicketPriceAlertRoutes(router);
+  registerTicketGiftRoutes(router);
 
   router.post('/reserve', optionalAuth, async (req, res) => {
     try {
@@ -160,6 +163,21 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         fanId = requireValidFanId(req.body?.fanId ?? req.body?.fan_id);
       }
 
+      const gift = (() => {
+        try {
+          return parseTicketGiftFromCheckoutBody(req.body);
+        } catch (e) {
+          throw new GetbiletValidationError(e instanceof Error ? e.message : 'Ошибка оформления подарка');
+        }
+      })();
+      const sessionLabel =
+        typeof req.body?.sessionLabel === 'string' && req.body.sessionLabel.trim()
+          ? req.body.sessionLabel.trim().slice(0, 200)
+          : null;
+      const seatLabels = Array.isArray(req.body?.seatLabels)
+        ? req.body.seatLabels.map((s) => String(s).trim()).filter(Boolean).slice(0, 20)
+        : null;
+
       const userId = req.user?.id ?? null;
       const sessionId = userId ? null : getSessionId(req);
       if (!userId && !sessionId) {
@@ -217,11 +235,14 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         ticketCheckout: true,
         eventTitle,
         seats,
+        seatLabels: seatLabels?.length ? seatLabels : undefined,
+        sessionLabel: sessionLabel || undefined,
         offerId,
         offerSelections,
         repertoireId,
         promoId,
         fanId: fanId || undefined,
+        gift: gift || undefined,
         getbiletMakeOrder: makeData,
         getbiletOrderId: getbiletOrderIdsToCancel[0] ?? null,
         getbiletOrderIds: getbiletOrderIdsToCancel,

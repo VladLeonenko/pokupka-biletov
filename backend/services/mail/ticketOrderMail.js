@@ -1,5 +1,11 @@
 import { sendTransactionalMail, ticketOrderMailBcc } from './transporter.js';
 import { extractFanIdFromOrder } from '../../utils/orderFanId.js';
+import { extractGiftFromPaymentMeta } from '../../utils/ticketGift.js';
+import {
+  sendTicketGiftRecipientEmail,
+  ticketGiftBuyerEmailNote,
+  ticketGiftBuyerEmailNoteHtml,
+} from './ticketGiftMail.js';
 
 function siteName() {
   return process.env.SITE_NAME || process.env.SENDER_NAME || 'Покупка билетов';
@@ -72,6 +78,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
   const eventTitle = meta.eventTitle || 'Мероприятие';
   const seats = Array.isArray(meta.seats) ? meta.seats.join(', ') : String(meta.seats || '—');
   const fanId = extractFanIdFromOrder(orderRow);
+  const gift = extractGiftFromPaymentMeta(meta);
   const deliveryLine = ticketDeliveryPromiseLine();
   const showAccount = Boolean(isNew && initialPassword);
   const loginEmail = to;
@@ -97,6 +104,9 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
   if (showAccount) {
     textParts.push(``, accountBlockText({ customerName: orderRow.customer_name, loginEmail, initialPassword }));
   }
+  if (gift) {
+    textParts.push(ticketGiftBuyerEmailNote(gift));
+  }
   textParts.push(``, siteName());
   const text = textParts.join('\n');
 
@@ -116,6 +126,7 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
       </table>
       <p style="margin: 0 0 20px; font-size: 14px; color: #333;">${escapeHtml(deliveryLine)}</p>
       ${accountHtml}
+      ${gift ? ticketGiftBuyerEmailNoteHtml(gift) : ''}
       <p style="margin: 0 0 20px;"><a href="${linkOrder}" style="display: inline-block; padding: 12px 22px; background: #111; color: #fff; text-decoration: none; border-radius: 2px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px;">Открыть заказ</a></p>
       <p style="margin: 0; font-size: 13px; color: #666;">Сохраните письмо — оно подтверждает оплату.</p>
       <p style="margin: 24px 0 0; font-size: 13px; color: #888;">${escapeHtml(siteName())}</p>
@@ -123,6 +134,11 @@ export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPasswo
 
   const r = await sendTransactionalMail({ to, subject: subj, text, html, bcc: ticketOrderMailBcc() });
   if (!r.ok) console.warn('[ticketOrderMail] письмо об оплате:', r.reason);
+
+  if (gift) {
+    const gr = await sendTicketGiftRecipientEmail(orderRow, gift, meta);
+    if (!gr.ok) console.warn('[ticketOrderMail] письмо получателю подарка:', gr.reason);
+  }
 }
 
 function escapeHtml(s) {

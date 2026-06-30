@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, CircularProgress, Dialog, DialogContent, IconButton, TextField } from '@mui/material';
+import { Box, Button, CircularProgress, Dialog, DialogContent, IconButton, TextField, FormControlLabel, Checkbox } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
@@ -62,12 +62,20 @@ export function TicketPurchaseDialog({
   const [promoHint, setPromoHint] = useState<{ ok: boolean; text: string } | null>(null);
   const [promoFinalRub, setPromoFinalRub] = useState<number | null>(null);
   const [promoDiscountRub, setPromoDiscountRub] = useState<number | null>(null);
+  const [isGift, setIsGift] = useState(false);
+  const [giftRecipientName, setGiftRecipientName] = useState('');
+  const [giftRecipientEmail, setGiftRecipientEmail] = useState('');
+  const [giftMessage, setGiftMessage] = useState('');
 
   const [holdExpired, setHoldExpired] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setHoldExpired(false);
+      setIsGift(false);
+      setGiftRecipientName('');
+      setGiftRecipientEmail('');
+      setGiftMessage('');
       return;
     }
     setHoldExpired(!isTicketHoldActive(hold));
@@ -133,6 +141,16 @@ export function TicketPurchaseDialog({
         fanId: requiresFanIdEffective ? normalizeFanId(fanId) : undefined,
         heldGetbiletOrderIds: hold?.getbiletOrderIds,
         heldMakeData: hold?.makeData,
+        sessionLabel: sessionLabel ?? undefined,
+        seatLabels: seatLabels?.length ? seatLabels : undefined,
+        gift: isGift
+          ? {
+              isGift: true,
+              recipientEmail: giftRecipientEmail.trim(),
+              recipientName: giftRecipientName.trim() || undefined,
+              message: giftMessage.trim() || undefined,
+            }
+          : undefined,
       });
     },
     onSuccess: (data) => {
@@ -155,7 +173,10 @@ export function TicketPurchaseDialog({
     seats.length > 0 &&
     (!requiresFanIdEffective || isValidFanId(fanId)) &&
     !holdExpired &&
-    isTicketHoldActive(hold);
+    isTicketHoldActive(hold) &&
+    (!isGift ||
+      (giftRecipientEmail.trim().length > 0 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(giftRecipientEmail.trim())));
 
   const handleClose = useCallback(() => {
     if (checkoutMut.isPending) return;
@@ -217,6 +238,53 @@ export function TicketPurchaseDialog({
             ))}
           </div>
         </div>
+
+        <FormControlLabel
+          control={<Checkbox checked={isGift} onChange={(_, c) => setIsGift(c)} />}
+          label="Оформить как подарок"
+          sx={{ mt: 2, mb: isGift ? 1 : 0, ml: 0 }}
+        />
+        {isGift ? (
+          <div className={styles.giftBlock}>
+            {requiresFanIdEffective ? (
+              <p className={styles.giftHint}>
+                FAN ID указывает покупатель — получателю понадобится тот же ID на входе.
+              </p>
+            ) : null}
+            <TextField
+              required
+              label="Email получателя"
+              type="email"
+              value={giftRecipientEmail}
+              onChange={(e) => setGiftRecipientEmail(e.target.value)}
+              fullWidth
+              size="medium"
+              className={styles.field}
+              sx={fieldSx}
+            />
+            <TextField
+              label="Имя получателя"
+              value={giftRecipientName}
+              onChange={(e) => setGiftRecipientName(e.target.value)}
+              fullWidth
+              size="medium"
+              className={styles.field}
+              sx={fieldSx}
+            />
+            <TextField
+              label="Поздравление"
+              value={giftMessage}
+              onChange={(e) => setGiftMessage(e.target.value)}
+              fullWidth
+              size="medium"
+              multiline
+              minRows={2}
+              placeholder="Необязательно"
+              className={styles.field}
+              sx={fieldSx}
+            />
+          </div>
+        ) : null}
 
         {requiresFanIdEffective ? (
           <div className={styles.fanIdBlock} role="note">
