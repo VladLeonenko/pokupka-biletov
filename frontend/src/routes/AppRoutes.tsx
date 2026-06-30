@@ -27,6 +27,9 @@ const HomePage = lazy(() =>
 const EventsSearchPage = lazy(() =>
   import('@/pages/public/EventsSearchPage').then((m) => ({ default: m.EventsSearchPage }))
 );
+const EventsMapPage = lazy(() =>
+  import('@/pages/public/EventsMapPage').then((m) => ({ default: m.EventsMapPage }))
+);
 const TicketCheckoutPage = lazy(() =>
   import('@/pages/public/TicketCheckoutPage').then((m) => ({ default: m.TicketCheckoutPage }))
 );
@@ -184,6 +187,7 @@ export function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/afisha" element={<HomePage />} />
       <Route path="/events" element={<EventsSearchPage />} />
+      <Route path="/events/map" element={<EventsMapPage />} />
       <Route path="/events/city/:citySlug" element={<EventsSearchPage />} />
       <Route path="/events/genre/:genreSlug" element={<EventsSearchPage />} />
       <Route path="/events/venue/:venueSlug" element={<EventsSearchPage />} />

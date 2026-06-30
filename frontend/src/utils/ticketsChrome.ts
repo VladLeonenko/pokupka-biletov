@@ -9,6 +9,7 @@ export function matchesTicketsChromePath(pathname: string): boolean {
       '/',
       '/afisha',
       '/events',
+      '/events/map',
       '/search',
       '/cart',
       '/wishlist',

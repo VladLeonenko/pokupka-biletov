@@ -27,6 +27,11 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
     description:
       'Найдите событие по дате, площадке или жанру и оформите билет онлайн без лишних шагов.',
   },
+  '/events/map': {
+    title: 'Карта мероприятий на этой неделе',
+    description:
+      'События рядом с вами на карте: театр, концерты и спорт в ближайшие 7 дней.',
+  },
   '/search': {
     title: 'Поиск билетов на мероприятия',
     description:

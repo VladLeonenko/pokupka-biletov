@@ -12,6 +12,7 @@ export const PUBLIC_SITE_ROUTES: readonly PublicRouteDef[] = [
   { path: '/', title: 'Главная' },
   { path: '/afisha', title: 'Афиша' },
   { path: '/events', title: 'Мероприятия' },
+  { path: '/events/map', title: 'Карта мероприятий' },
   { path: '/ticket/:eventSlug', title: 'Билет (оформление)' },
   { path: '/catalog', title: 'Каталог' },
   { path: '/products/:slug', title: 'Товар (slug)' },

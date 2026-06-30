@@ -238,6 +238,9 @@ export function EventsSearchPage() {
             «Спорт» включает футбол, хоккей, матчи и турниры — в том числе когда в категории из API
             указано «Футбол», а в названии нет слова «спорт».
           </p>
+          <Link to="/events/map" className={styles.mapLink}>
+            На карте — что рядом на этой неделе →
+          </Link>
         </header>
 
         <form className={styles.filters} onSubmit={handleSubmit}>

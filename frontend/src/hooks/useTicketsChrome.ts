@@ -12,6 +12,7 @@ export function useTicketsChrome(): boolean {
         '/',
         '/afisha',
         '/events',
+        '/events/map',
         '/search',
         '/cart',
         '/wishlist',
