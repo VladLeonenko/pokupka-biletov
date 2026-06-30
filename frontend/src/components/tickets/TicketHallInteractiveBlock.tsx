@@ -531,6 +531,12 @@ type Props = {
   hideSelectionBar?: boolean;
   /** Нормализованный сектор из фильтра списка (a101) — фокус карты */
   focusSectorNorm?: string | null;
+  /** Фото вида с трибуны в модалке категории (Portalbilet-style) */
+  categoryPreviewImageUrl?: string | null;
+  /** Короткая дата сеанса в модалке, напр. «18.07» */
+  sessionDateLabel?: string | null;
+  /** Тост «Требуется Fan ID» поверх схемы */
+  showFanIdNotice?: boolean;
 };
 
 /**
@@ -557,6 +563,9 @@ export function TicketHallInteractiveBlock({
   variant = 'page',
   hideSelectionBar = false,
   focusSectorNorm = null,
+  categoryPreviewImageUrl = null,
+  sessionDateLabel = null,
+  showFanIdNotice = false,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -813,12 +822,16 @@ export function TicketHallInteractiveBlock({
         (sum, offer) => sum + (Array.isArray(offer.SeatList) ? offer.SeatList.length : 0),
         0,
       );
+      const metaMin =
+        meta.minPrice != null && Number.isFinite(Number(meta.minPrice)) ? Number(meta.minPrice) : null;
+      const metaMax =
+        meta.maxPrice != null && Number.isFinite(Number(meta.maxPrice)) ? Number(meta.maxPrice) : null;
       return {
         meta,
         offers: sectorOffers,
-        seatCount,
-        minPrice: prices.length ? Math.min(...prices) : sectorOffers.length > 0 ? meta.minPrice ?? null : null,
-        maxPrice: prices.length ? Math.max(...prices) : sectorOffers.length > 0 ? meta.maxPrice ?? null : null,
+        seatCount: seatCount || (meta.availableSeats ?? 0),
+        minPrice: prices.length ? Math.min(...prices) : metaMin,
+        maxPrice: prices.length ? Math.max(...prices) : metaMax,
       };
     });
   }, [getPriceKey, offers, sectorMode.sectors]);
@@ -1474,6 +1487,21 @@ export function TicketHallInteractiveBlock({
   }, [hideSeatInfo, onClearSelection, onSelectionChange]);
 
   const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
+  const categoryModalSelectedCount = useMemo(() => {
+    if (!selectedSectorSummary) return 0;
+    const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
+    return selectedSeatDetails.filter((d) => normalizeSectorLabel(d.sector) === sectorNorm).length;
+  }, [selectedSeatDetails, selectedSectorSummary]);
+  const categoryModalSelectedTotal = useMemo(() => {
+    if (!selectedSectorSummary) return 0;
+    const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
+    return selectedSeatDetails
+      .filter((d) => normalizeSectorLabel(d.sector) === sectorNorm)
+      .reduce((sum, d) => {
+        const price = Number(d.priceKey);
+        return Number.isFinite(price) ? sum + price : sum;
+      }, 0);
+  }, [selectedSeatDetails, selectedSectorSummary]);
   const mapZoomed = zoom > fitZoom + 0.01;
 
   useEffect(() => {
@@ -1519,6 +1547,17 @@ export function TicketHallInteractiveBlock({
     () => selectedSectorOffers.filter((offer) => Array.isArray(offer.SeatList) && offer.SeatList.length > 0),
     [selectedSectorOffers],
   );
+  const categoryModalRowsLabel = useMemo(() => {
+    if (!selectedSectorSummary) return '';
+    const rows = [
+      ...new Set(
+        selectedSectorOffersWithSeats
+          .map((offer) => String(offer.Row ?? '').trim())
+          .filter(Boolean),
+      ),
+    ];
+    return rows.join(', ');
+  }, [selectedSectorSummary, selectedSectorOffersWithSeats]);
   /** На обзоре: категории стадиона и театр pbilet — только сектора, без точек. */
   const visibleNativePlacements = useMemo(() => {
     if (pbiletCategoryCheckout && sectorMode.enabled) return [];
@@ -1869,6 +1908,8 @@ export function TicketHallInteractiveBlock({
             {sectorMode.enabled ? (
               <svg
                 className={`${styles.sectorLayer} ${
+                  pbiletCategoryCheckout ? styles.sectorLayerCategoryCheckout : ''
+                } ${
                   useCanvasCompositing ? styles.sectorLayerUnderSeats : ''
                 } ${
                   hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : styles.sectorLayerFitOverview
@@ -1878,7 +1919,10 @@ export function TicketHallInteractiveBlock({
                 aria-label="Секторы стадиона"
               >
                 {sectorSummaries.map((sector) => {
-                  const available = sector.seatCount > 0 || sector.offers.length > 0;
+                  const available =
+                    sector.seatCount > 0 ||
+                    sector.offers.length > 0 ||
+                    (sector.meta.minPrice != null && Number.isFinite(Number(sector.meta.minPrice)));
                   const active = selectedSector === normalizeSectorLabel(sector.meta.label);
                   const priceForColor = sector.minPrice != null ? String(sector.minPrice) : '0';
                   return (
@@ -2182,7 +2226,7 @@ export function TicketHallInteractiveBlock({
                   })}
             </div>
           </div>
-          {selectedSectorSummary && sectorPanelCollapsed ? (
+          {selectedSectorSummary && sectorPanelCollapsed && !pbiletCategoryCheckout ? (
             <button
               type="button"
               className={styles.sectorPanelRestore}
@@ -2192,7 +2236,127 @@ export function TicketHallInteractiveBlock({
               Показать места
             </button>
           ) : null}
-          {selectedSectorSummary && !sectorPanelCollapsed ? (
+          {selectedSectorSummary && pbiletCategoryCheckout ? (
+            <>
+              <div
+                className={styles.categoryModalBackdrop}
+                aria-hidden="true"
+                onPointerDown={(ev) => ev.stopPropagation()}
+                onClick={() => resetSectorFocus()}
+              />
+              <div
+                className={styles.categoryModal}
+                data-sector-panel="true"
+                role="dialog"
+                aria-modal="true"
+                aria-label={selectedSectorSummary.meta.label}
+                onPointerDown={(ev) => ev.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className={styles.categoryModalClose}
+                  aria-label="Закрыть"
+                  onClick={() => resetSectorFocus()}
+                >
+                  ×
+                </button>
+                <div className={styles.categoryModalGrid}>
+                  <div className={styles.categoryModalVisual}>
+                    <div className={styles.categoryModalTitle}>{selectedSectorSummary.meta.label}</div>
+                    <div className={styles.categoryModalImageWrap}>
+                      {categoryPreviewImageUrl ? (
+                        <img
+                          className={styles.categoryModalImage}
+                          src={categoryPreviewImageUrl}
+                          alt={`Вид с трибуны — ${selectedSectorSummary.meta.label}`}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <div className={styles.categoryModalImageFallback} aria-hidden="true" />
+                      )}
+                    </div>
+                    <p className={styles.categoryModalHint}>
+                      {categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}
+                      Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах.
+                      При заказе более одного билета места будут рядом.
+                    </p>
+                  </div>
+                  <div className={styles.categoryModalOffers}>
+                    {sessionDateLabel ? (
+                      <div className={styles.categoryModalDate}>{sessionDateLabel}</div>
+                    ) : null}
+                    <p className={styles.categoryModalLead}>
+                      Для вас собраны предложения из разных источников. Выбирайте лучшее!
+                    </p>
+                    <div className={styles.categoryModalOfferList}>
+                      {selectedSectorOffersWithSeats.length > 0 ? (
+                        selectedSectorOffersWithSeats.map((offer) => {
+                          const oid = String(offer.Id ?? '');
+                          const seats = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+                          const priceKey = getPriceKey(offer);
+                          const rowLabel = String(offer.Row ?? '');
+                          const prefix = `${oid}|${rowLabel}|`;
+                          const selectedCount = selectedSeatDetails.filter((d) => d.key.startsWith(prefix)).length;
+                          return (
+                            <div key={`${oid}-${rowLabel}-${priceKey}`} className={styles.categoryModalOfferCard}>
+                              <div className={styles.categoryModalOfferTop}>
+                                <span className={styles.categoryModalOfferPrice}>
+                                  {formatRub(Number(priceKey))}/шт
+                                </span>
+                                <div className={styles.categoryQtyRow}>
+                                  <button
+                                    type="button"
+                                    className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnMinus}`}
+                                    aria-label="Меньше"
+                                    disabled={selectedCount <= 0}
+                                    onClick={() => setCategoryOfferQty(offer, selectedCount - 1)}
+                                  >
+                                    −
+                                  </button>
+                                  <span className={styles.categoryQtyValue}>{selectedCount}</span>
+                                  <button
+                                    type="button"
+                                    className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnPlus}`}
+                                    aria-label="Больше"
+                                    disabled={selectedCount >= seats.length}
+                                    onClick={() => setCategoryOfferQty(offer, selectedCount + 1)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                              <div className={styles.sectorOfferAvail}>Свободно {seats.length} шт</div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className={styles.sectorOfferEmpty}>
+                          Сейчас в этом секторе нет доступных мест для бронирования.
+                        </div>
+                      )}
+                    </div>
+                    {onReserveFromMap ? (
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        disabled={categoryModalSelectedCount <= 0 || reservePending}
+                        onClick={() => onReserveFromMap()}
+                        sx={{ mt: 2, borderRadius: 999, py: 1.2, fontWeight: 800 }}
+                      >
+                        {reservePending
+                          ? 'Бронирование…'
+                          : categoryModalSelectedCount > 0
+                            ? `Купить · ${formatRub(categoryModalSelectedTotal)}`
+                            : 'Купить'}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : selectedSectorSummary && !sectorPanelCollapsed ? (
             <div className={styles.sectorPanel} data-sector-panel="true" onPointerDown={(ev) => ev.stopPropagation()}>
               <div className={styles.sectorPanelActions}>
                 <button type="button" className={styles.sectorPanelClose} onClick={() => setSectorPanelCollapsed(true)}>
@@ -2309,6 +2473,14 @@ export function TicketHallInteractiveBlock({
                   </div>
                 )}
               </div>
+            </div>
+          ) : null}
+          {showFanIdNotice ? (
+            <div className={styles.fanIdMapToast} role="status">
+              <span className={styles.fanIdMapToastIcon} aria-hidden="true">
+                !
+              </span>
+              <span>Внимание! Требуется Fan ID!</span>
             </div>
           ) : null}
           {selectedSeatDetails.length > 0 && !hideSelectionBar ? (

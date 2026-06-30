@@ -1089,6 +1089,19 @@ export function TicketCheckoutPage() {
   /** Фокус карты — только клик по сектору на схеме, не фильтр списка. */
   const mapFocusSectorNorm: string | null = null;
 
+  const mapSessionShortDate = useMemo(() => {
+    const dt = hallMapSessionKey;
+    if (!dt || dt === '_') return null;
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  }, [hallMapSessionKey]);
+
+  const categoryPreviewImageUrl = useMemo(
+    () => absoluteUrl(origin, coverUrl || posterSideUrl) ?? null,
+    [origin, coverUrl, posterSideUrl],
+  );
+
   useEffect(() => {
     setMapSelectedPriceKey(null);
   }, [hallMapSessionKey]);
@@ -1410,7 +1423,7 @@ export function TicketCheckoutPage() {
           </div>
         </div>
 
-        <Box className={styles.wrap} sx={{ maxWidth: 960, mx: 'auto', p: 2, pb: 4 }}>
+        <Box className={styles.wrap} sx={{ py: 2, pb: 4 }}>
           {paymentFailed ? (
             <Alert severity="warning" sx={{ mb: 2 }}>
               Оплата не завершилась. Деньги не списаны: можно выбрать места ещё раз или попробовать другую карту.
@@ -1510,7 +1523,7 @@ export function TicketCheckoutPage() {
           ) : null}
         </Box>
 
-        <Box id="ticket-places-and-prices" className={styles.wrap} sx={{ maxWidth: 960, mx: 'auto', px: 2, pb: 4 }}>
+        <Box id="ticket-places-and-prices" className={styles.wrap} sx={{ pb: 4 }}>
           <Box
             sx={{
               display: 'flex',
@@ -1580,6 +1593,8 @@ export function TicketCheckoutPage() {
                       onNavigateToList={navigateToPlacesList}
                       hideSelectionBar
                       showFanIdNotice={requiresFanId}
+                      categoryPreviewImageUrl={categoryPreviewImageUrl}
+                      sessionDateLabel={mapSessionShortDate}
                       focusSectorNorm={mapFocusSectorNorm}
                     />
                   </Suspense>
@@ -2070,6 +2085,8 @@ export function TicketCheckoutPage() {
                         onNavigateToList={navigateToPlacesList}
                         hideSelectionBar
                         showFanIdNotice={requiresFanId}
+                        categoryPreviewImageUrl={categoryPreviewImageUrl}
+                        sessionDateLabel={mapSessionShortDate}
                         focusSectorNorm={mapFocusSectorNorm}
                       />
                     </Suspense>

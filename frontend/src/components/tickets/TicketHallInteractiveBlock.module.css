@@ -366,6 +366,28 @@
   opacity: 1;
 }
 
+/** Portalbilet-style: насыщенные цветовые зоны по категориям. */
+.sectorLayerCategoryCheckout.sectorLayerFitOverview .sectorPath {
+  fill-opacity: 0.92;
+  stroke-opacity: 0.72;
+}
+
+.sectorLayerCategoryCheckout.sectorLayerFitOverview .sectorPathAvailable {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 48%, #fff);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 62%, #fff);
+}
+
+.sectorLayerCategoryCheckout.sectorLayerFitOverview .sectorPathInteractive:hover,
+.sectorLayerCategoryCheckout.sectorLayerFitOverview .sectorPathInteractive:focus {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 58%, #fff);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 78%, #fff);
+}
+
+.sectorLayerCategoryCheckout.sectorLayerFitOverview .sectorPathActive {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 62%, #fff);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 82%, #fff);
+}
+
 .sectorPathInteractive {
   cursor: pointer;
   pointer-events: auto;
@@ -809,6 +831,191 @@
   font-weight: 700;
 }
 
+.categoryQtyBtnMinus {
+  background: #f3f0ff;
+  border-color: rgba(88, 86, 214, 0.22);
+  color: #5856d6;
+}
+
+.categoryQtyBtnPlus {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #fff;
+}
+
+.categoryQtyBtnPlus:disabled {
+  background: rgba(30, 58, 138, 0.35);
+  border-color: transparent;
+}
+
+.categoryModalBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(1px);
+}
+
+.categoryModal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 16;
+  width: min(920px, calc(100% - 28px));
+  max-height: min(86%, 640px);
+  transform: translate(-50%, -50%);
+  overflow: auto;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+}
+
+.categoryModalClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.categoryModalClose:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.categoryModalGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+}
+
+.categoryModalVisual {
+  padding: 22px 22px 18px;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.categoryModalTitle {
+  margin-bottom: 12px;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #1e3a8a;
+  letter-spacing: -0.02em;
+}
+
+.categoryModalImageWrap {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #eef2f7;
+  aspect-ratio: 16 / 9;
+}
+
+.categoryModalImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.categoryModalImageFallback {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(180deg, rgba(30, 58, 138, 0.08), rgba(30, 58, 138, 0.02)),
+    radial-gradient(circle at 50% 62%, #3d9a46 0 18%, transparent 19%),
+    linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+}
+
+.categoryModalHint {
+  margin: 14px 0 0;
+  color: rgba(0, 0, 0, 0.58);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.categoryModalOffers {
+  padding: 22px 20px 20px;
+}
+
+.categoryModalDate {
+  margin-bottom: 8px;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.categoryModalLead {
+  margin: 0 0 14px;
+  color: rgba(0, 0, 0, 0.72);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.categoryModalOfferList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.categoryModalOfferCard {
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: #fafafa;
+}
+
+.categoryModalOfferTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.categoryModalOfferPrice {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: rgba(0, 0, 0, 0.82);
+}
+
+.fanIdMapToast {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  color: rgba(0, 0, 0, 0.78);
+  font-size: 0.82rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.fanIdMapToastIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .selectionBar {
   display: flex;
   align-items: center;
@@ -953,6 +1160,21 @@
 
   .sectorPanel {
     display: none;
+  }
+
+  .categoryModalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .categoryModalVisual {
+    border-right: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    padding-bottom: 16px;
+  }
+
+  .categoryModal {
+    width: calc(100% - 16px);
+    max-height: min(92%, 720px);
   }
 
   .sectorPanelRestore {

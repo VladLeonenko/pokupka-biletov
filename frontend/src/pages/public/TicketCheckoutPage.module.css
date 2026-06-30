@@ -85,9 +85,9 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(16px, 4vw, 28px) clamp(16px, 4vw, 28px) clamp(22px, 4vw, 36px);
+  padding: clamp(16px, 4vw, 28px) 16px clamp(22px, 4vw, 36px);
 }
 
 .heroGrid {
@@ -325,6 +325,11 @@
 .wrap {
   font-family: var(--neg-font, system-ui, sans-serif);
   min-width: 0;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 .code {
