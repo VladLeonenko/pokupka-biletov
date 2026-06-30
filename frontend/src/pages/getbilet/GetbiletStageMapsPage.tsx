@@ -38,6 +38,7 @@ import {
   type HallMapEditorLink,
 } from '@/services/getbiletAdminApi';
 import { useToast } from '@/components/common/ToastProvider';
+import { StadiumCategoryCheckoutPanel } from '@/components/getbilet/StadiumCategoryCheckoutPanel';
 
 const emptyForm = {
   stage_external_id: '',
@@ -488,6 +489,11 @@ export function GetbiletStageMapsPage() {
             minRows={8}
             InputProps={{ sx: { fontFamily: 'monospace', fontSize: 12 } }}
             helperText="Для интерактива нужен SVG с circle[place-name] или circle[data-replaced]. Для МХТ используйте frontend/public/hall-maps/mht-chekhov-osnovnoy-zal-native.svg."
+          />
+          <StadiumCategoryCheckoutPanel
+            stageMapId={editingId}
+            layoutJsonText={form.layout_json_text}
+            onLayoutJsonTextChange={(next) => setForm((f) => ({ ...f, layout_json_text: next }))}
           />
           <TextField
             label="layout_json"

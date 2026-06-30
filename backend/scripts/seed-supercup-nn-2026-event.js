@@ -102,8 +102,6 @@ function demoOffersPayload(offers) {
     Method: 'GetOfferListByRepertoireId',
     ResultData: offers.map((o) => ({
       ...o,
-      NominalPrice: '1500',
-      AgentPrice: '1500',
       PlaceName: catalogPayload.PlaceName,
       PlaceAddress: catalogPayload.PlaceAddress,
     })),
@@ -133,6 +131,7 @@ async function main() {
     {
       ...preview.layout_json,
       seatSelectionDisabled: false,
+      hideSeatList: true,
     },
     STAGE_MAP_KEY,
   );

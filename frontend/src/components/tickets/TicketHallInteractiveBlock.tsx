@@ -139,6 +139,7 @@ type SectorMeta = {
   availableSeats?: number;
   minPrice?: number | null;
   maxPrice?: number | null;
+  previewImageUrl?: string | null;
 };
 type SectorSummary = {
   meta: SectorMeta;
@@ -349,6 +350,7 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
           if (!id || !label || !path) return null;
           const minPrice = Number(s.minPrice);
           const maxPrice = Number(s.maxPrice);
+          const previewImageUrl = String(s.previewImageUrl ?? '').trim() || null;
           return {
             id,
             label,
@@ -356,11 +358,29 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
             availableSeats: Number(s.availableSeats) || 0,
             minPrice: Number.isFinite(minPrice) ? minPrice : null,
             maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
+            previewImageUrl,
           };
         })
         .filter(Boolean) as SectorMeta[]
     : [];
   return { enabled: record.enabled === true && sectors.length > 0, sectors };
+}
+
+function resolveHallPreviewImageUrl(
+  raw: string | null | undefined,
+  fallbacks: (string | null | undefined)[],
+): string | null {
+  const candidates = [raw, ...fallbacks];
+  for (const item of candidates) {
+    const s = String(item ?? '').trim();
+    if (!s) continue;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
+    }
+    return s;
+  }
+  return null;
 }
 
 import {
@@ -1487,6 +1507,20 @@ export function TicketHallInteractiveBlock({
   }, [hideSeatInfo, onClearSelection, onSelectionChange]);
 
   const selectedSectorSummary = selectedSector ? sectorSummaryByLabel.get(selectedSector) ?? null : null;
+  const categoryDefaultPreviewUrl = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return null;
+    const d = (layoutJson as Record<string, unknown>).categoryCheckoutDefaults;
+    if (!d || typeof d !== 'object') return null;
+    const url = String((d as Record<string, unknown>).previewImageUrl ?? '').trim();
+    return url || null;
+  }, [layoutJson]);
+  const selectedSectorPreviewUrl = useMemo(() => {
+    if (!selectedSectorSummary) return null;
+    return resolveHallPreviewImageUrl(selectedSectorSummary.meta.previewImageUrl, [
+      categoryDefaultPreviewUrl,
+      categoryPreviewImageUrl,
+    ]);
+  }, [selectedSectorSummary, categoryDefaultPreviewUrl, categoryPreviewImageUrl]);
   const categoryModalSelectedCount = useMemo(() => {
     if (!selectedSectorSummary) return 0;
     const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
@@ -2264,10 +2298,10 @@ export function TicketHallInteractiveBlock({
                   <div className={styles.categoryModalVisual}>
                     <div className={styles.categoryModalTitle}>{selectedSectorSummary.meta.label}</div>
                     <div className={styles.categoryModalImageWrap}>
-                      {categoryPreviewImageUrl ? (
+                      {selectedSectorPreviewUrl ? (
                         <img
                           className={styles.categoryModalImage}
-                          src={categoryPreviewImageUrl}
+                          src={selectedSectorPreviewUrl}
                           alt={`Вид с трибуны — ${selectedSectorSummary.meta.label}`}
                           loading="lazy"
                           decoding="async"

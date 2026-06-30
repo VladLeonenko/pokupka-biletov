@@ -571,3 +571,19 @@ export async function deleteGetbiletStageMap(id: number): Promise<void> {
   });
   await handle(res);
 }
+
+export type RefreshPbiletCategoryResult = {
+  ok: boolean;
+  mode?: string;
+  offerCount?: number;
+  priceTierCount?: number;
+  layout_json?: unknown;
+};
+
+export async function refreshPbiletCategoryStageMap(id: number): Promise<RefreshPbiletCategoryResult> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/stage-maps/${id}/refresh-pbilet-category`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handle(res);
+}

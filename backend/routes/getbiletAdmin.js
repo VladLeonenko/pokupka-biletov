@@ -16,6 +16,7 @@ import { resolveHallMapSaveToken } from '../utils/hallMapSaveToken.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 import { RAMT_BIG_STAGE_MAP_KEY } from '../services/ramtBigStageMap.js';
 import { getVenueLookupMaps } from '../services/getbiletVenueLabels.js';
+import { refreshPbiletCategoryStageMap } from '../services/supercupNnFootballStageMap.js';
 
 /** SQL: название площадки из payload кэша (не спектакль). */
 const CATALOG_STAGE_VENUE_SQL = `
@@ -1529,6 +1530,20 @@ router.delete('/stage-maps/:id', async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/stage-maps/:id/refresh-pbilet-category', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  try {
+    const repertoireId =
+      typeof req.body?.repertoireId === 'string' ? req.body.repertoireId.trim() : undefined;
+    const data = await refreshPbiletCategoryStageMap(id, { repertoireId });
+    invalidateGetbiletEventsHttpCache();
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message || String(e) });
   }
 });
 

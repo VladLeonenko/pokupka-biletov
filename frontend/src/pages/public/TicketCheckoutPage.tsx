@@ -59,6 +59,7 @@ import {
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   SUPERKUP_NN_STAGE_MAP_KEY,
   parseOmitClientSeatCoordinateCloud,
+  parseHideSeatList,
 } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
@@ -1029,6 +1030,11 @@ export function TicketCheckoutPage() {
     return (lj as Record<string, unknown>).seatSelectionDisabled === true;
   }, [layoutJsonForStage]);
 
+  const hideSeatListUi = useMemo(
+    () => parseHideSeatList(layoutJsonForStage),
+    [layoutJsonForStage],
+  );
+
   /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
   const hallMapLoadSettled = useMemo(() => {
     if (ctxLoading) return false;
@@ -1856,7 +1862,7 @@ export function TicketCheckoutPage() {
             </Paper>
           )}
 
-          {bySession.size > 0 && (
+          {bySession.size > 0 && !hideSeatListUi && (
             <Accordion
               defaultExpanded={!hallSvg}
               sx={{
