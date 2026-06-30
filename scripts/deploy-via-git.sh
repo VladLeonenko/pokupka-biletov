@@ -64,6 +64,23 @@ if [ -f "$LUZHNIKI_PUBLIC_SVG" ]; then
 fi
 
 restore_luzhniki_editor_assets() {
+  restore_luzhniki_svg_if_larger_backup() {
+    local target="$1"
+    local backup="$2"
+    local label="$3"
+    if [ -z "$backup" ] || [ ! -f "$backup" ]; then return 0; fi
+    local cur=0 bak=0
+    if [ -f "$target" ]; then
+      cur=$(wc -c < "$target" | tr -d ' ')
+    fi
+    bak=$(wc -c < "$backup" | tr -d ' ')
+    if [ "${bak:-0}" -gt "${cur:-0}" ] 2>/dev/null; then
+      mkdir -p "$(dirname "$target")"
+      cp "$backup" "$target"
+      echo "✅ Luzhniki $label SVG восстановлен из deploy-backup (${bak} bytes, было ${cur})"
+    fi
+  }
+
   if [ -n "$LUZHNIKI_BUNDLE_BACKUP" ] && [ -f "$LUZHNIKI_BUNDLE_BACKUP" ]; then
     CURRENT_SEAT_COUNT=0
     if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
@@ -74,24 +91,37 @@ restore_luzhniki_editor_assets() {
       mkdir -p "$(dirname "$LUZHNIKI_EDITOR_BUNDLE")"
       cp "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_EDITOR_BUNDLE"
       echo "✅ Luzhniki editor bundle восстановлен ($LUZHNIKI_BUNDLE_BACKUP_SEAT_COUNT мест, git had $CURRENT_SEAT_COUNT)"
-      if [ -n "$LUZHNIKI_HAND_SVG_BACKUP" ] && [ -f "$LUZHNIKI_HAND_SVG_BACKUP" ]; then
-        mkdir -p "$(dirname "$LUZHNIKI_HAND_SVG")"
-        cp "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_HAND_SVG"
-        echo "✅ Luzhniki hand SVG восстановлен"
-      fi
-      if [ -n "$LUZHNIKI_PUBLIC_SVG_BACKUP" ] && [ -f "$LUZHNIKI_PUBLIC_SVG_BACKUP" ]; then
-        mkdir -p "$(dirname "$LUZHNIKI_PUBLIC_SVG")"
-        cp "$LUZHNIKI_PUBLIC_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG"
-        echo "✅ Luzhniki public SVG восстановлен"
-      fi
     else
-      echo "ℹ️ Luzhniki editor bundle backup пустой — не восстанавливаем заглушку"
+      echo "ℹ️ Luzhniki editor bundle backup пустой или не лучше текущего — bundle не трогаем"
     fi
   fi
+
+  restore_luzhniki_svg_if_larger_backup "$LUZHNIKI_HAND_SVG" "$LUZHNIKI_HAND_SVG_BACKUP" "hand"
+  restore_luzhniki_svg_if_larger_backup "$LUZHNIKI_PUBLIC_SVG" "$LUZHNIKI_PUBLIC_SVG_BACKUP" "public"
+
   if [ -f "$LUZHNIKI_EDITOR_BUNDLE" ]; then
     POST_COUNT=$(node -e "try{const j=require(process.argv[1]);process.stdout.write(String(j.seatCount||j.seats?.length||0))}catch{process.stdout.write('0')}" "$LUZHNIKI_EDITOR_BUNDLE" 2>/dev/null || echo 0)
     if [ "${POST_COUNT:-0}" -lt 1 ] 2>/dev/null; then
-      echo "⚠️  Luzhniki bundle на диске пустой — checkout будет без manualBundleFast. Сохраните hover.html или восстановите .bak"
+      echo "⚠️  Luzhniki bundle на диске пустой — checkout будет без manualBundleFast. Сохраните hover.html или: cd backend && node scripts/restore-luzhniki-editor-from-bak.js"
+    fi
+  fi
+
+  # Если после pull SVG без manual — попробовать .bak от 💾 Сохранить (не enrich!)
+  if [ -f "$PROJECT_ROOT/backend/scripts/restore-luzhniki-editor-from-bak.js" ]; then
+    MANUAL_NOW=$(node -e "
+      const fs=require('fs');
+      const p=['$LUZHNIKI_HAND_SVG','$LUZHNIKI_PUBLIC_SVG'];
+      for (const f of p) {
+        if (!fs.existsSync(f)) continue;
+        const n=(fs.readFileSync(f,'utf8').match(/data-source=\\\"manual/g)||[]).length;
+        process.stdout.write(String(n)); process.exit(0);
+      }
+      process.stdout.write('0');
+    " 2>/dev/null || echo 0)
+    if [ "${MANUAL_NOW:-0}" -lt 1 ] 2>/dev/null; then
+      echo "🔎 Luzhniki SVG без manual-разметки — ищем .bak на диске…"
+      (cd "$PROJECT_ROOT/backend" && node scripts/restore-luzhniki-editor-from-bak.js) \
+        || echo "⚠️  .bak не найден — ручная разметка только если есть бэкап на VPS"
     fi
   fi
 }
@@ -116,23 +146,6 @@ if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
 fi
 
 restore_luzhniki_editor_assets
-
-# SVG редактора (gitignore) — если потерялся при deploy, собрать из luzhniki.txt
-if [ ! -f "$LUZHNIKI_PUBLIC_SVG" ] && [ -f "$PROJECT_ROOT/luzhniki.txt" ] && [ -f "$PROJECT_ROOT/tickets.json" ]; then
-  echo "📐 Luzhniki editor SVG отсутствует — генерация из luzhniki.txt…"
-  if (
-    cd "$PROJECT_ROOT/backend"
-    npm run enrich:luzhniki-gray-circles-svg -- --merge ../frontend/public/hall-maps/luzhniki-football-stadium.svg
-  ); then
-    if [ -f "$LUZHNIKI_HAND_SVG" ] && [ ! -f "$LUZHNIKI_PUBLIC_SVG" ]; then
-      mkdir -p "$(dirname "$LUZHNIKI_PUBLIC_SVG")"
-      cp "$LUZHNIKI_HAND_SVG" "$LUZHNIKI_PUBLIC_SVG"
-      echo "✅ Luzhniki public SVG создан из hand/"
-    fi
-  else
-    echo "⚠️  Не удалось сгенерировать Luzhniki SVG — редактор подтянет через GET /enriched.svg при первом открытии"
-  fi
-fi
 
 # Frontend (Vite тяжёлый; на VPS 1–2 GB без swap часто OOM — нужен swap и/или лимит ниже)
 echo ""

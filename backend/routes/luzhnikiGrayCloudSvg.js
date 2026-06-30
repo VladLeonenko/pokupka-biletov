@@ -16,7 +16,11 @@ import {
   getCachedTicketsSectorLabelByNorm,
   resolveCanonicalSectorLabel,
 } from '../utils/luzhnikiSectorDisplayLabel.js';
-import { readLuzhnikiGrayCloudEnrichedSvgMarkup } from '../utils/ensureLuzhnikiGrayCloudEnrichedSvg.js';
+import {
+  countSvgManualEditorAttrs,
+  findLatestLuzhnikiEditorSvgBackup,
+  readLuzhnikiGrayCloudEnrichedSvgMarkup,
+} from '../utils/ensureLuzhnikiGrayCloudEnrichedSvg.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -86,7 +90,7 @@ function readBundleMeta() {
   }
 }
 
-/** SVG для редактора (диск → автогенерация из luzhniki.txt). */
+/** SVG для редактора — только с диска (ручная разметка), без автогенерации. */
 router.get('/enriched.svg', async (_req, res) => {
   try {
     const xml = await readLuzhnikiGrayCloudEnrichedSvgMarkup();
@@ -94,9 +98,12 @@ router.get('/enriched.svg', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.send(xml);
   } catch (e) {
-    return res.status(e.message?.includes('не найден') ? 404 : 500).json({
+    const latestBak = findLatestLuzhnikiEditorSvgBackup();
+    return res.status(404).json({
       ok: false,
       error: e.message,
+      latestSvgBackup: latestBak,
+      restoreHint: 'cd backend && node scripts/restore-luzhniki-editor-from-bak.js',
     });
   }
 });
@@ -134,16 +141,33 @@ router.get('/status', (_req, res) => {
     try {
       if (fs.existsSync(HAND_SVG)) {
         const svg = fs.readFileSync(HAND_SVG, 'utf8');
-        svgManualAttrs = (svg.match(/data-source="manual/g) || []).length;
+        svgManualAttrs = countSvgManualEditorAttrs(svg);
       }
     } catch {
       /* */
+    }
+
+    const latestSvgBackup = findLatestLuzhnikiEditorSvgBackup();
+    let backupManualAttrs = 0;
+    if (latestSvgBackup) {
+      try {
+        backupManualAttrs = countSvgManualEditorAttrs(fs.readFileSync(latestSvgBackup, 'utf8'));
+      } catch {
+        /* */
+      }
     }
 
     return res.json({
       ok: true,
       bundle: { ...bundle, manualEditorSeats: manualInFile, sectorNormCounts },
       svgManualAttrs,
+      svgBackup: latestSvgBackup
+        ? {
+            path: latestSvgBackup,
+            manualAttrs: backupManualAttrs,
+            bytes: fs.statSync(latestSvgBackup).size,
+          }
+        : null,
       svg: {
       handExists: fs.existsSync(HAND_SVG),
       publicExists: fs.existsSync(PUBLIC_SVG),
