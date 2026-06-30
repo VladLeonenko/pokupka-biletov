@@ -73,7 +73,7 @@ function genreHintsSport(genre: string | undefined): boolean {
 function genreHintsTheater(genre: string | undefined): boolean {
   const g = lo(norm(genre));
   if (!g) return false;
-  return /театр|спектакль|балет|опера|мюзикл|цирк|постановк|драма|комедия|трагикомед|эстрадн\w*\s+(театр|постанов|трупп)/i.test(
+  return /театр|спектакль|балет|опера|мюзикл|постановк|драма|комедия|трагикомед|эстрадн\w*\s+(театр|постанов|трупп)/i.test(
     g,
   );
 }
@@ -155,7 +155,12 @@ export function classifyEventTitle(
     /(драма|комедия|трагедия)\b/i.test(c) ||
     galaBalletOrTheaterGala;
 
-  const theater = musicalOrRockOpera || theaterWords || genreHintsTheater(ctx?.genre);
+  const circus =
+    /\bцирк\w*\b|\bcircus\b|на\s+манеже|дрессиров|канатоход|трапеци|клоун/i.test(c) &&
+    !/большой\s+театр|bolshoi/i.test(c);
+
+  const theater =
+    !circus && (musicalOrRockOpera || theaterWords || genreHintsTheater(ctx?.genre));
 
   const concertCore =
     /концерт|фестиваль|фест\b|fest\b|ту[рр]\b|live\s|шоу\b|symphony|симфон|оркестр|arena\s+тур/i.test(
@@ -189,6 +194,9 @@ export function classifyEventTitle(
   } else if (football) {
     kind = 'football';
     categoryLabel = 'Футбол';
+  } else if (circus) {
+    kind = 'default';
+    categoryLabel = 'Цирк';
   } else if (theater) {
     kind = 'theater';
     if (/балет|ballet/i.test(c) && !/опера\b/i.test(titleOnly)) categoryLabel = 'Балет';

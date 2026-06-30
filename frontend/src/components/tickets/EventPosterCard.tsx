@@ -16,6 +16,7 @@ function displayGenreLine(ev: NormalizedBiletEvent): string | null {
   const raw = ev.genre?.trim();
   const inf = ev.inferredCategoryLabel?.trim();
   const junk = (s: string) => /^разное$/i.test(s) || s.length > 96;
+  if (inf === 'Цирк') return inf;
   if (raw && !junk(raw)) return raw;
   if (inf) return inf;
   if (raw) return raw;

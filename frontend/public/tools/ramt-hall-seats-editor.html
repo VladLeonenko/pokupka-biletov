@@ -156,10 +156,31 @@
     }
     function clientToSvg(cx, cy) {
       const vr = viewport.getBoundingClientRect();
-      const sr = stage.getBoundingClientRect();
-      const lx = (cx - sr.left) / sr.width * hallW;
-      const ly = (cy - sr.top) / sr.height * hallH;
-      return { x: lx, y: ly };
+      const z = zoom || 1;
+      const centerX = vr.left + vr.width / 2 + panX;
+      const centerY = vr.top + vr.height / 2 + panY;
+      return {
+        x: (cx - centerX) / z + hallW / 2,
+        y: (cy - centerY) / z + hallH / 2,
+      };
+    }
+
+    function appendPaintPoint(p) {
+      const minStep = Math.max(3, (+document.getElementById('corridor').value || 18) * 0.35);
+      if (paintPath.length) {
+        const last = paintPath[paintPath.length - 1];
+        if (Math.hypot(p.x - last.x, p.y - last.y) < minStep) return;
+      }
+      paintPath.push(p);
+      if (!paintLine) {
+        paintLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        paintLine.setAttribute('stroke', '#22d3ee');
+        paintLine.setAttribute('stroke-width', '3');
+        paintLine.setAttribute('fill', 'none');
+        paintLine.setAttribute('pointer-events', 'none');
+        stage.querySelector('svg.dots')?.appendChild(paintLine);
+      }
+      paintLine.setAttribute('points', paintPath.map((pt) => pt.x + ',' + pt.y).join(' '));
     }
 
     function rebuildDots() {
@@ -539,8 +560,7 @@
         e.preventDefault();
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         paintShift = e.shiftKey;
-        const p = clientToSvg(e.clientX, e.clientY);
-        paintPath = [p];
+        paintPath = [clientToSvg(e.clientX, e.clientY)];
         drag = { kind: 'paint', id: e.pointerId };
         viewport.setPointerCapture(e.pointerId);
         return;
@@ -562,18 +582,7 @@
         applyTransform();
       }
       if (drag?.kind === 'paint' && drag.id === e.pointerId) {
-        const p = clientToSvg(e.clientX, e.clientY);
-        paintPath.push(p);
-        if (!paintLine) {
-          paintLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          paintLine.setAttribute('stroke', '#22d3ee');
-          paintLine.setAttribute('stroke-width', '3');
-          stage.querySelector('svg.dots')?.appendChild(paintLine);
-        }
-        paintLine.setAttribute('x1', paintPath[0].x);
-        paintLine.setAttribute('y1', paintPath[0].y);
-        paintLine.setAttribute('x2', p.x);
-        paintLine.setAttribute('y2', p.y);
+        appendPaintPoint(clientToSvg(e.clientX, e.clientY));
       }
     });
     viewport.addEventListener('pointerup', (e) => {

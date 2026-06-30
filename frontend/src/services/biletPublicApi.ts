@@ -990,6 +990,7 @@ export function attachInferredEventFields(ev: NormalizedBiletEvent): NormalizedB
 
 function eventMatchesGenreChip(ev: NormalizedBiletEvent, g: string): boolean {
   const gNorm = normalizeSearchText(g);
+  if (gNorm === 'театр' && isCircusEvent(ev)) return false;
   const ic = ev.inferredCategoryLabel ? normalizeSearchText(ev.inferredCategoryLabel) : '';
   const genreBlob = normalizeSearchText(ev.genre || '');
   const venueBlob = normalizeSearchText([ev.venue, ev.venueAddress].filter(Boolean).join(' '));
@@ -1015,7 +1016,6 @@ function eventMatchesGenreChip(ev: NormalizedBiletEvent, g: string): boolean {
   if (ic.includes(g)) return true;
   if (titleBlob.includes(g)) return true;
   if (g === 'театр') {
-    if (isCircusEvent(ev)) return false;
     if (ev.inferredKind === 'theater') return true;
     if (/(балет|мюзикл|опера|театр)/i.test(ic)) return true;
   }
