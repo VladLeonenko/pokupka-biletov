@@ -55,6 +55,7 @@
     "export:luzhniki-pbilet-geodesy-svg": "node scripts/export-luzhniki-pbilet-geodesy-svg.js",
     "export:luzhniki-full-stadium-geodesy-svg": "node scripts/export-luzhniki-full-stadium-geodesy-svg.js --rebuild",
     "ensure:luzhniki-football-map": "node scripts/ensure-luzhniki-football-stage-map.js",
+    "ensure:supercup-nn-football-map": "node scripts/ensure-supercup-nn-football-stage-map.js",
     "seed:luzhniki-football-synthetic": "node scripts/seed-luzhniki-football-native-map.js",
     "ensure:stage-maps-columns": "node scripts/ensure-getbilet-stage-maps-columns.js",
     "test": "node --test tests/*.test.js",

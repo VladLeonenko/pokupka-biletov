@@ -206,6 +206,12 @@ if [ -f "scripts/ensure-luzhniki-football-stage-map.js" ] && [ -f "$PROJECT_ROOT
     || echo "⚠️ luzhniki-football: проверьте TICKET_* в backend/.env и файлы tickets.json + luzhniki.txt в корне репо"
 fi
 
+if [ -f "scripts/ensure-supercup-nn-football-stage-map.js" ]; then
+  echo "⚽ Суперкубок NN (supercup-nn-football, pbilet layout 488)..."
+  node scripts/ensure-supercup-nn-football-stage-map.js 2>/dev/null \
+    || echo "⚠️ supercup-nn: проверьте TICKET_* в backend/.env и npm run seed:supercup-nn-2026"
+fi
+
 if [ -f "scripts/add-travel-cases.js" ]; then
   echo "📝 Кейсы (travel)..."
   node scripts/add-travel-cases.js 2>/dev/null || true
