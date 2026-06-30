@@ -694,29 +694,60 @@ export async function reserveGetbiletSeats(
   seats: string[],
   repertoireId?: string,
 ): Promise<unknown> {
-  const base = getApiBase();
-  const body: Record<string, unknown> = { offerId, seats };
-  if (repertoireId?.trim()) body.repertoireId = repertoireId.trim();
-  const res = await fetch(`${base}/api/bilet/reserve`, {
+  return reserveTicketSeats({
+    offerId,
+    seats,
+    repertoireId: repertoireId ?? '',
+  });
+}
+
+export type TicketSeatHoldResponse = {
+  ok: boolean;
+  expiresAt: string;
+  holdSeconds: number;
+  selectionKey: string;
+  repertoireId: string;
+  baseRub?: number;
+  getbiletOrderIds: string[];
+  makeData: unknown;
+};
+
+export async function reserveTicketSeats(payload: {
+  repertoireId: string;
+  offerId: string;
+  seats: string[];
+  offerSelections?: Array<{ offerId: string; seats: string[] }>;
+}): Promise<TicketSeatHoldResponse> {
+  await ensurePublicSessionForCheckout();
+  const body: Record<string, unknown> = {
+    repertoireId: payload.repertoireId,
+    offerId: payload.offerId,
+    seats: payload.seats,
+  };
+  if (payload.offerSelections?.length) body.offerSelections = payload.offerSelections;
+  const res = await sessionFetch(`${getApiBase()}/api/bilet/reserve`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = { raw: text };
-  }
-  if (!res.ok) {
-    const msg =
-      data && typeof data === 'object' && 'message' in data
-        ? String((data as { message: unknown }).message)
-        : `HTTP ${res.status}`;
-    throw new Error(msg);
+  const data = (await res.json().catch(() => ({}))) as TicketSeatHoldResponse & {
+    message?: string;
+    error?: string;
+  };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
   }
   return data;
+}
+
+export async function cancelTicketSeatHold(getbiletOrderIds: string[]): Promise<void> {
+  const ids = getbiletOrderIds.filter(Boolean);
+  if (ids.length === 0) return;
+  await sessionFetch(`${getApiBase()}/api/bilet/cancel-reserve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ getbiletOrderIds: ids }),
+  }).catch(() => {});
 }
 
 /** Ответ `GET /api/bilet/stage/:stageId/map` — строка из `getbilet_stage_maps`. */
@@ -929,6 +960,18 @@ function normalizeSearchText(s: string): string {
     .trim();
 }
 
+function eventSearchBlob(ev: NormalizedBiletEvent): string {
+  return normalizeSearchText(
+    [ev.title, ev.subtitle, ev.venue, ev.genre, ev.inferredCategoryLabel, ev.author, ev.director, ev.venueAddress]
+      .filter(Boolean)
+      .join(' '),
+  );
+}
+
+function isCircusEvent(ev: NormalizedBiletEvent): boolean {
+  return /\bцирк\w*\b|\bcircus\b/i.test(eventSearchBlob(ev));
+}
+
 /** Демо-афиша и кэш без прохода через normalize — подставить эвристики по названию. */
 export function attachInferredEventFields(ev: NormalizedBiletEvent): NormalizedBiletEvent {
   const rawSub = ev.subtitle?.trim();
@@ -972,6 +1015,7 @@ function eventMatchesGenreChip(ev: NormalizedBiletEvent, g: string): boolean {
   if (ic.includes(g)) return true;
   if (titleBlob.includes(g)) return true;
   if (g === 'театр') {
+    if (isCircusEvent(ev)) return false;
     if (ev.inferredKind === 'theater') return true;
     if (/(балет|мюзикл|опера|театр)/i.test(ic)) return true;
   }
@@ -996,16 +1040,18 @@ export function filterEventsClient(
   }
   const rawQ = opts.q?.trim();
   if (rawQ) {
+    const normQ = normalizeSearchText(rawQ);
     const tokens = searchTokens(rawQ);
     out = out.filter((e) => {
-      const blob = normalizeSearchText(
-        [e.title, e.subtitle, e.venue, e.genre, e.inferredCategoryLabel, e.author, e.director]
-          .filter(Boolean)
-          .join(' '),
-      );
+      const blob = eventSearchBlob(e);
       if (tokens.length === 0) return true;
-      if (tokens.length === 1) return blob.includes(tokens[0]);
-      return tokens.every((t) => blob.includes(t));
+      // Составной q («большой театр») — только фраза целиком, не «Большой … Цирк» + genre «театр»
+      if (tokens.length >= 2) {
+        if (!blob.includes(normQ)) return false;
+        if (normQ === 'большой театр' && isCircusEvent(e)) return false;
+        return true;
+      }
+      return blob.includes(tokens[0]);
     });
   }
   if (opts.venue?.trim()) {
@@ -1096,6 +1142,8 @@ export type BiletCheckoutPayload = {
   customerEmail: string;
   promoCode?: string;
   fanId?: string;
+  heldGetbiletOrderIds?: string[];
+  heldMakeData?: unknown;
 };
 
 export async function checkoutBiletTickets(payload: BiletCheckoutPayload): Promise<{

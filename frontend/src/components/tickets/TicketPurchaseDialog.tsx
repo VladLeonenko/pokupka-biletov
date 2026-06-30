@@ -5,6 +5,8 @@ import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import { FAN_ID_NOTICE, isValidFanId, isFanIdRequiredForRepertoire, normalizeFanId } from '@/utils/fanIdRequiredEvents';
+import { TicketHoldTimer } from '@/components/tickets/TicketHoldTimer';
+import { isTicketHoldActive, type TicketSeatHoldState } from '@/utils/ticketSeatHold';
 import styles from './TicketPurchaseDialog.module.css';
 
 export type TicketPurchaseDialogProps = {
@@ -23,6 +25,8 @@ export type TicketPurchaseDialogProps = {
   /** Краткий тизер описания (как на странице события) */
   descriptionLead?: string | null;
   requiresFanId?: boolean;
+  hold?: TicketSeatHoldState | null;
+  onHoldExpired?: () => void;
 };
 
 const fieldSx = {
@@ -43,6 +47,8 @@ export function TicketPurchaseDialog({
   sessionLabel,
   descriptionLead,
   requiresFanId = false,
+  hold = null,
+  onHoldExpired,
 }: TicketPurchaseDialogProps) {
   const requiresFanIdEffective = useMemo(
     () => requiresFanId || isFanIdRequiredForRepertoire(repertoireId),
@@ -56,6 +62,16 @@ export function TicketPurchaseDialog({
   const [promoHint, setPromoHint] = useState<{ ok: boolean; text: string } | null>(null);
   const [promoFinalRub, setPromoFinalRub] = useState<number | null>(null);
   const [promoDiscountRub, setPromoDiscountRub] = useState<number | null>(null);
+
+  const [holdExpired, setHoldExpired] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setHoldExpired(false);
+      return;
+    }
+    setHoldExpired(!isTicketHoldActive(hold));
+  }, [open, hold]);
 
   const base = useMemo(
     () => (Number.isFinite(baseTotalRub) ? Math.max(0, baseTotalRub) : 0),
@@ -115,6 +131,8 @@ export function TicketPurchaseDialog({
         customerEmail: email.trim(),
         promoCode: promo.trim() || undefined,
         fanId: requiresFanIdEffective ? normalizeFanId(fanId) : undefined,
+        heldGetbiletOrderIds: hold?.getbiletOrderIds,
+        heldMakeData: hold?.makeData,
       });
     },
     onSuccess: (data) => {
@@ -135,7 +153,9 @@ export function TicketPurchaseDialog({
     phone.replace(/\D/g, '').length >= 10 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
     seats.length > 0 &&
-    (!requiresFanIdEffective || isValidFanId(fanId));
+    (!requiresFanIdEffective || isValidFanId(fanId)) &&
+    !holdExpired &&
+    isTicketHoldActive(hold);
 
   const handleClose = useCallback(() => {
     if (checkoutMut.isPending) return;
@@ -168,6 +188,15 @@ export function TicketPurchaseDialog({
       </div>
 
       <DialogContent className={styles.body}>
+        <TicketHoldTimer
+          hold={holdExpired ? null : hold}
+          variant="dialog"
+          onExpired={() => {
+            setHoldExpired(true);
+            onHoldExpired?.();
+          }}
+        />
+
         <div className={styles.eventBlock}>
           <p className={styles.eventTitle}>{eventTitle}</p>
           <div className={styles.sessionBlock}>

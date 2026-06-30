@@ -1,18 +1,14 @@
 import pool from '../db.js';
-import ticketPool from '../ticketDb.js';
-import { GetbiletValidationError, GetbiletUpstreamError } from '../services/getbiletClient.js';
-import {
-  restV2MakeOrder,
-  restV2CancelOrder,
-  restV2GetOfferById,
-} from '../services/getbiletRestV2.js';
+import { GetbiletValidationError, GetbiletUpstreamError, getGetbiletConfig } from '../services/getbiletClient.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
-import { validateGetbiletPromoForAmount, incrementGetbiletPromoUses } from '../services/getbiletPromoPublic.js';
 import {
-  applyGetbiletMarkupToOfferPayload,
-  applyGetbiletMarkupToSupplierUnit,
-  getGetbiletMarkupRuleForRepertoire,
-} from '../services/getbiletMarkupPublic.js';
+  cancelTicketSeatHolds,
+  normalizeOfferSelections,
+  prepareTicketReservations,
+  priceTicketSelections,
+  buildSeatHoldResponse,
+} from '../services/ticketSeatReservation.js';
+import { validateGetbiletPromoForAmount, incrementGetbiletPromoUses } from '../services/getbiletPromoPublic.js';
 import { isTbankEacqConfigured, tbankEacqInit, verifyTbankNotificationToken } from '../services/payment/tbankEacq.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
 import {
@@ -44,186 +40,12 @@ function requireNonEmptyString(v, name) {
   return s;
 }
 
-function pickGetbiletOrderId(data) {
-  if (!data || typeof data !== 'object') return null;
-  const rd = data.ResultData;
-  if (rd && typeof rd === 'object' && !Array.isArray(rd)) {
-    const id = rd.OrderId ?? rd.Id ?? rd.orderId;
-    if (id != null && id !== '') return String(id);
-  }
-  if (Array.isArray(rd) && rd[0] && typeof rd[0] === 'object') {
-    const id = rd[0].OrderId ?? rd[0].Id;
-    if (id != null) return String(id);
-  }
-  const id = data.OrderId ?? data.Id;
-  return id != null && id !== '' ? String(id) : null;
-}
-
-function parseOfferRow(offerPayload) {
-  const row = Array.isArray(offerPayload?.ResultData)
-    ? offerPayload.ResultData[0]
-    : offerPayload?.ResultData;
-  if (!row || typeof row !== 'object') return null;
-  const unit = Number(row.AgentPrice ?? row.NominalPrice ?? 0);
-  if (!Number.isFinite(unit) || unit < 0) return null;
-  return { row, unitRub: unit };
-}
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
 
-/** Локальное демо из seed-tbank-demo-event: не вызываем GetBilet, сумма из кэша офферов, оплата — обычный T-Bank. */
-function isDemoCheckoutPayload(repertoireId, offerId) {
-  return repertoireId === DEMO_REPERTOIRE_ID && String(offerId).startsWith('tb-demo-');
-}
-
-async function loadCachedOfferRowById(repertoireId, offerId) {
-  const r = await ticketPool.query(
-    `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
-    [repertoireId]
-  );
-  const payload = r.rows[0]?.payload_json;
-  const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
-  const id = String(offerId ?? '');
-  return rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id) || null;
-}
-
-async function loadDemoOffer(repertoireId, offerId) {
-  return loadCachedOfferRowById(repertoireId, offerId);
-}
-
-async function prepareTicketReservation({ offerId, repertoireId, seats }) {
-  if (isDemoCheckoutPayload(repertoireId, offerId)) {
-    const row = await loadDemoOffer(repertoireId, offerId);
-    if (!row) throw new GetbiletValidationError('Тестовое предложение не найдено');
-    const availableSeats = Array.isArray(row.SeatList) ? row.SeatList.map(String) : [];
-    const unavailable = seats.filter((seat) => !availableSeats.includes(String(seat)));
-    if (unavailable.length > 0) {
-      throw new GetbiletValidationError(`Места недоступны: ${unavailable.join(', ')}`);
-    }
-    const unitRub = Number(row.AgentPrice ?? row.NominalPrice ?? 0);
-    if (!Number.isFinite(unitRub) || unitRub <= 0) {
-      throw new GetbiletValidationError('Некорректная цена тестового предложения');
-    }
-    return {
-      baseRub: unitRub * seats.length,
-      makeData: {
-        Success: true,
-        Method: 'DemoMakeOrder',
-        ResultData: seats.map((seat) => ({
-          TicketId: `demo-${offerId}-${seat}`,
-          OfferId: offerId,
-          Seat: String(seat),
-        })),
-      },
-      getbiletOrderId: null,
-      isDemo: true,
-    };
-  }
-
-  let offerPayload = await restV2GetOfferById(offerId);
-  const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
-  offerPayload = applyGetbiletMarkupToOfferPayload(offerPayload, markupRule);
-  const parsed = parseOfferRow(offerPayload);
-  if (!parsed) {
-    throw new GetbiletValidationError('Не удалось получить цену предложения');
-  }
-
-  let unitRub = parsed.unitRub;
-  const cachedRow = await loadCachedOfferRowById(repertoireId, offerId);
-  if (cachedRow) {
-    const supplier = Number(cachedRow.AgentPrice ?? cachedRow.NominalPrice ?? 0);
-    if (Number.isFinite(supplier) && supplier >= 0) {
-      const fromList = applyGetbiletMarkupToSupplierUnit(supplier, markupRule);
-      if (Number.isFinite(fromList) && fromList > 0) {
-        if (Math.abs(fromList - unitRub) > 0.02) {
-          console.warn(
-            '[bilet/checkout] цена места: витрина/кэш',
-            fromList,
-            '₽, GetOfferById',
-            unitRub,
-            '₽, offer',
-            offerId
-          );
-        }
-        unitRub = fromList;
-      }
-    }
-  }
-
-  const makeData = await restV2MakeOrder(offerId, seats);
-  return {
-    baseRub: unitRub * seats.length,
-    makeData,
-    getbiletOrderId: pickGetbiletOrderId(makeData),
-    isDemo: false,
-  };
-}
-
-function normalizeOfferSelections(body) {
-  const rawSelections = Array.isArray(body?.offerSelections) ? body.offerSelections : [];
-  const source = rawSelections.length > 0
-    ? rawSelections
-    : [{
-        offerId: body?.offerId,
-        seats: body?.seats,
-      }];
-
-  const grouped = new Map();
-  for (const item of source) {
-    const offerId = requireNonEmptyString(item?.offerId, 'offerId');
-    const seatsRaw = item?.seats;
-    if (!Array.isArray(seatsRaw) || seatsRaw.length === 0) {
-      throw new GetbiletValidationError('Выберите хотя бы одно место');
-    }
-    const seats = seatsRaw.map((s) => String(s).trim()).filter(Boolean);
-    if (seats.length === 0) throw new GetbiletValidationError('Некорректный список мест');
-    const existing = grouped.get(offerId) ?? [];
-    for (const seat of seats) {
-      if (!existing.includes(seat)) existing.push(seat);
-    }
-    grouped.set(offerId, existing);
-  }
-
-  return [...grouped.entries()].map(([offerId, seats]) => ({ offerId, seats }));
-}
-
-async function prepareTicketReservations({ offerSelections, repertoireId }) {
-  const getbiletOrderIds = [];
-  const makeDataList = [];
-  let baseRub = 0;
-  let isDemo = true;
-
-  try {
-    for (const selection of offerSelections) {
-      const reservation = await prepareTicketReservation({
-        offerId: selection.offerId,
-        repertoireId,
-        seats: selection.seats,
-      });
-      baseRub += reservation.baseRub;
-      isDemo = isDemo && reservation.isDemo;
-      if (reservation.getbiletOrderId) getbiletOrderIds.push(reservation.getbiletOrderId);
-      makeDataList.push({
-        offerId: selection.offerId,
-        seats: selection.seats,
-        makeData: reservation.makeData,
-        getbiletOrderId: reservation.getbiletOrderId,
-      });
-    }
-  } catch (err) {
-    for (const orderId of getbiletOrderIds) {
-      restV2CancelOrder(orderId).catch(() => {});
-    }
-    throw err;
-  }
-
-  return {
-    baseRub,
-    makeData: makeDataList.length === 1 ? makeDataList[0].makeData : makeDataList,
-    getbiletOrderIds,
-    isDemo,
-  };
+function parseHeldMakeData(raw) {
+  if (raw == null) return null;
+  if (typeof raw === 'object') return raw;
+  return null;
 }
 
 /**
@@ -231,6 +53,49 @@ async function prepareTicketReservations({ offerSelections, repertoireId }) {
  * @param {{ optionalAuth: import('express').RequestHandler }} deps
  */
 export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
+  router.post('/reserve', optionalAuth, async (req, res) => {
+    try {
+      const { protocol } = getGetbiletConfig();
+      if (protocol !== 'rest_v2') {
+        return res.status(501).json({ error: 'only_rest_v2' });
+      }
+      const repertoireId = requireNonEmptyString(req.body?.repertoireId, 'repertoireId');
+      await assertRepertoireStorefrontAccess(repertoireId);
+      const offerSelections = normalizeOfferSelections(req.body);
+      const reservation = await prepareTicketReservations({ offerSelections, repertoireId });
+      if (!reservation.isDemo) {
+        invalidateOffersCache(repertoireId).catch(() => {});
+      }
+      return res.json(
+        buildSeatHoldResponse({ reservation, offerSelections, repertoireId }),
+      );
+    } catch (err) {
+      if (err instanceof GetbiletValidationError) {
+        return res.status(400).json({ error: 'validation', message: err.message });
+      }
+      if (err instanceof RepertoireNotAvailableError) {
+        return res.status(404).json({ error: 'not_found', message: err.message });
+      }
+      if (err instanceof GetbiletUpstreamError) {
+        return res.status(502).json({ error: 'getbilet_upstream', message: err.message });
+      }
+      console.error('[bilet/reserve]', err);
+      return res.status(500).json({ error: 'reserve_failed', message: err.message || 'Ошибка бронирования' });
+    }
+  });
+
+  router.post('/cancel-reserve', optionalAuth, async (req, res) => {
+    try {
+      const raw = req.body?.getbiletOrderIds ?? req.body?.orderIds;
+      const ids = Array.isArray(raw) ? raw.map(String).filter(Boolean) : [];
+      await cancelTicketSeatHolds(ids);
+      return res.json({ ok: true, cancelled: ids.length });
+    } catch (err) {
+      console.error('[bilet/cancel-reserve]', err);
+      return res.status(500).json({ ok: false, error: err.message || 'cancel_failed' });
+    }
+  });
+
   router.post('/validate-promo', optionalAuth, async (req, res) => {
     try {
       const code = req.body?.code ?? req.body?.promoCode ?? '';
@@ -298,7 +163,28 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         return res.status(400).json({ error: 'session_required' });
       }
 
-      const reservation = await prepareTicketReservations({ offerSelections, repertoireId });
+      const heldIds = Array.isArray(req.body?.heldGetbiletOrderIds)
+        ? req.body.heldGetbiletOrderIds.map(String).filter(Boolean)
+        : [];
+      const heldMakeData = parseHeldMakeData(req.body?.heldMakeData);
+
+      let reservation;
+      if (heldMakeData != null) {
+        const priced = await priceTicketSelections({ offerSelections, repertoireId });
+        const useExistingHold = heldIds.length > 0 || priced.isDemo;
+        if (useExistingHold) {
+          reservation = {
+            baseRub: priced.baseRub,
+            makeData: heldMakeData,
+            getbiletOrderIds: heldIds,
+            isDemo: priced.isDemo,
+          };
+        } else {
+          reservation = await prepareTicketReservations({ offerSelections, repertoireId });
+        }
+      } else {
+        reservation = await prepareTicketReservations({ offerSelections, repertoireId });
+      }
       const baseRub = reservation.baseRub;
       let finalRub = baseRub;
       let promoId = null;
@@ -412,9 +298,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         await pool.query('DELETE FROM orders WHERE id = $1', [insertedOrderId]).catch(() => {});
       }
       if (getbiletOrderIdsToCancel.length > 0) {
-        for (const orderId of getbiletOrderIdsToCancel) {
-          restV2CancelOrder(orderId).catch(() => {});
-        }
+        await cancelTicketSeatHolds(getbiletOrderIdsToCancel);
       }
       if (err instanceof GetbiletValidationError) {
         return res.status(400).json({ error: 'validation', message: err.message });

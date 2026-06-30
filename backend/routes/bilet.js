@@ -728,33 +728,6 @@ router.get('/repertoire/:repertoireId/offers', async (req, res) => {
   }
 });
 
-/** Бронирование (MakeOrder) через бэкенд — секрет GetBilet не уходит на фронт */
-router.post('/reserve', async (req, res) => {
-  try {
-    const { protocol } = getGetbiletConfig();
-    if (protocol !== 'rest_v2') {
-      return res.status(501).json({ error: 'only_rest_v2' });
-    }
-    const b = req.body && typeof req.body === 'object' ? req.body : {};
-    const offerId = requireNonEmptyString(b.offerId ?? b.OfferId, 'offerId');
-    const rawSeats = b.seats ?? b.SeatList;
-    if (rawSeats == null) throw new GetbiletValidationError('seats обязателен');
-    const repRaw = b.repertoireId ?? b.RepertoireId;
-    const repertoireIdForCache =
-      typeof repRaw === 'string' && repRaw.trim() ? repRaw.trim() : typeof repRaw === 'number' ? String(repRaw) : '';
-    const data = await restV2MakeOrder(
-      offerId,
-      Array.isArray(rawSeats) ? rawSeats : String(rawSeats).split(/[,\s]+/).filter(Boolean),
-    );
-    if (repertoireIdForCache) {
-      invalidateOffersCache(repertoireIdForCache).catch(() => {});
-    }
-    return res.json(data);
-  } catch (err) {
-    return sendGetbiletError(err, res);
-  }
-});
-
 /** Компактный payload для главной: меньше JSON и меньше CPU на слабых устройствах. */
 router.get('/home', async (req, res) => {
   try {

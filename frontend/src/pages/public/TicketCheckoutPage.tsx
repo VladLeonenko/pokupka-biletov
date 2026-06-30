@@ -108,7 +108,7 @@ import {
   isNamedTicketUxEnabledForSlug,
   repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
-import { useTicketCart } from '@/context/TicketCartContext';
+import { useTicketCart, type TicketCartSnapshot } from '@/context/TicketCartContext';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -268,7 +268,8 @@ export function TicketCheckoutPage() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, purchaseOpen, setCart, clearCart, setPurchaseOpen } = useTicketCart();
+  const { cart, purchaseOpen, setCart, clearCart, setPurchaseOpen, ensureSeatHold, reservePending, reserveError } =
+    useTicketCart();
   const routeKey = legacyRepertoireId || eventSlug;
   const routeKeyIsId = looksLikeGetbiletId(routeKey);
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
@@ -790,6 +791,51 @@ export function TicketCheckoutPage() {
       isFanIdRequiredForSlug(routeSlug),
     [ctx?.requiresFanId, repertoireId, routeSlug],
   );
+
+  const buildCartSnapshot = useCallback((): TicketCartSnapshot | null => {
+    if (!repertoireId || !offerId || purchaseSeats.length === 0) return null;
+    return {
+      repertoireId,
+      offerId,
+      seats: purchaseSeats,
+      mapSelectedSeats,
+      eventTitle: displayTitle,
+      baseTotalRub,
+      sessionLabel: purchaseSessionLabel,
+      seatLabels: purchaseSeatLabels,
+      mapOfferSelections: mapOfferSelections.length > 0 ? mapOfferSelections : undefined,
+      descriptionLead:
+        heroLeadDisplay ??
+        (mergedVenue
+          ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
+          : null),
+      ticketHref,
+      requiresFanId,
+    };
+  }, [
+    repertoireId,
+    offerId,
+    purchaseSeats,
+    mapSelectedSeats,
+    displayTitle,
+    baseTotalRub,
+    purchaseSessionLabel,
+    purchaseSeatLabels,
+    mapOfferSelections,
+    heroLeadDisplay,
+    mergedVenue,
+    mergedVenueAddress,
+    ticketHref,
+    requiresFanId,
+  ]);
+
+  const openPurchaseWithHold = useCallback(async () => {
+    const snapshot = cart ?? buildCartSnapshot();
+    if (!snapshot) return;
+    const ok = await ensureSeatHold(snapshot);
+    if (ok) setPurchaseOpen(true);
+  }, [cart, buildCartSnapshot, ensureSeatHold, setPurchaseOpen]);
+
   const cartRestoreRef = useRef(false);
 
   useEffect(() => {
@@ -1105,7 +1151,7 @@ export function TicketCheckoutPage() {
     if (noOffersAfterFetch) {
       return 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.';
     }
-    return 'Кликните по свободному месту на схеме, затем нажмите «Забронировать».';
+    return 'Кликните по свободному месту на схеме, затем нажмите «Забронировать» — места будут удержаны ~13 мин для оплаты.';
   }, [layoutJsonForStage, noOffersAfterFetch, offersForMap.length, seatSelectionDisabledUi]);
 
   useEffect(() => {
@@ -1492,6 +1538,11 @@ export function TicketCheckoutPage() {
                   На весь экран
                 </Button>
               </Box>
+              {reserveError ? (
+                <Alert severity="warning" sx={{ mx: 2, mb: 1 }}>
+                  {reserveError}
+                </Alert>
+              ) : null}
               {hallMapReady ? (
                 <>
                   {priceChipsForMap.length > 0 ? (
@@ -1513,10 +1564,10 @@ export function TicketCheckoutPage() {
                       selectedSeats={seats}
                       onToggleSeat={toggleSeat}
                       selectedOffer={selectedOfferForMap}
-                      onReserveFromMap={() => setPurchaseOpen(true)}
+                      onReserveFromMap={() => void openPurchaseWithHold()}
                       onClearSelection={resetSelectedSeats}
                       onSelectionChange={handleMapSelectionChange}
-                      reservePending={false}
+                      reservePending={reservePending}
                       onNavigateToList={navigateToPlacesList}
                       hideSelectionBar
                       showFanIdNotice={requiresFanId}
@@ -1984,10 +2035,10 @@ export function TicketCheckoutPage() {
                         selectedSeats={seats}
                         onToggleSeat={toggleSeat}
                         selectedOffer={selectedOfferForMap}
-                        onReserveFromMap={() => setPurchaseOpen(true)}
+                        onReserveFromMap={() => void openPurchaseWithHold()}
                         onClearSelection={resetSelectedSeats}
                         onSelectionChange={handleMapSelectionChange}
-                        reservePending={false}
+                        reservePending={reservePending}
                         onNavigateToList={navigateToPlacesList}
                         hideSelectionBar
                         showFanIdNotice={requiresFanId}

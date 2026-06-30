@@ -1,9 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Button, IconButton, Paper, Typography } from '@mui/material';
+import { Button, CircularProgress, IconButton, Paper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useTicketCart } from '@/context/TicketCartContext';
+import { TicketHoldTimer } from '@/components/tickets/TicketHoldTimer';
+import { isTicketHoldActive } from '@/utils/ticketSeatHold';
 import styles from './TicketCartStickyBar.module.css';
 
 const TicketPurchaseDialog = lazy(() =>
@@ -13,7 +15,23 @@ const TicketPurchaseDialog = lazy(() =>
 );
 
 export function TicketCartStickyBar() {
-  const { cart, purchaseOpen, setPurchaseOpen, clearCart } = useTicketCart();
+  const {
+    cart,
+    hold,
+    purchaseOpen,
+    setPurchaseOpen,
+    clearCart,
+    ensureSeatHold,
+    reservePending,
+    reserveError,
+    releaseSeatHold,
+  } = useTicketCart();
+
+  const openPurchase = useCallback(async () => {
+    if (!cart) return;
+    const ok = await ensureSeatHold(cart);
+    if (ok) setPurchaseOpen(true);
+  }, [cart, ensureSeatHold, setPurchaseOpen]);
 
   if (!cart || cart.seats.length === 0) return null;
   if (typeof document === 'undefined') return null;
@@ -43,6 +61,14 @@ export function TicketCartStickyBar() {
                   Выбрано мест: {seatCount}
                   {seatsLine ? ` · ${seatsLine}` : ''}
                 </Typography>
+                {isTicketHoldActive(hold) ? (
+                  <TicketHoldTimer hold={hold} variant="bar" />
+                ) : null}
+                {reserveError ? (
+                  <Typography variant="caption" color="error" component="div" sx={{ mt: 0.25 }}>
+                    {reserveError}
+                  </Typography>
+                ) : null}
                 {cart.eventTitle ? (
                   <Typography variant="caption" color="text.secondary" className={styles.title} component="div">
                     <Link to={cart.ticketHref} style={{ color: 'inherit', textDecoration: 'underline' }}>
@@ -52,9 +78,20 @@ export function TicketCartStickyBar() {
                 ) : null}
               </div>
               <div className={styles.actions}>
-                <Button variant="contained" color="primary" onClick={() => setPurchaseOpen(true)}>
-                  Забронировать
-                  {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={reservePending}
+                  onClick={() => void openPurchase()}
+                >
+                  {reservePending ? (
+                    <CircularProgress size={20} sx={{ color: 'inherit' }} />
+                  ) : (
+                    <>
+                      Забронировать
+                      {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
+                    </>
+                  )}
                 </Button>
               </div>
             </Paper>
@@ -77,6 +114,11 @@ export function TicketCartStickyBar() {
             sessionLabel={cart.sessionLabel}
             descriptionLead={cart.descriptionLead}
             requiresFanId={cart.requiresFanId}
+            hold={hold}
+            onHoldExpired={() => {
+              void releaseSeatHold();
+              setPurchaseOpen(false);
+            }}
           />
         </Suspense>
       ) : null}
