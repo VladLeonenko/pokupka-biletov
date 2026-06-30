@@ -232,9 +232,17 @@
     /** SVG всегда с этого же хоста, иначе на :8766 уезжало на biletvsem (404). */
     const svgFetchBase = (urlParams.get('svgBase') || '').replace(/\/$/, '');
     const saveAuthToken = urlParams.get('saveToken') || urlParams.get('token') || '';
+    /** API зала: luzhniki-gray-cloud-svg | vakhtangov-hall-seats | ramt-hall-seats */
+    const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
+    const pageTitle = urlParams.get('title')?.trim();
+    if (pageTitle) document.title = pageTitle;
 
     function saveApiUrl() {
-      return (saveApiBase || '') + '/api/tools/luzhniki-gray-cloud-svg';
+      return (saveApiBase || '') + '/api/tools/' + hallApi;
+    }
+
+    function saveSvgPostUrl() {
+      return hallApi === 'luzhniki-gray-cloud-svg' ? saveApiUrl() : saveApiUrl() + '/svg';
     }
 
     function updateSaveTargetHint() {
@@ -318,7 +326,7 @@
     }
 
     function editStorageKey() {
-      return 'luzhniki-gray-cloud-edits:v1:' + getSvgFileName();
+      return 'luzhniki-gray-cloud-edits:v1:' + hallApi + ':' + getSvgFileName();
     }
 
     function circleCoordKey(circle) {
@@ -570,7 +578,7 @@
       try {
         const headers = { 'Content-Type': 'image/svg+xml; charset=utf-8' };
         if (saveAuthToken) headers['x-luzhniki-svg-save-token'] = saveAuthToken;
-        const r = await fetch(saveApiUrl(), {
+        const r = await fetch(saveSvgPostUrl(), {
           method: 'POST',
           headers,
           body: xml,
@@ -4264,7 +4272,12 @@
     window.addEventListener('resize', () => { if (svgRoot) fitToView(); });
 
     const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
-    const svgUrl = (svgFetchBase ? svgFetchBase + '/tools/' : '/tools/') + defaultSvg;
+    const svgUrlParam = urlParams.get('svgUrl')?.trim();
+    const svgUrl =
+      svgUrlParam ||
+      (hallApi !== 'luzhniki-gray-cloud-svg'
+        ? saveApiUrl() + '/enriched.svg'
+        : (svgFetchBase ? svgFetchBase + '/tools/' : '/tools/') + defaultSvg);
     status.textContent = 'Загрузка ' + svgUrl + '…';
     refreshServerBundleStatus();
     fetch(svgUrl + '?_=' + Date.now(), { cache: 'no-store' })
@@ -4274,7 +4287,7 @@
       })
       .then(loadSvgText)
       .catch((err) => {
-        status.textContent = 'Не удалось загрузить /tools/' + defaultSvg + ' — выбери файл (' + err.message + ')';
+        status.textContent = 'Не удалось загрузить ' + svgUrl + ' — выбери файл (' + err.message + ')';
       });
   </script>
 </body>

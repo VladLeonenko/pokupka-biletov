@@ -15,6 +15,7 @@ import {
   isHallMapSaveTokenRequired,
 } from '../utils/hallMapSaveToken.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
+import { createHallSvgEditorHandlers } from '../utils/hallSeatEditorSvgRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -27,6 +28,7 @@ const BUNDLE_PATH = path.join(
   'backend/data/ramt-geodesy/hand/ramt-big-stage-seats.bundle.json',
 );
 const SVG_PUBLIC = '/hall-maps/ramt-big-stage.svg';
+const ENRICHED_SVG_PUBLIC = 'ramt-big-stage-enriched.svg';
 const DEFAULT_HALL_W = 930;
 const DEFAULT_HALL_H = 847;
 
@@ -157,6 +159,18 @@ function readBundleFile() {
   }
 }
 
+const svgEditor = createHallSvgEditorHandlers({
+  repoRoot: REPO_ROOT,
+  stageId: STAGE_ID,
+  bundlePath: BUNDLE_PATH,
+  enrichedPublicRel: ENRICHED_SVG_PUBLIC,
+  loadStageMapRow,
+  readBundleFile,
+  mergeSeatsOntoBackground,
+  backupExistingFile,
+  editorMode: 'ramt-luzhniki-editor',
+});
+
 router.get('/status', async (_req, res) => {
   try {
     const row = await loadStageMapRow();
@@ -224,6 +238,42 @@ router.get('/bundle', async (_req, res) => {
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+router.get('/enriched.svg', async (_req, res) => {
+  try {
+    const xml = await svgEditor.buildEnrichedSvgMarkup();
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(xml);
+  } catch (e) {
+    return res.status(e.message?.includes('not in DB') ? 404 : 500).json({
+      ok: false,
+      error: e.message,
+    });
+  }
+});
+
+router.post(
+  '/svg',
+  express.text({ type: ['image/svg+xml', 'text/xml', 'application/xml', 'text/plain', '*/*'], limit: '64mb' }),
+  async (req, res) => {
+    if (!checkSaveAuth(req, res)) return;
+    const body = typeof req.body === 'string' ? req.body.trim() : '';
+    if (!body.includes('<svg')) {
+      return res.status(400).json({ ok: false, error: 'expected SVG XML in body' });
+    }
+    const xml = body.startsWith('<?xml') ? body : `<?xml version="1.0" encoding="UTF-8"?>\n${body}`;
+    try {
+      const result = await svgEditor.saveSvgMarkup(xml, ticketPool);
+      return res.json({ ok: true, ...result });
+    } catch (e) {
+      if (e.code === 'NO_LABELED_SEATS') {
+        return res.status(400).json({ ok: false, error: e.message, labeledSeats: 0, svgSaved: false });
+      }
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  },
+);
 
 router.post('/', express.json({ limit: '16mb' }), async (req, res) => {
   if (!checkSaveAuth(req, res)) return;

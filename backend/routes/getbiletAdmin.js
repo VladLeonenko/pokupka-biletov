@@ -1209,6 +1209,12 @@ function buildHallMapEditorUrl(path, saveToken) {
   return `${path}${sep}saveToken=${encodeURIComponent(saveToken)}`;
 }
 
+function buildUnifiedHallEditorUrl(hallApi, title, saveToken) {
+  const q = new URLSearchParams({ hallApi, title });
+  if (saveToken) q.set('saveToken', saveToken);
+  return `/tools/luzhniki-gray-cloud-enriched-hover.html?${q.toString()}`;
+}
+
 router.get('/stage-map-editors', (_req, res) => {
   const saveToken = resolveHallMapSaveToken();
   const editors = [
@@ -1223,17 +1229,21 @@ router.get('/stage-map-editors', (_req, res) => {
     {
       id: 'vakhtangov-hall',
       label: 'Вахтангов — места',
-      description: 'JSON bundle секторов и координат',
-      path: '/tools/vakhtangov-hall-seats-editor.html',
-      url: buildHallMapEditorUrl('/tools/vakhtangov-hall-seats-editor.html', saveToken),
+      description: 'Тот же редактор, что Лужники (〰 линия, ▶ ряд)',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'vakhtangov-hall-seats',
+        'Вахтангов — разметка мест',
+        saveToken,
+      ),
       stageMapKeys: ['5f3dedaa08192a003157dc6d', '5f3dee4f08192a003157dc71'],
     },
     {
       id: 'ramt-big-stage',
       label: 'РАМТ — Большая сцена',
-      description: 'Облако точек pbilet + sectorMode',
-      path: '/tools/ramt-hall-seats-editor.html',
-      url: buildHallMapEditorUrl('/tools/ramt-hall-seats-editor.html', saveToken),
+      description: 'Тот же редактор, что Лужники',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl('ramt-hall-seats', 'РАМТ — разметка мест', saveToken),
       stageMapKeys: [RAMT_BIG_STAGE_MAP_KEY],
     },
   ];
