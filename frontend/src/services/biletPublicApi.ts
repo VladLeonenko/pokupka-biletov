@@ -750,6 +750,31 @@ export async function cancelTicketSeatHold(getbiletOrderIds: string[]): Promise<
   }).catch(() => {});
 }
 
+export async function subscribeTicketPriceAlert(payload: {
+  email: string;
+  repertoireId: string;
+  eventTitle?: string;
+  ticketPath?: string;
+  maxPriceRub?: number;
+  sessionDateTime?: string;
+  zoneFilter?: string;
+}): Promise<{ ok: boolean; message?: string }> {
+  const res = await fetch(`${getApiBase()}/api/bilet/price-alert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    error?: string;
+  };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || data.message || `HTTP ${res.status}`);
+  }
+  return { ok: true, message: data.message };
+}
+
 /** Ответ `GET /api/bilet/stage/:stageId/map` — строка из `getbilet_stage_maps`. */
 export type StageMapRow = {
   id?: number;

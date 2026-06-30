@@ -19,6 +19,7 @@ import {
   assertRepertoireStorefrontAccess,
   RepertoireNotAvailableError,
 } from '../services/repertoireStorefrontAccess.js';
+import { registerTicketPriceAlertRoutes } from './ticketPriceAlerts.js';
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -53,6 +54,8 @@ function parseHeldMakeData(raw) {
  * @param {{ optionalAuth: import('express').RequestHandler }} deps
  */
 export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
+  registerTicketPriceAlertRoutes(router);
+
   router.post('/reserve', optionalAuth, async (req, res) => {
     try {
       const { protocol } = getGetbiletConfig();

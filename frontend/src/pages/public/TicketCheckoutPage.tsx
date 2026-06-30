@@ -109,6 +109,7 @@ import {
   repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
 import { useTicketCart, type TicketCartSnapshot } from '@/context/TicketCartContext';
+import { TicketPriceAlertForm } from '@/components/tickets/TicketPriceAlertForm';
 import styles from './TicketCheckoutPage.module.css';
 
 const OFFER_ROWS_PREVIEW = 5;
@@ -1072,6 +1073,9 @@ export function TicketCheckoutPage() {
     return null;
   }, [selectedSessionKey, defaultSessionKey, noOffersAfterFetch]);
 
+  const alertSessionDt =
+    hallMapSessionKey && hallMapSessionKey !== '_' ? hallMapSessionKey : null;
+
   const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
 
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
@@ -1204,6 +1208,11 @@ export function TicketCheckoutPage() {
   }, [canonicalSlug]);
 
   const searchStrForCanonical = useMemo(() => searchParams.toString(), [searchParams]);
+
+  const alertTicketPath = useMemo(() => {
+    const q = searchStrForCanonical?.trim();
+    return q ? `${canonicalTicketPath}?${q}` : canonicalTicketPath;
+  }, [canonicalTicketPath, searchStrForCanonical]);
 
   useEffect(() => {
     if (!displayTitle) return;
@@ -1724,6 +1733,16 @@ export function TicketCheckoutPage() {
                   Нет предложений по фильтрам — измените зону, цену или условия «подряд» / «проход».
                 </Alert>
               ) : null}
+              {filteredOffers.length === 0 && listableOffers.length > 0 && repertoireId ? (
+                <TicketPriceAlertForm
+                  compact
+                  repertoireId={repertoireId}
+                  eventTitle={displayTitle}
+                  ticketPath={alertTicketPath}
+                  sessionDateTime={alertSessionDt}
+                  defaultMaxPrice={filterState.priceRange[1] < pb.max ? filterState.priceRange[1] : null}
+                />
+              ) : null}
             </Paper>
           )}
 
@@ -1749,6 +1768,15 @@ export function TicketCheckoutPage() {
                   билетов нет: мы можем уточнить наличие и вернуться с вариантами по цене и местам.
                 </Typography>
               </div>
+
+              {repertoireId ? (
+                <TicketPriceAlertForm
+                  repertoireId={repertoireId}
+                  eventTitle={displayTitle}
+                  ticketPath={alertTicketPath}
+                  sessionDateTime={alertSessionDt}
+                />
+              ) : null}
 
               {ticketRequestStatus === 'sent' ? (
                 <Alert severity="success" sx={{ mt: 2 }}>
