@@ -1,0 +1,300 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - link "8-800-500-42-62" [ref=e7] [cursor=pointer]:
+        - /url: tel:88005004262
+      - button "Главная" [ref=e8] [cursor=pointer]
+      - text: "|"
+      - button "Нижний Новгород" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - link [ref=e11] [cursor=pointer]:
+        - /url: /nizhnijnovgorod
+        - img [ref=e12]
+      - generic [ref=e27]:
+        - textbox "События, артисты и группы в Нижнем Новгороде" [disabled] [ref=e28]
+        - button:
+          - img
+      - generic [ref=e29]:
+        - link "Продать билеты" [ref=e30] [cursor=pointer]:
+          - /url: /sell_and_advantages
+          - text: Продать
+          - generic [ref=e31]: билеты
+        - link [ref=e35] [cursor=pointer]:
+          - /url: /login
+          - img [ref=e37]
+        - button [ref=e43]:
+          - img [ref=e44]
+  - navigation [ref=e48]:
+    - list [ref=e49]:
+      - listitem [ref=e50]:
+        - link "Концерты" [ref=e52] [cursor=pointer]:
+          - /url: /nizhnijnovgorod/kontsert
+      - listitem [ref=e53]:
+        - link "Спорт" [ref=e55] [cursor=pointer]:
+          - /url: /nizhnijnovgorod/sport
+      - listitem [ref=e56]:
+        - link "Театр" [ref=e58] [cursor=pointer]:
+          - /url: /nizhnijnovgorod/teatr
+      - listitem [ref=e59]:
+        - link "Детям" [ref=e61] [cursor=pointer]:
+          - /url: /nizhnijnovgorod/detiam
+      - listitem [ref=e62]:
+        - generic [ref=e64]: Прочее
+      - listitem [ref=e65]:
+        - link "Помощь" [ref=e67] [cursor=pointer]:
+          - /url: /faq
+      - listitem [ref=e68]:
+        - link "Контакты" [ref=e70] [cursor=pointer]:
+          - /url: /contacts
+  - generic [ref=e74]:
+    - generic [ref=e75]:
+      - heading "Матч Спартак — Зенит, Суперкубок России по футболу 2026 0+ Совкомбанк Арена (бывш. Стадион «Нижний Новгород»), 18 июля, сб, 19:30" [level=1] [ref=e77]:
+        - generic [ref=e78]: Матч Спартак — Зенит, Суперкубок России по футболу 2026
+        - generic [ref=e79]: 0+
+        - generic [ref=e80]: Совкомбанк Арена (бывш. Стадион «Нижний Новгород»), 18 июля, сб, 19:30
+      - list [ref=e82]:
+        - listitem [ref=e83]:
+          - link [ref=e84] [cursor=pointer]:
+            - /url: /
+            - img [ref=e85]
+        - listitem [ref=e87]:
+          - link "Нижний Новгород" [ref=e88] [cursor=pointer]:
+            - /url: /nizhnijnovgorod
+            - img [ref=e89]
+            - generic [ref=e91]: Нижний Новгород
+        - listitem [ref=e92]:
+          - link "Суперкубок России" [ref=e93] [cursor=pointer]:
+            - /url: /nizhnijnovgorod/sport/futbol/superkubok-rossii
+            - img [ref=e94]
+            - generic [ref=e96]: Суперкубок России
+        - listitem [ref=e97]:
+          - generic [ref=e98]:
+            - img [ref=e99]
+            - generic [ref=e101]: Матч Спартак - Зенит. Суперкубок России по футболу
+    - button "Купить билет" [ref=e103] [cursor=pointer]
+  - generic [ref=e109]:
+    - generic [ref=e111]:
+      - generic [ref=e112]: 18 июля, сб, 19:30
+      - generic [ref=e113]: Осталось 19 дней
+    - link "Совкомбанк Арена (бывш. Стадион «Нижний Новгород») Россия, Нижний Новгород, улица Бетанкура, 1А" [ref=e114] [cursor=pointer]:
+      - /url: /nizhnijnovgorod/playgrounds/stadion-nizhnii-novgorod
+      - generic [ref=e115]: Совкомбанк Арена (бывш. Стадион «Нижний Новгород»)
+      - text: Россия, Нижний Новгород, улица Бетанкура, 1А
+  - generic [ref=e116]:
+    - generic [ref=e117]:
+      - heading "Матч Спартак - Зенит. Суперкубок России по футболу" [level=2] [ref=e118]
+      - generic [ref=e119]:
+        - generic [ref=e121]:
+          - heading "Дерби двух столиц в борьбе за главный футбольный трофей страны" [level=3] [ref=e122]
+          - paragraph [ref=e123]: Стадион «Совкомбанк Арена», г. Нижний Новгород
+          - paragraph [ref=e124]: "ФК «Спартак»: Александр Максименко, Эсекьель Барко, Илья Помазун и другие"
+          - paragraph [ref=e125]: "Главный тренер: Хуан Карлос Карседо"
+          - paragraph [ref=e126]: "ФК «Зенит»: Евгений Латышонок, Денис Адамов, Дуглас Сантос и другие"
+          - paragraph [ref=e127]: "Главный тренер: Сергей Богданович Семак"
+        - generic [ref=e130]:
+          - heading "Требуется Fan ID!" [level=3] [ref=e131]:
+            - strong [ref=e132]: Требуется Fan ID!
+          - paragraph [ref=e133]: 18 июля 2026 года состоится ключевое событие в российском футболе – матч Суперкубка России 2026, который одновременно определяет самый сильный клуб уходящего сезона 2025/2026 и даст старт новому футбольному сезону.
+          - paragraph [ref=e134]: Особый статус этой игре придает тот факт, что бороться за Суперкубок будет «Спартак» и «Зенит», давние принципиальные соперники. Уверены, что вы давно не видели матча дерби двух столиц, равного этой игре по накалу эмоций и мотивации соперников обыграть друг друга.
+          - paragraph [ref=e135]: У «Зенита» сезон в РПЛ 2025/2026 сложился успешно, правда почти до финальных туров в таблице первым шел «Краснодар» и только под занавес петербуржцам удалось обойти «быков» и с отрывом в 2 очка в 11 раз в истории клуба стать чемпионом России.
+          - paragraph [ref=e136]: У «Спартака» игра складывалась иначе, но все в Пути регионов они показали мощную игру и то, что Карседо совсем не напрасно применяет свои тактики. В этом сезон красно-белые сильны именно в пенальти, так что для сине-бело-голубых главное – не допустить ничьей в основное время, чтобы не рисковать победой. Ну а спартаковцам стоит сразу обозначить свои интересы решительными действиями. Смогут ли они отыграться за свое поражение в Суперкубке в 2022-м – главная интрига для всех футбольных болельщиков.
+          - paragraph [ref=e137]: Как всегда, для игры такого статуса РФС выбрал одну из самых вместительных и современных арен. Не обойдется по традиции и без музыкальной части. Кто из звезд выступит на игре – интрига номер два и еще один повод успеть забронировать места на трибунах арены. Главное футбольное событие лета ждет вас!
+          - heading "Билеты на матч «Спартак» - «Зенит». Суперкубок России по футболу" [level=3] [ref=e138]
+          - paragraph [ref=e139]: Онлайн-сервис покупки и продажи билетов Portalbilet поможет вам с посещением спортивных и культурных мероприятий любого масштаба и формата. С нами вам не придется ехать в кассу, ведь можно заказать билет онлайн, потратив на оформление заказа всего 2-3 минуты.
+          - paragraph [ref=e140]: На нашем сайте вы можете купить билеты на Суперкубок России по футболу в наличии, но учитывая интерес к этой игре, свободные болельщики разбирают с каждым часом. Спешите занять места на трибунах, пока они еще есть в наличии!
+          - heading "Полезные ссылки" [level=3] [ref=e141]
+          - paragraph [ref=e142]: "Подробнее о том, как вернуть, сдать или продать билет читайте в разделах:"
+          - list [ref=e143]:
+            - listitem [ref=e144]:
+              - link "Продать билет" [ref=e145] [cursor=pointer]:
+                - /url: /sell
+            - listitem [ref=e146]:
+              - link "Брокерам" [ref=e147] [cursor=pointer]:
+                - /url: /faq/broker
+            - listitem [ref=e148]:
+              - link "Организаторам" [ref=e149] [cursor=pointer]:
+                - /url: /faq/realizaciya-biletov
+    - generic [ref=e150]:
+      - generic [ref=e151]: Совкомбанк Арена (бывш. Стадион «Нижний Новгород»)
+      - text: Россия, Нижний Новгород, улица Бетанкура, 1А
+  - img [ref=e152]
+  - generic [ref=e154]:
+    - generic [ref=e155]:
+      - heading "Билеты для корпоративных клиентов" [level=2] [ref=e157]:
+        - img [ref=e158]
+        - text: Билеты для корпоративных клиентов
+      - paragraph [ref=e167]: Это мероприятие вы можете посетить большой компанией, совместно с сотрудниками, коллегами или друзьями купив билеты в любом количестве на страницах маркетплейса Portalbilet. У нас актуальная афиша, официальные билеты от организаторов шоу, специальные условия приобретения при бронировании большого количества мест.
+      - paragraph [ref=e168]:
+        - text: В разделе
+        - link "«Корпоративным клиентам»" [ref=e169] [cursor=pointer]:
+          - /url: /corporate-clients
+        - text: вы узнаете подробную информацию об услуге и связавшись с нами, сможете уточнить цену, наличие свободных мест, расположение в зрительном зале, возможность организации трансфера и сделать заказ.
+    - generic [ref=e170]:
+      - heading "VIP-билеты" [level=2] [ref=e172]:
+        - img [ref=e173]
+        - text: VIP-билеты
+      - paragraph [ref=e175]: Это мероприятие вы сможете посетить с максимальным комфортом, купив премиальные билеты на страницах маркетплейса Portalbilet. У нас собраны самые интересные предложения от организаторов мероприятий и билетных брокеров. Вы с легкостью приобретете эксклюзивные билеты на концерты и аншлаговые спектакли, шоу с участием звезд, ожидаемые премьеры, знаковые матчи и состязания, съемки популярных телепередач.
+      - paragraph [ref=e176]:
+        - text: Узнать цены VIP-билетов, а также получить детальную информацию об услугах, которые предполагает покупка элитных мест в ВИП-зоне и другие подробности можно в
+        - link "этом разделе." [ref=e177] [cursor=pointer]:
+          - /url: /vip-tickets
+    - generic [ref=e178]:
+      - heading "Вопросы и ответы" [level=2] [ref=e180]
+      - generic [ref=e181]:
+        - generic [ref=e184] [cursor=pointer]:
+          - text: Как купить билет?
+          - img [ref=e185]
+        - generic [ref=e189] [cursor=pointer]:
+          - text: Как работает электронный билет?
+          - img [ref=e190]
+        - generic [ref=e194] [cursor=pointer]:
+          - text: Как можно оплатить билет?
+          - img [ref=e195]
+        - generic [ref=e199] [cursor=pointer]:
+          - text: Как купить билеты юридическому лицу?
+          - img [ref=e200]
+        - generic [ref=e204] [cursor=pointer]:
+          - text: Какие билеты можно купить на ПБ?
+          - img [ref=e205]
+  - generic [ref=e207]:
+    - generic [ref=e208]:
+      - heading "Наши преимущества" [level=2] [ref=e209]
+      - paragraph [ref=e210]: Находите, покупайте и продавайте билеты на лучшие события по всей России - быстро, удобно и безопасно
+      - generic [ref=e211]:
+        - link "Продать билет" [ref=e212] [cursor=pointer]:
+          - /url: /sell
+        - button "Купить билет" [ref=e213] [cursor=pointer]
+    - generic [ref=e214]:
+      - generic [ref=e215]:
+        - img [ref=e216]
+        - heading "Удобная покупка билетов онлайн" [level=3] [ref=e218]
+        - paragraph [ref=e219]: Легко находить и приобретать билеты на концерты, спектакли, спортивные матчи и другие события по всей России и миру
+      - generic [ref=e220]:
+        - img [ref=e221]
+        - heading "Безопасность сделок и гарантия возврата" [level=3] [ref=e223]
+        - paragraph [ref=e224]:
+          - text: Все операции защищены
+          - link "договором оферты" [ref=e225] [cursor=pointer]:
+            - /url: /oferta
+          - text: ", а при отмене мероприятия предусмотрен"
+          - link "возврат средств" [ref=e226] [cursor=pointer]:
+            - /url: /oferta#refund
+      - generic [ref=e227]:
+        - img [ref=e228]
+        - heading "15 лет опыта и доверия на билетном рынке" [level=3] [ref=e230]
+        - paragraph [ref=e231]: Мы объединяем зрителей, организаторов и профессиональных продавцов, предлагая эксклюзивные билеты, которых нет на других ресурсах
+  - contentinfo [ref=e232]:
+    - generic [ref=e234]:
+      - generic [ref=e235]:
+        - generic [ref=e236]: Категории
+        - list [ref=e237]:
+          - listitem [ref=e238]:
+            - link "Концерты" [ref=e239] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/kontsert
+          - listitem [ref=e240]:
+            - link "Спорт" [ref=e241] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/sport
+          - listitem [ref=e242]:
+            - link "Театр" [ref=e243] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/teatr
+          - listitem [ref=e244]:
+            - link "Детям" [ref=e245] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/detiam
+          - listitem [ref=e246]:
+            - link "Все мероприятия" [ref=e247] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/afisha
+          - listitem [ref=e248]:
+            - link "Все города" [ref=e249] [cursor=pointer]:
+              - /url: /cities
+          - listitem [ref=e250]:
+            - link "Все площадки" [ref=e251] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/playgrounds
+          - listitem [ref=e252]:
+            - link "Все исполнители" [ref=e253] [cursor=pointer]:
+              - /url: /persons
+        - button "Главная" [ref=e254] [cursor=pointer]
+      - generic [ref=e255]:
+        - generic [ref=e256]: Популярные события
+        - list [ref=e257]:
+          - listitem [ref=e258]:
+            - link "Спартак — Зенит, Суперкубок России по футболу" [ref=e259] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/superkubok-rossii-po-futbolu
+          - listitem [ref=e260]:
+            - link "Концерты The Weeknd" [ref=e261] [cursor=pointer]:
+              - /url: /persons/the-weeknd
+          - listitem [ref=e262]:
+            - link "Сегодня" [ref=e263] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/segodnya
+          - listitem [ref=e264]:
+            - link "Завтра" [ref=e265] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/zavtra
+          - listitem [ref=e266]:
+            - link "В выходные" [ref=e267] [cursor=pointer]:
+              - /url: /nizhnijnovgorod/vykhodniye
+      - generic [ref=e268]:
+        - generic [ref=e269]: Помощь
+        - list [ref=e270]:
+          - listitem [ref=e271]:
+            - link "Оплата и доставка" [ref=e272] [cursor=pointer]:
+              - /url: /pay-and-delivery
+          - listitem [ref=e273]:
+            - link "Частые вопросы" [ref=e274] [cursor=pointer]:
+              - /url: https://portalbilet.ru/faq
+          - listitem [ref=e275]:
+            - link "Перепродажа билетов" [ref=e276] [cursor=pointer]:
+              - /url: https://portalbilet.ru/faq/broker
+          - listitem [ref=e277]:
+            - link "Организаторам" [ref=e278] [cursor=pointer]:
+              - /url: https://portalbilet.ru/faq/realizaciya-biletov
+          - listitem [ref=e279]:
+            - link "Корпоративным клиентам" [ref=e280] [cursor=pointer]:
+              - /url: https://portalbilet.ru/corporate-clients
+          - listitem [ref=e281]:
+            - link "VIP-билеты" [ref=e282] [cursor=pointer]:
+              - /url: https://portalbilet.ru/vip-tickets
+          - listitem [ref=e283]:
+            - link "Условия использования" [ref=e284] [cursor=pointer]:
+              - /url: https://portalbilet.ru/oferta
+          - listitem [ref=e285]:
+            - link "Персональные данные" [ref=e286] [cursor=pointer]:
+              - /url: https://portalbilet.ru/privacy-policy
+          - listitem [ref=e287]:
+            - link "О компании" [ref=e288] [cursor=pointer]:
+              - /url: https://portalbilet.ru/about
+          - listitem [ref=e289]:
+            - link "Контакты" [ref=e290] [cursor=pointer]:
+              - /url: https://portalbilet.ru/contacts
+          - listitem [ref=e291]:
+            - link "Карта сайта" [ref=e292] [cursor=pointer]:
+              - /url: /sitemap.xml
+          - listitem [ref=e293]:
+            - generic [ref=e294]: Управление cookies
+      - generic [ref=e295]:
+        - generic [ref=e296]: Следите за новостями
+        - generic [ref=e298]:
+          - link [ref=e299] [cursor=pointer]:
+            - /url: https://t.me/portalbilet
+            - img [ref=e300]
+          - link [ref=e302] [cursor=pointer]:
+            - /url: https://vk.com/portalbilet
+            - img [ref=e303]
+        - generic [ref=e305]:
+          - link "8-800-500-42-62" [ref=e306] [cursor=pointer]:
+            - /url: tel:88005004262
+          - link "8-499-226-15-14" [ref=e307] [cursor=pointer]:
+            - /url: tel:8-499-226-15-14
+          - link "info@portalbilet.ru" [ref=e308] [cursor=pointer]:
+            - /url: mailto:info@portalbilet.ru
+          - generic [ref=e309]:
+            - text: С 10:00 до 21:00,
+            - text: звонок бесплатный
+        - generic [ref=e310]:
+          - generic [ref=e311]: Оплата
+          - generic [ref=e312]:
+            - img [ref=e314]
+            - img [ref=e321]
+            - img [ref=e324]
+    - generic [ref=e332]: © 2020 - 2026 portalbilet.ru Все права защищены
+    - generic [ref=e333] [cursor=pointer]:
+      - text: В начало страницы
+      - img [ref=e334]
