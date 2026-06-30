@@ -842,16 +842,13 @@ export function TicketHallInteractiveBlock({
         (sum, offer) => sum + (Array.isArray(offer.SeatList) ? offer.SeatList.length : 0),
         0,
       );
-      const metaMin =
-        meta.minPrice != null && Number.isFinite(Number(meta.minPrice)) ? Number(meta.minPrice) : null;
-      const metaMax =
-        meta.maxPrice != null && Number.isFinite(Number(meta.maxPrice)) ? Number(meta.maxPrice) : null;
       return {
         meta,
         offers: sectorOffers,
-        seatCount: seatCount || (meta.availableSeats ?? 0),
-        minPrice: prices.length ? Math.min(...prices) : metaMin,
-        maxPrice: prices.length ? Math.max(...prices) : metaMax,
+        /** Только живые офферы GetBilet — не снимок pbilet (meta.availableSeats) при пустом API. */
+        seatCount,
+        minPrice: prices.length ? Math.min(...prices) : null,
+        maxPrice: prices.length ? Math.max(...prices) : null,
       };
     });
   }, [getPriceKey, offers, sectorMode.sectors]);
