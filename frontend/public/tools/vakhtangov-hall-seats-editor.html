@@ -19,6 +19,9 @@
     #status { font-size: 12px; opacity: 0.85; flex: 1; min-width: 160px; }
     .viewport { position: relative; overflow: hidden; width: 100%; height: calc(100vh - 48px); background: #000; touch-action: none; cursor: crosshair; }
     .viewport.panning { cursor: grab; }
+    .viewport.mode-paint { cursor: crosshair; }
+    .viewport.mode-paint .dots circle { pointer-events: none !important; }
+    .viewport.mode-paint svg.sector-overlay path { pointer-events: none !important; }
     .stage { position: absolute; left: 50%; top: 50%; transform-origin: center center; will-change: transform; }
     .stage svg { display: block; max-width: none; }
     .dots { pointer-events: none; }
@@ -297,12 +300,20 @@
       statusEl.textContent = 'Сохранено ' + data.labeledSeats + ' мест';
     }
 
+    function setPanMode(on) {
+      panMode = !!on;
+      document.getElementById('panMode').classList.toggle('active', panMode);
+      viewport.classList.toggle('panning', panMode);
+    }
+
     function setMode(mode) {
       appMode = mode;
       document.getElementById('modeView').classList.toggle('active', mode === 'view');
       document.getElementById('modeEdit').classList.toggle('active', mode === 'edit');
       document.getElementById('modePaint').classList.toggle('active', mode === 'paint');
       paintBar.classList.toggle('open', mode === 'paint');
+      viewport.classList.toggle('mode-paint', mode === 'paint');
+      if (mode === 'paint') setPanMode(false);
       clearPaint();
     }
 
@@ -517,15 +528,16 @@
     document.getElementById('zoomOut').onclick = () => { zoom = clampZoom(zoom / 1.25); applyTransform(); };
     document.getElementById('zoomFit').onclick = zoomFit;
     document.getElementById('panMode').onclick = () => {
-      panMode = !panMode;
-      document.getElementById('panMode').classList.toggle('active', panMode);
-      viewport.classList.toggle('panning', panMode);
+      setPanMode(!panMode);
+      if (panMode && appMode === 'paint') {
+        showToast('info', 'Чтобы рисовать линию 〰 — выключите ✋');
+      }
     };
 
     viewport.addEventListener('pointerdown', (e) => {
-      if ((e.target).closest && ((e.target).closest('circle') || (e.target).closest('svg.sector-overlay path'))) return;
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (appMode === 'paint' && !panMode) {
+      if (appMode === 'paint' && !panMode && e.button === 0) {
+        e.preventDefault();
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         paintShift = e.shiftKey;
         const p = clientToSvg(e.clientX, e.clientY);
         paintPath = [p];
@@ -533,11 +545,14 @@
         viewport.setPointerCapture(e.pointerId);
         return;
       }
+      if (e.target.closest?.('circle')) return;
+      if (e.target.closest?.('svg.sector-overlay path')) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (panMode || e.button === 1) {
         drag = { kind: 'pan', id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: panX, oy: panY };
         viewport.setPointerCapture(e.pointerId);
       }
-    });
+    }, true);
     viewport.addEventListener('pointermove', (e) => {
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
