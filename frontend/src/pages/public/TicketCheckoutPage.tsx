@@ -60,6 +60,8 @@ import {
   SUPERKUP_NN_STAGE_MAP_KEY,
   parseOmitClientSeatCoordinateCloud,
   parseHideSeatList,
+  parsePbiletCategoryCheckout,
+  isSupercupNnRepertoire,
 } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,
@@ -902,7 +904,12 @@ export function TicketCheckoutPage() {
   ]);
 
   const coverUrl = useMemo(() => {
-    return ctx?.bannerUrl || ctx?.posterUrl || bannerQ || posterQ || null;
+    const poster = ctx?.posterUrl || posterQ || null;
+    const banner = ctx?.bannerUrl || bannerQ || null;
+    if (poster && !banner) return poster;
+    if (banner && !poster) return banner;
+    if (poster && banner && poster === banner) return poster;
+    return poster || banner;
   }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ]);
 
   const posterSideUrl = useMemo(() => {
@@ -1030,10 +1037,13 @@ export function TicketCheckoutPage() {
     return (lj as Record<string, unknown>).seatSelectionDisabled === true;
   }, [layoutJsonForStage]);
 
-  const hideSeatListUi = useMemo(
-    () => parseHideSeatList(layoutJsonForStage),
-    [layoutJsonForStage],
-  );
+  const hideSeatListUi = useMemo(() => {
+    if (ctx?.checkoutHideSeatList === true) return true;
+    if (parseHideSeatList(layoutJsonForStage)) return true;
+    if (isSupercupNnRepertoire(repertoireId)) return true;
+    if (parsePbiletCategoryCheckout(layoutJsonForStage)) return true;
+    return false;
+  }, [ctx?.checkoutHideSeatList, layoutJsonForStage, repertoireId]);
 
   /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
   const hallMapLoadSettled = useMemo(() => {

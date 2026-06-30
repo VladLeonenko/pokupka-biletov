@@ -70,6 +70,14 @@ function minimalDescriptionPack(title, manualText, catalogHints, kind, categoryL
   };
 }
 
+/** @param {unknown} raw */
+function parseCheckoutSettingsFromPack(raw) {
+  if (!raw || typeof raw !== 'object') return { hideSeatList: false };
+  const co = /** @type {Record<string, unknown>} */ (raw).checkout;
+  if (!co || typeof co !== 'object') return { hideSeatList: false };
+  return { hideSeatList: /** @type {Record<string, unknown>} */ (co).hideSeatList === true };
+}
+
 async function loadCachedOfferRows(repertoireId) {
   const rid = String(repertoireId || '').trim();
   if (!rid) return [];
@@ -493,16 +501,24 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
 
   const posterWebTrim = base.posterWeb != null && String(base.posterWeb).trim() ? String(base.posterWeb).trim() : '';
 
+  const posterManualTrim =
+    base.posterManual != null && String(base.posterManual).trim() ? String(base.posterManual).trim() : '';
+  const bannerManualTrim =
+    base.bannerManual != null && String(base.bannerManual).trim() ? String(base.bannerManual).trim() : '';
+
   const posterUrl =
-    (base.posterManual && String(base.posterManual).trim()) ||
+    posterManualTrim ||
     expandMediaTemplate(posterTpl, repertoireId) ||
     imageFromPayload ||
     posterWebTrim ||
     null;
 
+  /** Без ручного баннера не подставляем шаблон, если есть стабильный постер. */
   const bannerUrl =
-    (base.bannerManual && String(base.bannerManual).trim()) ||
-    expandMediaTemplate(bannerTpl, repertoireId) ||
+    bannerManualTrim ||
+    (posterManualTrim && !bannerManualTrim ? posterManualTrim : null) ||
+    (posterWebTrim && !bannerManualTrim && !posterManualTrim ? posterWebTrim : null) ||
+    (!posterManualTrim && !posterWebTrim ? expandMediaTemplate(bannerTpl, repertoireId) : null) ||
     bannerFromPayload ||
     null;
 
@@ -720,6 +736,8 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       ? { ...stageMap, svg_markup: null, svg_markup_deferred: true }
       : stageMap;
 
+  const checkoutFromPack = parseCheckoutSettingsFromPack(descriptionPackJson);
+
   const body = {
     repertoireId,
     stageId,
@@ -735,6 +753,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
     descriptionTotalChars: includeSections ? descPack.totalChars : (descPack.heroLead?.length ?? 0),
     posterUrl,
     bannerUrl,
+    checkoutHideSeatList: checkoutFromPack.hideSeatList === true,
     stageMap: stageMapForClient,
     externalPlanUrl,
     requiresFanId: isFanIdRequiredForRepertoire(repertoireId),

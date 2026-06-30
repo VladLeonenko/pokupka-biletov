@@ -172,7 +172,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-row-step</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-parter-straight</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -2930,9 +2930,9 @@
     }
 
     /** На одном X в SVG часто 2 круга (fieldGrid + strict) — одна колонка, пишем во все fillable. */
-    function dedupeSeatDotsByX(circles, firstAnchor, lastAnchor) {
-      const seatAxis = seatAxisFromAnchors(firstAnchor, lastAnchor);
-      const sorted = sortSeatsByColumnDirection(circles, firstAnchor, lastAnchor);
+    function dedupeSeatDotsByX(circles, firstAnchor, lastAnchor, seatAxisOverride) {
+      const seatAxis = seatAxisOverride || seatAxisFromAnchors(firstAnchor, lastAnchor);
+      const sorted = circles.slice().sort((a, b) => seatAlongCircle(a, seatAxis) - seatAlongCircle(b, seatAxis));
       if (!sorted.length) return [];
       const pitches = [];
       for (let i = 1; i < sorted.length; i++) {
@@ -3227,32 +3227,107 @@
       return { proposal, suspicious, warnCircles };
     }
 
+    /** Партер / прямой зал: 1-й столбец якорей почти вертикально, хорды рядов — горизонталь. */
+    function theaterRowsAreStraight(firstCol, lastCol) {
+      if (columnAnchorsShareY(firstCol)) return false;
+      const fc = firstCol.slice().sort((a, b) => a.rowNum - b.rowNum);
+      if (fc.length < 2) return true;
+      const dx = fc[fc.length - 1].x - fc[0].x;
+      const dy = fc[fc.length - 1].y - fc[0].y;
+      if (Math.abs(dy) > Math.abs(dx) * 1.35) return true;
+      let horiz = 0;
+      let total = 0;
+      const rowNums = [...new Set(fc.map((a) => a.rowNum))].sort((a, b) => a - b);
+      for (const rn of rowNums) {
+        const fa = anchorForRow(firstCol, rn);
+        const la = anchorForRow(lastCol, rn);
+        if (!fa || !la) continue;
+        const cdx = la.x - fa.x;
+        const cdy = la.y - fa.y;
+        if (Math.hypot(cdx, cdy) < 1) continue;
+        total++;
+        if (Math.abs(cdx) > Math.abs(cdy) * 1.8) horiz++;
+      }
+      return total > 0 && horiz / total >= 0.55;
+    }
+
+    /** Для прямого партера — горизонтальная ось мест (без «радиальности» по fa↔la). */
+    function seatAxisForTheaterRow(fa, la, straight) {
+      if (!straight) return seatAxisFromAnchors(fa, la);
+      const y = (fa.y + la.y) / 2;
+      const loX = Math.min(fa.x, la.x);
+      const hiX = Math.max(fa.x, la.x);
+      return seatAxisFromAnchors({ x: loX, y }, { x: hiX, y });
+    }
+
+    function theaterStraightRowDots(rowNum, ctx) {
+      const { firstCol, lastCol, fillTargets } = ctx;
+      const fa0 = anchorForRow(firstCol, rowNum);
+      const la0 = anchorForRow(lastCol, rowNum);
+      if (!fa0 || !la0) return null;
+      if (Math.hypot(la0.x - fa0.x, la0.y - fa0.y) < 1) return null;
+      const yHalf = yBandHalfForRow(rowNum, firstCol);
+      const yRow = fa0.y;
+      const xMargin = Math.max(14, Math.abs(la0.x - fa0.x) * 0.04);
+      const xLo = Math.min(fa0.x, la0.x) - xMargin;
+      const xHi = Math.max(fa0.x, la0.x) + xMargin;
+      let rowDots = fillTargets.filter((c) => {
+        if (isNoiseGridDot(c)) return false;
+        const p = circleXY(c);
+        if (Math.abs(p.y - yRow) > yHalf) return false;
+        return p.x >= xLo && p.x <= xHi;
+      });
+      let fa = { ...fa0, y: yRow };
+      let la = { ...la0, y: yRow };
+      const seatAxis = seatAxisForTheaterRow(fa, la, true);
+      rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
+      ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
+      const slots = dedupeSeatDotsByX(rowDots, fa, la, seatAxis);
+      if (!slots.length) return null;
+      return { fa, la, slots, rowDots, straight: true };
+    }
+
     function collectTheaterRowDots(rowNum, ctx) {
       const { firstCol, lastCol, span, fillTargets } = ctx;
       const { rowMin, rowMax } = span;
-      const bandGap = Math.max(10, minAdjacentRowGapY(firstCol) * 0.82);
-      const bands = clusterBandsByY(fillTargets, bandGap);
-      let rowDots = [];
-      for (const band of bands) {
-        const rn = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
-        if (rn !== rowNum) continue;
-        for (const c of band.circles) {
-          if (!isNoiseGridDot(c)) rowDots.push(c);
-        }
+
+      if (theaterRowsAreStraight(firstCol, lastCol)) {
+        return theaterStraightRowDots(rowNum, ctx);
       }
+
       const firstAnchor = anchorForRow(firstCol, rowNum);
       const lastAnchor = anchorForRow(lastCol, rowNum);
       if (!firstAnchor || !lastAnchor) return null;
       if (Math.hypot(lastAnchor.x - firstAnchor.x, lastAnchor.y - firstAnchor.y) < 1) return null;
       let fa = firstAnchor;
       let la = lastAnchor;
-      const yHalf = yBandHalfForRow(rowNum, firstCol) * 1.2;
-      rowDots = rowDots.filter((c) => Math.abs(circleXY(c).y - fa.y) <= yHalf);
+
+      // Дуги / амфитеатр: ⊥ к хорде 1-я↔посл. колонка.
+      let rowDots = collectRowDotsBySegment(fillTargets, rowNum, firstCol, lastCol);
+      if (columnAnchorsShareY(firstCol)) {
+        rowDots = rowDots.filter((c) => circleBelongsToRowBand(c, rowNum, firstCol, rowMin, rowMax));
+      }
+
+      if (rowDots.length < 3) {
+        const bandGap = Math.max(10, minAdjacentRowGapY(firstCol) * 0.82);
+        const bands = clusterBandsByY(fillTargets, bandGap);
+        const seen = new Set(rowDots);
+        for (const band of bands) {
+          const rn = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
+          if (rn !== rowNum) continue;
+          for (const c of band.circles) {
+            if (isNoiseGridDot(c) || seen.has(c)) continue;
+            seen.add(c);
+            rowDots.push(c);
+          }
+        }
+      }
+
       rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
       ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
       const slots = dedupeSeatDotsByX(rowDots, fa, la);
       if (!slots.length) return null;
-      return { fa, la, slots, rowDots };
+      return { fa, la, slots, rowDots, straight: false };
     }
 
     function collectStadiumRowDots(rowNum, ctx) {

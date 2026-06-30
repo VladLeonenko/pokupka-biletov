@@ -95,6 +95,7 @@ const descriptionPack = {
 descriptionPack.totalChars = descriptionPack.sections.reduce((sum, section) => {
   return sum + section.title.length + section.paragraphs.join('\n\n').length;
 }, 0);
+descriptionPack.checkout = { hideSeatList: true };
 
 function demoOffersPayload(offers) {
   return {

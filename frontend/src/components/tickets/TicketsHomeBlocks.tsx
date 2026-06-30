@@ -148,6 +148,7 @@ export function TicketsHomeExtras({ events }: Props) {
       </section>
 
       <section className={styles.cta} aria-labelledby="cta-heading">
+        <div className={styles.ctaWrap}>
         <div className={styles.ctaInner}>
           <div>
             <h2 id="cta-heading" className={styles.ctaTitle}>
@@ -165,6 +166,7 @@ export function TicketsHomeExtras({ events }: Props) {
               Контакты
             </Link>
           </div>
+        </div>
         </div>
       </section>
     </>

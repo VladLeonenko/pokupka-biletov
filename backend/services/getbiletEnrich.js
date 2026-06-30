@@ -186,6 +186,10 @@ export async function enrichRestV2CatalogActions(actions) {
     }
     if (o?.banner_url_manual?.trim()) {
       out.BannerUrl = o.banner_url_manual.trim();
+    } else if (o?.poster_url_manual?.trim()) {
+      out.BannerUrl = o.poster_url_manual.trim();
+    } else if (o?.poster_url_web?.trim()) {
+      out.BannerUrl = o.poster_url_web.trim();
     } else if (bannerTpl) {
       const u = expandMediaTemplate(bannerTpl, repId);
       if (u) out.BannerUrl = u;

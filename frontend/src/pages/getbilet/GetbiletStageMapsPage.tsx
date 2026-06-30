@@ -492,6 +492,7 @@ export function GetbiletStageMapsPage() {
           />
           <StadiumCategoryCheckoutPanel
             stageMapId={editingId}
+            stageExternalId={form.stage_external_id}
             layoutJsonText={form.layout_json_text}
             onLayoutJsonTextChange={(next) => setForm((f) => ({ ...f, layout_json_text: next }))}
           />

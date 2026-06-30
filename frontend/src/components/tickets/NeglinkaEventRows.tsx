@@ -53,6 +53,7 @@ export function NeglinkaEventRows({ events }: Props) {
 
           return (
             <Link key={ev.id} to={to} className={styles.row} style={rowStyle}>
+              <div className={styles.rowInner}>
               <div className={styles.colDate}>
                 <span className={styles.dateBig}>{dateStr}</span>
                 {wd ? <span className={styles.dateWd}>{wd}</span> : null}
@@ -100,6 +101,7 @@ export function NeglinkaEventRows({ events }: Props) {
 
               <div className={styles.colCta}>
                 <span className={styles.btn}>КУПИТЬ БИЛЕТ</span>
+              </div>
               </div>
             </Link>
           );

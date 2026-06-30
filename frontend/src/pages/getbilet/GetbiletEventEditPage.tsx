@@ -8,6 +8,7 @@ import {
   CircularProgress,
   FormControl,
   FormControlLabel,
+  Checkbox,
   InputLabel,
   MenuItem,
   Select,
@@ -63,6 +64,7 @@ export function GetbiletEventEditPage() {
   const [is_published, setPub] = useState(true);
   const [sort_order, setSort] = useState(0);
   const [group_id, setGroup] = useState<number | ''>('');
+  const [checkoutHideSeatList, setCheckoutHideSeatList] = useState(false);
   const posterFileRef = useRef<HTMLInputElement>(null);
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
@@ -83,10 +85,24 @@ export function GetbiletEventEditPage() {
     setPub(existing.is_published);
     setSort(existing.sort_order);
     setGroup(existing.group_id ?? '');
+    const pack = existing.description_pack_json;
+    const co =
+      pack && typeof pack === 'object' && pack.checkout && typeof pack.checkout === 'object'
+        ? (pack.checkout as { hideSeatList?: boolean })
+        : null;
+    setCheckoutHideSeatList(co?.hideSeatList === true);
   }, [existing]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      const basePack =
+        existing?.description_pack_json && typeof existing.description_pack_json === 'object'
+          ? { ...existing.description_pack_json }
+          : {};
+      const description_pack_json = {
+        ...basePack,
+        checkout: { ...(typeof basePack.checkout === 'object' ? basePack.checkout : {}), hideSeatList: checkoutHideSeatList },
+      };
       const payload = {
         getbilet_external_id,
         title_manual: title_manual || null,
@@ -98,6 +114,7 @@ export function GetbiletEventEditPage() {
         banner_url_manual: banner_url_manual?.trim() || null,
         poster_page_url: poster_page_url?.trim() || null,
         description_manual: description_manual || null,
+        description_pack_json,
         notes_internal: notes_internal || null,
         is_published,
         sort_order: Number(sort_order) || 0,
@@ -348,6 +365,15 @@ export function GetbiletEventEditPage() {
           multiline
           minRows={3}
           helperText="Необязательно. Разделы: «## Заголовок». Пустое или короткое поле + ключ OpenAI на бэкенде — на сайте подтянется ИИ-текст по названию; длинная уникальная редакция сохраняется как есть."
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={checkoutHideSeatList}
+              onChange={(e) => setCheckoutHideSeatList(e.target.checked)}
+            />
+          }
+          label="Скрыть «Список мест» на странице билета (стадион / категории)"
         />
         <TextField
           label="Внутренние заметки"

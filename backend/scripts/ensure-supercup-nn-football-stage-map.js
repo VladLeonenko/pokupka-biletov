@@ -43,6 +43,17 @@ const existing = await ticketPool.query(
 const dbName = await ticketPool.query('SELECT current_database() AS name');
 
 if (existing.rows[0] && layoutLooksCorrect(existing.rows[0])) {
+  const row = existing.rows[0];
+  const lj = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
+  if (lj.hideSeatList !== true) {
+    await ticketPool.query(
+      `UPDATE getbilet_stage_maps
+       SET layout_json = COALESCE(layout_json, '{}'::jsonb) || '{"hideSeatList":true}'::jsonb,
+           updated_at = NOW()
+       WHERE stage_external_id = $1`,
+      [SUPERKUP_NN_STAGE_MAP_KEY],
+    );
+  }
   console.log(
     JSON.stringify({
       ok: true,

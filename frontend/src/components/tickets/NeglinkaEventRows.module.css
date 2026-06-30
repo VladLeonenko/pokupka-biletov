@@ -37,11 +37,9 @@
 }
 
 .row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  padding: 28px clamp(16px, 4vw, 48px) 32px;
-  align-items: start;
+  display: block;
+  padding: 0;
+  align-items: stretch;
   font-family: var(--neg-font, 'Inter', system-ui, -apple-system, sans-serif);
   text-decoration: none;
   color: inherit;
@@ -56,21 +54,31 @@
   min-height: 0;
 }
 
+.rowInner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 28px 16px 32px;
+  box-sizing: border-box;
+}
+
 @media (min-width: 768px) {
-  .row {
-    /* Колонка под постер: круг до 204px — иначе сетка жмёт и геометрия «плывёт» */
+  .rowInner {
     grid-template-columns: minmax(0, 104px) minmax(148px, 204px) minmax(0, 1fr) auto;
     gap: 20px min(40px, 4.5vw);
-    padding: 40px clamp(20px, 5vw, 56px) 44px;
+    padding: 40px 16px 44px;
     align-items: center;
     min-height: 260px;
   }
 }
 
 @media (min-width: 1100px) {
-  .row {
+  .rowInner {
     min-height: 280px;
-    padding: 44px clamp(24px, 5vw, 64px) 48px;
+    padding: 44px 16px 48px;
   }
 }
 

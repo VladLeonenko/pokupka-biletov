@@ -820,6 +820,8 @@ export type RepertoireContext = {
   externalPlanUrl?: string | null;
   /** Продажа только с FAN ID (карта болельщика). */
   requiresFanId?: boolean;
+  /** Из description_pack_json.checkout или layout стадиона. */
+  checkoutHideSeatList?: boolean;
 };
 
 export type RepertoirePageBundle = {

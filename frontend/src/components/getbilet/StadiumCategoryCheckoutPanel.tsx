@@ -26,13 +26,23 @@ import { refreshPbiletCategoryStageMap } from '@/services/getbiletAdminApi';
 
 type Props = {
   stageMapId: number | null;
+  stageExternalId: string;
   layoutJsonText: string;
   onLayoutJsonTextChange: (next: string) => void;
 };
 
-export function StadiumCategoryCheckoutPanel({ stageMapId, layoutJsonText, onLayoutJsonTextChange }: Props) {
+export function StadiumCategoryCheckoutPanel({
+  stageMapId,
+  stageExternalId,
+  layoutJsonText,
+  onLayoutJsonTextChange,
+}: Props) {
   const layout = useMemo(() => parseLayoutJsonText(layoutJsonText), [layoutJsonText]);
-  const active = isCategoryCheckoutLayout(layout);
+  const stageNorm = stageExternalId.trim().toLowerCase();
+  const active =
+    isCategoryCheckoutLayout(layout) ||
+    stageNorm === 'supercup-nn-football' ||
+    layout.pbiletCategoryCheckout === true;
   const sectors = layout.sectorMode?.sectors ?? [];
 
   const [hideSeatList, setHideSeatList] = useState(Boolean(layout.hideSeatList));

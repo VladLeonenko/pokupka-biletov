@@ -1,7 +1,7 @@
 .root {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 8px 16px 48px;
+  max-width: none;
+  margin: 0;
+  padding: 8px 0 48px;
   font-family: var(--neg-font, 'Inter', system-ui, sans-serif);
 }
 
