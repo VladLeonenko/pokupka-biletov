@@ -155,7 +155,7 @@
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
       <button type="button" id="clearRowSeatBtn" title="очистить row/place у выделенных точек, сектор оставить">⌫ ряд/место</button>
       <button type="button" id="paintApply" class="warn">▶ Применить → сервер</button>
-      <button type="button" id="sectorApply" title="заполнить сектор: ряды от центра поля, места вдоль ряда (1-я→посл. колонка)">↕ сектор</button>
+      <button type="button" id="sectorApply" title="заполнить сектор: театр — по Y-рядам; стадион — по якорям колонок">↕ сектор</button>
       <button type="button" id="auditBtn" title="проверить дубли, пропуски и странные ряды">✓ проверка</button>
       <label title="куда копировать текущий сектор">→ <input type="text" id="paintTargetSector" placeholder="A117" /></label>
       <label title="зеркально поменять порядок мест"><input type="checkbox" id="copyReverse" checked /> реверс</label>
@@ -234,6 +234,7 @@
     const saveAuthToken = urlParams.get('saveToken') || urlParams.get('token') || '';
     /** API зала: luzhniki-gray-cloud-svg | vakhtangov-hall-seats | ramt-hall-seats */
     const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
+    const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
     const pageTitle = urlParams.get('title')?.trim();
     if (pageTitle) document.title = pageTitle;
 
@@ -3124,6 +3125,133 @@
       return (circle.getAttribute('data-source') || '') === 'fieldGridNeighbor';
     }
 
+    /**
+     * Театр (партер, несколько блоков, дуги): ряды по Y-полосам, не по узкому ⊥-коридору стадиона (max 22px).
+     */
+    function buildTheaterSectorFill(sectorLabel, candidates, firstCol, lastCol, span, fillTargets) {
+      let { rowMin, rowMax } = span;
+      const proposal = [];
+      const suspicious = [];
+      const warnCircles = [];
+      let protectedSkipped = candidates.length - fillTargets.length;
+      const bandGap = Math.max(10, minAdjacentRowGapY(firstCol) * 0.82);
+      const bands = clusterBandsByY(fillTargets, bandGap);
+      const rowDotsMap = new Map();
+
+      for (const band of bands) {
+        const rn = rowNumFromBandY(band.y, firstCol, rowMin, rowMax);
+        if (rn == null || rn < rowMin || rn > rowMax) continue;
+        const list = rowDotsMap.get(rn) || [];
+        for (const c of band.circles) {
+          if (isNoiseGridDot(c)) continue;
+          list.push(c);
+        }
+        rowDotsMap.set(rn, list);
+      }
+
+      let bandsUsed = 0;
+      let bandsSkipped = 0;
+      const rowsTotal = Math.max(0, rowMax - rowMin + 1);
+
+      for (let rowNum = rowMin; rowNum <= rowMax; rowNum++) {
+        const rowKey = String(rowNum);
+        let rowDots = rowDotsMap.get(rowNum) || [];
+        if (!rowDots.length) {
+          bandsSkipped++;
+          continue;
+        }
+        const firstAnchor = anchorForRow(firstCol, rowNum);
+        if (!firstAnchor) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря 1-го места в колонке');
+          bandsSkipped++;
+          continue;
+        }
+        let lastAnchor = anchorForRow(lastCol, rowNum);
+        if (!lastAnchor) {
+          suspicious.push('ряд ' + rowKey + ': нет якоря последнего места в колонке');
+          bandsSkipped++;
+          continue;
+        }
+        let fa = firstAnchor;
+        let la = lastAnchor;
+        if (Math.hypot(la.x - fa.x, la.y - fa.y) < 1) {
+          bandsSkipped++;
+          continue;
+        }
+        const yHalf = yBandHalfForRow(rowNum, firstCol) * 1.2;
+        rowDots = rowDots.filter((c) => Math.abs(circleXY(c).y - fa.y) <= yHalf);
+        rowDots = filterRowDotsBetweenAnchors(rowDots, fa, la);
+        ({ fa, la } = snapRowAnchorsToDots(fa, la, rowDots, firstCol, lastCol, rowNum));
+        const slots = dedupeSeatDotsByX(rowDots, fa, la);
+        if (!slots.length) {
+          bandsSkipped++;
+          continue;
+        }
+        const existing = groupedLabeledRows(sectorLabel).get(rowKey) || [];
+        const occupiedManual = new Set(
+          existing.filter(isHardManualSeat).map(circleSeatNum).filter((n) => n != null),
+        );
+        let seatNum = Math.max(1, fa.seat || 1);
+        const lastSlot = resolveLastSlot(slots, fa, la);
+        for (const slot of slots) {
+          if (slot === lastSlot) continue;
+          const rep = slot.rep;
+          const edgeKind = rep.getAttribute('data-sector-edge') || '';
+          if (edgeKind === 'first' && isHardManualSeat(rep)) {
+            const held = Math.max(1, circleSeatNum(rep) || 1);
+            appendSeatToSlot(proposal, rowKey, String(held), slot, { allowFirstTwin: true });
+            seatNum = held + 1;
+            continue;
+          }
+          if (occupiedManual.has(seatNum)) {
+            suspicious.push('ряд ' + rowKey + ' место ' + seatNum + ': занято manual');
+            warnCircles.push(rep);
+            seatNum++;
+            continue;
+          }
+          if (!proposalTargetsForSeatSlot(slot).length) {
+            seatNum++;
+            continue;
+          }
+          appendSeatToSlot(proposal, rowKey, String(seatNum), slot);
+          seatNum++;
+        }
+        if (lastSlot) {
+          appendSeatToSlot(proposal, rowKey, String(Math.max(1, seatNum)), lastSlot, { allowLastTwin: true });
+        }
+        bandsUsed++;
+      }
+
+      const proposedRows = new Set(proposal.map((p) => p.row)).size;
+      const proposedSeats = proposal.map((p) => Number(p.seat)).filter(Number.isFinite);
+      return {
+        proposal,
+        rows: proposedRows,
+        suspicious,
+        warnCircles,
+        protectedSkipped,
+        grid: {
+          rowMin,
+          rowMax,
+          seatMin: proposedSeats.length ? Math.min(...proposedSeats) : 1,
+          seatMax: proposedSeats.length ? Math.max(...proposedSeats) : 1,
+          edgeRows: firstCol.length,
+        },
+        stats: {
+          candidates: candidates.length,
+          fillable: fillTargets.length,
+          fillTargets: fillTargets.length,
+          bands: rowsTotal,
+          rowBands: bandsUsed,
+          rowsTotal,
+          bandsUsed,
+          bandsSkipped,
+          edgeRows: firstCol.length,
+          theaterMode: true,
+        },
+      };
+    }
+
     function buildSectorProposal(sectorLabel) {
       const candidates = circlesForSector(sectorLabel);
       if (!candidates.length) {
@@ -3174,6 +3302,9 @@
               ' точек — якоря колонок (1-я/посл.). ↕ заполняет только между ними: нужны точки внутри (красные/облачные или сбрось ряд/место — ⌫ ряд/место)'
             : 'Нет точек для заполнения (' + protectedSkipped + ' якорей колонок). Сбрось ряд/место внутри: ⌫ ряд/место или ▢ область',
         );
+      }
+      if (isTheaterHallEditor) {
+        return buildTheaterSectorFill(sectorLabel, candidates, firstCol, lastCol, span, fillTargets);
       }
       const frame = buildSectorLocalFrame(sectorLabel, firstCol, lastCol);
       const rowAxis = rowAxisFromColumnAnchors(firstCol, frame);
