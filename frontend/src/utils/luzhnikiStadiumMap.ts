@@ -6,14 +6,16 @@
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY = 'luzhniki-football';
 
-export const SUPERKUP_NN_REPERTOIRE_ID = 'olimpbet-superkubok-rossii';
+export const SUPERKUP_NN_REPERTOIRE_ID = '6a46656d46a4d000309ed0a2';
+export const SUPERKUP_NN_SLUG = 'olimpbet-superkubok-rossii';
 export const SUPERKUP_NN_STAGE_MAP_KEY = 'supercup-nn-football';
 
 /** Синхронно с backend/utils/luzhnikiFootballRepertoires.js */
 const DEFAULT_LUZHNIKI_FOOTBALL_REPERTOIRE_IDS = new Set(['6a05d17b46a4d000309ecf4e']);
 
 export function isSupercupNnRepertoire(repertoireId: string | null | undefined): boolean {
-  return String(repertoireId || '').trim().toLowerCase() === SUPERKUP_NN_REPERTOIRE_ID;
+  const id = String(repertoireId || '').trim().toLowerCase();
+  return id === SUPERKUP_NN_REPERTOIRE_ID || id === SUPERKUP_NN_SLUG;
 }
 
 export function isFootballStadiumRepertoire(repertoireId: string | null | undefined): boolean {

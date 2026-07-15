@@ -1,18 +1,7 @@
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Box,
-  Link,
-  Checkbox,
-  FormControlLabel,
-} from '@mui/material';
 import { CookieSettingsModal } from './CookieSettingsModal';
 import { useCookieConsent } from '@/hooks/useCookieConsent';
+import styles from './CookieConsentModal.module.css';
 
 interface CookieConsentModalProps {
   open: boolean;
@@ -23,14 +12,11 @@ export function CookieConsentModal({ open, onClose }: CookieConsentModalProps) {
   const [showSettings, setShowSettings] = useState(false);
   const { acceptAll, rejectAll, hasConsent } = useCookieConsent();
 
-  // Проверяем согласие при открытии модального окна
-  // Убираем checkConsent из зависимостей чтобы избежать бесконечных циклов
   useEffect(() => {
     if (open && hasConsent) {
-      // Если согласие уже есть, закрываем модальное окно
       onClose();
     }
-  }, [open, hasConsent]); // Убрали checkConsent и onClose из зависимостей
+  }, [open, hasConsent, onClose]);
 
   const handleAcceptAll = async () => {
     await acceptAll();
@@ -65,74 +51,35 @@ export function CookieConsentModal({ open, onClose }: CookieConsentModalProps) {
     );
   }
 
+  if (!open) return null;
+
   return (
-    <Dialog
-      open={open}
-      onClose={() => {}} // Нельзя закрыть без выбора
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-        },
-      }}
+    <div
+      className={styles.banner}
+      role="dialog"
+      aria-labelledby="cookie-consent-title"
+      aria-describedby="cookie-consent-desc"
     >
-      <DialogTitle sx={{ pb: 1, fontWeight: 700, fontSize: '1.25rem' }}>
-        🍪 Использование файлов Cookie
-      </DialogTitle>
-      <DialogContent>
-        <Typography variant="body1" paragraph>
-          Мы используем файлы Cookie и аналогичные технологии для улучшения работы сайта, 
-          анализа использования и персонализации контента.
-        </Typography>
-        <Typography variant="body2" color="text.secondary" paragraph>
-          Нажимая "Принять все", вы соглашаетесь на использование всех типов cookies. 
-          Вы можете настроить предпочтения или отклонить необязательные cookies.
-        </Typography>
-        <Box sx={{ mt: 2, mb: 1 }}>
-          <Link
-            href="/politic"
-            target="_blank"
-            sx={{ fontSize: '0.875rem', textDecoration: 'underline' }}
-          >
-            Подробнее в Политике конфиденциальности
-          </Link>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
-        <Button
-          variant="outlined"
-          onClick={handleRejectAll}
-          fullWidth={false}
-          sx={{ minWidth: { xs: '100%', sm: 120 } }}
-        >
+      <p id="cookie-consent-title" className={styles.title}>
+        Файлы cookie
+      </p>
+      <p id="cookie-consent-desc" className={styles.text}>
+        Используем cookie для работы сайта и аналитики. Можно принять все, отклонить или настроить.
+      </p>
+      <a href="/politic" target="_blank" rel="noopener noreferrer" className={styles.link}>
+        Политика конфиденциальности
+      </a>
+      <div className={styles.actions}>
+        <button type="button" className={styles.btn} onClick={handleRejectAll}>
           Отклонить
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={handleOpenSettings}
-          fullWidth={false}
-          sx={{ minWidth: { xs: '100%', sm: 140 } }}
-        >
+        </button>
+        <button type="button" className={styles.btn} onClick={handleOpenSettings}>
           Настроить
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleAcceptAll}
-          fullWidth={false}
-          sx={{
-            minWidth: { xs: '100%', sm: 140 },
-            background: 'linear-gradient(135deg, #4caf50 0%, #2196f3 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #43a047 0%, #1e88e5 100%)',
-            },
-          }}
-        >
-          Принять все
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </button>
+        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleAcceptAll}>
+          Принять
+        </button>
+      </div>
+    </div>
   );
 }
-

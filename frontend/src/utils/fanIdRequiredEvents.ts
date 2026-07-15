@@ -1,11 +1,13 @@
 const DEFAULT_FAN_ID_REPERTOIRE_IDS = new Set([
   '6a05d17b46a4d000309ecf4e',
+  '6a46656d46a4d000309ed0a2',
   'olimpbet-superkubok-rossii',
 ]);
 
 const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
   'olimpbet-superkubok-rossii',
+  'superkubok-rossii-po-futbolu',
 ]);
 
 /** На этих мероприятиях нет продажи без номера места в SeatList — скрываем такие офферы из списка. */
@@ -19,8 +21,8 @@ const NAMED_TICKET_UX_DISABLED_SLUGS = new Set([
 
 const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
-  'olimpbet-superkubok-rossii': 'olimpbet-superkubok-rossii',
-  'superkubok-rossii-po-futbolu': 'olimpbet-superkubok-rossii',
+  'olimpbet-superkubok-rossii': '6a46656d46a4d000309ed0a2',
+  'superkubok-rossii-po-futbolu': '6a46656d46a4d000309ed0a2',
 };
 
 const BLOCKED_TICKET_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);

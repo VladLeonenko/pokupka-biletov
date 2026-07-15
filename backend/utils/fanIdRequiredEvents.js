@@ -5,18 +5,20 @@
 
 const DEFAULT_FAN_ID_REPERTOIRE_IDS = new Set([
   '6a05d17b46a4d000309ecf4e', // Суперфинал Фонбет Кубка России — Спартак / Краснодар
+  '6a46656d46a4d000309ed0a2', // Суперкубок России 2026 — Спартак / Зенит (НН)
 ]);
 
 const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
   'olimpbet-superkubok-rossii',
+  'superkubok-rossii-po-futbolu',
 ]);
 
 /** Маркетинговые ЧПУ → repertoire id (РК, Директ), если slug не в compact /events. */
 const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
-  'olimpbet-superkubok-rossii': 'olimpbet-superkubok-rossii',
-  'superkubok-rossii-po-futbolu': 'olimpbet-superkubok-rossii',
+  'olimpbet-superkubok-rossii': '6a46656d46a4d000309ed0a2',
+  'superkubok-rossii-po-futbolu': '6a46656d46a4d000309ed0a2',
 });
 
 /** @param {string | null | undefined} slug */

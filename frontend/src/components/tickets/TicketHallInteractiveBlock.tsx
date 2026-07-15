@@ -303,7 +303,7 @@ function parseGrayHallWhenNoOffers(
 function isStadiumScaleHallLayout(layout: unknown): boolean {
   const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
   if (!r) return false;
-  if (r.stadiumMapKey === 'luzhniki-football') return true;
+  if (r.stadiumMapKey === 'luzhniki-football' || r.stadiumMapKey === 'supercup-nn-football') return true;
   const bg = r.allSeatCoordinates;
   if (Array.isArray(bg) && bg.length > 8000) return true;
   return false;

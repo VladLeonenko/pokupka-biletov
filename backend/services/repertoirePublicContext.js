@@ -22,6 +22,7 @@ import {
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
 import {
+  adaptSupercupNnFootballStageMapForLiveOffers,
   loadSupercupNnFootballStageMapRow,
   SUPERKUP_NN_STAGE_MAP_KEY,
 } from './supercupNnFootballStageMap.js';
@@ -618,7 +619,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         }
       } else {
         const row = await loadSupercupNnFootballStageMapRow();
-        if (row) stageMap = row;
+        if (row) stageMap = adaptSupercupNnFootballStageMapForLiveOffers(row);
       }
     }
   } catch {

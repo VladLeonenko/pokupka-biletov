@@ -39,10 +39,7 @@ export function StadiumCategoryCheckoutPanel({
 }: Props) {
   const layout = useMemo(() => parseLayoutJsonText(layoutJsonText), [layoutJsonText]);
   const stageNorm = stageExternalId.trim().toLowerCase();
-  const active =
-    isCategoryCheckoutLayout(layout) ||
-    stageNorm === 'supercup-nn-football' ||
-    layout.pbiletCategoryCheckout === true;
+  const active = isCategoryCheckoutLayout(layout) || layout.pbiletCategoryCheckout === true;
   const sectors = layout.sectorMode?.sectors ?? [];
 
   const [hideSeatList, setHideSeatList] = useState(Boolean(layout.hideSeatList));

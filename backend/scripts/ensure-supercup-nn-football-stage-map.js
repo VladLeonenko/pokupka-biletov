@@ -24,6 +24,9 @@ const EXPECT_HEIGHT = 7326;
 function layoutLooksCorrect(row) {
   if (!row?.svg_markup || String(row.svg_markup).length < 5000) return false;
   const lj = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
+  if (lj.pbiletCategoryCheckout === true) return false;
+  const seats = Array.isArray(lj.seats) ? lj.seats : [];
+  if (seats.length < 100) return false;
   const pb = lj.pbilet && typeof lj.pbilet === 'object' ? lj.pbilet : {};
   const layoutId = String(pb.layoutId || '').trim();
   const w = Number(pb.coordinateWidth);
@@ -45,13 +48,16 @@ const dbName = await ticketPool.query('SELECT current_database() AS name');
 if (existing.rows[0] && layoutLooksCorrect(existing.rows[0])) {
   const row = existing.rows[0];
   const lj = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
-  if (lj.hideSeatList !== true) {
+  const patch = {};
+  if (lj.hideSeatList === true) patch.hideSeatList = false;
+  if (lj.pbiletCategoryCheckout === true) patch.pbiletCategoryCheckout = false;
+  if (Object.keys(patch).length > 0) {
     await ticketPool.query(
       `UPDATE getbilet_stage_maps
-       SET layout_json = COALESCE(layout_json, '{}'::jsonb) || '{"hideSeatList":true}'::jsonb,
+       SET layout_json = COALESCE(layout_json, '{}'::jsonb) || $2::jsonb,
            updated_at = NOW()
        WHERE stage_external_id = $1`,
-      [SUPERKUP_NN_STAGE_MAP_KEY],
+      [SUPERKUP_NN_STAGE_MAP_KEY, JSON.stringify(patch)],
     );
   }
   console.log(

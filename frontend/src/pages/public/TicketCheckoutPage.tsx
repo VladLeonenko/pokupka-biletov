@@ -61,7 +61,6 @@ import {
   parseOmitClientSeatCoordinateCloud,
   parseHideSeatList,
   parsePbiletCategoryCheckout,
-  isSupercupNnRepertoire,
 } from '@/utils/luzhnikiStadiumMap';
 import {
   getOfferSeatList,

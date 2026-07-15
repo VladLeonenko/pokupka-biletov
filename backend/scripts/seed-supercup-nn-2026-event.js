@@ -4,27 +4,30 @@
  *
  *   cd backend && npm run seed:supercup-nn-2026
  *
- * Страница: /ticket/olimpbet-superkubok-rossii
- * Схема: pbilet layout 488 (Совкомбанк Арена, как Portalbilet), не 1800.
+ * Страница: /ticket/olimpbet-superkubok-rossii → GetBilet 6a46656d46a4d000309ed0a2
+ * Схема: pbilet layout 488 (Совкомбанк Арена) — места с координатами, как Лужники.
  *
- * Живые категории/цены: PBILET_EVENT_SOURCE_ID=231463 PBILET_EVENT_DATE_ID=397105 PBILET_SOURCE_ID=1
- *   npm run seed:supercup-nn-2026
+ * Живые офферы: GetOfferListByRepertoireId(6a46656d…).
+ * Геодезия мест: PBILET_EVENT_SOURCE_ID=231463 PBILET_EVENT_DATE_ID=397105
  */
 
 import ticketPool from '../ticketDb.js';
-import { buildPbiletCategoryStadiumPreview } from '../services/pbiletLuzhnikiFootballPreview.js';
+import { buildLuzhnikiFootballStadiumPreview } from '../services/pbiletLuzhnikiFootballPreview.js';
 import { footballStadiumCheckoutLayoutFlags } from '../utils/footballStadiumCheckoutLayout.js';
 import {
   SUPERKUP_NN_REPERTOIRE_ID,
+  SUPERKUP_NN_SLUG,
   SUPERKUP_NN_STAGE_MAP_KEY,
   SUPERKUP_NN_PBILET_LAYOUT_ID,
   SUPERKUP_NN_PBILET_EVENT_SOURCE_ID,
   SUPERKUP_NN_PBILET_EVENT_DATE_ID,
   SUPERKUP_NN_PBILET_SOURCE_ID,
+  SUPERKUP_NN_GETBILET_STAGE_ID,
 } from '../utils/footballStadiumRepertoires.js';
+import { restV2GetOfferListByRepertoireId } from '../services/getbiletRestV2.js';
 
 const REPERTOIRE_ID = process.env.SUPERKUP_REP_ID?.trim() || SUPERKUP_NN_REPERTOIRE_ID;
-const STAGE_ID = process.env.SUPERKUP_STAGE_ID?.trim() || 'supercup-nn-2026-stage';
+const STAGE_ID = process.env.SUPERKUP_STAGE_ID?.trim() || SUPERKUP_NN_GETBILET_STAGE_ID;
 const STAGE_MAP_KEY = process.env.SUPERKUP_STAGE_MAP_KEY?.trim() || SUPERKUP_NN_STAGE_MAP_KEY;
 const PBILET_LAYOUT_ID = process.env.PBILET_LAYOUT_ID?.trim() || SUPERKUP_NN_PBILET_LAYOUT_ID;
 const PBILET_SOURCE_ID = process.env.PBILET_SOURCE_ID?.trim() || SUPERKUP_NN_PBILET_SOURCE_ID;
@@ -95,7 +98,7 @@ const descriptionPack = {
 descriptionPack.totalChars = descriptionPack.sections.reduce((sum, section) => {
   return sum + section.title.length + section.paragraphs.join('\n\n').length;
 }, 0);
-descriptionPack.checkout = { hideSeatList: true };
+descriptionPack.checkout = { hideSeatList: false };
 
 function demoOffersPayload(offers) {
   return {
@@ -110,7 +113,7 @@ function demoOffersPayload(offers) {
 }
 
 async function main() {
-  const preview = await buildPbiletCategoryStadiumPreview({
+  const preview = await buildLuzhnikiFootballStadiumPreview({
     layoutId: PBILET_LAYOUT_ID,
     sourceId: PBILET_SOURCE_ID,
     eventSourceId:
@@ -132,7 +135,7 @@ async function main() {
     {
       ...preview.layout_json,
       seatSelectionDisabled: false,
-      hideSeatList: true,
+      hideSeatList: false,
     },
     STAGE_MAP_KEY,
   );
@@ -201,7 +204,7 @@ async function main() {
       catalogPayload.PlaceName,
       catalogPayload.PlaceAddress,
       'сб 18 июля · 19:30 · 0+',
-      'OFFERS_CACHE_ONLY · ручной Суперкубок NN; живые офферы GetBilet подключить позже.',
+      'GetBilet live · Суперкубок NN · stage map supercup-nn-football (pbilet 488 seats).',
       HERO_POSTER_URL,
       HERO_POSTER_URL,
       HERO_POSTER_PAGE_URL,
@@ -209,7 +212,36 @@ async function main() {
     ],
   );
 
-  const offersPayload = demoOffersPayload(preview.demoOffers || []);
+  /** Старый ручной ключ → скрыть, чтобы не дублировать карточку. */
+  if (REPERTOIRE_ID !== SUPERKUP_NN_SLUG) {
+    await ticketPool.query(
+      `UPDATE getbilet_events
+       SET storefront_hidden = TRUE,
+           notes_internal = coalesce(notes_internal,'') || ' · superseded by ' || $2,
+           updated_at = NOW()
+       WHERE getbilet_external_id = $1`,
+      [SUPERKUP_NN_SLUG, REPERTOIRE_ID],
+    );
+  }
+
+  let offersPayload;
+  try {
+    const live = await restV2GetOfferListByRepertoireId(REPERTOIRE_ID);
+    const liveRows = Array.isArray(live?.ResultData) ? live.ResultData : [];
+    if (liveRows.length > 0) {
+      offersPayload = live;
+      console.log('[seed:supercup-nn-2026] live GetBilet offers', liveRows.length);
+    } else {
+      offersPayload = demoOffersPayload(preview.demoOffers || []);
+      console.warn('[seed:supercup-nn-2026] GetBilet offers empty — fallback pbilet demo');
+    }
+  } catch (err) {
+    offersPayload = demoOffersPayload(preview.demoOffers || []);
+    console.warn(
+      '[seed:supercup-nn-2026] GetBilet offers failed — fallback pbilet demo:',
+      err instanceof Error ? err.message : err,
+    );
+  }
   await ticketPool.query(
     `INSERT INTO getbilet_repertoire_offers_cache (repertoire_external_id, payload_json, fetched_at)
      VALUES ($1, $2::jsonb, NOW())
@@ -226,9 +258,10 @@ async function main() {
         repertoireId: REPERTOIRE_ID,
         stageId: STAGE_ID,
         stageMapKey: STAGE_MAP_KEY,
+        offerCount: Array.isArray(offersPayload?.ResultData) ? offersPayload.ResultData.length : 0,
         urls: [
+          `/ticket/${encodeURIComponent(SUPERKUP_NN_SLUG)}`,
           `/ticket/${encodeURIComponent(REPERTOIRE_ID)}`,
-          '/ticket/olimpbet-superkubok-rossii',
           '/ticket/superkubok-rossii-po-futbolu',
         ],
         hint: 'pm2 restart all --update-env; curl -sS "https://biletvsem.com/api/bilet/resolve-slug/olimpbet-superkubok-rossii"',

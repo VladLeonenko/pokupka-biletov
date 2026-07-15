@@ -15,5 +15,12 @@ export function footballStadiumCheckoutLayoutFlags(base = {}, stadiumMapKey = SU
     disablePositionalSeatZip: true,
     preferExactOfferSeatMatch: !categoryCheckout,
     hallBackgroundFromLabeledSeats: false,
+    /** 1200% от fit — как Лужники на стадионах. */
+    maxZoomMultiplier: Number.isFinite(Number(base.maxZoomMultiplier))
+      ? Number(base.maxZoomMultiplier)
+      : 12,
+    sectorFocusZoomMultiplier: Number.isFinite(Number(base.sectorFocusZoomMultiplier))
+      ? Number(base.sectorFocusZoomMultiplier)
+      : 12,
   };
 }
