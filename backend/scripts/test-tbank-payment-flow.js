@@ -146,9 +146,18 @@ async function main() {
   assert(user, 'пользователь не создан');
   assert(Number(orderAfter.user_id) === Number(user.id), 'заказ не привязан к user_id');
 
-  const client = (
-    await pool.query('SELECT id, source, status FROM clients WHERE lower(email) = lower($1)', [testEmail])
-  ).rows[0];
+  const client =
+    (
+      await pool.query(
+        `SELECT c.id, c.source, c.email FROM clients c
+         JOIN client_orders co ON co.client_id = c.id
+         WHERE co.order_id = $1 LIMIT 1`,
+        [orderAfter.id],
+      )
+    ).rows[0] ||
+    (
+      await pool.query('SELECT id, source, email FROM clients WHERE lower(email) = lower($1)', [testEmail])
+    ).rows[0];
   assert(client, 'клиент не создан в CRM');
   assert(client.source === 'ticket_payment', `client.source=${client.source}`);
 
