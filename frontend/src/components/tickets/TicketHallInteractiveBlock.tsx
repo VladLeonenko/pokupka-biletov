@@ -767,6 +767,21 @@ export function TicketHallInteractiveBlock({
           if (!matched) continue;
           pushPlacement(hit, matched.offer, matched.seat, matched.list);
         }
+        /** sellableSeats с API частичны — добираем strict match по layout.seats (pbilet). */
+        for (const offer of offers) {
+          const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+          if (list.length === 0) continue;
+          const oid = String(offer.Id ?? '');
+          if (!oid) continue;
+          for (const seat of list) {
+            if (!seat.trim()) continue;
+            const hit = lookupLabeledSeat(layoutIndex, offer.Sector, offer.Row, seat);
+            if (!hit) continue;
+            const svgKey = seatMapKey(hit.sector, hit.row, seat);
+            if (placedKeys.has(svgKey)) continue;
+            pushPlacement(hit, offer, seat, list);
+          }
+        }
       } else {
         for (const offer of offers) {
           const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];

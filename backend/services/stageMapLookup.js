@@ -22,6 +22,18 @@ import {
   vakhtangovMainStageMapKeyForRepertoire,
   shouldUseVakhtangovMainStageCanonicalMap,
 } from './vakhtangovMainStageMap.js';
+import {
+  BOLSHOI_NEW_STAGE_MAP_KEY,
+  bolshoiNewStageMapKeyForRepertoire,
+  isBolshoiNewStageId,
+  shouldUseBolshoiNewStageCanonicalMap,
+} from './bolshoiNewStageMap.js';
+import {
+  KREMLIN_PALACE_MAP_KEY,
+  isKremlinPalaceId,
+  kremlinPalaceMapKeyForRepertoire,
+  shouldUseKremlinPalaceCanonicalMap,
+} from './kremlinPalaceMap.js';
 
 function pickHallLabelFromPayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
@@ -50,7 +62,15 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
   const forcedVakhtangov = vakhtangovMainStageMapKeyForRepertoire(rid);
   if (forcedVakhtangov) return forcedVakhtangov;
 
+  const forcedBolshoiNew = bolshoiNewStageMapKeyForRepertoire(rid);
+  if (forcedBolshoiNew) return forcedBolshoiNew;
+
+  const forcedKremlin = kremlinPalaceMapKeyForRepertoire(rid);
+  if (forcedKremlin) return forcedKremlin;
+
   if (isVakhtangovMainStageId(sid)) return VAKHTANGOV_MAIN_STAGE_MAP_KEY;
+  if (isBolshoiNewStageId(sid)) return BOLSHOI_NEW_STAGE_MAP_KEY;
+  if (isKremlinPalaceId(sid)) return KREMLIN_PALACE_MAP_KEY;
 
   if (!rid || !sid) return sid;
 
@@ -105,6 +125,38 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
       )
     ) {
       return VAKHTANGOV_MAIN_STAGE_MAP_KEY;
+    }
+    if (
+      shouldUseBolshoiNewStageCanonicalMap(
+        {
+          title: base.title,
+          repertoireId: rid,
+          stageId: sid,
+          venueManual: manualVenue,
+          venueFromPayload: base.venueFromPayload,
+          hall,
+        },
+        placeFromMaps.venue,
+        hall,
+      )
+    ) {
+      return BOLSHOI_NEW_STAGE_MAP_KEY;
+    }
+    if (
+      shouldUseKremlinPalaceCanonicalMap(
+        {
+          title: base.title,
+          repertoireId: rid,
+          stageId: sid,
+          venueManual: manualVenue,
+          venueFromPayload: base.venueFromPayload,
+          hall,
+        },
+        placeFromMaps.venue,
+        hall,
+      )
+    ) {
+      return KREMLIN_PALACE_MAP_KEY;
     }
   } catch (e) {
     console.warn('[stageMapLookup] resolveStageMapLookupExternalId:', e instanceof Error ? e.message : e);

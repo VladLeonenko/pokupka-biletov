@@ -136,13 +136,17 @@ export function buildGrayCloudRowZipMap(index, sector, row, seatList) {
 /**
  * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
  * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} offers
+ * @param {{ allowRowZip?: boolean }} [opts]
  */
-export function buildSellableSeatGeodesy(layoutSeats, offers) {
+export function buildSellableSeatGeodesy(layoutSeats, offers, opts = {}) {
   const index = buildLabeledSeatIndex(layoutSeats);
+  const allowRowZip = opts.allowRowZip === true;
 
   const seen = new Set();
   const seats = [];
   let matched = 0;
+  let strictMatched = 0;
+  let rowZipMatched = 0;
   let totalSellable = 0;
   const unmatchedSamples = [];
 
@@ -150,10 +154,16 @@ export function buildSellableSeatGeodesy(layoutSeats, offers) {
     const sector = String(offer.Sector ?? '');
     const row = String(offer.Row ?? '');
     const list = Array.isArray(offer.SeatList) ? offer.SeatList.map(String) : [];
+    const rowZipMap = allowRowZip ? buildGrayCloudRowZipMap(index, sector, row, list) : null;
     for (const seat of list) {
       if (!seat.trim()) continue;
       totalSellable += 1;
-      const hit = lookupLabeledSeat(index, sector, row, seat);
+      let hit = lookupLabeledSeat(index, sector, row, seat);
+      let geodesySource = 'strict';
+      if (!hit && rowZipMap?.has(String(seat).trim())) {
+        hit = rowZipMap.get(String(seat).trim());
+        geodesySource = 'rowZip';
+      }
       if (!hit) {
         if (unmatchedSamples.length < 24) {
           unmatchedSamples.push({ sector, row, seat });
@@ -164,18 +174,20 @@ export function buildSellableSeatGeodesy(layoutSeats, offers) {
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);
       matched += 1;
+      if (geodesySource === 'rowZip') rowZipMatched += 1;
+      else strictMatched += 1;
       seats.push({
         sector: String(offer.Sector ?? hit.sector),
         row: String(offer.Row ?? hit.row),
         seat,
         xPct: hit.xPct,
         yPct: hit.yPct,
-        geodesySource: 'strict',
+        geodesySource,
       });
     }
   }
 
-  return { seats, matched, totalSellable, unmatchedSamples };
+  return { seats, matched, strictMatched, rowZipMatched, totalSellable, unmatchedSamples };
 }
 
 export function diagnoseOfferSeatGeodesy(layoutJson, offers) {

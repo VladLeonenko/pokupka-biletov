@@ -24,6 +24,7 @@ import {
 import {
   adaptSupercupNnFootballStageMapForLiveOffers,
   loadSupercupNnFootballStageMapRow,
+  slimSupercupNnStageMapForClient,
   SUPERKUP_NN_STAGE_MAP_KEY,
 } from './supercupNnFootballStageMap.js';
 import {
@@ -619,7 +620,9 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         }
       } else {
         const row = await loadSupercupNnFootballStageMapRow();
-        if (row) stageMap = adaptSupercupNnFootballStageMapForLiveOffers(row);
+        if (row) {
+          stageMap = slimSupercupNnStageMapForClient(adaptSupercupNnFootballStageMapForLiveOffers(row));
+        }
       }
     }
   } catch {

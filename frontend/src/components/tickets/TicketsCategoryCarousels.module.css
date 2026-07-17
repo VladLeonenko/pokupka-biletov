@@ -95,10 +95,25 @@
 }
 
 @media (min-width: 1024px) {
+  .head {
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+  }
+
+  .strip {
+    --cat-pad: 0px;
+    --cat-pad-right: 16px;
+    padding-left: 0;
+    padding-right: var(--cat-pad-right);
+    scroll-padding-inline: 0 var(--cat-pad-right);
+  }
+
   .cardSlot {
-    /* десктоп: ~3.5 карточки в поле зрения */
-    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 2.5) / 3.5);
-    max-width: 400px;
+    /* десктоп: ~4.5 карточки в поле зрения, без левого отступа */
+    width: calc((100vw - var(--cat-pad-right) - var(--cat-gap) * 3.5) / 4.5);
+    max-width: none;
   }
 }
 
@@ -134,9 +149,14 @@
 }
 
 @media (min-width: 1024px) {
+  .skeletonStrip {
+    --cat-pad: 0px;
+    padding-left: 0;
+  }
+
   .skelCard {
-    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 2.5) / 3.5);
-    max-width: 400px;
+    width: calc((100vw - 16px - var(--cat-gap) * 3.5) / 4.5);
+    max-width: none;
   }
 }
 
@@ -162,4 +182,10 @@
   );
   background-size: 200% 100%;
   animation: catShimmer 1.2s ease-in-out infinite;
+}
+
+@media (min-width: 1024px) {
+  .skelTitle {
+    margin-left: 0;
+  }
 }

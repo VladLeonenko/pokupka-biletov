@@ -38,18 +38,49 @@ export async function loadSupercupNnFootballStageMapRow() {
   return r.rows[0] || null;
 }
 
-/** Клиенту: без layout.seats — серая чаша = allSeatCoordinates, sellable = sellableSeats. */
+const SUPERKUP_NN_GRAY_BOWL_PNG = '/hall-maps/supercup-nn-football-gray-bowl.png';
+
+function slimLabeledSeatsForClient(seats) {
+  if (!Array.isArray(seats)) return [];
+  return seats
+    .map((s) => {
+      if (!s || typeof s !== 'object') return null;
+      const xPct = Number(s.xPct);
+      const yPct = Number(s.yPct);
+      if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
+      return {
+        sector: String(s.sector ?? ''),
+        row: String(s.row ?? ''),
+        seat: String(s.seat ?? ''),
+        xPct,
+        yPct,
+      };
+    })
+    .filter(Boolean);
+}
+
+/** Клиенту: ~43k allSeatCoordinates → PNG + lazy dots.bin; seats — индекс pbilet для match офферов. */
 export function slimSupercupNnStageMapForClient(row) {
   if (!row) return row;
   const layout = parseLayoutJson(row);
-  const { seats: _seats, seatPositions: _pos, ...slimLayout } = layout;
+  const labeledSeats = slimLabeledSeatsForClient(layout.seats);
+  const {
+    allSeatCoordinates: _cloud,
+    seats: _seats,
+    seatPositions: _pos,
+    backgroundSeats: _bg,
+    coordinates: _coords,
+    ...slimLayout
+  } = layout;
   return {
     ...row,
     layout_json: {
       ...slimLayout,
+      ...(labeledSeats.length > 0 ? { seats: labeledSeats } : null),
       stadiumMapKey: SUPERKUP_NN_STAGE_MAP_KEY,
       luzhnikiStadiumCheckout: true,
-      omitClientSeatCoordinateCloud: false,
+      omitClientSeatCoordinateCloud: true,
+      hallBackgroundRasterUrl: SUPERKUP_NN_GRAY_BOWL_PNG,
     },
   };
 }
@@ -84,7 +115,7 @@ export function adaptSupercupNnFootballStageMapForLiveOffers(row, offerRows = []
   }
 
   const layoutSeats = Array.isArray(layoutForGeodesy.seats) ? layoutForGeodesy.seats : [];
-  const geodesy = buildSellableSeatGeodesy(layoutSeats, offers);
+  const geodesy = buildSellableSeatGeodesy(layoutSeats, offers, { allowRowZip: true });
 
   return {
     ...row,
@@ -95,11 +126,12 @@ export function adaptSupercupNnFootballStageMapForLiveOffers(row, offerRows = []
         geodesySource: seat.geodesySource || 'layoutStrict',
       })),
       sellableSeatsFromLiveOffers: true,
-      sellableGeodesyMode: 'layoutStrict',
+      sellableGeodesyMode: geodesy.rowZipMatched > 0 ? 'layoutStrict+rowZip' : 'layoutStrict',
       offerSeatGeodesy: {
         matched: geodesy.matched,
         totalSellable: geodesy.totalSellable,
-        strictMatched: geodesy.matched,
+        strictMatched: geodesy.strictMatched ?? geodesy.matched,
+        rowZipMatched: geodesy.rowZipMatched ?? 0,
         unmatchedSamples: geodesy.unmatchedSamples,
       },
     },

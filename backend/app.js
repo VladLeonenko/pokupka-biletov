@@ -25,6 +25,9 @@ import errorsRouter from './routes/errors.js';
 import luzhnikiGrayCloudSvgRouter from './routes/luzhnikiGrayCloudSvg.js';
 import vakhtangovHallSeatEditorRouter from './routes/vakhtangovHallSeatEditor.js';
 import ramtHallSeatEditorRouter from './routes/ramtHallSeatEditor.js';
+import bolshoiNewStageHallSeatEditorRouter from './routes/bolshoiNewStageHallSeatEditor.js';
+import kremlinPalaceHallSeatEditorRouter from './routes/kremlinPalaceHallSeatEditor.js';
+import supercupNnHallSeatEditorRouter from './routes/supercupNnHallSeatEditor.js';
 import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
@@ -257,6 +260,9 @@ app.use('/api/errors', errorsRouter); // Логирование ошибок с 
 app.use('/api/tools/luzhniki-gray-cloud-svg', luzhnikiGrayCloudSvgRouter);
 app.use('/api/tools/vakhtangov-hall-seats', vakhtangovHallSeatEditorRouter);
 app.use('/api/tools/ramt-hall-seats', ramtHallSeatEditorRouter);
+app.use('/api/tools/bolshoi-new-stage-seats', bolshoiNewStageHallSeatEditorRouter);
+app.use('/api/tools/kremlin-palace-seats', kremlinPalaceHallSeatEditorRouter);
+app.use('/api/tools/supercup-nn-football-seats', supercupNnHallSeatEditorRouter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);
@@ -444,6 +450,24 @@ app.get('/hall-maps/luzhniki-football-gray-bowl.png', (req, res) => {
 
 app.get('/hall-maps/luzhniki-football-gray-bowl-dots.bin', (req, res) => {
   const ok = sendDistRootFile(res, 'hall-maps/luzhniki-football-gray-bowl-dots.bin', (r) => {
+    r.setHeader('Content-Type', 'application/octet-stream');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/hall-maps/supercup-nn-football-gray-bowl.png', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/supercup-nn-football-gray-bowl.png', (r) => {
+    r.setHeader('Content-Type', 'image/png');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/hall-maps/supercup-nn-football-gray-bowl-dots.bin', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/supercup-nn-football-gray-bowl-dots.bin', (r) => {
     r.setHeader('Content-Type', 'application/octet-stream');
     r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   });

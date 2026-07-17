@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3581 3052" width="3581" height="3052">
+  <title>Kremlin Palace</title>
+  <desc>Sectors from Ticketland hall scheme</desc>
+  <rect x="0" y="0" width="3581" height="3052" fill="#f8fafc"/>
+  <g id="kremlin-stage" fill="rgba(15, 23, 42, 0.08)" stroke="rgba(15, 23, 42, 0.2)" stroke-width="2">
+    <rect x="788" y="32" width="2005" height="120" rx="8"/>
+    <text x="1791" y="105" text-anchor="middle" font-family="system-ui,sans-serif" font-size="48" fill="rgba(15, 23, 42, 0.55)">Сцена</text>
+  </g>
+  <g id="kremlin-sectors" fill="rgba(15, 23, 42, 0.04)" stroke="rgba(15, 23, 42, 0.12)" stroke-width="1.5">
+    <path data-id="759190" data-type="level" data-name="Амфитеатр — середина" d="M 987.80 1907.80 L 2608.20 1907.80 L 2608.20 2268.20 L 987.80 2268.20 Z"/>
+    <path data-id="759192" data-type="level" data-name="Амфитеатр левая сторона" d="M 107.80 1107.80 L 508.20 1107.80 L 508.20 2088.20 L 107.80 2088.20 Z"/>
+    <path data-id="759189" data-type="level" data-name="Амфитеатр правая сторона" d="M 3387.80 987.80 L 3648.20 987.80 L 3648.20 2088.20 L 3387.80 2088.20 Z"/>
+    <path data-id="759194" data-type="level" data-name="Балкон — середина" d="M 787.80 2547.80 L 2608.20 2547.80 L 2608.20 3008.20 L 787.80 3008.20 Z"/>
+    <path data-id="759199" data-type="level" data-name="Балкон лев.ст. откидное" d="M 207.80 2707.80 L 308.20 2707.80 L 308.20 3008.20 L 207.80 3008.20 Z"/>
+    <path data-id="759195" data-type="level" data-name="Балкон левая сторона" d="M 327.80 2547.80 L 728.20 2547.80 L 728.20 3008.20 L 327.80 3008.20 Z"/>
+    <path data-id="759198" data-type="level" data-name="Балкон прав.ст. откидное" d="M 3627.80 2707.80 L 3648.20 2707.80 L 3648.20 3008.20 L 3627.80 3008.20 Z"/>
+    <path data-id="759193" data-type="level" data-name="Балкон правая сторона" d="M 2707.80 2547.80 L 3408.20 2547.80 L 3408.20 3008.20 L 2707.80 3008.20 Z"/>
+    <path data-id="759197" data-type="level" data-name="Ложа балкона левая" d="M 507.80 2207.80 L 708.20 2207.80 L 708.20 2368.20 L 507.80 2368.20 Z"/>
+    <path data-id="759196" data-type="level" data-name="Ложа балкона правая" d="M 3027.80 2307.80 L 3648.20 2307.80 L 3648.20 2468.20 L 3027.80 2468.20 Z"/>
+    <path data-id="759191" data-type="level" data-name="Партер левая сторона" d="M 707.80 547.80 L 1168.20 547.80 L 1168.20 1388.20 L 707.80 1388.20 Z"/>
+    <path data-id="759187" data-type="level" data-name="Партер правая сторона" d="M 2627.80 547.80 L 3048.20 547.80 L 3048.20 1388.20 L 2627.80 1388.20 Z"/>
+    <path data-id="759188" data-type="level" data-name="Партер середина" d="M 1227.80 547.80 L 2568.20 547.80 L 2568.20 1388.20 L 1227.80 1388.20 Z"/>
+  </g>
+</svg>
+

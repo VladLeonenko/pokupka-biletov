@@ -1,18 +1,17 @@
 {
-  "builtAt": "2026-05-18T18:45:20.256Z",
+  "builtAt": "2026-06-30T13:34:10.313Z",
   "coordsPath": "/Users/vladislavleonenko/Desktop/pokupka-biletov/luzhniki.txt",
   "ticketsPath": "/Users/vladislavleonenko/Desktop/pokupka-biletov/tickets.json",
   "matchTolPx": 1.5,
-  "outSvg": "data/luzhniki-geodesy/hand/luzhniki-gray-cloud-enriched.svg",
-  "mergeInto": null,
+  "outSvg": "/Users/vladislavleonenko/Desktop/pokupka-biletov/backend/data/luzhniki-geodesy/hand/luzhniki-gray-cloud-enriched.svg",
+  "mergeInto": "../frontend/public/hall-maps/luzhniki-football-stadium.svg",
   "stats": {
     "total": 77415,
     "matchedStrict": 6131,
-    "matchedFull": 69716,
+    "matchedFull": 8690,
     "matchedLabeled": 0,
-    "matchedPolygon": 1565,
-    "unmatched": 3,
-    "labeled": 77412
+    "unmatched": 62594,
+    "labeled": 14821
   },
   "ticketSeatsIndexed": 6132
 }

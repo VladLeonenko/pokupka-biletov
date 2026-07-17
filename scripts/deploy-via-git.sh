@@ -242,6 +242,12 @@ if [ -f "scripts/ensure-supercup-nn-football-stage-map.js" ]; then
     || echo "⚠️ supercup-nn: проверьте TICKET_* в backend/.env и npm run seed:supercup-nn-2026"
 fi
 
+if [ -f "scripts/sync-supercup-nn-bundle-to-db.js" ]; then
+  echo "⚽ Суперкубок NN — sync bundle разметки → ticket DB..."
+  node scripts/sync-supercup-nn-bundle-to-db.js 2>/dev/null \
+    || echo "⚠️ sync supercup bundle: проверьте backend/data/supercup-nn/hand/*.bundle.json"
+fi
+
 if [ -f "scripts/add-travel-cases.js" ]; then
   echo "📝 Кейсы (travel)..."
   node scripts/add-travel-cases.js 2>/dev/null || true

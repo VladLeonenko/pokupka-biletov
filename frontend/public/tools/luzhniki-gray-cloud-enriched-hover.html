@@ -147,6 +147,7 @@
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
+      <button type="button" id="loadSectorDots" hidden title="Суперкубок: подгрузить серые точки сектора (или просто введи сектор — подгрузится сам)">📍 сектор</button>
       <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
       <label id="paintRowWrap">Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
       <label id="paintEndRowWrap" hidden>ряд по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" title="только для колонок: номер последнего ряда сектора" /></label>
@@ -230,6 +231,7 @@
     const saveSvgBtn = document.getElementById('saveSvg');
     const saveStatus = document.getElementById('saveStatus');
     const saveTargetEl = document.getElementById('saveTarget');
+    const loadSectorDotsBtn = document.getElementById('loadSectorDots');
 
     const urlParams = new URLSearchParams(location.search);
     const isLocalEditor =
@@ -237,16 +239,27 @@
       location.hostname === '127.0.0.1' ||
       ['5173', '5174', '8766'].includes(location.port);
     const PROD_ORIGIN = 'https://biletvsem.com';
-    /** Сохранение: локально по умолчанию на прод (?saveApi= перебивает). */
-    const saveApiBase = (urlParams.get('saveApi') || '').replace(/\/$/, '') || (isLocalEditor ? PROD_ORIGIN : '');
-    /** SVG всегда с этого же хоста, иначе на :8766 уезжало на biletvsem (404). */
-    const svgFetchBase = (urlParams.get('svgBase') || '').replace(/\/$/, '');
-    const saveAuthToken = urlParams.get('saveToken') || urlParams.get('token') || '';
     /** API зала: luzhniki-gray-cloud-svg | vakhtangov-hall-seats | ramt-hall-seats */
     const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
     const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
+    const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
+    if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isSupercupStadiumEditor;
     const pageTitle = urlParams.get('title')?.trim();
     if (pageTitle) document.title = pageTitle;
+    /** Лужники на localhost сохраняют на prod; остальные залы — на этот же хост (dev API). */
+    const saveApiParam = urlParams.get('saveApi');
+    const saveApiBase =
+      saveApiParam != null
+        ? saveApiParam.replace(/\/$/, '')
+        : isLocalEditor && isTheaterHallEditor
+          ? ''
+          : isLocalEditor
+            ? PROD_ORIGIN
+            : '';
+
+    /** SVG: ?svgBase= — база для статики /tools/… */
+    const svgFetchBase = (urlParams.get('svgBase') || '').replace(/\/$/, '');
+    const saveAuthToken = urlParams.get('saveToken') || urlParams.get('token') || '';
 
     function saveApiUrl() {
       return (saveApiBase || '') + '/api/tools/' + hallApi;
@@ -258,6 +271,10 @@
 
     function updateSaveTargetHint() {
       if (!saveTargetEl) return;
+      if (isSupercupStadiumEditor && isLocalEditor && !saveApiBase) {
+        saveTargetEl.textContent = '→ localhost (dev БД + git, без saveToken)';
+        return;
+      }
       saveTargetEl.textContent = saveApiBase ? '→ ' + saveApiBase.replace(/^https?:\/\//, '') : '→ этот хост';
     }
     updateSaveTargetHint();
@@ -309,6 +326,9 @@
     let syncingZoomSlider = false;
     /** @type {Element[]} */
     let paintSelection = [];
+    /** @type {{ sectorNorm: string, nextRow: number, rowMin: number, rowMax: number } | null} */
+    let sectorReloadTimer = 0;
+    let lastLoadedSectorNorm = '';
     /** @type {{ sectorNorm: string, nextRow: number, rowMin: number, rowMax: number } | null} */
     let fillNextRowCursor = null;
     /** @type {Element[]} */
@@ -371,8 +391,10 @@
     function updateSaveStatus() {
       if (!saveStatus) return;
       const n = Object.keys(loadEditStore().overrides).length;
+      const storeLabeled = isSupercupStadiumEditor ? extractLabeledSeatsFromEditStore().length : 0;
       const parts = [];
       if (n) parts.push(n + ' правок в браузере');
+      if (storeLabeled) parts.push('с row/seat: ' + storeLabeled.toLocaleString('ru'));
       if (lastFileSaveOk) {
         parts.push('сервер ✓');
         if (lastLabeledSeatCount) parts.push('сохранено: ' + lastLabeledSeatCount.toLocaleString('ru') + ' мест');
@@ -403,12 +425,30 @@
       }
     }
 
+    function editorSvgUrls(sector) {
+      if (hallApi === 'luzhniki-gray-cloud-svg') return luzhnikiSvgLoadUrls();
+      const q = sector ? '?sector=' + encodeURIComponent(sector) : '';
+      const urls = [];
+      const localRel = '/api/tools/' + hallApi + '/enriched.svg' + q;
+      if (isLocalEditor) urls.push(localRel);
+      const remote = saveApiUrl() + '/enriched.svg' + q;
+      if (remote && !urls.includes(remote)) urls.push(remote);
+      return urls;
+    }
+
     function luzhnikiSvgLoadUrls() {
       const defaultSvg = urlParams.get('svg') || 'luzhniki-gray-cloud-enriched.svg';
       const staticUrl = (svgFetchBase ? svgFetchBase + '/tools/' : '/tools/') + defaultSvg;
       const apiRel = '/api/tools/luzhniki-gray-cloud-svg/enriched.svg';
       const apiUrl = (saveApiBase || '') + apiRel;
-      if (hallApi !== 'luzhniki-gray-cloud-svg') return [saveApiUrl() + '/enriched.svg'];
+      if (hallApi !== 'luzhniki-gray-cloud-svg') {
+        const urls = [];
+        const localRel = '/api/tools/' + hallApi + '/enriched.svg';
+        if (isLocalEditor) urls.push(localRel);
+        const remote = saveApiUrl() + '/enriched.svg';
+        if (remote && !urls.includes(remote)) urls.push(remote);
+        return urls;
+      }
       const urls = [];
       if (apiUrl) urls.push(apiUrl);
       if (!urls.includes(apiRel)) urls.push(apiRel);
@@ -437,8 +477,29 @@
       throw lastErr || new Error('нет источников SVG');
     }
 
-    async function reloadSvgFromServer() {
-      loadSvgText(await fetchSvgFromCandidates(luzhnikiSvgLoadUrls()));
+    async function reloadSvgFromServer(sector) {
+      loadSvgText(await fetchSvgFromCandidates(editorSvgUrls(sector || '')));
+    }
+
+    async function reloadSectorDots() {
+      const sector = paintSectorForApply().trim();
+      if (!sector) {
+        showPaintToast('err', 'Введи сектор, напр. c222 или b230');
+        return;
+      }
+      const norm = normalizeSectorLabel(sector);
+      if (norm === lastLoadedSectorNorm && allCircles.length > 200) {
+        showPaintToast('info', 'Сектор ' + sector + ' уже загружен');
+        return;
+      }
+      status.textContent = 'Загрузка точек ' + sector + '…';
+      try {
+        await reloadSvgFromServer(sector);
+        lastLoadedSectorNorm = norm;
+        showPaintToast('ok', 'Сектор ' + sector + ' · точки загружены');
+      } catch (e) {
+        showPaintToast('err', e.message || String(e));
+      }
     }
 
     function flashPersisted(circles) {
@@ -503,7 +564,7 @@
     /** Сразу POST SVG+bundle (после ▶ Применить ряд). @param {string} [expectSectorNorm] */
     async function pushEditsToServer(expectSectorNorm) {
       clearTimeout(serverSaveTimer);
-      if (!saveApiBase && isLocalEditor && !saveAuthToken) {
+      if (hallApi === 'luzhniki-gray-cloud-svg' && isLocalEditor && saveApiBase && !saveAuthToken) {
         showPaintToast('err', 'Нет saveToken в URL — сохранение на biletvsem не уйдёт');
         return { ok: false };
       }
@@ -592,9 +653,68 @@
       return decl + new XMLSerializer().serializeToString(clone);
     }
 
+    function extractLabeledSeatsFromEditStore() {
+      const store = loadEditStore();
+      const seats = [];
+      const seen = new Set();
+      for (const [coordKey, attrs] of Object.entries(store.overrides)) {
+        const sector = decodeAttr(attrs['data-sector'] || attrs['place-name'] || '');
+        const row = String(attrs['data-row'] || attrs.row || '').trim();
+        const seat = String(attrs['data-seat'] || attrs.place || '').trim();
+        if (!sector || !/^\d+$/.test(row) || !/^\d+$/.test(seat)) continue;
+        const sk = normalizeSectorLabel(sector) + '|' + row + '|' + seat;
+        if (seen.has(sk)) continue;
+        seen.add(sk);
+        const parts = coordKey.split(',');
+        const cx = Number(parts[0]);
+        const cy = Number(parts[1]);
+        if (!Number.isFinite(cx) || !Number.isFinite(cy) || !vbW || !vbH) continue;
+        seats.push({
+          sector,
+          row,
+          seat,
+          xPct: (cx / vbW) * 100,
+          yPct: (cy / vbH) * 100,
+        });
+      }
+      return seats;
+    }
+
     /** @returns {Promise<{ ok: boolean, data?: Record<string, unknown> }>} */
     async function saveSvgToServer() {
       flushEditsToDomBeforeSave();
+
+      if (isSupercupStadiumEditor) {
+        const storeSeats = extractLabeledSeatsFromEditStore();
+        if (storeSeats.length >= 1) {
+          try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (saveAuthToken) headers['x-luzhniki-svg-save-token'] = saveAuthToken;
+            const r = await fetch(saveApiUrl() + '/', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ seats: storeSeats }),
+              credentials: 'omit',
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok || !data.ok) {
+              throw new Error(data.error || r.status + ' ' + r.statusText);
+            }
+            lastFileSaveOk = true;
+            lastLabeledSeatCount = data.labeledSeats ?? storeSeats.length;
+            serverBundleSeatCount = lastLabeledSeatCount;
+            updateSaveStatus();
+            await refreshServerBundleStatus();
+            return { ok: true, data };
+          } catch (e) {
+            lastFileSaveOk = false;
+            updateSaveStatus();
+            showPaintToast('err', 'POST seats: ' + e.message);
+            return { ok: false };
+          }
+        }
+      }
+
       const labeledDom = countLabeledCirclesInDom();
       if (labeledDom < 1) {
         showPaintToast(
@@ -4452,20 +4572,50 @@
       const embedded = svg.querySelector('script');
       if (embedded) embedded.remove();
       allCircles = Array.from(svg.querySelectorAll('circle'));
-      rebuildSectorBboxCache();
-      rebuildCircleCoordIndex();
-      circleGrid = buildCircleGrid(allCircles, 96);
+      const megaHall = allCircles.length > 12000;
       ensureOverlay();
-      const restored = applyStoredEditsToSvg();
-      refreshAllEditorVisuals();
-      recountStats();
-      paintUnlabeled(svg);
-      updateSaveStatus();
-      if (restored > 0) {
-        showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
-      }
       fitToView();
-      renderRowLabels(paintSectorForApply());
+      if (isSupercupStadiumEditor) {
+        panMode = true;
+        panModeBtn.classList.add('active');
+        updatePanCursor();
+      }
+
+      const finishAttachIndexes = () => {
+        rebuildSectorBboxCache();
+        rebuildCircleCoordIndex();
+        circleGrid = buildCircleGrid(allCircles, megaHall ? 180 : 96);
+        const restored = applyStoredEditsToSvg();
+        refreshAllEditorVisuals();
+        recountStats();
+        paintUnlabeled(svg);
+        updateSaveStatus();
+        renderRowLabels(paintSectorForApply());
+        if (restored > 0) {
+          showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
+        } else if (isSupercupStadiumEditor && megaHall) {
+          showPaintToast(
+            'info',
+            allCircles.length.toLocaleString('ru') +
+              ' точек сектора · ✋ pan · для другого сектора — 📍',
+          );
+        } else if (isSupercupStadiumEditor) {
+          showPaintToast(
+            'info',
+            'Подложка + ' +
+              allCircles.length.toLocaleString('ru') +
+              ' размеченных · введи сектор (c222) → 📍 сектор',
+          );
+        }
+      };
+
+      if (megaHall) {
+        status.textContent =
+          'Индекс ' + allCircles.length.toLocaleString('ru') + ' точек… подожди 3–8 сек';
+        window.setTimeout(finishAttachIndexes, 0);
+      } else {
+        finishAttachIndexes();
+      }
 
       svg.addEventListener('click', (e) => {
         if (didDrag || paintSuppressClick) {
@@ -4805,7 +4955,22 @@
       fillNextRowCursor = null;
       updateFillNextRowHint();
       renderRowLabels(paintSectorForApply());
+      if (!isSupercupStadiumEditor) return;
+      clearTimeout(sectorReloadTimer);
+      const sector = paintSectorForApply().trim();
+      if (!sector) {
+        lastLoadedSectorNorm = '';
+        return;
+      }
+      sectorReloadTimer = window.setTimeout(() => void reloadSectorDots(), 500);
     });
+    paintSector.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !isSupercupStadiumEditor) return;
+      e.preventDefault();
+      clearTimeout(sectorReloadTimer);
+      void reloadSectorDots();
+    });
+    loadSectorDotsBtn?.addEventListener('click', () => void reloadSectorDots());
     paintClearSel.addEventListener('click', () => {
       clearPaintSelection();
       showPaintToast('info', 'Выделение сброшено');
@@ -4856,7 +5021,8 @@
     window.addEventListener('resize', () => { if (svgRoot) fitToView(); });
 
     const svgUrlParam = urlParams.get('svgUrl')?.trim();
-    const svgLoadUrls = svgUrlParam ? [svgUrlParam] : luzhnikiSvgLoadUrls();
+    const initialSector = urlParams.get('sector')?.trim() || '';
+    const svgLoadUrls = svgUrlParam ? [svgUrlParam] : editorSvgUrls(initialSector);
     status.textContent = 'Загрузка ' + svgLoadUrls[0] + (svgLoadUrls.length > 1 ? '…' : '') + '…';
     updateFillNextRowHint();
     refreshServerBundleStatus();

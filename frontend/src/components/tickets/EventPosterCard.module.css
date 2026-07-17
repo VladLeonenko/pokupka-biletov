@@ -245,6 +245,12 @@
   min-height: clamp(240px, 38vw, 360px);
 }
 
+@media (min-width: 1024px) {
+  .compact .imageWrap {
+    min-height: clamp(280px, 22vw, 420px);
+  }
+}
+
 .compact .title {
   font-size: clamp(1.05rem, 2.2vw, 1.22rem);
 }

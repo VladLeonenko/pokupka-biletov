@@ -15,8 +15,11 @@ import { sanitizeStageMapLayoutJson } from '../utils/sanitizeStageMapLayoutJson.
 import { resolveHallMapSaveToken } from '../utils/hallMapSaveToken.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 import { RAMT_BIG_STAGE_MAP_KEY } from '../services/ramtBigStageMap.js';
+import { BOLSHOI_NEW_STAGE_MAP_KEY } from '../services/bolshoiNewStageMap.js';
+import { KREMLIN_PALACE_MAP_KEY } from '../services/kremlinPalaceMap.js';
 import { getVenueLookupMaps } from '../services/getbiletVenueLabels.js';
 import { refreshPbiletCategoryStageMap } from '../services/supercupNnFootballStageMap.js';
+import { SUPERKUP_NN_STAGE_MAP_KEY } from '../utils/footballStadiumRepertoires.js';
 
 /** SQL: название площадки из payload кэша (не спектакль). */
 const CATALOG_STAGE_VENUE_SQL = `
@@ -1246,6 +1249,42 @@ router.get('/stage-map-editors', (_req, res) => {
       path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
       url: buildUnifiedHallEditorUrl('ramt-hall-seats', 'РАМТ — разметка мест', saveToken),
       stageMapKeys: [RAMT_BIG_STAGE_MAP_KEY],
+    },
+    {
+      id: 'bolshoi-new-stage',
+      label: 'Большой театр — Новая сцена',
+      description: 'Тот же редактор, что Лужники',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'bolshoi-new-stage-seats',
+        'Большой театр — Новая сцена',
+        saveToken,
+      ),
+      stageMapKeys: [BOLSHOI_NEW_STAGE_MAP_KEY],
+    },
+    {
+      id: 'kremlin-palace',
+      label: 'Государственный Кремлёвский дворец',
+      description: 'Ticketland → hull sectors, редактор как Лужники',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'kremlin-palace-seats',
+        'Государственный Кремлёвский дворец',
+        saveToken,
+      ),
+      stageMapKeys: [KREMLIN_PALACE_MAP_KEY, '5e81e2f2930af7003040129e', '6048e9be13cd03003015dc8d'],
+    },
+    {
+      id: 'supercup-nn-football',
+      label: 'Суперкубок NN — Совкомбанк Арена',
+      description: 'pbilet 488, seat checkout как Лужники',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'supercup-nn-football-seats',
+        'Суперкубок NN — разметка мест',
+        saveToken,
+      ),
+      stageMapKeys: [SUPERKUP_NN_STAGE_MAP_KEY],
     },
   ];
   res.json({

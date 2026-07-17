@@ -30,6 +30,7 @@ export const HALL_SEAT_COORDINATES_LAYER_ID = 'hall-seat-coordinates';
  *   hallH?: number;
  *   allSeatCoordinates?: { xPct?: number; yPct?: number; x?: number; y?: number }[];
  *   labeledSeats?: { sector?: string; row?: string; seat?: string; xPct?: number; yPct?: number }[];
+ *   denseCloud?: boolean;
  * }} opts
  */
 export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
@@ -39,6 +40,9 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
   const vb = parseViewBox(svg);
   const hallW = Number(opts.hallW) || vb?.w || 1494;
   const hallH = Number(opts.hallH) || vb?.h || 1292;
+  const denseCloud = opts.denseCloud === true || (opts.allSeatCoordinates?.length || 0) > 12000;
+  const unlabeledR = denseCloud ? 3 : 5;
+  const labeledR = denseCloud ? 4 : 5;
 
   svg = svg.replace(
     new RegExp(`<g\\b[^>]*id=["']${HALL_SEAT_COORDINATES_LAYER_ID}["'][^>]*>[\\s\\S]*?</g>`, 'i'),
@@ -65,10 +69,11 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
     const row = String(meta?.row || '').trim();
     const seat = String(meta?.seat || '').trim();
     const labeled = sector && row && seat;
+    const r = labeled ? labeledR : unlabeledR;
     const attrs = [
       `cx="${cx.toFixed(2)}"`,
       `cy="${cy.toFixed(2)}"`,
-      'r="5"',
+      `r="${r}"`,
       labeled ? 'fill="#22c55e"' : 'fill="#94a3b8"',
       labeled ? 'stroke="#ffffff"' : 'opacity="0.55"',
       labeled ? 'stroke-width="1"' : '',
