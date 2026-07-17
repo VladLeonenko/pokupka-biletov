@@ -16,6 +16,7 @@ import {
 } from '@/utils/heroFeaturedEvent';
 import { slugify } from '@/utils/slugify';
 import { venueFromApiOnly } from '@/utils/venueHint';
+import { resolveEventCoverUrl } from '@/utils/ticketsPlaceholders';
 
 /** В герое — рамка-постер (без круга), фон — полноэкранное фото */
 const SHAPES: HeroVisualShape[] = ['shard'];
@@ -77,7 +78,7 @@ function eventToSlide(ev: NormalizedBiletEvent, shapeIdx: number): HeroSlideView
   return {
     id: ev.id,
     title: ev.title.toUpperCase(),
-    imageUrl: heroSlideImageUrl(ev),
+    imageUrl: heroSlideImageUrl(ev) ?? resolveEventCoverUrl(ev),
     tags,
     venueLabel,
     venueAddress: venueAddress || null,
@@ -106,7 +107,10 @@ function cmsToSlide(c: CmsHeroSlide, i: number, events: NormalizedBiletEvent[]):
   const tags = c.tags?.trim() || autoTags;
   const lineLeft = c.lineLeft ?? lines.lineLeft;
   const lineRight = c.lineRight ?? lines.lineRight;
-  const imageUrl = heroSlideImageUrl(ev, c.imageUrl) ?? heroSlideImageUrl(ev);
+  const imageUrl =
+    heroSlideImageUrl(ev, c.imageUrl) ??
+    heroSlideImageUrl(ev) ??
+    (ev ? resolveEventCoverUrl(ev) : resolveEventCoverUrl({ title: baseTitle }));
   const id = c.ticketId ? String(c.ticketId) : `cms-${i}`;
   const ticketHref = c.ctaHref || (ev ? ticketCheckoutHref(ev) : '/events');
   const shape: HeroVisualShape = c.visualShape ?? SHAPES[i % SHAPES.length];

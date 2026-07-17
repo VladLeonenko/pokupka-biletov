@@ -58,6 +58,7 @@ export function useCookieConsent() {
   const saveToStorage = (prefs: CookiePreferences) => {
     const data = {
       version: CONSENT_VERSION,
+      consent: true,
       preferences: prefs,
       timestamp: new Date().toISOString(),
     };

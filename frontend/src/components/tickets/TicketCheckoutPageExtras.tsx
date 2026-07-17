@@ -15,6 +15,7 @@ import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { useTicketRecentRepertoires } from '@/hooks/useTicketRecentRepertoires';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
+import { LEGACY_FEATURED_HERO_REPERTOIRE_ID } from '@/utils/heroFeaturedEvent';
 import styles from './TicketCheckoutPageExtras.module.css';
 
 type Props = {
@@ -83,7 +84,10 @@ export function TicketCheckoutPageExtras({
 
   const popular = useMemo(
     () =>
-      catalog.filter((e) => !eventMatchesRepertoire(e, repertoireId)).slice(0, 4),
+      catalog
+        .filter((e) => !eventMatchesRepertoire(e, repertoireId))
+        .filter((e) => !eventMatchesRepertoire(e, LEGACY_FEATURED_HERO_REPERTOIRE_ID))
+        .slice(0, 4),
     [catalog, repertoireId],
   );
 

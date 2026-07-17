@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { formatEventPosterDateBadge } from '@/utils/eventDateLabels';
-import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import {
+  eventCategoryPlaceholderUrl,
+  resolveEventCoverUrl,
+} from '@/utils/ticketsPlaceholders';
 import { venueFromApiOnly } from '@/utils/venueHint';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './EventPosterCard.module.css';
@@ -49,8 +52,16 @@ function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
 
 export function EventPosterCard({ event, variant = 'poster' }: Props) {
   const to = ticketCheckoutHref(event);
-  const posterSrc = event.imageUrl ?? event.bannerUrl;
-  const bg = posterGradientFromId(event.id);
+  const coverInput = {
+    title: event.title,
+    subtitle: event.subtitle,
+    genre: event.genre,
+    categoryLabel: event.inferredCategoryLabel,
+    imageUrl: event.imageUrl,
+    bannerUrl: event.bannerUrl,
+  };
+  const posterSrc = resolveEventCoverUrl(coverInput);
+  const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
   const posterBadge = formatEventPosterDateBadge({
     displayDate: event.displayDate,
     timeLabel: event.timeLabel,
@@ -67,17 +78,14 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
     <div className={`${styles.wrap} ${variant === 'compact' ? styles.compact : ''}`}>
       <Link to={to} className={styles.cardLink}>
         <div className={styles.imageWrap}>
-          {posterSrc ? (
-            <TicketEventPosterImg
-              src={posterSrc}
-              gradientId={event.id}
-              className={styles.img}
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <div className={styles.img} style={{ background: bg }} aria-hidden />
-          )}
+          <TicketEventPosterImg
+            src={posterSrc}
+            fallbackSrc={placeholderSrc}
+            gradientId={event.id}
+            className={styles.img}
+            loading="lazy"
+            decoding="async"
+          />
           <div className={styles.shade} />
           <div className={styles.badges}>
             {posterBadge && <span className={styles.badgeDate}>{posterBadge}</span>}

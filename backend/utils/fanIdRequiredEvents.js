@@ -16,9 +16,11 @@ const DEFAULT_FAN_ID_SLUGS = new Set([
 
 /** Маркетинговые ЧПУ → repertoire id (РК, Директ), если slug не в compact /events. */
 const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
-  'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
+  /** Старый ЧПУ суперфинала Лужники → живой Суперкубок НН (не отдавать майское событие). */
+  'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a46656d46a4d000309ed0a2',
   'olimpbet-superkubok-rossii': '6a46656d46a4d000309ed0a2',
   'superkubok-rossii-po-futbolu': '6a46656d46a4d000309ed0a2',
+  'match-spartak-zenit-superkubok-rossii-po-futbolu-2026': '6a46656d46a4d000309ed0a2',
 });
 
 /** @param {string | null | undefined} slug */

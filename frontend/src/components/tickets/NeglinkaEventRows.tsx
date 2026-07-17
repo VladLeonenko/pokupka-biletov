@@ -2,7 +2,10 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { deriveBiletEventDateParts } from '@/utils/eventDateLabels';
-import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import {
+  eventCategoryPlaceholderUrl,
+  resolveEventCoverUrl,
+} from '@/utils/ticketsPlaceholders';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './NeglinkaEventRows.module.css';
 
@@ -44,7 +47,16 @@ export function NeglinkaEventRows({ events }: Props) {
           const timeStr =
             eventTimeText(ev) || (derived.timeLabel?.trim() ?? '');
           const to = ticketCheckoutHref(ev);
-          const posterSrc = ev.imageUrl ?? ev.bannerUrl;
+          const coverInput = {
+            title: ev.title,
+            subtitle: ev.subtitle,
+            genre: ev.genre,
+            categoryLabel: ev.inferredCategoryLabel,
+            imageUrl: ev.imageUrl,
+            bannerUrl: ev.bannerUrl,
+          };
+          const posterSrc = resolveEventCoverUrl(coverInput);
+          const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
           const tone = HOVER_PALETTE[i % HOVER_PALETTE.length];
           const rowStyle = {
             '--hover-bg': tone.bg,
@@ -61,11 +73,13 @@ export function NeglinkaEventRows({ events }: Props) {
 
               <div className={styles.colVisual}>
                 <div className={styles.circle}>
-                  {posterSrc ? (
-                    <TicketEventPosterImg src={posterSrc} gradientId={ev.id} className={styles.img} loading="lazy" />
-                  ) : (
-                    <div className={styles.img} style={{ background: posterGradientFromId(ev.id) }} />
-                  )}
+                  <TicketEventPosterImg
+                    src={posterSrc}
+                    fallbackSrc={placeholderSrc}
+                    gradientId={ev.id}
+                    className={styles.img}
+                    loading="lazy"
+                  />
                 </div>
               </div>
 

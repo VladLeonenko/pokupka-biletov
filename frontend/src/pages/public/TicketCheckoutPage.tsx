@@ -50,7 +50,10 @@ import {
   fetchStageMap,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
-import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import {
+  eventCategoryPlaceholderUrl,
+  resolveEventCoverUrl,
+} from '@/utils/ticketsPlaceholders';
 import {
   footballStadiumStageMapKeyForRepertoire,
   isFootballStadiumCheckoutLayout,
@@ -108,6 +111,7 @@ import {
   isFanIdRequiredForSlug,
   isNamedTicketUxEnabledForRepertoire,
   isNamedTicketUxEnabledForSlug,
+  legacyTicketRedirectPath,
   repertoireIdForTicketSlug,
 } from '@/utils/fanIdRequiredEvents';
 import { useTicketCart, type TicketCartSnapshot } from '@/context/TicketCartContext';
@@ -278,6 +282,17 @@ export function TicketCheckoutPage() {
   const routeSlug = routeKeyIsId ? legacySlug?.trim() || '' : routeKey.trim();
   const routeSlugIsManual = looksLikeManualTicketRouteKey(routeSlug);
   const slugAliasRep = useMemo(() => repertoireIdForTicketSlug(routeSlug), [routeSlug]);
+
+  /** Старый суперфинал Лужники / его id → актуальный Суперкубок. */
+  useEffect(() => {
+    const to =
+      legacyTicketRedirectPath(routeKey) ||
+      legacyTicketRedirectPath(routeSlug) ||
+      legacyTicketRedirectPath(legacyRepertoireId);
+    if (!to) return;
+    const q = location.search || '';
+    navigate(`${to}${q}`, { replace: true });
+  }, [routeKey, routeSlug, legacyRepertoireId, location.search, navigate]);
 
   const { data: resolvedSlugApi, isFetched: slugResolveFetched } = useQuery({
     queryKey: ['bilet-resolve-slug', routeSlug],
@@ -902,18 +917,23 @@ export function TicketCheckoutPage() {
     setCart,
   ]);
 
+  const coverPlaceholder = useMemo(
+    () => eventCategoryPlaceholderUrl({ title: displayTitle }),
+    [displayTitle],
+  );
+
   const coverUrl = useMemo(() => {
     const poster = ctx?.posterUrl || posterQ || null;
     const banner = ctx?.bannerUrl || bannerQ || null;
     if (poster && !banner) return poster;
     if (banner && !poster) return banner;
     if (poster && banner && poster === banner) return poster;
-    return poster || banner;
-  }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ]);
+    return poster || banner || resolveEventCoverUrl({ title: displayTitle });
+  }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ, displayTitle]);
 
   const posterSideUrl = useMemo(() => {
-    return ctx?.posterUrl || posterQ || ctx?.bannerUrl || bannerQ || null;
-  }, [ctx?.posterUrl, ctx?.bannerUrl, posterQ, bannerQ]);
+    return ctx?.posterUrl || posterQ || ctx?.bannerUrl || bannerQ || coverPlaceholder;
+  }, [ctx?.posterUrl, ctx?.bannerUrl, posterQ, bannerQ, coverPlaceholder]);
 
   /** Отдельный «билетный» постер справа — только если отличается от фона баннера (как на афишных лендингах). */
   const showPosterAside = useMemo(() => {
@@ -937,6 +957,10 @@ export function TicketCheckoutPage() {
     listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
 
   const isSupercupSportCheckout = isSupercupNnRepertoire(repertoireId);
+
+  useEffect(() => {
+    if (isSupercupSportCheckout) setScheduleCollapsed(true);
+  }, [isSupercupSportCheckout]);
 
   const supercupDaysLeftLabel = useMemo(() => {
     if (!isSupercupSportCheckout) return null;
@@ -1335,21 +1359,14 @@ export function TicketCheckoutPage() {
       <Box className={styles.page}>
         <div className={`${styles.hero} ${isSupercupSportCheckout ? styles.heroSport : ''}`}>
           <div className={styles.heroMedia}>
-            {coverUrl ? (
-              <TicketEventPosterImg
-                src={coverUrl}
-                gradientId={repertoireId || 'x'}
-                className={styles.heroImg}
-                loading="eager"
-                decoding="async"
-              />
-            ) : (
-              <div
-                className={styles.heroImg}
-                style={{ background: posterGradientFromId(repertoireId || 'x') }}
-                aria-hidden
-              />
-            )}
+            <TicketEventPosterImg
+              src={coverUrl}
+              fallbackSrc={coverPlaceholder}
+              gradientId={repertoireId || 'x'}
+              className={styles.heroImg}
+              loading="eager"
+              decoding="async"
+            />
             <div className={styles.heroVignette} />
             <div className={styles.heroGradientBottom} />
           </div>
@@ -1427,6 +1444,7 @@ export function TicketCheckoutPage() {
                 <div className={styles.heroPosterWrap}>
                   <TicketEventPosterImg
                     src={posterSideUrl}
+                    fallbackSrc={coverPlaceholder}
                     gradientId={repertoireId || 'x'}
                     className={styles.heroPosterImg}
                     loading="eager"
@@ -1463,7 +1481,24 @@ export function TicketCheckoutPage() {
             </Alert>
           )}
 
-          {allSessionsSorted.length > 0 && (
+          {showHallMissingCard ? (
+            <Paper
+              className={styles.hallPlaceholder}
+              elevation={0}
+              sx={{ mb: 3, p: 2.5, bgcolor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.08)' }}
+            >
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65, m: 0 }}>
+                План зала для этого события временно недоступен в сервисе. Выберите зону и места в списке ниже. Если
+                нужна схема рассадки — уточните у организатора или{' '}
+                <Link to="/contacts">напишите нам</Link>.
+              </Typography>
+            </Paper>
+          ) : null}
+        </Box>
+
+        <Box id="ticket-places-and-prices" className={styles.wrap} sx={{ pb: 4 }}>
+
+          {!isSupercupSportCheckout && allSessionsSorted.length > 0 && (
             <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
               <div className={styles.scheduleHeader}>
                 <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
@@ -1522,23 +1557,6 @@ export function TicketCheckoutPage() {
               ) : null}
             </Box>
           )}
-
-          {showHallMissingCard ? (
-            <Paper
-              className={styles.hallPlaceholder}
-              elevation={0}
-              sx={{ mb: 3, p: 2.5, bgcolor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.08)' }}
-            >
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65, m: 0 }}>
-                План зала для этого события временно недоступен в сервисе. Выберите зону и места в списке ниже. Если
-                нужна схема рассадки — уточните у организатора или{' '}
-                <Link to="/contacts">напишите нам</Link>.
-              </Typography>
-            </Paper>
-          ) : null}
-        </Box>
-
-        <Box id="ticket-places-and-prices" className={styles.wrap} sx={{ pb: 4 }}>
           <Box
             sx={{
               display: 'flex',
@@ -1619,6 +1637,68 @@ export function TicketCheckoutPage() {
               )}
             </Paper>
           ) : null}
+
+          {isSupercupSportCheckout && allSessionsSorted.length > 0 && (
+            <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
+              <div className={styles.scheduleHeader}>
+                <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                  Расписание
+                </Typography>
+                <button
+                  type="button"
+                  className={styles.scheduleToggle}
+                  onClick={() => setScheduleCollapsed((v) => !v)}
+                  aria-expanded={!scheduleCollapsed}
+                >
+                  {scheduleCollapsed ? 'Показать календарь' : 'Скрыть календарь'}
+                </button>
+              </div>
+              {!scheduleCollapsed ? (
+                <>
+                  {mergedVenue || mergedVenueAddress ? (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                        Площадка проведения
+                      </Typography>
+                      {mergedVenue ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                          {mergedVenue}
+                        </Typography>
+                      ) : null}
+                      {mergedVenueAddress ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {mergedVenueAddress}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  ) : null}
+                  <div className={styles.scheduleStrip}>
+                    {allSessionsSorted.map(([dt, rows]) => {
+                      const minP = minPriceForOffers(rows);
+                      const { time, dateLine } = formatSessionCard(dt);
+                      const selected = selectedSessionKey === dt;
+                      return (
+                        <button
+                          key={dt}
+                          type="button"
+                          className={`${styles.scheduleCard} ${selected ? styles.scheduleCardSelected : ''}`}
+                          onClick={() => setSelectedSessionKey(dt)}
+                        >
+                          <div className={styles.scheduleCardDate}>{dateLine}</div>
+                          <div className={styles.scheduleCardTime}>{time}</div>
+                          {minP != null ? (
+                            <div className={styles.scheduleCardPrice}>от {minP.toLocaleString('ru-RU')} ₽</div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+            </Box>
+          )}
+
+
 
           {!isLoading && !isError && listableOffers.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>

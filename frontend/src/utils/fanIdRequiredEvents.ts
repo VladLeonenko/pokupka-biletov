@@ -20,15 +20,31 @@ const NAMED_TICKET_UX_DISABLED_SLUGS = new Set([
 ]);
 
 const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
-  'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a05d17b46a4d000309ecf4e',
+  /** Старый ЧПУ суперфинала Лужники → живой Суперкубок НН. */
+  'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a46656d46a4d000309ed0a2',
   'olimpbet-superkubok-rossii': '6a46656d46a4d000309ed0a2',
   'superkubok-rossii-po-futbolu': '6a46656d46a4d000309ed0a2',
+  'match-spartak-zenit-superkubok-rossii-po-futbolu-2026': '6a46656d46a4d000309ed0a2',
 };
 
 const BLOCKED_TICKET_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);
 
+/** Старый суперфинал Лужники (май) → актуальный Суперкубок НН. */
+const LEGACY_TICKET_REDIRECTS: Record<string, string> = {
+  'superfinal-fonbet-kubka-rossii-spartak-krasnodar':
+    '/ticket/match-spartak-zenit-superkubok-rossii-po-futbolu-2026',
+  '6a05d17b46a4d000309ecf4e': '/ticket/match-spartak-zenit-superkubok-rossii-po-futbolu-2026',
+};
+
 export function isBlockedTicketSlug(slug: string | null | undefined): boolean {
   return BLOCKED_TICKET_SLUGS.has(String(slug || '').trim().toLowerCase());
+}
+
+/** ЧПУ/id снятого события → канонический URL актуального. */
+export function legacyTicketRedirectPath(key: string | null | undefined): string | null {
+  const k = String(key || '').trim().toLowerCase();
+  if (!k) return null;
+  return LEGACY_TICKET_REDIRECTS[k] ?? null;
 }
 
 /** Маркетинговый ЧПУ → repertoire id (если resolve-slug на бэке ещё старый). */

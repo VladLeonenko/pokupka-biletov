@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
-import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import {
+  eventCategoryPlaceholderUrl,
+  resolveEventCoverUrl,
+} from '@/utils/ticketsPlaceholders';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './NeglinkaHero.module.css';
 
@@ -60,7 +63,12 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
   }
 
   const title = current.title;
-  const img = current.imageUrl;
+  const coverInput = {
+    title: current.title,
+    imageUrl: current.imageUrl,
+  };
+  const img = resolveEventCoverUrl(coverInput);
+  const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
   const heroStyle = img
     ? ({
         '--hero-image': `url("${img.replace(/["\\]/g, '')}")`,
@@ -129,20 +137,14 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
 
           <div className={styles.right}>
             <div className={styles.visualFrame}>
-              {img ? (
-                <TicketEventPosterImg
-                  src={img}
-                  gradientId={current.id}
-                  className={styles.visualImg}
-                  loading="eager"
-                  decoding="async"
-                />
-              ) : (
-                <div
-                  className={styles.visualImg}
-                  style={{ background: posterGradientFromId(current.id) }}
-                />
-              )}
+              <TicketEventPosterImg
+                src={img}
+                fallbackSrc={placeholderSrc}
+                gradientId={current.id}
+                className={styles.visualImg}
+                loading="eager"
+                decoding="async"
+              />
             </div>
           </div>
         </div>

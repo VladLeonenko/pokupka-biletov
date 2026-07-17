@@ -60,25 +60,33 @@ export function CookieConsentModal({ open, onClose }: CookieConsentModalProps) {
       aria-labelledby="cookie-consent-title"
       aria-describedby="cookie-consent-desc"
     >
-      <p id="cookie-consent-title" className={styles.title}>
-        Файлы cookie
-      </p>
-      <p id="cookie-consent-desc" className={styles.text}>
-        Используем cookie для работы сайта и аналитики. Можно принять все, отклонить или настроить.
-      </p>
-      <a href="/politic" target="_blank" rel="noopener noreferrer" className={styles.link}>
-        Политика конфиденциальности
-      </a>
-      <div className={styles.actions}>
-        <button type="button" className={styles.btn} onClick={handleRejectAll}>
-          Отклонить
-        </button>
-        <button type="button" className={styles.btn} onClick={handleOpenSettings}>
-          Настроить
-        </button>
-        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleAcceptAll}>
-          Принять
-        </button>
+      <div className={styles.row}>
+        <div className={styles.copy}>
+          <p id="cookie-consent-title" className={styles.title}>
+            Cookie
+          </p>
+          <p id="cookie-consent-desc" className={styles.text}>
+            Нужны для сайта и аналитики.{' '}
+            <a href="/cookies" target="_blank" rel="noopener noreferrer" className={styles.link}>
+              Подробнее
+            </a>
+          </p>
+        </div>
+        <div className={styles.actions}>
+          <button type="button" className={styles.btn} onClick={handleRejectAll}>
+            Нет
+          </button>
+          <button type="button" className={styles.btnGhost} onClick={handleOpenSettings}>
+            Ещё
+          </button>
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.btnPrimary}`}
+            onClick={handleAcceptAll}
+          >
+            ОК
+          </button>
+        </div>
       </div>
     </div>
   );

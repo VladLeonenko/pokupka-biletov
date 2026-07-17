@@ -23,13 +23,22 @@ export function featuredHeroImageUrl(
 }
 
 export function heroSlideImageUrl(
-  ev?: { bannerUrl?: string | null; imageUrl?: string | null } | null,
+  ev?: {
+    title?: string | null;
+    subtitle?: string | null;
+    genre?: string | null;
+    inferredCategoryLabel?: string | null;
+    bannerUrl?: string | null;
+    imageUrl?: string | null;
+  } | null,
   cmsOrSlideUrl?: string | null,
 ): string | null {
   const manual = cmsOrSlideUrl?.trim();
   if (manual) return manual;
   const fromEv = ev?.bannerUrl?.trim() || ev?.imageUrl?.trim();
   if (fromEv) return fromEv;
+  if (!ev?.title?.trim()) return null;
+  // lazy import avoided — resolve via ticketsPlaceholders at call sites that need category art
   return null;
 }
 

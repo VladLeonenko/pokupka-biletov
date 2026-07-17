@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
 
 type Props = {
-  src: string;
-  /** Для градиента при ошибке загрузки */
+  src?: string | null;
+  /** Заглушка по типу события, если src пустой или CDN отдал 403 */
+  fallbackSrc?: string | null;
+  /** Для градиента при полном отказе */
   gradientId: string;
   className: string;
   loading?: 'lazy' | 'eager';
@@ -12,31 +14,50 @@ type Props = {
 
 /**
  * Постеры с внешних CDN (Яндекс и др.) часто отдают 403, если Referer — чужой сайт.
- * no-referrer снимает блок; при полном отказе — детерминированный градиент как в макете.
+ * no-referrer снимает блок; дальше — category placeholder, затем градиент.
  */
 export function TicketEventPosterImg({
   src,
+  fallbackSrc,
   gradientId,
   className,
   loading = 'lazy',
   decoding = 'async',
 }: Props) {
-  const [broken, setBroken] = useState(false);
-  const trimmed = src.trim();
-  if (!trimmed || broken) {
+  const primary = (src || '').trim();
+  const fallback = (fallbackSrc || '').trim();
+  const initial = primary || fallback || '';
+  const [current, setCurrent] = useState(initial);
+  const [triedFallback, setTriedFallback] = useState(!primary && Boolean(fallback));
+
+  useEffect(() => {
+    const next = primary || fallback || '';
+    setCurrent(next);
+    setTriedFallback(!primary && Boolean(fallback));
+  }, [primary, fallback]);
+
+  if (!current) {
     return (
       <div className={className} style={{ background: posterGradientFromId(gradientId) }} aria-hidden />
     );
   }
+
   return (
     <img
-      src={trimmed}
+      src={current}
       alt=""
       className={className}
       loading={loading}
       decoding={decoding}
       referrerPolicy="no-referrer"
-      onError={() => setBroken(true)}
+      onError={() => {
+        if (!triedFallback && fallback && current !== fallback) {
+          setTriedFallback(true);
+          setCurrent(fallback);
+          return;
+        }
+        setCurrent('');
+      }}
     />
   );
 }

@@ -10,6 +10,8 @@ import { isStorefrontHidden } from './getbiletStorefrontVisibility.js';
 const BLOCKED_REPERTOIRE_IDS = new Set([
   'luzhniki-cup-final-2026',
   'final-kubka-rossii-po-futbolu-2026',
+  /** Суперфинал Лужники 24.05 — снят, трафик → Суперкубок НН */
+  '6a05d17b46a4d000309ecf4e',
 ]);
 
 const BLOCKED_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);
