@@ -229,6 +229,12 @@ export async function getOrder(orderNumber: string): Promise<{ order: Order }> {
   return res.json();
 }
 
+export async function getAdminOrder(orderNumber: string): Promise<{ order: AdminOrder }> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/orders/admin/${encodeURIComponent(orderNumber)}`);
+  if (!res.ok) throw new Error('Failed to fetch order');
+  return res.json();
+}
+
 export type OrderPaymentStatusResponse = {
   paymentStatus: string;
   status: string;

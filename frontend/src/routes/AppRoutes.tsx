@@ -251,6 +251,16 @@ export function AppRoutes() {
       <Route path="/admin/product-categories" element={<ProtectedAdmin><ProductCategoriesPage /></ProtectedAdmin>} />
       <Route path="/admin/products/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/orders" element={<Protected><Suspense fallback={<LoadingFallback />}><OrdersAdminPage /></Suspense></Protected>} />
+      <Route
+        path="/admin/orders/:orderNumber"
+        element={
+          <Protected>
+            <Suspense fallback={<LoadingFallback />}>
+              <OrderDetailPage adminView />
+            </Suspense>
+          </Protected>
+        }
+      />
       <Route path="/admin/parsing" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
       <Route path="/admin/quiz" element={<ProtectedAdmin><QuizManagementPage /></ProtectedAdmin>} />

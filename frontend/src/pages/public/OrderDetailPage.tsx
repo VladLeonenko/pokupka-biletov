@@ -4,9 +4,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Container, Typography, Button, Card, CardContent, Grid, CircularProgress, Chip } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
-import { getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
+import { getAdminOrder, getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
 
-export function OrderDetailPage() {
+type OrderDetailPageProps = {
+  adminView?: boolean;
+};
+
+export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -14,9 +18,10 @@ export function OrderDetailPage() {
   const returnedFromPayment = searchParams.get('paid') === '1';
 
   const { data, isLoading } = useQuery({
-    queryKey: ['order', orderNumber],
+    queryKey: ['order', orderNumber, adminView ? 'admin' : 'public'],
     queryFn: async () => {
-      const result = await getOrder(orderNumber || '');
+      const num = orderNumber || '';
+      const result = adminView ? await getAdminOrder(num) : await getOrder(num);
       return result.order;
     },
     enabled: !!orderNumber,
@@ -59,8 +64,12 @@ export function OrderDetailPage() {
           Заказ не найден
         </Typography>
         <Typography sx={{ color: 'rgba(0,0,0,0.55)', mb: 2 }}>Проверьте ссылку или откройте список заказов в кабинете.</Typography>
-        <Button variant="contained" onClick={() => navigate('/account')} sx={{ bgcolor: 'var(--neg-orange, #ff4e18)', color: '#fff', fontWeight: 800 }}>
-          В личный кабинет
+        <Button
+          variant="contained"
+          onClick={() => navigate(adminView ? '/admin/orders' : '/account')}
+          sx={{ bgcolor: 'var(--neg-orange, #ff4e18)', color: '#fff', fontWeight: 800 }}
+        >
+          {adminView ? 'К списку заказов' : 'В личный кабинет'}
         </Button>
       </Container>
     );
@@ -78,10 +87,10 @@ export function OrderDetailPage() {
         <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 } }}>
           <Button
             startIcon={<ArrowBack />}
-            onClick={() => navigate('/account')}
+            onClick={() => navigate(adminView ? '/admin/orders' : '/account')}
             sx={{ mb: 2, color: 'rgba(0,0,0,0.65)', fontWeight: 700, textTransform: 'none' }}
           >
-            Назад в личный кабинет
+            {adminView ? 'Назад к заказам' : 'Назад в личный кабинет'}
           </Button>
 
           <Typography

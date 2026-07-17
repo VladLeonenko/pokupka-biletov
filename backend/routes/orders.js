@@ -12,6 +12,59 @@ import { extractFanIdFromOrder } from '../utils/orderFanId.js';
 
 const router = express.Router();
 
+function formatOrderDetail(order, itemsRows, ticketRows) {
+  return {
+    id: order.id,
+    orderNumber: order.order_number,
+    status: order.status,
+    totalCents: order.total_cents,
+    currency: order.currency,
+    customerName: order.customer_name,
+    customerEmail: order.customer_email,
+    customerPhone: order.customer_phone,
+    shippingAddress: order.shipping_address,
+    paymentMethod: order.payment_method,
+    paymentStatus: order.payment_status,
+    paymentProvider: order.payment_provider,
+    externalPaymentId: order.external_payment_id,
+    externalOrderRef: order.external_order_ref,
+    paymentCheckoutUrl: order.payment_checkout_url,
+    notes: order.notes,
+    fanId: extractFanIdFromOrder(order),
+    items: itemsRows.map((row) => ({
+      id: row.id,
+      productSlug: row.product_slug,
+      productTitle: row.product_title,
+      priceCents: row.price_cents,
+      quantity: row.quantity,
+    })),
+    externalTickets: ticketRows.map((row) => ({
+      id: row.id,
+      orderItemId: row.order_item_id,
+      provider: row.provider,
+      externalTicketId: row.external_ticket_id,
+      metadata: row.metadata,
+    })),
+    createdAt: order.created_at,
+    updatedAt: order.updated_at,
+  };
+}
+
+async function loadOrderDetailByNumber(orderNumber) {
+  const orderResult = await pool.query('SELECT * FROM orders WHERE order_number = $1', [orderNumber]);
+  const order = orderResult.rows[0];
+  if (!order) return null;
+
+  const itemsResult = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [order.id]);
+  const ticketsRes = await ticketPool.query(
+    `SELECT id, order_item_id, provider, external_ticket_id, metadata
+     FROM ticket_external_ticket_refs WHERE legacy_order_id = $1 ORDER BY id`,
+    [order.id],
+  );
+
+  return formatOrderDetail(order, itemsResult.rows, ticketsRes.rows);
+}
+
 // Маппинг product_slug -> AI Team тариф
 const AI_TEAM_PRODUCT_PLAN = {
   'ai-junior': 'JUNIOR',
@@ -347,6 +400,20 @@ router.get('/admin', requireAuth, requireAdminOrSalesManager, async (req, res) =
   }
 });
 
+// Детали заказа для админки (без привязки к session_id / user_id покупателя)
+router.get('/admin/:orderNumber', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const order = await loadOrderDetailByNumber(req.params.orderNumber);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json({ order });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Получить заказы пользователя (требует авторизации)
 // ВАЖНО: помимо заказов с user_id, подтягиваем гостевые заказы,
 // оформленные на тот же email / телефон, что и у пользователя
@@ -502,55 +569,14 @@ router.get('/:orderNumber', async (req, res) => {
     if (!orderResult.rows[0]) return res.status(404).json({ error: 'Order not found' });
     
     const order = orderResult.rows[0];
-    
-    // Получаем позиции заказа
-    const itemsResult = await pool.query(`
-      SELECT * FROM order_items WHERE order_id = $1
-    `, [order.id]);
-
+    const itemsResult = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [order.id]);
     const ticketsRes = await ticketPool.query(
       `SELECT id, order_item_id, provider, external_ticket_id, metadata
        FROM ticket_external_ticket_refs WHERE legacy_order_id = $1 ORDER BY id`,
-      [order.id]
+      [order.id],
     );
-    
-    res.json({
-      order: {
-        id: order.id,
-        orderNumber: order.order_number,
-        status: order.status,
-        totalCents: order.total_cents,
-        currency: order.currency,
-        customerName: order.customer_name,
-        customerEmail: order.customer_email,
-        customerPhone: order.customer_phone,
-        shippingAddress: order.shipping_address,
-        paymentMethod: order.payment_method,
-        paymentStatus: order.payment_status,
-        paymentProvider: order.payment_provider,
-        externalPaymentId: order.external_payment_id,
-        externalOrderRef: order.external_order_ref,
-        paymentCheckoutUrl: order.payment_checkout_url,
-        notes: order.notes,
-        fanId: extractFanIdFromOrder(order),
-        items: itemsResult.rows.map(row => ({
-          id: row.id,
-          productSlug: row.product_slug,
-          productTitle: row.product_title,
-          priceCents: row.price_cents,
-          quantity: row.quantity,
-        })),
-        externalTickets: ticketsRes.rows.map((row) => ({
-          id: row.id,
-          orderItemId: row.order_item_id,
-          provider: row.provider,
-          externalTicketId: row.external_ticket_id,
-          metadata: row.metadata,
-        })),
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-      },
-    });
+
+    res.json({ order: formatOrderDetail(order, itemsResult.rows, ticketsRes.rows) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

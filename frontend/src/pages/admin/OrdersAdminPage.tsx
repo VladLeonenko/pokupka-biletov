@@ -179,7 +179,7 @@ export default function OrdersAdminPage() {
                 </TableCell>
                 <TableCell align="right">
                   <Tooltip title="Открыть заказ">
-                    <IconButton size="small" onClick={() => window.open(`/orders/${order.orderNumber}`, '_blank')}>
+                    <IconButton size="small" onClick={() => window.open(`/admin/orders/${order.orderNumber}`, '_blank')}>
                       <OpenInNewIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
