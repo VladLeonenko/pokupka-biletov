@@ -49,21 +49,31 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
+  const pageSx = adminView
+    ? { pb: 2, minHeight: 'auto' }
+    : { bgcolor: '#fafafa', minHeight: '100vh', pb: 6 };
+
+  const cardSx = adminView
+    ? { mb: 2, borderRadius: 2 }
+    : { mb: 2, borderRadius: '12px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' };
+
   if (isLoading) {
     return (
-      <Box sx={{ py: 8, display: 'flex', justifyContent: 'center', bgcolor: '#fafafa', minHeight: '50vh' }}>
-        <CircularProgress sx={{ color: 'var(--neg-orange, #ff4e18)' }} />
+      <Box sx={{ py: 8, display: 'flex', justifyContent: 'center', ...pageSx, minHeight: adminView ? '40vh' : '50vh' }}>
+        <CircularProgress sx={{ color: adminView ? 'primary.main' : 'var(--neg-orange, #ff4e18)' }} />
       </Box>
     );
   }
 
   if (!order) {
     return (
-      <Container maxWidth="sm" sx={{ py: 6, bgcolor: '#fafafa', minHeight: '60vh' }}>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: '#111', mb: 1 }}>
+      <Container maxWidth="sm" sx={{ py: 6, ...pageSx, minHeight: adminView ? 'auto' : '60vh' }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: adminView ? 'text.primary' : '#111', mb: 1 }}>
           Заказ не найден
         </Typography>
-        <Typography sx={{ color: 'rgba(0,0,0,0.55)', mb: 2 }}>Проверьте ссылку или откройте список заказов в кабинете.</Typography>
+        <Typography sx={{ color: adminView ? 'text.secondary' : 'rgba(0,0,0,0.55)', mb: 2 }}>
+          Проверьте ссылку или откройте список заказов в кабинете.
+        </Typography>
         <Button
           variant="contained"
           onClick={() => navigate(adminView ? '/admin/orders' : '/account')}
@@ -83,19 +93,25 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
         url={currentUrl}
         noindex={true}
       />
-      <Box sx={{ bgcolor: '#fafafa', minHeight: '100vh', pb: 6 }}>
-        <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 } }}>
+      <Box sx={pageSx}>
+        <Container maxWidth="lg" sx={{ py: adminView ? 0 : { xs: 3, md: 4 }, px: adminView ? 0 : undefined }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={() => navigate(adminView ? '/admin/orders' : '/account')}
-            sx={{ mb: 2, color: 'rgba(0,0,0,0.65)', fontWeight: 700, textTransform: 'none' }}
+            sx={{ mb: 2, color: adminView ? 'text.secondary' : 'rgba(0,0,0,0.65)', fontWeight: 700, textTransform: 'none' }}
           >
             {adminView ? 'Назад к заказам' : 'Назад в личный кабинет'}
           </Button>
 
           <Typography
             variant="overline"
-            sx={{ letterSpacing: '0.2em', color: 'var(--neg-orange, #ff4e18)', fontWeight: 800, display: 'block', mb: 1 }}
+            sx={{
+              letterSpacing: '0.2em',
+              color: adminView ? 'primary.main' : 'var(--neg-orange, #ff4e18)',
+              fontWeight: 800,
+              display: 'block',
+              mb: 1,
+            }}
           >
             Заказ
           </Typography>
@@ -104,7 +120,7 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
             sx={{
               fontSize: { xs: '1.5rem', md: '2rem' },
               fontWeight: 900,
-              color: '#111',
+              color: adminView ? 'text.primary' : '#111',
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
               mb: 3,
@@ -113,19 +129,19 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
             №{order.orderNumber}
           </Typography>
 
-          {returnedFromPayment && order.paymentStatus === 'pending' ? (
+          {!adminView && returnedFromPayment && order.paymentStatus === 'pending' ? (
             <Alert severity="info" sx={{ mb: 2 }}>
               Мы проверяем оплату. Обычно статус обновляется за несколько секунд, страницу можно не закрывать.
             </Alert>
           ) : null}
 
-          {order.paymentStatus === 'paid' ? (
+          {!adminView && order.paymentStatus === 'paid' ? (
             <Alert severity="success" sx={{ mb: 2 }}>
               Оплата прошла успешно. Подтверждение заказа и письмо для входа в личный кабинет отправляются на email.
             </Alert>
           ) : null}
 
-          {order.paymentStatus === 'failed' ? (
+          {!adminView && order.paymentStatus === 'failed' ? (
             <Alert severity="warning" sx={{ mb: 2 }}>
               Оплата не прошла. Деньги не списаны, попробуйте оплатить другой картой или оформите заказ заново.
             </Alert>
@@ -133,7 +149,7 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <Card sx={{ mb: 2, borderRadius: '12px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+            <Card variant={adminView ? 'outlined' : 'elevation'} elevation={adminView ? 0 : 1} sx={cardSx}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>
                   Позиции
@@ -147,7 +163,15 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
                     const quantity = item.quantity || 1;
                     
                     return (
-                      <Box key={idx} sx={{ mb: 2, pb: 2, borderBottom: idx < order.items.length - 1 ? '1px solid #e0e0e0' : 'none' }}>
+                      <Box
+                        key={idx}
+                        sx={{
+                          mb: 2,
+                          pb: 2,
+                          borderBottom: idx < order.items.length - 1 ? '1px solid' : 'none',
+                          borderColor: 'divider',
+                        }}
+                      >
                         <Typography variant="subtitle1">{productTitle}</Typography>
                         <Typography variant="body2" color="text.secondary">
                           Количество: {quantity} × {priceCents ? `${(priceCents / 100).toFixed(2)} ${currency}` : 'Цена по запросу'}
@@ -166,7 +190,7 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card sx={{ borderRadius: '12px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+            <Card variant={adminView ? 'outlined' : 'elevation'} elevation={adminView ? 0 : 1} sx={cardSx}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>
                   Заказ

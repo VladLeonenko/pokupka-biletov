@@ -3,6 +3,19 @@ import ticketPool from '../ticketDb.js';
 import { probePosterImages } from '../services/posterPageProbe.js';
 import { syncGetbiletCatalogFromApi } from '../services/getbiletCatalogSync.js';
 import { invalidateGetbiletEventsHttpCache } from '../services/getbiletEventsHttpCache.js';
+import { invalidateRepertoirePublicContextCache } from '../services/repertoirePublicContext.js';
+import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
+
+function invalidatePublicEventCaches(...repertoireIds) {
+  invalidateGetbiletEventsHttpCache();
+  const seen = new Set();
+  for (const raw of repertoireIds) {
+    const rid = String(raw || '').trim();
+    if (!rid || seen.has(rid)) continue;
+    seen.add(rid);
+    invalidateRepertoirePublicContextCache(rid);
+  }
+}
 import { storefrontHiddenFromPublished } from '../services/getbiletStorefrontVisibility.js';
 import {
   isPosterSearchConfigured,
@@ -266,7 +279,7 @@ router.post('/events', async (req, res) => {
        LEFT JOIN getbilet_event_group_members m ON m.event_id = e.id WHERE e.id = $1`,
       [row.id]
     );
-    invalidateGetbiletEventsHttpCache();
+    invalidatePublicEventCaches(row.getbilet_external_id);
     res.status(201).json(full.rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой внешний id уже есть' });
@@ -375,7 +388,7 @@ router.put('/events/:id', async (req, res) => {
        LEFT JOIN getbilet_event_group_members m ON m.event_id = e.id WHERE e.id = $1`,
       [id]
     );
-    invalidateGetbiletEventsHttpCache();
+    invalidatePublicEventCaches(c.getbilet_external_id, ext);
     res.json(full.rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой внешний id уже есть' });
@@ -409,7 +422,7 @@ router.delete('/events/:id', async (req, res) => {
       ).catch(() => {});
     }
 
-    invalidateGetbiletEventsHttpCache();
+    invalidatePublicEventCaches(repertoireId);
     res.json({ success: true, repertoireId: repertoireId || null });
   } catch (e) {
     res.status(500).json({ error: e.message });

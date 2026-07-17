@@ -10,6 +10,18 @@ import { restV2BuildEventsCatalog, expandCatalogActionsWithOfferSessions, should
 import { enrichRestV2CatalogActions } from './getbiletEnrich.js';
 import { extractPosterPageUrlFromRepertoirePayload } from './repertoirePayloadMedia.js';
 import { upsertGetbiletEventFromCatalogSync } from './getbiletCatalogSyncUpsert.js';
+import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
+
+function pinnedRepDuplicatesSeen(repId, seen) {
+  const rid = String(repId || '').trim();
+  if (!rid || seen.has(rid)) return true;
+  const canonical = repertoireIdForTicketSlug(rid);
+  if (canonical && seen.has(canonical)) return true;
+  for (const id of seen) {
+    if (repertoireIdForTicketSlug(id) === rid) return true;
+  }
+  return false;
+}
 
 /**
  * Тянем каталог из GetBilet, enrich, пишем в getbilet_catalog_cache и создаём строки getbilet_events (если ещё нет).
@@ -144,7 +156,7 @@ export async function mergePinnedCatalogCacheIntoActions(actionsInput) {
     }
     if (!obj || typeof obj !== 'object') continue;
     const repId = String(obj.Id ?? obj.id ?? '').trim();
-    if (!repId || seen.has(repId)) continue;
+    if (!repId || pinnedRepDuplicatesSeen(repId, seen)) continue;
     seen.add(repId);
     const o = /** @type {Record<string, unknown>} */ ({ ...obj });
     if (row.stage_id) o.stageId = row.stage_id;

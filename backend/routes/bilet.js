@@ -645,7 +645,11 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
     const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
     const [context, offersResult] = await Promise.all([
-      getRepertoirePublicContext(repertoireId, { omitStageSvgMarkup: true, fastPath: true }),
+      getRepertoirePublicContext(repertoireId, {
+        omitStageSvgMarkup: true,
+        fastPath: true,
+        skipCache: forceRefresh,
+      }),
       getPublicOffersForRepertoire(repertoireId, { forceRefresh }).catch((e) => {
         console.error('[getbilet] page offers:', repertoireId, e instanceof Error ? e.message : e);
         return {

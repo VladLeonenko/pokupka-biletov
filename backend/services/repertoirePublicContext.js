@@ -55,6 +55,18 @@ const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4c
 const fastContextMem = new Map();
 const FAST_CTX_TTL_MS = parseInt(process.env.GETBILET_FAST_CONTEXT_CACHE_SEC || '120', 10) * 1000 || 120_000;
 
+/** Сброс in-memory контекста /ticket после правок постера/описания в админке. */
+export function invalidateRepertoirePublicContextCache(repertoireId) {
+  const rid = String(repertoireId || '').trim();
+  if (!rid) {
+    fastContextMem.clear();
+    return;
+  }
+  for (const key of fastContextMem.keys()) {
+    if (key.startsWith(`${rid}|`)) fastContextMem.delete(key);
+  }
+}
+
 function minimalDescriptionPack(title, manualText, catalogHints, kind, categoryLabel) {
   const t = String(title || '').trim() || 'Мероприятие';
   const manual = String(manualText || '').trim();
@@ -465,15 +477,16 @@ export async function getRepertoireBackfillDescriptionInputs(repertoireId) {
  */
 /**
  * @param {string} repertoireId
- * @param {{ omitStageSvgMarkup?: boolean; fastPath?: boolean; includeDescriptionSections?: boolean }} [opts]
+ * @param {{ omitStageSvgMarkup?: boolean; fastPath?: boolean; includeDescriptionSections?: boolean; skipCache?: boolean }} [opts]
  */
 export async function getRepertoirePublicContext(repertoireId, opts = {}) {
   await assertRepertoireStorefrontAccess(repertoireId);
 
   const fastPath = opts.fastPath !== false;
   const includeSections = opts.includeDescriptionSections === true;
+  const skipCache = opts.skipCache === true;
   const cacheKey = `${repertoireId}|svg:${opts.omitStageSvgMarkup ? 1 : 0}|sec:${includeSections ? 1 : 0}`;
-  if (fastPath) {
+  if (fastPath && !skipCache) {
     const hit = fastContextMem.get(cacheKey);
     if (hit && Date.now() < hit.expiresAt) {
       return hit.body;
