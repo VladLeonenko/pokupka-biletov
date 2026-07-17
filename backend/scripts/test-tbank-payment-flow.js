@@ -13,6 +13,7 @@ import pool from '../db.js';
 import { buildTbankEacqToken, isTbankEacqConfigured } from '../services/payment/tbankEacq.js';
 import { handleTbankEacqNotification } from '../routes/biletTicketCheckout.js';
 import { isMailConfigured, isUniSenderMailConfigured } from '../services/mail/transporter.js';
+import { getRepertoireStorefrontAccess } from '../services/repertoireStorefrontAccess.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -38,9 +39,21 @@ async function jsonFetch(url, opts = {}) {
   return { res, data, text };
 }
 
-async function ensureDemoEvent() {
+async function ensureDemoEvent(repertoireId) {
   const { execSync } = await import('node:child_process');
-  execSync('node scripts/seed-tbank-demo-event.js', { cwd: __dirname + '/..', stdio: 'pipe' });
+  const out = execSync('node scripts/seed-tbank-demo-event.js', {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+  if (out.trim()) console.log(out.trim());
+
+  const access = await getRepertoireStorefrontAccess(repertoireId);
+  if (!access.allowed) {
+    throw new Error(
+      `demo event ${repertoireId} недоступен после seed (reason=${access.reason ?? 'unknown'}). ` +
+        'Проверь TICKET_* / GETBILET_USE_MAIN_DATABASE и строку в getbilet_events.',
+    );
+  }
 }
 
 function mockRes() {
@@ -65,12 +78,14 @@ async function main() {
   console.log('=== T-Bank payment flow test ===\n');
   assert(isTbankEacqConfigured(), 'TBANK_TERMINAL_KEY + TBANK_PASSWORD/TBANK_KEY не заданы');
 
+  const repertoireId = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
+
   console.log('1) seed demo event…');
-  await ensureDemoEvent();
+  await ensureDemoEvent(repertoireId);
 
   console.log('2) checkout API…');
   const checkoutBody = {
-    repertoireId: process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event',
+    repertoireId,
     offerId: 'tb-demo-offer-1',
     seats: ['3'],
     eventTitle: 'Тестовая оплата T-Банк',
