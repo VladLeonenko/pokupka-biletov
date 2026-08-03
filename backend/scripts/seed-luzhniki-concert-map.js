@@ -1,30 +1,24 @@
 /**
- * Концертная раскладка БСА Лужники (Баста — Guf и т.п.) на fast-path как НН:
- * sectorMode из концертного SVG → football → поворот «сцена снизу» (как Яндекс),
- * PNG-чаша повёрнута, sellable из pilot seats.
+ * Концертная раскладка БСА Лужники (Баста — Guf и т.п.):
+ * sectorMode SVG→football, трибуны A/C/D + VIP + поле;
+ * gray-bowl PNG + dots на посадке; поле/сцена — маски без точек; sellable = pilot.
  *
  *   cd backend && npm run seed:luzhniki-concert-map
- *
- * Ключ схемы: luzhniki-concert
- * Репертуар Баста — Guf: 69ac1c5246a4d000309ecd5c
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import sharp from 'sharp';
-
 import ticketPool from '../ticketDb.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
 import { footballStadiumCheckoutLayoutFlags } from '../utils/footballStadiumCheckoutLayout.js';
 import { buildTheaterHallSectorMode } from '../utils/theaterHallSvgSectorMode.js';
 import {
-  LUZHNIKI_CONCERT_STAGE_BOTTOM_VIEWBOX,
   LUZHNIKI_FOOTBALL_VIEWBOX,
-  footballPathToConcertStageBottom,
   transformConcertSectorPath,
 } from '../utils/luzhnikiConcertToFootballTransform.js';
+import { filterLuzhnikiConcertSectors } from '../utils/luzhnikiConcertSectorFilter.js';
 import { LUZHNIKI_PILOT_SEATS_REL_PATH } from '../utils/luzhnikiSeatIndexCache.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 
@@ -33,16 +27,10 @@ const repoRoot = path.resolve(__dirname, '../..');
 
 export const LUZHNIKI_CONCERT_STAGE_MAP_KEY = 'luzhniki-concert';
 export const BASTA_GUF_REPERTOIRE_ID = '69ac1c5246a4d000309ecd5c';
-/** Устаревший theater-seed на GetBilet StageId — удаляем при сиде. */
 const LEGACY_CONCERT_STAGE_ID = '6400ff2dd6cfc5004d20e9e9';
 
 const CONCERT_SVG_REL = 'frontend/public/hall-maps/luzhniki-concert.svg';
-const FOOTBALL_GRAY_BOWL_ABS = path.join(
-  repoRoot,
-  'frontend/public/hall-maps/luzhniki-football-gray-bowl.png',
-);
-const CONCERT_GRAY_BOWL_REL = '/hall-maps/luzhniki-concert-gray-bowl.png';
-const CONCERT_GRAY_BOWL_ABS = path.join(repoRoot, 'frontend/public', CONCERT_GRAY_BOWL_REL.replace(/^\//, ''));
+const GRAY_BOWL_PNG = '/hall-maps/luzhniki-football-gray-bowl.png';
 const PILOT_SEATS_ABS = path.join(repoRoot, 'backend', LUZHNIKI_PILOT_SEATS_REL_PATH);
 
 function escAttr(value) {
@@ -84,13 +72,6 @@ function pathCentroid(pathD) {
   return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, minX, minY, maxX, maxY };
 }
 
-async function writeConcertGrayBowlPng() {
-  if (!fs.existsSync(FOOTBALL_GRAY_BOWL_ABS)) {
-    throw new Error(`Нет football gray bowl: ${FOOTBALL_GRAY_BOWL_ABS}`);
-  }
-  await sharp(FOOTBALL_GRAY_BOWL_ABS).rotate(90).png().toFile(CONCERT_GRAY_BOWL_ABS);
-}
-
 async function main() {
   const svgPath = path.join(repoRoot, CONCERT_SVG_REL);
   if (!fs.existsSync(svgPath)) throw new Error(`Нет SVG: ${svgPath}`);
@@ -110,16 +91,20 @@ async function main() {
   const sectorMode = buildTheaterHallSectorMode(concertSvg, { source: 'luzhniki-concert-svg' });
   if (!sectorMode.enabled) throw new Error('В концертном SVG нет path[data-id][data-name]');
 
-  sectorMode.sectors = sectorMode.sectors
-    .filter((s) => !/\(целиком\)\s*$/i.test(String(s.label || '')))
-    .map((s) => ({
-      ...s,
-      path: footballPathToConcertStageBottom(transformConcertSectorPath(s.path)),
-    }));
+  const beforeFilter = sectorMode.sectors.length;
+  sectorMode.sectors = filterLuzhnikiConcertSectors(
+    sectorMode.sectors
+      .filter((s) => !/\(целиком\)\s*$/i.test(String(s.label || '')))
+      .map((s) => ({
+        ...s,
+        path: transformConcertSectorPath(s.path),
+      })),
+  );
   sectorMode.enabled = sectorMode.sectors.length > 0;
   if (!sectorMode.enabled) throw new Error('После фильтра/трансформа секторов не осталось');
+  console.log(`[seed:luzhniki-concert] sectors ${beforeFilter} → ${sectorMode.sectors.length}`);
 
-  const { width, height } = LUZHNIKI_CONCERT_STAGE_BOTTOM_VIEWBOX;
+  const { width, height } = LUZHNIKI_FOOTBALL_VIEWBOX;
   const pathsXml = sectorMode.sectors
     .map(
       (s) =>
@@ -135,15 +120,35 @@ async function main() {
   );
   const danceC = dance ? pathCentroid(dance.path) : null;
   const fanC = fan ? pathCentroid(fan.path) : null;
-  const stageY = fanC ? Math.min(height - 180, fanC.maxY + (height - fanC.maxY) * 0.45) : height * 0.92;
-  const stageX = width / 2;
+  // В football-space сцена слева от поля (низ концертного SVG → left).
+  const stageX = fanC ? Math.max(120, fanC.minX - (fanC.minX) * 0.35) : width * 0.12;
+  const stageY = height / 2;
 
-  /** Подписи рисует FE поверх PNG (canvas); в svg_markup — дубль для не-canvas. */
   const hallMapLabels = [
     danceC ? { text: 'Танцпол', x: danceC.x, y: danceC.y, fontSize: 220 } : null,
     fanC ? { text: 'Фан-зона', x: fanC.x, y: fanC.y, fontSize: 200 } : null,
     { text: 'Сцена', x: stageX, y: stageY, fontSize: 180 },
   ].filter(Boolean);
+
+  /** Закрывает точки чаши на поле/сцене (посадка только на трибунах). */
+  const hallMapFieldMasks = [];
+  if (fanC) {
+    const stageW = Math.max(400, fanC.minX - 80);
+    const stageH = Math.max(800, fanC.maxY - fanC.minY + 200);
+    const sx0 = Math.max(0, fanC.minX - stageW - 40);
+    const sy0 = Math.max(0, (fanC.minY + fanC.maxY) / 2 - stageH / 2);
+    hallMapFieldMasks.push({
+      id: 'stage',
+      x: sx0,
+      y: sy0,
+      w: Math.min(stageW + 80, fanC.minX - sx0),
+      h: stageH,
+    });
+  }
+  for (const s of sectorMode.sectors) {
+    if (!/танц|фан|fan/i.test(String(s.label || ''))) continue;
+    hallMapFieldMasks.push({ id: String(s.id || s.label), path: s.path, label: s.label });
+  }
 
   const labelsXml = hallMapLabels
     .map(
@@ -174,6 +179,9 @@ ${labelsXml}
     allSeatCoordinates: _cloud,
     seats: _inlineSeats,
     backgroundSeats: _bg,
+    concertMapOrientation: _orient,
+    concertSeatPctFromFootball: _rot,
+    hallMapLabels: _oldLabels,
     ...keep
   } = baseLayout;
 
@@ -190,38 +198,44 @@ ${labelsXml}
     throw new Error(`Не читается pilot seats: ${e?.message || e}`);
   }
 
-  await writeConcertGrayBowlPng();
-
-  const layoutJson = footballStadiumCheckoutLayoutFlags(
-    {
-      ...keep,
-      layoutMode: keep.layoutMode || 'svgNative',
-      sectorMode,
-      hallBackgroundRasterUrl: CONCERT_GRAY_BOWL_REL,
-      hideSeatList: true,
-      concertMapOrientation: 'stage-bottom',
-      concertSeatPctFromFootball: true,
-      hallMapLabels,
-      layoutSeatsStoredInFile: true,
-      luzhnikiPilotSeatsFile: LUZHNIKI_PILOT_SEATS_REL_PATH,
-      layoutSeatsCount: pilotSeatCount,
-      luzhnikiPilotMergedAt: new Date().toISOString(),
-      omitClientSeatCoordinateCloud: true,
-      pbilet: {
-        ...(keep.pbilet && typeof keep.pbilet === 'object' ? keep.pbilet : {}),
-        hallWidth: width,
-        hallHeight: height,
+  const layoutJson = {
+    ...footballStadiumCheckoutLayoutFlags(
+      {
+        ...keep,
+        layoutMode: keep.layoutMode || 'svgNative',
+        sectorMode,
+        hallBackgroundRasterUrl: GRAY_BOWL_PNG,
+        hideSeatList: true,
+        hallMapLabels,
+        hallMapFieldMasks,
+        maskFieldBackgroundDots: true,
+        layoutSeatsStoredInFile: true,
+        luzhnikiPilotSeatsFile: LUZHNIKI_PILOT_SEATS_REL_PATH,
+        layoutSeatsCount: pilotSeatCount,
+        luzhnikiPilotMergedAt: new Date().toISOString(),
+        omitClientSeatCoordinateCloud: true,
+        disableHallBackgroundDots: false,
+        pbilet: {
+          ...(keep.pbilet && typeof keep.pbilet === 'object' ? keep.pbilet : {}),
+          hallWidth: width,
+          hallHeight: height,
+        },
+        geodesy: {
+          ...(keep.geodesy && typeof keep.geodesy === 'object' ? keep.geodesy : {}),
+          hallWidth: width,
+          hallHeight: height,
+        },
+        note:
+          'luzhniki-concert: tribune dots via gray-bowl; field/stage masked; slim sectors; sellable=pilot',
       },
-      geodesy: {
-        ...(keep.geodesy && typeof keep.geodesy === 'object' ? keep.geodesy : {}),
-        hallWidth: width,
-        hallHeight: height,
-      },
-      note:
-        'luzhniki-concert: SVG→football→stage-bottom; sellable=pilot pct rotated; hideSeatList; zone labels',
-    },
-    LUZHNIKI_CONCERT_STAGE_MAP_KEY,
-  );
+      LUZHNIKI_CONCERT_STAGE_MAP_KEY,
+    ),
+    hallBackgroundRasterUrl: GRAY_BOWL_PNG,
+    omitClientSeatCoordinateCloud: true,
+    disableHallBackgroundDots: false,
+    maskFieldBackgroundDots: true,
+    hallMapFieldMasks,
+  };
 
   const saved = await ticketPool.query(
     `INSERT INTO getbilet_stage_maps (
@@ -244,7 +258,7 @@ ${labelsXml}
       'Лужники — концерт (БСА)',
       svgMarkup,
       JSON.stringify(layoutJson),
-      `Concert stage-bottom; repertoire ${BASTA_GUF_REPERTOIRE_ID}; sectors=${sectorMode.sectors.length}; seats=${pilotSeatCount}`,
+      `Concert football-space; repertoire ${BASTA_GUF_REPERTOIRE_ID}; sectors=${sectorMode.sectors.length}; seats=${pilotSeatCount}`,
       football.rows[0].external_plan_url,
     ],
   );
@@ -263,16 +277,11 @@ ${labelsXml}
         saved: saved.rows[0],
         sectors: sectorMode.sectors.length,
         viewBox: { width, height },
-        footballViewBox: LUZHNIKI_FOOTBALL_VIEWBOX,
         pilotSeats: pilotSeatCount,
-        grayBowl: CONCERT_GRAY_BOWL_REL,
-        labels: {
-          dance: danceC ? { x: danceC.x, y: danceC.y } : null,
-          fan: fanC ? { x: fanC.x, y: fanC.y } : null,
-          stage: { x: stageX, y: stageY },
-        },
+        grayBowl: GRAY_BOWL_PNG,
+        fieldMasks: hallMapFieldMasks.length,
+        labels: hallMapLabels.map((l) => l.text),
         deletedLegacyTheater: del.rows.map((r) => r.stage_external_id),
-        transformedSvg: path.relative(repoRoot, outSvg),
         repertoire: BASTA_GUF_REPERTOIRE_ID,
       },
       null,

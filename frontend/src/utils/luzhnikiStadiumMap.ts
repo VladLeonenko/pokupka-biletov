@@ -140,3 +140,60 @@ export function hallBackgroundDotsUrlFromRaster(rasterUrl: string | null | undef
   if (!rasterUrl?.trim()) return null;
   return rasterUrl.trim().replace(/\.png(\?.*)?$/i, '-dots.bin$1');
 }
+
+/** Явно отключить dots.bin (редко; концерт обычно маскирует поле, а не выключает чашу). */
+export function parseDisableHallBackgroundDots(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).disableHallBackgroundDots === true;
+}
+
+/** Концерт: не рисовать серые точки чаши на сцене/танцполе/фан-зоне. */
+export function parseMaskFieldBackgroundDots(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).maskFieldBackgroundDots === true;
+}
+
+export type HallMapFieldMask = {
+  id: string;
+  path?: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  label?: string;
+};
+
+export function parseHallMapFieldMasks(layout: unknown): HallMapFieldMask[] {
+  if (!layout || typeof layout !== 'object') return [];
+  const raw = (layout as Record<string, unknown>).hallMapFieldMasks;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item, i) => {
+      if (!item || typeof item !== 'object') return null;
+      const r = item as Record<string, unknown>;
+      const id = String(r.id ?? r.label ?? `mask-${i}`).trim() || `mask-${i}`;
+      const path = typeof r.path === 'string' && r.path.trim() ? r.path.trim() : undefined;
+      const x = Number(r.x);
+      const y = Number(r.y);
+      const w = Number(r.w);
+      const h = Number(r.h);
+      const rectOk =
+        Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0;
+      if (!path && !rectOk) return null;
+      return {
+        id,
+        path,
+        ...(rectOk ? { x, y, w, h } : null),
+        label: typeof r.label === 'string' ? r.label : undefined,
+      };
+    })
+    .filter((x): x is HallMapFieldMask => Boolean(x));
+}
+
+export function isLuzhnikiConcertFieldZoneLabel(label: string): boolean {
+  const n = String(label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+  return n === 'танцпол' || n === 'фан-зона' || n === 'fan-zone' || /танц|фан|fan-?zone/i.test(label);
+}

@@ -1232,8 +1232,17 @@ export function TicketCheckoutPage() {
     if (noOffersAfterFetch) {
       return 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.';
     }
+    if (isLuzhnikiConcertRepertoire(repertoireId)) {
+      return 'Сначала сектор (или танцпол/фан-зона), затем места → «К оплате». Бронь ~13 мин; у оператора места закрепятся после оплаты.';
+    }
     return 'Кликните по свободному месту на схеме, затем нажмите «Забронировать» — бронь сохранится у нас ~13 мин для оплаты; у оператора места закрепятся после оплаты.';
-  }, [layoutJsonForStage, noOffersAfterFetch, offersForMap.length, seatSelectionDisabledUi]);
+  }, [
+    layoutJsonForStage,
+    noOffersAfterFetch,
+    offersForMap.length,
+    seatSelectionDisabledUi,
+    repertoireId,
+  ]);
 
   useEffect(() => {
     if (!offerId) return;
@@ -1777,7 +1786,7 @@ export function TicketCheckoutPage() {
 
 
 
-          {hallMapReady && isMobileViewport ? (
+          {hallMapReady && isMobileViewport && !hideSeatListUi ? (
             <Box sx={{ mb: 2 }}>
               <Button
                 size="small"

@@ -25,6 +25,9 @@ const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
   'olimpbet-superkubok-rossii': '6a46656d46a4d000309ed0a2',
   'superkubok-rossii-po-futbolu': '6a46656d46a4d000309ed0a2',
   'match-spartak-zenit-superkubok-rossii-po-futbolu-2026': '6a46656d46a4d000309ed0a2',
+  /** Баста — Guf (Лужники) — стабильный ЧПУ для рекламы. */
+  'basta-guf': '69ac1c5246a4d000309ecd5c',
+  'basta-i-guf': '69ac1c5246a4d000309ecd5c',
 };
 
 const BLOCKED_TICKET_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);

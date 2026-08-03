@@ -304,6 +304,35 @@
   pointer-events: none !important;
 }
 
+/** Поле/сцена на концерте: закрывают точки чаши даже в seat-pick (zoom). */
+.sectorPathFieldMask {
+  fill: #e8eef5 !important;
+  stroke: rgba(15, 23, 42, 0.16) !important;
+  opacity: 1 !important;
+}
+
+.sectorLayerFitOverview .sectorPathFieldMask.sectorPathAvailable,
+.sectorLayerSeatPick .sectorPathFieldMask.sectorPathAvailable,
+.sectorLayerFocused .sectorPathFieldMask.sectorPathAvailable {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 42%, #e8eef5) !important;
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 55%, #94a3b8) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.sectorLayerSeatPick .sectorPathFieldMask,
+.sectorLayerFocused .sectorPathFieldMask {
+  fill: #e8eef5 !important;
+  stroke: rgba(15, 23, 42, 0.16) !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+.sectorLayerSeatPick .sectorPathFieldMask.sectorPathInteractive,
+.sectorLayerFocused .sectorPathFieldMask.sectorPathInteractive {
+  pointer-events: auto !important;
+}
+
 .hoverProbeAnchor {
   position: absolute;
   width: 1px;

@@ -9,7 +9,7 @@ export function footballStadiumCheckoutLayoutFlags(base = {}, stadiumMapKey = SU
     luzhnikiStadiumCheckout: true,
     pbiletCategoryCheckout: categoryCheckout,
     uniformHallSeatAppearance: true,
-    omitClientSeatCoordinateCloud: categoryCheckout,
+    omitClientSeatCoordinateCloud: base.omitClientSeatCoordinateCloud === true || categoryCheckout,
     disableStadiumCanvas: false,
     grayHallWhenNoOffers: false,
     disablePositionalSeatZip: true,

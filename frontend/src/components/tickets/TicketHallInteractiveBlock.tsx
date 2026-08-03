@@ -166,6 +166,16 @@ type BackgroundArcLayout = {
   screenH: number;
 };
 
+type PctBox = { x0: number; y0: number; x1: number; y1: number };
+
+function pointInPctBoxes(xPct: number, yPct: number, boxes: PctBox[]): boolean {
+  for (let i = 0; i < boxes.length; i += 1) {
+    const b = boxes[i];
+    if (xPct >= b.x0 && xPct <= b.x1 && yPct >= b.y0 && yPct <= b.y1) return true;
+  }
+  return false;
+}
+
 function drawHallBackgroundArcs(
   ctx: CanvasRenderingContext2D,
   seats: BackgroundSeatCoordinate[] | Float32Array,
@@ -174,6 +184,7 @@ function drawHallBackgroundArcs(
   viewportHeight: number,
   svgViewBoxWidth: number,
   dense: boolean,
+  excludePctBoxes: PctBox[] = [],
 ): void {
   const { left, top, screenW, screenH } = layout;
   const scalePx = screenW / Math.max(1, svgViewBoxWidth);
@@ -182,17 +193,22 @@ function drawHallBackgroundArcs(
   ctx.beginPath();
   const limW = viewportWidth + 14;
   const limH = viewportHeight + 14;
+  const skipField = excludePctBoxes.length > 0;
 
   if (seats instanceof Float32Array) {
     for (let i = 0; i < seats.length; i += 2) {
-      const sx = left + (seats[i] / 100) * screenW;
-      const sy = top + (seats[i + 1] / 100) * screenH;
+      const xPct = seats[i];
+      const yPct = seats[i + 1];
+      if (skipField && pointInPctBoxes(xPct, yPct, excludePctBoxes)) continue;
+      const sx = left + (xPct / 100) * screenW;
+      const sy = top + (yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
       ctx.moveTo(sx + r, sy);
       ctx.arc(sx, sy, r, 0, Math.PI * 2);
     }
   } else {
     for (const seat of seats) {
+      if (skipField && pointInPctBoxes(seat.xPct, seat.yPct, excludePctBoxes)) continue;
       const sx = left + (seat.xPct / 100) * screenW;
       const sy = top + (seat.yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
@@ -396,7 +412,11 @@ import {
 } from '@/utils/hallSeatSeatLookup';
 import {
   hallBackgroundDotsUrlFromRaster,
+  isLuzhnikiConcertFieldZoneLabel,
+  parseDisableHallBackgroundDots,
   parseHallBackgroundRasterUrl,
+  parseHallMapFieldMasks,
+  parseMaskFieldBackgroundDots,
   parseOmitClientSeatCoordinateCloud,
   parsePbiletCategoryCheckout,
 } from '@/utils/luzhnikiStadiumMap';
@@ -626,6 +646,11 @@ export function TicketHallInteractiveBlock({
       })
       .filter((x): x is { text: string; x: number; y: number; fontSize: number } => Boolean(x));
   }, [layoutJson]);
+  const hallMapFieldMasks = useMemo(() => parseHallMapFieldMasks(layoutJson), [layoutJson]);
+  const maskFieldBackgroundDots = useMemo(
+    () => parseMaskFieldBackgroundDots(layoutJson),
+    [layoutJson],
+  );
   const seatSelectionDisabled = useMemo(() => parseSeatSelectionDisabled(layoutJson), [layoutJson]);
   const hasLiveOffers = offers.length > 0;
   const grayHallWhenNoOffers = useMemo(
@@ -637,6 +662,38 @@ export function TicketHallInteractiveBlock({
     [layoutJson],
   );
   const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
+  const fieldDotExcludePctBoxes = useMemo((): PctBox[] => {
+    if (!maskFieldBackgroundDots || hallMapFieldMasks.length < 1) return [];
+    const vw = Math.max(1, svgViewBox.width);
+    const vh = Math.max(1, svgViewBox.height);
+    const boxes: PctBox[] = [];
+    for (const mask of hallMapFieldMasks) {
+      if (
+        Number.isFinite(mask.x) &&
+        Number.isFinite(mask.y) &&
+        Number.isFinite(mask.w) &&
+        Number.isFinite(mask.h)
+      ) {
+        boxes.push({
+          x0: ((mask.x as number) / vw) * 100,
+          y0: ((mask.y as number) / vh) * 100,
+          x1: (((mask.x as number) + (mask.w as number)) / vw) * 100,
+          y1: (((mask.y as number) + (mask.h as number)) / vh) * 100,
+        });
+        continue;
+      }
+      if (!mask.path) continue;
+      const bb = pathBBox(mask.path);
+      if (!bb) continue;
+      boxes.push({
+        x0: (bb.minX / vw) * 100,
+        y0: (bb.minY / vh) * 100,
+        x1: (bb.maxX / vw) * 100,
+        y1: (bb.maxY / vh) * 100,
+      });
+    }
+    return boxes;
+  }, [maskFieldBackgroundDots, hallMapFieldMasks, svgViewBox.width, svgViewBox.height]);
   const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
   const sellableSeatsFromLayout = useMemo(
     () => parseLayoutSeatPositions(
@@ -682,10 +739,14 @@ export function TicketHallInteractiveBlock({
     hallBackgroundRasterUrl
     && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
   );
-  const hallBackgroundDotsUrl = useMemo(
-    () => hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl),
-    [hallBackgroundRasterUrl],
+  const disableHallBackgroundDots = useMemo(
+    () => parseDisableHallBackgroundDots(layoutJson),
+    [layoutJson],
   );
+  const hallBackgroundDotsUrl = useMemo(() => {
+    if (disableHallBackgroundDots) return null;
+    return hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl);
+  }, [disableHallBackgroundDots, hallBackgroundRasterUrl]);
   const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),
@@ -1830,6 +1891,7 @@ export function TicketHallInteractiveBlock({
           height,
           svgViewBox.width,
           backgroundSeatCoordinates.length >= 8000,
+          fieldDotExcludePctBoxes,
         );
       } else if (useHallBackgroundRaster && mapZoomedNow && bowlDots) {
         drawHallBackgroundArcs(
@@ -1840,6 +1902,7 @@ export function TicketHallInteractiveBlock({
           height,
           svgViewBox.width,
           true,
+          fieldDotExcludePctBoxes,
         );
       }
 
@@ -1857,6 +1920,7 @@ export function TicketHallInteractiveBlock({
           height,
           svgViewBox.width,
           bg.length >= 8000,
+          fieldDotExcludePctBoxes,
         );
       }
 
@@ -1896,6 +1960,7 @@ export function TicketHallInteractiveBlock({
     bowlDotsVersion,
     canvasImageVersion,
     colorForSeat,
+    fieldDotExcludePctBoxes,
     fitZoom,
     getLayerScreenBox,
     hallRasterVersion,
@@ -1992,6 +2057,28 @@ export function TicketHallInteractiveBlock({
                 preserveAspectRatio="xMidYMid meet"
                 aria-label="Секторы стадиона"
               >
+                {hallMapFieldMasks.map((mask) => {
+                  if (mask.path) return null;
+                  if (
+                    !Number.isFinite(mask.x) ||
+                    !Number.isFinite(mask.y) ||
+                    !Number.isFinite(mask.w) ||
+                    !Number.isFinite(mask.h)
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <rect
+                      key={`field-mask-${mask.id}`}
+                      x={mask.x}
+                      y={mask.y}
+                      width={mask.w}
+                      height={mask.h}
+                      className={`${styles.sectorPath} ${styles.sectorPathFieldMask}`}
+                      aria-hidden="true"
+                    />
+                  );
+                })}
                 {sectorSummaries.map((sector) => {
                   const available =
                     sector.seatCount > 0 ||
@@ -1999,6 +2086,7 @@ export function TicketHallInteractiveBlock({
                     (sector.meta.minPrice != null && Number.isFinite(Number(sector.meta.minPrice)));
                   const active = selectedSector === normalizeSectorLabel(sector.meta.label);
                   const priceForColor = sector.minPrice != null ? String(sector.minPrice) : '0';
+                  const fieldZone = isLuzhnikiConcertFieldZoneLabel(sector.meta.label);
                   return (
                     <path
                       key={sector.meta.id}
@@ -2008,7 +2096,7 @@ export function TicketHallInteractiveBlock({
                         available ? styles.sectorPathAvailable : styles.sectorPathUnavailable
                       } ${
                         active ? styles.sectorPathActive : ''
-                      }`}
+                      } ${fieldZone ? styles.sectorPathFieldMask : ''}`}
                       style={
                         {
                           '--sector-accent': available ? colorForSeat(priceForColor) : '#9ca3af',

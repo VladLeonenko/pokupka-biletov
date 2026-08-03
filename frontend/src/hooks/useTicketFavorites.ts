@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 
 const KEY = 'tickets:favorites-v1';
+const EMPTY: TicketFavoriteItem[] = [];
 
 export type TicketFavoriteItem = {
   id: string;
@@ -13,36 +14,50 @@ export type TicketFavoriteItem = {
   savedAt: number;
 };
 
-function readFavorites(): TicketFavoriteItem[] {
-  if (typeof window === 'undefined') return [];
+function parseFavorites(raw: string | null): TicketFavoriteItem[] {
+  if (!raw) return EMPTY;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
+    if (!Array.isArray(parsed)) return EMPTY;
+    const items = parsed.filter(
       (x): x is TicketFavoriteItem =>
         Boolean(x && typeof x === 'object' && typeof (x as TicketFavoriteItem).id === 'string'),
     );
+    return items.length === 0 ? EMPTY : items;
   } catch {
-    return [];
+    return EMPTY;
   }
 }
 
+function readFavorites(): TicketFavoriteItem[] {
+  if (typeof window === 'undefined') return EMPTY;
+  return parseFavorites(localStorage.getItem(KEY));
+}
+
+/** Стабильная ссылка для useSyncExternalStore — иначе Maximum update depth. */
+let cached: TicketFavoriteItem[] = typeof window !== 'undefined' ? readFavorites() : EMPTY;
+let cachedRaw: string | null =
+  typeof window !== 'undefined' ? localStorage.getItem(KEY) : null;
+
 function writeFavorites(items: TicketFavoriteItem[]) {
+  const next = items.slice(0, 80);
+  const json = JSON.stringify(next);
   try {
-    localStorage.setItem(KEY, JSON.stringify(items.slice(0, 80)));
+    localStorage.setItem(KEY, json);
   } catch {
     /* quota */
   }
+  cached = next.length === 0 ? EMPTY : next;
+  cachedRaw = json;
   window.dispatchEvent(new Event('tickets-favorites-changed'));
 }
 
-let cached = typeof window !== 'undefined' ? readFavorites() : [];
-
 function subscribe(cb: () => void) {
   const onStorage = (e: StorageEvent) => {
-    if (e.key === KEY || e.key === null) cb();
+    if (e.key === KEY || e.key === null) {
+      cachedRaw = null;
+      cb();
+    }
   };
   const onCustom = () => cb();
   window.addEventListener('storage', onStorage);
@@ -54,12 +69,16 @@ function subscribe(cb: () => void) {
 }
 
 function getSnapshot(): TicketFavoriteItem[] {
-  cached = readFavorites();
+  if (typeof window === 'undefined') return EMPTY;
+  const raw = localStorage.getItem(KEY);
+  if (raw === cachedRaw) return cached;
+  cachedRaw = raw;
+  cached = parseFavorites(raw);
   return cached;
 }
 
 function getServerSnapshot(): TicketFavoriteItem[] {
-  return [];
+  return EMPTY;
 }
 
 export function favoriteIdFromEvent(event: NormalizedBiletEvent): string {
@@ -82,12 +101,6 @@ export function eventToFavorite(event: NormalizedBiletEvent): TicketFavoriteItem
 
 export function useTicketFavorites() {
   const items = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const [, bump] = useState(0);
-
-  useEffect(() => {
-    cached = readFavorites();
-    bump((n) => n + 1);
-  }, []);
 
   const isFavorite = useCallback(
     (id: string) => items.some((x) => x.id === id),

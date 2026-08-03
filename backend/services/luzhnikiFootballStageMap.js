@@ -27,8 +27,8 @@ import { prefersSectorRadialCorner } from '../utils/luzhnikiSectorPolarGrid.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
 import { getLuzhnikiLabeledSeatIndex } from '../utils/luzhnikiSeatIndexCache.js';
 import { isLuzhnikiConcertFreeZoneSector } from '../utils/luzhnikiConcertFreeZoneSeats.js';
+import { filterLuzhnikiConcertSectors } from '../utils/luzhnikiConcertSectorFilter.js';
 import { LUZHNIKI_CONCERT_STAGE_MAP_KEY } from '../utils/luzhnikiConcertRepertoires.js';
-import { footballPctToConcertStageBottom } from '../utils/luzhnikiConcertToFootballTransform.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -121,6 +121,11 @@ export function slimLuzhnikiStageMapForClient(row) {
     ...slimLayout
   } = layout;
 
+  const rasterUrl =
+    typeof slimLayout.hallBackgroundRasterUrl === 'string' && slimLayout.hallBackgroundRasterUrl.trim()
+      ? slimLayout.hallBackgroundRasterUrl.trim()
+      : null;
+
   return {
     ...row,
     layout_json: {
@@ -128,10 +133,7 @@ export function slimLuzhnikiStageMapForClient(row) {
       ...(manualSeats.length > 0 ? { seats: manualSeats } : null),
       ...(manualBackgroundSeats.length > 0 ? { backgroundSeats: manualBackgroundSeats } : null),
       omitClientSeatCoordinateCloud: true,
-      hallBackgroundRasterUrl:
-        typeof slimLayout.hallBackgroundRasterUrl === 'string' && slimLayout.hallBackgroundRasterUrl.trim()
-          ? slimLayout.hallBackgroundRasterUrl.trim()
-          : '/hall-maps/luzhniki-football-gray-bowl.png',
+      hallBackgroundRasterUrl: rasterUrl || '/hall-maps/luzhniki-football-gray-bowl.png',
       stadiumMapKey:
         typeof slimLayout.stadiumMapKey === 'string' && slimLayout.stadiumMapKey.trim()
           ? slimLayout.stadiumMapKey.trim()
@@ -315,27 +317,37 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
       allowRowZip: false,
       updatedAt: String(row.updated_at || ''),
     });
-    const rotatePct = layoutForGeodesy.concertSeatPctFromFootball === true;
     const seats = (layoutSellable?.seats || [])
       .filter((seat) => !isLuzhnikiConcertFreeZoneSector(seat.sector))
-      .map((seat) => {
-        const pct = rotatePct
-          ? footballPctToConcertStageBottom(seat.xPct, seat.yPct)
-          : { xPct: seat.xPct, yPct: seat.yPct };
-        return {
-          ...seat,
-          xPct: pct.xPct,
-          yPct: pct.yPct,
-          geodesySource: seat.geodesySource || 'layoutStrictFast',
-        };
-      });
+      .map((seat) => ({
+        ...seat,
+        geodesySource: seat.geodesySource || 'layoutStrictFast',
+      }));
+    const rawSectorMode =
+      base.sectorMode && typeof base.sectorMode === 'object' ? base.sectorMode : { enabled: false, sectors: [] };
+    const slimSectors = filterLuzhnikiConcertSectors(rawSectorMode.sectors || [], offers);
     return {
       ...row,
       layout_json: {
         ...base,
         allSeatCoordinates: undefined,
+        // Трибуны: PNG + dots.bin. Поле/сцена без точек — FE маскирует zone covers.
+        hallBackgroundRasterUrl:
+          typeof base.hallBackgroundRasterUrl === 'string' && base.hallBackgroundRasterUrl.trim()
+            ? base.hallBackgroundRasterUrl.trim()
+            : '/hall-maps/luzhniki-football-gray-bowl.png',
+        omitClientSeatCoordinateCloud: true,
+        disableHallBackgroundDots: false,
+        maskFieldBackgroundDots: true,
         concertZoneOnlySectors: ['танцпол', 'фан-зона', 'fan-zone'],
         hideSeatList: true,
+        concertSeatPctFromFootball: false,
+        concertMapOrientation: undefined,
+        sectorMode: {
+          ...rawSectorMode,
+          enabled: slimSectors.length > 0,
+          sectors: slimSectors,
+        },
         sellableSeats: seats,
         sellableSeatsFromLiveOffers: true,
         sellableGeodesyMode: 'concertLayoutStrict',
@@ -344,6 +356,7 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
           totalSellable: layoutSellable?.totalSellable ?? 0,
           strictMatched: layoutSellable?.strictMatched ?? layoutSellable?.matched ?? 0,
           freeZoneMatched: 0,
+          sectorsKept: slimSectors.length,
           partialManualOnly: false,
           unmatchedSamples: layoutSellable?.unmatchedSamples ?? [],
         },

@@ -19,11 +19,16 @@ test('fan id required for superfinal repertoire', () => {
   assert.equal(isFanIdRequiredForRepertoire('other-id'), false);
 });
 
-test('ticket slug alias for superfinal', () => {
+test('ticket slug alias for superfinal → supercup NN', () => {
   assert.equal(
     repertoireIdForTicketSlug('superfinal-fonbet-kubka-rossii-spartak-krasnodar'),
-    '6a05d17b46a4d000309ecf4e',
+    '6a46656d46a4d000309ed0a2',
   );
+});
+
+test('ticket slug alias for basta-guf concert', () => {
+  assert.equal(repertoireIdForTicketSlug('basta-guf'), '69ac1c5246a4d000309ecd5c');
+  assert.equal(repertoireIdForTicketSlug('basta-i-guf'), '69ac1c5246a4d000309ecd5c');
 });
 
 test('blocked test slugs', () => {
