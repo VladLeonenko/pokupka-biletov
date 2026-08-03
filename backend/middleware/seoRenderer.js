@@ -31,9 +31,13 @@ import pool from '../db.js';
 import { computeOffersSnapshot } from '../services/ticketPriceAlerts.js';
 import {
   resolveTicketSeo,
-  lookupStaticLandingSeo,
   composeAutoTicketDescription,
 } from '../lib/seo-ticket-meta-catalog.js';
+import {
+  resolveSitePageSeo,
+  resolveEventsFilterSeo,
+  lookupStaticLandingSeo,
+} from '../lib/seo-site-meta-catalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,83 +185,12 @@ function toAbsUrl(base, maybeUrl) {
   return `${base}${s.startsWith('/') ? '' : '/'}${s}`;
 }
 
-/**
- * Короткий справочник статических SEO-страниц с уникальными title/description.
- * Держим тут, чтобы не размазывать мета по фронту и не зависеть от CSR.
- */
-const STATIC_SEO_PAGES = {
-  '/': {
-    title: 'Билеты на концерты, театр и спорт — афиша онлайн',
-    description: 'Афиша мероприятий: выбор мест на схеме зала, оплата онлайн и электронный билет. Концерты, театр, спорт.',
-  },
-  '/contacts': {
-    title: 'Контакты — поддержка и обратная связь',
-    description: 'Как связаться с поддержкой, задать вопрос по заказу билетов и получить помощь.',
-  },
-  '/faq': {
-    title: 'FAQ — покупка и возврат билетов',
-    description: 'Ответы на частые вопросы о выборе мест, оплате, электронных билетах и возврате.',
-  },
-  '/returns': {
-    title: 'Возврат и обмен билетов',
-    description: 'Условия возврата и обмена билетов, порядок обращения и сроки обработки заявок.',
-  },
-  '/privacy': {
-    title: 'Политика конфиденциальности',
-    description: 'Как сервис обрабатывает и защищает персональные данные пользователей.',
-  },
-  '/offer': {
-    title: 'Публичная оферта',
-    description: 'Официальные условия использования сервиса и покупки билетов.',
-  },
-  '/cookies': {
-    title: 'Политика cookies',
-    description: 'Информация об использовании cookies и управлении согласием в сервисе.',
-  },
-  '/requisites': {
-    title: 'Реквизиты компании',
-    description: 'Юридические и платежные реквизиты сервиса Билет Всем.',
-  },
-  '/case/bilet-vsem': {
-    title: 'Кейс Билет Всем: билетная платформа со схемами стадионов | PrimeCoder',
-    description:
-      'Кейс разработки билетной платформы Билет Всем: схемы залов и стадионов, витрина, админка и API. Реализация студии PrimeCoder — React, Node.js, PostgreSQL. https://prime-coder.ru',
-  },
-};
-
 function normalizeSlugText(slug) {
   return decodeURIComponent(String(slug || ''))
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
-
-function titleCaseRuLike(text) {
-  const raw = String(text || '').trim();
-  if (!raw) return '';
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-const CITY_LABELS = {
-  moskva: 'Москва',
-  'sankt-peterburg': 'Санкт-Петербург',
-  kazan: 'Казань',
-  ekaterinburg: 'Екатеринбург',
-  novosibirsk: 'Новосибирск',
-};
-const GENRE_LABELS = {
-  teatr: 'Театр',
-  koncert: 'Концерт',
-  komediya: 'Комедия',
-  detyam: 'Детям',
-  sport: 'Спорт',
-};
-const VENUE_LABELS = {
-  'teatr-na-taganke': 'Театр на Таганке',
-  'mht-chehova': 'МХТ Чехова',
-  'krokus-siti-holl': 'Крокус Сити Холл',
-  'vtb-arena': 'ВТБ Арена',
-};
 
 function faqPageJsonLd(faqItems) {
   if (!Array.isArray(faqItems) || !faqItems.length) return '';
@@ -503,15 +436,21 @@ async function generateSeoTags(url) {
     }
 
     // SEO-лендинги по городам / жанрам / площадкам.
-    else if (url.startsWith('/events/city/')) {
-      const rawSlug = url.replace('/events/city/', '').replace(/\/$/, '').split('?')[0];
+    else if (url.startsWith('/events/city/') || url.startsWith('/events/genre/') || url.startsWith('/events/venue/')) {
+      const kind = url.startsWith('/events/city/')
+        ? 'city'
+        : url.startsWith('/events/genre/')
+          ? 'genre'
+          : 'venue';
+      const prefix = `/events/${kind}/`;
+      const rawSlug = url.replace(prefix, '').replace(/\/$/, '').split('?')[0];
       const slug = normalizeSlugText(rawSlug);
-      if (slug) {
-        const cityLabel = CITY_LABELS[rawSlug] || titleCaseRuLike(slug);
-        const path = `/events/city/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
+      const filterSeo = resolveEventsFilterSeo(kind, rawSlug);
+      if (slug && filterSeo) {
+        const path = `${prefix}${encodeURIComponent(slug).replace(/%20/g, '-')}`;
         const canonical = `${base}${path}`;
-        const title = `Афиша ${cityLabel} — билеты на мероприятия`;
-        const description = `Смотрите афишу событий в ${cityLabel}: концерты, театр и шоу. Покупка билетов онлайн.`;
+        const { title, description, h1 } = filterSeo;
+        const crumbName = h1 || title;
         out.metaTags = `${metaBlockForPage({
           base,
           brand,
@@ -523,89 +462,19 @@ async function generateSeoTags(url) {
     ${breadcrumbJsonLd(base, [
       { name: 'Главная', path: '/' },
       { name: 'Афиша', path: '/events' },
-      { name: cityLabel, path },
+      { name: crumbName, path },
     ])}
     ${faqPageJsonLd([
       {
-        q: `Какие мероприятия доступны в ${cityLabel}?`,
-        a: 'В афише представлены концерты, спектакли, шоу и другие события с онлайн-покупкой билетов.',
+        q: 'Как купить билет на событие из подборки?',
+        a: 'Откройте карточку мероприятия, выберите места на схеме зала и оплатите онлайн — электронный билет придёт после оплаты.',
       },
       {
-        q: 'Как выбрать лучшие места?',
-        a: 'Откройте страницу события и выберите места на схеме зала с учетом цены и обзора.',
+        q: 'Где смотреть дату, площадку и цены?',
+        a: 'Дата, площадка и цены указаны в карточке события; места выбираются на интерактивной схеме зала.',
       },
     ])}`;
-        out.ssr = { kind: 'landing', title, description, path, h1: `Афиша — ${cityLabel}` };
-      }
-    }
-    else if (url.startsWith('/events/genre/')) {
-      const rawSlug = url.replace('/events/genre/', '').replace(/\/$/, '').split('?')[0];
-      const slug = normalizeSlugText(rawSlug);
-      if (slug) {
-        const genreLabel = GENRE_LABELS[rawSlug] || titleCaseRuLike(slug);
-        const path = `/events/genre/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
-        const canonical = `${base}${path}`;
-        const title = `${genreLabel} — афиша и билеты`;
-        const description = `Подборка мероприятий в жанре «${genreLabel}»: актуальные события и покупка билетов онлайн.`;
-        out.metaTags = `${metaBlockForPage({
-          base,
-          brand,
-          canonical,
-          title,
-          description,
-          ogType: 'website',
-        })}
-    ${breadcrumbJsonLd(base, [
-      { name: 'Главная', path: '/' },
-      { name: 'Афиша', path: '/events' },
-      { name: genreLabel, path },
-    ])}
-    ${faqPageJsonLd([
-      {
-        q: `Как найти лучшие события жанра «${genreLabel}»?`,
-        a: 'Используйте эту подборку и фильтры по площадке, дате и цене, чтобы быстро выбрать подходящее мероприятие.',
-      },
-      {
-        q: 'Можно ли купить билет сразу онлайн?',
-        a: 'Да, оформление и оплата билетов доступны онлайн на карточке выбранного события.',
-      },
-    ])}`;
-        out.ssr = { kind: 'landing', title, description, path, h1: genreLabel };
-      }
-    }
-    else if (url.startsWith('/events/venue/')) {
-      const rawSlug = url.replace('/events/venue/', '').replace(/\/$/, '').split('?')[0];
-      const slug = normalizeSlugText(rawSlug);
-      if (slug) {
-        const venueLabel = VENUE_LABELS[rawSlug] || titleCaseRuLike(slug);
-        const path = `/events/venue/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
-        const canonical = `${base}${path}`;
-        const title = `${venueLabel} — афиша площадки и билеты`;
-        const description = `События на площадке «${venueLabel}»: расписание, выбор мест и покупка билетов онлайн.`;
-        out.metaTags = `${metaBlockForPage({
-          base,
-          brand,
-          canonical,
-          title,
-          description,
-          ogType: 'website',
-        })}
-    ${breadcrumbJsonLd(base, [
-      { name: 'Главная', path: '/' },
-      { name: 'Афиша', path: '/events' },
-      { name: venueLabel, path },
-    ])}
-    ${faqPageJsonLd([
-      {
-        q: `Как посмотреть расписание на площадке «${venueLabel}»?`,
-        a: 'В подборке показаны актуальные события на площадке, доступные для онлайн-бронирования и покупки.',
-      },
-      {
-        q: 'Где выбрать места в зале?',
-        a: 'После перехода в карточку события откройте схему зала и выберите подходящие места по цене и обзору.',
-      },
-    ])}`;
-        out.ssr = { kind: 'landing', title, description, path, h1: venueLabel };
+        out.ssr = { kind: 'landing', title, description, path, h1 };
       }
     }
 
@@ -768,25 +637,27 @@ async function generateSeoTags(url) {
     // Остальные приоритетные статические страницы + CMS.
     else {
       const normalized = url.replace(/\/+$/, '') || '/';
-      const staticSeo = STATIC_SEO_PAGES[normalized];
+      const staticSeo = resolveSitePageSeo(normalized) || lookupStaticLandingSeo(normalized);
       if (staticSeo) {
         const canonical = normalized === '/' ? `${base}/` : `${base}${normalized}`;
-        const events = normalized === '/' ? await fetchPublishedEventsForSsr(16) : [];
-        const itemListJson =
-          normalized === '/'
-            ? jsonLdScript(
-                buildEventItemListSchema(base, events, {
-                  name: staticSeo.title,
-                  url: canonical,
-                }),
-              )
-            : '';
+        const events =
+          normalized === '/' || normalized === '/events' || normalized === '/afisha'
+            ? await fetchPublishedEventsForSsr(16)
+            : [];
+        const itemListJson = events.length
+          ? jsonLdScript(
+              buildEventItemListSchema(base, events, {
+                name: staticSeo.title,
+                url: canonical,
+              }),
+            )
+          : '';
         const breadcrumb =
           normalized === '/'
             ? breadcrumbJsonLd(base, [{ name: 'Главная', path: '/' }])
             : breadcrumbJsonLd(base, [
                 { name: 'Главная', path: '/' },
-                { name: staticSeo.title, path: normalized },
+                { name: staticSeo.h1 || staticSeo.title, path: normalized },
               ]);
         out.metaTags = metaBlockForPage({
           base,
@@ -800,47 +671,42 @@ async function generateSeoTags(url) {
         if (normalized === '/case/bilet-vsem') {
           out.metaTags += `\n    ${jsonLdScript({
             '@context': 'https://schema.org',
-            '@type': 'CaseStudy',
-            name: 'Кейс: билетная платформа Билет Всем',
+            '@type': 'Article',
+            name: staticSeo.h1 || staticSeo.title,
+            headline: staticSeo.h1 || staticSeo.title,
             description: staticSeo.description,
             url: canonical,
-            author: {
-              '@type': 'Organization',
-              name: 'PrimeCoder',
-              url: 'https://prime-coder.ru',
-            },
-            creator: {
-              '@type': 'Organization',
-              name: 'PrimeCoder',
-              url: 'https://prime-coder.ru',
-            },
-            about: {
-              '@type': 'SoftwareApplication',
-              name: brand,
-              url: base,
-              applicationCategory: 'BusinessApplication',
-              operatingSystem: 'Web',
-            },
+            author: { '@type': 'Organization', name: brand, url: base },
+            publisher: { '@type': 'Organization', name: brand, url: base },
             mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
           })}`;
         }
         out.ssr =
           normalized === '/'
-            ? { kind: 'home', title: staticSeo.title, description: staticSeo.description, events }
+            ? {
+                kind: 'home',
+                title: staticSeo.title,
+                description: staticSeo.description,
+                events,
+                h1: staticSeo.h1,
+              }
             : {
                 kind: 'landing',
                 title: staticSeo.title,
                 description: staticSeo.description,
                 path: normalized,
-                h1: staticSeo.title,
+                h1: staticSeo.h1 || staticSeo.title,
+                events,
               };
       } else if (!normalized.startsWith('/ticket') && !normalized.startsWith('/events') && !normalized.startsWith('/admin')) {
         const cms = await fetchCmsPageForSsr(normalized);
         if (cms) {
           const slugPath = cms.slug.startsWith('/') ? cms.slug : `/${cms.slug}`;
           const canonical = `${base}${slugPath === '/' ? '/' : slugPath}`;
-          const title = cms.seo_title || cms.title || 'Страница';
-          const description = (cms.seo_description || '').slice(0, 160);
+          const catalogHit = resolveSitePageSeo(slugPath);
+          const title = catalogHit?.title || cms.seo_title || cms.title || 'Страница';
+          const description = (catalogHit?.description || cms.seo_description || '').slice(0, 160);
+          const h1 = catalogHit?.h1 || cms.title || title;
           out.metaTags = `${metaBlockForPage({
             base,
             brand,
@@ -851,11 +717,11 @@ async function generateSeoTags(url) {
           })}
     ${breadcrumbJsonLd(base, [
       { name: 'Главная', path: '/' },
-      { name: cms.title || title, path: slugPath },
+      { name: h1, path: slugPath },
     ])}`;
           out.ssr = {
             kind: 'cms',
-            title: cms.title || title,
+            title: h1,
             description,
             bodyHtml: cms.body || '',
             path: slugPath,
@@ -885,24 +751,6 @@ async function generateSsrContent(url, seoCtx) {
   if (ssr.kind === 'landing') return buildStaticLandingSsrHtml(ssr);
   if (ssr.kind === 'cms') return buildCmsPageSsrHtml(ssr);
   return '';
-}
-
-function formatEventDatePlain(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  try {
-    return d.toLocaleString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Europe/Moscow',
-    });
-  } catch {
-    return String(iso);
-  }
 }
 
 function clipSeoTitle(text, max = 70) {

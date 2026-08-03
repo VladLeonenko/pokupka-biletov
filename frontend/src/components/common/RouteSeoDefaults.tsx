@@ -1,6 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { defaultOgImageUrl, getSiteBaseUrl, SITE_BRAND } from '@/config/site';
+import {
+  resolveSitePageSeo,
+  resolveEventsFilterSeo,
+} from '@/seo/siteSeoCatalog';
 
 const NOINDEX_PATHS = [
   '/admin',
@@ -16,79 +20,6 @@ const NOINDEX_PATHS = [
   '/404',
 ];
 
-const PAGE_META: Record<string, { title: string; description: string }> = {
-  '/': {
-    title: 'Билеты на концерты, театр и шоу - афиша и лучшие места',
-    description:
-      'Покупайте билеты онлайн за пару минут: актуальная афиша, удобный выбор мест и быстрая оплата.',
-  },
-  '/events': {
-    title: 'Афиша мероприятий - концерты, театр, шоу и спорт',
-    description:
-      'Найдите событие по дате, площадке или жанру и оформите билет онлайн без лишних шагов.',
-  },
-  '/events/map': {
-    title: 'Карта мероприятий на этой неделе',
-    description:
-      'События рядом с вами на карте: театр, концерты и спорт в ближайшие 7 дней.',
-  },
-  '/search': {
-    title: 'Поиск билетов на мероприятия',
-    description:
-      'Быстрый поиск билетов на концерты, спектакли и шоу: выбирайте событие и бронируйте лучшие места.',
-  },
-  '/afisha': {
-    title: 'Афиша мероприятий - концерты, театр, шоу и спорт',
-    description:
-      'Полная афиша событий с удобной фильтрацией и покупкой билетов онлайн без лишних шагов.',
-  },
-  '/contacts': {
-    title: 'Контакты - поддержка Билет Всем',
-    description:
-      'Свяжитесь с нами по вопросам заказа, оплаты и возврата билетов. Поможем быстро и по делу.',
-  },
-  '/faq': {
-    title: 'FAQ - как купить, оплатить и вернуть билет',
-    description:
-      'Понятные ответы на частые вопросы: оформление заказа, оплата, доставка электронного билета и возврат.',
-  },
-  '/returns': {
-    title: 'Возврат билетов - условия и порядок',
-    description:
-      'Правила возврата и обмена билетов: сроки, условия и пошаговый порядок оформления заявки.',
-  },
-  '/offer': {
-    title: 'Публичная оферта - Билет Всем',
-    description:
-      'Официальные условия сервиса Билет Всем: порядок покупки билетов, оплаты и предоставления услуг.',
-  },
-  '/privacy': {
-    title: 'Политика конфиденциальности',
-    description:
-      'Как мы обрабатываем и защищаем персональные данные пользователей сервиса Билет Всем.',
-  },
-  '/politic': {
-    title: 'Политика конфиденциальности',
-    description:
-      'Как мы обрабатываем и защищаем персональные данные пользователей сервиса Билет Всем.',
-  },
-  '/cookies': {
-    title: 'Политика cookies',
-    description:
-      'Информация об использовании cookie-файлов и настройках согласия на сайте Билет Всем.',
-  },
-  '/requisites': {
-    title: 'Реквизиты компании - Билет Всем',
-    description:
-      'Официальные реквизиты и юридическая информация сервиса Билет Всем.',
-  },
-  '/charity': {
-    title: 'Благотворительность - Билет Всем',
-    description:
-      'Социальные и благотворительные инициативы сервиса Билет Всем.',
-  },
-};
-
 function normalizePath(pathname: string): string {
   if (!pathname) return '/';
   const normalized = pathname.replace(/\/+$/, '');
@@ -99,42 +30,45 @@ function escapeJson(value: string): string {
   return value.replace(/</g, '\\u003c');
 }
 
+function resolveRouteMeta(path: string): { title: string; description: string } {
+  const staticHit = resolveSitePageSeo(path);
+  if (staticHit) {
+    return { title: staticHit.title, description: staticHit.description };
+  }
+
+  const filterMatch = path.match(/^\/events\/(city|genre|venue)\/([^/]+)$/);
+  if (filterMatch) {
+    const kind = filterMatch[1] as 'city' | 'genre' | 'venue';
+    const filterSeo = resolveEventsFilterSeo(kind, decodeURIComponent(filterMatch[2]));
+    if (filterSeo) {
+      return { title: filterSeo.title, description: filterSeo.description };
+    }
+  }
+
+  if (path.startsWith('/ticket/')) {
+    return {
+      title: 'Купить билет онлайн — схема зала и оплата',
+      description:
+        'Оформите билет онлайн: выберите места на схеме зала, оплатите и получите электронный билет.',
+    };
+  }
+
+  return {
+    title: `${SITE_BRAND} — билеты на мероприятия онлайн`,
+    description:
+      'Покупка билетов на концерты, театр и спорт онлайн: схема зала, выбор мест и электронный билет.',
+  };
+}
+
 export function RouteSeoDefaults() {
   const location = useLocation();
 
   const meta = useMemo(() => {
     const path = normalizePath(location.pathname);
-    const custom = PAGE_META[path];
-    const isEventsSubroute =
-      path.startsWith('/events/city/') ||
-      path.startsWith('/events/genre/') ||
-      path.startsWith('/events/venue/');
-    const isTicketRoute = path.startsWith('/ticket/');
-    const isPublicBlogPage = path === '/blog' || path.startsWith('/blog/');
-    const isPublicAiLanding = path === '/ai-team' || path === '/ai-team-v2';
-
-    const title = custom?.title
-      ?? (isEventsSubroute
-        ? 'Афиша по фильтру - актуальные билеты на события'
-        : isPublicBlogPage
-          ? 'Блог Билет Всем - новости, гиды и советы по мероприятиям'
-          : isPublicAiLanding
-            ? 'AI Team - интеллектуальные инструменты для роста бизнеса'
-        : isTicketRoute
-          ? 'Купить билет онлайн - выбор мест и безопасная оплата'
-          : `${SITE_BRAND} - билеты на мероприятия онлайн`);
-    const description =
-      custom?.description ??
-      (isEventsSubroute
-        ? 'Подборка мероприятий по вашему фильтру: удобный выбор события, мест и быстрая покупка билетов онлайн.'
-        : isPublicBlogPage
-          ? 'Полезные статьи, кейсы и практические рекомендации для организаторов и зрителей.'
-          : isPublicAiLanding
-            ? 'Платформа AI-инструментов для автоматизации процессов, аналитики и роста конверсии.'
-        : isTicketRoute
-          ? 'Оформите билет онлайн: выберите удобные места, оплатите за пару минут и получите электронный билет.'
-          : 'Покупка билетов на концерты, театр и мероприятия онлайн с удобным выбором мест и моментальным оформлением.');
-    const noindex = NOINDEX_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    const { title, description } = resolveRouteMeta(path);
+    const noindex = NOINDEX_PATHS.some(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+    );
     return { path, title, description, noindex };
   }, [location.pathname]);
 
