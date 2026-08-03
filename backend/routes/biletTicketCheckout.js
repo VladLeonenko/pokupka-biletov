@@ -1,13 +1,12 @@
 import pool from '../db.js';
 import { GetbiletValidationError, GetbiletUpstreamError, getGetbiletConfig } from '../services/getbiletClient.js';
-import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import {
   cancelTicketSeatHolds,
   normalizeOfferSelections,
-  prepareTicketReservations,
-  priceTicketSelections,
+  prepareLocalSeatHold,
   buildSeatHoldResponse,
 } from '../services/ticketSeatReservation.js';
+import { fulfillPartnerBookingAfterPayment } from '../services/fulfillPartnerBooking.js';
 import { validateGetbiletPromoForAmount, incrementGetbiletPromoUses } from '../services/getbiletPromoPublic.js';
 import { isTbankEacqConfigured, tbankEacqInit, verifyTbankNotificationToken } from '../services/payment/tbankEacq.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
@@ -45,12 +44,6 @@ function requireNonEmptyString(v, name) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function parseHeldMakeData(raw) {
-  if (raw == null) return null;
-  if (typeof raw === 'object') return raw;
-  return null;
-}
-
 /**
  * @param {import('express').Router} router
  * @param {{ optionalAuth: import('express').RequestHandler }} deps
@@ -59,6 +52,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
   registerTicketPriceAlertRoutes(router);
   registerTicketGiftRoutes(router);
 
+  /** Локальный soft-hold: без MakeOrder у GetBilet. */
   router.post('/reserve', optionalAuth, async (req, res) => {
     try {
       const { protocol } = getGetbiletConfig();
@@ -68,10 +62,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       const repertoireId = requireNonEmptyString(req.body?.repertoireId, 'repertoireId');
       await assertRepertoireStorefrontAccess(repertoireId);
       const offerSelections = normalizeOfferSelections(req.body);
-      const reservation = await prepareTicketReservations({ offerSelections, repertoireId });
-      if (!reservation.isDemo) {
-        invalidateOffersCache(repertoireId).catch(() => {});
-      }
+      const reservation = await prepareLocalSeatHold({ offerSelections, repertoireId });
       return res.json(
         buildSeatHoldResponse({ reservation, offerSelections, repertoireId }),
       );
@@ -94,6 +85,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
     try {
       const raw = req.body?.getbiletOrderIds ?? req.body?.orderIds;
       const ids = Array.isArray(raw) ? raw.map(String).filter(Boolean) : [];
+      // На случай старых soft-hold с реальными GetBilet order id
       await cancelTicketSeatHolds(ids);
       return res.json({ ok: true, cancelled: ids.length });
     } catch (err) {
@@ -123,7 +115,6 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
   });
 
   router.post('/checkout', optionalAuth, async (req, res) => {
-    let getbiletOrderIdsToCancel = [];
     let insertedOrderId = null;
     try {
       if (!isTbankEacqConfigured()) {
@@ -184,29 +175,9 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         return res.status(400).json({ error: 'session_required' });
       }
 
-      const heldIds = Array.isArray(req.body?.heldGetbiletOrderIds)
-        ? req.body.heldGetbiletOrderIds.map(String).filter(Boolean)
-        : [];
-      const heldMakeData = parseHeldMakeData(req.body?.heldMakeData);
-
-      let reservation;
-      if (heldMakeData != null) {
-        const priced = await priceTicketSelections({ offerSelections, repertoireId });
-        const useExistingHold = heldIds.length > 0 || priced.isDemo;
-        if (useExistingHold) {
-          reservation = {
-            baseRub: priced.baseRub,
-            makeData: heldMakeData,
-            getbiletOrderIds: heldIds,
-            isDemo: priced.isDemo,
-          };
-        } else {
-          reservation = await prepareTicketReservations({ offerSelections, repertoireId });
-        }
-      } else {
-        reservation = await prepareTicketReservations({ offerSelections, repertoireId });
-      }
-      const baseRub = reservation.baseRub;
+      // Только локальная цена/проверка мест — MakeOrder у GetBilet после оплаты
+      const priced = await prepareLocalSeatHold({ offerSelections, repertoireId });
+      const baseRub = priced.baseRub;
       let finalRub = baseRub;
       let promoId = null;
       if (promoCode) {
@@ -223,16 +194,10 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         throw new GetbiletValidationError('Сумма заказа слишком мала');
       }
 
-      const makeData = reservation.makeData;
-      getbiletOrderIdsToCancel = reservation.getbiletOrderIds;
-
-      if (!reservation.isDemo) {
-        invalidateOffersCache(repertoireId).catch(() => {});
-      }
-
       const orderNumber = generateOrderNumber();
       const paymentMeta = {
         ticketCheckout: true,
+        deferPartnerBooking: true,
         eventTitle,
         seats,
         seatLabels: seatLabels?.length ? seatLabels : undefined,
@@ -243,9 +208,10 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         promoId,
         fanId: fanId || undefined,
         gift: gift || undefined,
-        getbiletMakeOrder: makeData,
-        getbiletOrderId: getbiletOrderIdsToCancel[0] ?? null,
-        getbiletOrderIds: getbiletOrderIdsToCancel,
+        getbiletMakeOrder: null,
+        getbiletOrderId: null,
+        getbiletOrderIds: [],
+        isDemo: priced.isDemo,
       };
 
       const orderResult = await pool.query(
@@ -307,6 +273,24 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         [insertedOrderId, paymentId, paymentUrl]
       );
 
+      try {
+        const { sendTicketOrderReservedEmail } = await import('../services/mail/ticketOrderMail.js');
+        await sendTicketOrderReservedEmail(
+          {
+            id: insertedOrderId,
+            order_number: orderNumber,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            total_cents: amountKopecks,
+            payment_metadata: paymentMeta,
+            payment_checkout_url: paymentUrl,
+          },
+          { paymentUrl },
+        );
+      } catch (mailErr) {
+        console.warn('[bilet/checkout] reserved email failed:', mailErr?.message || mailErr);
+      }
+
       if (!userId) {
         res.setHeader('x-session-id', sessionId);
       }
@@ -320,9 +304,6 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
     } catch (err) {
       if (insertedOrderId) {
         await pool.query('DELETE FROM orders WHERE id = $1', [insertedOrderId]).catch(() => {});
-      }
-      if (getbiletOrderIdsToCancel.length > 0) {
-        await cancelTicketSeatHolds(getbiletOrderIdsToCancel);
       }
       if (err instanceof GetbiletValidationError) {
         return res.status(400).json({ error: 'validation', message: err.message });
@@ -385,37 +366,15 @@ export async function handleTbankEacqNotification(req, res) {
 
     const paymentId = body.PaymentId != null ? String(body.PaymentId) : null;
 
-    let pm = order.payment_metadata;
-    if (typeof pm === 'string') {
-      try {
-        pm = JSON.parse(pm);
-      } catch {
-        pm = {};
-      }
-    }
-    const ticketRefs = [];
-    const gbm = pm?.getbiletMakeOrder;
-    if (gbm != null && typeof gbm === 'object') {
-      const chunks = Array.isArray(gbm) ? gbm : [gbm];
-      for (const chunk of chunks) {
-        if (!chunk || typeof chunk !== 'object') continue;
-        const rd = chunk.ResultData;
-        const rows = Array.isArray(rd) ? rd : rd ? [rd] : [];
-        for (const r of rows) {
-          if (!r || typeof r !== 'object') continue;
-          const tid = r.TicketId ?? r.Id ?? r.ticketId;
-          if (tid != null) {
-            ticketRefs.push({ externalTicketId: String(tid), metadata: r });
-          }
-        }
-      }
-    }
+    // Партнёрская бронь (GetBilet MakeOrder) — только после подтверждённой оплаты
+    const fulfilled = await fulfillPartnerBookingAfterPayment(order);
 
-    await applyOrderPaidState(order, {
+    await applyOrderPaidState(fulfilled.order, {
       externalPaymentId: paymentId,
-      ticketRefs,
+      ticketRefs: fulfilled.ticketRefs,
     });
 
+    const pm = fulfilled.paymentMeta;
     if (pm?.promoId != null) {
       await incrementGetbiletPromoUses(pm.promoId).catch(() => {});
     }

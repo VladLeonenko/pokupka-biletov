@@ -50,7 +50,7 @@ export function TicketHoldTimer({ hold, onExpired, variant = 'bar' }: Props) {
       role="status"
       aria-live="polite"
     >
-      <span className={styles.label}>Места забронированы</span>
+      <span className={styles.label}>Места сохранены для оплаты</span>
       <span className={styles.time}>{formatHoldCountdown(remainingMs)}</span>
     </div>
   );

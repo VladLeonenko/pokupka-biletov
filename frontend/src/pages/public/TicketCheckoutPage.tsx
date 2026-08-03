@@ -1207,7 +1207,7 @@ export function TicketCheckoutPage() {
     if (noOffersAfterFetch) {
       return 'Продажа билетов по этому мероприятию сейчас недоступна — схема мест проведения для ориентира.';
     }
-    return 'Кликните по свободному месту на схеме, затем нажмите «Забронировать» — места будут удержаны ~13 мин для оплаты.';
+    return 'Кликните по свободному месту на схеме, затем нажмите «Забронировать» — бронь сохранится у нас ~13 мин для оплаты; у оператора места закрепятся после оплаты.';
   }, [layoutJsonForStage, noOffersAfterFetch, offersForMap.length, seatSelectionDisabledUi]);
 
   useEffect(() => {

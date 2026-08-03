@@ -58,6 +58,68 @@ function accountBlockHtml({ customerName, loginEmail, initialPassword }) {
 }
 
 /**
+ * До оплаты: бронь только у нас — подтверждение заказа и ссылка на оплату.
+ */
+export async function sendTicketOrderReservedEmail(orderRow, { paymentUrl } = {}) {
+  const to = (orderRow.customer_email || '').trim();
+  if (!to) return { ok: false, reason: 'no_email' };
+
+  const orderNumber = orderRow.order_number;
+  const linkOrder = `${siteUrl()}/orders/${encodeURIComponent(orderNumber)}`;
+  let meta = orderRow.payment_metadata;
+  if (typeof meta === 'string') {
+    try {
+      meta = JSON.parse(meta);
+    } catch {
+      meta = {};
+    }
+  }
+  if (!meta || typeof meta !== 'object') meta = {};
+  const eventTitle = meta.eventTitle || 'Мероприятие';
+  const seats = Array.isArray(meta.seats) ? meta.seats.join(', ') : String(meta.seats || '—');
+  const fanId = extractFanIdFromOrder(orderRow);
+  const payLink = (paymentUrl || orderRow.payment_checkout_url || '').trim();
+
+  const subj = `${siteName()}: бронь сохранена — ${eventTitle}`;
+  const textParts = [
+    `Здравствуйте${orderRow.customer_name ? `, ${orderRow.customer_name}` : ''}!`,
+    ``,
+    `Мы сохранили вашу бронь в нашей системе.`,
+    `Заказ: ${orderNumber}`,
+    `Событие: ${eventTitle}`,
+    `Места: ${seats}`,
+    ...(fanId ? [`FAN ID: ${fanId}`] : []),
+    `Сумма: ${formatMoney(orderRow.total_cents)}`,
+    ``,
+    `Оплатите заказ, чтобы мы забронировали места у билетного оператора.`,
+    payLink ? `Оплатить: ${payLink}` : `Страница заказа: ${linkOrder}`,
+    ``,
+    siteName(),
+  ];
+  const text = textParts.join('\n');
+
+  const html = `
+    <div style="font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; line-height: 1.55; max-width: 560px;">
+      <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #888;">Бронь сохранена</p>
+      <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700;">${escapeHtml(eventTitle)}</h1>
+      <table style="border-collapse: collapse; width: 100%; font-size: 15px; margin-bottom: 16px;">
+        <tr><td style="padding: 6px 12px 6px 0; color: #666;">Заказ</td><td><strong>${escapeHtml(orderNumber)}</strong></td></tr>
+        <tr><td style="padding: 6px 12px 6px 0; color: #666;">Места</td><td><strong>${escapeHtml(seats)}</strong></td></tr>
+        ${fanId ? `<tr><td style="padding: 6px 12px 6px 0; color: #666;">FAN ID</td><td><strong style="font-family: monospace; letter-spacing: 0.04em;">${escapeHtml(fanId)}</strong></td></tr>` : ''}
+        <tr><td style="padding: 6px 12px 6px 0; color: #666;">Сумма</td><td><strong>${escapeHtml(formatMoney(orderRow.total_cents))}</strong></td></tr>
+      </table>
+      <p style="margin: 0 0 20px; font-size: 14px; color: #333;">Оплатите заказ — после оплаты мы забронируем места у билетного оператора и пришлём подтверждение.</p>
+      <p style="margin: 0 0 20px;"><a href="${escapeHtml(payLink || linkOrder)}" style="display: inline-block; padding: 12px 22px; background: #111; color: #fff; text-decoration: none; border-radius: 2px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px;">${payLink ? 'Оплатить' : 'Открыть заказ'}</a></p>
+      <p style="margin: 0; font-size: 13px; color: #666;">Пока оплата не прошла, бронь у оператора не создаётся.</p>
+      <p style="margin: 24px 0 0; font-size: 13px; color: #888;">${escapeHtml(siteName())}</p>
+    </div>`;
+
+  const r = await sendTransactionalMail({ to, subject: subj, text, html, bcc: ticketOrderMailBcc() });
+  if (!r.ok) console.warn('[ticketOrderMail] письмо о брони:', r.reason);
+  return r;
+}
+
+/**
  * После оплаты билетного заказа — одно письмо: оплата + при необходимости данные ЛК.
  */
 export async function sendTicketOrderPaidEmails(orderRow, { isNew, initialPassword, customerEmail }) {

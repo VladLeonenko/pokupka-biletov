@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
+import { fulfillPartnerBookingAfterPayment } from '../services/fulfillPartnerBooking.js';
 
 const router = Router();
 
@@ -56,7 +57,12 @@ router.post('/ticket-payments/:provider', async (req, res) => {
       }
     }
 
-    const updated = await applyOrderPaidState(order, {
+    const fulfilled = await fulfillPartnerBookingAfterPayment(order);
+    if (fulfilled.ticketRefs.length && ticketRefs.length === 0) {
+      ticketRefs.push(...fulfilled.ticketRefs);
+    }
+
+    const updated = await applyOrderPaidState(fulfilled.order, {
       externalPaymentId: paymentId,
       ticketRefs,
     });

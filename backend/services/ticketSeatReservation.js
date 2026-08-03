@@ -140,15 +140,67 @@ export function selectionKeyForOfferSelections(offerSelections) {
     .join('|');
 }
 
+async function assertSeatsInCachedOffer({ offerId, repertoireId, seats, cachedRow }) {
+  const row = cachedRow || (await loadCachedOfferRowById(repertoireId, offerId));
+  if (!row) return;
+  const availableSeats = Array.isArray(row.SeatList) ? row.SeatList.map(String) : null;
+  if (!availableSeats) return;
+  const unavailable = seats.filter((seat) => !availableSeats.includes(String(seat)));
+  if (unavailable.length > 0) {
+    throw new GetbiletValidationError(`Места недоступны: ${unavailable.join(', ')}`);
+  }
+}
+
+/**
+ * Локальный soft-hold: цена и проверка мест без MakeOrder у GetBilet.
+ * Партнёрская бронь уходит только после оплаты.
+ */
+export async function prepareLocalSeatHold({ offerSelections, repertoireId }) {
+  let baseRub = 0;
+  let isDemo = true;
+  const softRows = [];
+
+  for (const selection of offerSelections) {
+    const { unitRub, isDemo: demoOffer, cachedRow } = await resolveOfferUnitRub({
+      offerId: selection.offerId,
+      repertoireId,
+    });
+    await assertSeatsInCachedOffer({
+      offerId: selection.offerId,
+      repertoireId,
+      seats: selection.seats,
+      cachedRow,
+    });
+    baseRub += unitRub * selection.seats.length;
+    isDemo = isDemo && demoOffer;
+    for (const seat of selection.seats) {
+      softRows.push({ OfferId: selection.offerId, Seat: String(seat), SoftHold: true });
+    }
+  }
+
+  return {
+    baseRub,
+    makeData: {
+      Success: true,
+      Method: 'LocalSoftHold',
+      ResultData: softRows,
+    },
+    getbiletOrderIds: [],
+    isDemo,
+    reservations: offerSelections.map((selection) => ({
+      offerId: selection.offerId,
+      seats: selection.seats,
+      makeData: null,
+      getbiletOrderId: null,
+    })),
+  };
+}
+
 async function prepareTicketReservation({ offerId, repertoireId, seats }) {
   const { unitRub, isDemo, cachedRow } = await resolveOfferUnitRub({ offerId, repertoireId });
 
   if (isDemo) {
-    const availableSeats = Array.isArray(cachedRow?.SeatList) ? cachedRow.SeatList.map(String) : [];
-    const unavailable = seats.filter((seat) => !availableSeats.includes(String(seat)));
-    if (unavailable.length > 0) {
-      throw new GetbiletValidationError(`Места недоступны: ${unavailable.join(', ')}`);
-    }
+    await assertSeatsInCachedOffer({ offerId, repertoireId, seats, cachedRow });
     return {
       baseRub: unitRub * seats.length,
       makeData: {
@@ -172,6 +224,28 @@ async function prepareTicketReservation({ offerId, repertoireId, seats }) {
     getbiletOrderId: pickGetbiletOrderId(makeData),
     isDemo: false,
   };
+}
+
+/** Достаёт ticket refs из ответа MakeOrder (один объект или массив чанков). */
+export function extractTicketRefsFromMakeData(makeData) {
+  const ticketRefs = [];
+  if (makeData == null || typeof makeData !== 'object') return ticketRefs;
+  const chunks = Array.isArray(makeData) ? makeData : [makeData];
+  for (const chunk of chunks) {
+    if (!chunk || typeof chunk !== 'object') continue;
+    if (chunk.Method === 'LocalSoftHold') continue;
+    const rd = chunk.ResultData;
+    const rows = Array.isArray(rd) ? rd : rd ? [rd] : [];
+    for (const r of rows) {
+      if (!r || typeof r !== 'object') continue;
+      if (r.SoftHold) continue;
+      const tid = r.TicketId ?? r.Id ?? r.ticketId;
+      if (tid != null) {
+        ticketRefs.push({ externalTicketId: String(tid), metadata: r });
+      }
+    }
+  }
+  return ticketRefs;
 }
 
 /** Только цена без MakeOrder — для checkout с уже активной бронью. */
