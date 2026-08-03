@@ -32,7 +32,7 @@ export const TICKET_SEO = {
   'olimpbet-superkubok-rossii': {
     title: 'Суперкубок Спартак — Зенит{{dateShort}}: билеты{{price}}',
     description:
-      'Суперкубок России Спартак — Зенит: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Суперкубок России Спартак — Зенит: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Суперкубок России: Спартак — Зенит',
     keywords: 'суперкубок россии билеты, спартак зенит билеты, совкомбанк арена',
     aliases: ['6a46656d46a4d000309ed0a2'],
@@ -43,7 +43,7 @@ export const TICKET_SEO = {
   '6a46656d46a4d000309ed0a2': {
     title: 'Суперкубок Спартак — Зенит{{dateShort}}: билеты{{price}}',
     description:
-      'Суперкубок России Спартак — Зенит: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Суперкубок России Спартак — Зенит: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Суперкубок России: Спартак — Зенит',
     keywords: 'суперкубок россии билеты, спартак зенит билеты',
     defaults: {
@@ -53,7 +53,7 @@ export const TICKET_SEO = {
   'luzhniki-cup-final-2026': {
     title: 'Финал Кубка России{{dateShort}} — Лужники{{price}}',
     description:
-      'Финал Кубка России 2026: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Финал Кубка России 2026: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Финал Кубка России 2026 — Лужники',
     keywords: 'финал кубка россии билеты, лужники билеты футбол',
     defaults: {
@@ -63,7 +63,7 @@ export const TICKET_SEO = {
   '69e0cfa246a4d000309ecdd7': {
     title: 'Бивол vs Айферт{{dateShort}}: билеты{{price}}',
     description:
-      'Бой Дмитрий Бивол — Михаэль Айферт (RCC): {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Бой Дмитрий Бивол — Михаэль Айферт (RCC): {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Бивол vs Айферт: вечер бокса RCC',
     keywords: 'бивол бой билеты, rcc бокс билеты',
   },
@@ -72,7 +72,7 @@ export const TICKET_SEO = {
   'basta-guf': {
     title: 'Баста и Guf{{dateShort}} — билеты{{price}}',
     description:
-      'Концерт Баста — Guf: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Концерт Баста — Guf: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Концерт Баста — Guf в Лужниках',
     keywords: 'баста гуф билеты, basta guf билеты, концерт баста лужники 28 августа',
     aliases: ['69ac1c5246a4d000309ecd5c'],
@@ -84,7 +84,7 @@ export const TICKET_SEO = {
   '69ac1c5246a4d000309ecd5c': {
     title: 'Баста и Guf{{dateShort}} — билеты{{price}}',
     description:
-      'Концерт Баста — Guf: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Концерт Баста — Guf: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Концерт Баста — Guf в Лужниках',
     keywords: 'баста гуф билеты, basta guf билеты, концерт баста лужники 28 августа',
     defaults: {
@@ -95,28 +95,28 @@ export const TICKET_SEO = {
   '6735c3a7569a15f2087b852b': {
     title: 'Курентзис / MusicAeterna{{dateShort}}{{price}}',
     description:
-      'Теодор Курентзис и MusicAeterna: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Теодор Курентзис и MusicAeterna: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Теодор Курентзис и MusicAeterna',
     keywords: 'курентзис билеты, musicaeterna билеты',
   },
   '67de5b9e58f79d0030278720': {
     title: 'Пресняков{{dateShort}} — концерт, билеты{{price}}',
     description:
-      'Концерт Владимира Преснякова: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Концерт Владимира Преснякова: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Концерт Владимира Преснякова',
     keywords: 'пресняков билеты, концерт пресняков',
   },
   '69e7bdaa46a4d000309ece1d': {
     title: '«Песни Победы»{{dateShort}}: билеты{{price}}',
     description:
-      'Концерт «Песни Победы»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Концерт «Песни Победы»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Концерт «Песни Победы»',
     keywords: 'песни победы билеты, концерт песни победы',
   },
   '6735c3a8569a15f2087b9e5f': {
     title: 'Ансамбль Моисеева{{dateShort}}: билеты{{price}}',
     description:
-      'Ансамбль народного танца Игоря Моисеева: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Ансамбль народного танца Игоря Моисеева: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Ансамбль танца Игоря Моисеева',
     keywords: 'моисеев билеты, ансамбль моисеева билеты',
   },
@@ -125,70 +125,70 @@ export const TICKET_SEO = {
   '6735c3a7569a15f2087b8069': {
     title: '«Три сестры»{{dateShort}} — билеты{{price}}',
     description:
-      'Спектакль «Три сестры»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Спектакль «Три сестры»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Спектакль «Три сестры»',
     keywords: 'три сестры билеты, спектакль три сестры',
   },
   '69e7bbaa46a4d000309ece18': {
     title: '«Честная женщина»{{dateShort}}: билеты{{price}}',
     description:
-      '«Честная женщина» (гастроли Александринки): {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«Честная женщина» (гастроли Александринки): {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: '«Честная женщина» — Александринский театр',
     keywords: 'честная женщина билеты, александринский театр билеты',
   },
   '69cfdf2246a4d000309ecdb4': {
     title: '«Призраки»{{dateShort}} — билеты{{price}}',
     description:
-      'Спектакль «Призраки»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Спектакль «Призраки»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Спектакль «Призраки»',
     keywords: 'призраки спектакль билеты',
   },
   '6735c3a8569a15f2087ba146': {
     title: '«Летучая мышь»{{dateShort}}: билеты{{price}}',
     description:
-      'Оперетта «Летучая мышь»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      'Оперетта «Летучая мышь»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Оперетта «Летучая мышь»',
     keywords: 'летучая мышь билеты, оперетта летучая мышь',
   },
   '6735c3a7569a15f2087b8b16': {
     title: '«Ночь перед Рождеством»{{dateShort}}{{price}}',
     description:
-      '«Ночь перед Рождеством»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«Ночь перед Рождеством»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: '«Ночь перед Рождеством»',
     keywords: 'ночь перед рождеством билеты',
   },
   '69e8d6f046a4d000309ece81': {
     title: '«День закрытых дверей»{{dateShort}}{{price}}',
     description:
-      '«День закрытых дверей» (Театр Наций): {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«День закрытых дверей» (Театр Наций): {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: '«День закрытых дверей» — Театр Наций',
     keywords: 'день закрытых дверей билеты, театр наций билеты',
   },
   '69e8d68346a4d000309ece7d': {
     title: '«Тартюф»{{dateShort}} — билеты{{price}}',
     description:
-      '«Тартюф» (гастроли Театра Наций): {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«Тартюф» (гастроли Театра Наций): {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: '«Тартюф» — Театр Наций',
     keywords: 'тартюф билеты, театр наций тартюф',
   },
   '69e7bd3146a4d000309ece1b': {
     title: '«Иов»{{dateShort}} — билеты{{price}}',
     description:
-      '«Иов» (гастроли Александринки): {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«Иов» (гастроли Александринки): {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: '«Иов» — Александринский театр',
     keywords: 'иов спектакль билеты, александринский театр',
   },
   '6735c3a7569a15f2087b8b9b': {
     title: '«Кролик Эдвард»{{dateShort}}: билеты{{price}}',
     description:
-      '«Кролик Эдвард»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«Кролик Эдвард»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: 'Спектакль «Кролик Эдвард»',
     keywords: 'кролик эдвард билеты',
   },
   '6735c3a7569a15f2087b806d': {
     title: '«Красная Шапочка»{{dateShort}}: билеты{{price}}',
     description:
-      '«Красная Шапочка»: {{price}}. {{when}}, {{venue}}. ' + MECHANICS + '.',
+      '«Красная Шапочка»: {{price}} — {{when}}, {{venue}}. ' + MECHANICS + '.',
     h1: '«Красная Шапочка»',
     keywords: 'красная шапочка билеты детский спектакль',
   },
