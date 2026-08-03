@@ -209,6 +209,15 @@ export function TicketPurchaseDialog({
       </div>
 
       <DialogContent className={styles.body}>
+        <ol className={styles.steps} aria-label="Шаги оформления">
+          <li className={styles.stepDone}>Места</li>
+          <li className={styles.stepCurrent}>Данные</li>
+          <li>Оплата</li>
+        </ol>
+        <p className={styles.stepsHint}>
+          После подтверждения — редирект в банк. Электронный билет придёт на email.
+        </p>
+
         <TicketHoldTimer
           hold={holdExpired ? null : hold}
           variant="dialog"

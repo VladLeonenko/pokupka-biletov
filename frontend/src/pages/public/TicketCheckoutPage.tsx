@@ -41,7 +41,10 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import EventSeatIcon from '@mui/icons-material/EventSeat';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import IosShareIcon from '@mui/icons-material/IosShare';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import { EventJsonLd } from '@/components/common/EventJsonLd';
+import { resolveTicketSeo } from '@/seo/ticketSeoCatalog';
 import { TicketEventPosterImg } from '@/components/tickets/TicketEventPosterImg';
 import {
   ensurePublicSessionForCheckout,
@@ -58,6 +61,7 @@ import {
   footballStadiumStageMapKeyForRepertoire,
   isFootballStadiumCheckoutLayout,
   isFootballStadiumRepertoire,
+  isLuzhnikiConcertRepertoire,
   isSupercupNnRepertoire,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   SUPERKUP_NN_STAGE_MAP_KEY,
@@ -606,6 +610,8 @@ export function TicketCheckoutPage() {
   const addToCartSnapshotRef = useRef<string | null>(null);
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobileViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const [showOfferListMobile, setShowOfferListMobile] = useState(false);
   useEffect(() => {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
@@ -728,6 +734,23 @@ export function TicketCheckoutPage() {
     () => ctx?.title?.trim() || titleHint,
     [ctx?.title, titleHint],
   );
+
+  const shareEvent = useCallback(async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const title = displayTitle || 'Билеты';
+    const text = `Билеты: ${title}`;
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ title, text, url });
+        return;
+      }
+      if (url && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      /* user cancel / clipboard denied */
+    }
+  }, [displayTitle]);
 
   const baseTotalRub = useMemo(() => {
     if (mapSelectedSeats.length > 0) {
@@ -1064,6 +1087,7 @@ export function TicketCheckoutPage() {
     if (ctx?.checkoutHideSeatList === true) return true;
     if (parseHideSeatList(layoutJsonForStage)) return true;
     if (isSupercupNnRepertoire(repertoireId)) return true;
+    if (isLuzhnikiConcertRepertoire(repertoireId)) return true;
     if (parsePbiletCategoryCheckout(layoutJsonForStage)) return true;
     return false;
   }, [ctx?.checkoutHideSeatList, layoutJsonForStage, repertoireId]);
@@ -1116,6 +1140,7 @@ export function TicketCheckoutPage() {
     hallMapSessionKey && hallMapSessionKey !== '_' ? hallMapSessionKey : null;
 
   const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
+  const hideOfferListBehindMap = Boolean(hallMapReady && isMobileViewport && !showOfferListMobile);
 
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
@@ -1297,7 +1322,7 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (routeKeyIsId || !routeSlug || !slugResolveFetched) return;
-    if (legacyRepertoireId.trim() && legacySlug.trim()) return;
+    if (legacyRepertoireId.trim() && (legacySlug?.trim() || '')) return;
     if (routeSlug === DEMO_REPERTOIRE_ID) return;
     if (repertoireId) return;
     if (isBlockedTicketSlug(routeSlug)) {
@@ -1345,16 +1370,57 @@ export function TicketCheckoutPage() {
     navigate,
   ]);
 
+  const catalogSeo = useMemo(() => {
+    const opts = {
+      venueLabel: ctx?.venueLabel ?? null,
+      beginDateTime:
+        ctx?.beginDateTime ??
+        resolvedEventFromSlug?.isoDate ??
+        null,
+    };
+    const keys = [canonicalSlug, repertoireId, routeKey].filter(Boolean) as string[];
+    for (const k of keys) {
+      const hit = resolveTicketSeo(k, opts);
+      if (hit) return hit;
+    }
+    return null;
+  }, [
+    canonicalSlug,
+    repertoireId,
+    routeKey,
+    ctx?.venueLabel,
+    ctx?.beginDateTime,
+    resolvedEventFromSlug?.isoDate,
+  ]);
+
   return (
     <>
       <SeoMetaTags
-        title={`Купить билеты на ${displayTitle} - выбор мест онлайн`}
+        title={
+          catalogSeo?.title ||
+          `Билеты — ${displayTitle}: места онлайн`
+        }
         description={
+          catalogSeo?.description ||
           (ctx?.heroLead?.trim() || ctx?.descriptionSnippet?.trim())?.slice(0, 160) ||
           'Выберите лучшие места на схеме зала, оформите заказ онлайн и получите электронный билет сразу после оплаты.'
         }
         image={ogImage}
         url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
+      />
+      <EventJsonLd
+        name={displayTitle}
+        description={ctx?.heroLead?.trim() || ctx?.descriptionSnippet?.trim() || null}
+        url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
+        image={ogImage}
+        startDate={
+          hallMapSessionKey && hallMapSessionKey !== '_'
+            ? hallMapSessionKey
+            : null
+        }
+        venueName={mergedVenue || null}
+        venueAddress={mergedVenueAddress || null}
+        minPriceRub={minPriceHero}
       />
       <Box className={styles.page}>
         <div className={`${styles.hero} ${isSupercupSportCheckout ? styles.heroSport : ''}`}>
@@ -1366,6 +1432,7 @@ export function TicketCheckoutPage() {
               className={styles.heroImg}
               loading="eager"
               decoding="async"
+              sizes="100vw"
             />
             <div className={styles.heroVignette} />
             <div className={styles.heroGradientBottom} />
@@ -1373,9 +1440,15 @@ export function TicketCheckoutPage() {
           <div className={styles.heroShell}>
             <div className={styles.heroGrid}>
               <div className={styles.heroCopy}>
-                <Link to="/events" className={styles.heroCrumb}>
-                  ← К афише
-                </Link>
+                <div className={styles.heroTopActions}>
+                  <Link to="/events" className={styles.heroCrumb}>
+                    ← К афише
+                  </Link>
+                  <button type="button" className={styles.shareBtn} onClick={() => void shareEvent()}>
+                    <IosShareIcon sx={{ fontSize: 16 }} />
+                    Поделиться
+                  </button>
+                </div>
                 {heroKickerDisplay ? <p className={styles.heroKicker}>{heroKickerDisplay}</p> : null}
                 {isSupercupSportCheckout ? (
                   <div className={styles.heroSportMeta}>
@@ -1580,7 +1653,11 @@ export function TicketCheckoutPage() {
                     {isFootballStadiumStage ? 'Схема стадиона' : 'Схема зала'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {hallMapReady ? hallSchemeSubtitle : 'Загрузка схемы…'}
+                    {hallMapReady
+                      ? isMobileViewport
+                        ? '1. Сектор → 2. Места · затем «К оплате»'
+                        : hallSchemeSubtitle
+                      : 'Загрузка схемы…'}
                   </Typography>
                 </Box>
                 <Button
@@ -1700,7 +1777,20 @@ export function TicketCheckoutPage() {
 
 
 
-          {!isLoading && !isError && listableOffers.length > 0 && (
+          {hallMapReady && isMobileViewport ? (
+            <Box sx={{ mb: 2 }}>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setShowOfferListMobile((v) => !v)}
+                sx={{ fontWeight: 700, color: 'var(--neg-orange, #ff4e18)' }}
+              >
+                {showOfferListMobile ? 'Скрыть список мест' : 'Список мест без схемы'}
+              </Button>
+            </Box>
+          ) : null}
+
+          {!isLoading && !isError && listableOffers.length > 0 && !hideOfferListBehindMap && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
                 Фильтр
@@ -1951,7 +2041,7 @@ export function TicketCheckoutPage() {
             </Paper>
           )}
 
-          {bySession.size > 0 && !hideSeatListUi && (
+          {bySession.size > 0 && !hideSeatListUi && !hideOfferListBehindMap && (
             <Accordion
               defaultExpanded={!hallSvg}
               sx={{

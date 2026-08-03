@@ -18,6 +18,14 @@ describe('normalizeSectorLabel', () => {
   it('does not merge lodge with tribune', () => {
     expect(sectorNormsMatch('Ложа 101', 'Сектор A 101')).toBe(false);
   });
+
+  it('concert Luzhniki: fan-zone / VIP paren / dance floor', () => {
+    expect(sectorNormsMatch('фан-зона', 'Фан-зона')).toBe(true);
+    expect(sectorNormsMatch('fan-zone', 'Фан-зона')).toBe(true);
+    expect(sectorNormsMatch('танцпол', 'Танцпол')).toBe(true);
+    expect(sectorNormsMatch('vip a108', 'Сектор A108 (VIP)')).toBe(true);
+    expect(normalizeSectorLabel('Сектор A104 (ограниченная видимость)')).toBe('a104');
+  });
 });
 
 describe('strictSeatKey', () => {

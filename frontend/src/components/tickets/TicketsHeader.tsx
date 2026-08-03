@@ -5,6 +5,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { useQuery } from '@tanstack/react-query';
 import {
   addDays,
@@ -33,7 +34,6 @@ import { TicketsSiteLogo } from '@/components/tickets/TicketsSiteLogo';
 const NAV = [
   { to: '/', label: 'Афиша' },
   { to: '/events', label: 'Мероприятия' },
-  { to: '/afisha', label: 'Календарь' },
   { to: '/contacts', label: 'Контакты' },
 ];
 
@@ -265,6 +265,17 @@ export function TicketsHeader() {
                 <SearchIcon />
               </IconButton>
             </Tooltip>
+            <Tooltip title="Избранное">
+              <IconButton
+                component={Link}
+                to="/wishlist"
+                size="medium"
+                className={styles.iconBtn}
+                sx={{ color: 'inherit' }}
+              >
+                <FavoriteBorderIcon />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Корзина">
               <IconButton component={Link} to="/cart" size="medium" className={styles.iconBtn} sx={{ color: 'inherit' }}>
                 <ShoppingCartOutlinedIcon />
@@ -322,6 +333,7 @@ export function TicketsHeader() {
           </form>
         </div>
 
+        {homePaths ? (
         <div
           className={`${styles.calendarRow} ${calendarAutoHidden ? styles.calendarRowAutoHidden : ''}`}
           aria-hidden={calendarAutoHidden ? 'true' : undefined}
@@ -403,6 +415,7 @@ export function TicketsHeader() {
             ) : null}
           </div>
         </div>
+        ) : null}
 
         {open && (
           <nav className={styles.mobileNav} aria-label="Мобильное меню">

@@ -303,7 +303,13 @@ function parseGrayHallWhenNoOffers(
 function isStadiumScaleHallLayout(layout: unknown): boolean {
   const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
   if (!r) return false;
-  if (r.stadiumMapKey === 'luzhniki-football' || r.stadiumMapKey === 'supercup-nn-football') return true;
+  if (
+    r.stadiumMapKey === 'luzhniki-football' ||
+    r.stadiumMapKey === 'luzhniki-concert' ||
+    r.stadiumMapKey === 'supercup-nn-football'
+  ) {
+    return true;
+  }
   const bg = r.allSeatCoordinates;
   if (Array.isArray(bg) && bg.length > 8000) return true;
   return false;
@@ -598,6 +604,28 @@ export function TicketHallInteractiveBlock({
   const layoutMode = useMemo(() => parseLayoutMode(layoutJson), [layoutJson]);
   const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
   const sectorMode = useMemo(() => parseSectorMode(layoutJson), [layoutJson]);
+  const hallMapLabels = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return [];
+    const raw = (layoutJson as Record<string, unknown>).hallMapLabels;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const r = item as Record<string, unknown>;
+        const text = String(r.text ?? '').trim();
+        const x = Number(r.x);
+        const y = Number(r.y);
+        const fontSize = Number(r.fontSize);
+        if (!text || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+        return {
+          text,
+          x,
+          y,
+          fontSize: Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 180,
+        };
+      })
+      .filter((x): x is { text: string; x: number; y: number; fontSize: number } => Boolean(x));
+  }, [layoutJson]);
   const seatSelectionDisabled = useMemo(() => parseSeatSelectionDisabled(layoutJson), [layoutJson]);
   const hasLiveOffers = offers.length > 0;
   const grayHallWhenNoOffers = useMemo(
@@ -2037,6 +2065,28 @@ export function TicketHallInteractiveBlock({
                     />
                   );
                 })}
+                {hallMapLabels.length > 0 ? (
+                  <g
+                    aria-hidden="true"
+                    style={{ pointerEvents: 'none' }}
+                    fontFamily="system-ui, -apple-system, Segoe UI, sans-serif"
+                  >
+                    {hallMapLabels.map((label) => (
+                      <text
+                        key={`hall-label-${label.text}-${label.x}-${label.y}`}
+                        x={label.x}
+                        y={label.y}
+                        fontSize={label.fontSize}
+                        fontWeight={700}
+                        fill="#475569"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        {label.text}
+                      </text>
+                    ))}
+                  </g>
+                ) : null}
               </svg>
             ) : null}
             <div

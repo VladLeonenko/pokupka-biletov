@@ -5,16 +5,13 @@ import {
   TextField,
   MenuItem,
   Box,
-  CircularProgress,
   Chip,
   InputAdornment,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
-import { NEGLINKA_DEMO_EVENTS } from '@/components/tickets/neglinkaDemoData';
 import {
-  attachInferredEventFields,
   dedupeBiletEventsByShow,
   fetchBiletEventsLite,
   fetchBiletVenues,
@@ -135,7 +132,7 @@ export function EventsSearchPage() {
   });
 
   const allEvents = useMemo(() => {
-    if (isError) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
+    if (isError) return [];
     return normalizeBiletEventsPayload(raw).filter(isEventActual);
   }, [raw, isError]);
   const apiVenues = useMemo(() => {
@@ -328,30 +325,31 @@ export function EventsSearchPage() {
         </div>
 
         {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress size={36} sx={{ color: 'var(--neg-orange, #ff4e18)' }} />
-          </Box>
+          <div className={styles.grid} aria-busy="true" aria-label="Загрузка каталога">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className={styles.cardSkeleton} />
+            ))}
+          </div>
         )}
 
         {isError && !isLoading && (
           <p className={styles.warn}>
-            Не удалось загрузить список из GetBilet — показан <strong>демо-каталог</strong> для проверки
-            вёрстки.
+            Не удалось загрузить афишу. Проверьте соединение и{' '}
+            <button type="button" className={styles.retryBtn} onClick={() => window.location.reload()}>
+              обновите страницу
+            </button>
+            .
           </p>
         )}
 
-        {!isLoading && (
+        {!isLoading && !isError && (
           <p className={styles.count}>
             Найдено: {uniqueFiltered.length} из {uniqueCatalogTotal.length}
           </p>
         )}
 
-        {!isLoading && uniqueFiltered.length === 0 && (
-          <p className={styles.empty}>
-            {isError
-              ? 'Нет результатов с такими фильтрами — очистите поля поиска.'
-              : 'Ничего не найдено — смените запрос или сбросьте фильтры.'}
-          </p>
+        {!isLoading && !isError && uniqueFiltered.length === 0 && (
+          <p className={styles.empty}>Ничего не найдено — смените запрос или сбросьте фильтры.</p>
         )}
 
         {!isLoading && uniqueFiltered.length > 0 && (

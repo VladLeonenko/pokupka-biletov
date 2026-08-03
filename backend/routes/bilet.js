@@ -53,7 +53,10 @@ import {
   slimSupercupNnStageMapForClient,
   SUPERKUP_NN_STAGE_MAP_KEY,
 } from '../services/supercupNnFootballStageMap.js';
-import { footballStadiumStageMapKeyForRepertoire } from '../utils/footballStadiumRepertoires.js';
+import {
+  footballStadiumStageMapKeyForRepertoire,
+  LUZHNIKI_CONCERT_STAGE_MAP_KEY,
+} from '../utils/footballStadiumRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
@@ -565,7 +568,8 @@ router.get('/stage/:stageId/map', async (req, res) => {
     const forcedMapKey = footballStadiumStageMapKeyForRepertoire(repertoireId);
     const lookupKey =
       forcedMapKey || (await resolveStageMapLookupExternalId(stageId, repertoireId));
-    const isLuzhnikiMap = lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+    const isLuzhnikiMap =
+      lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY || lookupKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY;
     const isSupercupNnMap = lookupKey === SUPERKUP_NN_STAGE_MAP_KEY;
     const bypassCache = req.query.refresh === '1' || req.query.fresh === '1';
     const bundleVersion = isLuzhnikiMap ? getGrayCloudLabeledBundleVersion() : '';
@@ -594,6 +598,14 @@ router.get('/stage/:stageId/map', async (req, res) => {
         error: 'stage_map_not_seeded',
         message:
           'Схема Лужников (luzhniki-football) не загружена в БД. На сервере: cd backend && node scripts/ensure-luzhniki-football-stage-map.js',
+        lookupKey,
+      });
+    }
+    if (!r.rows.length && lookupKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY) {
+      return res.status(503).json({
+        error: 'stage_map_not_seeded',
+        message:
+          'Схема Лужников-концерт (luzhniki-concert) не загружена. На сервере: cd backend && npm run seed:luzhniki-concert-map',
         lookupKey,
       });
     }

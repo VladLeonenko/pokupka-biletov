@@ -11,9 +11,11 @@ import styles from './NeglinkaHero.module.css';
 type Props = {
   slides?: HeroSlideView[] | null;
   loading?: boolean;
+  telegramUrl?: string | null;
+  vkUrl?: string | null;
 };
 
-export function NeglinkaHero({ slides: slideInput, loading }: Props) {
+export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }: Props) {
   /** padSlides уже в buildHeroSlides; без props — пустой массив */
   const slides = slideInput ?? [];
 
@@ -177,14 +179,26 @@ export function NeglinkaHero({ slides: slideInput, loading }: Props) {
             </svg>
           </button>
         </div>
-        <div className={styles.social}>
-          <a href="https://t.me" target="_blank" rel="noreferrer" aria-label="Telegram" className={styles.soc}>
-            TG
-          </a>
-          <a href="https://vk.com" target="_blank" rel="noreferrer" aria-label="VK" className={styles.soc}>
-            VK
-          </a>
-        </div>
+        {(telegramUrl?.trim() || vkUrl?.trim()) && (
+          <div className={styles.social}>
+            {telegramUrl?.trim() ? (
+              <a
+                href={telegramUrl.trim()}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Telegram"
+                className={styles.soc}
+              >
+                TG
+              </a>
+            ) : null}
+            {vkUrl?.trim() ? (
+              <a href={vkUrl.trim()} target="_blank" rel="noreferrer" aria-label="VK" className={styles.soc}>
+                VK
+              </a>
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
   );

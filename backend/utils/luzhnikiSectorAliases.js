@@ -13,7 +13,8 @@ export const LUZHNIKI_VIP_TRIBUNE_CODES = new Set([
   'vipc137',
 ]);
 
-/** Доп. пары вне VIP (исторические расхождения GetBilet ↔ pbilet). */
+/** Доп. пары вне VIP (исторические расхождения GetBilet ↔ pbilet / концерт). */
 export const LUZHNIKI_SECTOR_ALIAS_PAIRS = [
   ['vipc138', 'c138'],
+  ['фан-зона', 'fan-zone'],
 ];

@@ -76,6 +76,11 @@ export function TicketCartStickyBar() {
                     </Link>
                   </Typography>
                 ) : null}
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.35, opacity: 0.9 }}>
+                  {isTicketHoldActive(hold)
+                    ? 'Бронь активна · дальше данные и оплата в банке · билет на email'
+                    : 'Места → данные → оплата в банке · билет на email'}
+                </Typography>
               </div>
               <div className={styles.actions}>
                 <Button
@@ -88,8 +93,8 @@ export function TicketCartStickyBar() {
                     <CircularProgress size={20} sx={{ color: 'inherit' }} />
                   ) : (
                     <>
-                      Забронировать
-                      {cart.baseTotalRub > 0 ? ` за ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
+                      К оплате
+                      {cart.baseTotalRub > 0 ? ` · ${cart.baseTotalRub.toLocaleString('ru-RU')} ₽` : ''}
                     </>
                   )}
                 </Button>

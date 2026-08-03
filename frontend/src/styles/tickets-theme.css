@@ -131,3 +131,27 @@ body[data-tickets='true'] [role='button'] {
 body.ticket-cart-bar-visible[data-tickets='true'] {
   padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
 }
+
+/* MUI primary → tickets orange (не agency yellow) */
+body[data-tickets='true'] .MuiButton-containedPrimary {
+  background-color: var(--neg-orange, #ff4e18) !important;
+  color: #fff !important;
+}
+
+body[data-tickets='true'] .MuiButton-containedPrimary:hover {
+  background-color: #e64514 !important;
+}
+
+body[data-tickets='true'] .MuiButton-outlinedPrimary {
+  border-color: var(--neg-orange, #ff4e18) !important;
+  color: var(--neg-orange, #ff4e18) !important;
+}
+
+body[data-tickets='true'] .MuiCircularProgress-colorPrimary {
+  color: var(--neg-orange, #ff4e18) !important;
+}
+
+body[data-tickets='true'] .MuiCheckbox-root.Mui-checked,
+body[data-tickets='true'] .MuiRadio-root.Mui-checked {
+  color: var(--neg-orange, #ff4e18) !important;
+}

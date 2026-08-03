@@ -21,12 +21,18 @@ export function useTicketsChrome(): boolean {
         '/faq',
         '/politic',
         '/privacy',
+        '/offer',
+        '/cookies',
+        '/requisites',
+        '/404',
+        '/case/bilet-vsem',
       ].includes(normalizedPath)
     )
       return true;
     if (normalizedPath.startsWith('/account')) return true;
     if (normalizedPath.startsWith('/orders/')) return true;
     if (normalizedPath.startsWith('/ticket')) return true;
+    if (normalizedPath.startsWith('/case/')) return true;
     return false;
   }, [normalizedPath]);
 }

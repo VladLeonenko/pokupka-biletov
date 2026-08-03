@@ -5,6 +5,7 @@
  */
 
 export const LUZHNIKI_FOOTBALL_STAGE_MAP_KEY = 'luzhniki-football';
+export const LUZHNIKI_CONCERT_STAGE_MAP_KEY = 'luzhniki-concert';
 
 export const SUPERKUP_NN_REPERTOIRE_ID = '6a46656d46a4d000309ed0a2';
 export const SUPERKUP_NN_SLUG = 'olimpbet-superkubok-rossii';
@@ -13,25 +14,49 @@ export const SUPERKUP_NN_STAGE_MAP_KEY = 'supercup-nn-football';
 /** Синхронно с backend/utils/luzhnikiFootballRepertoires.js */
 const DEFAULT_LUZHNIKI_FOOTBALL_REPERTOIRE_IDS = new Set(['6a05d17b46a4d000309ecf4e']);
 
+/** Синхронно с backend/utils/luzhnikiConcertRepertoires.js */
+const DEFAULT_LUZHNIKI_CONCERT_REPERTOIRE_IDS = new Set([
+  '69ac1c5246a4d000309ecd5c',
+  'basta-guf',
+]);
+
 export function isSupercupNnRepertoire(repertoireId: string | null | undefined): boolean {
   const id = String(repertoireId || '').trim().toLowerCase();
   return id === SUPERKUP_NN_REPERTOIRE_ID || id === SUPERKUP_NN_SLUG;
 }
 
+export function isLuzhnikiConcertRepertoire(repertoireId: string | null | undefined): boolean {
+  const id = String(repertoireId || '').trim().toLowerCase();
+  if (!id) return false;
+  if (DEFAULT_LUZHNIKI_CONCERT_REPERTOIRE_IDS.has(id)) return true;
+  const raw = import.meta.env.VITE_GETBILET_LUZHNIKI_CONCERT_REPERTOIRE_IDS?.trim();
+  if (!raw) return false;
+  return raw
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(id);
+}
+
 export function isFootballStadiumRepertoire(repertoireId: string | null | undefined): boolean {
-  return isLuzhnikiFootballRepertoire(repertoireId) || isSupercupNnRepertoire(repertoireId);
+  return (
+    isLuzhnikiFootballRepertoire(repertoireId) ||
+    isLuzhnikiConcertRepertoire(repertoireId) ||
+    isSupercupNnRepertoire(repertoireId)
+  );
 }
 
 export function isFootballStadiumCheckoutLayout(layout: unknown): boolean {
   if (isLuzhnikiStadiumCheckoutLayout(layout)) return true;
   if (!layout || typeof layout !== 'object') return false;
   const r = layout as Record<string, unknown>;
-  return r.stadiumMapKey === SUPERKUP_NN_STAGE_MAP_KEY;
+  return r.stadiumMapKey === SUPERKUP_NN_STAGE_MAP_KEY || r.stadiumMapKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY;
 }
 
 export function footballStadiumStageMapKeyForRepertoire(
   repertoireId: string | null | undefined,
 ): string | null {
+  if (isLuzhnikiConcertRepertoire(repertoireId)) return LUZHNIKI_CONCERT_STAGE_MAP_KEY;
   if (isLuzhnikiFootballRepertoire(repertoireId)) return LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
   if (isSupercupNnRepertoire(repertoireId)) return SUPERKUP_NN_STAGE_MAP_KEY;
   return null;
@@ -55,6 +80,7 @@ export function isLuzhnikiStadiumCheckoutLayout(layout: unknown): boolean {
   const r = layout as Record<string, unknown>;
   return (
     r.stadiumMapKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY ||
+    r.stadiumMapKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY ||
     r.luzhnikiStadiumCheckout === true
   );
 }

@@ -557,6 +557,24 @@ export function TicketsVitrinePage() {
                   setDraft({ ...draft, contacts: { ...draft.contacts, formTitle: e.target.value } })
                 }
               />
+              <TextField
+                label="Telegram URL"
+                fullWidth
+                placeholder="https://t.me/…"
+                value={draft.contacts?.telegramUrl ?? ''}
+                onChange={(e) =>
+                  setDraft({ ...draft, contacts: { ...draft.contacts, telegramUrl: e.target.value } })
+                }
+              />
+              <TextField
+                label="VK URL"
+                fullWidth
+                placeholder="https://vk.com/…"
+                value={draft.contacts?.vkUrl ?? ''}
+                onChange={(e) =>
+                  setDraft({ ...draft, contacts: { ...draft.contacts, vkUrl: e.target.value } })
+                }
+              />
             </Stack>
           </Paper>
 

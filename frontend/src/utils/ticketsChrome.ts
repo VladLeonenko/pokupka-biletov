@@ -21,6 +21,8 @@ export function matchesTicketsChromePath(pathname: string): boolean {
       '/offer',
       '/cookies',
       '/requisites',
+      '/404',
+      '/case/bilet-vsem',
     ].includes(p)
   ) {
     return true;
@@ -28,6 +30,7 @@ export function matchesTicketsChromePath(pathname: string): boolean {
   if (p.startsWith('/account')) return true;
   if (p.startsWith('/orders/')) return true;
   if (p.startsWith('/ticket')) return true;
+  if (p.startsWith('/case/')) return true;
   return false;
 }
 

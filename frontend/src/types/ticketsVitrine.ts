@@ -55,6 +55,9 @@ export type TicketsVitrineContent = {
     email?: string;
     hours?: string;
     formTitle?: string;
+    /** Публичные соцсети витрины (hero и контакты) */
+    telegramUrl?: string;
+    vkUrl?: string;
   };
   footer?: {
     brand?: string;

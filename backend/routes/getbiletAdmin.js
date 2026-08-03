@@ -17,6 +17,7 @@ function invalidatePublicEventCaches(...repertoireIds) {
   }
 }
 import { storefrontHiddenFromPublished } from '../services/getbiletStorefrontVisibility.js';
+import { notifyPublishedTicketEvent } from '../lib/search-indexing.js';
 import {
   isPosterSearchConfigured,
   isWebPosterSearchConfigured,
@@ -280,6 +281,7 @@ router.post('/events', async (req, res) => {
       [row.id]
     );
     invalidatePublicEventCaches(row.getbilet_external_id);
+    notifyPublishedTicketEvent(full.rows[0]);
     res.status(201).json(full.rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой внешний id уже есть' });
@@ -389,6 +391,7 @@ router.put('/events/:id', async (req, res) => {
       [id]
     );
     invalidatePublicEventCaches(c.getbilet_external_id, ext);
+    notifyPublishedTicketEvent(full.rows[0]);
     res.json(full.rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Такой внешний id уже есть' });

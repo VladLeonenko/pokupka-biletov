@@ -10,11 +10,15 @@ type Props = {
   className: string;
   loading?: 'lazy' | 'eager';
   decoding?: 'async' | 'auto' | 'sync';
+  /** Подсказка браузеру для выбора размера (srcset/CDN) */
+  sizes?: string;
+  srcSet?: string;
 };
 
 /**
  * Постеры с внешних CDN (Яндекс и др.) часто отдают 403, если Referer — чужой сайт.
  * no-referrer снимает блок; дальше — category placeholder, затем градиент.
+ * sizes/srcSet — когда CDN отдаёт несколько ширин; иначе sizes всё равно снижает decode cost.
  */
 export function TicketEventPosterImg({
   src,
@@ -23,6 +27,8 @@ export function TicketEventPosterImg({
   className,
   loading = 'lazy',
   decoding = 'async',
+  sizes,
+  srcSet,
 }: Props) {
   const primary = (src || '').trim();
   const fallback = (fallbackSrc || '').trim();
@@ -42,9 +48,13 @@ export function TicketEventPosterImg({
     );
   }
 
+  const useSrcSet = Boolean(srcSet && current === primary);
+
   return (
     <img
       src={current}
+      srcSet={useSrcSet ? srcSet : undefined}
+      sizes={sizes || undefined}
       alt=""
       className={className}
       loading={loading}

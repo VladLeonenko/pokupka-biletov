@@ -38,6 +38,42 @@
   background: linear-gradient(165deg, #faf9f7 0%, #ffffff 55%);
 }
 
+.steps {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.steps li {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.35);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.stepDone {
+  color: rgba(0, 0, 0, 0.55) !important;
+}
+
+.stepCurrent {
+  color: #fff !important;
+  background: var(--neg-orange, #ff4e18) !important;
+}
+
+.stepsHint {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.5);
+}
+
 @media (min-width: 600px) {
   .head {
     padding-left: 28px;

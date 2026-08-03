@@ -9,9 +9,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { TicketsHomeSections } from '@/components/tickets/TicketsHomeSections';
-import { NEGLINKA_DEMO_EVENTS } from '@/components/tickets/neglinkaDemoData';
 import {
-  attachInferredEventFields,
   dedupeBiletEventsByShow,
   fetchBiletHome,
   fetchBiletEventsLite,
@@ -24,6 +22,7 @@ import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
 import { directionsForHomeCarousels } from '@/utils/ticketsDirectionsFilter';
 import { buildHeroSlides } from '@/utils/buildHeroSlides';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
+import { useTicketRecentRepertoires } from '@/hooks/useTicketRecentRepertoires';
 
 export function HomePage() {
   const [searchParams] = useSearchParams();
@@ -85,12 +84,25 @@ export function HomePage() {
   }, [normalized, dateFilter]);
 
   const displayEvents = useMemo((): NormalizedBiletEvent[] => {
-    if (eventsPending) return [];
-    if (isError) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
-    if (normalized.length === 0) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
+    if (eventsPending || isError) return [];
     if (dateFilter) return filtered;
     return normalized;
   }, [eventsPending, isError, normalized, dateFilter, filtered]);
+
+  const recentIds = useTicketRecentRepertoires(undefined);
+  const recentEvents = useMemo(() => {
+    if (recentIds.length === 0) return [];
+    const pool = dedupeBiletEventsByShow([...normalized, ...normalizedSportLite]);
+    const out: NormalizedBiletEvent[] = [];
+    for (const rid of recentIds) {
+      const hit = pool.find(
+        (e) => e.repertoireId === rid || e.id === rid || e.id.startsWith(`${rid}:`),
+      );
+      if (hit) out.push(hit);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [recentIds, normalized, normalizedSportLite]);
 
   const selectedDateLabel = useMemo(() => {
     if (!dateFilter) return null;
@@ -158,10 +170,14 @@ export function HomePage() {
         heroSlides={heroSlides}
         events={eventsForUi}
         sportEvents={sportEventsForUi}
+        recentEvents={recentEvents}
         directions={directionsForHomeCarousels(vitrine.directions)}
         heroLoading={heroLoading}
         listLoading={listLoading}
+        catalogError={isError}
         selectedDateLabel={dateFilter ? selectedDateLabel : null}
+        telegramUrl={vitrine.contacts?.telegramUrl}
+        vkUrl={vitrine.contacts?.vkUrl}
       />
     </>
   );

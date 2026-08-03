@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
+import { notifyPublishedCmsPage } from '../lib/search-indexing.js';
 
 const router = express.Router();
 
@@ -127,6 +128,11 @@ router.post('/', async (req, res) => {
         canonical_url, robots_index, robots_follow, og_title, og_description, og_image_url, twitter_card, twitter_site, twitter_creator, structured_data, hreflang,
         content_json ? (typeof content_json === 'string' ? JSON.parse(content_json) : content_json) : null]
     );
+    notifyPublishedCmsPage({
+      slug,
+      is_published: is_published !== false,
+      robots_index: robots_index !== false,
+    });
     res.status(201).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -262,6 +268,7 @@ router.put('/:slug', async (req, res) => {
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Page not found' });
     }
+    notifyPublishedCmsPage(result.rows[0]);
     res.json({ success: true, updated: result.rows[0] });
   } catch (error) {
     console.error('[pages] Error updating page:', error);
@@ -278,6 +285,7 @@ router.post('/:slug/publish', async (req, res) => {
       [Boolean(is_published), req.params.slug]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Page not found' });
+    notifyPublishedCmsPage(result.rows[0]);
     res.json({ success: true, updated: result.rows[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });

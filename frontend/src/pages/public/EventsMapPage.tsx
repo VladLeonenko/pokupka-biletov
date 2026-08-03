@@ -6,9 +6,7 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import MapIcon from '@mui/icons-material/Map';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { EventsWeekMap } from '@/components/tickets/EventsWeekMap';
-import { NEGLINKA_DEMO_EVENTS } from '@/components/tickets/neglinkaDemoData';
 import {
-  attachInferredEventFields,
   fetchBiletEventsLite,
   isEventActual,
   normalizeBiletEventsPayload,
@@ -41,7 +39,7 @@ export function EventsMapPage() {
   });
 
   const allEvents = useMemo(() => {
-    if (isError) return NEGLINKA_DEMO_EVENTS.map(attachInferredEventFields);
+    if (isError) return [];
     return normalizeBiletEventsPayload(raw).filter(isEventActual);
   }, [raw, isError]);
 

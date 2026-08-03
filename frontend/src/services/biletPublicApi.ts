@@ -804,6 +804,8 @@ export type RepertoireContext = {
   venueLabel?: string | null;
   /** Адрес площадки (GetStageList / payload). */
   venueAddress?: string | null;
+  /** Дата/время начала (ISO), если есть в payload/каталоге. */
+  beginDateTime?: string | null;
   descriptionSnippet: string | null;
   /** Лид героя (без заголовков секций). */
   heroLead?: string | null;

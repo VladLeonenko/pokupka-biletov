@@ -14,10 +14,15 @@ import {
   pickPlaceId,
 } from './getbiletVenueLabels.js';
 import { isLuzhnikiFootballRepertoire } from '../utils/luzhnikiFootballRepertoires.js';
+import {
+  isLuzhnikiConcertRepertoire,
+  LUZHNIKI_CONCERT_STAGE_MAP_KEY,
+} from '../utils/luzhnikiConcertRepertoires.js';
 import { isSupercupNnRepertoire } from '../utils/footballStadiumRepertoires.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
+  loadLuzhnikiStageMapRowByKey,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   shouldUseLuzhnikiFootballCanonicalMap,
 } from './luzhnikiFootballStageMap.js';
@@ -582,7 +587,23 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
   ]);
 
   try {
-    if (
+    if (isLuzhnikiConcertRepertoire(repertoireId)) {
+      if (deferStageHeavyFields) {
+        const peek = await loadLuzhnikiStageMapRowByKey(LUZHNIKI_CONCERT_STAGE_MAP_KEY);
+        if (peek?.svg_markup) {
+          stageMap = {
+            stage_external_id: LUZHNIKI_CONCERT_STAGE_MAP_KEY,
+            title: peek.title || 'Лужники — концерт',
+            svg_markup: null,
+            layout_json: null,
+            svg_markup_deferred: true,
+          };
+        }
+      } else {
+        const row = await loadLuzhnikiStageMapRowByKey(LUZHNIKI_CONCERT_STAGE_MAP_KEY);
+        if (row) stageMap = adaptLuzhnikiStageMapForLiveOffers(row);
+      }
+    } else if (
       isLuzhnikiFootballRepertoire(repertoireId) ||
       shouldUseLuzhnikiFootballCanonicalMap(
         {
@@ -755,12 +776,16 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
 
   const checkoutFromPack = parseCheckoutSettingsFromPack(descriptionPackJson);
 
+  const beginDateTime =
+    pickFirst(payload, ['EventDateTime', 'beginDateTime', 'startDateTime', 'eventDateTime']) || null;
+
   const body = {
     repertoireId,
     stageId,
     title,
     venueLabel: venueResolved ?? null,
     venueAddress: addressForUi,
+    beginDateTime,
     descriptionSnippet,
     heroKicker: descPack.heroKicker ?? null,
     heroSubline,

@@ -1,4 +1,5 @@
 .wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
   border-radius: 4px;
@@ -55,6 +56,37 @@
   .shade {
     opacity: 0.75;
   }
+}
+
+.favBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.favBtn:hover {
+  transform: scale(1.05);
+  color: var(--neg-orange, #ff4e18);
+}
+
+.favBtnActive {
+  color: var(--neg-orange, #ff4e18);
 }
 
 .imageWrap {

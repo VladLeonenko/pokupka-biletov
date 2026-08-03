@@ -18,3 +18,19 @@ test('resolveStageMapLookupExternalId prefers canonical key for superfinal', asy
   );
   assert.equal(key, 'luzhniki-football');
 });
+
+test('basta-guf repertoire maps to luzhniki-concert (not theater StageId)', async () => {
+  const { footballStadiumStageMapKeyForRepertoire } = await import(
+    '../utils/footballStadiumRepertoires.js'
+  );
+  assert.equal(
+    footballStadiumStageMapKeyForRepertoire('69ac1c5246a4d000309ecd5c'),
+    'luzhniki-concert',
+  );
+  assert.equal(footballStadiumStageMapKeyForRepertoire('basta-guf'), 'luzhniki-concert');
+  const key = await resolveStageMapLookupExternalId(
+    '6400ff2dd6cfc5004d20e9e9',
+    '69ac1c5246a4d000309ecd5c',
+  );
+  assert.equal(key, 'luzhniki-concert');
+});

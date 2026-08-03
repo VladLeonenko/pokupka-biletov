@@ -8,4 +8,7 @@ export const LUZHNIKI_VIP_TRIBUNE_CODES = new Set([
   'vipc137',
 ]);
 
-export const LUZHNIKI_SECTOR_ALIAS_PAIRS: [string, string][] = [['vipc138', 'c138']];
+export const LUZHNIKI_SECTOR_ALIAS_PAIRS: [string, string][] = [
+  ['vipc138', 'c138'],
+  ['фан-зона', 'fan-zone'],
+];

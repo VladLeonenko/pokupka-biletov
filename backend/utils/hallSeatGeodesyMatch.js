@@ -134,14 +134,12 @@ export function buildGrayCloudRowZipMap(index, sector, row, seatList) {
 }
 
 /**
- * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
+ * @param {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }>} index
  * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} offers
  * @param {{ allowRowZip?: boolean }} [opts]
  */
-export function buildSellableSeatGeodesy(layoutSeats, offers, opts = {}) {
-  const index = buildLabeledSeatIndex(layoutSeats);
+export function buildSellableSeatGeodesyFromIndex(index, offers, opts = {}) {
   const allowRowZip = opts.allowRowZip === true;
-
   const seen = new Set();
   const seats = [];
   let matched = 0;
@@ -149,6 +147,10 @@ export function buildSellableSeatGeodesy(layoutSeats, offers, opts = {}) {
   let rowZipMatched = 0;
   let totalSellable = 0;
   const unmatchedSamples = [];
+
+  if (!index?.size) {
+    return { seats, matched, strictMatched, rowZipMatched, totalSellable, unmatchedSamples };
+  }
 
   for (const offer of offers) {
     const sector = String(offer.Sector ?? '');
@@ -188,6 +190,15 @@ export function buildSellableSeatGeodesy(layoutSeats, offers, opts = {}) {
   }
 
   return { seats, matched, strictMatched, rowZipMatched, totalSellable, unmatchedSamples };
+}
+
+/**
+ * @param {{ sector: string, row: string, seat: string, xPct: number, yPct: number }[]} layoutSeats
+ * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} offers
+ * @param {{ allowRowZip?: boolean }} [opts]
+ */
+export function buildSellableSeatGeodesy(layoutSeats, offers, opts = {}) {
+  return buildSellableSeatGeodesyFromIndex(buildLabeledSeatIndex(layoutSeats), offers, opts);
 }
 
 export function diagnoseOfferSeatGeodesy(layoutJson, offers) {

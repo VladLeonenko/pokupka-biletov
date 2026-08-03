@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ticketPool from '../ticketDb.js';
 import { normalizeHallSvgDataIds } from '../utils/normalizeHallSvgDataIds.js';
+import { buildTheaterHallSectorMode } from '../utils/theaterHallSvgSectorMode.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -52,7 +53,7 @@ function countSectorPaths(svg) {
   return (svg.match(/<path\b[^>]*\bdata-id=/gi) || []).length;
 }
 
-function parseLayoutJson(nativeSeatCount, sectorPathCount) {
+function parseLayoutJson(nativeSeatCount, sectorPathCount, svgMarkup) {
   const raw = optionalEnv('STAGE_MAP_LAYOUT_JSON');
   if (raw) return JSON.parse(raw);
 
@@ -60,7 +61,7 @@ function parseLayoutJson(nativeSeatCount, sectorPathCount) {
   const layoutMode =
     requestedMode || (nativeSeatCount >= 2 ? 'svgNative' : 'grid');
 
-  return {
+  const layout = {
     layoutMode,
     nativeSeatCount,
     sectorPathCount,
@@ -69,6 +70,57 @@ function parseLayoutJson(nativeSeatCount, sectorPathCount) {
         ? 'svgNative: места берутся из circle[place-name] или circle[data-replaced]'
         : 'grid: в SVG нет координат мест; нужна sector/path-разметка или overlayRect для точной кликабельности',
   };
+
+  if (truthyEnv('STAGE_MAP_SECTOR_MODE_FROM_SVG')) {
+    const sectorMode = buildTheaterHallSectorMode(svgMarkup, { source: 'svg-paths' });
+    if (!sectorMode.enabled) {
+      throw new Error('STAGE_MAP_SECTOR_MODE_FROM_SVG: в SVG нет path[data-id][data-name]');
+    }
+    const excludeReRaw = optionalEnv('STAGE_MAP_SECTOR_EXCLUDE_LABEL_RE');
+    if (excludeReRaw) {
+      const excludeRe = new RegExp(excludeReRaw, 'i');
+      sectorMode.sectors = sectorMode.sectors.filter((s) => !excludeRe.test(String(s.label || '')));
+      sectorMode.enabled = sectorMode.sectors.length > 0;
+      if (!sectorMode.enabled) {
+        throw new Error('STAGE_MAP_SECTOR_EXCLUDE_LABEL_RE: после фильтра не осталось секторов');
+      }
+    }
+    layout.sectorMode = sectorMode;
+    layout.layoutMode = requestedMode || 'svgNative';
+    layout.note =
+      nativeSeatCount >= 2
+        ? layout.note
+        : 'svgNative + sectorMode: клик по секторам из path[data-id][data-name]; места без координат — из офферов';
+  }
+
+  const hallKind = optionalEnv('STAGE_MAP_HALL_KIND');
+  if (hallKind) layout.hallKind = hallKind;
+
+  const hallWidth = Number(optionalEnv('STAGE_MAP_HALL_WIDTH') || '');
+  const hallHeight = Number(optionalEnv('STAGE_MAP_HALL_HEIGHT') || '');
+  if (Number.isFinite(hallWidth) && hallWidth > 0 && Number.isFinite(hallHeight) && hallHeight > 0) {
+    layout.pbilet = {
+      ...(layout.pbilet && typeof layout.pbilet === 'object' ? layout.pbilet : {}),
+      hallWidth,
+      hallHeight,
+    };
+  }
+
+  const maxZoom = Number(optionalEnv('STAGE_MAP_MAX_ZOOM_MULTIPLIER') || '');
+  if (Number.isFinite(maxZoom) && maxZoom >= 1) {
+    layout.maxZoomMultiplier = maxZoom;
+    layout.sectorFocusZoomMultiplier = maxZoom;
+  }
+
+  if (truthyEnv('STAGE_MAP_PREFER_LAYOUT_SEATS')) {
+    layout.preferLayoutSeatPositions = true;
+  }
+
+  if (truthyEnv('STAGE_MAP_GRAY_HALL_WHEN_NO_OFFERS')) {
+    layout.grayHallWhenNoOffers = true;
+  }
+
+  return layout;
 }
 
 async function main() {
@@ -96,7 +148,7 @@ async function main() {
 
   const nativeSeatCount = countNativeSeatCircles(svgMarkup);
   const sectorPathCount = countSectorPaths(svgMarkup);
-  const layoutJson = parseLayoutJson(nativeSeatCount, sectorPathCount);
+  const layoutJson = parseLayoutJson(nativeSeatCount, sectorPathCount, svgMarkup);
 
   if (nativeSeatCount < 2) {
     console.warn(
@@ -134,10 +186,22 @@ async function main() {
     ],
   );
 
+  const saved = r.rows[0] || {};
+  const sectorModeCount = Array.isArray(saved.layout_json?.sectorMode?.sectors)
+    ? saved.layout_json.sectorMode.sectors.length
+    : 0;
   console.log(
     JSON.stringify(
       {
-        saved: r.rows[0],
+        saved: {
+          id: saved.id,
+          stage_external_id: saved.stage_external_id,
+          title: saved.title,
+          has_svg: saved.has_svg,
+          sectorModeCount,
+          layoutMode: saved.layout_json?.layoutMode ?? null,
+          hallKind: saved.layout_json?.hallKind ?? null,
+        },
         source: path.relative(repoRoot, svgPath),
         nativeSeatCount,
         sectorPathCount,

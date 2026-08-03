@@ -7,6 +7,11 @@ import {
   isLuzhnikiFootballRepertoire,
   luzhnikiFootballStageMapKeyForRepertoire,
 } from './luzhnikiFootballRepertoires.js';
+import {
+  isLuzhnikiConcertRepertoire,
+  luzhnikiConcertStageMapKeyForRepertoire,
+  LUZHNIKI_CONCERT_STAGE_MAP_KEY,
+} from './luzhnikiConcertRepertoires.js';
 
 /** Живой GetBilet: Суперкубок России 2026, Стадион «Нижний Новгород». */
 export const SUPERKUP_NN_REPERTOIRE_ID = '6a46656d46a4d000309ed0a2';
@@ -47,7 +52,11 @@ export function isSupercupNnRepertoire(repertoireId) {
 
 /** @param {string | null | undefined} repertoireId */
 export function isFootballStadiumRepertoire(repertoireId) {
-  return isLuzhnikiFootballRepertoire(repertoireId) || isSupercupNnRepertoire(repertoireId);
+  return (
+    isLuzhnikiFootballRepertoire(repertoireId) ||
+    isLuzhnikiConcertRepertoire(repertoireId) ||
+    isSupercupNnRepertoire(repertoireId)
+  );
 }
 
 /**
@@ -55,10 +64,12 @@ export function isFootballStadiumRepertoire(repertoireId) {
  * @returns {string | null}
  */
 export function footballStadiumStageMapKeyForRepertoire(repertoireId) {
+  const concert = luzhnikiConcertStageMapKeyForRepertoire(repertoireId);
+  if (concert) return concert;
   const luzhniki = luzhnikiFootballStageMapKeyForRepertoire(repertoireId);
   if (luzhniki) return luzhniki;
   if (isSupercupNnRepertoire(repertoireId)) return SUPERKUP_NN_STAGE_MAP_KEY;
   return null;
 }
 
-export { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY };
+export { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY, LUZHNIKI_CONCERT_STAGE_MAP_KEY };

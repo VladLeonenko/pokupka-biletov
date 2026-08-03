@@ -1,0 +1,47 @@
+---
+description: SEO Meta V3 для biletvsem — title/description/SSR/IndexNow
+globs:
+  - backend/middleware/seoRenderer.js
+  - backend/lib/**/*
+  - backend/routes/sitemap.js
+  - frontend/src/components/common/SeoMetaTags.tsx
+  - frontend/src/components/common/RouteSeoDefaults.tsx
+alwaysApply: false
+---
+
+# SEO Meta V3 (Билет Всем)
+
+## Title / description
+- Без бренда в title (`| Билет Всем` — нет)
+- Без пустых УТП: «лучший», «гарантия», «оффер» как филлер
+- Формула money URL: **событие/результат + механизм (места/онлайн) + цена при наличии**
+- Title ~50–70 символов, description ~120–160
+- H1 ≠ title (H1 короче/другой акцент), без бренда
+
+## Money URL
+- `/ticket/:idOrSlug` — Event JSON-LD с `startDate` + `offers`/`AggregateOffer`
+- `/events`, `/events/city|genre|venue/*`, `/afisha`
+
+## Catalog (ручные override)
+- BE: `backend/lib/seo-ticket-meta-catalog.js` → `TICKET_SEO` / `resolveTicketSeo`
+- FE: `frontend/src/seo/ticketSeoCatalog.ts` — **править парой**
+- Catalog побеждает auto title/desc; плейсхолдер `{{price}}`
+
+## Стек
+- Soft-SSR: `backend/middleware/seoRenderer.js` → meta + body в `#root`
+- Cache: `backend/lib/ssr-html-cache.js`, header `X-BV-SSR-Cache`
+- IndexNow: `backend/lib/search-indexing.js`, key `GET /${INDEXNOW_KEY}.txt`
+- Org/WebSite: `backend/lib/ssr-head-schema.js`
+
+## Не делать
+- Не отдавать HTML static `dist/index.html` напрямую с nginx — только через Express
+- Не класть в sitemap 410-пути (`/blog`, `/products`, `/cases`, …) и CMS-мусор (`/komanda-primecoder`)
+- Не дублировать default JSON-LD shell + SSR graph
+
+## Прод .env (при деплое)
+```
+SITE_URL=https://biletvsem.com
+API_INTERNAL_URL=http://127.0.0.1:3000
+INDEXNOW_KEY=<секрет>
+SSR_CACHE_TTL_MS=60000
+```

@@ -11,7 +11,7 @@ import ticketPool from '../ticketDb.js';
 import { classifyEventTitle } from './eventTitleHeuristics.js';
 import { mergeSellableSeatsIntoLayout } from '../utils/luzhnikiLayoutSeatPatch.js';
 import {
-  buildSellableSeatGeodesy,
+  buildSellableSeatGeodesyFromIndex,
   buildGrayCloudRowZipMap,
   lookupLabeledSeat,
 } from '../utils/hallSeatGeodesyMatch.js';
@@ -25,6 +25,10 @@ import {
 } from '../utils/luzhnikiPbiletSellableGeodesy.js';
 import { prefersSectorRadialCorner } from '../utils/luzhnikiSectorPolarGrid.js';
 import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
+import { getLuzhnikiLabeledSeatIndex } from '../utils/luzhnikiSeatIndexCache.js';
+import { isLuzhnikiConcertFreeZoneSector } from '../utils/luzhnikiConcertFreeZoneSeats.js';
+import { LUZHNIKI_CONCERT_STAGE_MAP_KEY } from '../utils/luzhnikiConcertRepertoires.js';
+import { footballPctToConcertStageBottom } from '../utils/luzhnikiConcertToFootballTransform.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
@@ -124,8 +128,14 @@ export function slimLuzhnikiStageMapForClient(row) {
       ...(manualSeats.length > 0 ? { seats: manualSeats } : null),
       ...(manualBackgroundSeats.length > 0 ? { backgroundSeats: manualBackgroundSeats } : null),
       omitClientSeatCoordinateCloud: true,
-      hallBackgroundRasterUrl: '/hall-maps/luzhniki-football-gray-bowl.png',
-      stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+      hallBackgroundRasterUrl:
+        typeof slimLayout.hallBackgroundRasterUrl === 'string' && slimLayout.hallBackgroundRasterUrl.trim()
+          ? slimLayout.hallBackgroundRasterUrl.trim()
+          : '/hall-maps/luzhniki-football-gray-bowl.png',
+      stadiumMapKey:
+        typeof slimLayout.stadiumMapKey === 'string' && slimLayout.stadiumMapKey.trim()
+          ? slimLayout.stadiumMapKey.trim()
+          : LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
       luzhnikiStadiumCheckout: true,
     },
   };
@@ -229,17 +239,37 @@ function buildSellableSeatsFromManualBundle(offers = []) {
   };
 }
 
-function buildSellableSeatsFromLayoutSeats(layout, offers = []) {
-  const layoutSeats = Array.isArray(layout?.seats) ? layout.seats : [];
-  if (layoutSeats.length < 1) return null;
+function isLuzhnikiConcertStageRow(row, layout) {
+  const stageId = String(row?.stage_external_id || '').trim();
+  const mapKey = String(layout?.stadiumMapKey || '').trim();
+  return stageId === LUZHNIKI_CONCERT_STAGE_MAP_KEY || mapKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY;
+}
 
-  const geodesy = buildSellableSeatGeodesy(layoutSeats, offers);
+/**
+ * layout.seats или sidecar pilot (layoutSeatsStoredInFile) — как НН, без 77k cloud.
+ * @param {Record<string, unknown>} layout
+ * @param {{ Sector?: string, Row?: string, SeatList?: string[] }[]} [offers]
+ * @param {{ allowRowZip?: boolean, updatedAt?: string }} [opts]
+ */
+function buildSellableSeatsFromLayoutSeats(layout, offers = [], opts = {}) {
+  const { index, seatCount } = getLuzhnikiLabeledSeatIndex(layout, opts.updatedAt);
+  if (seatCount < 1 || !index?.size) return null;
+
+  const geodesy = buildSellableSeatGeodesyFromIndex(index, offers, {
+    allowRowZip: opts.allowRowZip === true,
+  });
   if (!geodesy?.seats?.length) return null;
   return geodesy;
 }
 
 export async function loadLuzhnikiFootballStageMapRow() {
-  const key = LUZHNIKI_FOOTBALL_STAGE_MAP_KEY;
+  return loadLuzhnikiStageMapRowByKey(LUZHNIKI_FOOTBALL_STAGE_MAP_KEY);
+}
+
+/** @param {string} stageExternalId */
+export async function loadLuzhnikiStageMapRowByKey(stageExternalId) {
+  const key = String(stageExternalId || '').trim();
+  if (!key) return null;
   const r = await ticketPool.query(
     `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url
      FROM getbilet_stage_maps WHERE stage_external_id = $1`,
@@ -263,7 +293,10 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   } = layout;
   const base = {
     ...layoutForGeodesy,
-    stadiumMapKey: LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
+    stadiumMapKey:
+      typeof layoutForGeodesy.stadiumMapKey === 'string' && layoutForGeodesy.stadiumMapKey.trim()
+        ? layoutForGeodesy.stadiumMapKey.trim()
+        : LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
     luzhnikiStadiumCheckout: true,
     grayHallWhenNoOffers: false,
     seatSelectionDisabled: false,
@@ -272,6 +305,50 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   const offers = Array.isArray(offerRows) ? offerRows : [];
   if (offers.length < 1) {
     return { ...row, layout_json: { ...base, sellableSeats: [], sellableSeatsFromLiveOffers: true } };
+  }
+
+  const concertFast = isLuzhnikiConcertStageRow(row, layoutForGeodesy);
+
+  // Концерт = как НН: labeled pilot seats. Танцпол/фан-зона — зона без точек (покупка по зоне).
+  if (concertFast) {
+    const layoutSellable = buildSellableSeatsFromLayoutSeats(layoutForGeodesy, offers, {
+      allowRowZip: false,
+      updatedAt: String(row.updated_at || ''),
+    });
+    const rotatePct = layoutForGeodesy.concertSeatPctFromFootball === true;
+    const seats = (layoutSellable?.seats || [])
+      .filter((seat) => !isLuzhnikiConcertFreeZoneSector(seat.sector))
+      .map((seat) => {
+        const pct = rotatePct
+          ? footballPctToConcertStageBottom(seat.xPct, seat.yPct)
+          : { xPct: seat.xPct, yPct: seat.yPct };
+        return {
+          ...seat,
+          xPct: pct.xPct,
+          yPct: pct.yPct,
+          geodesySource: seat.geodesySource || 'layoutStrictFast',
+        };
+      });
+    return {
+      ...row,
+      layout_json: {
+        ...base,
+        allSeatCoordinates: undefined,
+        concertZoneOnlySectors: ['танцпол', 'фан-зона', 'fan-zone'],
+        hideSeatList: true,
+        sellableSeats: seats,
+        sellableSeatsFromLiveOffers: true,
+        sellableGeodesyMode: 'concertLayoutStrict',
+        offerSeatGeodesy: {
+          matched: seats.length,
+          totalSellable: layoutSellable?.totalSellable ?? 0,
+          strictMatched: layoutSellable?.strictMatched ?? layoutSellable?.matched ?? 0,
+          freeZoneMatched: 0,
+          partialManualOnly: false,
+          unmatchedSamples: layoutSellable?.unmatchedSamples ?? [],
+        },
+      },
+    };
   }
 
   const manualSellable = buildSellableSeatsFromManualBundle(offers);
@@ -297,7 +374,10 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
     };
   }
 
-  const layoutSellable = buildSellableSeatsFromLayoutSeats(layoutForGeodesy, offers);
+  const layoutSellable = buildSellableSeatsFromLayoutSeats(layoutForGeodesy, offers, {
+    allowRowZip: false,
+    updatedAt: String(row.updated_at || ''),
+  });
   if (layoutSellable?.seats?.length) {
     return {
       ...row,
@@ -305,14 +385,14 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
         ...base,
         sellableSeats: layoutSellable.seats.map((seat) => ({
           ...seat,
-          geodesySource: 'layoutStrictFast',
+          geodesySource: seat.geodesySource || 'layoutStrictFast',
         })),
         sellableSeatsFromLiveOffers: true,
         sellableGeodesyMode: 'layoutStrictFast',
         offerSeatGeodesy: {
           matched: layoutSellable.matched,
           totalSellable: layoutSellable.totalSellable,
-          strictMatched: layoutSellable.matched,
+          strictMatched: layoutSellable.strictMatched ?? layoutSellable.matched,
           partialManualOnly: false,
           unmatchedSamples: layoutSellable.unmatchedSamples,
         },

@@ -8,13 +8,24 @@ interface CaseStudyJsonLdProps {
   url: string;
   image?: string;
   datePublished?: string;
+  /** Внешний автор (напр. студия) — для SEO-массы на другой домен */
+  authorName?: string;
+  authorUrl?: string;
 }
 
 /**
  * CaseStudy structured data (Schema.org)
  * Rich snippet для страниц кейсов в поисковой выдаче
  */
-export function CaseStudyJsonLd({ name, description, url, image, datePublished }: CaseStudyJsonLdProps) {
+export function CaseStudyJsonLd({
+  name,
+  description,
+  url,
+  image,
+  datePublished,
+  authorName,
+  authorUrl,
+}: CaseStudyJsonLdProps) {
   useEffect(() => {
     const scriptId = 'casestudy-jsonld';
     const existing = document.getElementById(scriptId);
@@ -28,6 +39,9 @@ export function CaseStudyJsonLd({ name, description, url, image, datePublished }
         ? `${siteUrl}${image.startsWith('/') ? '' : '/'}${image}`
         : undefined;
 
+    const authorOrgName = authorName?.trim() || SITE_BRAND;
+    const authorOrgUrl = authorUrl?.trim() || siteUrl;
+
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'CaseStudy',
@@ -37,9 +51,21 @@ export function CaseStudyJsonLd({ name, description, url, image, datePublished }
       ...(imageUrl && { image: imageUrl }),
       author: {
         '@type': 'Organization',
+        name: authorOrgName,
+        url: authorOrgUrl,
+        logo: { '@type': 'ImageObject', url: logoUrl },
+      },
+      creator: {
+        '@type': 'Organization',
+        name: authorOrgName,
+        url: authorOrgUrl,
+      },
+      about: {
+        '@type': 'SoftwareApplication',
         name: SITE_BRAND,
         url: siteUrl,
-        logo: { '@type': 'ImageObject', url: logoUrl },
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Web',
       },
       mainEntityOfPage: { '@type': 'WebPage', '@id': url },
       ...(datePublished && { datePublished }),
@@ -54,7 +80,7 @@ export function CaseStudyJsonLd({ name, description, url, image, datePublished }
     return () => {
       document.getElementById(scriptId)?.remove();
     };
-  }, [name, description, url, image, datePublished]);
+  }, [name, description, url, image, datePublished, authorName, authorUrl]);
 
   return null;
 }

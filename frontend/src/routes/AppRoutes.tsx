@@ -56,6 +56,9 @@ const PublicHomePageAI = lazy(() => import('@/pages/public/PublicHomePageAI').th
 const PublicHomePageAI_Noomo = lazy(() => import('@/pages/public/PublicHomePageAI_Noomo').then(m => ({ default: m.default })));
 const CartPage = lazy(() => import('@/pages/public/CartPage').then(m => ({ default: m.CartPage })));
 const WishlistPage = lazy(() => import('@/pages/public/WishlistPage').then(m => ({ default: m.WishlistPage })));
+const BiletVsemCasePage = lazy(() =>
+  import('@/pages/public/BiletVsemCasePage').then((m) => ({ default: m.BiletVsemCasePage })),
+);
 const SearchPage = lazy(() => import('@/pages/public/SearchPage').then(m => ({ default: m.SearchPage })));
 const AccountPage = lazy(() => import('@/pages/public/AccountPage').then(m => ({ default: m.AccountPage })));
 const AccountAiTeamPage = lazy(() => import('@/pages/public/AccountAiTeamPage').then(m => ({ default: m.AccountAiTeamPage })));
@@ -201,6 +204,7 @@ export function AppRoutes() {
       <Route path="/ai-team-v2" element={<PublicHomePageAI_Noomo />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/wishlist" element={<WishlistPage />} />
+      <Route path="/case/bilet-vsem" element={<BiletVsemCasePage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/account/ai-team" element={<AccountAiTeamPage />} />

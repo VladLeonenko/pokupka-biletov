@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { formatEventPosterDateBadge } from '@/utils/eventDateLabels';
 import {
@@ -6,6 +8,7 @@ import {
   resolveEventCoverUrl,
 } from '@/utils/ticketsPlaceholders';
 import { venueFromApiOnly } from '@/utils/venueHint';
+import { favoriteIdFromEvent, useTicketFavorites } from '@/hooks/useTicketFavorites';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './EventPosterCard.module.css';
 
@@ -52,6 +55,9 @@ function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
 
 export function EventPosterCard({ event, variant = 'poster' }: Props) {
   const to = ticketCheckoutHref(event);
+  const { isFavorite, toggleEvent } = useTicketFavorites();
+  const favId = favoriteIdFromEvent(event);
+  const liked = favId ? isFavorite(favId) : false;
   const coverInput = {
     title: event.title,
     subtitle: event.subtitle,
@@ -76,6 +82,21 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
 
   return (
     <div className={`${styles.wrap} ${variant === 'compact' ? styles.compact : ''}`}>
+      {favId ? (
+        <button
+          type="button"
+          className={`${styles.favBtn} ${liked ? styles.favBtnActive : ''}`}
+          aria-label={liked ? 'Убрать из избранного' : 'В избранное'}
+          aria-pressed={liked}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleEvent(event);
+          }}
+        >
+          {liked ? <FavoriteIcon sx={{ fontSize: 18 }} /> : <FavoriteBorderIcon sx={{ fontSize: 18 }} />}
+        </button>
+      ) : null}
       <Link to={to} className={styles.cardLink}>
         <div className={styles.imageWrap}>
           <TicketEventPosterImg
@@ -85,6 +106,7 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
             className={styles.img}
             loading="lazy"
             decoding="async"
+            sizes="(max-width: 600px) 50vw, (max-width: 1100px) 33vw, 240px"
           />
           <div className={styles.shade} />
           <div className={styles.badges}>

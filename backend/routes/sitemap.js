@@ -2,11 +2,35 @@ import express from 'express';
 import pool from '../db.js';
 import ticketPool from '../ticketDb.js';
 import { siteBaseUrl, siteBrand } from '../siteConfig.js';
+import { getIndexNowKey, indexNowKeyBody } from '../lib/search-indexing.js';
 
 const router = express.Router();
 
 const BASE_URL = siteBaseUrl();
 const BRAND = siteBrand();
+
+/** Пути, которые отдаются как 410 — не кладём в sitemap/llms. */
+const GONE_PATH_PREFIXES = ['/blog', '/products', '/cases', '/catalog', '/about', '/portfolio', '/reviews', '/promotion', '/new-client', '/services'];
+
+/** Legacy CMS / мусор PrimeCoder — не индексируем. */
+const SITEMAP_SLUG_BLOCKLIST = new Set([
+  '/komanda-primecoder',
+  'komanda-primecoder',
+  '/team',
+  'team',
+  '/services',
+  'services',
+  '/pricing',
+  'pricing',
+]);
+
+function isGonePublicPath(slugOrPath) {
+  const p = String(slugOrPath || '').trim();
+  if (!p) return false;
+  const path = p.startsWith('/') ? p : `/${p}`;
+  if (SITEMAP_SLUG_BLOCKLIST.has(p) || SITEMAP_SLUG_BLOCKLIST.has(path)) return true;
+  return GONE_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
 
 async function poolRows(label, sql, params = []) {
   try {
@@ -42,40 +66,17 @@ function formatDate(date) {
   }
 }
 
-// Функция для определения приоритета страницы
 function getPriority(slug, type = 'page') {
-  // Главная страница - максимальный приоритет
   if (slug === '/' || slug === '') return '1.0';
-  
-  // Важные разделы
-  if (['/catalog', '/services', '/about', '/contacts'].includes(slug)) return '0.9';
-  
-  // Услуги и продукты
-  if (type === 'product') return '0.8';
-  if (type === 'case') return '0.7';
-  
-  // Блог
-  if (type === 'blog') return '0.6';
-  
-  // Остальные страницы
+  if (['/events', '/afisha', '/contacts'].includes(slug)) return '0.9';
+  if (type === 'ticket') return '0.9';
+  if (type === 'landing') return '0.85';
   return '0.5';
 }
 
-// Функция для определения частоты обновления
-function getChangeFreq(slug, type = 'page', updatedAt) {
-  // Главная страница - ежедневно
-  if (slug === '/' || slug === '') return 'daily';
-  
-  // Каталог и услуги - еженедельно
-  if (['/catalog', '/services'].includes(slug)) return 'weekly';
-  
-  // Блог - еженедельно
-  if (type === 'blog') return 'weekly';
-  
-  // Кейсы и продукты - ежемесячно
-  if (type === 'case' || type === 'product') return 'monthly';
-  
-  // Остальные - ежемесячно
+function getChangeFreq(slug, type = 'page') {
+  if (slug === '/' || slug === '' || slug === '/events' || slug === '/afisha') return 'daily';
+  if (type === 'ticket' || type === 'landing') return 'weekly';
   return 'monthly';
 }
 
@@ -100,38 +101,13 @@ export async function handleSitemapXml(req, res) {
        ORDER BY updated_at DESC`,
     );
     for (const page of pagesRows) {
+      if (isGonePublicPath(page.slug)) continue;
       const slug = page.slug === '/' ? '' : page.slug;
       urls.push({
         loc: BASE_URL + slug,
         lastmod: formatDate(page.updated_at),
-        changefreq: getChangeFreq(page.slug, 'page', page.updated_at),
+        changefreq: getChangeFreq(page.slug, 'page'),
         priority: getPriority(page.slug, 'page'),
-      });
-    }
-
-    const blogRows = await poolRows(
-      'blog_posts',
-      `SELECT slug, updated_at
-       FROM blog_posts
-       WHERE is_published = TRUE
-       ORDER BY updated_at DESC`,
-    );
-    for (const post of blogRows) {
-      urls.push({
-        loc: `${BASE_URL}/blog/${post.slug}`,
-        lastmod: formatDate(post.updated_at),
-        changefreq: getChangeFreq(post.slug, 'blog', post.updated_at),
-        priority: getPriority(post.slug, 'blog'),
-      });
-    }
-
-    const categoryRows = await poolRows('blog_categories', `SELECT slug FROM blog_categories ORDER BY id`);
-    for (const category of categoryRows) {
-      urls.push({
-        loc: `${BASE_URL}/blog/category/${category.slug}`,
-        lastmod: formatDate(new Date()),
-        changefreq: 'weekly',
-        priority: '0.7',
       });
     }
 
@@ -147,8 +123,8 @@ export async function handleSitemapXml(req, res) {
       urls.push({
         loc: `${BASE_URL}/ticket/${rid}`,
         lastmod: formatDate(row.updated_at),
-        changefreq: 'weekly',
-        priority: '0.9',
+        changefreq: getChangeFreq(`/ticket/${rid}`, 'ticket'),
+        priority: getPriority(`/ticket/${rid}`, 'ticket'),
       });
     }
 
@@ -162,6 +138,7 @@ export async function handleSitemapXml(req, res) {
       { path: '/offer', priority: '0.3', changefreq: 'yearly' },
       { path: '/cookies', priority: '0.3', changefreq: 'yearly' },
       { path: '/requisites', priority: '0.3', changefreq: 'yearly' },
+      { path: '/case/bilet-vsem', priority: '0.75', changefreq: 'monthly' },
     ];
 
     const landingPages = [
@@ -249,22 +226,18 @@ router.get('/.well-known/llms.txt', handleWellKnownLlms);
 // llms.txt — «sitemap для ИИ» по спецификации llmstxt.org
 export async function handleLlmsTxt(req, res) {
   try {
-    const products = await poolRows(
-      'llms.txt products',
-      'SELECT slug, title, summary FROM products WHERE is_active = TRUE ORDER BY slug',
+    const ticketEvents = await ticketRows(
+      'llms.txt tickets',
+      `SELECT getbilet_external_id::text AS ext_id,
+              COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title
+       FROM getbilet_events
+       WHERE is_published = TRUE
+       ORDER BY updated_at DESC
+       LIMIT 40`,
     );
-    const cases = await poolRows(
-      'llms.txt cases',
-      'SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug',
-    );
-    const blogPosts = await poolRows(
-      'llms.txt blog',
-      'SELECT slug, title FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC',
-    );
-
-    const productsLinks = products.map((p) => `- [${p.title}](${BASE_URL}/products/${p.slug}): ${(p.summary || '').slice(0, 80)}...`).join('\n');
-    const casesLinks = cases.slice(0, 15).map((c) => `- [${c.title}](${BASE_URL}/cases/${c.slug}): ${(c.summary || '').slice(0, 80)}...`).join('\n');
-    const blogLinks = blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})`).join('\n');
+    const eventLinks = ticketEvents
+      .map((e) => `- [${e.title}](${BASE_URL}/ticket/${encodeURIComponent(e.ext_id)})`)
+      .join('\n');
 
     const md = `# ${BRAND}
 
@@ -273,36 +246,36 @@ export async function handleLlmsTxt(req, res) {
 Ключевые разделы:
 - Афиша и поиск: ${BASE_URL}/events
 - Альтернативная афиша: ${BASE_URL}/afisha
-- Каталог услуг (при наличии): ${BASE_URL}/catalog
-- Портфолио и кейсы: ${BASE_URL}/portfolio
-- Блог: ${BASE_URL}/blog
 - Контакты: ${BASE_URL}/contacts
+- FAQ: ${BASE_URL}/faq
+- Возврат билетов: ${BASE_URL}/returns
 
-## Услуги (${BASE_URL}/products)
+## Мероприятия (опубликованные)
 
-${productsLinks}
+${eventLinks || '_Пока нет опубликованных событий_'}
 
-## Кейсы
+## SEO-подборки
 
-${casesLinks}
-
-## Блог (последние)
-
-${blogLinks}
+- [Москва](${BASE_URL}/events/city/moskva)
+- [Санкт-Петербург](${BASE_URL}/events/city/sankt-peterburg)
+- [Театр](${BASE_URL}/events/genre/teatr)
+- [Концерт](${BASE_URL}/events/genre/koncert)
+- [Спорт](${BASE_URL}/events/genre/sport)
 
 ## Основные страницы
 
 - [Главная](${BASE_URL}/)
-- [О компании](${BASE_URL}/about)
-- [Каталог](${BASE_URL}/catalog)
+- [Афиша](${BASE_URL}/events)
 - [Контакты](${BASE_URL}/contacts)
-- [Блог](${BASE_URL}/blog)
-- [Портфолио](${BASE_URL}/portfolio)
+- [FAQ](${BASE_URL}/faq)
+- [Возврат](${BASE_URL}/returns)
+- [Оферта](${BASE_URL}/offer)
+- [Конфиденциальность](${BASE_URL}/privacy)
+- [Кейс разработки Билет Всем (PrimeCoder)](${BASE_URL}/case/bilet-vsem)
 
 ## Optional
 
 - [Sitemap XML](${BASE_URL}/sitemap.xml): полная карта сайта для поисковых систем
-- [YML фид услуг](${BASE_URL}/feed/services.yml): для Яндекс.Вебмастер (Исполнители)
 - [Полная версия llms](${BASE_URL}/llms-full.txt): расширенный контекст для ИИ
 `;
 
@@ -317,30 +290,29 @@ ${blogLinks}
 
 router.get('/llms.txt', handleLlmsTxt);
 
-// llms-full.txt — расширенная версия: domain-specific, recency, примеры промптов, блог
+// llms-full.txt — расширенная версия для ИИ
 export async function handleLlmsFullTxt(req, res) {
   try {
-    const products = await poolRows(
-      'llms-full products',
-      'SELECT slug, title, summary, meta_description, content_json FROM products WHERE is_active = TRUE ORDER BY slug',
-    );
-    const cases = await poolRows(
-      'llms-full cases',
-      'SELECT slug, title, summary FROM cases WHERE is_published = TRUE ORDER BY slug LIMIT 25',
-    );
-    const blogPosts = await poolRows(
-      'llms-full blog',
-      'SELECT slug, title, seo_description FROM blog_posts WHERE is_published = TRUE ORDER BY created_at DESC',
+    const ticketEvents = await ticketRows(
+      'llms-full tickets',
+      `SELECT getbilet_external_id::text AS ext_id,
+              COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
+              NULLIF(TRIM(venue_manual), '') AS venue,
+              LEFT(COALESCE(description_manual, ''), 160) AS summary
+       FROM getbilet_events
+       WHERE is_published = TRUE
+       ORDER BY updated_at DESC
+       LIMIT 80`,
     );
 
-    const productBlocks = products.map((p) => {
-      const desc = p.meta_description || p.summary || '';
-      const content = p.content_json || {};
-      const priceSection = content.priceSection || {};
-      const tariffs = priceSection.tariffs || [];
-      const priceInfo = tariffs[0]?.price ? ` От ${tariffs[0].price}` : '';
-      return `### ${p.title}${priceInfo}\n${BASE_URL}/products/${p.slug}\n${desc}\n`;
-    }).join('\n');
+    const eventBlocks = ticketEvents
+      .map((e) => {
+        const bits = [`### ${e.title}`, `${BASE_URL}/ticket/${encodeURIComponent(e.ext_id)}`];
+        if (e.venue) bits.push(`Площадка: ${e.venue}`);
+        if (e.summary) bits.push(e.summary);
+        return `${bits.join('\n')}\n`;
+      })
+      .join('\n');
 
     const host = BASE_URL.replace(/^https?:\/\//, '');
     const md = `# ${BRAND} — полный контекст для ИИ
@@ -351,29 +323,21 @@ export async function handleLlmsFullTxt(req, res) {
 domain: ${host}
 domain-specific: ${BASE_URL}/events
 domain-specific: ${BASE_URL}/afisha
-domain-specific: ${BASE_URL}/catalog
-domain-specific: ${BASE_URL}/products
 updated: ${formatDate(new Date())}
 language: ru
 ---
 
-## Услуги (детально)
+## Мероприятия
 
-${productBlocks}
-
-## Кейсы
-
-${cases.map((c) => `- [${c.title}](${BASE_URL}/cases/${c.slug})`).join('\n')}
-
-## Блог (последние статьи)
-
-${blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})${p.seo_description ? `: ${p.seo_description.slice(0, 60)}...` : ''}`).join('\n')}
+${eventBlocks || '_Нет опубликованных событий_'}
 
 ## Контакты
 
 - Сайт: ${BASE_URL}
 - Контакты: ${BASE_URL}/contacts
 - Афиша: ${BASE_URL}/events
+- FAQ: ${BASE_URL}/faq
+- Возврат: ${BASE_URL}/returns
 
 ## Примеры промптов для ИИ
 
@@ -382,8 +346,6 @@ ${blogPosts.map((p) => `- [${p.title}](${BASE_URL}/blog/${p.slug})${p.seo_descri
 3. **Площадка**: "Как найти мероприятия по театру или концертному залу?"
 4. **Оплата**: "Какие способы оплаты на сайте ${BRAND}?"
 5. **Электронный билет**: "Как получить билет после оплаты?"
-
-Ключевые slug услуг: ${products.map((p) => p.slug).join(', ')}
 
 ## Optional
 
@@ -483,7 +445,12 @@ ${offersXml}
 
 router.get('/feed/services.yml', handleServicesYml);
 
-// Функция для экранирования XML
+router.get(`/${getIndexNowKey()}.txt`, (_req, res) => {
+  res.set('Content-Type', 'text/plain; charset=utf-8');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(indexNowKeyBody());
+});
+
 function escapeXml(unsafe) {
   return unsafe.replace(/[<>&'"]/g, (c) => {
     switch (c) {

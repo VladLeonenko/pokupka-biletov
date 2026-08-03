@@ -9,6 +9,31 @@ import {
   handleServicesYml,
 } from '../routes/sitemap.js';
 import { siteBaseUrl, siteBrand } from '../siteConfig.js';
+import { getSsrHtmlCache, setSsrHtmlCache } from '../lib/ssr-html-cache.js';
+import { buildExtraHeadJsonLd } from '../lib/ssr-head-schema.js';
+import {
+  injectSsrIntoHtml,
+  injectCrawlMirror,
+  buildTicketEventSsrHtml,
+  buildStaticLandingSsrHtml,
+  buildEventsIndexSsrHtml,
+  buildHomeSsrHtml,
+  buildCmsPageSsrHtml,
+  buildEventItemListSchema,
+} from '../lib/ticket-ssr-html.js';
+import { getIndexNowKey, indexNowKeyBody } from '../lib/search-indexing.js';
+import {
+  getRepertoirePublicContext,
+  resolveRepertoireSlug,
+} from '../services/repertoirePublicContext.js';
+import ticketPool from '../ticketDb.js';
+import pool from '../db.js';
+import { computeOffersSnapshot } from '../services/ticketPriceAlerts.js';
+import {
+  resolveTicketSeo,
+  lookupStaticLandingSeo,
+  composeAutoTicketDescription,
+} from '../lib/seo-ticket-meta-catalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,8 +77,6 @@ function findIndexHtml() {
 }
 const indexPath = findIndexHtml();
 
-const API_BASE = process.env.API_INTERNAL_URL || `http://127.0.0.1:${Number(process.env.PORT) || 3000}`;
-
 /** Каталоги dist (как в findIndexHtml) — не полагаемся только на indexPath при старте PM2. */
 function getDistRootCandidates() {
   return [
@@ -90,6 +113,8 @@ function stripDefaultSeoFromHtml(html) {
   out = out.replace(/<link rel="canonical" href="[^"]*"\s*\/?>/i, '');
   out = out.replace(/<meta property="og:[^"]*"[^>]*>/gi, '');
   out = out.replace(/<meta name="twitter:[^"]*"[^>]*>/gi, '');
+  // Убираем дефолтный JSON-LD из shell — SSR инжектит актуальный graph.
+  out = out.replace(/<script type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, '');
   return out;
 }
 
@@ -161,9 +186,13 @@ function toAbsUrl(base, maybeUrl) {
  * Держим тут, чтобы не размазывать мета по фронту и не зависеть от CSR.
  */
 const STATIC_SEO_PAGES = {
+  '/': {
+    title: 'Билеты на концерты, театр и спорт — афиша онлайн',
+    description: 'Афиша мероприятий: выбор мест на схеме зала, оплата онлайн и электронный билет. Концерты, театр, спорт.',
+  },
   '/contacts': {
-    title: 'Контакты Билет Всем — поддержка и обратная связь',
-    description: 'Контакты Билет Всем: как связаться с поддержкой, задать вопрос по заказу билетов и получить помощь.',
+    title: 'Контакты — поддержка и обратная связь',
+    description: 'Как связаться с поддержкой, задать вопрос по заказу билетов и получить помощь.',
   },
   '/faq': {
     title: 'FAQ — покупка и возврат билетов',
@@ -188,6 +217,11 @@ const STATIC_SEO_PAGES = {
   '/requisites': {
     title: 'Реквизиты компании',
     description: 'Юридические и платежные реквизиты сервиса Билет Всем.',
+  },
+  '/case/bilet-vsem': {
+    title: 'Кейс Билет Всем: билетная платформа со схемами стадионов | PrimeCoder',
+    description:
+      'Кейс разработки билетной платформы Билет Всем: схемы залов и стадионов, витрина, админка и API. Реализация студии PrimeCoder — React, Node.js, PostgreSQL. https://prime-coder.ru',
   },
 };
 
@@ -275,6 +309,13 @@ export async function seoRenderer(req, res, next) {
     }
   }
 
+  // IndexNow key file (fallback, если не смонтирован в sitemap router).
+  if (req.method === 'GET' && req.path === `/${getIndexNowKey()}.txt`) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(indexNowKeyBody());
+  }
+
   // Резерв: sitemap/feeds/llms — если запрос дошёл сюда (например, порядок middleware),
   // отдаём XML/MD/YML, а не HTML SPA (иначе краулеры видят «Загрузка...» вместо sitemap).
   if (req.method === 'GET') {
@@ -317,18 +358,58 @@ export async function seoRenderer(req, res, next) {
   }
 
   try {
-    let html = fs.readFileSync(currentPath, 'utf-8');
-    const seoTags = await generateSeoTags(req.path);
+    const pathOnly = req.path;
+    const query = req.query || {};
+    const allowCache = !Object.keys(query).length;
 
-    if (seoTags) {
-      html = stripDefaultSeoFromHtml(html);
-      html = html.replace('</head>', `${seoTags}\n  </head>`);
-      console.log('[SSR] ✓ Dynamic meta for:', req.path);
+    if (allowCache) {
+      const cached = getSsrHtmlCache(pathOnly);
+      if (cached) {
+        res.status(200);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Vary', 'Accept-Encoding');
+        res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
+        res.setHeader('X-BV-SSR-Cache', 'HIT');
+        return res.send(cached);
+      }
     }
 
+    let html = fs.readFileSync(currentPath, 'utf-8');
+    const seoCtx = await generateSeoTags(pathOnly);
+    let seoTags = typeof seoCtx === 'string' ? seoCtx : seoCtx?.metaTags || '';
+    const ssrMeta = typeof seoCtx === 'object' && seoCtx ? seoCtx : null;
+    const ssrFragment = await generateSsrContent(pathOnly, ssrMeta);
+    const base = siteBaseUrl();
+    const extraLd = buildExtraHeadJsonLd({
+      pathOnly,
+      origin: base,
+      metaTagsHtml: seoTags,
+    });
+
+    // Query-параметры: canonical без query уже в meta; для индекса — noindex,follow.
+    if (!allowCache) {
+      if (!/name="robots"/i.test(seoTags)) {
+        seoTags += `\n    <meta name="robots" content="noindex, follow" />`;
+      }
+      res.setHeader('X-Robots-Tag', 'noindex, follow');
+    }
+
+    // Всегда strip shell SEO: иначе дубли title/OG/JSON-LD с index.html.
+    html = stripDefaultSeoFromHtml(html);
+    const headInject = `${seoTags || ''}${extraLd || ''}`;
+    if (headInject) {
+      html = html.replace('</head>', `${headInject}\n  </head>`);
+    }
+    html = injectSsrIntoHtml(html, ssrFragment);
+    html = injectCrawlMirror(html, ssrFragment);
+    console.log('[SSR] ✓', pathOnly, ssrFragment ? '+ content' : '');
+
+    res.status(200);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
+    res.setHeader('Cache-Control', allowCache ? 'public, max-age=60, must-revalidate' : 'no-store');
     res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('X-BV-SSR-Cache', allowCache ? 'MISS' : 'BYPASS');
+    if (allowCache) setSsrHtmlCache(pathOnly, html);
 
     res.send(html);
   } catch (err) {
@@ -337,187 +418,26 @@ export async function seoRenderer(req, res, next) {
   }
 }
 
+/**
+ * @returns {Promise<{ metaTags: string; ssr?: Record<string, unknown> | null }>}
+ */
 async function generateSeoTags(url) {
-  let metaTags = '';
+  /** @type {{ metaTags: string; ssr?: Record<string, unknown> | null }} */
+  let out = { metaTags: '', ssr: null };
 
   try {
     const base = siteBaseUrl();
     const brand = siteBrand();
 
-    // Кейсы портфолио
-    if (url.startsWith('/cases/')) {
-      const slug = url.replace('/cases/', '').replace(/\/$/, '');
-      const caseData = await getCaseData(slug);
-
-      if (caseData) {
-        const title = caseData.seoTitle || caseData.title || 'Кейс';
-        const description = caseData.seoDescription || caseData.summary || '';
-        const ogImage = toAbsUrl(base, caseData.ogImageUrl || caseData.heroImageUrl || '');
-        const canonical = `${base}/cases/${slug}`;
-        const breadcrumb = breadcrumbJsonLd(base, [
-          { name: 'Главная', path: '/' },
-          { name: 'Портфолио', path: '/portfolio' },
-          { name: caseData.title || title, path: `/cases/${slug}` },
-        ]);
-        const caseJson = jsonLdScript({
-          '@context': 'https://schema.org',
-          '@type': 'CreativeWork',
-          name: caseData.title || title,
-          headline: title,
-          description,
-          url: canonical,
-          ...(ogImage ? { image: ogImage } : {}),
-          inLanguage: 'ru-RU',
-          publisher: {
-            '@type': 'Organization',
-            name: brand,
-            url: base,
-          },
-        });
-
-        metaTags = `
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    <link rel="canonical" href="${canonical}" />
-    <meta property="og:type" content="article" />
-    <meta property="og:url" content="${canonical}" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-        ${ogImage ? `<meta property="og:image" content="${ogImage}" />` : ''}
-    <meta property="og:site_name" content="${escapeHtml(brand)}" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ''}
-    ${breadcrumb}
-    ${caseJson}`;
-      }
-    }
-
-    // Услуги / продукты
-    else if (url.startsWith('/products/')) {
-      const slug = url.replace('/products/', '').replace(/\/$/, '').split('/')[0];
-      if (slug) {
-        const product = await getProductData(slug);
-        if (product) {
-          const title = product.metaTitle || product.title || 'Услуга';
-          const description = product.metaDescription || product.summary || '';
-          const ogImage = toAbsUrl(base, product.imageUrl || '');
-          const canonical = `${base}/products/${slug}`;
-          const productJson = jsonLdScript({
-            '@context': 'https://schema.org',
-            '@type': 'Service',
-            name: product.title || title,
-            description,
-            url: canonical,
-            provider: {
-              '@type': 'Organization',
-              name: brand,
-              url: base,
-            },
-            areaServed: 'RU',
-            ...(ogImage ? { image: ogImage } : {}),
-          });
-          const breadcrumb = breadcrumbJsonLd(base, [
-            { name: 'Главная', path: '/' },
-            { name: 'Каталог', path: '/catalog' },
-            { name: product.title || title, path: `/products/${slug}` },
-          ]);
-
-          metaTags = `
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    ${product.metaKeywords ? `<meta name="keywords" content="${escapeHtml(Array.isArray(product.metaKeywords) ? product.metaKeywords.join(', ') : product.metaKeywords)}" />` : ''}
-    <link rel="canonical" href="${canonical}" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="${canonical}" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta property="og:image" content="${ogImage}" />` : ''}
-    <meta property="og:site_name" content="${escapeHtml(brand)}" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ''}
-    ${breadcrumb}
-    ${productJson}`;
-        }
-      }
-    }
-
-    // Блог
-    else if (url.startsWith('/blog/') && url !== '/blog' && url !== '/blog/') {
-      const slug = url.replace('/blog/', '').replace(/\/$/, '');
-      const postData = await getBlogPostData(slug);
-
-      if (postData) {
-        const title = postData.seo_title || postData.seoTitle || postData.title || 'Статья';
-        const description = postData.seo_description || postData.seoDescription || postData.excerpt || '';
-        const ogImage = toAbsUrl(
-          base,
-          postData.og_image_url || postData.ogImageUrl || postData.cover_image_url || postData.coverImageUrl || postData.imageUrl || '',
-        );
-        const canonical = `${base}/blog/${slug}`;
-        const datePublished =
-          (postData.published_at && String(postData.published_at)) ||
-          (postData.publishedAt && String(postData.publishedAt)) ||
-          '';
-        const dateModified =
-          (postData.updated_at && String(postData.updated_at)) ||
-          (postData.updatedAt && String(postData.updatedAt)) ||
-          datePublished;
-        const blogJson = jsonLdScript({
-          '@context': 'https://schema.org',
-          '@type': 'BlogPosting',
-          headline: title,
-          description,
-          url: canonical,
-          ...(ogImage ? { image: ogImage } : {}),
-          ...(datePublished ? { datePublished } : {}),
-          ...(dateModified ? { dateModified } : {}),
-          author: {
-            '@type': 'Organization',
-            name: brand,
-            url: base,
-          },
-          publisher: {
-            '@type': 'Organization',
-            name: brand,
-            url: base,
-          },
-          inLanguage: 'ru-RU',
-          mainEntityOfPage: canonical,
-        });
-        const breadcrumb = breadcrumbJsonLd(base, [
-          { name: 'Главная', path: '/' },
-          { name: 'Блог', path: '/blog' },
-          { name: postData.title || title, path: `/blog/${slug}` },
-        ]);
-
-        metaTags = `
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    <link rel="canonical" href="${canonical}" />
-    <meta property="og:type" content="article" />
-    <meta property="og:url" content="${canonical}" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta property="og:image" content="${ogImage}" />` : ''}
-    <meta property="og:site_name" content="${escapeHtml(brand)}" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ''}
-    ${breadcrumb}
-    ${blogJson}`;
-      }
-    }
-
     // Поиск мероприятий
-    else if (url === '/events' || url === '/events/') {
+    if (url === '/events' || url === '/events/') {
       const canonical = `${base}/events`;
-      const title = 'Поиск мероприятий — афиша и билеты';
-      const description = 'Поиск событий по названию, площадке и жанру. Билеты онлайн.';
+      const landingSeo = lookupStaticLandingSeo('/events');
+      const title = landingSeo?.title || 'Афиша мероприятий — билеты, места онлайн';
+      const description =
+        landingSeo?.description ||
+        'Актуальные концерты, театр и спорт: выбор мест на схеме зала и покупка билетов онлайн.';
+      const events = await fetchPublishedEventsForSsr(24);
       const collectionJson = jsonLdScript({
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
@@ -527,6 +447,9 @@ async function generateSeoTags(url) {
         inLanguage: 'ru-RU',
         isPartOf: `${base}/`,
       });
+      const itemListJson = jsonLdScript(
+        buildEventItemListSchema(base, events, { name: title, url: canonical }),
+      );
       const faqJson = faqPageJsonLd([
         {
           q: 'Как купить билет на мероприятие?',
@@ -541,18 +464,30 @@ async function generateSeoTags(url) {
           a: 'Используйте фильтры жанра и площадки на странице афиши, а также поисковую строку по названию события.',
         },
       ]);
-      metaTags = `${metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' })}
+      out.metaTags = `${metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' })}
     ${breadcrumbJsonLd(base, [{ name: 'Главная', path: '/' }, { name: 'Афиша', path: '/events' }])}
     ${collectionJson}
+    ${itemListJson}
     ${faqJson}`;
+      out.ssr = {
+        kind: 'events-index',
+        title,
+        description,
+        events,
+        h1: landingSeo?.h1 || title,
+      };
     }
 
     // Альтернативный путь главной (афиша)
     else if (url === '/afisha' || url === '/afisha/') {
       const canonical = `${base}/afisha`;
-      const title = 'Афиша — билеты на мероприятия';
-      const description = 'Календарь событий, поиск по площадкам и жанрам. Покупка билетов онлайн.';
-      metaTags = `${metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' })}
+      const landingSeo = lookupStaticLandingSeo('/afisha');
+      const title = landingSeo?.title || 'Афиша — билеты на мероприятия';
+      const description =
+        landingSeo?.description ||
+        'Календарь событий, поиск по площадкам и жанрам. Покупка билетов онлайн.';
+      const h1 = landingSeo?.h1 || 'Афиша мероприятий';
+      out.metaTags = `${metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' })}
     ${breadcrumbJsonLd(base, [{ name: 'Главная', path: '/' }, { name: 'Афиша', path: '/afisha' }])}
     ${faqPageJsonLd([
       {
@@ -564,6 +499,7 @@ async function generateSeoTags(url) {
         a: 'В каталоге доступны театр, концерты, комедия, события для детей и спортивные мероприятия.',
       },
     ])}`;
+      out.ssr = { kind: 'landing', title, description, path: '/afisha', h1 };
     }
 
     // SEO-лендинги по городам / жанрам / площадкам.
@@ -572,19 +508,22 @@ async function generateSeoTags(url) {
       const slug = normalizeSlugText(rawSlug);
       if (slug) {
         const cityLabel = CITY_LABELS[rawSlug] || titleCaseRuLike(slug);
-        const canonical = `${base}/events/city/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
-        metaTags = `${metaBlockForPage({
+        const path = `/events/city/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
+        const canonical = `${base}${path}`;
+        const title = `Афиша ${cityLabel} — билеты на мероприятия`;
+        const description = `Смотрите афишу событий в ${cityLabel}: концерты, театр и шоу. Покупка билетов онлайн.`;
+        out.metaTags = `${metaBlockForPage({
           base,
           brand,
           canonical,
-          title: `Афиша ${cityLabel} — билеты на мероприятия`,
-          description: `Смотрите афишу событий в ${cityLabel}: концерты, театр и шоу. Покупка билетов онлайн.`,
+          title,
+          description,
           ogType: 'website',
         })}
     ${breadcrumbJsonLd(base, [
       { name: 'Главная', path: '/' },
       { name: 'Афиша', path: '/events' },
-      { name: cityLabel, path: `/events/city/${encodeURIComponent(slug).replace(/%20/g, '-')}` },
+      { name: cityLabel, path },
     ])}
     ${faqPageJsonLd([
       {
@@ -596,6 +535,7 @@ async function generateSeoTags(url) {
         a: 'Откройте страницу события и выберите места на схеме зала с учетом цены и обзора.',
       },
     ])}`;
+        out.ssr = { kind: 'landing', title, description, path, h1: `Афиша — ${cityLabel}` };
       }
     }
     else if (url.startsWith('/events/genre/')) {
@@ -603,19 +543,22 @@ async function generateSeoTags(url) {
       const slug = normalizeSlugText(rawSlug);
       if (slug) {
         const genreLabel = GENRE_LABELS[rawSlug] || titleCaseRuLike(slug);
-        const canonical = `${base}/events/genre/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
-        metaTags = `${metaBlockForPage({
+        const path = `/events/genre/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
+        const canonical = `${base}${path}`;
+        const title = `${genreLabel} — афиша и билеты`;
+        const description = `Подборка мероприятий в жанре «${genreLabel}»: актуальные события и покупка билетов онлайн.`;
+        out.metaTags = `${metaBlockForPage({
           base,
           brand,
           canonical,
-          title: `${genreLabel} — афиша и билеты`,
-          description: `Подборка мероприятий в жанре «${genreLabel}»: актуальные события и покупка билетов онлайн.`,
+          title,
+          description,
           ogType: 'website',
         })}
     ${breadcrumbJsonLd(base, [
       { name: 'Главная', path: '/' },
       { name: 'Афиша', path: '/events' },
-      { name: genreLabel, path: `/events/genre/${encodeURIComponent(slug).replace(/%20/g, '-')}` },
+      { name: genreLabel, path },
     ])}
     ${faqPageJsonLd([
       {
@@ -627,6 +570,7 @@ async function generateSeoTags(url) {
         a: 'Да, оформление и оплата билетов доступны онлайн на карточке выбранного события.',
       },
     ])}`;
+        out.ssr = { kind: 'landing', title, description, path, h1: genreLabel };
       }
     }
     else if (url.startsWith('/events/venue/')) {
@@ -634,19 +578,22 @@ async function generateSeoTags(url) {
       const slug = normalizeSlugText(rawSlug);
       if (slug) {
         const venueLabel = VENUE_LABELS[rawSlug] || titleCaseRuLike(slug);
-        const canonical = `${base}/events/venue/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
-        metaTags = `${metaBlockForPage({
+        const path = `/events/venue/${encodeURIComponent(slug).replace(/%20/g, '-')}`;
+        const canonical = `${base}${path}`;
+        const title = `${venueLabel} — афиша площадки и билеты`;
+        const description = `События на площадке «${venueLabel}»: расписание, выбор мест и покупка билетов онлайн.`;
+        out.metaTags = `${metaBlockForPage({
           base,
           brand,
           canonical,
-          title: `${venueLabel} — афиша площадки и билеты`,
-          description: `События на площадке «${venueLabel}»: расписание, выбор мест и покупка билетов онлайн.`,
+          title,
+          description,
           ogType: 'website',
         })}
     ${breadcrumbJsonLd(base, [
       { name: 'Главная', path: '/' },
       { name: 'Афиша', path: '/events' },
-      { name: venueLabel, path: `/events/venue/${encodeURIComponent(slug).replace(/%20/g, '-')}` },
+      { name: venueLabel, path },
     ])}
     ${faqPageJsonLd([
       {
@@ -658,6 +605,7 @@ async function generateSeoTags(url) {
         a: 'После перехода в карточку события откройте схему зала и выберите подходящие места по цене и обзору.',
       },
     ])}`;
+        out.ssr = { kind: 'landing', title, description, path, h1: venueLabel };
       }
     }
 
@@ -670,56 +618,122 @@ async function generateSeoTags(url) {
         const repId = looksLikeGetbiletId(firstSeg) ? firstSeg : '';
         const routeSlug = repId ? secondSeg : firstSeg;
         const ctxKey = repId || routeSlug;
-        const ctx = ctxKey
-          ? await getRepertoireContext(ctxKey, { fastPath: true, omitStageSvgMarkup: true })
-          : null;
+        const ctx = ctxKey ? await getRepertoireContext(ctxKey) : null;
+        const repertoireId = ctx?.repertoireId || repId || '';
+        const minPrice = repertoireId ? await getCachedMinPrice(repertoireId) : null;
+        const venueFromCtx = (ctx && ctx.venueLabel) || null;
+        const beginFromCtx = (ctx && ctx.beginDateTime) || null;
+        const seoOpts = {
+          minPrice,
+          venueLabel: venueFromCtx,
+          beginDateTime: beginFromCtx,
+        };
+        const catalogSeo =
+          resolveTicketSeo(routeSlug || repertoireId, seoOpts) ||
+          resolveTicketSeo(repertoireId, seoOpts) ||
+          resolveTicketSeo(firstSeg, seoOpts);
+        const beginDateTime = beginFromCtx || catalogSeo?.facts?.beginDateTime || null;
+        const venueLabel =
+          venueFromCtx || catalogSeo?.facts?.venue || null;
+        const venueAddress = (ctx && ctx.venueAddress) || null;
         const canonicalPath = routeSlug
           ? `/ticket/${encodeURIComponent(routeSlug)}`
           : repId
             ? `/ticket/${encodeURIComponent(repId)}`
             : '/events';
         const canonical = `${base}${canonicalPath}`;
-        const displayTitle = (ctx && ctx.title) || 'Мероприятие';
-        const title = `Билеты — ${displayTitle}`;
-        const rawDesc =
+        const displayTitle = (ctx && ctx.title) || catalogSeo?.h1 || 'Мероприятие';
+        // Catalog override побеждает auto; иначе money-title generator
+        const title =
+          catalogSeo?.title || buildMoneyTicketTitle(displayTitle, minPrice, 70);
+        const h1 = (catalogSeo?.h1 || displayTitle).slice(0, 80);
+        const lead =
           (ctx && (ctx.heroLead || ctx.descriptionSnippet) && String(ctx.heroLead || ctx.descriptionSnippet).trim()) ||
-          'Выбор мест и бронирование билетов онлайн.';
-        const description = rawDesc.slice(0, 160);
-        const ogImage = toAbsUrl(base, ctx && ctx.posterUrl ? ctx.posterUrl : '');
+          '';
+        const description = (
+          catalogSeo?.description ||
+          composeAutoTicketDescription({
+            displayTitle,
+            minPrice,
+            venueLabel,
+            beginDateTime,
+            lead,
+          })
+        ).slice(0, 160);
+        const keywordsMeta = catalogSeo?.keywords
+          ? `\n    <meta name="keywords" content="${escapeHtml(catalogSeo.keywords)}" />`
+          : '';
+        const ogImage = toAbsUrl(
+          base,
+          (ctx && (ctx.posterUrl || ctx.bannerUrl)) || '',
+        );
         const ogLine = ogImage
           ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />
     <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`
           : '';
         const locationJson =
-          ctx && (ctx.venueLabel || ctx.venueAddress)
+          venueLabel || venueAddress
             ? {
                 '@type': 'Place',
-                name: ctx.venueLabel || undefined,
-                address: ctx.venueAddress || undefined,
+                name: venueLabel || undefined,
+                address: venueAddress
+                  ? { '@type': 'PostalAddress', streetAddress: venueAddress }
+                  : venueLabel
+                    ? { '@type': 'PostalAddress', name: venueLabel }
+                    : undefined,
               }
             : undefined;
+        const offersJson =
+          minPrice != null
+            ? {
+                '@type': 'AggregateOffer',
+                priceCurrency: 'RUB',
+                lowPrice: Math.round(minPrice),
+                availability: 'https://schema.org/InStock',
+                url: canonical,
+              }
+            : {
+                '@type': 'Offer',
+                url: canonical,
+                availability: 'https://schema.org/InStock',
+                priceCurrency: 'RUB',
+              };
         const eventJson = ctx && ctx.title
-          ? `<script type="application/ld+json">${JSON.stringify({
+          ? jsonLdScript({
               '@context': 'https://schema.org',
               '@type': 'Event',
               name: displayTitle,
               url: canonical,
               ...(ogImage ? { image: ogImage } : {}),
               description: description.slice(0, 500),
+              ...(beginDateTime ? { startDate: beginDateTime } : {}),
               organizer: { '@type': 'Organization', name: brand, url: base },
               ...(locationJson ? { location: locationJson } : {}),
+              offers: offersJson,
               eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
               eventStatus: 'https://schema.org/EventScheduled',
-            })}</script>`
+            })
           : '';
         const breadcrumb = breadcrumbJsonLd(base, [
           { name: 'Главная', path: '/' },
           { name: 'Афиша', path: '/events' },
           { name: displayTitle, path: canonicalPath },
         ]);
-        metaTags = `
+        const faqItems = [
+          {
+            q: 'Как купить билет на это мероприятие?',
+            a: 'Выберите места на схеме зала и завершите оплату. Электронный билет будет доступен после подтверждения платежа.',
+          },
+          {
+            q: 'Можно ли вернуть билет на это событие?',
+            a: 'Возврат зависит от условий организатора и правил площадки. Подробности смотрите в разделе возврата билетов.',
+          },
+        ];
+        const related = await fetchRelatedEventsForSsr(repertoireId, 6);
+        const sections = Array.isArray(ctx?.descriptionSections) ? ctx.descriptionSections : [];
+        out.metaTags = `
     <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="description" content="${escapeHtml(description)}" />${keywordsMeta}
     <link rel="canonical" href="${canonical}" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${canonical}" />
@@ -732,40 +746,49 @@ async function generateSeoTags(url) {
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     ${breadcrumb}
     ${eventJson}
-    ${faqPageJsonLd([
-      {
-        q: 'Как купить билет на это мероприятие?',
-        a: 'Выберите места на схеме зала и завершите оплату. Электронный билет будет доступен после подтверждения платежа.',
-      },
-      {
-        q: 'Можно ли вернуть билет на это событие?',
-        a: 'Возврат зависит от условий организатора и правил площадки. Подробности смотрите в разделе возврата билетов.',
-      },
-    ])}`;
+    ${faqPageJsonLd(faqItems)}`;
+        out.ssr = {
+          kind: 'ticket',
+          title: displayTitle,
+          h1,
+          description,
+          venueLabel,
+          venueAddress,
+          beginDateTime,
+          minPrice,
+          canonicalPath,
+          posterUrl: ogImage || null,
+          sections,
+          related,
+          faq: faqItems,
+        };
       }
     }
 
-    // Остальные приоритетные статические страницы.
+    // Остальные приоритетные статические страницы + CMS.
     else {
       const normalized = url.replace(/\/+$/, '') || '/';
       const staticSeo = STATIC_SEO_PAGES[normalized];
       if (staticSeo) {
         const canonical = normalized === '/' ? `${base}/` : `${base}${normalized}`;
-        const pageName = staticSeo.title;
-        const breadcrumb = breadcrumbJsonLd(base, [
-          { name: 'Главная', path: '/' },
-          { name: pageName, path: normalized },
-        ]);
-        const webPageJson = jsonLdScript({
-          '@context': 'https://schema.org',
-          '@type': 'WebPage',
-          name: pageName,
-          description: staticSeo.description,
-          url: canonical,
-          inLanguage: 'ru-RU',
-          isPartOf: `${base}/`,
-        });
-        metaTags = metaBlockForPage({
+        const events = normalized === '/' ? await fetchPublishedEventsForSsr(16) : [];
+        const itemListJson =
+          normalized === '/'
+            ? jsonLdScript(
+                buildEventItemListSchema(base, events, {
+                  name: staticSeo.title,
+                  url: canonical,
+                }),
+              )
+            : '';
+        const breadcrumb =
+          normalized === '/'
+            ? breadcrumbJsonLd(base, [{ name: 'Главная', path: '/' }])
+            : breadcrumbJsonLd(base, [
+                { name: 'Главная', path: '/' },
+                { name: staticSeo.title, path: normalized },
+              ]);
+        out.metaTags = metaBlockForPage({
           base,
           brand,
           canonical,
@@ -773,56 +796,238 @@ async function generateSeoTags(url) {
           description: staticSeo.description,
           ogType: 'website',
         });
-        metaTags += `\n    ${breadcrumb}\n    ${webPageJson}`;
+        out.metaTags += `\n    ${breadcrumb}\n    ${itemListJson}`;
+        if (normalized === '/case/bilet-vsem') {
+          out.metaTags += `\n    ${jsonLdScript({
+            '@context': 'https://schema.org',
+            '@type': 'CaseStudy',
+            name: 'Кейс: билетная платформа Билет Всем',
+            description: staticSeo.description,
+            url: canonical,
+            author: {
+              '@type': 'Organization',
+              name: 'PrimeCoder',
+              url: 'https://prime-coder.ru',
+            },
+            creator: {
+              '@type': 'Organization',
+              name: 'PrimeCoder',
+              url: 'https://prime-coder.ru',
+            },
+            about: {
+              '@type': 'SoftwareApplication',
+              name: brand,
+              url: base,
+              applicationCategory: 'BusinessApplication',
+              operatingSystem: 'Web',
+            },
+            mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+          })}`;
+        }
+        out.ssr =
+          normalized === '/'
+            ? { kind: 'home', title: staticSeo.title, description: staticSeo.description, events }
+            : {
+                kind: 'landing',
+                title: staticSeo.title,
+                description: staticSeo.description,
+                path: normalized,
+                h1: staticSeo.title,
+              };
+      } else if (!normalized.startsWith('/ticket') && !normalized.startsWith('/events') && !normalized.startsWith('/admin')) {
+        const cms = await fetchCmsPageForSsr(normalized);
+        if (cms) {
+          const slugPath = cms.slug.startsWith('/') ? cms.slug : `/${cms.slug}`;
+          const canonical = `${base}${slugPath === '/' ? '/' : slugPath}`;
+          const title = cms.seo_title || cms.title || 'Страница';
+          const description = (cms.seo_description || '').slice(0, 160);
+          out.metaTags = `${metaBlockForPage({
+            base,
+            brand,
+            canonical,
+            title,
+            description: description || title,
+            ogType: 'website',
+          })}
+    ${breadcrumbJsonLd(base, [
+      { name: 'Главная', path: '/' },
+      { name: cms.title || title, path: slugPath },
+    ])}`;
+          out.ssr = {
+            kind: 'cms',
+            title: cms.title || title,
+            description,
+            bodyHtml: cms.body || '',
+            path: slugPath,
+          };
+        }
       }
     }
   } catch (err) {
     console.error('[SSR] Error generating tags:', err.message);
   }
 
-  return metaTags;
+  return out;
 }
 
-async function getCaseData(slug) {
+async function generateSsrContent(url, seoCtx) {
+  const ssr = seoCtx?.ssr;
+  if (!ssr) {
+    if (url === '/events' || url === '/events/') {
+      const events = await fetchPublishedEventsForSsr(24);
+      return buildEventsIndexSsrHtml({ events });
+    }
+    return '';
+  }
+  if (ssr.kind === 'ticket') return buildTicketEventSsrHtml(ssr);
+  if (ssr.kind === 'events-index') return buildEventsIndexSsrHtml({ events: ssr.events || [] });
+  if (ssr.kind === 'home') return buildHomeSsrHtml({ events: ssr.events || [] });
+  if (ssr.kind === 'landing') return buildStaticLandingSsrHtml(ssr);
+  if (ssr.kind === 'cms') return buildCmsPageSsrHtml(ssr);
+  return '';
+}
+
+function formatEventDatePlain(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
   try {
-    const response = await fetch(`${API_BASE}/api/public/cases/${slug}`);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (err) {
-    console.error('[SSR] Error fetching case:', err.message);
-    return null;
+    return d.toLocaleString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Moscow',
+    });
+  } catch {
+    return String(iso);
   }
 }
 
-async function getProductData(slug) {
-  try {
-    const response = await fetch(`${API_BASE}/api/public/products/${encodeURIComponent(slug)}`);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (err) {
-    console.error('[SSR] Error fetching product:', err.message);
-    return null;
-  }
+function clipSeoTitle(text, max = 70) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > Math.floor(max * 0.55) ? cut.slice(0, sp) : cut).trim();
 }
 
-async function getBlogPostData(slug) {
-  try {
-    const response = await fetch(`${API_BASE}/api/public/blog/${encodeURIComponent(slug)}`);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (err) {
-    console.error('[SSR] Error fetching blog:', err.message);
-    return null;
+/** Title money URL: имя режется, суффикс с ценой сохраняется. */
+function buildMoneyTicketTitle(displayTitle, minPrice, max = 70) {
+  const pricePart =
+    minPrice != null && Number.isFinite(Number(minPrice))
+      ? ` от ${Math.round(Number(minPrice))} ₽`
+      : '';
+  const suffix = `: билеты${pricePart}`;
+  const budget = Math.max(18, max - suffix.length);
+  let name = String(displayTitle || 'Мероприятие').replace(/\s+/g, ' ').trim();
+  if (name.length > budget) {
+    const cut = name.slice(0, budget);
+    const sp = cut.lastIndexOf(' ');
+    name = (sp > 12 ? cut.slice(0, sp) : cut).trim();
   }
+  return `${name}${suffix}`;
 }
 
-async function getRepertoireContext(repertoireId) {
+/** Только DB-кэш офферов — без внешнего API в hot path SSR. */
+async function getCachedMinPrice(repertoireId) {
   try {
-    const response = await fetch(
-      `${API_BASE}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/context`,
+    const r = await ticketPool.query(
+      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [repertoireId],
     );
-    if (!response.ok) return null;
-    return await response.json();
+    const payload = r.rows[0]?.payload_json;
+    if (!payload) return null;
+    const snap = computeOffersSnapshot(payload);
+    return snap.minPrice;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPublishedEventsForSsr(limit = 20) {
+  try {
+    const r = await ticketPool.query(
+      `SELECT getbilet_external_id::text AS id,
+              COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
+              NULLIF(TRIM(venue_manual), '') AS venue_label
+       FROM getbilet_events
+       WHERE is_published = TRUE
+       ORDER BY updated_at DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return r.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      venueLabel: row.venue_label,
+      path: `/ticket/${encodeURIComponent(row.id)}`,
+    }));
+  } catch (err) {
+    console.warn('[SSR] published events:', err.message);
+    return [];
+  }
+}
+
+async function fetchRelatedEventsForSsr(excludeId, limit = 6) {
+  const all = await fetchPublishedEventsForSsr(limit + 8);
+  const ex = String(excludeId || '');
+  return all.filter((e) => e.id !== ex).slice(0, limit);
+}
+
+async function fetchCmsPageForSsr(pathOrSlug) {
+  try {
+    let slug = String(pathOrSlug || '').trim();
+    if (!slug || slug === '/') return null;
+    if (!slug.startsWith('/')) slug = `/${slug}`;
+    // blocklist мусорных/служебных
+    if (
+      slug.startsWith('/api') ||
+      slug.startsWith('/admin') ||
+      slug.startsWith('/assets') ||
+      slug.includes('.')
+    ) {
+      return null;
+    }
+    const r = await pool.query(
+      `SELECT slug, title, body, seo_title, seo_description, robots_index
+       FROM pages
+       WHERE is_published = TRUE
+         AND (slug = $1 OR slug = $2)
+       LIMIT 1`,
+      [slug, slug.replace(/^\//, '')],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    if (row.robots_index === false) return null;
+    return row;
+  } catch (err) {
+    console.warn('[SSR] cms page:', err.message);
+    return null;
+  }
+}
+
+async function getRepertoireContext(ctxKey) {
+  try {
+    let repertoireId = String(ctxKey || '').trim();
+    if (!repertoireId) return null;
+    const opts = {
+      fastPath: true,
+      omitStageSvgMarkup: true,
+      includeDescriptionSections: true,
+    };
+    if (!looksLikeGetbiletId(repertoireId)) {
+      const hit = await resolveRepertoireSlug(repertoireId);
+      if (!hit?.repertoireId) return null;
+      repertoireId = hit.repertoireId;
+      const ctx = await getRepertoirePublicContext(repertoireId, opts);
+      return {
+        ...ctx,
+        beginDateTime: ctx.beginDateTime || hit.beginDateTime || null,
+      };
+    }
+    return await getRepertoirePublicContext(repertoireId, opts);
   } catch (err) {
     console.error('[SSR] Error fetching repertoire context:', err.message);
     return null;

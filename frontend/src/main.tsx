@@ -97,6 +97,13 @@ try {
       </QueryClientProvider>
     </ErrorBoundary>
   );
+
+  // Soft-SSR зеркало вне #root: снимаем после первого кадра React (краулеры уже видели HTML).
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.getElementById('bv-ssr-crawl')?.remove();
+    });
+  });
 } catch (error) {
   console.error('[main.tsx] ❌ CRITICAL ERROR during React initialization:', error);
   // Показываем ошибку в DOM если React не загрузился

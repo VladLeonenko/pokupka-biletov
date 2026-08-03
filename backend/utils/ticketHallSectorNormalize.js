@@ -101,8 +101,11 @@ export function luzhnikiSectorLookupNorms(norm) {
   }
 
   for (const [a, b] of LUZHNIKI_SECTOR_ALIAS_PAIRS) {
-    if (n === a) out.add(b);
-    if (n === b) out.add(a);
+    // Пары могут быть в «сыром» виде (фан-зона); ключи — после normalizeSectorLabel (фan-зona).
+    const na = normalizeSectorLabel(a);
+    const nb = normalizeSectorLabel(b);
+    if (n === na) out.add(nb);
+    if (n === nb) out.add(na);
   }
 
   return [...out];
