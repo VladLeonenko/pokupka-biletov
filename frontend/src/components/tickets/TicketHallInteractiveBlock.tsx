@@ -564,6 +564,11 @@ type Props = {
   colorForSeat: (priceKey: string) => string;
   activeOfferId: string | null;
   selectedSeats: string[];
+  /**
+   * Восстановление деталей выбора с родителя (корзина / sessionStorage).
+   * Схема сама владеет selectedSeatDetails при кликах; это только hydrate, когда локально пусто.
+   */
+  parentSelectedSeats?: HallSelectedSeat[];
   onToggleSeat: (offerId: string, seat: string, available: string[]) => void;
   /** Оффер, соответствующий activeOfferId — для карточки на схеме */
   selectedOffer?: HallOfferRow | null;
@@ -602,6 +607,7 @@ export function TicketHallInteractiveBlock({
   colorForSeat,
   activeOfferId,
   selectedSeats,
+  parentSelectedSeats = undefined,
   onToggleSeat,
   selectedOffer = null,
   onReserveFromMap,
@@ -1286,9 +1292,12 @@ export function TicketHallInteractiveBlock({
 
   useEffect(() => {
     if (!activeOfferId || selectedSeats.length === 0) {
-      setSelectedSeatDetails([]);
+      setSelectedSeatDetails((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
-  }, [activeOfferId, selectedSeats.length]);
+    if (!parentSelectedSeats || parentSelectedSeats.length === 0) return;
+    setSelectedSeatDetails((prev) => (prev.length > 0 ? prev : parentSelectedSeats));
+  }, [activeOfferId, selectedSeats.length, parentSelectedSeats]);
 
   useEffect(() => {
     setSectorPanelCollapsed(false);
@@ -1769,20 +1778,15 @@ export function TicketHallInteractiveBlock({
   );
   const useCategoryQtyUi = pbiletCategoryCheckout || zoneQuantityCheckout;
 
-  /** На обзоре: категории стадиона и театр pbilet — только сектора, без точек. */
+  /**
+   * На обзоре: pbilet category — только полигоны.
+   * Театр (Вахтангов и др.): места всегда видны на 100% — иначе «пустой зал» и ощущение, что билетов нет.
+   */
   const visibleNativePlacements = useMemo(() => {
     if (pbiletCategoryCheckout && sectorMode.enabled) return [];
-    if (theaterSectorCheckout && !mapZoomed && !showSeatsAtOverview) return [];
     if (!sectorMode.enabled) return nativePlacements;
     return nativePlacements;
-  }, [
-    mapZoomed,
-    nativePlacements,
-    pbiletCategoryCheckout,
-    sectorMode.enabled,
-    showSeatsAtOverview,
-    theaterSectorCheckout,
-  ]);
+  }, [nativePlacements, pbiletCategoryCheckout, sectorMode.enabled]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
@@ -1861,6 +1865,12 @@ export function TicketHallInteractiveBlock({
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
       if (backgroundSeatCoordinates.length > 0 || useHallBackgroundRaster) return [];
+      /** Театр: серые места на обзоре (100%), не только после клика по сектору. */
+      if (theaterSectorCheckout && !selectedSectorSummary) {
+        return nativeSeats.filter(
+          (seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
+        );
+      }
       if (!selectedSectorSummary) return [];
       return nativeSeats.filter(
         (seat) =>
@@ -1879,6 +1889,7 @@ export function TicketHallInteractiveBlock({
     selectedSector,
     selectedSectorSummary,
     showUnavailableSeats,
+    theaterSectorCheckout,
     useHallBackgroundRaster,
     useSvgNative,
   ]);
