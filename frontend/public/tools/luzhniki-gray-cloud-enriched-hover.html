@@ -239,7 +239,7 @@
       location.hostname === '127.0.0.1' ||
       ['5173', '5174', '8766'].includes(location.port);
     const PROD_ORIGIN = 'https://biletvsem.com';
-    /** API зала: luzhniki-gray-cloud-svg | vakhtangov-hall-seats | ramt-hall-seats */
+    /** API зала: luzhniki-gray-cloud-svg | luzhniki-concert-seats | vakhtangov-hall-seats | … */
     const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
     const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
     const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
