@@ -7,7 +7,10 @@ import {
   normalizeFanId,
   repertoireIdForTicketSlug,
 } from '../utils/fanIdRequiredEvents.js';
-import { isBlockedRepertoireSlug } from '../services/repertoireStorefrontAccess.js';
+import {
+  isBlockedRepertoireSlug,
+  isTbankDemoRepertoireId,
+} from '../services/repertoireStorefrontAccess.js';
 
 test('isManualRepertoireKey', () => {
   assert.equal(isManualRepertoireKey('final-kubka-rossii-po-futbolu-2026'), true);
@@ -38,6 +41,12 @@ test('ticket slug alias for kabala-svyatosh', () => {
 test('blocked test slugs', () => {
   assert.equal(isBlockedRepertoireSlug('final-kubka-rossii-po-futbolu-2026'), true);
   assert.equal(isBlockedRepertoireSlug('superfinal-fonbet-kubka-rossii-spartak-krasnodar'), false);
+});
+
+test('tbank demo repertoire id', () => {
+  assert.equal(isTbankDemoRepertoireId('tbank-demo-event'), true);
+  assert.equal(isTbankDemoRepertoireId('TBANK-DEMO-EVENT'), true);
+  assert.equal(isTbankDemoRepertoireId('other-event'), false);
 });
 
 test('fan id validation', () => {

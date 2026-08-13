@@ -116,6 +116,7 @@ export async function handleSitemapXml(req, res) {
       `SELECT getbilet_external_id::text AS ext_id, updated_at
        FROM getbilet_events
        WHERE is_published = TRUE
+         AND COALESCE(storefront_hidden, FALSE) = FALSE
        ORDER BY updated_at DESC`,
     );
     for (const row of ticketEventRows) {
@@ -232,6 +233,7 @@ export async function handleLlmsTxt(req, res) {
               COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title
        FROM getbilet_events
        WHERE is_published = TRUE
+         AND COALESCE(storefront_hidden, FALSE) = FALSE
        ORDER BY updated_at DESC
        LIMIT 40`,
     );
@@ -301,6 +303,7 @@ export async function handleLlmsFullTxt(req, res) {
               LEFT(COALESCE(description_manual, ''), 160) AS summary
        FROM getbilet_events
        WHERE is_published = TRUE
+         AND COALESCE(storefront_hidden, FALSE) = FALSE
        ORDER BY updated_at DESC
        LIMIT 80`,
     );

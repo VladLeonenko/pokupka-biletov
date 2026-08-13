@@ -16,6 +16,15 @@ const BLOCKED_REPERTOIRE_IDS = new Set([
 
 const BLOCKED_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);
 
+const TBANK_DEMO_REPERTOIRE_ID = (
+  process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event'
+).toLowerCase();
+
+/** Служебное событие теста T-Bank: не в афише, но прямая ссылка/чекаут для админа. */
+export function isTbankDemoRepertoireId(repertoireId) {
+  return String(repertoireId || '').trim().toLowerCase() === TBANK_DEMO_REPERTOIRE_ID;
+}
+
 export function isBlockedRepertoireSlug(slug) {
   return BLOCKED_SLUGS.has(String(slug || '').trim().toLowerCase());
 }
@@ -69,6 +78,13 @@ export async function getRepertoireStorefrontAccess(repertoireId) {
   }
 
   const row = await loadEventVisibilityRow(rid);
+
+  // T-Bank demo: скрыто с витрины (storefront_hidden), но страница/оплата по прямой ссылке остаются.
+  if (isTbankDemoRepertoireId(rid)) {
+    if (!row) return { allowed: false, reason: 'manual_no_event' };
+    if (row.is_published === false) return { allowed: false, reason: 'unpublished' };
+    return { allowed: true };
+  }
 
   if (isManualRepertoireKey(rid)) {
     if (!row) return { allowed: false, reason: 'manual_no_event' };

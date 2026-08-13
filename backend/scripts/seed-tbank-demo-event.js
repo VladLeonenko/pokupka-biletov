@@ -79,12 +79,13 @@ async function main() {
     [REPERTOIRE_ID, STAGE_ID, JSON.stringify(catalogPayload)],
   );
 
+  // storefront_hidden=TRUE: не в афише/ленте/sitemap. Прямой URL + чекаут — для админ-теста оплаты.
   await ticketPool.query(
     `INSERT INTO getbilet_events (
        getbilet_external_id, title_manual, description_manual, description_pack_json, venue_manual, venue_address_manual,
        is_published, storefront_hidden, sort_order, updated_at
      )
-     VALUES ($1, $2, $3, $4::jsonb, $5, $6, TRUE, FALSE, -1000, NOW())
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, TRUE, TRUE, -1000, NOW())
      ON CONFLICT (getbilet_external_id) DO UPDATE SET
        title_manual = EXCLUDED.title_manual,
        description_manual = EXCLUDED.description_manual,
@@ -92,7 +93,7 @@ async function main() {
        venue_manual = EXCLUDED.venue_manual,
        venue_address_manual = EXCLUDED.venue_address_manual,
        is_published = TRUE,
-       storefront_hidden = FALSE,
+       storefront_hidden = TRUE,
        sort_order = -1000,
        updated_at = NOW()`,
     [
@@ -133,7 +134,7 @@ async function main() {
        updated_at = NOW()`,
   );
 
-  console.log(`Demo event ready: /ticket/${encodeURIComponent(REPERTOIRE_ID)}/testovaya-oplata-t-bank`);
+  console.log(`Demo event (admin-only, hidden from storefront): /ticket/${encodeURIComponent(REPERTOIRE_ID)}/testovaya-oplata-t-bank`);
   console.log(`Demo offer: ${OFFER_ID}, seats: ${offersPayload.ResultData[0].SeatList.join(', ')}`);
   console.log('Demo promo: TBANK10 (-10%)');
 }

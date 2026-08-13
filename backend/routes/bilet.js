@@ -39,6 +39,7 @@ import {
 import {
   isBlockedRepertoireId,
   isBlockedRepertoireSlug,
+  isTbankDemoRepertoireId,
   RepertoireNotAvailableError,
 } from '../services/repertoireStorefrontAccess.js';
 import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
@@ -359,7 +360,10 @@ function finalizePublicStorefrontActions(actions) {
 function stripBlockedRepertoireFromCatalog(actions) {
   return (Array.isArray(actions) ? actions : []).filter((a) => {
     const repId = String(a?.repertoireId ?? a?.Id ?? a?.id ?? '').trim();
-    return !isBlockedRepertoireId(repId);
+    if (isBlockedRepertoireId(repId)) return false;
+    // Служебный тест T-Bank — только прямая ссылка, не афиша.
+    if (isTbankDemoRepertoireId(repId)) return false;
+    return true;
   });
 }
 
