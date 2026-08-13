@@ -17,6 +17,7 @@ import {
 import {
   luzhnikiSectorLookupNorms,
   normalizeSectorLabel,
+  sectorNormsMatch,
 } from '../utils/ticketHallSectorNormalize.js';
 import { createHallSvgEditorHandlers } from '../utils/hallSeatEditorSvgRoutes.js';
 import { LUZHNIKI_CONCERT_STAGE_MAP_KEY } from '../utils/luzhnikiConcertRepertoires.js';
@@ -468,27 +469,72 @@ function filterCloudForConcertEditor(cloud, fieldExcludePct, tribuneAbsBoxes, ha
   });
 }
 
-async function buildConcertEnrichedSvgMarkup() {
+function resolveTribuneSector(tribunes, sectorQuery) {
+  const q = String(sectorQuery || '').trim();
+  if (!q) return null;
+  return (
+    tribunes.find(
+      (s) =>
+        sectorNormsMatch(s?.label, q) ||
+        normalizeSectorLabel(s?.label) === normalizeSectorLabel(q),
+    ) || null
+  );
+}
+
+/** Как Суперкубок: точки только в bbox одного сектора — иначе вкладка падает на 40k+ circle. */
+function filterCloudForOneSector(cloud, sectorMeta, hallW, hallH) {
+  if (!sectorMeta?.path) return [];
+  const bb = pathAbsBBox(sectorMeta.path);
+  if (!bb) return [];
+  const margin = 80;
+  return (cloud || []).filter((pt) => {
+    const x = (Number(pt?.xPct ?? pt?.x) / 100) * hallW;
+    const y = (Number(pt?.yPct ?? pt?.y) / 100) * hallH;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    return (
+      x >= bb.minX - margin &&
+      x <= bb.maxX + margin &&
+      y >= bb.minY - margin &&
+      y <= bb.maxY + margin
+    );
+  });
+}
+
+/**
+ * @param {string} [sectorQuery]
+ * @param {{ includeFullCloud?: boolean }} [opts]
+ */
+async function buildConcertEnrichedSvgMarkup(sectorQuery = '', opts = {}) {
   const row = await loadStageMapRow();
   if (!row?.svg_markup) throw new Error('stage map not in DB');
   const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
   const bundle = readBundleFile();
   const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
-  const labeledRaw =
-    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
+  /** Bundle редактора = уже размеченное; pilot 70k в SVG не тащим. */
+  const labeledFromBundle =
+    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : [];
+  const labeledRaw = labeledFromBundle.length
+    ? labeledFromBundle
+    : layoutSeats.length && layoutSeats.length <= 8000
+      ? layoutSeats
+      : [];
   const { hallW, hallH } = hallDimensions(layout);
   const fieldExclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
   const tribunes = concertTribuneSectors(layout);
   const tribuneNorms = concertTribuneNormSet(tribunes);
   const tribuneBoxes = concertTribuneAbsBoxes(tribunes);
-  const cloud = filterCloudForConcertEditor(
+  const sectorQ = String(sectorQuery || '').trim();
+  const includeFullCloud = opts.includeFullCloud === true;
+  const sectorMeta = resolveTribuneSector(tribunes, sectorQ);
+
+  const cloudAll = filterCloudForConcertEditor(
     Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [],
     fieldExclude,
     tribuneBoxes,
     hallW,
     hallH,
   );
-  const labeledSeats = filterSeatsForConcertEditor(
+  const labeledAll = filterSeatsForConcertEditor(
     labeledRaw,
     fieldExclude,
     tribuneNorms,
@@ -496,12 +542,24 @@ async function buildConcertEnrichedSvgMarkup() {
     hallW,
     hallH,
   );
+
+  // Обзор: только полигоны (+ мелкий bundle). Точки — по ?sector=a104
+  const cloud = sectorQ
+    ? filterCloudForOneSector(cloudAll, sectorMeta, hallW, hallH)
+    : includeFullCloud
+      ? cloudAll
+      : [];
+  const labeledSeats = sectorQ
+    ? labeledAll.filter((s) => sectorNormsMatch(s?.sector, sectorQ))
+    : labeledAll;
+
   const svgMarkup = ensurePathDataSectorAttrs(row.svg_markup);
   return buildHallEnrichedSvg(svgMarkup, {
     hallW,
     hallH,
     allSeatCoordinates: cloud,
     labeledSeats,
+    denseCloud: cloud.length > 8000,
   });
 }
 
@@ -590,11 +648,14 @@ router.get('/bundle', async (_req, res) => {
   }
 });
 
-router.get('/enriched.svg', async (_req, res) => {
+router.get('/enriched.svg', async (req, res) => {
   try {
-    const xml = await buildConcertEnrichedSvgMarkup();
+    const sector = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
+    const fullCloud = req.query.full === '1' || req.query.full === 'true';
+    const xml = await buildConcertEnrichedSvgMarkup(sector, { includeFullCloud: fullCloud && !sector });
     res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
+    if (sector) res.setHeader('X-Luzhniki-Concert-Editor-Sector', sector);
     return res.send(xml);
   } catch (e) {
     return res.status(e.message?.includes('not in DB') ? 404 : 500).json({

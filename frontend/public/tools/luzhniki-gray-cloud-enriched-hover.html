@@ -153,7 +153,7 @@
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
-      <button type="button" id="loadSectorDots" hidden title="Суперкубок: подгрузить серые точки сектора (или просто введи сектор — подгрузится сам)">📍 сектор</button>
+      <button type="button" id="loadSectorDots" hidden title="Стадион/концерт: подгрузить точки сектора (или просто введи сектор — подгрузится сам)">📍 сектор</button>
       <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
       <label id="paintRowWrap">Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
       <label id="paintEndRowWrap" hidden>ряд по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" title="только для колонок: номер последнего ряда сектора" /></label>
@@ -248,11 +248,13 @@
     /** API зала: luzhniki-gray-cloud-svg | luzhniki-concert-seats | vakhtangov-hall-seats | … */
     const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
     const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
-    const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
     const isLuzhnikiConcertEditor = hallApi === 'luzhniki-concert-seats';
+    /** Суперкубок / Лужники-концерт: обзор без 40k circle, точки — по сектору. */
+    const isSupercupStadiumEditor =
+      hallApi === 'supercup-nn-football-seats' || isLuzhnikiConcertEditor;
     if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isSupercupStadiumEditor;
     // Стадион/концерт: 60k+ circle.classList = лаги. «без ряда — красные» только по запросу.
-    if ((isLuzhnikiConcertEditor || isSupercupStadiumEditor) && markUnlabeled) {
+    if (isSupercupStadiumEditor && markUnlabeled) {
       markUnlabeled.checked = false;
     }
     const pageTitle = urlParams.get('title')?.trim();
@@ -495,7 +497,10 @@
     async function reloadSectorDots() {
       const sector = paintSectorForApply().trim();
       if (!sector) {
-        showPaintToast('err', 'Введи сектор, напр. c222 или b230');
+        showPaintToast(
+          'err',
+          isLuzhnikiConcertEditor ? 'Введи сектор, напр. a104 или c233' : 'Введи сектор, напр. c222 или b230',
+        );
         return;
       }
       const norm = normalizeSectorLabel(sector);
@@ -4659,9 +4664,11 @@
         } else if (isSupercupStadiumEditor) {
           showPaintToast(
             'info',
-            'Подложка + ' +
-              allCircles.length.toLocaleString('ru') +
-              ' размеченных · введи сектор (c222) → 📍 сектор',
+            isLuzhnikiConcertEditor
+              ? 'Обзор без 40k точек (иначе вкладка падает). Сектор a104 → 📍 или Enter'
+              : 'Подложка + ' +
+                  allCircles.length.toLocaleString('ru') +
+                  ' размеченных · введи сектор (c222) → 📍 сектор',
           );
         }
       };
