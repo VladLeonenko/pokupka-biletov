@@ -474,12 +474,12 @@
 }
 
 .seatDotNative {
-  /* Доля контейнера: читаемо на обзоре театра (Вахтангов ~1k мест), без «бубликов» */
-  width: 0.42%;
+  /* Доля контейнера: как стадионные точки, иначе на svgNative театрах огромные «бублики» поверх SVG */
+  width: 0.34%;
   height: auto;
   aspect-ratio: 1;
-  min-width: 7px;
-  min-height: 7px;
+  min-width: 5px;
+  min-height: 5px;
 }
 
 .seatDot.seatDotNative::before {
@@ -617,17 +617,17 @@
 
 .seatDotUnavailableNative {
   /* Как .seatDotNative: не clamp(18px), иначе на svgNative не matched места закрывают весь зал */
-  width: 0.42%;
+  width: 0.34%;
   height: auto;
-  min-width: 7px;
-  min-height: 7px;
+  min-width: 5px;
+  min-height: 5px;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(100, 116, 139, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(148, 163, 184, 0.42);
+  border: 0;
   pointer-events: none;
   cursor: default;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 .seatDot:hover {
