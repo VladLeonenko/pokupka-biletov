@@ -249,12 +249,10 @@
     const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
     const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
     const isLuzhnikiConcertEditor = hallApi === 'luzhniki-concert-seats';
-    /** Суперкубок / Лужники-концерт: обзор без 40k circle, точки — по сектору. */
-    const isSupercupStadiumEditor =
-      hallApi === 'supercup-nn-football-seats' || isLuzhnikiConcertEditor;
+    const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
     if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isSupercupStadiumEditor;
-    // Стадион/концерт: 60k+ circle.classList = лаги. «без ряда — красные» только по запросу.
-    if (isSupercupStadiumEditor && markUnlabeled) {
+    // На 70k+ точек «без ряда — красные» вешает UI — по умолчанию выкл на концерте.
+    if (isLuzhnikiConcertEditor && markUnlabeled) {
       markUnlabeled.checked = false;
     }
     const pageTitle = urlParams.get('title')?.trim();
@@ -497,10 +495,7 @@
     async function reloadSectorDots() {
       const sector = paintSectorForApply().trim();
       if (!sector) {
-        showPaintToast(
-          'err',
-          isLuzhnikiConcertEditor ? 'Введи сектор, напр. a104 или c233' : 'Введи сектор, напр. c222 или b230',
-        );
+        showPaintToast('err', 'Введи сектор, напр. c222 или b230');
         return;
       }
       const norm = normalizeSectorLabel(sector);
@@ -4664,11 +4659,14 @@
         } else if (isSupercupStadiumEditor) {
           showPaintToast(
             'info',
-            isLuzhnikiConcertEditor
-              ? 'Обзор без 40k точек (иначе вкладка падает). Сектор a104 → 📍 или Enter'
-              : 'Подложка + ' +
-                  allCircles.length.toLocaleString('ru') +
-                  ' размеченных · введи сектор (c222) → 📍 сектор',
+            'Подложка + ' +
+              allCircles.length.toLocaleString('ru') +
+              ' размеченных · введи сектор (c222) → 📍 сектор',
+          );
+        } else if (isLuzhnikiConcertEditor) {
+          showPaintToast(
+            'info',
+            'Концерт: ' + allCircles.length.toLocaleString('ru') + ' точек (без сцены/фан/мёртвых углов)',
           );
         }
       };

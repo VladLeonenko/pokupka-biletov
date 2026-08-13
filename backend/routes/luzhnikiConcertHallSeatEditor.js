@@ -501,40 +501,34 @@ function filterCloudForOneSector(cloud, sectorMeta, hallW, hallH) {
 }
 
 /**
- * @param {string} [sectorQuery]
- * @param {{ includeFullCloud?: boolean }} [opts]
+ * Полное облако как у спорта (88k ок). Режем только мёртвые зоны концерта:
+ * сцена/фан/танцпол + точки вне концертных трибун.
+ * @param {string} [sectorQuery] опционально сузить облако (?sector=)
  */
-async function buildConcertEnrichedSvgMarkup(sectorQuery = '', opts = {}) {
+async function buildConcertEnrichedSvgMarkup(sectorQuery = '') {
   const row = await loadStageMapRow();
   if (!row?.svg_markup) throw new Error('stage map not in DB');
   const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
   const bundle = readBundleFile();
   const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
-  /** Bundle редактора = уже размеченное; pilot 70k в SVG не тащим. */
-  const labeledFromBundle =
-    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : [];
-  const labeledRaw = labeledFromBundle.length
-    ? labeledFromBundle
-    : layoutSeats.length && layoutSeats.length <= 8000
-      ? layoutSeats
-      : [];
+  const labeledRaw =
+    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
   const { hallW, hallH } = hallDimensions(layout);
   const fieldExclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
   const tribunes = concertTribuneSectors(layout);
   const tribuneNorms = concertTribuneNormSet(tribunes);
   const tribuneBoxes = concertTribuneAbsBoxes(tribunes);
   const sectorQ = String(sectorQuery || '').trim();
-  const includeFullCloud = opts.includeFullCloud === true;
   const sectorMeta = resolveTribuneSector(tribunes, sectorQ);
 
-  const cloudAll = filterCloudForConcertEditor(
+  let cloud = filterCloudForConcertEditor(
     Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [],
     fieldExclude,
     tribuneBoxes,
     hallW,
     hallH,
   );
-  const labeledAll = filterSeatsForConcertEditor(
+  let labeledSeats = filterSeatsForConcertEditor(
     labeledRaw,
     fieldExclude,
     tribuneNorms,
@@ -542,16 +536,10 @@ async function buildConcertEnrichedSvgMarkup(sectorQuery = '', opts = {}) {
     hallW,
     hallH,
   );
-
-  // Обзор: только полигоны (+ мелкий bundle). Точки — по ?sector=a104
-  const cloud = sectorQ
-    ? filterCloudForOneSector(cloudAll, sectorMeta, hallW, hallH)
-    : includeFullCloud
-      ? cloudAll
-      : [];
-  const labeledSeats = sectorQ
-    ? labeledAll.filter((s) => sectorNormsMatch(s?.sector, sectorQ))
-    : labeledAll;
+  if (sectorQ) {
+    cloud = filterCloudForOneSector(cloud, sectorMeta, hallW, hallH);
+    labeledSeats = labeledSeats.filter((s) => sectorNormsMatch(s?.sector, sectorQ));
+  }
 
   const svgMarkup = ensurePathDataSectorAttrs(row.svg_markup);
   return buildHallEnrichedSvg(svgMarkup, {
@@ -559,7 +547,7 @@ async function buildConcertEnrichedSvgMarkup(sectorQuery = '', opts = {}) {
     hallH,
     allSeatCoordinates: cloud,
     labeledSeats,
-    denseCloud: cloud.length > 8000,
+    denseCloud: cloud.length > 12000,
   });
 }
 
@@ -651,16 +639,16 @@ router.get('/bundle', async (_req, res) => {
 router.get('/enriched.svg', async (req, res) => {
   try {
     const sector = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
-    const fullCloud = req.query.full === '1' || req.query.full === 'true';
-    const xml = await buildConcertEnrichedSvgMarkup(sector, { includeFullCloud: fullCloud && !sector });
+    const xml = await buildConcertEnrichedSvgMarkup(sector);
     res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     if (sector) res.setHeader('X-Luzhniki-Concert-Editor-Sector', sector);
     return res.send(xml);
   } catch (e) {
+    console.error('[luzhniki-concert-seats] enriched.svg', e);
     return res.status(e.message?.includes('not in DB') ? 404 : 500).json({
       ok: false,
-      error: e.message,
+      error: e.message || String(e),
     });
   }
 });
