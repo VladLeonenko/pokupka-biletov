@@ -301,16 +301,24 @@ function parseUniformHallSeatAppearance(layout: unknown): boolean {
   return (layout as Record<string, unknown>).uniformHallSeatAppearance === true;
 }
 
-/** Пока нет офферов GetBilet — отрисовать все места из layout_json серым (ориентир). */
+/**
+ * Серая чаша из layout.seats.
+ * Театр (Вахтангов): всегда — иначе при живых офферах видны только sellable и зал «пустой».
+ * Стадион / прочее: только пока нет офферов (или seatSelectionDisabled).
+ */
 function parseGrayHallWhenNoOffers(
   layout: unknown,
   seatSelectionDisabled: boolean,
   hasLiveOffers: boolean,
 ): boolean {
-  if (hasLiveOffers) return false;
-  if (!layout || typeof layout !== 'object') return seatSelectionDisabled;
+  if (!layout || typeof layout !== 'object') {
+    return hasLiveOffers ? false : seatSelectionDisabled;
+  }
   const r = layout as Record<string, unknown>;
   if (r.grayHallWhenNoOffers === false) return false;
+  const isTheater = String(r.hallKind || '').trim().toLowerCase() === 'theater';
+  if (isTheater && r.grayHallWhenNoOffers === true) return true;
+  if (hasLiveOffers) return false;
   if (r.grayHallWhenNoOffers === true) return true;
   return seatSelectionDisabled;
 }
@@ -1864,13 +1872,21 @@ export function TicketHallInteractiveBlock({
   const visibleUnavailableNativeSeats = useMemo(() => {
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
-      if (backgroundSeatCoordinates.length > 0 || useHallBackgroundRaster) return [];
-      /** Театр: серые места на обзоре (100%), не только после клика по сектору. */
-      if (theaterSectorCheckout && !selectedSectorSummary) {
-        return nativeSeats.filter(
+      if (useHallBackgroundRaster) return [];
+      /**
+       * Театр: все места из layout.seats серым (даже если есть allSeatCoordinates —
+       * фоновый cloud на обзоре не рисуется, иначе зал выглядит пустым).
+       * Стадион: серые DOM-точки не дублируем поверх dense cloud.
+       */
+      if (theaterSectorCheckout) {
+        const inScope = selectedSectorSummary
+          ? nativeSeats.filter((seat) => sectorNormsMatch(seat.sector, selectedSector))
+          : nativeSeats;
+        return inScope.filter(
           (seat) => !matchedNativeSeatKeys.has(seatMapKey(seat.sector, seat.row, seat.seat)),
         );
       }
+      if (backgroundSeatCoordinates.length > 0) return [];
       if (!selectedSectorSummary) return [];
       return nativeSeats.filter(
         (seat) =>

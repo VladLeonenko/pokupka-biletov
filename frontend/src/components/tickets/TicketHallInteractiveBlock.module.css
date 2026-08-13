@@ -623,11 +623,11 @@
   min-height: 7px;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(149, 151, 160, 0.55);
-  border: 0;
+  background: rgba(100, 116, 139, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   pointer-events: none;
   cursor: default;
-  box-shadow: none;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
 }
 
 .seatDot:hover {
