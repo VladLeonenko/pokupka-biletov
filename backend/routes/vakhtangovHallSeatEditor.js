@@ -291,6 +291,7 @@ router.post('/', express.json({ limit: '16mb' }), async (req, res) => {
       ...layout,
       layoutMode: 'svgNative',
       preferLayoutSeatPositions: true,
+      showSeatsAtOverview: true,
       maxZoomMultiplier: layout.maxZoomMultiplier ?? 2,
       sectorFocusZoomMultiplier: layout.sectorFocusZoomMultiplier ?? 2,
       hallKind: 'theater',

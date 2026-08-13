@@ -401,6 +401,23 @@ export async function restV2DiscoverStageIdsForCatalog() {
  * Приоритет: GETBILET_V2_STAGE_IDS; иначе автообход площадок/сцен (все города в одной ленте).
  * @returns {Promise<{ actions: Record<string, unknown>[] }>}
  */
+/** Сцены, которые всегда должны попадать в витрину (МХТ и т.п.), даже если STAGE_IDS/discovery их срезали. */
+function alwaysIncludeCatalogStageIds() {
+  const defaults = [
+    '603ad33813cd03003015d811', // МХТ им. Чехова — основная сцена
+    '603ad47e13cd03003015d813', // МХТ — малая сцена
+    '6052f4a313cd03003015de9f', // МХТ — новая сцена
+  ];
+  const raw = process.env.GETBILET_V2_ALWAYS_STAGE_IDS?.trim();
+  const extra = raw
+    ? raw
+        .split(/[,;\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  return [...new Set([...defaults, ...extra])];
+}
+
 export async function restV2BuildEventsCatalog() {
   const raw = process.env.GETBILET_V2_STAGE_IDS?.trim();
   let stageIds = raw
@@ -410,6 +427,8 @@ export async function restV2BuildEventsCatalog() {
   if (!stageIds.length) {
     stageIds = await restV2DiscoverStageIdsForCatalog();
   }
+
+  stageIds = [...new Set([...stageIds, ...alwaysIncludeCatalogStageIds()])];
 
   if (!stageIds.length) {
     throw new GetbiletConfigError(

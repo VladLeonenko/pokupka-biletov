@@ -118,6 +118,41 @@ export async function updateGetbiletEvent(id: number, body: Partial<GetbiletEven
   return handle<GetbiletEventRow>(res);
 }
 
+export type ManualOfferDraft = {
+  sector: string;
+  row?: string;
+  seatCount?: number;
+  seats?: string[];
+  supplierPrice: number;
+  markupKind?: 'percent' | 'fixed';
+  markupValue?: number;
+  eventDateTime?: string;
+  label?: string;
+};
+
+export async function getGetbiletManualOffers(id: number): Promise<{
+  getbilet_external_id?: string;
+  offers: Record<string, unknown>[];
+  migration_required?: boolean;
+}> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/events/${id}/manual-offers`, {
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
+export async function putGetbiletManualOffers(
+  id: number,
+  body: { offers?: Record<string, unknown>[]; offer?: ManualOfferDraft },
+): Promise<{ getbilet_external_id: string; offers: Record<string, unknown>[] }> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/events/${id}/manual-offers`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  return handle(res);
+}
+
 /** POST /api/images — загрузка в backend/uploads/images (нужен admin JWT). */
 export async function uploadAdminImage(file: File): Promise<{ url: string }> {
   const token = Cookies.get('auth_token') || null;

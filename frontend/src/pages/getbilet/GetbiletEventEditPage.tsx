@@ -21,8 +21,10 @@ import {
   fetchPosterForEvent,
   fetchPosterWebForEvent,
   getGetbiletEvent,
+  getGetbiletManualOffers,
   listGetbiletGroups,
   probePosterPage,
+  putGetbiletManualOffers,
   updateGetbiletEvent,
   uploadAdminImage,
 } from '@/services/getbiletAdminApi';
@@ -47,6 +49,12 @@ export function GetbiletEventEditPage() {
     queryFn: () => getGetbiletEvent(numId),
     enabled: idValid,
   });
+  const { data: manualOffersData, refetch: refetchManualOffers } = useQuery({
+    queryKey: ['getbilet-manual-offers', numId],
+    queryFn: () => getGetbiletManualOffers(numId),
+    enabled: idValid,
+  });
+  const manualOffers = manualOffersData?.offers ?? [];
 
   const [getbilet_external_id, setExt] = useState('');
   const [title_manual, setTitle] = useState('');
@@ -65,6 +73,13 @@ export function GetbiletEventEditPage() {
   const [sort_order, setSort] = useState(0);
   const [group_id, setGroup] = useState<number | ''>('');
   const [checkoutHideSeatList, setCheckoutHideSeatList] = useState(false);
+  const [vipSector, setVipSector] = useState('VIP');
+  const [vipRow, setVipRow] = useState('1');
+  const [vipSeatCount, setVipSeatCount] = useState(10);
+  const [vipCost, setVipCost] = useState(10000);
+  const [vipMarkupKind, setVipMarkupKind] = useState<'percent' | 'fixed'>('percent');
+  const [vipMarkupValue, setVipMarkupValue] = useState(20);
+  const [vipEventDateTime, setVipEventDateTime] = useState('');
   const posterFileRef = useRef<HTMLInputElement>(null);
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
@@ -413,6 +428,127 @@ export function GetbiletEventEditPage() {
             ))}
           </Select>
         </FormControl>
+
+        {idValid ? (
+          <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 2, p: 2, display: 'grid', gap: 1.5 }}>
+            <Typography variant="h6">VIP / ручные билеты</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Добавляются поверх GetBilet. Розница = себестоимость + наценка (глобальная наценка на них не
+              накладывается повторно).
+            </Typography>
+            {manualOffersData?.migration_required ? (
+              <Alert severity="warning">Нужна миграция 081_getbilet_events_manual_offers_json на сервере.</Alert>
+            ) : null}
+            {manualOffers.length > 0 ? (
+              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                {manualOffers.map((o, idx) => {
+                  const seats = Array.isArray(o.SeatList) ? o.SeatList.length : 0;
+                  return (
+                    <li key={String(o.Id ?? idx)}>
+                      {String(o.Sector ?? '—')} · ряд {String(o.Row ?? '—')} · {seats} мест ·{' '}
+                      {String(o.AgentPrice ?? '—')} ₽
+                      <Button
+                        size="small"
+                        color="error"
+                        sx={{ ml: 1 }}
+                        onClick={async () => {
+                          try {
+                            const next = manualOffers.filter((_, i) => i !== idx);
+                            await putGetbiletManualOffers(numId, { offers: next });
+                            await refetchManualOffers();
+                            showToast('Удалено', 'success');
+                          } catch (e) {
+                            showToast(e instanceof Error ? e.message : 'Ошибка', 'error');
+                          }
+                        }}
+                      >
+                        Удалить
+                      </Button>
+                    </li>
+                  );
+                })}
+              </Box>
+            ) : (
+              <Typography variant="body2">Пока нет ручных офферов.</Typography>
+            )}
+            <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+              <TextField label="Сектор / зона" value={vipSector} onChange={(e) => setVipSector(e.target.value)} />
+              <TextField label="Ряд" value={vipRow} onChange={(e) => setVipRow(e.target.value)} />
+              <TextField
+                type="number"
+                label="Кол-во мест"
+                value={vipSeatCount}
+                onChange={(e) => setVipSeatCount(Number(e.target.value))}
+              />
+              <TextField
+                type="number"
+                label="Себестоимость, ₽"
+                value={vipCost}
+                onChange={(e) => setVipCost(Number(e.target.value))}
+              />
+              <FormControl fullWidth>
+                <InputLabel id="vip-mk">Наценка</InputLabel>
+                <Select
+                  labelId="vip-mk"
+                  label="Наценка"
+                  value={vipMarkupKind}
+                  onChange={(e) => setVipMarkupKind(e.target.value as 'percent' | 'fixed')}
+                >
+                  <MenuItem value="percent">%</MenuItem>
+                  <MenuItem value="fixed">фикс, ₽</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                type="number"
+                label={vipMarkupKind === 'percent' ? 'Наценка %' : 'Наценка, ₽'}
+                value={vipMarkupValue}
+                onChange={(e) => setVipMarkupValue(Number(e.target.value))}
+              />
+              <TextField
+                label="Дата сеанса (ISO, опц.)"
+                placeholder="2026-09-19T19:00"
+                value={vipEventDateTime}
+                onChange={(e) => setVipEventDateTime(e.target.value)}
+                sx={{ gridColumn: { sm: '1 / -1' } }}
+              />
+            </Box>
+            <Typography variant="body2">
+              Розница ≈{' '}
+              {Math.round(
+                vipMarkupKind === 'fixed'
+                  ? vipCost + vipMarkupValue
+                  : vipCost * (1 + vipMarkupValue / 100),
+              )}{' '}
+              ₽
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={async () => {
+                try {
+                  await putGetbiletManualOffers(numId, {
+                    offer: {
+                      sector: vipSector,
+                      row: vipRow,
+                      seatCount: vipSeatCount,
+                      supplierPrice: vipCost,
+                      markupKind: vipMarkupKind,
+                      markupValue: vipMarkupValue,
+                      eventDateTime: vipEventDateTime.trim() || undefined,
+                      label: vipSector,
+                    },
+                  });
+                  await refetchManualOffers();
+                  showToast('Ручной оффер добавлен', 'success');
+                } catch (e) {
+                  showToast(e instanceof Error ? e.message : 'Ошибка', 'error');
+                }
+              }}
+            >
+              Добавить VIP / ручной оффер
+            </Button>
+          </Box>
+        ) : null}
+
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="contained" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
             Сохранить

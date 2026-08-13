@@ -177,6 +177,12 @@ export function resolveOfferSupplierRub(row) {
  */
 function applyMarkupToOfferRow(row, rule) {
   if (!rule || !row || typeof row !== 'object') return row;
+  /** Ручные VIP/офферы уже с розницей (себестоимость + своя наценка). */
+  if (row.ManualOffer === true || row.manualOffer === true) return row;
+  const extra = row.Extra;
+  if (Array.isArray(extra) && extra.some((x) => String(x).toLowerCase() === 'manual-offer')) {
+    return row;
+  }
   const o = /** @type {Record<string, unknown>} */ ({ ...row });
   const supplier = resolveOfferSupplierRub(o);
   if (!Number.isFinite(supplier) || supplier < 0) return o;

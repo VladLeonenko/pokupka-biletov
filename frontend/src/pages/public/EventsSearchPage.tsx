@@ -22,7 +22,10 @@ import {
   uniqueVenuesFromEvents,
 } from '@/services/biletPublicApi';
 import styles from './EventsSearchPage.module.css';
-import { MHT_CHEKHOV_MAIN_STAGE_ID } from '@/constants/getbiletStages';
+import {
+  MHT_CHEKHOV_MAIN_STAGE_ID,
+  MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES,
+} from '@/constants/getbiletStages';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 
 const GENRE_CHIPS = ['Театр', 'Концерт', 'Драма', 'Комедия', 'Детям', 'Спорт'];
@@ -282,15 +285,27 @@ export function EventsSearchPage() {
             label="Основной зал МХТ"
             size="small"
             onClick={() =>
-              setStageFilter(stageUrl === MHT_CHEKHOV_MAIN_STAGE_ID ? null : MHT_CHEKHOV_MAIN_STAGE_ID)
+              setStageFilter(
+                (MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES as readonly string[]).includes(stageUrl)
+                  ? null
+                  : MHT_CHEKHOV_MAIN_STAGE_ID,
+              )
             }
             sx={{
-              bgcolor: stageUrl === MHT_CHEKHOV_MAIN_STAGE_ID ? 'var(--neg-orange, #ff4e18)' : 'rgba(0,0,0,0.06)',
-              color: stageUrl === MHT_CHEKHOV_MAIN_STAGE_ID ? '#fff' : '#111',
-              border: stageUrl === MHT_CHEKHOV_MAIN_STAGE_ID ? 'none' : '1px solid rgba(0,0,0,0.1)',
+              bgcolor: (MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES as readonly string[]).includes(stageUrl)
+                ? 'var(--neg-orange, #ff4e18)'
+                : 'rgba(0,0,0,0.06)',
+              color: (MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES as readonly string[]).includes(stageUrl)
+                ? '#fff'
+                : '#111',
+              border: (MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES as readonly string[]).includes(stageUrl)
+                ? 'none'
+                : '1px solid rgba(0,0,0,0.1)',
               fontWeight: 700,
               '&:hover': {
-                bgcolor: stageUrl === MHT_CHEKHOV_MAIN_STAGE_ID ? '#e64514' : 'rgba(0,0,0,0.09)',
+                bgcolor: (MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES as readonly string[]).includes(stageUrl)
+                  ? '#e64514'
+                  : 'rgba(0,0,0,0.09)',
               },
             }}
           />

@@ -1065,7 +1065,12 @@ export function filterEventsClient(
   let out = [...events];
   const stage = opts.stageId?.trim();
   if (stage) {
-    out = out.filter((e) => (e.stageId?.trim() ?? '') === stage);
+    /** МХТ основная сцена: канон + legacy seed id. */
+    const stageAliases =
+      stage === '603ad33813cd03003015d811' || stage === '639c4a4cd6cfc5004d20dcfb'
+        ? new Set(['603ad33813cd03003015d811', '639c4a4cd6cfc5004d20dcfb'])
+        : new Set([stage]);
+    out = out.filter((e) => stageAliases.has(e.stageId?.trim() ?? ''));
   }
   const rawQ = opts.q?.trim();
   if (rawQ) {

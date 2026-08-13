@@ -6,7 +6,9 @@ alwaysApply: true
 
 # Деплой — через Git
 
-Когда изменения требуют деплоя на прод, **всегда пиши конкретные команды** с указанием где выполнять (локально / на сервере). Работаем через git.
+Когда изменения требуют деплоя на прод: **агент выполняет сам** (см. `vps-deploy-auto.mdc`), не только пишет команды.
+
+Прод: `ssh biletvsem-vps` → `91.229.9.229`, путь `/var/pokupka-biletov`.
 
 ## 1. Локально — коммит и пуш
 
@@ -19,17 +21,15 @@ git push origin main
 
 ## 2. На сервере — деплой одной командой
 
-Подставь свой SSH, пользователя и путь к проекту на VPS (ниже — шаблон):
-
 ```bash
-ssh user@YOUR_SERVER "cd /var/www/pokupka-biletov && ./scripts/deploy-via-git.sh main"
+ssh biletvsem-vps "cd /var/pokupka-biletov && ./scripts/deploy-via-git.sh main"
 ```
 
 Или на сервере:
 
 ```bash
-ssh user@YOUR_SERVER
-cd /var/www/pokupka-biletov
+ssh biletvsem-vps
+cd /var/pokupka-biletov
 ./scripts/deploy-via-git.sh main
 ./scripts/deploy-via-git.sh feature/имя-ветки
 ```

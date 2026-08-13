@@ -31,6 +31,8 @@ const DEFAULTS = {
   STAGE_MAP_MAX_ZOOM_MULTIPLIER: '2',
   STAGE_MAP_HALL_KIND: 'theater',
   STAGE_MAP_PREFER_LAYOUT_SEATS: '1',
+  /** Места видны на обзоре (scale≈1), не только после zoom в сектор. */
+  STAGE_MAP_SHOW_SEATS_AT_OVERVIEW: '1',
 };
 
 async function fetchText(url) {

@@ -16,7 +16,13 @@ import ticketPool from '../ticketDb.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const STAGE_ID =
-  process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
+  process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '603ad33813cd03003015d811';
+/** Legacy seed id — дублируем ряд, чтобы старые ссылки на схему тоже находили SVG. */
+const STAGE_ID_ALIASES = [
+  STAGE_ID,
+  '603ad33813cd03003015d811',
+  '639c4a4cd6cfc5004d20dcfb',
+].filter((v, i, arr) => arr.indexOf(v) === i);
 
 const TITLE = 'МХТ им. Чехова — основной зал';
 
@@ -62,21 +68,22 @@ async function main() {
     );
   }
 
-  const r = await ticketPool.query(
-    `INSERT INTO getbilet_stage_maps (
-       stage_external_id, place_external_id, title, svg_markup, layout_json, updated_at
-     )
-     VALUES ($1, NULL, $2, $3, $4::jsonb, NOW())
-     ON CONFLICT (stage_external_id) DO UPDATE SET
-       title = EXCLUDED.title,
-       svg_markup = EXCLUDED.svg_markup,
-       layout_json = EXCLUDED.layout_json,
-       updated_at = NOW()
-     RETURNING id, stage_external_id, title`,
-    [STAGE_ID, TITLE, svg_markup, layoutJson],
-  );
-
-  console.log('[seed-mht-main-hall-stage-map] сохранено:', r.rows[0], 'источник:', path.basename(svgPath));
+  for (const stageId of STAGE_ID_ALIASES) {
+    const r = await ticketPool.query(
+      `INSERT INTO getbilet_stage_maps (
+         stage_external_id, place_external_id, title, svg_markup, layout_json, updated_at
+       )
+       VALUES ($1, NULL, $2, $3, $4::jsonb, NOW())
+       ON CONFLICT (stage_external_id) DO UPDATE SET
+         title = EXCLUDED.title,
+         svg_markup = EXCLUDED.svg_markup,
+         layout_json = EXCLUDED.layout_json,
+         updated_at = NOW()
+       RETURNING id, stage_external_id, title`,
+      [stageId, TITLE, svg_markup, layoutJson],
+    );
+    console.log('[seed-mht-main-hall-stage-map] сохранено:', r.rows[0], 'источник:', path.basename(svgPath));
+  }
 }
 
 main()

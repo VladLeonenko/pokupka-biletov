@@ -42,7 +42,10 @@ import {
   RepertoireNotAvailableError,
 } from '../services/repertoireStorefrontAccess.js';
 import { repertoireIdForTicketSlug } from '../utils/fanIdRequiredEvents.js';
-import { resolveStageMapLookupExternalId } from '../services/stageMapLookup.js';
+import {
+  mhtChekhovStageMapLookupIds,
+  resolveStageMapLookupExternalId,
+} from '../services/stageMapLookup.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
@@ -581,18 +584,17 @@ router.get('/stage/:stageId/map', async (req, res) => {
         return sendPublicJson(req, res, cached.stageRow, { cacheSeconds: 60, staleSeconds: 120 });
       }
     }
+    const mapLookupIds = [
+      ...new Set([lookupKey, stageId, ...mhtChekhovStageMapLookupIds(lookupKey), ...mhtChekhovStageMapLookupIds(stageId)].filter(Boolean)),
+    ];
     let r = await ticketPool.query(
       `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
-       FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-      [lookupKey],
+       FROM getbilet_stage_maps
+       WHERE stage_external_id = ANY($1::text[])
+       ORDER BY CASE stage_external_id WHEN $2 THEN 0 WHEN $3 THEN 1 ELSE 2 END, id ASC
+       LIMIT 1`,
+      [mapLookupIds, lookupKey, stageId],
     );
-    if (!r.rows.length && lookupKey !== stageId) {
-      r = await ticketPool.query(
-        `SELECT id, stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url, updated_at
-         FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-        [stageId],
-      );
-    }
     if (!r.rows.length && lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) {
       return res.status(503).json({
         error: 'stage_map_not_seeded',

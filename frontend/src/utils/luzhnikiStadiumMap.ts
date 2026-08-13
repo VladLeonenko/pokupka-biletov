@@ -197,3 +197,34 @@ export function isLuzhnikiConcertFieldZoneLabel(label: string): boolean {
     .replace(/\s+/g, '-');
   return n === 'танцпол' || n === 'фан-зона' || n === 'fan-zone' || /танц|фан|fan-?zone/i.test(label);
 }
+
+/** Секторы концерта Лужников без точек: qty-бронь по зоне (layout.concertZoneOnlySectors). */
+export function parseConcertZoneOnlySectors(layout: unknown): string[] {
+  if (!layout || typeof layout !== 'object') return [];
+  const raw = (layout as Record<string, unknown>).concertZoneOnlySectors;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((x) => String(x ?? '').trim()).filter(Boolean);
+}
+
+export function isConcertZoneOnlySectorLabel(label: string, layout: unknown): boolean {
+  if (!isLuzhnikiConcertFieldZoneLabel(label)) return false;
+  const zones = parseConcertZoneOnlySectors(layout);
+  if (zones.length === 0) return false;
+  const needle = String(label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+  return zones.some((z) => {
+    const n = String(z || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+    return n === needle || n.includes(needle) || needle.includes(n);
+  });
+}
+
+/** Театр: показывать места на обзоре (scale≈fit), не только после zoom. */
+export function parseShowSeatsAtOverview(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).showSeatsAtOverview === true;
+}

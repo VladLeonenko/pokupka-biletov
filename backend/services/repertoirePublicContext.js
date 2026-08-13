@@ -54,7 +54,36 @@ import {
   kickerExtraFromTitle,
 } from './eventTitleNarrative.js';
 
-const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '639c4a4cd6cfc5004d20dcfb';
+/** Основная сцена МХТ им. Чехова (GetBilet GetStageListByPlaceId). Старый id — алиас сида. */
+const MHT_MAIN_STAGE_ID = process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '603ad33813cd03003015d811';
+const MHT_MAIN_STAGE_ID_ALIASES = new Set([
+  MHT_MAIN_STAGE_ID,
+  '603ad33813cd03003015d811',
+  '639c4a4cd6cfc5004d20dcfb',
+]);
+
+function withShowSeatsAtOverview(row) {
+  if (!row || typeof row !== 'object') return row;
+  let layout = row.layout_json;
+  if (typeof layout === 'string') {
+    try {
+      layout = JSON.parse(layout);
+    } catch {
+      layout = null;
+    }
+  }
+  if (!layout || typeof layout !== 'object') {
+    return { ...row, layout_json: { showSeatsAtOverview: true } };
+  }
+  return {
+    ...row,
+    layout_json: { ...layout, showSeatsAtOverview: true },
+  };
+}
+
+function stageMapHasSvg(row) {
+  return Boolean(row && String(row.svg_markup || '').trim());
+}
 
 /** @type {Map<string, { body: object, expiresAt: number }>} */
 const fastContextMem = new Map();
@@ -211,7 +240,7 @@ async function loadMhtChekhovStageMapFallback() {
   const r = await ticketPool.query(
     `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url
      FROM getbilet_stage_maps
-     WHERE stage_external_id = $1
+     WHERE stage_external_id = ANY($1::text[])
         OR (
           lower(coalesce(title, '')) LIKE '%мхт%'
           AND lower(coalesce(title, '')) LIKE '%чехов%'
@@ -220,11 +249,22 @@ async function loadMhtChekhovStageMapFallback() {
           lower(coalesce(title, '')) LIKE '%мхат%'
           AND lower(coalesce(title, '')) LIKE '%чехов%'
         )
-     ORDER BY (stage_external_id = $1) DESC, id ASC
+     ORDER BY
+       CASE stage_external_id
+         WHEN $2 THEN 0
+         WHEN '639c4a4cd6cfc5004d20dcfb' THEN 1
+         ELSE 2
+       END,
+       id ASC
      LIMIT 1`,
-    [MHT_MAIN_STAGE_ID],
+    [[...MHT_MAIN_STAGE_ID_ALIASES], MHT_MAIN_STAGE_ID],
   );
   return r.rows[0] || null;
+}
+
+function isMhtChekhovMainStageId(stageId) {
+  const sid = String(stageId || '').trim();
+  return Boolean(sid && MHT_MAIN_STAGE_ID_ALIASES.has(sid));
 }
 
 /**
@@ -549,9 +589,15 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       const cols = deferStageHeavyFields
         ? 'stage_external_id, place_external_id, title, external_plan_url'
         : 'stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url';
+      const lookupIds = isMhtChekhovMainStageId(stageId)
+        ? [...MHT_MAIN_STAGE_ID_ALIASES]
+        : [stageId];
       const mr = await ticketPool.query(
-        `SELECT ${cols} FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-        [stageId],
+        `SELECT ${cols} FROM getbilet_stage_maps
+         WHERE stage_external_id = ANY($1::text[])
+         ORDER BY CASE stage_external_id WHEN $2 THEN 0 ELSE 1 END, id ASC
+         LIMIT 1`,
+        [lookupIds, stageId],
       );
       if (mr.rows[0]) {
         stageMap = deferStageHeavyFields
@@ -691,26 +737,27 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         }
       } else {
         const row = await loadVakhtangovMainStageMapRow();
-        if (row) stageMap = row;
+        if (row) stageMap = withShowSeatsAtOverview(row);
       }
     }
   } catch {
     /* таблицы схем может не быть */
   }
 
-  if (
-    !stageMap &&
-    !deferStageHeavyFields &&
+  const mhtVenueHint =
+    isMhtChekhovMainStageId(stageId) ||
     looksLikeMhtChekhovVenue(
       manualVenue,
       venueFromPayload,
       placeFromMaps.venue,
       title,
       pickFirst(payload, ['StageName', 'stageName', 'HallName', 'hallName', 'PlaceName', 'placeName']),
-    )
-  ) {
+    );
+  const stageMapSvgMissing = !stageMap || (!deferStageHeavyFields && !stageMapHasSvg(stageMap));
+  if (!deferStageHeavyFields && mhtVenueHint && stageMapSvgMissing) {
     try {
-      stageMap = await loadMhtChekhovStageMapFallback();
+      const mhtRow = await loadMhtChekhovStageMapFallback();
+      if (stageMapHasSvg(mhtRow)) stageMap = mhtRow;
     } catch {
       /* таблицы схем может не быть */
     }

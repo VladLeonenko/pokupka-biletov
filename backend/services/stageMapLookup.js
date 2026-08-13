@@ -35,6 +35,29 @@ import {
   shouldUseKremlinPalaceCanonicalMap,
 } from './kremlinPalaceMap.js';
 
+/** Основная сцена МХТ: канон + legacy seed id. */
+const MHT_MAIN_STAGE_MAP_KEY =
+  process.env.MHT_STAGE_EXTERNAL_ID?.trim() || '603ad33813cd03003015d811';
+const MHT_MAIN_STAGE_ALIASES = new Set([
+  MHT_MAIN_STAGE_MAP_KEY,
+  '603ad33813cd03003015d811',
+  '639c4a4cd6cfc5004d20dcfb',
+]);
+
+function isMhtChekhovMainStageId(stageId) {
+  const sid = String(stageId || '').trim();
+  return Boolean(sid && MHT_MAIN_STAGE_ALIASES.has(sid));
+}
+
+/** Порядок lookup SVG МХТ: канон → legacy seed. */
+export function mhtChekhovStageMapLookupIds(stageId) {
+  const sid = String(stageId || '').trim();
+  if (!isMhtChekhovMainStageId(sid) && sid !== MHT_MAIN_STAGE_MAP_KEY) {
+    return sid ? [sid] : [];
+  }
+  return [...MHT_MAIN_STAGE_ALIASES];
+}
+
 function pickHallLabelFromPayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
   for (const k of ['StageName', 'stageName', 'HallName', 'hallName', 'PlaceName', 'placeName']) {
@@ -69,6 +92,7 @@ export async function resolveStageMapLookupExternalId(stageId, repertoireId) {
   if (forcedKremlin) return forcedKremlin;
 
   if (isVakhtangovMainStageId(sid)) return VAKHTANGOV_MAIN_STAGE_MAP_KEY;
+  if (isMhtChekhovMainStageId(sid)) return MHT_MAIN_STAGE_MAP_KEY;
   if (isBolshoiNewStageId(sid)) return BOLSHOI_NEW_STAGE_MAP_KEY;
   if (isKremlinPalaceId(sid)) return KREMLIN_PALACE_MAP_KEY;
 

@@ -287,6 +287,7 @@ async function main() {
   const maxZoomMultiplier = maxZoomMultiplierRaw ? Number(maxZoomMultiplierRaw) : NaN;
   const hallKind = optionalEnv('STAGE_MAP_HALL_KIND');
   const preferLayoutSeats = truthyEnv('STAGE_MAP_PREFER_LAYOUT_SEATS');
+  const showSeatsAtOverview = truthyEnv('STAGE_MAP_SHOW_SEATS_AT_OVERVIEW');
 
   const layoutJson = {
     layoutMode: 'svgNative',
@@ -299,6 +300,7 @@ async function main() {
       : {}),
     ...(hallKind ? { hallKind } : {}),
     ...(preferLayoutSeats ? { preferLayoutSeatPositions: true } : {}),
+    ...(showSeatsAtOverview ? { showSeatsAtOverview: true } : {}),
     sectorMode,
     pbilet: {
       layoutId,

@@ -1,0 +1,32 @@
+---
+description: Автодеплой на Reg.ru VPS без просьбы пользователя; SSH host biletvsem-vps
+globs:
+alwaysApply: true
+---
+
+# Автодеплой на прод (Reg.ru)
+
+Когда изменения требуют выкладки на прод — **агент сам деплоит**, не ограничиваясь текстом команд.
+
+## Сервер
+
+- Host alias: `biletvsem-vps` (`~/.ssh/config`)
+- IP: `91.229.9.229`
+- User: `root` (если сменится — обновить `~/.ssh/config`)
+- Key: `~/.ssh/cursor_deploy_ed25519`
+- Проект на VPS: `/var/pokupka-biletov` (не `/var/www/...`)
+
+## Порядок
+
+1. Локально: commit (только если пользователь просил commit) + `git push` нужной ветки.
+2. На сервере одной командой:
+
+```bash
+ssh biletvsem-vps "cd /var/pokupka-biletov && ./scripts/deploy-via-git.sh BRANCH"
+```
+
+`BRANCH` = текущая ветка или `main` после мержа. Скрипт: pull, frontend build, backend deps, миграции, pm2 restart; `.env` не трогает.
+
+3. Если нужны доп. шаги (сид схемы, разовая миграция) — выполнить по SSH сразу после деплоя.
+
+4. При `Permission denied` — не выдумывать пароль; сказать пользователю открыть веб-консоль Reg.ru и дописать pubkey в `~/.ssh/authorized_keys`.

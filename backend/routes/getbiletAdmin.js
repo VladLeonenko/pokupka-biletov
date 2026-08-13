@@ -219,6 +219,80 @@ router.get('/events/:id', async (req, res) => {
   }
 });
 
+/** Ручные офферы (VIP): GET/PUT по id карточки getbilet_events. */
+router.get('/events/:id/manual-offers', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  try {
+    const r = await ticketPool.query(
+      `SELECT getbilet_external_id, COALESCE(manual_offers_json, '[]'::jsonb) AS manual_offers_json
+       FROM getbilet_events WHERE id = $1`,
+      [id],
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    const offers = Array.isArray(r.rows[0].manual_offers_json) ? r.rows[0].manual_offers_json : [];
+    res.json({
+      getbilet_external_id: r.rows[0].getbilet_external_id,
+      offers,
+    });
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
+      return res.json({ offers: [], migration_required: true });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.put('/events/:id/manual-offers', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  const body = req.body || {};
+  try {
+    const ev = await ticketPool.query(
+      `SELECT getbilet_external_id FROM getbilet_events WHERE id = $1`,
+      [id],
+    );
+    if (!ev.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    const rid = String(ev.rows[0].getbilet_external_id || '').trim();
+    const {
+      buildManualOfferRow,
+      saveManualOffersForRepertoire,
+    } = await import('../services/getbiletManualOffers.js');
+
+    /** @type {Record<string, unknown>[]} */
+    let offers = [];
+    if (Array.isArray(body.offers)) {
+      offers = body.offers.filter((x) => x && typeof x === 'object');
+    } else if (body.offer && typeof body.offer === 'object') {
+      const existing = await ticketPool.query(
+        `SELECT COALESCE(manual_offers_json, '[]'::jsonb) AS manual_offers_json FROM getbilet_events WHERE id = $1`,
+        [id],
+      );
+      const prev = Array.isArray(existing.rows[0]?.manual_offers_json)
+        ? existing.rows[0].manual_offers_json
+        : [];
+      const built = buildManualOfferRow(body.offer, rid);
+      offers = [...prev, built];
+    } else {
+      return res.status(400).json({ error: 'Передайте offers[] или offer{}' });
+    }
+
+    const saved = await saveManualOffersForRepertoire(rid, offers);
+    res.json({
+      getbilet_external_id: rid,
+      offers: saved.manual_offers_json,
+    });
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
+      return res.status(503).json({
+        error: 'migration_required',
+        message: 'Примените миграцию 081_getbilet_events_manual_offers_json.sql',
+      });
+    }
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
 router.post('/events', async (req, res) => {
   const {
     getbilet_external_id,

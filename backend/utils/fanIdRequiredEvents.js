@@ -24,6 +24,9 @@ const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
   /** Баста — Guf (Лужники, концерт) — стабильный ЧПУ для рекламы. */
   'basta-guf': '69ac1c5246a4d000309ecd5c',
   'basta-i-guf': '69ac1c5246a4d000309ecd5c',
+  /** Кабала святош (МХТ) — ЧПУ для Директа / медиаплана. */
+  'kabala-svyatosh': '686cd69c58f79d0030278b9d',
+  'kabala-svjatosch': '686cd69c58f79d0030278b9d',
 });
 
 /** @param {string | null | undefined} slug */

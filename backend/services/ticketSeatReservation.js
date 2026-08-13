@@ -57,25 +57,45 @@ function isDemoCheckoutPayload(repertoireId, offerId) {
 }
 
 async function loadCachedOfferRowById(repertoireId, offerId) {
+  const id = String(offerId ?? '');
   const r = await ticketPool.query(
     `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
     [repertoireId],
   );
   const payload = r.rows[0]?.payload_json;
   const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
-  const id = String(offerId ?? '');
-  return rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id) || null;
+  const fromCache = rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id);
+  if (fromCache) return fromCache;
+  try {
+    const m = await ticketPool.query(
+      `SELECT COALESCE(manual_offers_json, '[]'::jsonb) AS manual_offers_json
+       FROM getbilet_events WHERE getbilet_external_id = $1 LIMIT 1`,
+      [repertoireId],
+    );
+    const manual = Array.isArray(m.rows[0]?.manual_offers_json) ? m.rows[0].manual_offers_json : [];
+    return manual.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id) || null;
+  } catch {
+    return null;
+  }
+}
+
+function isManualOfferId(offerId) {
+  return String(offerId || '').startsWith('manual-');
 }
 
 async function resolveOfferUnitRub({ offerId, repertoireId }) {
-  if (isDemoCheckoutPayload(repertoireId, offerId)) {
+  if (isDemoCheckoutPayload(repertoireId, offerId) || isManualOfferId(offerId)) {
     const row = await loadCachedOfferRowById(repertoireId, offerId);
-    if (!row) throw new GetbiletValidationError('Тестовое предложение не найдено');
+    if (!row) {
+      throw new GetbiletValidationError(
+        isManualOfferId(offerId) ? 'Ручное предложение не найдено' : 'Тестовое предложение не найдено',
+      );
+    }
     const unitRub = Number(row.AgentPrice ?? row.NominalPrice ?? 0);
     if (!Number.isFinite(unitRub) || unitRub <= 0) {
-      throw new GetbiletValidationError('Некорректная цена тестового предложения');
+      throw new GetbiletValidationError('Некорректная цена предложения');
     }
-    return { unitRub, isDemo: true, cachedRow: row };
+    return { unitRub, isDemo: true, cachedRow: row, isManual: isManualOfferId(offerId) };
   }
 
   let offerPayload = await restV2GetOfferById(offerId);
@@ -98,7 +118,7 @@ async function resolveOfferUnitRub({ offerId, repertoireId }) {
     }
   }
 
-  return { unitRub, isDemo: false, cachedRow };
+  return { unitRub, isDemo: false, cachedRow, isManual: false };
 }
 
 /** @param {unknown} body */

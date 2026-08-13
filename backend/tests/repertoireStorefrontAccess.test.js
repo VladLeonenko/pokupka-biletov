@@ -31,6 +31,10 @@ test('ticket slug alias for basta-guf concert', () => {
   assert.equal(repertoireIdForTicketSlug('basta-i-guf'), '69ac1c5246a4d000309ecd5c');
 });
 
+test('ticket slug alias for kabala-svyatosh', () => {
+  assert.equal(repertoireIdForTicketSlug('kabala-svyatosh'), '686cd69c58f79d0030278b9d');
+});
+
 test('blocked test slugs', () => {
   assert.equal(isBlockedRepertoireSlug('final-kubka-rossii-po-futbolu-2026'), true);
   assert.equal(isBlockedRepertoireSlug('superfinal-fonbet-kubka-rossii-spartak-krasnodar'), false);
