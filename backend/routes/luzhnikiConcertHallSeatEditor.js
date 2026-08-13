@@ -14,7 +14,10 @@ import {
   HALL_MAP_SAVE_CORS_HEADERS,
   isHallMapSaveTokenRequired,
 } from '../utils/hallMapSaveToken.js';
-import { normalizeSectorLabel } from '../utils/ticketHallSectorNormalize.js';
+import {
+  luzhnikiSectorLookupNorms,
+  normalizeSectorLabel,
+} from '../utils/ticketHallSectorNormalize.js';
 import { createHallSvgEditorHandlers } from '../utils/hallSeatEditorSvgRoutes.js';
 import { LUZHNIKI_CONCERT_STAGE_MAP_KEY } from '../utils/luzhnikiConcertRepertoires.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
@@ -25,6 +28,7 @@ import {
 } from '../utils/luzhnikiSeatIndexCache.js';
 import { buildHallEnrichedSvg } from '../utils/buildHallEnrichedSvg.js';
 import { isLuzhnikiConcertFreeZoneSector } from '../utils/luzhnikiConcertFreeZoneSeats.js';
+import { isLuzhnikiConcertKeepSectorLabel } from '../utils/luzhnikiConcertSectorFilter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -388,24 +392,79 @@ function pointInExcludeBoxes(xPct, yPct, boxes) {
   return false;
 }
 
-function filterSeatsOutsideFieldMasks(seats, boxes) {
-  if (!boxes.length) return seats;
-  return seats.filter((s) => {
-    if (isLuzhnikiConcertFreeZoneSector(s?.sector)) return false;
-    const xPct = Number(s?.xPct ?? s?.x);
-    const yPct = Number(s?.yPct ?? s?.y);
-    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
-    return !pointInExcludeBoxes(xPct, yPct, boxes);
+/** Трибуны концертной схемы (без сцены/фан/танцпол) — только они участвуют в разметке. */
+function concertTribuneSectors(layout) {
+  const sectors =
+    layout?.sectorMode && typeof layout.sectorMode === 'object' && Array.isArray(layout.sectorMode.sectors)
+      ? layout.sectorMode.sectors
+      : [];
+  return sectors.filter((s) => {
+    const label = String(s?.label ?? '');
+    if (!isLuzhnikiConcertKeepSectorLabel(label)) return false;
+    if (isLuzhnikiConcertFreeZoneSector(label)) return false;
+    return Boolean(s?.path);
   });
 }
 
-function filterCloudOutsideFieldMasks(cloud, boxes) {
-  if (!boxes.length) return cloud;
+function concertTribuneNormSet(tribuneSectors) {
+  const norms = new Set();
+  for (const s of tribuneSectors) {
+    for (const n of luzhnikiSectorLookupNorms(s.label)) norms.add(n);
+  }
+  return norms;
+}
+
+/** Абсолютные bbox трибун (не pct) — для облака. */
+function concertTribuneAbsBoxes(tribuneSectors) {
+  /** @type {{ minX: number, minY: number, maxX: number, maxY: number }[]} */
+  const boxes = [];
+  for (const s of tribuneSectors) {
+    const bb = pathAbsBBox(s.path);
+    if (!bb) continue;
+    const padX = (bb.maxX - bb.minX) * 0.01;
+    const padY = (bb.maxY - bb.minY) * 0.01;
+    boxes.push({
+      minX: bb.minX - padX,
+      minY: bb.minY - padY,
+      maxX: bb.maxX + padX,
+      maxY: bb.maxY + padY,
+    });
+  }
+  return boxes;
+}
+
+function pointInAbsBoxes(x, y, boxes) {
+  for (const b of boxes) {
+    if (x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY) return true;
+  }
+  return false;
+}
+
+function filterSeatsForConcertEditor(seats, fieldExcludePct, tribuneNorms, tribuneAbsBoxes, hallW, hallH) {
+  return seats.filter((s) => {
+    if (isLuzhnikiConcertFreeZoneSector(s?.sector)) return false;
+    const norms = luzhnikiSectorLookupNorms(s?.sector);
+    if (!norms.some((n) => tribuneNorms.has(n))) return false;
+    const xPct = Number(s?.xPct ?? s?.x);
+    const yPct = Number(s?.yPct ?? s?.y);
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
+    if (pointInExcludeBoxes(xPct, yPct, fieldExcludePct)) return false;
+    const x = (xPct / 100) * hallW;
+    const y = (yPct / 100) * hallH;
+    return pointInAbsBoxes(x, y, tribuneAbsBoxes);
+  });
+}
+
+function filterCloudForConcertEditor(cloud, fieldExcludePct, tribuneAbsBoxes, hallW, hallH) {
   return cloud.filter((pt) => {
     const xPct = Number(pt?.xPct ?? pt?.x);
     const yPct = Number(pt?.yPct ?? pt?.y);
     if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
-    return !pointInExcludeBoxes(xPct, yPct, boxes);
+    if (pointInExcludeBoxes(xPct, yPct, fieldExcludePct)) return false;
+    const x = (xPct / 100) * hallW;
+    const y = (yPct / 100) * hallH;
+    // За сценой / B / ложи / углы вне концертных трибун — не рисуем
+    return pointInAbsBoxes(x, y, tribuneAbsBoxes);
   });
 }
 
@@ -418,12 +477,25 @@ async function buildConcertEnrichedSvgMarkup() {
   const labeledRaw =
     bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
   const { hallW, hallH } = hallDimensions(layout);
-  const exclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
-  const cloud = filterCloudOutsideFieldMasks(
+  const fieldExclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
+  const tribunes = concertTribuneSectors(layout);
+  const tribuneNorms = concertTribuneNormSet(tribunes);
+  const tribuneBoxes = concertTribuneAbsBoxes(tribunes);
+  const cloud = filterCloudForConcertEditor(
     Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [],
-    exclude,
+    fieldExclude,
+    tribuneBoxes,
+    hallW,
+    hallH,
   );
-  const labeledSeats = filterSeatsOutsideFieldMasks(labeledRaw, exclude);
+  const labeledSeats = filterSeatsForConcertEditor(
+    labeledRaw,
+    fieldExclude,
+    tribuneNorms,
+    tribuneBoxes,
+    hallW,
+    hallH,
+  );
   const svgMarkup = ensurePathDataSectorAttrs(row.svg_markup);
   return buildHallEnrichedSvg(svgMarkup, {
     hallW,
