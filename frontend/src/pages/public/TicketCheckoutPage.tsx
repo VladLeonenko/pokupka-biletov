@@ -878,6 +878,8 @@ export function TicketCheckoutPage() {
   }, [cart, buildCartSnapshot, ensureSeatHold, setPurchaseOpen]);
 
   const cartRestoreRef = useRef(false);
+  /** Предыдущий cart: чистим локальный выбор только при реальном clearCart (null ← non-null). */
+  const prevCartRef = useRef(cart);
 
   useEffect(() => {
     cartRestoreRef.current = false;
@@ -894,13 +896,17 @@ export function TicketCheckoutPage() {
   }, [repertoireId, cart]);
 
   useEffect(() => {
-    if (cart !== null) return;
-    if (!offerId && seats.length === 0 && mapSelectedSeats.length === 0) return;
-    setOfferId(null);
-    setSeats([]);
-    setMapSelectedSeats([]);
-    setPurchaseOpen(false);
-  }, [cart, offerId, seats.length, mapSelectedSeats.length, setPurchaseOpen]);
+    const prev = prevCartRef.current;
+    prevCartRef.current = cart;
+    // Раньше: cart===null + уже есть seats → wipe. На первом клике setCart ещё в другом
+    // effect → гонка: выбор сбрасывался, плашка жила из sessionStorage, схема/модалка — 0.
+    if (prev != null && cart == null) {
+      setOfferId(null);
+      setSeats([]);
+      setMapSelectedSeats([]);
+      setPurchaseOpen(false);
+    }
+  }, [cart, setPurchaseOpen]);
 
   useEffect(() => {
     if (!repertoireId || !offerId || purchaseSeats.length === 0) return;
@@ -1703,6 +1709,7 @@ export function TicketCheckoutPage() {
                       colorForSeat={colorSeat}
                       activeOfferId={offerId}
                       selectedSeats={seats}
+                      parentSelectedSeats={mapSelectedSeats}
                       onToggleSeat={toggleSeat}
                       selectedOffer={selectedOfferForMap}
                       onReserveFromMap={() => void openPurchaseWithHold()}
@@ -2270,6 +2277,7 @@ export function TicketCheckoutPage() {
                         colorForSeat={colorSeat}
                         activeOfferId={offerId}
                         selectedSeats={seats}
+                        parentSelectedSeats={mapSelectedSeats}
                         onToggleSeat={toggleSeat}
                         selectedOffer={selectedOfferForMap}
                         onReserveFromMap={() => void openPurchaseWithHold()}
