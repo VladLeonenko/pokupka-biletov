@@ -23,6 +23,8 @@ import {
   LUZHNIKI_PILOT_SEATS_REL_PATH,
   resetLuzhnikiSeatIndexCache,
 } from '../utils/luzhnikiSeatIndexCache.js';
+import { buildHallEnrichedSvg } from '../utils/buildHallEnrichedSvg.js';
+import { isLuzhnikiConcertFreeZoneSector } from '../utils/luzhnikiConcertFreeZoneSeats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -305,6 +307,132 @@ async function persistCheckoutPilotFlags(seats, builtAt) {
   resetLuzhnikiSeatIndexCache();
 }
 
+function escapeXmlAttr(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+/** Концерт SVG: data-name → data-sector (редактор ищет path[data-sector]). */
+function ensurePathDataSectorAttrs(svgMarkup) {
+  return String(svgMarkup || '').replace(/<path\b([^>]*?)(\/?)>/gi, (full, attrs, selfClose) => {
+    if (/\bdata-sector\s*=/i.test(attrs)) return full;
+    const m = attrs.match(/\bdata-name\s*=\s*["']([^"']+)["']/i);
+    if (!m) return full;
+    return `<path data-sector="${escapeXmlAttr(m[1])}"${attrs}${selfClose}>`;
+  });
+}
+
+function pathAbsBBox(pathD) {
+  const nums = String(pathD || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+  if (!nums || nums.length < 4) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = Number(nums[i]);
+    const y = Number(nums[i + 1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  if (!Number.isFinite(minX) || maxX <= minX || maxY <= minY) return null;
+  return { minX, minY, maxX, maxY };
+}
+
+/** Как checkout maskFieldBackgroundDots: сцена / фан / танцпол — без точек. */
+function fieldMaskExcludePctBoxes(layout, hallW, hallH) {
+  const masks = Array.isArray(layout?.hallMapFieldMasks) ? layout.hallMapFieldMasks : [];
+  const w = Math.max(1, hallW);
+  const h = Math.max(1, hallH);
+  /** @type {{ x0: number, y0: number, x1: number, y1: number }[]} */
+  const boxes = [];
+  for (const mask of masks) {
+    if (!mask || typeof mask !== 'object') continue;
+    const x = Number(mask.x);
+    const y = Number(mask.y);
+    const mw = Number(mask.w);
+    const mh = Number(mask.h);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(mw) && Number.isFinite(mh) && mw > 0 && mh > 0) {
+      boxes.push({
+        x0: (x / w) * 100,
+        y0: (y / h) * 100,
+        x1: ((x + mw) / w) * 100,
+        y1: ((y + mh) / h) * 100,
+      });
+      continue;
+    }
+    const path = typeof mask.path === 'string' ? mask.path : '';
+    const bb = pathAbsBBox(path);
+    if (!bb) continue;
+    const padX = (bb.maxX - bb.minX) * 0.03;
+    const padY = (bb.maxY - bb.minY) * 0.03;
+    boxes.push({
+      x0: ((bb.minX - padX) / w) * 100,
+      y0: ((bb.minY - padY) / h) * 100,
+      x1: ((bb.maxX + padX) / w) * 100,
+      y1: ((bb.maxY + padY) / h) * 100,
+    });
+  }
+  return boxes;
+}
+
+function pointInExcludeBoxes(xPct, yPct, boxes) {
+  for (const b of boxes) {
+    if (xPct >= b.x0 && xPct <= b.x1 && yPct >= b.y0 && yPct <= b.y1) return true;
+  }
+  return false;
+}
+
+function filterSeatsOutsideFieldMasks(seats, boxes) {
+  if (!boxes.length) return seats;
+  return seats.filter((s) => {
+    if (isLuzhnikiConcertFreeZoneSector(s?.sector)) return false;
+    const xPct = Number(s?.xPct ?? s?.x);
+    const yPct = Number(s?.yPct ?? s?.y);
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
+    return !pointInExcludeBoxes(xPct, yPct, boxes);
+  });
+}
+
+function filterCloudOutsideFieldMasks(cloud, boxes) {
+  if (!boxes.length) return cloud;
+  return cloud.filter((pt) => {
+    const xPct = Number(pt?.xPct ?? pt?.x);
+    const yPct = Number(pt?.yPct ?? pt?.y);
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
+    return !pointInExcludeBoxes(xPct, yPct, boxes);
+  });
+}
+
+async function buildConcertEnrichedSvgMarkup() {
+  const row = await loadStageMapRow();
+  if (!row?.svg_markup) throw new Error('stage map not in DB');
+  const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
+  const bundle = readBundleFile();
+  const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
+  const labeledRaw =
+    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
+  const { hallW, hallH } = hallDimensions(layout);
+  const exclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
+  const cloud = filterCloudOutsideFieldMasks(
+    Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [],
+    exclude,
+  );
+  const labeledSeats = filterSeatsOutsideFieldMasks(labeledRaw, exclude);
+  const svgMarkup = ensurePathDataSectorAttrs(row.svg_markup);
+  return buildHallEnrichedSvg(svgMarkup, {
+    hallW,
+    hallH,
+    allSeatCoordinates: cloud,
+    labeledSeats,
+  });
+}
+
 const svgEditor = createHallSvgEditorHandlers({
   repoRoot: REPO_ROOT,
   stageId: STAGE_ID,
@@ -392,7 +520,7 @@ router.get('/bundle', async (_req, res) => {
 
 router.get('/enriched.svg', async (_req, res) => {
   try {
-    const xml = await svgEditor.buildEnrichedSvgMarkup();
+    const xml = await buildConcertEnrichedSvgMarkup();
     res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     return res.send(xml);

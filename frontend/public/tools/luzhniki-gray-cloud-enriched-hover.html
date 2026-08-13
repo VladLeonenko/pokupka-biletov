@@ -116,6 +116,12 @@
     }
     .stage svg circle.seat-edited-in-editor.paint-selected { fill: #c4b5fd !important; }
     .stage svg circle.unlabeled-dot { fill: #7f1d1d; }
+    .stage svg path.sector-focus {
+      fill: rgba(56, 189, 248, 0.32) !important;
+      stroke: #38bdf8 !important;
+      stroke-width: 16px !important;
+    }
+    .stage svg circle.sector-dim { opacity: 0.1 !important; }
     .hint { font-size: 11px; opacity: 0.55; }
     #zoomSlider { width: min(120px, 22vw); vertical-align: middle; accent-color: #38bdf8; }
     #paintTargetSector { width: 92px; }
@@ -1945,11 +1951,21 @@
       return paintSector.value.trim();
     }
 
+    function sectorPathLabel(pathEl) {
+      return decodeAttr(
+        pathEl.getAttribute('data-sector') ||
+          pathEl.getAttribute('data-name') ||
+          pathEl.getAttribute('place-name') ||
+          '',
+      );
+    }
+
     function rebuildSectorBboxCache() {
       sectorBboxByNorm = new Map();
       if (!svgRoot) return;
-      for (const p of svgRoot.querySelectorAll('path[data-sector]')) {
-        const label = decodeAttr(p.getAttribute('data-sector') || '');
+      // Театры/концерт: data-name; Лужники-спорт: data-sector
+      for (const p of svgRoot.querySelectorAll('path[data-sector], path[data-name], path[data-type="level"]')) {
+        const label = sectorPathLabel(p);
         const norm = normalizeSectorLabel(label);
         if (!norm) continue;
         try {
@@ -1968,6 +1984,23 @@
         } catch {
           /* path без layout */
         }
+      }
+    }
+
+    /** Подсветка полигона сектора + приглушение чужих точек. */
+    function updateSectorFocusVisual(sectorLabel) {
+      if (!svgRoot) return;
+      svgRoot.querySelectorAll('path.sector-focus').forEach((p) => p.classList.remove('sector-focus'));
+      const sector = String(sectorLabel || '').trim();
+      const hasFilter = Boolean(normalizeSectorLabel(sector));
+      for (const c of allCircles) {
+        if (!hasFilter || circleMatchesSectorFilter(c, sector)) c.classList.remove('sector-dim');
+        else c.classList.add('sector-dim');
+      }
+      if (!hasFilter) return;
+      for (const p of svgRoot.querySelectorAll('path[data-sector], path[data-name], path[data-type="level"]')) {
+        const label = sectorPathLabel(p);
+        if (label && sectorNormsMatch(label, sector)) p.classList.add('sector-focus');
       }
     }
 
@@ -4591,6 +4624,7 @@
         paintUnlabeled(svg);
         updateSaveStatus();
         renderRowLabels(paintSectorForApply());
+        updateSectorFocusVisual(paintSectorForApply());
         if (restored > 0) {
           showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
         } else if (isSupercupStadiumEditor && megaHall) {
@@ -4954,11 +4988,12 @@
     paintSector.addEventListener('input', () => {
       fillNextRowCursor = null;
       updateFillNextRowHint();
-      renderRowLabels(paintSectorForApply());
+      const sector = paintSectorForApply();
+      renderRowLabels(sector);
+      updateSectorFocusVisual(sector);
       if (!isSupercupStadiumEditor) return;
       clearTimeout(sectorReloadTimer);
-      const sector = paintSectorForApply().trim();
-      if (!sector) {
+      if (!sector.trim()) {
         lastLoadedSectorNorm = '';
         return;
       }
