@@ -2541,7 +2541,7 @@ export function TicketHallInteractiveBlock({
                 className={`${styles.sectorLayer} ${
                   pbiletCategoryCheckout ? styles.sectorLayerCategoryCheckout : ''
                 } ${
-                  theaterSectorCheckout ? styles.sectorLayerTheater : ''
+                  theaterSectorCheckout && !useNativeTheaterSectorPaths ? styles.sectorLayerTheater : ''
                 } ${
                   /** Театр: сектора всегда под местами (даже без stadium canvas). */
                   useCanvasCompositing || theaterSectorCheckout ? styles.sectorLayerUnderSeats : ''
