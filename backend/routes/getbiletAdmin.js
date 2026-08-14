@@ -28,7 +28,6 @@ import { buildResolvedForForm } from '../services/getbiletAdminResolvedForm.js';
 import { sanitizeStageMapLayoutJson } from '../utils/sanitizeStageMapLayoutJson.js';
 import { resolveHallMapSaveToken } from '../utils/hallMapSaveToken.js';
 import { LUZHNIKI_FOOTBALL_STAGE_MAP_KEY } from '../services/luzhnikiFootballStageMap.js';
-import { LUZHNIKI_CONCERT_STAGE_MAP_KEY } from '../utils/luzhnikiConcertRepertoires.js';
 import { RAMT_BIG_STAGE_MAP_KEY } from '../services/ramtBigStageMap.js';
 import { BOLSHOI_NEW_STAGE_MAP_KEY } from '../services/bolshoiNewStageMap.js';
 import { KREMLIN_PALACE_MAP_KEY } from '../services/kremlinPalaceMap.js';
@@ -1314,24 +1313,12 @@ router.get('/stage-map-editors', (_req, res) => {
   const saveToken = resolveHallMapSaveToken();
   const editors = [
     {
-      id: 'luzhniki-football',
-      label: 'Лужники — спорт',
-      description: 'Футбольная чаша, ряды, сектора (checkout luzhniki-football)',
+      id: 'luzhniki-gray-cloud',
+      label: 'Лужники — разметка мест',
+      description: 'Серая чаша, ряды, сектора (checkout luzhniki-football)',
       path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
       url: buildHallMapEditorUrl('/tools/luzhniki-gray-cloud-enriched-hover.html', saveToken),
       stageMapKeys: [LUZHNIKI_FOOTBALL_STAGE_MAP_KEY],
-    },
-    {
-      id: 'luzhniki-concert',
-      label: 'Лужники — концерт',
-      description: '1:1 со спортом: тот же hand SVG/API (checkout luzhniki-concert)',
-      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
-      url: buildUnifiedHallEditorUrl(
-        'luzhniki-gray-cloud-svg',
-        'Лужники — концерт',
-        saveToken,
-      ),
-      stageMapKeys: [LUZHNIKI_CONCERT_STAGE_MAP_KEY],
     },
     {
       id: 'vakhtangov-hall',
