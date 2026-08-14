@@ -1144,24 +1144,6 @@ export function TicketHallInteractiveBlock({
     return curved >= 3;
   }, [theaterSectorCheckout, preferLayoutSeatPositions, sectorMode.sectors]);
 
-  const resolveSectorSummaryForLabel = useCallback(
-    (label: string): SectorSummary | null => {
-      const direct = sectorSummaryByLabel.get(normalizeSectorLabel(label));
-      if (direct) return direct;
-      let best: SectorSummary | null = null;
-      let bestScore = 0;
-      for (const summary of sectorSummaries) {
-        const score = sectorMatchScore(label, summary.meta.label);
-        if (score > bestScore) {
-          bestScore = score;
-          best = summary;
-        }
-      }
-      return bestScore >= 55 ? best : null;
-    },
-    [sectorSummaries, sectorSummaryByLabel],
-  );
-
   const viewportRef = useRef<HTMLDivElement>(null);
   const hoverProbeRef = useRef<HTMLDivElement>(null);
   const panInnerRef = useRef<HTMLDivElement>(null);
