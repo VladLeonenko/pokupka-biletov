@@ -13,6 +13,7 @@ import { extractLabeledSeatsFromSvgMarkup } from './luzhnikiExtractSeatsFromEnri
  * @param {{
  *   repoRoot: string;
  *   stageId: string;
+ *   stageIdAliases?: string[];
  *   bundlePath: string;
  *   enrichedPublicRel: string;
  *   loadStageMapRow: () => Promise<{ svg_markup?: string; layout_json?: object } | null>;
@@ -24,6 +25,7 @@ import { extractLabeledSeatsFromSvgMarkup } from './luzhnikiExtractSeatsFromEnri
  */
 export function createHallSvgEditorHandlers(cfg) {
   const enrichedPublicAbs = path.join(cfg.repoRoot, 'frontend/public/tools', path.basename(cfg.enrichedPublicRel));
+  const stageIds = [...new Set([cfg.stageId, ...(cfg.stageIdAliases || [])].filter(Boolean))];
 
   async function buildEnrichedSvgMarkup() {
     const row = await cfg.loadStageMapRow();
@@ -33,11 +35,12 @@ export function createHallSvgEditorHandlers(cfg) {
     const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
     const labeledSeats =
       bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
-    const hallW = Number(layout?.pbilet?.hallWidth) || 1494;
-    const hallH = Number(layout?.pbilet?.hallHeight) || 1292;
+    const pb = layout?.pbilet && typeof layout.pbilet === 'object' ? layout.pbilet : {};
+    const hallW = Number(pb.hallWidth);
+    const hallH = Number(pb.hallHeight);
     return buildHallEnrichedSvg(row.svg_markup, {
-      hallW,
-      hallH,
+      hallW: Number.isFinite(hallW) && hallW > 0 ? hallW : undefined,
+      hallH: Number.isFinite(hallH) && hallH > 0 ? hallH : undefined,
       allSeatCoordinates: Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [],
       labeledSeats,
     });
@@ -104,9 +107,9 @@ export function createHallSvgEditorHandlers(cfg) {
        SET layout_json = $2::jsonb,
            notes_internal = COALESCE(notes_internal, '') || $3,
            updated_at = NOW()
-       WHERE stage_external_id = $1`,
+       WHERE stage_external_id = ANY($1::text[])`,
       [
-        cfg.stageId,
+        stageIds,
         JSON.stringify(nextLayout),
         `\n[${bundlePayload.builtAt}] editor SVG save: ${seats.length} seats`,
       ],

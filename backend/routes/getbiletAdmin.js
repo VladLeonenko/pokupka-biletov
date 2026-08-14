@@ -1346,6 +1346,18 @@ router.get('/stage-map-editors', (_req, res) => {
       stageMapKeys: ['5f3dedaa08192a003157dc6d', '5f3dee4f08192a003157dc71'],
     },
     {
+      id: 'mht-chekhov-hall',
+      label: 'МХТ им. Чехова — основной зал',
+      description: 'Тот же редактор, что Лужники/Вахтангов. Открывать в Chrome.',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'mht-chekhov-hall-seats',
+        'МХТ им. Чехова — основной зал',
+        saveToken,
+      ),
+      stageMapKeys: ['603ad33813cd03003015d811', '639c4a4cd6cfc5004d20dcfb'],
+    },
+    {
       id: 'ramt-big-stage',
       label: 'РАМТ — Большая сцена',
       description: 'Тот же редактор, что Лужники',

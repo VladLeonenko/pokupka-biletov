@@ -25,6 +25,21 @@ Stage: `5f3dedaa08192a003157dc6d`. Эталон UX одобрен 2026-08-14.
 3. **CSS** — без `sectorLayerTheater` на Вахтангове (исходный стиль path-заливок).
 4. Не «улучшать» заливки гомоглифами/перегруппировкой уровней на этом зале.
 
+## Редактор мест (единый UI Лужников)
+
+Тот же `luzhniki-gray-cloud-enriched-hover.html?hallApi=…`. **Не писать отдельный UI.**
+
+| Зал | hallApi | Redirect |
+|-----|---------|----------|
+| Вахтангов | `vakhtangov-hall-seats` | `/tools/vakhtangov-hall-seats-editor.html` |
+| МХТ основной | `mht-chekhov-hall-seats` | `/tools/mht-chekhov-hall-seats-editor.html` |
+
+**Новая схема зала → редактор (чеклист, без велосипеда):**
+1. `createTheaterHallSeatEditorRouter({ stageId, bundleRelPath, svgPublicPath, enrichedPublicFileName, … })` → `backend/routes/<hall>HallSeatEditor.js`
+2. `app.use('/api/tools/<hallApi>', …)` в `backend/app.js`
+3. Запись в `GET /stage-map-editors` (`getbiletAdmin.js`) + `stageMapKeys`
+4. Redirect HTML в `frontend/public/tools/<hall>-editor.html` (как Вахтангов)
+
 ## МХТ им. Чехова
 
 Stage ids: `603ad33813cd03003015d811`, legacy `639c4a4cd6cfc5004d20dcfb`.
@@ -36,6 +51,7 @@ Stage ids: `603ad33813cd03003015d811`, legacy `639c4a4cd6cfc5004d20dcfb`.
 3. Места/sellable — theater canvas (эталон точек как у Вахтангова).
 4. **Заливки на 100%** — **нет** (отключены). Только места/sellable на canvas.
 5. Zoom в сектор — камера по облаку мест уровня (`focusSector`), не по крошечному seed-AABB.
+6. Редактор: `hallApi=mht-chekhov-hall-seats` (Chrome).
 
 ## Схема ≠ один спектакль
 

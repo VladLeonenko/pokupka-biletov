@@ -24,6 +24,7 @@ import publicCarouselsRouter from './routes/publicCarousels.js';
 import errorsRouter from './routes/errors.js';
 import luzhnikiGrayCloudSvgRouter from './routes/luzhnikiGrayCloudSvg.js';
 import vakhtangovHallSeatEditorRouter from './routes/vakhtangovHallSeatEditor.js';
+import mhtChekhovHallSeatEditorRouter from './routes/mhtChekhovHallSeatEditor.js';
 import ramtHallSeatEditorRouter from './routes/ramtHallSeatEditor.js';
 import bolshoiNewStageHallSeatEditorRouter from './routes/bolshoiNewStageHallSeatEditor.js';
 import kremlinPalaceHallSeatEditorRouter from './routes/kremlinPalaceHallSeatEditor.js';
@@ -259,6 +260,7 @@ app.use('/api/ai-team', authenticatedLimiter);
 app.use('/api/errors', errorsRouter); // Логирование ошибок с фронтенда (публичный)
 app.use('/api/tools/luzhniki-gray-cloud-svg', luzhnikiGrayCloudSvgRouter);
 app.use('/api/tools/vakhtangov-hall-seats', vakhtangovHallSeatEditorRouter);
+app.use('/api/tools/mht-chekhov-hall-seats', mhtChekhovHallSeatEditorRouter);
 app.use('/api/tools/ramt-hall-seats', ramtHallSeatEditorRouter);
 app.use('/api/tools/bolshoi-new-stage-seats', bolshoiNewStageHallSeatEditorRouter);
 app.use('/api/tools/kremlin-palace-seats', kremlinPalaceHallSeatEditorRouter);
