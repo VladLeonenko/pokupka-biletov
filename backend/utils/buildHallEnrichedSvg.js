@@ -70,23 +70,28 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
     const seat = String(meta?.seat || '').trim();
     const labeled = sector && row && seat;
     const r = labeled ? labeledR : unlabeledR;
+    // dense unlabeled: inherit fill/stroke с <g> (как спорт). per-circle opacity=0.55 → Safari OOM.
     const attrs = [
       `cx="${cx.toFixed(2)}"`,
       `cy="${cy.toFixed(2)}"`,
       `r="${r}"`,
-      labeled ? 'fill="#22c55e"' : 'fill="#94a3b8"',
-      labeled ? 'stroke="#ffffff"' : 'opacity="0.55"',
-      labeled ? 'stroke-width="1"' : '',
-      labeled ? `data-sector="${escapeAttr(sector)}"` : 'data-unlabeled="1"',
-      labeled ? `data-row="${escapeAttr(row)}"` : '',
-      labeled ? `data-seat="${escapeAttr(seat)}"` : '',
-      labeled
-        ? `data-source="${escapeAttr(String(meta?.geodesySource || 'manual-editor').includes('manual') ? 'manual-editor' : meta?.geodesySource || 'pbilet-import')}"`
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
-    circles.push(`    <circle ${attrs}/>`);
+    ];
+    if (labeled) {
+      attrs.push(
+        'fill="#22c55e"',
+        'stroke="#ffffff"',
+        'stroke-width="1"',
+        `data-sector="${escapeAttr(sector)}"`,
+        `data-row="${escapeAttr(row)}"`,
+        `data-seat="${escapeAttr(seat)}"`,
+        `data-source="${escapeAttr(String(meta?.geodesySource || 'manual-editor').includes('manual') ? 'manual-editor' : meta?.geodesySource || 'pbilet-import')}"`,
+      );
+    } else if (denseCloud) {
+      attrs.push('data-unlabeled="1"');
+    } else {
+      attrs.push('fill="#94a3b8"', 'opacity="0.55"', 'data-unlabeled="1"');
+    }
+    circles.push(`    <circle ${attrs.join(' ')}/>`);
   };
 
   for (const pt of opts.allSeatCoordinates || []) {
@@ -103,7 +108,9 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
   }
 
   const layer = [
-    `  <g id="${HALL_SEAT_COORDINATES_LAYER_ID}" pointer-events="all">`,
+    denseCloud
+      ? `  <g id="${HALL_SEAT_COORDINATES_LAYER_ID}" fill="#c8ccd4" stroke="none" pointer-events="all">`
+      : `  <g id="${HALL_SEAT_COORDINATES_LAYER_ID}" pointer-events="all">`,
     ...circles,
     '  </g>',
   ].join('\n');
