@@ -122,9 +122,15 @@
     .stage svg circle.seat-edited-in-editor.paint-selected { fill: #c4b5fd !important; }
     .stage svg circle.unlabeled-dot { fill: #7f1d1d; }
     .stage svg path.sector-focus {
-      fill: rgba(56, 189, 248, 0.32) !important;
+      fill: rgba(56, 189, 248, 0.14) !important;
       stroke: #38bdf8 !important;
-      stroke-width: 16px !important;
+      stroke-width: 4px !important;
+      vector-effect: non-scaling-stroke;
+    }
+    .stage svg circle.sector-focus-dot {
+      fill: #38bdf8 !important;
+      stroke: #0369a1;
+      stroke-width: 1px;
     }
     .stage svg circle.sector-dim { opacity: 0.1 !important; }
     .hint { font-size: 11px; opacity: 0.55; }
@@ -2010,10 +2016,11 @@
       }
     }
 
-    /** Подсветка полигона сектора. На mega-hall не трогаем classList у десятков тысяч circle. */
+    /** Подсветка полигона сектора + точки с data-sector (mega-hall не dim'им 50k). */
     function updateSectorFocusVisual(sectorLabel) {
       if (!svgRoot) return;
       svgRoot.querySelectorAll('path.sector-focus').forEach((p) => p.classList.remove('sector-focus'));
+      svgRoot.querySelectorAll('circle.sector-focus-dot').forEach((c) => c.classList.remove('sector-focus-dot'));
       const sector = String(sectorLabel || '').trim();
       const hasFilter = Boolean(normalizeSectorLabel(sector));
       const megaHall = allCircles.length > 12000;
@@ -2023,7 +2030,6 @@
           else c.classList.add('sector-dim');
         }
       } else if (!hasFilter) {
-        // снять dim, если остался от прошлого мелкого зала в той же вкладке
         const dimmed = svgRoot.querySelectorAll('circle.sector-dim');
         if (dimmed.length && dimmed.length < 4000) {
           dimmed.forEach((c) => c.classList.remove('sector-dim'));
@@ -2033,6 +2039,10 @@
       for (const p of svgRoot.querySelectorAll('path[data-sector], path[data-name], path[data-type="level"]')) {
         const label = sectorPathLabel(p);
         if (label && sectorNormsMatch(label, sector)) p.classList.add('sector-focus');
+      }
+      // Точки сектора (как в спорте по data-sector) — точнее кривого path-прямоугольника
+      for (const c of allCircles) {
+        if (circleMatchesSectorFilter(c, sector)) c.classList.add('sector-focus-dot');
       }
     }
 

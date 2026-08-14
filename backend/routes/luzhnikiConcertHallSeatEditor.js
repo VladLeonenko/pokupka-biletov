@@ -38,6 +38,11 @@ const BUNDLE_PATH = path.join(
   REPO_ROOT,
   'backend/data/luzhniki-geodesy/hand/luzhniki-concert-seats.bundle.json',
 );
+/** Разметка спорта — те же координаты/сектора, что совпадают с концертом. */
+const SPORT_LABELED_BUNDLE_PATH = path.join(
+  REPO_ROOT,
+  'backend/data/luzhniki-geodesy/hand/bundle-luzhniki-gray-cloud-labeled-seats.json',
+);
 /** Sidecar для checkout (getLuzhnikiLabeledSeatIndex), отдельно от football pilot. */
 const CONCERT_PILOT_REL = 'data/luzhniki-geodesy/hand/bundle-luzhniki-concert-pilot-seats.json';
 const CONCERT_PILOT_ABS = path.join(REPO_ROOT, 'backend', CONCERT_PILOT_REL);
@@ -280,6 +285,32 @@ function readBundleFile() {
   }
 }
 
+/** Bundle спорта (тот же viewBox / те же сектора где совпадают). */
+function readSportLabeledSeats() {
+  if (!fs.existsSync(SPORT_LABELED_BUNDLE_PATH)) return [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(SPORT_LABELED_BUNDLE_PATH, 'utf8'));
+    return Array.isArray(raw?.seats) ? raw.seats : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Разметка для SVG: концерт-bundle → иначе спорт-bundle → иначе layout.seats.
+ * Рисуем как спорт (серые + data-*), не theater green+stroke.
+ */
+function resolveLabeledSeatsRaw(layout, concertBundle) {
+  if (concertBundle?.exists && Array.isArray(concertBundle.seats) && concertBundle.seats.length) {
+    return { seats: concertBundle.seats, source: 'concert-bundle' };
+  }
+  const sport = readSportLabeledSeats();
+  if (sport.length) return { seats: sport, source: 'sport-bundle' };
+  const layoutSeats = Array.isArray(layout?.seats) ? layout.seats : [];
+  if (layoutSeats.length) return { seats: layoutSeats, source: 'layout.seats' };
+  return { seats: [], source: 'none' };
+}
+
 function writeConcertPilotSeats(seats) {
   fs.mkdirSync(path.dirname(CONCERT_PILOT_ABS), { recursive: true });
   const backup = backupExistingFile(CONCERT_PILOT_ABS);
@@ -501,9 +532,8 @@ function filterCloudForOneSector(cloud, sectorMeta, hallW, hallH) {
 }
 
 /**
- * Полное облако как у спорта. Серые точки без stroke (лёгкие).
- * Pilot 70k как labeled+stroke убивает Safari при zoom — в SVG только bundle разметки.
- * Режем сцену/фан/танцпол + точки вне концертных трибун.
+ * Полное облако как у спорта: серые точки + data-* с разметки спорта/bundle.
+ * Без theater green+stroke. Режем сцену/фан/мёртвые зоны концерта.
  * @param {string} [sectorQuery]
  */
 async function buildConcertEnrichedSvgMarkup(sectorQuery = '') {
@@ -511,9 +541,8 @@ async function buildConcertEnrichedSvgMarkup(sectorQuery = '') {
   if (!row?.svg_markup) throw new Error('stage map not in DB');
   const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
   const bundle = readBundleFile();
-  /** Только ручная разметка редактора; не pilot/layout.seats (десятки тысяч stroke). */
-  const labeledRaw =
-    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : [];
+  const resolved = resolveLabeledSeatsRaw(layout, bundle);
+  const labeledRaw = resolved.seats;
   const { hallW, hallH } = hallDimensions(layout);
   const fieldExclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
   const tribunes = concertTribuneSectors(layout);
@@ -569,11 +598,11 @@ router.get('/status', async (_req, res) => {
     const row = await loadStageMapRow();
     const bundle = readBundleFile();
     const layout = row?.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
-    const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
+    const resolved = resolveLabeledSeatsRaw(layout, bundle);
     const { hallW, hallH } = hallDimensions(layout);
     /** @type {Record<string, number>} */
     const sectorNormCounts = {};
-    for (const s of bundle.seats.length ? bundle.seats : layoutSeats) {
+    for (const s of resolved.seats) {
       const n = normalizeSectorLabel(s?.sector);
       if (!n) continue;
       sectorNormCounts[n] = (sectorNormCounts[n] || 0) + 1;
@@ -581,16 +610,18 @@ router.get('/status', async (_req, res) => {
     return res.json({
       ok: true,
       stageId: STAGE_ID,
-      title: row?.title ?? 'Лужники — концерт',
-      hasStageMap: Boolean(row),
-      layoutSeatCount: layoutSeats.length,
+      title: 'Лужники — концерт (БСА)',
+      hasStageMap: Boolean(row?.svg_markup),
+      layoutSeatCount: Array.isArray(layout.seats) ? layout.seats.length : 0,
       backgroundDotCount: Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates.length : 0,
+      labeledSource: resolved.source,
+      labeledSeatCount: resolved.seats.length,
       hallWidth: hallW,
       hallHeight: hallH,
-      bundle: { ...bundle, sectorNormCounts },
       svgUrl: SVG_PUBLIC,
       saveTokenRequired: isHallMapSaveTokenRequired(),
       editorUrl: '/tools/luzhniki-gray-cloud-enriched-hover.html?hallApi=luzhniki-concert-seats',
+      bundle: { ...bundle, sectorNormCounts },
       checkoutHint:
         'Checkout Баста/концерт: schema luzhniki-concert; sellable из pilot/layout.seats; фан/танцпол — по зоне.',
     });

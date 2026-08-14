@@ -1,5 +1,9 @@
 /**
  * Сборка enriched SVG (как Лужники): подложка + circle на каждую точку координат.
+ *
+ * denseCloud (стадион): стиль как luzhniki-gray-cloud hand SVG —
+ * opaque #c8ccd4, stroke=none, labeled через data-sector/row/seat (без green+stroke).
+ * Театры (не dense): зелёные labeled как раньше.
  */
 
 function parseViewBox(svgMarkup) {
@@ -19,6 +23,12 @@ function escapeAttr(s) {
 
 function coordKey(xPct, yPct) {
   return `${Number(xPct).toFixed(4)}|${Number(yPct).toFixed(4)}`;
+}
+
+function seatSourceAttr(meta) {
+  const raw = String(meta?.geodesySource || meta?.source || '').trim();
+  if (raw) return raw;
+  return 'pbilet-import';
 }
 
 export const HALL_SEAT_COORDINATES_LAYER_ID = 'hall-seat-coordinates';
@@ -42,7 +52,7 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
   const hallH = Number(opts.hallH) || vb?.h || 1292;
   const denseCloud = opts.denseCloud === true || (opts.allSeatCoordinates?.length || 0) > 12000;
   const unlabeledR = denseCloud ? 3 : 5;
-  const labeledR = denseCloud ? 4 : 5;
+  const labeledR = denseCloud ? 3 : 5;
 
   svg = svg.replace(
     new RegExp(`<g\\b[^>]*id=["']${HALL_SEAT_COORDINATES_LAYER_ID}["'][^>]*>[\\s\\S]*?</g>`, 'i'),
@@ -68,15 +78,22 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
     const sector = String(meta?.sector || '').trim();
     const row = String(meta?.row || '').trim();
     const seat = String(meta?.seat || '').trim();
-    const labeled = sector && row && seat;
+    const labeled = Boolean(sector && row && seat);
     const r = labeled ? labeledR : unlabeledR;
-    // dense unlabeled: inherit fill/stroke с <g> (как спорт). per-circle opacity=0.55 → Safari OOM.
     const attrs = [
       `cx="${cx.toFixed(2)}"`,
       `cy="${cy.toFixed(2)}"`,
       `r="${r}"`,
     ];
-    if (labeled) {
+    if (labeled && denseCloud) {
+      // Как спорт: серые точки + data-* (без fill/stroke/opacity на circle).
+      attrs.push(
+        `data-sector="${escapeAttr(sector)}"`,
+        `data-row="${escapeAttr(row)}"`,
+        `data-seat="${escapeAttr(seat)}"`,
+        `data-source="${escapeAttr(seatSourceAttr(meta))}"`,
+      );
+    } else if (labeled) {
       attrs.push(
         'fill="#22c55e"',
         'stroke="#ffffff"',
@@ -84,7 +101,7 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
         `data-sector="${escapeAttr(sector)}"`,
         `data-row="${escapeAttr(row)}"`,
         `data-seat="${escapeAttr(seat)}"`,
-        `data-source="${escapeAttr(String(meta?.geodesySource || 'manual-editor').includes('manual') ? 'manual-editor' : meta?.geodesySource || 'pbilet-import')}"`,
+        `data-source="${escapeAttr(seatSourceAttr(meta))}"`,
       );
     } else if (denseCloud) {
       attrs.push('data-unlabeled="1"');
