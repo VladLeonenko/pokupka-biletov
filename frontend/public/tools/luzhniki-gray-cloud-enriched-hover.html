@@ -308,6 +308,10 @@
     let allCircles = [];
     /** @type {{ grid: Map<string, Element[]>, cellSize: number } | null} */
     let circleGrid = null;
+    /** @type {Map<string, Element[]>} baseNorm (a104) → circles with data-sector */
+    let circlesBySectorBase = new Map();
+    let cachedLabeledCount = 0;
+    let cachedUnlabeledCount = 0;
     let selectedCircle = null;
     let panX = 0;
     let panY = 0;
@@ -533,7 +537,15 @@
 
     function isManualEditedCircle(circle) {
       const src = circle.getAttribute('data-source') || '';
-      return src === 'manual' || src === 'manual-row' || src === 'manual-sector' || src.startsWith('manual');
+      // sport-bundle: manualEditor — импорт, не правка сессии. Жёлтим только session/manual-* .
+      return (
+        src === 'manual' ||
+        src === 'manual-row' ||
+        src === 'manual-sector' ||
+        src === 'manual-editor' ||
+        src === 'manual-sector-edge' ||
+        src.startsWith('manual-')
+      );
     }
 
     function applyEditorVisual(circle) {
@@ -542,7 +554,68 @@
     }
 
     function refreshAllEditorVisuals() {
+      // 16k+ classList на mega = фриз UI; красим только реальные session-правки
+      if (allCircles.length > 12000) {
+        for (const c of allCircles) {
+          const src = c.getAttribute('data-source') || '';
+          if (
+            src === 'manual' ||
+            src === 'manual-row' ||
+            src === 'manual-sector' ||
+            src === 'manual-editor' ||
+            src === 'manual-sector-edge' ||
+            src.startsWith('manual-')
+          ) {
+            c.classList.add('seat-edited-in-editor');
+          }
+        }
+        return;
+      }
       allCircles.forEach(applyEditorVisual);
+    }
+
+    function rebuildSectorCircleIndex() {
+      circlesBySectorBase = new Map();
+      cachedLabeledCount = 0;
+      cachedUnlabeledCount = 0;
+      for (const c of allCircles) {
+        if (c.getAttribute('data-unlabeled') === '1') cachedUnlabeledCount++;
+        else if (c.getAttribute('data-sector') || c.getAttribute('place-name')) cachedLabeledCount++;
+        const own = circleSector(c);
+        if (!own) continue;
+        const base = sectorBaseCode(normalizeSectorLabel(own));
+        if (!base) continue;
+        let arr = circlesBySectorBase.get(base);
+        if (!arr) {
+          arr = [];
+          circlesBySectorBase.set(base, arr);
+        }
+        arr.push(c);
+      }
+    }
+
+    function labeledCirclesForSectorFast(sectorLabel) {
+      const norm = normalizeSectorLabel(sectorLabel);
+      if (!norm) return [];
+      return circlesBySectorBase.get(sectorBaseCode(norm)) || [];
+    }
+
+    function gridCandidatesForBBox(x0, y0, x1, y1, pad) {
+      if (!circleGrid) return allCircles;
+      const p = pad || 0;
+      const cs = circleGrid.cellSize;
+      const out = new Set();
+      const gx0 = Math.floor((x0 - p) / cs);
+      const gx1 = Math.floor((x1 + p) / cs);
+      const gy0 = Math.floor((y0 - p) / cs);
+      const gy1 = Math.floor((y1 + p) / cs);
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gy = gy0; gy <= gy1; gy++) {
+          const cell = circleGrid.grid.get(gx + ',' + gy);
+          if (cell) cell.forEach((c) => out.add(c));
+        }
+      }
+      return out.size ? Array.from(out) : allCircles;
     }
 
     function rebuildCircleCoordIndex() {
@@ -1397,12 +1470,18 @@
 
     function recountStats() {
       if (!svgRoot) return;
-      let labeled = 0;
-      let unlabeled = 0;
-      svgRoot.querySelectorAll('circle').forEach((c) => {
-        if (c.getAttribute('data-unlabeled') === '1') unlabeled++;
-        else if (c.getAttribute('data-sector') || c.getAttribute('place-name')) labeled++;
-      });
+      let labeled = cachedLabeledCount;
+      let unlabeled = cachedUnlabeledCount;
+      if (allCircles.length <= 12000) {
+        labeled = 0;
+        unlabeled = 0;
+        for (const c of allCircles) {
+          if (c.getAttribute('data-unlabeled') === '1') unlabeled++;
+          else if (c.getAttribute('data-sector') || c.getAttribute('place-name')) labeled++;
+        }
+        cachedLabeledCount = labeled;
+        cachedUnlabeledCount = unlabeled;
+      }
       status.textContent =
         'Точек ' + (labeled + unlabeled).toLocaleString('ru') +
         ' · с разметкой ' + labeled.toLocaleString('ru') + ' · undo: ' + undoStack.length;
@@ -2016,7 +2095,7 @@
       }
     }
 
-    /** Подсветка полигона сектора + точки с data-sector (mega-hall не dim'им 50k). */
+    /** Подсветка полигона + точки сектора (без полного скана 50k). */
     function updateSectorFocusVisual(sectorLabel) {
       if (!svgRoot) return;
       svgRoot.querySelectorAll('path.sector-focus').forEach((p) => p.classList.remove('sector-focus'));
@@ -2040,10 +2119,8 @@
         const label = sectorPathLabel(p);
         if (label && sectorNormsMatch(label, sector)) p.classList.add('sector-focus');
       }
-      // Точки сектора (как в спорте по data-sector) — точнее кривого path-прямоугольника
-      for (const c of allCircles) {
-        if (circleMatchesSectorFilter(c, sector)) c.classList.add('sector-focus-dot');
-      }
+      const focusDots = labeledCirclesForSectorFast(sector);
+      for (const c of focusDots) c.classList.add('sector-focus-dot');
     }
 
     /** Не давать линии утащить точки с противоположной трибуны (B262 vs …). */
@@ -2409,29 +2486,42 @@
       const norm = normalizeSectorLabel(sectorLabel);
       if (!norm) return [];
       const bb = getSectorBbox(norm);
+      const labeled = labeledCirclesForSectorFast(sectorLabel);
       const out = [];
-      for (const c of allCircles) {
-        const ownSector = circleSector(c);
-        if (ownSector) {
-          if (!sectorNormsMatch(ownSector, sectorLabel)) continue;
-        } else if (bb) {
-          const { x, y } = circleXY(c);
-          if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
-        } else {
-          continue;
-        }
+      const seen = new Set();
+      for (const c of labeled) {
         if (bb) {
           const { x, y } = circleXY(c);
           if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
         }
         out.push(c);
+        seen.add(c);
+      }
+      if (!bb) return out;
+      // unlabeled внутри bbox — через grid, не полный скан
+      const pool =
+        allCircles.length > 12000
+          ? gridCandidatesForBBox(bb.x0, bb.y0, bb.x1, bb.y1, 8)
+          : allCircles;
+      for (const c of pool) {
+        if (seen.has(c)) continue;
+        const ownSector = circleSector(c);
+        if (ownSector) {
+          if (!sectorNormsMatch(ownSector, sectorLabel)) continue;
+        } else {
+          const { x, y } = circleXY(c);
+          if (x < bb.x0 || x > bb.x1 || y < bb.y0 || y > bb.y1) continue;
+        }
+        out.push(c);
+        seen.add(c);
       }
       return out;
     }
 
     function groupedLabeledRows(sectorLabel) {
       const rows = new Map();
-      for (const c of allCircles) {
+      const pool = sectorLabel ? labeledCirclesForSectorFast(sectorLabel) : allCircles;
+      for (const c of pool) {
         if (sectorLabel && !sectorNormsMatch(circleSector(c), sectorLabel)) continue;
         const row = normalizePaintRowNum(circleRow(c));
         const seat = circleSeatNum(c);
@@ -4660,6 +4750,7 @@
       const finishAttachIndexes = () => {
         rebuildSectorBboxCache();
         rebuildCircleCoordIndex();
+        rebuildSectorCircleIndex();
         circleGrid = buildCircleGrid(allCircles, megaHall ? 180 : 96);
         const restored = applyStoredEditsToSvg();
         refreshAllEditorVisuals();
@@ -4686,7 +4777,10 @@
         } else if (isLuzhnikiConcertEditor) {
           showPaintToast(
             'info',
-            'Концерт: ' + allCircles.length.toLocaleString('ru') + ' точек (без сцены/фан/мёртвых углов)',
+            'Концерт: ' +
+              allCircles.length.toLocaleString('ru') +
+              ' точек · разметка ' +
+              cachedLabeledCount.toLocaleString('ru'),
           );
         }
       };
@@ -5034,12 +5128,14 @@
       if (isValidPaintRow(paintRow.value)) paintRow.dataset.fallback = paintRow.value.trim();
     });
     let sectorFocusTimer = 0;
+    let sectorLabelsTimer = 0;
     paintSector.addEventListener('input', () => {
       fillNextRowCursor = null;
       updateFillNextRowHint();
       const sector = paintSectorForApply();
-      renderRowLabels(sector);
+      clearTimeout(sectorLabelsTimer);
       clearTimeout(sectorFocusTimer);
+      sectorLabelsTimer = window.setTimeout(() => renderRowLabels(sector), 120);
       sectorFocusTimer = window.setTimeout(() => updateSectorFocusVisual(sector), 120);
       if (!isSupercupStadiumEditor) return;
       clearTimeout(sectorReloadTimer);
