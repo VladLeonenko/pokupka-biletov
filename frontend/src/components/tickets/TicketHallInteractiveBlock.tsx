@@ -1231,6 +1231,19 @@ export function TicketHallInteractiveBlock({
     if (!theaterSectorCheckout || nativeSeats.length < 2) return [];
     return buildTheaterLevelAabbFills(nativeSeats, svgViewBox);
   }, [theaterSectorCheckout, nativeSeats, svgViewBox]);
+  /**
+   * Вахтангов и залы с готовыми кривыми path в layout — родная заливка секторов.
+   * МХТ (AABB из seed / без preferLayout) — FE-подушки по уровням.
+   */
+  const useNativeTheaterSectorPaths = useMemo(() => {
+    if (!theaterSectorCheckout) return false;
+    if (preferLayoutSeatPositions) return true;
+    const curved = sectorMode.sectors.filter((s) => {
+      const p = String(s.path || '');
+      return /[CcQqSs]/.test(p) || (p.match(/[Ll]/g) || []).length >= 6;
+    }).length;
+    return curved >= 3;
+  }, [theaterSectorCheckout, preferLayoutSeatPositions, sectorMode.sectors]);
 
   const resolveSectorSummaryForLabel = useCallback(
     (label: string): SectorSummary | null => {
@@ -1789,18 +1802,60 @@ export function TicketHallInteractiveBlock({
 
   const focusSector = useCallback((sector: SectorSummary) => {
     setSectorPanelCollapsed(false);
-    const bbox = pathBBox(sector.meta.path);
     const vp = viewportRef.current;
     const layers = layersRef.current;
-    if (!bbox || !vp || !layers) {
+    if (!vp || !layers) {
       setSelectedSector(normalizeSectorLabel(sector.meta.label));
       return;
     }
 
-    const centerX = ((bbox.minX + bbox.maxX) / 2 / svgViewBox.width) * layers.offsetWidth;
-    const centerY = ((bbox.minY + bbox.maxY) / 2 / svgViewBox.height) * layers.offsetHeight;
+    /**
+     * Театр: камера по облаку мест уровня (path из seed часто крошечный AABB /
+     * в чужих координатах → белая пустота на 200%).
+     */
+    const focusSeats = nativeSeats.filter((seat) => {
+      if (theaterSectorCheckout) {
+        return theaterLevelFillGroup(seat.sector).key === theaterLevelFillGroup(sector.meta.label).key;
+      }
+      return sectorNormsMatch(seat.sector, sector.meta.label);
+    });
+    if (focusSeats.length >= 2) {
+      let minXp = Infinity;
+      let minYp = Infinity;
+      let maxXp = -Infinity;
+      let maxYp = -Infinity;
+      for (const seat of focusSeats) {
+        minXp = Math.min(minXp, seat.xPct);
+        minYp = Math.min(minYp, seat.yPct);
+        maxXp = Math.max(maxXp, seat.xPct);
+        maxYp = Math.max(maxYp, seat.yPct);
+      }
+      const centerX = (((minXp + maxXp) / 2) / 100) * layers.offsetWidth;
+      const centerY = (((minYp + maxYp) / 2) / 100) * layers.offsetHeight;
+      focusLayerPoint(centerX, centerY, sectorFocusZoom, sector.meta.label);
+      return;
+    }
+
+    const bbox = pathBBox(sector.meta.path);
+    if (!bbox) {
+      setSelectedSector(normalizeSectorLabel(sector.meta.label));
+      return;
+    }
+    const midX = (bbox.minX + bbox.maxX) / 2;
+    const midY = (bbox.minY + bbox.maxY) / 2;
+    const centerX = ((midX - svgViewBox.minX) / Math.max(1e-6, svgViewBox.width)) * layers.offsetWidth;
+    const centerY = ((midY - svgViewBox.minY) / Math.max(1e-6, svgViewBox.height)) * layers.offsetHeight;
     focusLayerPoint(centerX, centerY, sectorFocusZoom, sector.meta.label);
-  }, [focusLayerPoint, sectorFocusZoom, svgViewBox.height, svgViewBox.width]);
+  }, [
+    focusLayerPoint,
+    nativeSeats,
+    sectorFocusZoom,
+    svgViewBox.height,
+    svgViewBox.minX,
+    svgViewBox.minY,
+    svgViewBox.width,
+    theaterSectorCheckout,
+  ]);
 
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
@@ -2519,7 +2574,7 @@ export function TicketHallInteractiveBlock({
                     />
                   );
                 })}
-                {theaterSectorCheckout && !hideSectorFill
+                {theaterSectorCheckout && !hideSectorFill && !useNativeTheaterSectorPaths
                   ? theaterOverviewFills.map((fill) => {
                       const sector =
                         resolveSectorSummaryForLabel(fill.label) ??
@@ -2582,7 +2637,7 @@ export function TicketHallInteractiveBlock({
                       );
                     })
                   : sectorSummaries.map((sector) => {
-                  if (theaterSectorCheckout) return null;
+                  if (theaterSectorCheckout && !useNativeTheaterSectorPaths) return null;
                   if (!sector.meta.path) return null;
                   const available =
                     sector.seatCount > 0 ||
