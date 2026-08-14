@@ -88,8 +88,13 @@
     .viewport.mode-edit .stage svg circle { cursor: cell; }
     .stage {
       position: absolute; left: 50%; top: 50%;
-      transform-origin: center center; will-change: transform;
+      transform-origin: center center;
       touch-action: none;
+    }
+    .stage.mega-hall {
+      /* will-change на 50k circle = Safari OOM при zoom */
+      will-change: auto;
+      contain: layout style;
     }
     .viewport.mode-paint .stage svg { touch-action: none; }
     .stage svg { display: block; max-width: none; max-height: none; }
@@ -834,7 +839,11 @@
     }
 
     function maxZoomLevel() {
-      return isCoarsePointer() ? 120 : 20;
+      const coarse = isCoarsePointer();
+      const base = coarse ? 120 : 20;
+      // 50k circle + scale(20) → Safari «Повторилась проблема» (OOM композитинга)
+      if (allCircles.length > 12000) return Math.min(base, coarse ? 8 : 5);
+      return base;
     }
 
     function minZoomLevel() {
@@ -4629,9 +4638,10 @@
       if (embedded) embedded.remove();
       allCircles = Array.from(svg.querySelectorAll('circle'));
       const megaHall = allCircles.length > 12000;
+      stage.classList.toggle('mega-hall', megaHall);
       ensureOverlay();
       fitToView();
-      if (isSupercupStadiumEditor) {
+      if (isSupercupStadiumEditor || (isLuzhnikiConcertEditor && megaHall)) {
         panMode = true;
         panModeBtn.classList.add('active');
         updatePanCursor();

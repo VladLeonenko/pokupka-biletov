@@ -501,18 +501,19 @@ function filterCloudForOneSector(cloud, sectorMeta, hallW, hallH) {
 }
 
 /**
- * Полное облако как у спорта (88k ок). Режем только мёртвые зоны концерта:
- * сцена/фан/танцпол + точки вне концертных трибун.
- * @param {string} [sectorQuery] опционально сузить облако (?sector=)
+ * Полное облако как у спорта. Серые точки без stroke (лёгкие).
+ * Pilot 70k как labeled+stroke убивает Safari при zoom — в SVG только bundle разметки.
+ * Режем сцену/фан/танцпол + точки вне концертных трибун.
+ * @param {string} [sectorQuery]
  */
 async function buildConcertEnrichedSvgMarkup(sectorQuery = '') {
   const row = await loadStageMapRow();
   if (!row?.svg_markup) throw new Error('stage map not in DB');
   const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
   const bundle = readBundleFile();
-  const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
+  /** Только ручная разметка редактора; не pilot/layout.seats (десятки тысяч stroke). */
   const labeledRaw =
-    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
+    bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : [];
   const { hallW, hallH } = hallDimensions(layout);
   const fieldExclude = fieldMaskExcludePctBoxes(layout, hallW, hallH);
   const tribunes = concertTribuneSectors(layout);
@@ -547,7 +548,7 @@ async function buildConcertEnrichedSvgMarkup(sectorQuery = '') {
     hallH,
     allSeatCoordinates: cloud,
     labeledSeats,
-    denseCloud: cloud.length > 12000,
+    denseCloud: true,
   });
 }
 
