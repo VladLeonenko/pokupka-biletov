@@ -1324,10 +1324,10 @@ router.get('/stage-map-editors', (_req, res) => {
     {
       id: 'luzhniki-concert',
       label: 'Лужники — концерт',
-      description: 'Тот же редактор: сцена / фан-зона / танцпол (checkout luzhniki-concert)',
+      description: '1:1 со спортом: тот же hand SVG/API (checkout luzhniki-concert)',
       path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
       url: buildUnifiedHallEditorUrl(
-        'luzhniki-concert-seats',
+        'luzhniki-gray-cloud-svg',
         'Лужники — концерт',
         saveToken,
       ),
