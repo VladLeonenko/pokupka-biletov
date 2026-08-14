@@ -1,0 +1,44 @@
+---
+description: Эталон схем театров — Вахтангов LOCKED, МХТ заливки дугами
+globs:
+  - frontend/src/components/tickets/TicketHallInteractiveBlock.*
+  - frontend/src/utils/svgNativeSeatLayout.ts
+  - backend/scripts/seed-mht-main-hall-stage-map.js
+  - backend/utils/mhtChekhovHallLayout.js
+  - scripts/seed-mht-main-hall-stage-map.js
+  - scripts/deploy-via-git.sh
+alwaysApply: false
+---
+
+# Театры: Вахтангов + МХТ им. Чехова
+
+## Вахтангов — ЗАФИКСИРОВАНО (не ломать)
+
+Stage: `5f3dedaa08192a003157dc6d`. Эталон UX одобрен 2026-08-14.
+
+**Не менять без явной просьбы пользователя:**
+
+1. **Заливка секторов** — только родные `layout_json.sectorMode.sectors[].path` (кривые SVG).  
+   Флаг: `useNativeTheaterSectorPaths` / `preferLayoutSeatPositions: true`.  
+   **Запрещено** подменять AABB / `theaterOverviewFills` / `buildTheaterLevelAabbFills` на Вахтангове.
+2. **Места + sellable** — canvas как МХТ (`theaterSvgSeatCanvas`): плотные точки, без DOM-колец/ореолов, без огромных серых blobs.
+3. **CSS** — без `sectorLayerTheater` на Вахтангове (исходный стиль path-заливок).
+4. Не «улучшать» заливки гомоглифами/перегруппировкой уровней на этом зале.
+
+## МХТ им. Чехова
+
+Stage ids: `603ad33813cd03003015d811`, legacy `639c4a4cd6cfc5004d20dcfb`.
+
+1. `hallKind: theater` + `sectorMode` — seed только через `backend/scripts/seed-mht-main-hall-stage-map.js` + `mhtChekhovHallLayout.js`.  
+   **Никогда** не писать голый `{ layoutMode: "svgNative" }` (ломает canvas/заливки).
+2. Автосид в `deploy-via-git.sh` **выключен** (`FORCE_MHT_STAGE_MAP_SEED=1` только вручную).  
+   Root `scripts/seed-mht-*.js` — только делегат в backend seed.
+3. Места/sellable — theater canvas (эталон точек как у Вахтангова).
+4. **Заливки на 100%** — `theaterOverviewFills` = дуги амфитеатра (`theaterAmphiBandPath`), не прямоугольники AABB. Ложи — мелкий rounded rect.
+5. Zoom в сектор — камера по облаку мест уровня (`focusSector`), не по крошечному seed-AABB.
+
+## Общие запреты
+
+- Не включать автосид МХТ в деплой без FORCE.
+- Не откатывать `theaterSvgSeatCanvas` к DOM-точкам «для простоты».
+- Не рисовать `allSeatCoordinates` поверх theater canvas (`skipStadiumBowlDots`).

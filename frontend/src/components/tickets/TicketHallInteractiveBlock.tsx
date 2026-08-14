@@ -605,8 +605,8 @@ function parseSvgViewBox(svg: string): {
 }
 
 /**
- * Заливка уровней на 100%: ровно один скруглённый фон на уровень
- * (Партер / Амфитеатр / …), без нарезки на плитки по gap.
+ * Заливка уровней МХТ на 100%: дуги амфитеатра (как Вахтангов), не прямоугольники.
+ * Ложи — компактный rounded AABB (не тянуть подкову через зал).
  */
 function buildTheaterLevelAabbFills(
   seats: SvgNativeSeat[],
@@ -614,52 +614,116 @@ function buildTheaterLevelAabbFills(
 ): { id: string; label: string; path: string }[] {
   if (seats.length < 2 || !(vb.width > 0) || !(vb.height > 0)) return [];
 
-  const byGroup = new Map<string, { displayLabel: string; seats: SvgNativeSeat[] }>();
+  const byGroup = new Map<string, { key: string; displayLabel: string; seats: SvgNativeSeat[] }>();
   for (const seat of seats) {
     const raw = String(seat.sector || '').trim();
     if (!raw) continue;
     const { key, displayLabel } = theaterLevelFillGroup(raw);
     const bucket = byGroup.get(key);
     if (bucket) bucket.seats.push(seat);
-    else byGroup.set(key, { displayLabel, seats: [seat] });
+    else byGroup.set(key, { key, displayLabel, seats: [seat] });
   }
 
-  /** Небольшой запас; без overlap-плиток соседних кусков одного сектора. */
-  const padPct = 1.15;
   const out: { id: string; label: string; path: string }[] = [];
   let seq = 0;
 
-  for (const { displayLabel, seats: group } of byGroup.values()) {
+  for (const { key, displayLabel, seats: group } of byGroup.values()) {
     if (group.length < 1) continue;
-    let minXp = Infinity;
-    let minYp = Infinity;
-    let maxXp = -Infinity;
-    let maxYp = -Infinity;
-    for (const s of group) {
-      minXp = Math.min(minXp, s.xPct);
-      minYp = Math.min(minYp, s.yPct);
-      maxXp = Math.max(maxXp, s.xPct);
-      maxYp = Math.max(maxYp, s.yPct);
-    }
-    minXp -= padPct;
-    minYp -= padPct;
-    maxXp += padPct;
-    maxYp += padPct;
-    const x0 = vb.minX + (minXp / 100) * vb.width;
-    const y0 = vb.minY + (minYp / 100) * vb.height;
-    const x1 = vb.minX + (maxXp / 100) * vb.width;
-    const y1 = vb.minY + (maxYp / 100) * vb.height;
-    const w = Math.max(0.5, x1 - x0);
-    const h = Math.max(0.5, y1 - y0);
-    const radius = Math.min(w, h) * 0.14;
+    const path = key.startsWith('lozha-')
+      ? theaterLozhaRoundedRectPath(group, vb)
+      : theaterAmphiBandPath(group, vb);
+    if (!path) continue;
     out.push({
       id: `theater-fill-${seq++}`,
       label: displayLabel,
-      path: roundedRectPath(x0, y0, x1, y1, radius),
+      path,
     });
   }
 
   return out;
+}
+
+function theaterPctToSvg(
+  xPct: number,
+  yPct: number,
+  vb: { minX: number; minY: number; width: number; height: number },
+): { x: number; y: number } {
+  return {
+    x: vb.minX + (xPct / 100) * vb.width,
+    y: vb.minY + (yPct / 100) * vb.height,
+  };
+}
+
+function theaterGroupBoundsPct(group: SvgNativeSeat[], padPct: number) {
+  let minXp = Infinity;
+  let minYp = Infinity;
+  let maxXp = -Infinity;
+  let maxYp = -Infinity;
+  for (const s of group) {
+    minXp = Math.min(minXp, s.xPct);
+    minYp = Math.min(minYp, s.yPct);
+    maxXp = Math.max(maxXp, s.xPct);
+    maxYp = Math.max(maxYp, s.yPct);
+  }
+  minXp -= padPct;
+  minYp -= padPct;
+  maxXp += padPct;
+  maxYp += padPct;
+  return { minXp, minYp, maxXp, maxYp };
+}
+
+/** Боковые ложи — аккуратный скруглённый прямоугольник. */
+function theaterLozhaRoundedRectPath(
+  group: SvgNativeSeat[],
+  vb: { minX: number; minY: number; width: number; height: number },
+): string {
+  const { minXp, minYp, maxXp, maxYp } = theaterGroupBoundsPct(group, 1.05);
+  const a = theaterPctToSvg(minXp, minYp, vb);
+  const b = theaterPctToSvg(maxXp, maxYp, vb);
+  const w = Math.max(0.5, b.x - a.x);
+  const h = Math.max(0.5, b.y - a.y);
+  return roundedRectPath(a.x, a.y, b.x, b.y, Math.min(w, h) * 0.22);
+}
+
+/**
+ * Подкова/дуга уровня: сцена МХТ внизу схемы → передний край ближе к низу.
+ * SVG мест у МХТ часто «прямоугольный», поэтому дугу рисуем явно (эталон — Вахтангов).
+ */
+function theaterAmphiBandPath(
+  group: SvgNativeSeat[],
+  vb: { minX: number; minY: number; width: number; height: number },
+): string {
+  const { minXp, minYp, maxXp, maxYp } = theaterGroupBoundsPct(group, 1.35);
+  const w = Math.max(0.5, maxXp - minXp);
+  const h = Math.max(0.5, maxYp - minYp);
+  const cx = (minXp + maxXp) / 2;
+  const midY = (minYp + maxYp) / 2;
+
+  /** Выгиб «спинки» от сцены (вверх по схеме). */
+  const backBow = Math.max(1.4, Math.min(w * 0.18, h * 0.75, 7.5));
+  /** Параллельная дуга у края к сцене — чуть слабее. */
+  const frontBow = Math.max(0.9, backBow * 0.55);
+  /** Сужение к сцене + лёгкий боковой вынос. */
+  const taper = Math.min(w * 0.1, 5.5);
+  const sideBulge = Math.min(w * 0.035, 1.8);
+
+  const topL = theaterPctToSvg(minXp, minYp, vb);
+  const topR = theaterPctToSvg(maxXp, minYp, vb);
+  const topMid = theaterPctToSvg(cx, minYp - backBow, vb);
+  const botL = theaterPctToSvg(minXp + taper, maxYp, vb);
+  const botR = theaterPctToSvg(maxXp - taper, maxYp, vb);
+  const botMid = theaterPctToSvg(cx, maxYp - frontBow, vb);
+  const rightMid = theaterPctToSvg(maxXp + sideBulge, midY, vb);
+  const leftMid = theaterPctToSvg(minXp - sideBulge, midY, vb);
+
+  return [
+    `M ${topL.x.toFixed(2)} ${topL.y.toFixed(2)}`,
+    `Q ${topMid.x.toFixed(2)} ${topMid.y.toFixed(2)} ${topR.x.toFixed(2)} ${topR.y.toFixed(2)}`,
+    `Q ${rightMid.x.toFixed(2)} ${rightMid.y.toFixed(2)} ${botR.x.toFixed(2)} ${botR.y.toFixed(2)}`,
+    `Q ${botMid.x.toFixed(2)} ${botMid.y.toFixed(2)} ${botL.x.toFixed(2)} ${botL.y.toFixed(2)}`,
+    `Q ${leftMid.x.toFixed(2)} ${leftMid.y.toFixed(2)} ${topL.x.toFixed(2)} ${topL.y.toFixed(2)}`,
+    'Z',
+  ].join(' ');
 }
 
 function roundedRectPath(x0: number, y0: number, x1: number, y1: number, r: number): string {
