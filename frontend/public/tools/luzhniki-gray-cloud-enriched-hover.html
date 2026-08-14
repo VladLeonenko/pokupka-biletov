@@ -88,7 +88,7 @@
     .viewport.mode-edit .stage svg circle { cursor: cell; }
     .stage {
       position: absolute; left: 50%; top: 50%;
-      transform-origin: center center; will-change: transform;
+      transform-origin: center center;
       touch-action: none;
     }
     .viewport.mode-paint .stage svg { touch-action: none; }
@@ -174,7 +174,7 @@
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
     <span class="hint" id="editorBuild" title="версия редактора">ed-parter-band</span>
-    <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
+    <label><input type="checkbox" id="markUnlabeled" /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
   </div>
@@ -520,6 +520,16 @@
     }
 
     function refreshAllEditorVisuals() {
+      // 29k classList(seat-edited) на Лужниках = полный фриз UI
+      if (allCircles.length > 12000) {
+        const store = loadEditStore();
+        const ov = store && store.overrides ? store.overrides : null;
+        if (!ov) return;
+        for (const c of allCircles) {
+          if (ov[circleCoordKey(c)]) applyEditorVisual(c);
+        }
+        return;
+      }
       allCircles.forEach(applyEditorVisual);
     }
 
@@ -823,6 +833,7 @@
     }
 
     function maxZoomLevel() {
+      if (allCircles.length > 12000) return isCoarsePointer() ? 7 : 4.5;
       return isCoarsePointer() ? 120 : 20;
     }
 
@@ -928,18 +939,35 @@
       }
     }
 
+    let transformRaf = 0;
+    let transformDirty = false;
+    let uiSyncTimer = 0;
+
     function applyTransform() {
-      stage.style.transform =
-        'translate(calc(-50% + ' +
-        panX +
-        'px), calc(-50% + ' +
-        panY +
-        'px)) rotate(' +
-        viewRotateDeg +
-        'deg) scale(' +
-        zoom +
-        ')';
-      refreshStatusHint();
+      transformDirty = true;
+      if (transformRaf) return;
+      transformRaf = window.requestAnimationFrame(() => {
+        transformRaf = 0;
+        if (!transformDirty) return;
+        transformDirty = false;
+        stage.style.transform =
+          'translate(calc(-50% + ' +
+          panX +
+          'px), calc(-50% + ' +
+          panY +
+          'px)) rotate(' +
+          viewRotateDeg +
+          'deg) scale(' +
+          zoom +
+          ')';
+        if (!uiSyncTimer) {
+          uiSyncTimer = window.setTimeout(() => {
+            uiSyncTimer = 0;
+            refreshStatusHint();
+            syncZoomSlider();
+          }, 80);
+        }
+      });
     }
 
     function syncStageSize() {
@@ -1355,6 +1383,13 @@
     }
 
     function paintUnlabeled(svg) {
+      if (allCircles.length > 12000) {
+        if (markUnlabeled.checked) {
+          markUnlabeled.checked = false;
+          showPaintToast('info', '«без ряда — красные» на 70k точках отключено (лаги)');
+        }
+        return;
+      }
       svg.querySelectorAll('circle.unlabeled-dot').forEach((c) => c.classList.remove('unlabeled-dot'));
       if (!markUnlabeled.checked) return;
       svg.querySelectorAll('circle[data-unlabeled="1"]').forEach((c) => c.classList.add('unlabeled-dot'));
@@ -1364,10 +1399,12 @@
       if (!svgRoot) return;
       let labeled = 0;
       let unlabeled = 0;
-      svgRoot.querySelectorAll('circle').forEach((c) => {
+      // mega: не querySelectorAll(77k) на каждый клик
+      const list = allCircles.length ? allCircles : Array.from(svgRoot.querySelectorAll('circle'));
+      for (const c of list) {
         if (c.getAttribute('data-unlabeled') === '1') unlabeled++;
         else if (c.getAttribute('data-sector') || c.getAttribute('place-name')) labeled++;
-      });
+      }
       status.textContent =
         'Точек ' + (labeled + unlabeled).toLocaleString('ru') +
         ' · с разметкой ' + labeled.toLocaleString('ru') + ' · undo: ' + undoStack.length;
