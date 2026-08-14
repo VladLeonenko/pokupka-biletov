@@ -352,21 +352,76 @@ function isStadiumScaleHallLayout(layout: unknown): boolean {
 
 /** Цвета уровней театра на обзоре 100% — читаемые зоны, не «белый лист». */
 function theaterLevelAccent(label: string): string {
-  const s = String(label || '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-    .replace(/ё/g, 'е');
+  const s = normalizeTheaterSectorKey(label);
   if (s.includes('бенуар')) return '#db2777';
   if (s.includes('ложа') && s.includes('балкон')) return '#7c3aed';
-  if (s.includes('ложа') && s.includes('бельэтаж')) return '#d97706';
+  if (s.includes('ложа') && (s.includes('бельэтаж') || s.includes('бельетаж'))) return '#d97706';
   if (s.includes('ложа')) return '#c026d3';
   if (s.includes('балкон')) return '#7c3aed';
   if (s.includes('бельэтаж') || s.includes('бельетаж')) return '#d97706';
   if (s.includes('амфитеатр')) return '#059669';
   if (s.includes('партер')) return '#2563eb';
   return '#64748b';
+}
+
+/**
+ * Вахтангов и часть выгрузок: латиница-«близнецы» в именах секторов (пaptep → партер).
+ * Без нормализации заливка не матчится и сыпется серыми плитками.
+ */
+function normalizeTheaterSectorKey(label: string): string {
+  return String(label || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    // Латиница, визуально похожая на кириллицу в выгрузках GetBilet/Portal.
+    .replace(/a/g, 'а')
+    .replace(/b/g, 'б')
+    .replace(/c/g, 'с')
+    .replace(/e/g, 'е')
+    .replace(/h/g, 'н')
+    .replace(/k/g, 'к')
+    .replace(/m/g, 'м')
+    .replace(/o/g, 'о')
+    .replace(/p/g, 'р')
+    .replace(/t/g, 'т')
+    .replace(/x/g, 'х')
+    .replace(/y/g, 'у');
+}
+
+/**
+ * Группа заливки: один уровень зала = один фон.
+ * Ложи лев/прав не склеиваем в один AABB через весь зал.
+ */
+function theaterLevelFillGroup(label: string): { key: string; displayLabel: string } {
+  const s = normalizeTheaterSectorKey(label);
+  const compact = s.replace(/\s+/g, '');
+  const side = /лев/.test(s) ? ' левая' : /прав/.test(s) ? ' правая' : '';
+
+  if (compact.includes('ложа') && compact.includes('бенуар')) {
+    return { key: `lozha-benuar${side}`, displayLabel: `Ложи бенуара${side}`.trim() };
+  }
+  if (compact.includes('ложа') && (compact.includes('бельэтаж') || compact.includes('бельетаж'))) {
+    return { key: `lozha-beletazh${side}`, displayLabel: `Ложи бельэтажа${side}`.trim() };
+  }
+  if (compact.includes('ложа') && compact.includes('балкон')) {
+    return { key: `lozha-balkon${side}`, displayLabel: `Ложи балкона${side}`.trim() };
+  }
+  if (compact.includes('балкон')) {
+    return { key: 'balkon', displayLabel: 'Балкон' };
+  }
+  if (compact.includes('бельэтаж') || compact.includes('бельетаж')) {
+    return { key: 'beletazh', displayLabel: 'Бельэтаж' };
+  }
+  if (compact.includes('амфитеатр')) {
+    return { key: 'amfiteatr', displayLabel: 'Амфитеатр' };
+  }
+  if (compact.includes('партер')) {
+    return { key: 'parter', displayLabel: 'Партер' };
+  }
+  const raw = String(label || '').trim() || 'Зал';
+  return { key: `other:${normalizeTheaterSectorKey(raw)}`, displayLabel: raw };
 }
 
 /** Макс. zoom относительно fit (2 = 200%). layout_json.maxZoomMultiplier; театры — 2× по умолчанию. */
@@ -550,8 +605,8 @@ function parseSvgViewBox(svg: string): {
 }
 
 /**
- * Заливка уровней на 100%: скруглённые «подушки» с запасом (как сектора стадиона),
- * не жёсткий AABB вплотную к точкам. Места/sellable не трогает.
+ * Заливка уровней на 100%: ровно один скруглённый фон на уровень
+ * (Партер / Амфитеатр / …), без нарезки на плитки по gap.
  */
 function buildTheaterLevelAabbFills(
   seats: SvgNativeSeat[],
@@ -559,70 +614,49 @@ function buildTheaterLevelAabbFills(
 ): { id: string; label: string; path: string }[] {
   if (seats.length < 2 || !(vb.width > 0) || !(vb.height > 0)) return [];
 
-  const bySector = new Map<string, SvgNativeSeat[]>();
+  const byGroup = new Map<string, { displayLabel: string; seats: SvgNativeSeat[] }>();
   for (const seat of seats) {
-    const label = String(seat.sector || '').trim();
-    if (!label) continue;
-    const arr = bySector.get(label) ?? [];
-    arr.push(seat);
-    bySector.set(label, arr);
+    const raw = String(seat.sector || '').trim();
+    if (!raw) continue;
+    const { key, displayLabel } = theaterLevelFillGroup(raw);
+    const bucket = byGroup.get(key);
+    if (bucket) bucket.seats.push(seat);
+    else byGroup.set(key, { displayLabel, seats: [seat] });
   }
 
-  const gapPct = 2.8;
-  /** Запас вокруг блока — не «вплотную к точкам». */
-  const padPct = 1.65;
+  /** Небольшой запас; без overlap-плиток соседних кусков одного сектора. */
+  const padPct = 1.15;
   const out: { id: string; label: string; path: string }[] = [];
   let seq = 0;
 
-  for (const [label, group] of bySector.entries()) {
-    const sorted = [...group].sort((a, b) => a.xPct - b.xPct || a.yPct - b.yPct);
-    const blocks: SvgNativeSeat[][] = [];
-    let cur: SvgNativeSeat[] = [];
-    for (const seat of sorted) {
-      if (!cur.length) {
-        cur = [seat];
-        continue;
-      }
-      const near = cur.some(
-        (q) => Math.hypot(seat.xPct - q.xPct, seat.yPct - q.yPct) <= gapPct,
-      );
-      if (near) cur.push(seat);
-      else {
-        blocks.push(cur);
-        cur = [seat];
-      }
+  for (const { displayLabel, seats: group } of byGroup.values()) {
+    if (group.length < 1) continue;
+    let minXp = Infinity;
+    let minYp = Infinity;
+    let maxXp = -Infinity;
+    let maxYp = -Infinity;
+    for (const s of group) {
+      minXp = Math.min(minXp, s.xPct);
+      minYp = Math.min(minYp, s.yPct);
+      maxXp = Math.max(maxXp, s.xPct);
+      maxYp = Math.max(maxYp, s.yPct);
     }
-    if (cur.length) blocks.push(cur);
-
-    for (const block of blocks) {
-      if (block.length < 1) continue;
-      let minXp = Infinity;
-      let minYp = Infinity;
-      let maxXp = -Infinity;
-      let maxYp = -Infinity;
-      for (const s of block) {
-        minXp = Math.min(minXp, s.xPct);
-        minYp = Math.min(minYp, s.yPct);
-        maxXp = Math.max(maxXp, s.xPct);
-        maxYp = Math.max(maxYp, s.yPct);
-      }
-      minXp -= padPct;
-      minYp -= padPct;
-      maxXp += padPct;
-      maxYp += padPct;
-      const x0 = vb.minX + (minXp / 100) * vb.width;
-      const y0 = vb.minY + (minYp / 100) * vb.height;
-      const x1 = vb.minX + (maxXp / 100) * vb.width;
-      const y1 = vb.minY + (maxYp / 100) * vb.height;
-      const w = Math.max(0.5, x1 - x0);
-      const h = Math.max(0.5, y1 - y0);
-      const radius = Math.min(w, h) * 0.18;
-      out.push({
-        id: `theater-fill-${seq++}`,
-        label,
-        path: roundedRectPath(x0, y0, x1, y1, radius),
-      });
-    }
+    minXp -= padPct;
+    minYp -= padPct;
+    maxXp += padPct;
+    maxYp += padPct;
+    const x0 = vb.minX + (minXp / 100) * vb.width;
+    const y0 = vb.minY + (minYp / 100) * vb.height;
+    const x1 = vb.minX + (maxXp / 100) * vb.width;
+    const y1 = vb.minY + (maxYp / 100) * vb.height;
+    const w = Math.max(0.5, x1 - x0);
+    const h = Math.max(0.5, y1 - y0);
+    const radius = Math.min(w, h) * 0.14;
+    out.push({
+      id: `theater-fill-${seq++}`,
+      label: displayLabel,
+      path: roundedRectPath(x0, y0, x1, y1, radius),
+    });
   }
 
   return out;
