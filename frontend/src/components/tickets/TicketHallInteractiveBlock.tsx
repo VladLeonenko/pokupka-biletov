@@ -889,8 +889,14 @@ export function TicketHallInteractiveBlock({
         return true;
       }
     }
-    const svgSeatCount = nativeProcessed?.seats?.length ?? 0;
-    return svgSeatCount >= 100;
+    /** Fallback только если seed затёр hallKind, а в SVG уже театр (партер/амфитеатр/…). */
+    const svgSeats = nativeProcessed?.seats ?? [];
+    if (svgSeats.length < 100) return false;
+    const sample = svgSeats
+      .slice(0, 80)
+      .map((s) => String(s.sector || '').toLowerCase())
+      .join(' ');
+    return /партер|амфитеатр|бельэтаж|бельетаж|балкон|бенуар|ложа/.test(sample);
   }, [layoutJson, sectorMode.enabled, nativeProcessed]);
   const preferLayoutSeatPositions = useMemo(
     () => parsePreferLayoutSeatPositions(layoutJson),

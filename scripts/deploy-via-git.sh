@@ -152,15 +152,20 @@ echo ""
 echo "📦 Сборка frontend..."
 FRONTEND_OK=1
 (
+  set -euo pipefail
   cd "$PROJECT_ROOT/frontend"
   # На VPS часто NODE_ENV=production → npm ci без devDependencies → vite: not found
   unset NODE_ENV
   export NPM_CONFIG_PRODUCTION=false
   npm ci --include=dev --prefer-offline --no-audit 2>/dev/null \
     || npm install --include=dev --no-audit
+  command -v npx >/dev/null
   : "${NODE_OPTIONS:=--max-old-space-size=4096}"
   export NODE_OPTIONS
+  # Старый dist не должен маскировать провал сборки
+  rm -rf dist
   npm run build
+  test -x node_modules/.bin/vite || test -f node_modules/vite/bin/vite.js
   printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
   chown -R www-data:www-data dist 2>/dev/null || true
 ) || FRONTEND_OK=0

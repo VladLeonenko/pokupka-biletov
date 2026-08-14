@@ -415,10 +415,10 @@
 
 /** Уровень зала: мягкая «подушка» как сектор стадиона, не жёсткий bbox вплотную к точкам. */
 .sectorLayerTheater.sectorLayerFitOverview .sectorPathTheaterLevel {
-  fill: color-mix(in srgb, var(--sector-accent, #64748b) 20%, transparent) !important;
-  stroke: color-mix(in srgb, var(--sector-accent, #64748b) 42%, #e2e8f0) !important;
-  stroke-width: 1.05px;
-  stroke-opacity: 0.85;
+  fill: color-mix(in srgb, var(--sector-accent, #64748b) 28%, transparent) !important;
+  stroke: color-mix(in srgb, var(--sector-accent, #64748b) 48%, #cbd5e1) !important;
+  stroke-width: 1.1px;
+  stroke-opacity: 0.9;
 }
 
 .sectorLayerTheater.sectorLayerFitOverview .sectorPathTheaterLevel.sectorPathActive {
