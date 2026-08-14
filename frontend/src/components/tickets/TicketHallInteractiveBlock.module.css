@@ -194,6 +194,15 @@
   opacity: 0;
 }
 
+/** Театр/sectorMode: кружки мест только на canvas/DOM-оверлее — не двоить с SVG. */
+.svgLayerHideSeatCircles :global(circle[place-name]),
+.svgLayerHideSeatCircles :global(circle[data-replaced]) {
+  fill: none !important;
+  stroke: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .svgLayerFocused :global(svg) {
   opacity: 1;
   filter: saturate(1.08) contrast(1.03) brightness(1.02);
@@ -366,8 +375,55 @@
 }
 
 .sectorLayerFitOverview .sectorPathAvailable {
-  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 12%, transparent);
-  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 48%, transparent);
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 22%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 58%, transparent);
+}
+
+/**
+ * Театр на 100%: уровни зала читаются сразу (партер/амфитеатр/…), как сектора стадиона.
+ * Места рисует canvas под слоем секторов.
+ */
+.sectorLayerTheater.sectorLayerFitOverview .sectorPath {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.1px;
+  fill-opacity: 1;
+  stroke-opacity: 0.75;
+}
+
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathUnavailable {
+  fill: rgba(148, 163, 184, 0.22);
+  stroke: rgba(100, 116, 139, 0.5);
+}
+
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathAvailable {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 34%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 55%, #64748b);
+}
+
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathInteractive:hover,
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathInteractive:focus {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 46%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 72%, #475569);
+  stroke-width: 1.35px;
+  opacity: 1;
+}
+
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathActive {
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 52%, transparent);
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 80%, #fff);
+}
+
+/** Уровень зала: мягкая «подушка» как сектор стадиона, не жёсткий bbox вплотную к точкам. */
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathTheaterLevel {
+  fill: color-mix(in srgb, var(--sector-accent, #64748b) 20%, transparent) !important;
+  stroke: color-mix(in srgb, var(--sector-accent, #64748b) 42%, #e2e8f0) !important;
+  stroke-width: 1.05px;
+  stroke-opacity: 0.85;
+}
+
+.sectorLayerTheater.sectorLayerFitOverview .sectorPathTheaterLevel.sectorPathActive {
+  fill: color-mix(in srgb, var(--sector-accent, #64748b) 32%, transparent) !important;
+  stroke: color-mix(in srgb, var(--sector-accent, #64748b) 70%, #fff) !important;
 }
 
 .sectorLayerFitOverview .sectorPathInteractive {
@@ -499,8 +555,17 @@
   height: auto;
   min-width: 0;
   border: 0;
-  opacity: 0.92;
+  opacity: 1;
   box-shadow: none;
+  filter: none;
+}
+
+.seatDotStadium::before,
+.seatDot.seatDotStadium::before,
+.seatDotOverview::before,
+.seatDot.seatDotOverview::before {
+  display: none !important;
+  content: none !important;
 }
 
 /** Хитбокс sellable = радиус точки на canvas (inline px), без % и ::before. */
@@ -641,10 +706,9 @@
 }
 
 .seatDotStadium:hover {
-  filter: saturate(1.16);
-  box-shadow:
-    0 0 0 0.5px #fff,
-    0 0 0 1px var(--seat-accent, #888);
+  filter: none;
+  box-shadow: none;
+  outline: 1px solid color-mix(in srgb, var(--seat-accent, #888) 80%, #fff);
 }
 
 .seatDotOn {

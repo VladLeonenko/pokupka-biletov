@@ -2,6 +2,7 @@
  * Поиск координат layout.seats по офферу — как backend/utils/hallSeatGeodesyMatch.js
  */
 import type { SvgNativeSeat } from './svgNativeSeatLayout';
+import { sectorMatchScore } from './svgNativeSeatLayout';
 import {
   luzhnikiSectorLookupNorms,
   normalizeRowLabel,
@@ -65,5 +66,24 @@ export function lookupLabeledSeat(
     const hit = index.get(key);
     if (hit) return hit;
   }
-  return null;
+
+  /** Театр (МХТ): оффер «бельэтаж, левая сторона» ↔ место схемы «Бельэтаж». */
+  const wantRow = normalizeRowLabel(row);
+  const wantSeat = normalizeSeatToken(seat);
+  if (!wantRow || !wantSeat) return null;
+  let best: SvgNativeSeat | null = null;
+  let bestScore = 0;
+  const seen = new Set<SvgNativeSeat>();
+  for (const hit of index.values()) {
+    if (seen.has(hit)) continue;
+    seen.add(hit);
+    if (normalizeRowLabel(hit.row) !== wantRow) continue;
+    if (normalizeSeatToken(hit.seat) !== wantSeat) continue;
+    const score = sectorMatchScore(String(sector ?? ''), hit.sector);
+    if (score > bestScore) {
+      bestScore = score;
+      best = hit;
+    }
+  }
+  return bestScore >= 55 ? best : null;
 }

@@ -28,6 +28,7 @@
     "fetch:pbilet-luzhniki": "node scripts/fetch-pbilet-luzhniki-tickets.js",
     "list:getbilet-stages": "node scripts/list-getbilet-stages-by-place.js",
     "seed:vakhtangov-stage-map": "node scripts/seed-vakhtangov-stage-map.js",
+    "seed:mht-stage-map": "node scripts/seed-mht-main-hall-stage-map.js",
     "seed:ramt-big-stage-map": "node scripts/seed-ramt-big-stage-map.js",
     "seed:bolshoi-new-stage-map": "node scripts/seed-bolshoi-new-stage-map.js",
     "seed:kremlin-palace-map": "node scripts/seed-kremlin-palace-map.js",

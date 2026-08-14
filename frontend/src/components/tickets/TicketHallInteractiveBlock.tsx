@@ -8,6 +8,8 @@ import {
   parsePreferLayoutSeatPositions,
   processHallSvgForNative,
   seatMapKey,
+  sectorMatchScore,
+  stripSvgSeatCirclesForBackdrop,
   type OfferLike,
   type SvgNativePlacement,
   type SvgNativeSeat,
@@ -21,7 +23,7 @@ const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
 /** Подложка при zoom — без grayscale, поле остаётся зелёным. */
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
 
-/** Радиус sellable-точки на canvas (px viewport), как в draw loop: w = layerWidth * zoom. */
+/** Радиус sellable-точки на canvas (px viewport), как Лужники: w = layerWidth * zoom. */
 function stadiumSeatCanvasRadiusPx(
   zoom: number,
   layerWidth: number,
@@ -32,7 +34,7 @@ function stadiumSeatCanvasRadiusPx(
   const w = layerWidth * zoom;
   const baseR = Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
   let r = active ? baseR * 0.68 : baseR;
-  /** На обзоре 100% (fit) — sellable в 2× меньше, при zoom-in — полный размер. */
+  /** На обзоре 100% — в 2× меньше (эталон стадиона). */
   if (!mapZoomed) {
     r *= 0.5;
     r = Math.max(active ? 1.2 : 1.3, r);
@@ -157,6 +159,15 @@ function hallBackgroundSeatRadiusPx(scalePx: number, dense: boolean): number {
   return dense
     ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
     : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
+}
+
+/** Серые точки театра (МХТ/Вахтангов): плотные мелкие, не «blobs» как stadium bowl. */
+function theaterBackgroundSeatRadiusPx(scalePx: number, seatCount: number): number {
+  const dense = seatCount >= 600;
+  const r = dense
+    ? Math.max(0.55, Math.min(1.35, scalePx * 2.8))
+    : Math.max(0.7, Math.min(1.65, scalePx * 3.4));
+  return r;
 }
 
 type BackgroundArcLayout = {
@@ -339,6 +350,25 @@ function isStadiumScaleHallLayout(layout: unknown): boolean {
   return false;
 }
 
+/** Цвета уровней театра на обзоре 100% — читаемые зоны, не «белый лист». */
+function theaterLevelAccent(label: string): string {
+  const s = String(label || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е');
+  if (s.includes('бенуар')) return '#db2777';
+  if (s.includes('ложа') && s.includes('балкон')) return '#7c3aed';
+  if (s.includes('ложа') && s.includes('бельэтаж')) return '#d97706';
+  if (s.includes('ложа')) return '#c026d3';
+  if (s.includes('балкон')) return '#7c3aed';
+  if (s.includes('бельэтаж') || s.includes('бельетаж')) return '#d97706';
+  if (s.includes('амфитеатр')) return '#059669';
+  if (s.includes('партер')) return '#2563eb';
+  return '#64748b';
+}
+
 /** Макс. zoom относительно fit (2 = 200%). layout_json.maxZoomMultiplier; театры — 2× по умолчанию. */
 function parseMaxZoomMultiplier(
   layout: unknown,
@@ -377,7 +407,11 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
           const id = String(s.id ?? '').trim();
           const label = String(s.label ?? '').trim();
           const path = String(s.path ?? '').trim();
-          if (!id || !label || !path) return null;
+          /** Театр без path (Вахтангов) — сектор всё равно нужен для матчинга офферов; заливка только при path. */
+          if (!id || !label) return null;
+          if (!path && String((layout as Record<string, unknown>).hallKind || '').toLowerCase() !== 'theater') {
+            return null;
+          }
           const minPrice = Number(s.minPrice);
           const maxPrice = Number(s.maxPrice);
           const previewImageUrl = String(s.previewImageUrl ?? '').trim() || null;
@@ -487,20 +521,132 @@ function mergeGrayHallUnmatchedPlacements(
   return next;
 }
 
-function parseSvgViewBox(svg: string): { value: string; width: number; height: number } {
+function parseSvgViewBox(svg: string): {
+  value: string;
+  minX: number;
+  minY: number;
+  width: number;
+  height: number;
+} {
   const viewBox = svg.match(/\bviewBox=["']([^"']+)["']/i)?.[1];
   if (viewBox) {
     const parts = viewBox.trim().split(/[\s,]+/).map(Number);
     if (parts.length >= 4 && parts.every(Number.isFinite) && parts[2] > 0 && parts[3] > 0) {
-      return { value: viewBox, width: parts[2], height: parts[3] };
+      return {
+        value: viewBox,
+        minX: parts[0],
+        minY: parts[1],
+        width: parts[2],
+        height: parts[3],
+      };
     }
   }
   const width = Number(svg.match(/\bwidth=["']([^"']+)["']/i)?.[1]);
   const height = Number(svg.match(/\bheight=["']([^"']+)["']/i)?.[1]);
   if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
-    return { value: `0 0 ${width} ${height}`, width, height };
+    return { value: `0 0 ${width} ${height}`, minX: 0, minY: 0, width, height };
   }
-  return { value: '0 0 100 100', width: 100, height: 100 };
+  return { value: '0 0 100 100', minX: 0, minY: 0, width: 100, height: 100 };
+}
+
+/**
+ * Заливка уровней на 100%: скруглённые «подушки» с запасом (как сектора стадиона),
+ * не жёсткий AABB вплотную к точкам. Места/sellable не трогает.
+ */
+function buildTheaterLevelAabbFills(
+  seats: SvgNativeSeat[],
+  vb: { minX: number; minY: number; width: number; height: number },
+): { id: string; label: string; path: string }[] {
+  if (seats.length < 2 || !(vb.width > 0) || !(vb.height > 0)) return [];
+
+  const bySector = new Map<string, SvgNativeSeat[]>();
+  for (const seat of seats) {
+    const label = String(seat.sector || '').trim();
+    if (!label) continue;
+    const arr = bySector.get(label) ?? [];
+    arr.push(seat);
+    bySector.set(label, arr);
+  }
+
+  const gapPct = 2.8;
+  /** Запас вокруг блока — не «вплотную к точкам». */
+  const padPct = 1.65;
+  const out: { id: string; label: string; path: string }[] = [];
+  let seq = 0;
+
+  for (const [label, group] of bySector.entries()) {
+    const sorted = [...group].sort((a, b) => a.xPct - b.xPct || a.yPct - b.yPct);
+    const blocks: SvgNativeSeat[][] = [];
+    let cur: SvgNativeSeat[] = [];
+    for (const seat of sorted) {
+      if (!cur.length) {
+        cur = [seat];
+        continue;
+      }
+      const near = cur.some(
+        (q) => Math.hypot(seat.xPct - q.xPct, seat.yPct - q.yPct) <= gapPct,
+      );
+      if (near) cur.push(seat);
+      else {
+        blocks.push(cur);
+        cur = [seat];
+      }
+    }
+    if (cur.length) blocks.push(cur);
+
+    for (const block of blocks) {
+      if (block.length < 1) continue;
+      let minXp = Infinity;
+      let minYp = Infinity;
+      let maxXp = -Infinity;
+      let maxYp = -Infinity;
+      for (const s of block) {
+        minXp = Math.min(minXp, s.xPct);
+        minYp = Math.min(minYp, s.yPct);
+        maxXp = Math.max(maxXp, s.xPct);
+        maxYp = Math.max(maxYp, s.yPct);
+      }
+      minXp -= padPct;
+      minYp -= padPct;
+      maxXp += padPct;
+      maxYp += padPct;
+      const x0 = vb.minX + (minXp / 100) * vb.width;
+      const y0 = vb.minY + (minYp / 100) * vb.height;
+      const x1 = vb.minX + (maxXp / 100) * vb.width;
+      const y1 = vb.minY + (maxYp / 100) * vb.height;
+      const w = Math.max(0.5, x1 - x0);
+      const h = Math.max(0.5, y1 - y0);
+      const radius = Math.min(w, h) * 0.18;
+      out.push({
+        id: `theater-fill-${seq++}`,
+        label,
+        path: roundedRectPath(x0, y0, x1, y1, radius),
+      });
+    }
+  }
+
+  return out;
+}
+
+function roundedRectPath(x0: number, y0: number, x1: number, y1: number, r: number): string {
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  if (rr < 0.2) {
+    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} L ${x1.toFixed(2)} ${y0.toFixed(2)} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x0.toFixed(2)} ${y1.toFixed(2)} Z`;
+  }
+  return [
+    `M ${(x0 + rr).toFixed(2)} ${y0.toFixed(2)}`,
+    `L ${(x1 - rr).toFixed(2)} ${y0.toFixed(2)}`,
+    `Q ${x1.toFixed(2)} ${y0.toFixed(2)} ${x1.toFixed(2)} ${(y0 + rr).toFixed(2)}`,
+    `L ${x1.toFixed(2)} ${(y1 - rr).toFixed(2)}`,
+    `Q ${x1.toFixed(2)} ${y1.toFixed(2)} ${(x1 - rr).toFixed(2)} ${y1.toFixed(2)}`,
+    `L ${(x0 + rr).toFixed(2)} ${y1.toFixed(2)}`,
+    `Q ${x0.toFixed(2)} ${y1.toFixed(2)} ${x0.toFixed(2)} ${(y1 - rr).toFixed(2)}`,
+    `L ${x0.toFixed(2)} ${(y0 + rr).toFixed(2)}`,
+    `Q ${x0.toFixed(2)} ${y0.toFixed(2)} ${(x0 + rr).toFixed(2)} ${y0.toFixed(2)}`,
+    'Z',
+  ].join(' ');
 }
 
 function pathBBox(path: string): BBox | null {
@@ -677,7 +823,113 @@ export function TicketHallInteractiveBlock({
     () => parseUniformHallSeatAppearance(layoutJson),
     [layoutJson],
   );
-  const svgViewBox = useMemo(() => parseSvgViewBox(hallSvgHtml), [hallSvgHtml]);
+  const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
+  const sellableSeatsFromLayout = useMemo(
+    () => parseLayoutSeatPositions(
+      layoutJson && typeof layoutJson === 'object'
+        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
+        : null,
+    ),
+    [layoutJson],
+  );
+  const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
+  const hallBackgroundRasterUrl = useMemo(
+    () => parseHallBackgroundRasterUrl(layoutJson),
+    [layoutJson],
+  );
+  const omitClientSeatCoordinateCloud = useMemo(
+    () => parseOmitClientSeatCoordinateCloud(layoutJson),
+    [layoutJson],
+  );
+  const pbiletCategoryCheckout = useMemo(
+    () => parsePbiletCategoryCheckout(layoutJson),
+    [layoutJson],
+  );
+  const showSeatsAtOverview = useMemo(() => parseShowSeatsAtOverview(layoutJson), [layoutJson]);
+  /** Portalbilet NN / pbilet 1800: только полигоны категорий, без grid-точек по офферам. */
+  const categorySectorOnlyCheckout = pbiletCategoryCheckout && sectorMode.enabled;
+  const isZoneOnlySector = useCallback(
+    (label: string) => isConcertZoneOnlySectorLabel(label, layoutJson),
+    [layoutJson],
+  );
+  /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
+  const preferBundleBackgroundDots = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return false;
+    const rec = layoutJson as Record<string, unknown>;
+    return (
+      omitClientSeatCoordinateCloud &&
+      backgroundSeatCoordinates.length >= 100 &&
+      rec.sellableSeatsFromLiveOffers === true &&
+      rec.sellableGeodesyMode === 'manualBundleFast'
+    );
+  }, [layoutJson, omitClientSeatCoordinateCloud, backgroundSeatCoordinates.length]);
+  const useHallBackgroundRaster = Boolean(
+    hallBackgroundRasterUrl
+    && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
+  );
+  const disableHallBackgroundDots = useMemo(
+    () => parseDisableHallBackgroundDots(layoutJson),
+    [layoutJson],
+  );
+  const hallBackgroundDotsUrl = useMemo(() => {
+    if (disableHallBackgroundDots) return null;
+    return hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl);
+  }, [disableHallBackgroundDots, hallBackgroundRasterUrl]);
+  const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
+  /**
+   * Театр из layout_json ИЛИ fallback по SVG-местам (если seed затёр hallKind —
+   * всё равно canvas + заливка уровней, как эталон МХТ).
+   */
+  const theaterSectorCheckout = useMemo(() => {
+    if (isStadiumScaleHallLayout(layoutJson)) return false;
+    if (layoutJson && typeof layoutJson === 'object') {
+      const r = layoutJson as Record<string, unknown>;
+      if (r.luzhnikiStadiumCheckout === true || r.pbiletCategoryCheckout === true) return false;
+      if (String(r.hallKind || '').trim().toLowerCase() === 'theater' && sectorMode.enabled) {
+        return true;
+      }
+    }
+    const svgSeatCount = nativeProcessed?.seats?.length ?? 0;
+    return svgSeatCount >= 100;
+  }, [layoutJson, sectorMode.enabled, nativeProcessed]);
+  const preferLayoutSeatPositions = useMemo(
+    () => parsePreferLayoutSeatPositions(layoutJson),
+    [layoutJson],
+  );
+  /** Все театры (МХТ + Вахтангов): места/sellable одним canvas-стилем как на МХТ. */
+  const theaterSvgSeatCanvas = theaterSectorCheckout;
+  const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
+    if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
+    if (sectorMode.enabled && layoutSeats.length < 2 && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
+    const fromSvg = nativeProcessed?.seats ?? [];
+    if (fromSvg.length >= 2) return fromSvg;
+    if (layoutSeats.length >= 2) return layoutSeats;
+    return [];
+  }, [preferLayoutSeatPositions, layoutSeats, sectorMode.enabled, sellableSeatsFromLayout, nativeProcessed]);
+  /**
+   * Всегда брать подрезанный SVG из processHallSvgForNative, если круги есть.
+   * Иначе при preferLayoutSeatPositions отдавался сырой SVG со style 1200×218 → «тонкая полоска».
+   */
+  const svgGeometryFromParsedCircles = useMemo(
+    () => (nativeProcessed?.seats?.length ?? 0) >= 2,
+    [nativeProcessed],
+  );
+  const useSvgNative =
+    layoutMode !== 'grid' &&
+    (layoutMode === 'svgNative' ||
+      (layoutMode === 'auto' && nativeSeats.length >= 2));
+
+  const svgHtmlSafe = useMemo(() => {
+    if (!useSvgNative) return hallSvgHtml;
+    if (svgGeometryFromParsedCircles && nativeProcessed?.svgHtml) return nativeProcessed.svgHtml;
+    return hallSvgHtml;
+  }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
+
+  /** viewBox от отображаемого SVG (после processHallSvgForNative). */
+  const svgViewBox = useMemo(
+    () => parseSvgViewBox(svgHtmlSafe || hallSvgHtml),
+    [svgHtmlSafe, hallSvgHtml],
+  );
   const fieldDotExcludePctBoxes = useMemo((): PctBox[] => {
     if (!maskFieldBackgroundDots || hallMapFieldMasks.length < 1) return [];
     const vw = Math.max(1, svgViewBox.width);
@@ -710,92 +962,6 @@ export function TicketHallInteractiveBlock({
     }
     return boxes;
   }, [maskFieldBackgroundDots, hallMapFieldMasks, svgViewBox.width, svgViewBox.height]);
-  const layoutSeats = useMemo(() => parseLayoutSeatPositions(layoutJson), [layoutJson]);
-  const sellableSeatsFromLayout = useMemo(
-    () => parseLayoutSeatPositions(
-      layoutJson && typeof layoutJson === 'object'
-        ? { seats: (layoutJson as Record<string, unknown>).sellableSeats }
-        : null,
-    ),
-    [layoutJson],
-  );
-  const backgroundSeatCoordinates = useMemo(() => parseBackgroundSeatCoordinates(layoutJson), [layoutJson]);
-  const hallBackgroundRasterUrl = useMemo(
-    () => parseHallBackgroundRasterUrl(layoutJson),
-    [layoutJson],
-  );
-  const omitClientSeatCoordinateCloud = useMemo(
-    () => parseOmitClientSeatCoordinateCloud(layoutJson),
-    [layoutJson],
-  );
-  const pbiletCategoryCheckout = useMemo(
-    () => parsePbiletCategoryCheckout(layoutJson),
-    [layoutJson],
-  );
-  const showSeatsAtOverview = useMemo(() => parseShowSeatsAtOverview(layoutJson), [layoutJson]);
-  /** Portalbilet NN / pbilet 1800: только полигоны категорий, без grid-точек по офферам. */
-  const categorySectorOnlyCheckout = pbiletCategoryCheckout && sectorMode.enabled;
-  const theaterSectorCheckout = useMemo(() => {
-    if (!layoutJson || typeof layoutJson !== 'object') return false;
-    const r = layoutJson as Record<string, unknown>;
-    if (r.luzhnikiStadiumCheckout === true || r.pbiletCategoryCheckout === true) return false;
-    return String(r.hallKind || '').trim().toLowerCase() === 'theater' && sectorMode.enabled;
-  }, [layoutJson, sectorMode.enabled]);
-  const isZoneOnlySector = useCallback(
-    (label: string) => isConcertZoneOnlySectorLabel(label, layoutJson),
-    [layoutJson],
-  );
-  /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
-  const preferBundleBackgroundDots = useMemo(() => {
-    if (!layoutJson || typeof layoutJson !== 'object') return false;
-    const rec = layoutJson as Record<string, unknown>;
-    return (
-      omitClientSeatCoordinateCloud &&
-      backgroundSeatCoordinates.length >= 100 &&
-      rec.sellableSeatsFromLiveOffers === true &&
-      rec.sellableGeodesyMode === 'manualBundleFast'
-    );
-  }, [layoutJson, omitClientSeatCoordinateCloud, backgroundSeatCoordinates.length]);
-  const useHallBackgroundRaster = Boolean(
-    hallBackgroundRasterUrl
-    && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
-  );
-  const disableHallBackgroundDots = useMemo(
-    () => parseDisableHallBackgroundDots(layoutJson),
-    [layoutJson],
-  );
-  const hallBackgroundDotsUrl = useMemo(() => {
-    if (disableHallBackgroundDots) return null;
-    return hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl);
-  }, [disableHallBackgroundDots, hallBackgroundRasterUrl]);
-  const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
-  const preferLayoutSeatPositions = useMemo(
-    () => parsePreferLayoutSeatPositions(layoutJson),
-    [layoutJson],
-  );
-  const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
-    if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
-    if (sectorMode.enabled && layoutSeats.length < 2 && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
-    const fromSvg = nativeProcessed?.seats ?? [];
-    if (fromSvg.length >= 2) return fromSvg;
-    if (layoutSeats.length >= 2) return layoutSeats;
-    return [];
-  }, [preferLayoutSeatPositions, layoutSeats, sectorMode.enabled, sellableSeatsFromLayout, nativeProcessed]);
-  /** Подрезанный SVG из processHallSvgForNative имеет тот же вьюбокс, что и xPct/yPct из парсинга circle. */
-  const svgGeometryFromParsedCircles = useMemo(() => {
-    if (preferLayoutSeatPositions) return false;
-    return (nativeProcessed?.seats?.length ?? 0) >= 2;
-  }, [preferLayoutSeatPositions, nativeProcessed]);
-  const useSvgNative =
-    layoutMode !== 'grid' &&
-    (layoutMode === 'svgNative' ||
-      (layoutMode === 'auto' && nativeSeats.length >= 2));
-
-  const svgHtmlSafe = useMemo(() => {
-    if (!useSvgNative) return hallSvgHtml;
-    if (svgGeometryFromParsedCircles && nativeProcessed?.svgHtml) return nativeProcessed.svgHtml;
-    return hallSvgHtml;
-  }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
 
   const { nativePlacements } = useMemo(() => {
     if (!useSvgNative || nativeSeats.length < 2) {
@@ -968,12 +1134,21 @@ export function TicketHallInteractiveBlock({
     const offersBySector = new Map<string, HallOfferRow[]>();
     for (const offer of offers) {
       let key: string | null = null;
+      let bestScore = 0;
       for (const meta of sectorMode.sectors) {
         if (sectorNormsMatch(offer.Sector, meta.label)) {
           key = normalizeSectorLabel(meta.label);
+          bestScore = 100;
           break;
         }
+        /** Театр/МХТ: GetBilet «бельэтаж, левая сторона» ↔ схема «Бельэтаж». */
+        const score = sectorMatchScore(String(offer.Sector ?? ''), meta.label);
+        if (score > bestScore) {
+          bestScore = score;
+          key = normalizeSectorLabel(meta.label);
+        }
       }
+      if (bestScore > 0 && bestScore < 55) key = null;
       if (!key) key = normalizeSectorLabel(offer.Sector);
       if (!key) continue;
       const arr = offersBySector.get(key) ?? [];
@@ -1010,6 +1185,30 @@ export function TicketHallInteractiveBlock({
     }
     return map;
   }, [sectorSummaries]);
+
+  /** Только заливка уровней на 100% — по координатам уже видимых мест. Места/sellable не трогаем. */
+  const theaterOverviewFills = useMemo(() => {
+    if (!theaterSectorCheckout || nativeSeats.length < 2) return [];
+    return buildTheaterLevelAabbFills(nativeSeats, svgViewBox);
+  }, [theaterSectorCheckout, nativeSeats, svgViewBox]);
+
+  const resolveSectorSummaryForLabel = useCallback(
+    (label: string): SectorSummary | null => {
+      const direct = sectorSummaryByLabel.get(normalizeSectorLabel(label));
+      if (direct) return direct;
+      let best: SectorSummary | null = null;
+      let bestScore = 0;
+      for (const summary of sectorSummaries) {
+        const score = sectorMatchScore(label, summary.meta.label);
+        if (score > bestScore) {
+          bestScore = score;
+          best = summary;
+        }
+      }
+      return bestScore >= 55 ? best : null;
+    },
+    [sectorSummaries, sectorSummaryByLabel],
+  );
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const hoverProbeRef = useRef<HTMLDivElement>(null);
@@ -1206,7 +1405,14 @@ export function TicketHallInteractiveBlock({
     panRef.current = pan;
   }, [pan]);
 
-  const stadiumCanvasEnabled = sectorMode.enabled && svgViewBox.width > 100 && svgViewBox.height > 100;
+  /**
+   * Canvas+цветные sellable как на Лужниках — sectorMode или театр (в т.ч. SVG-fallback без layout).
+   * Ширину слоя в px=viewBox не трогаем у театра (см. layersStyle + isStadiumScaleHallLayout).
+   */
+  const stadiumCanvasEnabled =
+    (sectorMode.enabled || theaterSvgSeatCanvas)
+    && svgViewBox.width > 100
+    && svgViewBox.height > 100;
 
   /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
@@ -1223,7 +1429,9 @@ export function TicketHallInteractiveBlock({
     setCanvasBackdropReady(false);
     canvasImageRef.current = null;
 
-    const blob = new Blob([svgHtmlSafe], { type: 'image/svg+xml;charset=utf-8' });
+    /** Без circle-мест: иначе SVG-точки + canvas sellable = ареолы. */
+    const backdropSvg = stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
+    const blob = new Blob([backdropSvg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.decoding = 'async';
@@ -1799,8 +2007,8 @@ export function TicketHallInteractiveBlock({
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
-  const uniformDomOverlayGhost =
-    uniformHallSeatAppearance && useCanvasCompositing && useSvgNative;
+  /** Canvas рисует точки — DOM только hitbox, иначе двойные «ареолы» (театр + стадион). */
+  const uniformDomOverlayGhost = useCanvasCompositing && useSvgNative;
   /** Сектора на обзоре 100%: подсветка и клик; заливку path убираем только после zoom-in. */
   const hideSectorFill = mapZoomed;
 
@@ -1873,11 +2081,15 @@ export function TicketHallInteractiveBlock({
     if (!useSvgNative) return [];
     if (sectorMode.enabled) {
       if (useHallBackgroundRaster) return [];
+      /** МХТ: серые места на canvas — DOM-unavailable не дублируем. */
+      if (theaterSvgSeatCanvas) return [];
       /**
-       * Театр: все места из layout.seats серым (даже если есть allSeatCoordinates —
-       * фоновый cloud на обзоре не рисуется, иначе зал выглядит пустым).
-       * Стадион: серые DOM-точки не дублируем поверх dense cloud.
+       * Вахтангов / layout seats: не сыпать DOM-точками поверх allSeatCoordinates
+       * (иначе огромные серые кружки).
        */
+      if (theaterSectorCheckout && (backgroundSeatCoordinates.length > 0 || preferLayoutSeatPositions)) {
+        return [];
+      }
       if (theaterSectorCheckout) {
         const inScope = selectedSectorSummary
           ? nativeSeats.filter((seat) => sectorNormsMatch(seat.sector, selectedSector))
@@ -1899,6 +2111,8 @@ export function TicketHallInteractiveBlock({
       : [];
   }, [
     backgroundSeatCoordinates.length,
+    preferLayoutSeatPositions,
+    theaterSvgSeatCanvas,
     matchedNativeSeatKeys,
     nativeSeats,
     sectorMode.enabled,
@@ -1929,12 +2143,30 @@ export function TicketHallInteractiveBlock({
       transformOrigin: '0 0',
       transition: isMapDragging || stadiumCanvasEnabled ? 'none' : undefined,
     };
-    if (sectorMode.enabled && svgViewBox.width > 100) {
+    /**
+     * Стадион: 1 unit viewBox ≈ 1 CSS-px до zoom (viewBox ~10k).
+     * Театр/МХТ: viewBox после crop ~150–800 — если зафиксировать width=viewBox.px,
+     * схема сжимается в «точку» по центру белого поля (как на скрине).
+     */
+    if (
+      sectorMode.enabled
+      && isStadiumScaleHallLayout(layoutJson)
+      && svgViewBox.width > 100
+    ) {
       style.width = `${Math.round(svgViewBox.width)}px`;
       style.maxWidth = 'none';
     }
     return style;
-  }, [isMapDragging, pan.x, pan.y, sectorMode.enabled, stadiumCanvasEnabled, svgViewBox.width, zoom]);
+  }, [
+    isMapDragging,
+    layoutJson,
+    pan.x,
+    pan.y,
+    sectorMode.enabled,
+    stadiumCanvasEnabled,
+    svgViewBox.width,
+    zoom,
+  ]);
 
   useEffect(() => {
     if (!useCanvasCompositing) return;
@@ -1982,11 +2214,18 @@ export function TicketHallInteractiveBlock({
       const hallRaster = hallRasterImageRef.current;
       const mapZoomedNow = zoom > fitZoom + 0.01;
       const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
-      if (useHallBackgroundRaster && hallRaster && (!mapZoomedNow || (!bowlDots && !preferBundleBackgroundDots))) {
+      /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
+      const skipStadiumBowlDots = theaterSvgSeatCanvas;
+      if (
+        !skipStadiumBowlDots
+        && useHallBackgroundRaster
+        && hallRaster
+        && (!mapZoomedNow || (!bowlDots && !preferBundleBackgroundDots))
+      ) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }
 
-      if (preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
+      if (!skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
         drawHallBackgroundArcs(
           ctx,
           backgroundSeatCoordinates,
@@ -1997,7 +2236,7 @@ export function TicketHallInteractiveBlock({
           backgroundSeatCoordinates.length >= 8000,
           fieldDotExcludePctBoxes,
         );
-      } else if (useHallBackgroundRaster && mapZoomedNow && bowlDots) {
+      } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && bowlDots) {
         drawHallBackgroundArcs(
           ctx,
           bowlDots,
@@ -2012,7 +2251,8 @@ export function TicketHallInteractiveBlock({
 
       const bg = backgroundSeatCoordinates;
       if (
-        !useHallBackgroundRaster
+        !skipStadiumBowlDots
+        && !useHallBackgroundRaster
         && bg.length > 0
         && (mapZoomedNow || bg.length >= 8000)
       ) {
@@ -2028,7 +2268,55 @@ export function TicketHallInteractiveBlock({
         );
       }
 
-      if (visibleNativePlacements.length > 0) {
+      /**
+       * Театр: фон зала — серые точки только для НЕ-sellable.
+       * Sellable — тот же radius/алгоритм, что стадион (stadiumSeatCanvasRadiusPx), без серой подложки = без ареол.
+       */
+      if (theaterSvgSeatCanvas && nativeSeats.length > 0) {
+        const sellableKeys = new Set(
+          visibleNativePlacements.filter((s) => !s.previewOnly).map((s) => s.key),
+        );
+        const scalePx = w / Math.max(1, svgViewBox.width);
+        const rBg = theaterBackgroundSeatRadiusPx(scalePx, nativeSeats.length);
+        ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
+        ctx.beginPath();
+        for (const seat of nativeSeats) {
+          const key = seatMapKey(seat.sector, seat.row, seat.seat);
+          if (sellableKeys.has(key)) continue;
+          const sx = x + (seat.xPct / 100) * w;
+          const sy = y + (seat.yPct / 100) * h;
+          if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
+          ctx.moveTo(sx + rBg, sy);
+          ctx.arc(sx, sy, rBg, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
+        const mapZoomedNowTheater = zoom > fitZoom + 0.01;
+        for (const seat of visibleNativePlacements) {
+          if (seat.previewOnly) continue;
+          const active = activeKeys.has(seat.key);
+          const sx = x + (seat.xPct / 100) * w;
+          const sy = y + (seat.yPct / 100) * h;
+          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
+          const r = stadiumSeatCanvasRadiusPx(
+            zoom,
+            box.width,
+            svgViewBox.width,
+            active,
+            mapZoomedNowTheater,
+          );
+          ctx.beginPath();
+          ctx.fillStyle = colorForSeat(seat.priceKey);
+          ctx.arc(sx, sy, r, 0, Math.PI * 2);
+          ctx.fill();
+          if (active) {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+          }
+        }
+      } else if (visibleNativePlacements.length > 0) {
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         for (const seat of visibleNativePlacements) {
           const active = activeKeys.has(seat.key);
@@ -2071,6 +2359,9 @@ export function TicketHallInteractiveBlock({
     preferBundleBackgroundDots,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
+    theaterSvgSeatCanvas,
+    theaterSectorCheckout,
+    nativeSeats,
     uniformHallSeatAppearance,
     svgViewBox.width,
     useHallBackgroundRaster,
@@ -2134,6 +2425,8 @@ export function TicketHallInteractiveBlock({
           >
             <div
               className={`${styles.svgLayer} ${useCanvasCompositing ? styles.svgLayerCanvasBacked : ''} ${
+                stadiumCanvasEnabled || theaterSvgSeatCanvas ? styles.svgLayerHideSeatCircles : ''
+              } ${
                 !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
               }`}
               // eslint-disable-next-line react/no-danger
@@ -2153,13 +2446,16 @@ export function TicketHallInteractiveBlock({
                 className={`${styles.sectorLayer} ${
                   pbiletCategoryCheckout ? styles.sectorLayerCategoryCheckout : ''
                 } ${
-                  useCanvasCompositing ? styles.sectorLayerUnderSeats : ''
+                  theaterSectorCheckout ? styles.sectorLayerTheater : ''
+                } ${
+                  /** Театр: сектора всегда под местами (даже без stadium canvas). */
+                  useCanvasCompositing || theaterSectorCheckout ? styles.sectorLayerUnderSeats : ''
                 } ${
                   hideSectorFill ? `${styles.sectorLayerSeatPick} ${styles.sectorLayerFocused}` : styles.sectorLayerFitOverview
                 }`}
                 viewBox={svgViewBox.value}
                 preserveAspectRatio="xMidYMid meet"
-                aria-label="Секторы стадиона"
+                aria-label="Секторы зала"
               >
                 {hallMapFieldMasks.map((mask) => {
                   if (mask.path) return null;
@@ -2183,7 +2479,71 @@ export function TicketHallInteractiveBlock({
                     />
                   );
                 })}
-                {sectorSummaries.map((sector) => {
+                {theaterSectorCheckout && !hideSectorFill
+                  ? theaterOverviewFills.map((fill) => {
+                      const sector =
+                        resolveSectorSummaryForLabel(fill.label) ??
+                        ({
+                          meta: {
+                            id: fill.id,
+                            label: fill.label,
+                            path: fill.path,
+                            availableSeats: 0,
+                            minPrice: null,
+                            maxPrice: null,
+                            previewImageUrl: null,
+                          },
+                          offers: [],
+                          seatCount: 0,
+                          minPrice: null,
+                          maxPrice: null,
+                        } satisfies SectorSummary);
+                      const available = sector.seatCount > 0 || sector.offers.length > 0;
+                      const active = selectedSector === normalizeSectorLabel(fill.label);
+                      const sectorForFocus = {
+                        ...sector,
+                        meta: { ...sector.meta, path: fill.path, label: fill.label },
+                      };
+                      return (
+                        <path
+                          key={fill.id}
+                          d={fill.path}
+                          data-sector-path="true"
+                          className={`${styles.sectorPath} ${styles.sectorPathInteractive} ${
+                            available ? styles.sectorPathAvailable : styles.sectorPathUnavailable
+                          } ${active ? styles.sectorPathActive : ''} ${styles.sectorPathTheaterLevel}`}
+                          style={
+                            {
+                              '--sector-accent': theaterLevelAccent(fill.label),
+                            } as React.CSSProperties
+                          }
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`${fill.label}: ${sector.seatCount > 0 ? `${sector.seatCount} мест` : 'уровень зала'}`}
+                          onPointerDown={(ev) => {
+                            showSectorInfo(ev.currentTarget, sectorForFocus);
+                          }}
+                          onPointerEnter={(ev) => {
+                            showSectorInfo(ev.currentTarget, sectorForFocus);
+                          }}
+                          onPointerLeave={(ev) => {
+                            if (ev.pointerType !== 'touch') hideSectorInfo();
+                          }}
+                          onFocus={(ev) => {
+                            showSectorInfo(ev.currentTarget, sectorForFocus);
+                          }}
+                          onBlur={hideSectorInfo}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            if (suppressMapClickRef.current) return;
+                            focusSector(sectorForFocus);
+                          }}
+                        />
+                      );
+                    })
+                  : sectorSummaries.map((sector) => {
+                  if (theaterSectorCheckout) return null;
+                  if (!sector.meta.path) return null;
                   const available =
                     sector.seatCount > 0 ||
                     sector.offers.length > 0 ||
@@ -2199,6 +2559,7 @@ export function TicketHallInteractiveBlock({
                       : '0';
                   const fieldZone = isLuzhnikiConcertFieldZoneLabel(sector.meta.label);
                   const zoneOnly = isZoneOnlySector(sector.meta.label);
+                  const sectorAccent = available ? colorForSeat(priceForColor) : '#9ca3af';
                   return (
                     <path
                       key={sector.meta.id}
@@ -2211,7 +2572,7 @@ export function TicketHallInteractiveBlock({
                       } ${fieldZone ? styles.sectorPathFieldMask : ''}`}
                       style={
                         {
-                          '--sector-accent': available ? colorForSeat(priceForColor) : '#9ca3af',
+                          '--sector-accent': sectorAccent,
                         } as React.CSSProperties
                       }
                       tabIndex={0}
@@ -2350,7 +2711,10 @@ export function TicketHallInteractiveBlock({
                       seat: p.seat,
                       priceKey: p.priceKey,
                     };
-                    const stadiumLayerWidth = Math.round(svgViewBox.width);
+                    const layerBox = getLayerScreenBox();
+                    const stadiumLayerWidth = layerBox?.width && layerBox.width > 1
+                      ? layerBox.width
+                      : Math.round(svgViewBox.width);
                     const syncCanvasHitbox =
                       sectorMode.enabled && useSvgNative && useCanvasCompositing;
                     const hitboxPx = syncCanvasHitbox
@@ -2363,13 +2727,14 @@ export function TicketHallInteractiveBlock({
                         )
                       : null;
                     const seatPos = { left: `${p.xPct}%`, top: `${p.yPct}%` };
+                    const useStadiumSeatChrome = sectorMode.enabled;
                     if (p.previewOnly) {
                       return (
                         <span
                           key={p.key}
                           className={`${styles.seatDot} ${styles.seatDotNative} ${styles.seatDotNonInteractive} ${
-                            sectorMode.enabled ? styles.seatDotStadium : ''
-                          } ${sectorMode.enabled && !selectedSector ? styles.seatDotOverview : ''} ${
+                            useStadiumSeatChrome ? styles.seatDotStadium : ''
+                          } ${useStadiumSeatChrome && !selectedSector ? styles.seatDotOverview : ''} ${
                             uniformDomOverlayGhost ? styles.seatDotUniformCanvasGhost : ''
                           } ${syncCanvasHitbox ? styles.seatDotStadiumHitbox : ''}`}
                           style={
@@ -2394,17 +2759,17 @@ export function TicketHallInteractiveBlock({
                         type="button"
                         data-seat-dot="true"
                         className={`${styles.seatDot} ${styles.seatDotNative} ${
-                          sectorMode.enabled ? styles.seatDotStadium : ''
+                          useStadiumSeatChrome ? styles.seatDotStadium : ''
                         } ${
                           useCanvasCompositing ? styles.seatDotCanvasHit : ''
                         } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''} ${
-                          sectorMode.enabled && !selectedSector && !syncCanvasHitbox
+                          useStadiumSeatChrome && !selectedSector && !syncCanvasHitbox
                             ? styles.seatDotOverview
                             : ''
                         } ${active ? styles.seatDotOn : ''} ${
                           syncCanvasHitbox ? styles.seatDotStadiumHitbox : ''
                         } ${
-                          sectorMode.enabled && !mapZoomed ? styles.seatDotNoPickAtOverview : ''
+                          useStadiumSeatChrome && !mapZoomed ? styles.seatDotNoPickAtOverview : ''
                         }`}
                         style={
                           {

@@ -225,9 +225,21 @@ if [ -f "scripts/seed-tbank-demo-event.js" ]; then
   node scripts/seed-tbank-demo-event.js 2>/dev/null || echo "⚠️ seed T-Bank demo: проверьте TICKET_* и ticket DB"
 fi
 
-if [ -f "scripts/seed-mht-main-hall-stage-map.js" ]; then
-  echo "🎭 Схема зала МХТ (основной зал, векторный SVG в public/hall-maps)..."
-  node scripts/seed-mht-main-hall-stage-map.js 2>/dev/null || echo "⚠️ seed MHT stage map: проверьте TICKET_* и ticket DB"
+# МХТ: сид только вручную / FORCE — иначе старый seed с git затирает theater sectorMode.
+if [ -f "backend/scripts/seed-mht-main-hall-stage-map.js" ]; then
+  if [ "${FORCE_MHT_STAGE_MAP_SEED:-}" = "1" ]; then
+    echo "🎭 Схема зала МХТ (FORCE_MHT_STAGE_MAP_SEED=1)..."
+    (cd backend && node scripts/seed-mht-main-hall-stage-map.js) 2>/dev/null || echo "⚠️ seed MHT stage map: проверьте TICKET_* и ticket DB"
+  else
+    echo "🎭 Схема МХТ: автосид выключен (сохраняем theater-layout в БД). FORCE_MHT_STAGE_MAP_SEED=1 — перезаписать."
+  fi
+fi
+
+if [ -f "scripts/seed-mht-main-hall-stage-map.js" ] && [ ! -f "backend/scripts/seed-mht-main-hall-stage-map.js" ]; then
+  if [ "${FORCE_MHT_STAGE_MAP_SEED:-}" = "1" ]; then
+    echo "🎭 Схема зала МХТ (legacy path, FORCE=1)..."
+    node scripts/seed-mht-main-hall-stage-map.js 2>/dev/null || echo "⚠️ seed MHT stage map"
+  fi
 fi
 
 if [ -f "scripts/ensure-luzhniki-football-stage-map.js" ] && [ -f "$PROJECT_ROOT/tickets.json" ] && [ -f "$PROJECT_ROOT/luzhniki.txt" ]; then

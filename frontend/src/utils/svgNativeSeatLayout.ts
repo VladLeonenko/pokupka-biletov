@@ -183,6 +183,43 @@ export function parseSvgNativeSeatLayout(html: string): { seats: SvgNativeSeat[]
  * Подготовка нативной SVG-схемы: подрезка viewBox по кругам мест (схема по центру, без «пустого поля»),
  * проценты для оверлея в тех же координатах, что и отрисованный SVG.
  */
+/**
+ * Убрать circle-места из SVG для canvas-подложки.
+ * Иначе серые кружки из SVG + цветные sellable сверху = «ареолы» (МХТ/Вахтангов).
+ * Места рисуем один раз на canvas, как на Лужниках.
+ */
+export function stripSvgSeatCirclesForBackdrop(html: string): string {
+  const trimmed = html?.trim();
+  if (!trimmed || !trimmed.includes('<svg')) return html;
+  if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
+    return trimmed
+      .replace(/<circle\b[^>]*\bplace-name=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
+      .replace(/<circle\b[^>]*\bdata-replaced=(["'])[\s\S]*?\1[^>]*\/?>/gi, '');
+  }
+  try {
+    let doc = new DOMParser().parseFromString(trimmed, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) {
+      doc = new DOMParser().parseFromString(trimmed, 'text/html');
+    }
+    const svg = doc.querySelector('svg');
+    if (!svg) return trimmed;
+    svg.querySelectorAll('circle[place-name], circle[data-replaced]').forEach((c) => c.remove());
+    /** Вахтангов/театр: любые circle мест в подложке дают «серые плитки» под canvas-точками. */
+    svg.querySelectorAll('circle').forEach((c) => {
+      const fill = String(c.getAttribute('fill') || '').toLowerCase();
+      const r = Number.parseFloat(c.getAttribute('r') || '');
+      if (Number.isFinite(r) && r > 0 && r < 12) c.remove();
+      else if (fill && fill !== 'none' && fill !== '#fff' && fill !== '#ffffff' && fill !== 'white') {
+        c.setAttribute('fill', 'none');
+        c.setAttribute('stroke', 'none');
+      }
+    });
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    return trimmed;
+  }
+}
+
 export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[]; svgHtml: string } | null {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') return null;
   const trimmed = html?.trim();

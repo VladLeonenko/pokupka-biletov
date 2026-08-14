@@ -1,10 +1,13 @@
 /**
- * Схема основного зала МХТ: векторный SVG с местами (mht-chekhov-osnovnoy-zal-native.svg) или fallback на растр embed.
+ * Схема основного зала МХТ → getbilet_stage_maps (theater layout как Вахтангов).
  *
- * StageId по умолчанию — из кэша каталога для основного зала МХТ:
- *   MHT_STAGE_EXTERNAL_ID=... node scripts/seed-mht-main-hall-stage-map.js
+ * Источник SVG (по приоритету):
+ *   1) STAGE_MAP_SVG_PATH / native файл
+ *   2) уже сохранённый svg_markup в БД (прод)
+ *   3) fallback embed (только подложка — без мест)
  *
- * Запуск из каталога backend/:
+ * Запуск из backend/:
+ *   node scripts/seed-mht-main-hall-stage-map.js
  *   npm run seed:mht-stage-map
  */
 
@@ -12,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ticketPool from '../ticketDb.js';
+import { buildMhtChekhovTheaterLayout } from '../utils/mhtChekhovHallLayout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,36 +42,74 @@ const FALLBACK_EMBED = path.join(
 function countNativeSeatCircles(svg) {
   const placeNameCount = (svg.match(/<circle\b[^>]*\bplace-name=/gi) || []).length;
   const dataReplacedCount = (svg.match(/<circle\b[^>]*\bdata-replaced=/gi) || []).length;
-  return placeNameCount + dataReplacedCount;
+  return Math.max(placeNameCount, dataReplacedCount);
+}
+
+async function loadSvgMarkup() {
+  const fromEnv = process.env.STAGE_MAP_SVG_PATH?.trim();
+  if (fromEnv && fs.existsSync(fromEnv)) {
+    return { svg: fs.readFileSync(fromEnv, 'utf-8'), source: fromEnv };
+  }
+  if (fs.existsSync(NATIVE_SVG)) {
+    return { svg: fs.readFileSync(NATIVE_SVG, 'utf-8'), source: NATIVE_SVG };
+  }
+
+  const fromDb = await ticketPool.query(
+    `SELECT svg_markup FROM getbilet_stage_maps
+     WHERE stage_external_id = ANY($1::text[])
+       AND COALESCE(length(svg_markup), 0) > 1000
+     ORDER BY updated_at DESC NULLS LAST
+     LIMIT 1`,
+    [STAGE_ID_ALIASES],
+  );
+  if (fromDb.rows[0]?.svg_markup && countNativeSeatCircles(fromDb.rows[0].svg_markup) >= 2) {
+    return { svg: fromDb.rows[0].svg_markup, source: 'database' };
+  }
+
+  if (fs.existsSync(FALLBACK_EMBED)) {
+    console.warn('[seed-mht-main-hall-stage-map] нет native SVG, fallback:', FALLBACK_EMBED);
+    return { svg: fs.readFileSync(FALLBACK_EMBED, 'utf-8'), source: FALLBACK_EMBED };
+  }
+  throw new Error('Нет файла схемы МХТ и нет svg_markup в БД');
 }
 
 async function main() {
-  let svgPath = NATIVE_SVG;
-  if (!fs.existsSync(NATIVE_SVG)) {
-    console.warn('[seed-mht-main-hall-stage-map] нет native SVG, fallback:', FALLBACK_EMBED);
-    svgPath = FALLBACK_EMBED;
-  }
-  if (!fs.existsSync(svgPath)) {
-    console.error('Нет файла схемы:', svgPath);
-    process.exit(1);
-  }
-  const svg_markup = fs.readFileSync(svgPath, 'utf-8');
-  const nativeSeatCount = countNativeSeatCircles(svg_markup);
-  const layoutJson = JSON.stringify({
-    layoutMode: nativeSeatCount >= 2 ? 'svgNative' : 'grid',
-    nativeSeatCount,
-    note:
-      nativeSeatCount >= 2
-        ? 'svgNative: места берутся из circle[place-name] или circle[data-replaced]'
-        : 'grid: в SVG нет координат мест, это только визуальная подложка',
-  });
+  const { svg: rawSvg, source } = await loadSvgMarkup();
+  const nativeSeatCount = countNativeSeatCircles(rawSvg);
   if (nativeSeatCount < 2) {
     console.warn(
-      '[seed-mht-main-hall-stage-map] выбранная схема не содержит координат мест, интерактив будет только сеткой:',
-      path.basename(svgPath),
+      '[seed-mht-main-hall-stage-map] выбранная схема не содержит координат мест:',
+      source,
     );
   }
 
+  let svg_markup = rawSvg;
+  let layoutJson;
+  if (nativeSeatCount >= 2) {
+    const built = buildMhtChekhovTheaterLayout(rawSvg);
+    svg_markup = built.svgMarkup;
+    layoutJson = built.layoutJson;
+    console.log(
+      '[seed-mht-main-hall-stage-map] theater layout:',
+      `seats=${built.nativeSeatCount}`,
+      `sectors=${built.sectorsCount}`,
+      `source=${source}`,
+    );
+  } else {
+    layoutJson = {
+      layoutMode: 'grid',
+      nativeSeatCount: 0,
+      note: 'grid: в SVG нет координат мест, это только визуальная подложка',
+    };
+  }
+
+  if (layoutJson.hallKind !== 'theater' || !layoutJson.sectorMode?.enabled) {
+    throw new Error(
+      '[seed-mht-main-hall-stage-map] отказ: layout без hallKind=theater/sectorMode — не затирать прод голым svgNative',
+    );
+  }
+
+  const layoutStr = JSON.stringify(layoutJson);
   for (const stageId of STAGE_ID_ALIASES) {
     const r = await ticketPool.query(
       `INSERT INTO getbilet_stage_maps (
@@ -80,9 +122,9 @@ async function main() {
          layout_json = EXCLUDED.layout_json,
          updated_at = NOW()
        RETURNING id, stage_external_id, title`,
-      [stageId, TITLE, svg_markup, layoutJson],
+      [stageId, TITLE, svg_markup, layoutStr],
     );
-    console.log('[seed-mht-main-hall-stage-map] сохранено:', r.rows[0], 'источник:', path.basename(svgPath));
+    console.log('[seed-mht-main-hall-stage-map] сохранено:', r.rows[0], 'источник:', source);
   }
 }
 
