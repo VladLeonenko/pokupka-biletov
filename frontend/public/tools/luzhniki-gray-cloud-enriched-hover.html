@@ -96,6 +96,15 @@
       will-change: auto;
       contain: layout style;
     }
+    .viewport.mega-hall-viewport.interacting .stage svg circle {
+      pointer-events: none !important;
+    }
+    .viewport.mega-hall-viewport.interacting .stage svg path {
+      pointer-events: none !important;
+    }
+    .stage svg g[data-seat-tile][hidden] {
+      display: none !important;
+    }
     .viewport.mode-paint .stage svg { touch-action: none; }
     .stage svg { display: block; max-width: none; max-height: none; }
     .stage svg circle { pointer-events: all; cursor: pointer; }
@@ -312,6 +321,13 @@
     let circlesBySectorBase = new Map();
     let cachedLabeledCount = 0;
     let cachedUnlabeledCount = 0;
+    /** @type {{ g: SVGGElement, x0: number, y0: number, x1: number, y1: number }[]} */
+    let seatTileGroups = [];
+    let transformRaf = 0;
+    let transformDirty = false;
+    let uiSyncTimer = 0;
+    let interactEndTimer = 0;
+    let viewportInteracting = false;
     let selectedCircle = null;
     let panX = 0;
     let panY = 0;
@@ -919,10 +935,11 @@
 
     function maxZoomLevel() {
       const coarse = isCoarsePointer();
-      const base = coarse ? 120 : 20;
-      // 50k circle + scale(20) → Safari «Повторилась проблема» (OOM композитинга)
-      if (allCircles.length > 12000) return Math.min(base, coarse ? 8 : 5);
-      return base;
+      if (allCircles.length > 12000) {
+        // с тайлами viewport можно зумить сильнее, но без OOM
+        return coarse ? 7 : 4.5;
+      }
+      return coarse ? 120 : 20;
     }
 
     function minZoomLevel() {
@@ -981,7 +998,6 @@
         zoom = clampZoom(newZoom);
         clampPanToViewport();
         applyTransform();
-        syncZoomSlider();
         return;
       }
       zoom = clampZoom(newZoom);
@@ -998,7 +1014,31 @@
       panY = clientY - centerY - ry;
       clampPanToViewport();
       applyTransform();
-      syncZoomSlider();
+    }
+
+    function scheduleUiSync() {
+      if (uiSyncTimer) return;
+      uiSyncTimer = window.setTimeout(() => {
+        uiSyncTimer = 0;
+        refreshStatusHint();
+        syncZoomSlider();
+      }, 90);
+    }
+
+    function beginViewportInteract() {
+      if (allCircles.length <= 12000) return;
+      if (!viewportInteracting) {
+        viewportInteracting = true;
+        viewport.classList.add('interacting');
+      }
+      window.clearTimeout(interactEndTimer);
+      interactEndTimer = window.setTimeout(() => {
+        viewportInteracting = false;
+        viewport.classList.remove('interacting');
+        updateVisibleSeatTiles();
+        refreshStatusHint();
+        syncZoomSlider();
+      }, 160);
     }
 
     function refreshStatusHint() {
@@ -1028,17 +1068,102 @@
     }
 
     function applyTransform() {
-      stage.style.transform =
-        'translate(calc(-50% + ' +
-        panX +
-        'px), calc(-50% + ' +
-        panY +
-        'px)) rotate(' +
-        viewRotateDeg +
-        'deg) scale(' +
-        zoom +
-        ')';
-      refreshStatusHint();
+      transformDirty = true;
+      if (transformRaf) return;
+      transformRaf = window.requestAnimationFrame(() => {
+        transformRaf = 0;
+        if (!transformDirty) return;
+        transformDirty = false;
+        stage.style.transform =
+          'translate(calc(-50% + ' +
+          panX +
+          'px), calc(-50% + ' +
+          panY +
+          'px)) rotate(' +
+          viewRotateDeg +
+          'deg) scale(' +
+          zoom +
+          ')';
+        updateVisibleSeatTiles();
+        scheduleUiSync();
+      });
+    }
+
+    /** Режем DOM на тайлы — при zoom рисуем только видимые (~2–6k вместо 48k). */
+    function retileSeatCoordinatesLayer() {
+      seatTileGroups = [];
+      if (!svgRoot || allCircles.length <= 12000) return;
+      const layer = svgRoot.querySelector('#hall-seat-coordinates, #luzhniki-gray-cloud-coordinates');
+      if (!layer) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      const tile = Math.max(480, Math.round(Math.min(vbW, vbH) / 14));
+      /** @type {Map<string, { g: SVGGElement, x0: number, y0: number, x1: number, y1: number }>} */
+      const map = new Map();
+      const tops = Array.from(layer.querySelectorAll(':scope > circle'));
+      for (const c of tops) {
+        const cx = +c.getAttribute('cx');
+        const cy = +c.getAttribute('cy');
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+        const gx = Math.floor(cx / tile);
+        const gy = Math.floor(cy / tile);
+        const key = gx + ',' + gy;
+        let rec = map.get(key);
+        if (!rec) {
+          const g = document.createElementNS(ns, 'g');
+          g.setAttribute('data-seat-tile', key);
+          layer.appendChild(g);
+          rec = {
+            g,
+            x0: gx * tile,
+            y0: gy * tile,
+            x1: (gx + 1) * tile,
+            y1: (gy + 1) * tile,
+          };
+          map.set(key, rec);
+          seatTileGroups.push(rec);
+        }
+        rec.g.appendChild(c);
+      }
+    }
+
+    function visibleSvgBounds(padSvg) {
+      const vr = viewport.getBoundingClientRect();
+      const corners = [
+        clientToSvg(vr.left, vr.top),
+        clientToSvg(vr.right, vr.top),
+        clientToSvg(vr.left, vr.bottom),
+        clientToSvg(vr.right, vr.bottom),
+      ].filter(Boolean);
+      if (corners.length < 2) return null;
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const p of corners) {
+        x0 = Math.min(x0, p.x);
+        y0 = Math.min(y0, p.y);
+        x1 = Math.max(x1, p.x);
+        y1 = Math.max(y1, p.y);
+      }
+      const pad = padSvg || 100;
+      return { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad };
+    }
+
+    function updateVisibleSeatTiles() {
+      if (!seatTileGroups.length) return;
+      // Обзор: все тайлы (точки мелкие). Крупный zoom — только viewport.
+      if (zoom <= fitZoom * 1.4) {
+        for (const t of seatTileGroups) t.g.removeAttribute('hidden');
+        return;
+      }
+      const pad = Math.max(160, 280 / Math.max(zoom, 0.01));
+      const b = visibleSvgBounds(pad);
+      if (!b) return;
+      for (const t of seatTileGroups) {
+        const hit = !(t.x1 < b.x0 || t.x0 > b.x1 || t.y1 < b.y0 || t.y0 > b.y1);
+        if (hit) t.g.removeAttribute('hidden');
+        else t.g.setAttribute('hidden', '');
+      }
     }
 
     function syncStageSize() {
@@ -4739,6 +4864,7 @@
       allCircles = Array.from(svg.querySelectorAll('circle'));
       const megaHall = allCircles.length > 12000;
       stage.classList.toggle('mega-hall', megaHall);
+      viewport.classList.toggle('mega-hall-viewport', megaHall);
       ensureOverlay();
       fitToView();
       if (isSupercupStadiumEditor || (isLuzhnikiConcertEditor && megaHall)) {
@@ -4752,6 +4878,7 @@
         rebuildCircleCoordIndex();
         rebuildSectorCircleIndex();
         circleGrid = buildCircleGrid(allCircles, megaHall ? 180 : 96);
+        if (megaHall) retileSeatCoordinatesLayer();
         const restored = applyStoredEditsToSvg();
         refreshAllEditorVisuals();
         recountStats();
@@ -4759,6 +4886,7 @@
         updateSaveStatus();
         renderRowLabels(paintSectorForApply());
         updateSectorFocusVisual(paintSectorForApply());
+        updateVisibleSeatTiles();
         if (restored > 0) {
           showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
         } else if (isSupercupStadiumEditor && megaHall) {
@@ -4780,7 +4908,10 @@
             'Концерт: ' +
               allCircles.length.toLocaleString('ru') +
               ' точек · разметка ' +
-              cachedLabeledCount.toLocaleString('ru'),
+              cachedLabeledCount.toLocaleString('ru') +
+              (seatTileGroups.length
+                ? ' · тайлы ' + seatTileGroups.length
+                : ''),
           );
         }
       };
@@ -4978,6 +5109,7 @@
       if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
       panX = panStartX + (e.clientX - dragStartX);
       panY = panStartY + (e.clientY - dragStartY);
+      beginViewportInteract();
       clampPanToViewport();
       applyTransform();
     });
@@ -4987,6 +5119,7 @@
       (e) => {
         e.preventDefault();
         if (paintPending) return;
+        beginViewportInteract();
         const factor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
         setZoomAt(clampZoom(zoom * factor), e.clientX, e.clientY);
       },
