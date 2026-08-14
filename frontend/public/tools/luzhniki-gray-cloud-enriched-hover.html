@@ -266,17 +266,20 @@
       ['5173', '5174', '8766'].includes(location.port);
     const PROD_ORIGIN = 'https://biletvsem.com';
     /** API зала: luzhniki-gray-cloud-svg | luzhniki-concert-seats | vakhtangov-hall-seats | … */
-    const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
+    const hallApiParam = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
+    /** Концерт = тот же диск/API что спорт (не buildHallEnrichedSvg). */
+    const isLuzhnikiConcertEditor = hallApiParam === 'luzhniki-concert-seats';
+    const hallApi = isLuzhnikiConcertEditor ? 'luzhniki-gray-cloud-svg' : hallApiParam;
     const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
-    const isLuzhnikiConcertEditor = hallApi === 'luzhniki-concert-seats';
     const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
     if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isSupercupStadiumEditor;
-    // На 70k+ точек «без ряда — красные» вешает UI — по умолчанию выкл на концерте.
-    if (isLuzhnikiConcertEditor && markUnlabeled) {
+    // mega: «без ряда — красные» вешает UI (и спорт, и концерт)
+    if ((isLuzhnikiConcertEditor || hallApi === 'luzhniki-gray-cloud-svg') && markUnlabeled) {
       markUnlabeled.checked = false;
     }
     const pageTitle = urlParams.get('title')?.trim();
     if (pageTitle) document.title = pageTitle;
+    else if (isLuzhnikiConcertEditor) document.title = 'Лужники — концерт';
     /** Лужники на localhost сохраняют на prod; остальные залы — на этот же хост (dev API). */
     const saveApiParam = urlParams.get('saveApi');
     const saveApiBase =
@@ -992,6 +995,7 @@
 
     /** Зум к точке под пальцем / колёсиком (учитывает pan, zoom, rotate). */
     function setZoomAt(newZoom, clientX, clientY) {
+      beginViewportInteract();
       const before = clientToSvg(clientX, clientY);
       const vr = viewport.getBoundingClientRect();
       if (!before || !vr.width || !vr.height) {
@@ -4867,7 +4871,7 @@
       viewport.classList.toggle('mega-hall-viewport', megaHall);
       ensureOverlay();
       fitToView();
-      if (isSupercupStadiumEditor || (isLuzhnikiConcertEditor && megaHall)) {
+      if (isSupercupStadiumEditor) {
         panMode = true;
         panModeBtn.classList.add('active');
         updatePanCursor();
@@ -4905,13 +4909,7 @@
         } else if (isLuzhnikiConcertEditor) {
           showPaintToast(
             'info',
-            'Концерт: ' +
-              allCircles.length.toLocaleString('ru') +
-              ' точек · разметка ' +
-              cachedLabeledCount.toLocaleString('ru') +
-              (seatTileGroups.length
-                ? ' · тайлы ' + seatTileGroups.length
-                : ''),
+            'Концерт = тот же SVG что спорт · ' + allCircles.length.toLocaleString('ru') + ' точек',
           );
         }
       };

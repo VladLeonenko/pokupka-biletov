@@ -30,6 +30,7 @@ import {
 import { buildHallEnrichedSvg } from '../utils/buildHallEnrichedSvg.js';
 import { isLuzhnikiConcertFreeZoneSector } from '../utils/luzhnikiConcertFreeZoneSeats.js';
 import { isLuzhnikiConcertKeepSectorLabel } from '../utils/luzhnikiConcertSectorFilter.js';
+import { readLuzhnikiGrayCloudEnrichedSvgMarkup } from '../utils/ensureLuzhnikiGrayCloudEnrichedSvg.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -668,17 +669,17 @@ router.get('/bundle', async (_req, res) => {
   }
 });
 
-router.get('/enriched.svg', async (req, res) => {
+/** 1:1 со спортом — hand SVG с диска, без динамической сборки. */
+router.get('/enriched.svg', async (_req, res) => {
   try {
-    const sector = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
-    const xml = await buildConcertEnrichedSvgMarkup(sector);
+    const xml = await readLuzhnikiGrayCloudEnrichedSvgMarkup();
     res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    if (sector) res.setHeader('X-Luzhniki-Concert-Editor-Sector', sector);
+    res.setHeader('X-Luzhniki-Concert-Editor-Svg', 'sport-hand');
     return res.send(xml);
   } catch (e) {
     console.error('[luzhniki-concert-seats] enriched.svg', e);
-    return res.status(e.message?.includes('not in DB') ? 404 : 500).json({
+    return res.status(404).json({
       ok: false,
       error: e.message || String(e),
     });
