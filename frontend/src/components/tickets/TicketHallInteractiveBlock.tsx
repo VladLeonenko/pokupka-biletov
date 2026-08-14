@@ -350,23 +350,9 @@ function isStadiumScaleHallLayout(layout: unknown): boolean {
   return false;
 }
 
-/** Цвета уровней театра на обзоре 100% — читаемые зоны, не «белый лист». */
-function theaterLevelAccent(label: string): string {
-  const s = normalizeTheaterSectorKey(label);
-  if (s.includes('бенуар')) return '#db2777';
-  if (s.includes('ложа') && s.includes('балкон')) return '#7c3aed';
-  if (s.includes('ложа') && (s.includes('бельэтаж') || s.includes('бельетаж'))) return '#d97706';
-  if (s.includes('ложа')) return '#c026d3';
-  if (s.includes('балкон')) return '#7c3aed';
-  if (s.includes('бельэтаж') || s.includes('бельетаж')) return '#d97706';
-  if (s.includes('амфитеатр')) return '#059669';
-  if (s.includes('партер')) return '#2563eb';
-  return '#64748b';
-}
-
 /**
  * Вахтангов и часть выгрузок: латиница-«близнецы» в именах секторов (пaptep → партер).
- * Без нормализации заливка не матчится и сыпется серыми плитками.
+ * Нужно для группировки уровня при focusSector (МХТ без заливок).
  */
 function normalizeTheaterSectorKey(label: string): string {
   return String(label || '')
@@ -390,10 +376,7 @@ function normalizeTheaterSectorKey(label: string): string {
     .replace(/y/g, 'у');
 }
 
-/**
- * Группа заливки: один уровень зала = один фон.
- * Ложи лев/прав не склеиваем в один AABB через весь зал.
- */
+/** Группа уровня зала (focus / матчинг). Ложи лев/прав раздельно. */
 function theaterLevelFillGroup(label: string): { key: string; displayLabel: string } {
   const s = normalizeTheaterSectorKey(label);
   const compact = s.replace(/\s+/g, '');
@@ -602,149 +585,6 @@ function parseSvgViewBox(svg: string): {
     return { value: `0 0 ${width} ${height}`, minX: 0, minY: 0, width, height };
   }
   return { value: '0 0 100 100', minX: 0, minY: 0, width: 100, height: 100 };
-}
-
-/**
- * Заливка уровней МХТ на 100%: дуги амфитеатра (как Вахтангов), не прямоугольники.
- * Ложи — компактный rounded AABB (не тянуть подкову через зал).
- */
-function buildTheaterLevelAabbFills(
-  seats: SvgNativeSeat[],
-  vb: { minX: number; minY: number; width: number; height: number },
-): { id: string; label: string; path: string }[] {
-  if (seats.length < 2 || !(vb.width > 0) || !(vb.height > 0)) return [];
-
-  const byGroup = new Map<string, { key: string; displayLabel: string; seats: SvgNativeSeat[] }>();
-  for (const seat of seats) {
-    const raw = String(seat.sector || '').trim();
-    if (!raw) continue;
-    const { key, displayLabel } = theaterLevelFillGroup(raw);
-    const bucket = byGroup.get(key);
-    if (bucket) bucket.seats.push(seat);
-    else byGroup.set(key, { key, displayLabel, seats: [seat] });
-  }
-
-  const out: { id: string; label: string; path: string }[] = [];
-  let seq = 0;
-
-  for (const { key, displayLabel, seats: group } of byGroup.values()) {
-    if (group.length < 1) continue;
-    const path = key.startsWith('lozha-')
-      ? theaterLozhaRoundedRectPath(group, vb)
-      : theaterAmphiBandPath(group, vb);
-    if (!path) continue;
-    out.push({
-      id: `theater-fill-${seq++}`,
-      label: displayLabel,
-      path,
-    });
-  }
-
-  return out;
-}
-
-function theaterPctToSvg(
-  xPct: number,
-  yPct: number,
-  vb: { minX: number; minY: number; width: number; height: number },
-): { x: number; y: number } {
-  return {
-    x: vb.minX + (xPct / 100) * vb.width,
-    y: vb.minY + (yPct / 100) * vb.height,
-  };
-}
-
-function theaterGroupBoundsPct(group: SvgNativeSeat[], padPct: number) {
-  let minXp = Infinity;
-  let minYp = Infinity;
-  let maxXp = -Infinity;
-  let maxYp = -Infinity;
-  for (const s of group) {
-    minXp = Math.min(minXp, s.xPct);
-    minYp = Math.min(minYp, s.yPct);
-    maxXp = Math.max(maxXp, s.xPct);
-    maxYp = Math.max(maxYp, s.yPct);
-  }
-  minXp -= padPct;
-  minYp -= padPct;
-  maxXp += padPct;
-  maxYp += padPct;
-  return { minXp, minYp, maxXp, maxYp };
-}
-
-/** Боковые ложи — аккуратный скруглённый прямоугольник. */
-function theaterLozhaRoundedRectPath(
-  group: SvgNativeSeat[],
-  vb: { minX: number; minY: number; width: number; height: number },
-): string {
-  const { minXp, minYp, maxXp, maxYp } = theaterGroupBoundsPct(group, 1.05);
-  const a = theaterPctToSvg(minXp, minYp, vb);
-  const b = theaterPctToSvg(maxXp, maxYp, vb);
-  const w = Math.max(0.5, b.x - a.x);
-  const h = Math.max(0.5, b.y - a.y);
-  return roundedRectPath(a.x, a.y, b.x, b.y, Math.min(w, h) * 0.22);
-}
-
-/**
- * Подкова/дуга уровня: сцена МХТ внизу схемы → передний край ближе к низу.
- * SVG мест у МХТ часто «прямоугольный», поэтому дугу рисуем явно (эталон — Вахтангов).
- */
-function theaterAmphiBandPath(
-  group: SvgNativeSeat[],
-  vb: { minX: number; minY: number; width: number; height: number },
-): string {
-  const { minXp, minYp, maxXp, maxYp } = theaterGroupBoundsPct(group, 1.35);
-  const w = Math.max(0.5, maxXp - minXp);
-  const h = Math.max(0.5, maxYp - minYp);
-  const cx = (minXp + maxXp) / 2;
-  const midY = (minYp + maxYp) / 2;
-
-  /** Выгиб «спинки» от сцены (вверх по схеме). */
-  const backBow = Math.max(1.4, Math.min(w * 0.18, h * 0.75, 7.5));
-  /** Параллельная дуга у края к сцене — чуть слабее. */
-  const frontBow = Math.max(0.9, backBow * 0.55);
-  /** Сужение к сцене + лёгкий боковой вынос. */
-  const taper = Math.min(w * 0.1, 5.5);
-  const sideBulge = Math.min(w * 0.035, 1.8);
-
-  const topL = theaterPctToSvg(minXp, minYp, vb);
-  const topR = theaterPctToSvg(maxXp, minYp, vb);
-  const topMid = theaterPctToSvg(cx, minYp - backBow, vb);
-  const botL = theaterPctToSvg(minXp + taper, maxYp, vb);
-  const botR = theaterPctToSvg(maxXp - taper, maxYp, vb);
-  const botMid = theaterPctToSvg(cx, maxYp - frontBow, vb);
-  const rightMid = theaterPctToSvg(maxXp + sideBulge, midY, vb);
-  const leftMid = theaterPctToSvg(minXp - sideBulge, midY, vb);
-
-  return [
-    `M ${topL.x.toFixed(2)} ${topL.y.toFixed(2)}`,
-    `Q ${topMid.x.toFixed(2)} ${topMid.y.toFixed(2)} ${topR.x.toFixed(2)} ${topR.y.toFixed(2)}`,
-    `Q ${rightMid.x.toFixed(2)} ${rightMid.y.toFixed(2)} ${botR.x.toFixed(2)} ${botR.y.toFixed(2)}`,
-    `Q ${botMid.x.toFixed(2)} ${botMid.y.toFixed(2)} ${botL.x.toFixed(2)} ${botL.y.toFixed(2)}`,
-    `Q ${leftMid.x.toFixed(2)} ${leftMid.y.toFixed(2)} ${topL.x.toFixed(2)} ${topL.y.toFixed(2)}`,
-    'Z',
-  ].join(' ');
-}
-
-function roundedRectPath(x0: number, y0: number, x1: number, y1: number, r: number): string {
-  const w = x1 - x0;
-  const h = y1 - y0;
-  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
-  if (rr < 0.2) {
-    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} L ${x1.toFixed(2)} ${y0.toFixed(2)} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x0.toFixed(2)} ${y1.toFixed(2)} Z`;
-  }
-  return [
-    `M ${(x0 + rr).toFixed(2)} ${y0.toFixed(2)}`,
-    `L ${(x1 - rr).toFixed(2)} ${y0.toFixed(2)}`,
-    `Q ${x1.toFixed(2)} ${y0.toFixed(2)} ${x1.toFixed(2)} ${(y0 + rr).toFixed(2)}`,
-    `L ${x1.toFixed(2)} ${(y1 - rr).toFixed(2)}`,
-    `Q ${x1.toFixed(2)} ${y1.toFixed(2)} ${(x1 - rr).toFixed(2)} ${y1.toFixed(2)}`,
-    `L ${(x0 + rr).toFixed(2)} ${y1.toFixed(2)}`,
-    `Q ${x0.toFixed(2)} ${y1.toFixed(2)} ${x0.toFixed(2)} ${(y1 - rr).toFixed(2)}`,
-    `L ${x0.toFixed(2)} ${(y0 + rr).toFixed(2)}`,
-    `Q ${x0.toFixed(2)} ${y0.toFixed(2)} ${(x0 + rr).toFixed(2)} ${y0.toFixed(2)}`,
-    'Z',
-  ].join(' ');
 }
 
 function pathBBox(path: string): BBox | null {
@@ -1290,14 +1130,9 @@ export function TicketHallInteractiveBlock({
     return map;
   }, [sectorSummaries]);
 
-  /** Только заливка уровней на 100% — по координатам уже видимых мест. Места/sellable не трогаем. */
-  const theaterOverviewFills = useMemo(() => {
-    if (!theaterSectorCheckout || nativeSeats.length < 2) return [];
-    return buildTheaterLevelAabbFills(nativeSeats, svgViewBox);
-  }, [theaterSectorCheckout, nativeSeats, svgViewBox]);
   /**
-   * Вахтангов и залы с готовыми кривыми path в layout — родная заливка секторов.
-   * МХТ (AABB из seed / без preferLayout) — FE-подушки по уровням.
+   * Вахтангов: родные path-заливки.
+   * МХТ: без заливки секторов (только canvas места/sellable).
    */
   const useNativeTheaterSectorPaths = useMemo(() => {
     if (!theaterSectorCheckout) return false;
@@ -2638,70 +2473,9 @@ export function TicketHallInteractiveBlock({
                     />
                   );
                 })}
-                {theaterSectorCheckout && !hideSectorFill && !useNativeTheaterSectorPaths
-                  ? theaterOverviewFills.map((fill) => {
-                      const sector =
-                        resolveSectorSummaryForLabel(fill.label) ??
-                        ({
-                          meta: {
-                            id: fill.id,
-                            label: fill.label,
-                            path: fill.path,
-                            availableSeats: 0,
-                            minPrice: null,
-                            maxPrice: null,
-                            previewImageUrl: null,
-                          },
-                          offers: [],
-                          seatCount: 0,
-                          minPrice: null,
-                          maxPrice: null,
-                        } satisfies SectorSummary);
-                      const available = sector.seatCount > 0 || sector.offers.length > 0;
-                      const active = selectedSector === normalizeSectorLabel(fill.label);
-                      const sectorForFocus = {
-                        ...sector,
-                        meta: { ...sector.meta, path: fill.path, label: fill.label },
-                      };
-                      return (
-                        <path
-                          key={fill.id}
-                          d={fill.path}
-                          data-sector-path="true"
-                          className={`${styles.sectorPath} ${styles.sectorPathInteractive} ${
-                            available ? styles.sectorPathAvailable : styles.sectorPathUnavailable
-                          } ${active ? styles.sectorPathActive : ''} ${styles.sectorPathTheaterLevel}`}
-                          style={
-                            {
-                              '--sector-accent': theaterLevelAccent(fill.label),
-                            } as React.CSSProperties
-                          }
-                          tabIndex={0}
-                          role="button"
-                          aria-label={`${fill.label}: ${sector.seatCount > 0 ? `${sector.seatCount} мест` : 'уровень зала'}`}
-                          onPointerDown={(ev) => {
-                            showSectorInfo(ev.currentTarget, sectorForFocus);
-                          }}
-                          onPointerEnter={(ev) => {
-                            showSectorInfo(ev.currentTarget, sectorForFocus);
-                          }}
-                          onPointerLeave={(ev) => {
-                            if (ev.pointerType !== 'touch') hideSectorInfo();
-                          }}
-                          onFocus={(ev) => {
-                            showSectorInfo(ev.currentTarget, sectorForFocus);
-                          }}
-                          onBlur={hideSectorInfo}
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            if (suppressMapClickRef.current) return;
-                            focusSector(sectorForFocus);
-                          }}
-                        />
-                      );
-                    })
+                {theaterSectorCheckout && !useNativeTheaterSectorPaths
+                  ? null
                   : sectorSummaries.map((sector) => {
-                  if (theaterSectorCheckout && !useNativeTheaterSectorPaths) return null;
                   if (!sector.meta.path) return null;
                   const available =
                     sector.seatCount > 0 ||

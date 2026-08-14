@@ -34,8 +34,7 @@ Stage ids: `603ad33813cd03003015d811`, legacy `639c4a4cd6cfc5004d20dcfb`.
 2. Автосид в `deploy-via-git.sh` **выключен** (`FORCE_MHT_STAGE_MAP_SEED=1` только вручную).  
    Root `scripts/seed-mht-*.js` — только делегат в backend seed.
 3. Места/sellable — theater canvas (эталон точек как у Вахтангова).
-4. **Заливки на 100%** — `theaterOverviewFills` = дуги амфитеатра (`theaterAmphiBandPath`), не прямоугольники AABB. Ложи — мелкий rounded rect.
-   Визуал заливки: **PortalBilet** — почти белый/серый wash + тонкий stroke; цвет цены только у sellable-точек (не красить уровни в синий/зелёный/фиолетовый).
+4. **Заливки на 100%** — **нет** (отключены). Только места/sellable на canvas.
 5. Zoom в сектор — камера по облаку мест уровня (`focusSector`), не по крошечному seed-AABB.
 
 ## Схема ≠ один спектакль
