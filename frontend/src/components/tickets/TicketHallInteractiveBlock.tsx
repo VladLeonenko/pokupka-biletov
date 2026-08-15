@@ -157,7 +157,10 @@ type BackgroundSeatCoordinate = {
   yPct: number;
 };
 
-function hallBackgroundSeatRadiusPx(scalePx: number, dense: boolean): number {
+function hallBackgroundSeatRadiusPx(scalePx: number, dense: boolean, mapZoomed = false): number {
+  if (mapZoomed) {
+    return Math.max(1.7, Math.min(3.4, scalePx * 9));
+  }
   return dense
     ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
     : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
@@ -198,16 +201,19 @@ function drawHallBackgroundArcs(
   svgViewBoxWidth: number,
   dense: boolean,
   excludePctBoxes: PctBox[] = [],
+  mapZoomed = false,
+  fastRect = false,
 ): void {
   const { left, top, screenW, screenH } = layout;
   const scalePx = screenW / Math.max(1, svgViewBoxWidth);
-  const r = hallBackgroundSeatRadiusPx(scalePx, dense);
+  const r = hallBackgroundSeatRadiusPx(scalePx, dense, mapZoomed);
+  const d = r * 2;
   ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
-  ctx.beginPath();
   const limW = viewportWidth + 14;
   const limH = viewportHeight + 14;
   const skipField = excludePctBoxes.length > 0;
 
+  if (!fastRect) ctx.beginPath();
   if (seats instanceof Float32Array) {
     for (let i = 0; i < seats.length; i += 2) {
       const xPct = seats[i];
@@ -216,8 +222,11 @@ function drawHallBackgroundArcs(
       const sx = left + (xPct / 100) * screenW;
       const sy = top + (yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-      ctx.moveTo(sx + r, sy);
-      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      if (fastRect) ctx.fillRect(sx - r, sy - r, d, d);
+      else {
+        ctx.moveTo(sx + r, sy);
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      }
     }
   } else {
     for (const seat of seats) {
@@ -225,11 +234,14 @@ function drawHallBackgroundArcs(
       const sx = left + (seat.xPct / 100) * screenW;
       const sy = top + (seat.yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-      ctx.moveTo(sx + r, sy);
-      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      if (fastRect) ctx.fillRect(sx - r, sy - r, d, d);
+      else {
+        ctx.moveTo(sx + r, sy);
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      }
     }
   }
-  ctx.fill();
+  if (!fastRect) ctx.fill();
 }
 
 function parseOverlayRect(layout: unknown): OverlayRect {
@@ -340,6 +352,7 @@ function parseGrayHallWhenNoOffers(
 function isStadiumScaleHallLayout(layout: unknown): boolean {
   const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
   if (!r) return false;
+  if (r.luzhnikiStadiumCheckout === true) return true;
   if (
     r.stadiumMapKey === 'luzhniki-football' ||
     r.stadiumMapKey === 'luzhniki-concert' ||
@@ -418,9 +431,15 @@ function parseMaxZoomMultiplier(
   const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
   const raw = r?.maxZoomMultiplier;
   const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+  const stadium = isStadiumScaleHallLayout(layout);
+  /** layout_json у Лужников = 12 (1200%). На мобилке нужно ×2, иначе + упирается в 1200%. */
+  if (stadium && isCoarsePointer) {
+    const base = Number.isFinite(n) && n >= 1 ? n : 12;
+    return Math.max(24, base * 2);
+  }
   if (Number.isFinite(n) && n >= 1) return n;
-  if (sectorModeEnabled && !isStadiumScaleHallLayout(layout)) return 2;
-  if (sectorModeEnabled) return isCoarsePointer ? 56 : 12;
+  if (sectorModeEnabled && !stadium) return 2;
+  if (sectorModeEnabled) return 12;
   return isCoarsePointer ? 36 : 8;
 }
 
@@ -1198,7 +1217,7 @@ export function TicketHallInteractiveBlock({
     () => {
       const baseMultipliers = sectorMode.enabled
         ? isCoarsePointer
-          ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 28, 40, 56]
+          ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 24]
           : [1, 2, 3, 4, 6, 8, 10, 12]
         : isCoarsePointer
           ? [1, 2, 3, 4, 6, 8, 12, 16, 24, 36]
@@ -1941,8 +1960,7 @@ export function TicketHallInteractiveBlock({
   }, [hallBackgroundDotsUrl, preferBundleBackgroundDots]);
 
   useEffect(() => {
-    if (isCoarsePointer) return;
-    if (!useHallBackgroundRaster || !hallBackgroundDotsUrl || !mapZoomed) return;
+    if (!useHallBackgroundRaster || !hallBackgroundDotsUrl) return;
     if (preferBundleBackgroundDots) return;
     if (bowlDotsRef.current || bowlDotsLoadRef.current) return;
 
@@ -1960,7 +1978,7 @@ export function TicketHallInteractiveBlock({
         setBowlDotsVersion((v) => v + 1);
       })
       .catch(() => {
-        /* zoom без vector dots — останется PNG fallback */
+        /* zoom без vector dots — не апскейлить PNG */
       })
       .finally(() => {
         bowlDotsLoadRef.current = null;
@@ -1969,7 +1987,7 @@ export function TicketHallInteractiveBlock({
     return () => {
       cancelled = true;
     };
-  }, [hallBackgroundDotsUrl, isCoarsePointer, mapZoomed, preferBundleBackgroundDots, useHallBackgroundRaster]);
+  }, [hallBackgroundDotsUrl, preferBundleBackgroundDots, useHallBackgroundRaster]);
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -2217,34 +2235,44 @@ export function TicketHallInteractiveBlock({
       /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
       const skipStadiumBowlDots = theaterSvgSeatCanvas;
       /**
-       * PNG-чаша только на обзоре. На zoom — никогда: апскейл даёт «двойные» точки
-       * под острым dots.bin (или один мыльный слой, пока bin грузится).
+       * PNG только на обзоре или во время жеста.
+       * Апскейл PNG на зуме = «редкие ряды» — так больше не рисуем.
        */
-      if (!skipStadiumBowlDots && useHallBackgroundRaster && hallRaster && (!mapZoomedNow || isCoarsePointer)) {
+      if (
+        !skipStadiumBowlDots
+        && useHallBackgroundRaster
+        && hallRaster
+        && (!mapZoomedNow || isMapDragging)
+      ) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }
 
-      if (!isCoarsePointer && !skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
+      const bowlLayout = { left: x, top: y, screenW: w, screenH: h };
+      if (!skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && !isMapDragging && backgroundSeatCoordinates.length > 0) {
         drawHallBackgroundArcs(
           ctx,
           backgroundSeatCoordinates,
-          { left: x, top: y, screenW: w, screenH: h },
+          bowlLayout,
           width,
           height,
           svgViewBox.width,
           backgroundSeatCoordinates.length >= 8000,
           fieldDotExcludePctBoxes,
+          true,
+          isCoarsePointer,
         );
-      } else if (!isCoarsePointer && !skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && bowlDots) {
+      } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && !isMapDragging && bowlDots) {
         drawHallBackgroundArcs(
           ctx,
           bowlDots,
-          { left: x, top: y, screenW: w, screenH: h },
+          bowlLayout,
           width,
           height,
           svgViewBox.width,
           true,
           fieldDotExcludePctBoxes,
+          true,
+          isCoarsePointer,
         );
       }
 
@@ -2264,6 +2292,8 @@ export function TicketHallInteractiveBlock({
           svgViewBox.width,
           bg.length >= 8000,
           fieldDotExcludePctBoxes,
+          mapZoomedNow,
+          isCoarsePointer,
         );
       }
 
@@ -2356,6 +2386,7 @@ export function TicketHallInteractiveBlock({
     fitZoom,
     getLayerScreenBox,
     hallRasterVersion,
+    isMapDragging,
     preferBundleBackgroundDots,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
@@ -2373,6 +2404,7 @@ export function TicketHallInteractiveBlock({
 
   const rootClass =
     variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
+  const mobileHintSeat = hoverSeat || selectedSeatDetails[selectedSeatDetails.length - 1] || null;
 
   return (
     <div className={rootClass}>
@@ -3196,53 +3228,79 @@ export function TicketHallInteractiveBlock({
         </div>
       ) : null}
 
-      <Popper
-        open={Boolean(hoverAnchor && hoverSeat)}
-        anchorEl={hoverAnchor}
-        placement="top"
-        modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
-        sx={{ zIndex: 1600 }}
-      >
-        {hoverSeat && (
-          <Paper elevation={4} sx={{ p: 1.25, maxWidth: 280, borderRadius: 2 }}>
-            <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
-              <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
-              {hoverSeat.seat}, цена{' '}
-              <strong>{formatRub(Number(hoverSeat.priceKey))}</strong>
-            </Typography>
-          </Paper>
-        )}
-      </Popper>
+      {isCoarsePointer && mobileHintSeat ? (
+        <div className={styles.mobileHintCard} role="status">
+          <strong>{mobileHintSeat.sector || 'Сектор'}</strong>
+          {`, ${mobileHintSeat.row || '—'} ряд, место ${mobileHintSeat.seat}, `}
+          <strong>{formatRub(Number(mobileHintSeat.priceKey))}</strong>
+        </div>
+      ) : isCoarsePointer && hoverSector ? (
+        <div className={styles.mobileHintCard} role="status">
+          <span className={styles.mobileHintMuted}>
+            {hoverSector.seatCount > 0 ? `${hoverSector.seatCount} свободных мест` : 'Нет мест в наличии'}
+          </span>
+          <strong>{hoverSector.meta.label}</strong>
+          <strong>
+            {hoverSector.minPrice != null
+              ? `${formatRub(hoverSector.minPrice)}${
+                  hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
+                    ? ` - ${formatRub(hoverSector.maxPrice)}`
+                    : ''
+                }`
+              : 'Цена уточняется'}
+          </strong>
+        </div>
+      ) : !isCoarsePointer ? (
+        <Popper
+          open={Boolean(hoverAnchor && hoverSeat)}
+          anchorEl={hoverAnchor}
+          placement="top"
+          modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
+          sx={{ zIndex: 1600 }}
+        >
+          {hoverSeat && (
+            <Paper elevation={4} sx={{ p: 1.25, maxWidth: 280, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
+                <strong>{hoverSeat.sector || 'Сектор'}</strong>, {hoverSeat.row || '—'} ряд, место{' '}
+                {hoverSeat.seat}, цена{' '}
+                <strong>{formatRub(Number(hoverSeat.priceKey))}</strong>
+              </Typography>
+            </Paper>
+          )}
+        </Popper>
+      ) : null}
 
-      <Popper
-        open={Boolean(hoverSectorAnchor && hoverSector)}
-        anchorEl={hoverSectorAnchor as HTMLElement | null}
-        placement="top"
-        modifiers={[{ name: 'offset', options: { offset: [0, 10] } }]}
-        sx={{ zIndex: 30 }}
-      >
-        {hoverSector && (
-          <Paper elevation={4} sx={{ p: 1.35, maxWidth: 260, borderRadius: 2 }}>
-            <Typography variant="body2" sx={{ lineHeight: 1.45, color: 'rgba(0,0,0,0.82)' }}>
-              <span style={{ color: 'rgba(0,0,0,0.5)' }}>
-                {hoverSector.seatCount > 0 ? `${hoverSector.seatCount} свободных мест` : 'Нет мест в наличии'}
-              </span>
-              <br />
-              <strong>{hoverSector.meta.label}</strong>
-              <br />
-              <strong>
-                {hoverSector.minPrice != null
-                  ? `${formatRub(hoverSector.minPrice)}${
-                      hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
-                        ? ` - ${formatRub(hoverSector.maxPrice)}`
-                        : ''
-                    }`
-                  : 'Цена уточняется'}
-              </strong>
-            </Typography>
-          </Paper>
-        )}
-      </Popper>
+      {!isCoarsePointer ? (
+        <Popper
+          open={Boolean(hoverSectorAnchor && hoverSector)}
+          anchorEl={hoverSectorAnchor as HTMLElement | null}
+          placement="top"
+          modifiers={[{ name: 'offset', options: { offset: [0, 10] } }]}
+          sx={{ zIndex: 30 }}
+        >
+          {hoverSector && (
+            <Paper elevation={4} sx={{ p: 1.35, maxWidth: 260, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ lineHeight: 1.45, color: 'rgba(0,0,0,0.82)' }}>
+                <span style={{ color: 'rgba(0,0,0,0.5)' }}>
+                  {hoverSector.seatCount > 0 ? `${hoverSector.seatCount} свободных мест` : 'Нет мест в наличии'}
+                </span>
+                <br />
+                <strong>{hoverSector.meta.label}</strong>
+                <br />
+                <strong>
+                  {hoverSector.minPrice != null
+                    ? `${formatRub(hoverSector.minPrice)}${
+                        hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
+                          ? ` - ${formatRub(hoverSector.maxPrice)}`
+                          : ''
+                      }`
+                    : 'Цена уточняется'}
+                </strong>
+              </Typography>
+            </Paper>
+          )}
+        </Popper>
+      ) : null}
     </div>
   );
 }

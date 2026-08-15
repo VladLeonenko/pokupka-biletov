@@ -2212,7 +2212,11 @@ export function TicketCheckoutPage() {
               sx: {
                 display: 'flex',
                 flexDirection: 'column',
-                maxHeight: fullScreenMap ? '100%' : '95vh',
+                m: fullScreenMap ? 0 : undefined,
+                width: fullScreenMap ? '100%' : undefined,
+                height: fullScreenMap ? '100dvh' : undefined,
+                maxHeight: fullScreenMap ? '100dvh' : '95vh',
+                borderRadius: fullScreenMap ? 0 : undefined,
               },
             },
           }}
@@ -2224,7 +2228,8 @@ export function TicketCheckoutPage() {
               justifyContent: 'space-between',
               gap: 1,
               pr: 1,
-              py: 1.5,
+              py: fullScreenMap ? 1 : 1.5,
+              px: fullScreenMap ? 1.5 : 3,
             }}
           >
             <Box>
@@ -2253,6 +2258,7 @@ export function TicketCheckoutPage() {
               display: 'flex',
               flexDirection: 'column',
               bgcolor: '#fafafa',
+              overflow: 'hidden',
             }}
           >
             {allSessionsSorted.length > 1 && selectedSessionKey ? (
