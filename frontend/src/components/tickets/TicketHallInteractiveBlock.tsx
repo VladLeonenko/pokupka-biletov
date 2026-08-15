@@ -420,17 +420,22 @@ function parseMaxZoomMultiplier(
   const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
   if (Number.isFinite(n) && n >= 1) return n;
   if (sectorModeEnabled && !isStadiumScaleHallLayout(layout)) return 2;
-  if (sectorModeEnabled) return isCoarsePointer ? 28 : 12;
-  return isCoarsePointer ? 18 : 8;
+  if (sectorModeEnabled) return isCoarsePointer ? 56 : 12;
+  return isCoarsePointer ? 36 : 8;
 }
 
 /** Zoom при клике по сектору (не zoom-to-fill bbox). */
-function parseSectorFocusZoomMultiplier(layout: unknown, maxZoomMultiplier: number): number {
+function parseSectorFocusZoomMultiplier(
+  layout: unknown,
+  maxZoomMultiplier: number,
+  isCoarsePointer = false,
+): number {
   const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
   const raw = r?.sectorFocusZoomMultiplier;
   const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
   if (Number.isFinite(n) && n >= 1) return Math.min(n, maxZoomMultiplier);
   if (!isStadiumScaleHallLayout(layout)) return Math.min(2, maxZoomMultiplier);
+  if (isCoarsePointer) return Math.min(40, maxZoomMultiplier);
   return maxZoomMultiplier;
 }
 
@@ -1183,8 +1188,8 @@ export function TicketHallInteractiveBlock({
     [isCoarsePointer, layoutJson, sectorMode.enabled],
   );
   const sectorFocusZoomMultiplier = useMemo(
-    () => parseSectorFocusZoomMultiplier(layoutJson, maxZoomMultiplier),
-    [layoutJson, maxZoomMultiplier],
+    () => parseSectorFocusZoomMultiplier(layoutJson, maxZoomMultiplier, isCoarsePointer),
+    [isCoarsePointer, layoutJson, maxZoomMultiplier],
   );
   const maxZoom = fitZoom * maxZoomMultiplier;
   const sectorFocusZoom = fitZoom * sectorFocusZoomMultiplier;
@@ -1193,10 +1198,10 @@ export function TicketHallInteractiveBlock({
     () => {
       const baseMultipliers = sectorMode.enabled
         ? isCoarsePointer
-          ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 28]
+          ? [1, 2, 3, 4, 6, 8, 12, 16, 20, 28, 40, 56]
           : [1, 2, 3, 4, 6, 8, 10, 12]
         : isCoarsePointer
-          ? [1, 2, 3, 4, 6, 8, 12, 16, 18]
+          ? [1, 2, 3, 4, 6, 8, 12, 16, 24, 36]
           : [1, 2, 3, 4, 6, 8];
       const multipliers = baseMultipliers.filter((m) => m <= maxZoomMultiplier + 0.001);
       if (!multipliers.length || multipliers[multipliers.length - 1] < maxZoomMultiplier - 0.001) {
@@ -1356,6 +1361,19 @@ export function TicketHallInteractiveBlock({
   /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
   const useCanvasCompositing = stadiumCanvasEnabled && canvasBackdropReady;
+
+  useEffect(() => {
+    if (!useCanvasCompositing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onLost = (ev: Event) => {
+      ev.preventDefault();
+      canvasImageRef.current = null;
+      setCanvasBackdropReady(false);
+    };
+    canvas.addEventListener('contextlost', onLost);
+    return () => canvas.removeEventListener('contextlost', onLost);
+  }, [useCanvasCompositing, canvasImageVersion]);
 
   useEffect(() => {
     if (!stadiumCanvasEnabled || !svgHtmlSafe.trim()) {
@@ -1923,6 +1941,7 @@ export function TicketHallInteractiveBlock({
   }, [hallBackgroundDotsUrl, preferBundleBackgroundDots]);
 
   useEffect(() => {
+    if (isCoarsePointer) return;
     if (!useHallBackgroundRaster || !hallBackgroundDotsUrl || !mapZoomed) return;
     if (preferBundleBackgroundDots) return;
     if (bowlDotsRef.current || bowlDotsLoadRef.current) return;
@@ -1950,7 +1969,7 @@ export function TicketHallInteractiveBlock({
     return () => {
       cancelled = true;
     };
-  }, [hallBackgroundDotsUrl, mapZoomed, preferBundleBackgroundDots, useHallBackgroundRaster]);
+  }, [hallBackgroundDotsUrl, isCoarsePointer, mapZoomed, preferBundleBackgroundDots, useHallBackgroundRaster]);
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -2162,7 +2181,7 @@ export function TicketHallInteractiveBlock({
       const height = viewport.clientHeight;
       if (width <= 0 || height <= 0) return;
 
-      const dpr = Math.min(3, window.devicePixelRatio || 1);
+      const dpr = Math.min(isCoarsePointer ? 2 : 3, window.devicePixelRatio || 1);
       const pixelWidth = Math.max(1, Math.round(width * dpr));
       const pixelHeight = Math.max(1, Math.round(height * dpr));
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -2201,11 +2220,11 @@ export function TicketHallInteractiveBlock({
        * PNG-чаша только на обзоре. На zoom — никогда: апскейл даёт «двойные» точки
        * под острым dots.bin (или один мыльный слой, пока bin грузится).
        */
-      if (!skipStadiumBowlDots && useHallBackgroundRaster && hallRaster && !mapZoomedNow) {
+      if (!skipStadiumBowlDots && useHallBackgroundRaster && hallRaster && (!mapZoomedNow || isCoarsePointer)) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }
 
-      if (!skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
+      if (!isCoarsePointer && !skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
         drawHallBackgroundArcs(
           ctx,
           backgroundSeatCoordinates,
@@ -2216,7 +2235,7 @@ export function TicketHallInteractiveBlock({
           backgroundSeatCoordinates.length >= 8000,
           fieldDotExcludePctBoxes,
         );
-      } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && bowlDots) {
+      } else if (!isCoarsePointer && !skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && bowlDots) {
         drawHallBackgroundArcs(
           ctx,
           bowlDots,
@@ -2333,6 +2352,7 @@ export function TicketHallInteractiveBlock({
     canvasImageVersion,
     colorForSeat,
     fieldDotExcludePctBoxes,
+    isCoarsePointer,
     fitZoom,
     getLayerScreenBox,
     hallRasterVersion,

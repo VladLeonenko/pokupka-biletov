@@ -80,7 +80,10 @@ import {
   buildLuzhnikiFootballStadiumInkscapePreview,
   buildLuzhnikiFootballStadiumPreview,
 } from '../services/pbiletLuzhnikiFootballPreview.js';
-import { getGrayCloudLabeledBundleVersion } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
+import {
+  getGrayCloudLabeledBundleVersion,
+  warmupGrayCloudLabeledIndex,
+} from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 
 const router = express.Router();
 const luzhnikiStageMapResponseCache = new Map();
@@ -634,11 +637,15 @@ router.get('/stage/:stageId/map', async (req, res) => {
     }
     if (isLuzhnikiMap) {
       stageRow = slimLuzhnikiStageMapForClient(stageRow);
-      luzhnikiStageMapResponseCache.set(cacheKey, {
-        createdAt: Date.now(),
-        stageRow,
-      });
-      res.setHeader('X-Luzhniki-Map-Cache', bypassCache ? 'refresh' : 'miss');
+      const pending = stageRow?.layout_json?.sellableSeatsPending === true;
+      if (pending) warmupGrayCloudLabeledIndex();
+      if (!pending) {
+        luzhnikiStageMapResponseCache.set(cacheKey, {
+          createdAt: Date.now(),
+          stageRow,
+        });
+      }
+      res.setHeader('X-Luzhniki-Map-Cache', pending ? 'pending' : bypassCache ? 'refresh' : 'miss');
     }
     if (isSupercupNnMap) {
       stageRow = slimSupercupNnStageMapForClient(stageRow);

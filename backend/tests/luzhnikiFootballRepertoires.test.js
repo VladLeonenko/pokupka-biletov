@@ -35,6 +35,16 @@ test('basta-guf repertoire maps to luzhniki-concert (not theater StageId)', asyn
   assert.equal(key, 'luzhniki-concert');
 });
 
+test('gray-cloud warmup helpers exist and peek is non-blocking', async () => {
+  const {
+    isGrayCloudLabeledIndexReady,
+    warmupGrayCloudLabeledIndex,
+  } = await import('../utils/luzhnikiGrayCloudLabeledIndex.js');
+  assert.equal(typeof isGrayCloudLabeledIndexReady(), 'boolean');
+  const p = warmupGrayCloudLabeledIndex();
+  assert.equal(typeof p.then, 'function');
+});
+
 test('capSvgIntrinsicRasterSize shrinks concert 11k SVG, keeps football 1k', async () => {
   const { capSvgIntrinsicRasterSize } = await import('../services/luzhnikiFootballStageMap.js');
   const concert =

@@ -17,6 +17,8 @@ const DEFAULT_BUNDLE = path.join(
 
 /** @type {{ mtime: number, index: Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null, seatCount: number, bundleMode: string | null }} */
 const state = { mtime: 0, index: null, seatCount: 0, bundleMode: null };
+/** @type {Promise<Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null> | null} */
+let warmupPromise = null;
 
 const MAX_EDITOR_BUNDLE_SEATS = 120000;
 const MIN_STRICT_ONLY_BUNDLE_SEATS = 4000;
@@ -116,6 +118,42 @@ export function editorBundleHasRow(index, sector, row) {
   return collectIndexSeatsForRow(index, sector, row).length > 0;
 }
 
+export function isGrayCloudLabeledIndexReady() {
+  const filePath = resolveBundlePath();
+  if (!filePath) return false;
+  try {
+    return Boolean(state.index && state.mtime === fs.statSync(filePath).mtimeMs);
+  } catch {
+    return false;
+  }
+}
+
+/** 14MB JSON — не на запросе. Старт PM2 / фон. */
+export function warmupGrayCloudLabeledIndex() {
+  if (isGrayCloudLabeledIndexReady()) {
+    return Promise.resolve(state.index);
+  }
+  if (warmupPromise) return warmupPromise;
+  const started = Date.now();
+  warmupPromise = new Promise((resolve) => {
+    setImmediate(() => {
+      try {
+        const index = getCachedGrayCloudLabeledIndex();
+        console.log(
+          `[luzhniki] gray-cloud index warmup ${Date.now() - started}ms seats=${state.seatCount}`,
+        );
+        resolve(index);
+      } catch (err) {
+        console.warn('[luzhniki] gray-cloud index warmup failed', err?.message || err);
+        resolve(null);
+      } finally {
+        warmupPromise = null;
+      }
+    });
+  });
+  return warmupPromise;
+}
+
 /**
  * @returns {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null}
  */
@@ -179,4 +217,5 @@ export function resetGrayCloudLabeledIndexCache() {
   state.index = null;
   state.seatCount = 0;
   state.bundleMode = null;
+  warmupPromise = null;
 }

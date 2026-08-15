@@ -17,7 +17,9 @@ import {
 } from '../utils/hallSeatGeodesyMatch.js';
 import {
   getCachedGrayCloudLabeledIndex,
+  isGrayCloudLabeledIndexReady,
   useGrayCloudRowZipForBundle,
+  warmupGrayCloudLabeledIndex,
 } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 import {
   buildSellableSeatGeodesyPbiletAccurate,
@@ -350,6 +352,30 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
   }
 
   const concertFast = isLuzhnikiConcertStageRow(row, layoutForGeodesy);
+
+  if (!isGrayCloudLabeledIndexReady()) {
+    warmupGrayCloudLabeledIndex();
+    return {
+      ...row,
+      layout_json: {
+        ...base,
+        sellableSeats: [],
+        sellableSeatsFromLiveOffers: true,
+        sellableSeatsPending: true,
+        ...(concertFast
+          ? {
+              omitClientSeatCoordinateCloud: true,
+              hallBackgroundRasterUrl:
+                typeof base.hallBackgroundRasterUrl === 'string' && base.hallBackgroundRasterUrl.trim()
+                  ? base.hallBackgroundRasterUrl.trim()
+                  : '/hall-maps/luzhniki-football-gray-bowl.png',
+              maskFieldBackgroundDots: true,
+              hideSeatList: true,
+            }
+          : null),
+      },
+    };
+  }
 
   // Концерт: sellable из gray-cloud разметки редактора (как спорт).
   // Старый pilot (`concertLayoutStrict`) давал сдвиг/разнос рядов (a104 р.1/38).

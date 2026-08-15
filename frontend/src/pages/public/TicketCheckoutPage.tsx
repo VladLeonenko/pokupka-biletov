@@ -427,6 +427,13 @@ export function TicketCheckoutPage() {
         !hasUsableHallSvgFromContext ||
         (isFootballStadiumStageEarly && Boolean(repertoireId?.trim()))),
     staleTime: isFootballStadiumStageEarly ? 30_000 : 120_000,
+    refetchInterval: (query) => {
+      const layout = query.state.data?.layout_json;
+      if (layout && typeof layout === 'object' && (layout as { sellableSeatsPending?: boolean }).sellableSeatsPending) {
+        return 600;
+      }
+      return false;
+    },
   });
 
   const isFootballStadiumStage = useMemo(() => {

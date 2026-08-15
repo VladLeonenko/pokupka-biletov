@@ -864,4 +864,7 @@ app.listen(APP_PORT, () => {
   if (process.env.NODE_ENV !== 'production') {
     console.log(`Backend started on port ${APP_PORT}`);
   }
+  import('./utils/luzhnikiGrayCloudLabeledIndex.js')
+    .then((m) => m.warmupGrayCloudLabeledIndex())
+    .catch(() => {});
 });
