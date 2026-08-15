@@ -105,6 +105,8 @@ async function main() {
   console.log(`[seed:luzhniki-concert] sectors ${beforeFilter} → ${sectorMode.sectors.length}`);
 
   const { width, height } = LUZHNIKI_FOOTBALL_VIEWBOX;
+  const displayW = 1600;
+  const displayH = Math.round((height / width) * displayW);
   const pathsXml = sectorMode.sectors
     .map(
       (s) =>
@@ -158,7 +160,7 @@ async function main() {
     .join('\n');
 
   const svgMarkup = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${displayW}" height="${displayH}" viewBox="0 0 ${width} ${height}">
   <title>Лужники — концерт (БСА)</title>
   <rect x="0" y="0" width="${width}" height="${height}" fill="#f1f5f9"/>
   <g id="luzhniki-concert-sectors" fill="rgba(15,23,42,0.04)" stroke="rgba(15,23,42,0.14)" stroke-width="6">

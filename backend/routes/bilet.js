@@ -620,7 +620,7 @@ router.get('/stage/:stageId/map', async (req, res) => {
     let stageRow = r.rows[0];
     if ((isLuzhnikiMap || isSupercupNnMap) && repertoireId) {
       try {
-        const { payload } = await getPublicOffersForRepertoire(repertoireId);
+        const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
         const offerRows = filterPublicOffersPayload(
           { ResultData: Array.isArray(payload?.ResultData) ? payload.ResultData : [] },
           repertoireId,

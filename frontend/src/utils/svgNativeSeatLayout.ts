@@ -179,6 +179,64 @@ export function parseSvgNativeSeatLayout(html: string): { seats: SvgNativeSeat[]
   return { seats: r.seats, vbW, vbH };
 }
 
+/** Image() растеризует SVG по width/height. Концерт Лужников: 11413×9676 ≈ 420 МБ bitmap. */
+export const SVG_CANVAS_RASTER_MAX_EDGE = 2048;
+/** Стадион: слой в CSS-px, не 1:1 с viewBox (~10k). Футбол и так ~1000. */
+export const STADIUM_LAYER_CSS_MAX_PX = 1600;
+
+function parseSvgIntrinsicSize(svg: string): { width: number; height: number } | null {
+  const viewBox = svg.match(/\bviewBox=["']([^"']+)["']/i)?.[1];
+  if (viewBox) {
+    const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+    if (parts.length >= 4 && parts.every(Number.isFinite) && parts[2] > 0 && parts[3] > 0) {
+      return { width: parts[2], height: parts[3] };
+    }
+  }
+  const width = Number(svg.match(/\bwidth=["']([\d.]+)/i)?.[1]);
+  const height = Number(svg.match(/\bheight=["']([\d.]+)/i)?.[1]);
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    return { width, height };
+  }
+  return null;
+}
+
+function rewriteSvgWidthHeight(svg: string, width: number, height: number): string {
+  let out = svg;
+  if (/\bwidth=["']/.test(out)) {
+    out = out.replace(/\bwidth=["'][^"']*["']/i, `width="${width}"`);
+  } else {
+    out = out.replace(/<svg\b/i, `<svg width="${width}"`);
+  }
+  if (/\bheight=["']/.test(out)) {
+    out = out.replace(/\bheight=["'][^"']*["']/i, `height="${height}"`);
+  } else {
+    out = out.replace(/<svg\b/i, `<svg height="${height}"`);
+  }
+  return out;
+}
+
+/**
+ * Сжать intrinsic width/height (viewBox не трогаем).
+ * Иначе `new Image()` + DOM-SVG концерта Лужников декодируют 11k×9k.
+ */
+export function capSvgIntrinsicRasterSize(
+  html: string,
+  maxEdge = SVG_CANVAS_RASTER_MAX_EDGE,
+): string {
+  const trimmed = html?.trim();
+  if (!trimmed || !trimmed.includes('<svg') || !(maxEdge > 0)) return html;
+  const size = parseSvgIntrinsicSize(trimmed);
+  if (!size) return html;
+  const edge = Math.max(size.width, size.height);
+  if (edge <= maxEdge) return html;
+  const scale = maxEdge / edge;
+  return rewriteSvgWidthHeight(
+    trimmed,
+    Math.max(1, Math.round(size.width * scale)),
+    Math.max(1, Math.round(size.height * scale)),
+  );
+}
+
 /**
  * Подготовка нативной SVG-схемы: подрезка viewBox по кругам мест (схема по центру, без «пустого поля»),
  * проценты для оверлея в тех же координатах, что и отрисованный SVG.

@@ -34,3 +34,16 @@ test('basta-guf repertoire maps to luzhniki-concert (not theater StageId)', asyn
   );
   assert.equal(key, 'luzhniki-concert');
 });
+
+test('capSvgIntrinsicRasterSize shrinks concert 11k SVG, keeps football 1k', async () => {
+  const { capSvgIntrinsicRasterSize } = await import('../services/luzhnikiFootballStageMap.js');
+  const concert =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="11413" height="9676" viewBox="0 0 11413 9676"></svg>';
+  const out = capSvgIntrinsicRasterSize(concert);
+  assert.match(out, /width="2048"/);
+  assert.match(out, /height="1736"/);
+  assert.match(out, /viewBox="0 0 11413 9676"/);
+  const football =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="820" viewBox="0 0 1000 820"></svg>';
+  assert.equal(capSvgIntrinsicRasterSize(football), football);
+});

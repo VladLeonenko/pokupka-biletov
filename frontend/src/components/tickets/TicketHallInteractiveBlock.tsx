@@ -10,6 +10,8 @@ import {
   seatMapKey,
   sectorMatchScore,
   stripSvgSeatCirclesForBackdrop,
+  capSvgIntrinsicRasterSize,
+  STADIUM_LAYER_CSS_MAX_PX,
   type OfferLike,
   type SvgNativePlacement,
   type SvgNativeSeat,
@@ -864,10 +866,13 @@ export function TicketHallInteractiveBlock({
       (layoutMode === 'auto' && nativeSeats.length >= 2));
 
   const svgHtmlSafe = useMemo(() => {
-    if (!useSvgNative) return hallSvgHtml;
-    if (svgGeometryFromParsedCircles && nativeProcessed?.svgHtml) return nativeProcessed.svgHtml;
-    return hallSvgHtml;
-  }, [hallSvgHtml, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
+    const raw = !useSvgNative
+      ? hallSvgHtml
+      : svgGeometryFromParsedCircles && nativeProcessed?.svgHtml
+        ? nativeProcessed.svgHtml
+        : hallSvgHtml;
+    return isStadiumScaleHallLayout(layoutJson) ? capSvgIntrinsicRasterSize(raw) : raw;
+  }, [hallSvgHtml, layoutJson, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
 
   /** viewBox от отображаемого SVG (после processHallSvgForNative). */
   const svgViewBox = useMemo(
@@ -1364,7 +1369,7 @@ export function TicketHallInteractiveBlock({
     canvasImageRef.current = null;
 
     /** Без circle-мест: иначе SVG-точки + canvas sellable = ареолы. */
-    const backdropSvg = stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
+    const backdropSvg = capSvgIntrinsicRasterSize(stripSvgSeatCirclesForBackdrop(svgHtmlSafe));
     const blob = new Blob([backdropSvg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
@@ -2120,16 +2125,16 @@ export function TicketHallInteractiveBlock({
       transition: isMapDragging || stadiumCanvasEnabled ? 'none' : undefined,
     };
     /**
-     * Стадион: 1 unit viewBox ≈ 1 CSS-px до zoom (viewBox ~10k).
-     * Театр/МХТ: viewBox после crop ~150–800 — если зафиксировать width=viewBox.px,
-     * схема сжимается в «точку» по центру белого поля (как на скрине).
+     * Стадион: фиксируем CSS-ширину слоя (не театр — там viewBox ~150–800,
+     * width=viewBox сжимает схему в точку). Не 1:1 с viewBox ~10k:
+     * концерт Лужников 11413px → Image()/layout на 11k×9k, футбол и так ~1000.
      */
     if (
       sectorMode.enabled
       && isStadiumScaleHallLayout(layoutJson)
       && svgViewBox.width > 100
     ) {
-      style.width = `${Math.round(svgViewBox.width)}px`;
+      style.width = `${Math.min(STADIUM_LAYER_CSS_MAX_PX, Math.round(svgViewBox.width))}px`;
       style.maxWidth = 'none';
     }
     return style;
@@ -2192,12 +2197,11 @@ export function TicketHallInteractiveBlock({
       const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
       /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
       const skipStadiumBowlDots = theaterSvgSeatCanvas;
-      if (
-        !skipStadiumBowlDots
-        && useHallBackgroundRaster
-        && hallRaster
-        && (!mapZoomedNow || (!bowlDots && !preferBundleBackgroundDots))
-      ) {
+      /**
+       * PNG-чаша только на обзоре. На zoom — никогда: апскейл даёт «двойные» точки
+       * под острым dots.bin (или один мыльный слой, пока bin грузится).
+       */
+      if (!skipStadiumBowlDots && useHallBackgroundRaster && hallRaster && !mapZoomedNow) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }
 

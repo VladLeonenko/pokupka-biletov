@@ -125,6 +125,18 @@ import styles from './TicketCheckoutPage.module.css';
 const OFFER_ROWS_PREVIEW = 5;
 /** Лужники: не обрезать список до 5 строк офферов — иначе «11 мест в API», в UI только d227/c143…. */
 const LUZHNIKI_OFFER_ROWS_PREVIEW = 500;
+/** Пока /map не пришёл: чаша сразу, без 11k SVG и без ожидания GetBilet. */
+const LUZHNIKI_CONCERT_FALLBACK_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1356" viewBox="0 0 11413 9676"><rect width="11413" height="9676" fill="#f1f5f9"/></svg>';
+const LUZHNIKI_CONCERT_FALLBACK_LAYOUT = {
+  stadiumMapKey: 'luzhniki-concert',
+  luzhnikiStadiumCheckout: true,
+  omitClientSeatCoordinateCloud: true,
+  hallBackgroundRasterUrl: '/hall-maps/luzhniki-football-gray-bowl.png',
+  maskFieldBackgroundDots: true,
+  hideSeatList: true,
+  sectorMode: { enabled: false, sectors: [] },
+};
 
 function HallMapLoadingPane() {
   return (
@@ -1017,6 +1029,7 @@ export function TicketCheckoutPage() {
     if (isFootballStadiumStageEarly) {
       const fromMap = mapByStageId?.svg_markup?.trim();
       if (fromMap) return fromMap;
+      if (isLuzhnikiConcertRepertoire(repertoireId)) return LUZHNIKI_CONCERT_FALLBACK_SVG;
       if (!stageMapFetched) return null;
       return mapByStageId?.svg_markup ?? ctx?.stageMap?.svg_markup ?? null;
     }
@@ -1033,6 +1046,7 @@ export function TicketCheckoutPage() {
     );
   }, [
     isFootballStadiumStageEarly,
+    repertoireId,
     stageIdEff,
     stageMapFetched,
     mapByStageId?.svg_markup,
@@ -1048,6 +1062,10 @@ export function TicketCheckoutPage() {
     const mapLayout = mapByStageId?.layout_json as Record<string, unknown> | undefined;
 
     /** Лужники: sellableSeats с GET /map (adaptLuzhniki + live offers), тяжёлое — из контекста. */
+    if (isLuzhnikiConcertRepertoire(repertoireId) && !stageMapFetched) {
+      return { ...(ctxLayout ?? {}), ...LUZHNIKI_CONCERT_FALLBACK_LAYOUT };
+    }
+
     if (isFootballStadiumStage && mapLayout && stageMapFetched) {
       const omitSeatCloud = parseOmitClientSeatCoordinateCloud(mapLayout);
       return {
@@ -1077,6 +1095,7 @@ export function TicketCheckoutPage() {
     stageIdEff,
     stageMapFetched,
     isFootballStadiumStage,
+    repertoireId,
     mapByStageId?.layout_json,
     ctx?.stageId,
     ctx?.stageMap,
@@ -1704,7 +1723,7 @@ export function TicketCheckoutPage() {
                     <TicketHallInteractiveBlock
                       hallSvgHtml={hallSvg!}
                       layoutJson={layoutJsonForStage}
-                      offers={offersForMap}
+                      offers={offersForMapDisplay}
                       getPriceKey={(o) => priceKey(o as OfferRow)}
                       colorForSeat={colorSeat}
                       activeOfferId={offerId}
@@ -2272,7 +2291,7 @@ export function TicketCheckoutPage() {
                         variant="dialog"
                         hallSvgHtml={hallSvg!}
                         layoutJson={layoutJsonForStage}
-                        offers={offersForMap}
+                        offers={offersForMapDisplay}
                         getPriceKey={(o) => priceKey(o as OfferRow)}
                         colorForSeat={colorSeat}
                         activeOfferId={offerId}

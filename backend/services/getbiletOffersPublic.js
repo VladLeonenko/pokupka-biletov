@@ -13,7 +13,7 @@ import {
 
 /**
  * @param {string} repertoireId
- * @param {{ forceRefresh?: boolean }} [opts]
+ * @param {{ forceRefresh?: boolean, cacheOnly?: boolean }} [opts]
  * @returns {Promise<{
  *   payload: unknown;
  *   meta: { cache?: string; ageMs?: number };

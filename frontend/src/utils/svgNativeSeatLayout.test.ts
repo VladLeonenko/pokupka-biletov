@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSvgNativePlacements,
+  capSvgIntrinsicRasterSize,
   extractSectorCode,
   matchSvgSeatToOffer,
   parseLayoutSeatPositions,
@@ -79,5 +80,18 @@ describe('svgNativeSeatLayout', () => {
       unmatchedSvgCount: 1,
       unmatchedOfferSeats: 0,
     });
+  });
+
+  it('caps huge SVG width/height and keeps viewBox', () => {
+    const src =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="11413" height="9676" viewBox="0 0 11413 9676"><rect width="10" height="10"/></svg>';
+    const out = capSvgIntrinsicRasterSize(src, 2048);
+    expect(out).toContain('width="2048"');
+    expect(out).toContain('height="1736"');
+    expect(out).toContain('viewBox="0 0 11413 9676"');
+    expect(capSvgIntrinsicRasterSize(src, 2048)).toBe(out);
+    const small =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="820" viewBox="0 0 1000 820"></svg>';
+    expect(capSvgIntrinsicRasterSize(small, 2048)).toBe(small);
   });
 });

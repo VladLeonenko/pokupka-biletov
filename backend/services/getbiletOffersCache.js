@@ -161,11 +161,12 @@ export async function invalidateOffersCache(repertoireId) {
 
 /**
  * @param {string} repertoireId
- * @param {{ forceRefresh?: boolean }} [opts]
+ * @param {{ forceRefresh?: boolean, cacheOnly?: boolean }} [opts]
  * @returns {Promise<{ data: unknown, meta: { cache: string, ageMs?: number } }>}
  */
 export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) {
   const forceRefresh = Boolean(opts.forceRefresh);
+  const cacheOnly = Boolean(opts.cacheOnly);
 
   if (isDemoRepertoireId(repertoireId)) {
     const r = await ticketPool.query(
@@ -181,12 +182,15 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   }
 
   if (!cacheEnabled()) {
-    if (await isDbManualRepertoireKey(repertoireId)) {
+    if (cacheOnly || (await isDbManualRepertoireKey(repertoireId))) {
       const r = await ticketPool.query(
         `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
         [repertoireId],
       );
-      return { data: r.rows[0]?.payload_json ?? EMPTY_OFFERS, meta: { cache: 'manual_bypass' } };
+      return {
+        data: r.rows[0]?.payload_json ?? EMPTY_OFFERS,
+        meta: { cache: cacheOnly ? 'cache_only' : 'manual_bypass' },
+      };
     }
     try {
       const data = await restV2GetOfferListByRepertoireId(repertoireId);
@@ -221,8 +225,8 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
   }
 
   if (!row) {
-    if (await isDbManualRepertoireKey(repertoireId)) {
-      return { data: EMPTY_OFFERS, meta: { cache: 'manual_miss' } };
+    if (cacheOnly || (await isDbManualRepertoireKey(repertoireId))) {
+      return { data: EMPTY_OFFERS, meta: { cache: cacheOnly ? 'cache_only_miss' : 'manual_miss' } };
     }
     const data = await fetchUpsert(repertoireId);
     return { data, meta: { cache: 'miss' } };

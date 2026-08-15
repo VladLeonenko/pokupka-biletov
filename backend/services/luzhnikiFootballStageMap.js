@@ -104,6 +104,42 @@ export function shouldUseLuzhnikiFootballCanonicalMap(base, placeMapsVenue, stag
   return kind === 'football';
 }
 
+const SVG_CLIENT_RASTER_MAX_EDGE = 2048;
+
+/** Image() берёт width/height. Концерт: 11413×9676 → сотни МБ bitmap. viewBox не трогаем. */
+export function capSvgIntrinsicRasterSize(svg, maxEdge = SVG_CLIENT_RASTER_MAX_EDGE) {
+  const src = String(svg || '');
+  if (!src.includes('<svg') || !(maxEdge > 0)) return svg;
+  const vb = src.match(/\bviewBox=["']([^"']+)["']/i)?.[1];
+  let w = NaN;
+  let h = NaN;
+  if (vb) {
+    const p = vb.trim().split(/[\s,]+/).map(Number);
+    if (p.length >= 4 && p.every(Number.isFinite) && p[2] > 0 && p[3] > 0) {
+      w = p[2];
+      h = p[3];
+    }
+  }
+  if (!(w > 0 && h > 0)) {
+    w = Number(src.match(/\bwidth=["']([\d.]+)/i)?.[1]);
+    h = Number(src.match(/\bheight=["']([\d.]+)/i)?.[1]);
+  }
+  if (!(w > 0 && h > 0)) return svg;
+  const edge = Math.max(w, h);
+  if (edge <= maxEdge) return svg;
+  const scale = maxEdge / edge;
+  const dw = Math.max(1, Math.round(w * scale));
+  const dh = Math.max(1, Math.round(h * scale));
+  let out = src;
+  out = /\bwidth=["']/.test(out)
+    ? out.replace(/\bwidth=["'][^"']*["']/i, `width="${dw}"`)
+    : out.replace(/<svg\b/i, `<svg width="${dw}"`);
+  out = /\bheight=["']/.test(out)
+    ? out.replace(/\bheight=["'][^"']*["']/i, `height="${dh}"`)
+    : out.replace(/<svg\b/i, `<svg height="${dh}"`);
+  return out;
+}
+
 /** Клиенту: без ~77k allSeatCoordinates / seats — чаша = PNG + sellableSeats с API. */
 export function slimLuzhnikiStageMapForClient(row) {
   if (!row) return row;
@@ -128,6 +164,7 @@ export function slimLuzhnikiStageMapForClient(row) {
 
   return {
     ...row,
+    svg_markup: capSvgIntrinsicRasterSize(row.svg_markup),
     layout_json: {
       ...slimLayout,
       ...(manualSeats.length > 0 ? { seats: manualSeats } : null),
@@ -148,10 +185,11 @@ function useFastManualSellable() {
   return v !== '0' && v !== 'false';
 }
 
-function buildSellableSeatsFromManualBundle(offers = []) {
+function buildSellableSeatsFromManualBundle(offers = [], opts = {}) {
   if (!useFastManualSellable()) return null;
   const index = getCachedGrayCloudLabeledIndex();
   if (!index?.size) return null;
+  const skipAllManualMaterialization = opts.skipAllManualMaterialization === true;
 
   const allManualSeats = [];
   const backgroundSeats = [];
@@ -180,7 +218,9 @@ function buildSellableSeatsFromManualBundle(offers = []) {
       geodesySource: 'manualEditor',
     });
   };
-  for (const s of index.values()) pushManualSeat(s);
+  if (!skipAllManualMaterialization) {
+    for (const s of index.values()) pushManualSeat(s);
+  }
 
   const seats = [];
   const seen = new Set();
@@ -311,8 +351,63 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
 
   const concertFast = isLuzhnikiConcertStageRow(row, layoutForGeodesy);
 
-  // Концерт = как НН: labeled pilot seats. Танцпол/фан-зона — зона без точек (покупка по зоне).
+  // Концерт: sellable из gray-cloud разметки редактора (как спорт).
+  // Старый pilot (`concertLayoutStrict`) давал сдвиг/разнос рядов (a104 р.1/38).
+  // Танцпол/фан-зона — зона без точек (покупка по зоне).
   if (concertFast) {
+    const rawSectorMode =
+      base.sectorMode && typeof base.sectorMode === 'object' ? base.sectorMode : { enabled: false, sectors: [] };
+    const slimSectors = filterLuzhnikiConcertSectors(rawSectorMode.sectors || [], offers);
+    const concertShell = {
+      allSeatCoordinates: undefined,
+      // Трибуны: PNG + dots.bin. Поле/сцена без точек — FE маскирует zone covers.
+      hallBackgroundRasterUrl:
+        typeof base.hallBackgroundRasterUrl === 'string' && base.hallBackgroundRasterUrl.trim()
+          ? base.hallBackgroundRasterUrl.trim()
+          : '/hall-maps/luzhniki-football-gray-bowl.png',
+      omitClientSeatCoordinateCloud: true,
+      disableHallBackgroundDots: false,
+      maskFieldBackgroundDots: true,
+      concertZoneOnlySectors: ['танцпол', 'фан-зона', 'fan-zone'],
+      hideSeatList: true,
+      concertSeatPctFromFootball: false,
+      concertMapOrientation: undefined,
+      sectorMode: {
+        ...rawSectorMode,
+        enabled: slimSectors.length > 0,
+        sectors: slimSectors,
+      },
+    };
+
+    const manualSellable = buildSellableSeatsFromManualBundle(offers, {
+      skipAllManualMaterialization: true,
+    });
+    const manualSeats = (manualSellable?.seats || []).filter(
+      (seat) => !isLuzhnikiConcertFreeZoneSector(seat.sector),
+    );
+    if (manualSeats.length > 0) {
+      return {
+        ...row,
+        layout_json: {
+          ...base,
+          ...concertShell,
+          sellableSeats: manualSeats,
+          sellableSeatsFromLiveOffers: true,
+          sellableGeodesyMode: 'concertManualBundleFast',
+          offerSeatGeodesy: {
+            matched: manualSeats.length,
+            totalSellable: manualSellable?.totalSellable ?? 0,
+            grayCloudLabeledMatched: manualSellable?.directMatched ?? 0,
+            grayCloudRowZipMatched: manualSellable?.rowZipMatched ?? 0,
+            freeZoneMatched: 0,
+            sectorsKept: slimSectors.length,
+            partialManualOnly: true,
+            unmatchedSamples: manualSellable?.unmatchedSamples ?? [],
+          },
+        },
+      };
+    }
+
     const layoutSellable = buildSellableSeatsFromLayoutSeats(layoutForGeodesy, offers, {
       allowRowZip: false,
       updatedAt: String(row.updated_at || ''),
@@ -323,31 +418,11 @@ export function adaptLuzhnikiStageMapForLiveOffers(row, offerRows = []) {
         ...seat,
         geodesySource: seat.geodesySource || 'layoutStrictFast',
       }));
-    const rawSectorMode =
-      base.sectorMode && typeof base.sectorMode === 'object' ? base.sectorMode : { enabled: false, sectors: [] };
-    const slimSectors = filterLuzhnikiConcertSectors(rawSectorMode.sectors || [], offers);
     return {
       ...row,
       layout_json: {
         ...base,
-        allSeatCoordinates: undefined,
-        // Трибуны: PNG + dots.bin. Поле/сцена без точек — FE маскирует zone covers.
-        hallBackgroundRasterUrl:
-          typeof base.hallBackgroundRasterUrl === 'string' && base.hallBackgroundRasterUrl.trim()
-            ? base.hallBackgroundRasterUrl.trim()
-            : '/hall-maps/luzhniki-football-gray-bowl.png',
-        omitClientSeatCoordinateCloud: true,
-        disableHallBackgroundDots: false,
-        maskFieldBackgroundDots: true,
-        concertZoneOnlySectors: ['танцпол', 'фан-зона', 'fan-zone'],
-        hideSeatList: true,
-        concertSeatPctFromFootball: false,
-        concertMapOrientation: undefined,
-        sectorMode: {
-          ...rawSectorMode,
-          enabled: slimSectors.length > 0,
-          sectors: slimSectors,
-        },
+        ...concertShell,
         sellableSeats: seats,
         sellableSeatsFromLiveOffers: true,
         sellableGeodesyMode: 'concertLayoutStrict',
