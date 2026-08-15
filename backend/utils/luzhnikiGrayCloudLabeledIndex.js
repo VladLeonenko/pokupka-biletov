@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 
 import { buildLabeledSeatIndex, collectIndexSeatsForRow } from './hallSeatGeodesyMatch.js';
 
@@ -128,78 +129,73 @@ export function isGrayCloudLabeledIndexReady() {
   }
 }
 
-/** 14MB JSON — не на запросе. Старт PM2 / фон. */
+/** 14MB JSON в worker — event loop свободен, /map не стоит 15с. */
 export function warmupGrayCloudLabeledIndex() {
   if (isGrayCloudLabeledIndexReady()) {
     return Promise.resolve(state.index);
   }
   if (warmupPromise) return warmupPromise;
+  const filePath = resolveBundlePath();
+  if (!filePath) return Promise.resolve(null);
+  let mtime = 0;
+  try {
+    mtime = fs.statSync(filePath).mtimeMs;
+  } catch {
+    return Promise.resolve(null);
+  }
   const started = Date.now();
+  const workerPath = fileURLToPath(new URL('./luzhnikiGrayCloudIndexWorker.js', import.meta.url));
   warmupPromise = new Promise((resolve) => {
-    setImmediate(() => {
-      try {
-        const index = getCachedGrayCloudLabeledIndex();
-        console.log(
-          `[luzhniki] gray-cloud index warmup ${Date.now() - started}ms seats=${state.seatCount}`,
-        );
-        resolve(index);
-      } catch (err) {
-        console.warn('[luzhniki] gray-cloud index warmup failed', err?.message || err);
-        resolve(null);
-      } finally {
-        warmupPromise = null;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const worker = new Worker(workerPath, { workerData: { filePath } });
+    worker.once('message', (msg) => {
+      if (!msg?.ok) {
+        console.warn('[luzhniki] gray-cloud worker', msg?.error);
+        finish(null);
+        return;
       }
+      const raw = { mode: msg.bundleMode, seats: msg.seats };
+      if (!isEditorLabeledBundle(raw) && !allowAutoGrayBundle()) {
+        state.index = new Map();
+        state.mtime = mtime;
+        state.seatCount = 0;
+        state.bundleMode = msg.bundleMode;
+        finish(state.index);
+        return;
+      }
+      state.bundleMode = msg.bundleMode;
+      state.index = buildLabeledSeatIndex(msg.seats);
+      state.mtime = mtime;
+      state.seatCount = msg.seats.length;
+      console.log(`[luzhniki] gray-cloud index warmup ${Date.now() - started}ms seats=${state.seatCount}`);
+      finish(state.index);
     });
+    worker.once('error', (err) => {
+      console.warn('[luzhniki] gray-cloud worker error', err?.message || err);
+      finish(null);
+    });
+    worker.once('exit', (code) => {
+      if (code !== 0) finish(null);
+    });
+  }).finally(() => {
+    warmupPromise = null;
   });
   return warmupPromise;
 }
 
 /**
+ * Только память. Парс 14MB — через warmupGrayCloudLabeledIndex (worker).
  * @returns {Map<string, { sector: string, row: string, seat: string, xPct: number, yPct: number }> | null}
  */
 export function getCachedGrayCloudLabeledIndex() {
-  const filePath = resolveBundlePath();
-  if (!filePath) return null;
-
-  let mtime = 0;
-  try {
-    mtime = fs.statSync(filePath).mtimeMs;
-  } catch {
-    return null;
-  }
-
-  if (state.index && state.mtime === mtime) return state.index;
-
-  try {
-    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    state.bundleMode = String(raw?.mode ?? '').trim() || null;
-
-    if (!isEditorLabeledBundle(raw) && !allowAutoGrayBundle()) {
-      state.index = new Map();
-      state.mtime = mtime;
-      state.seatCount = 0;
-      return state.index;
-    }
-
-    let seats = Array.isArray(raw?.seats) ? raw.seats : Array.isArray(raw) ? raw : [];
-    if (state.bundleMode === 'editor-svg-extract') {
-      seats = manualEditorSeats(seats);
-    }
-    const filtered = seats.filter(
-      (s) =>
-        s?.sector &&
-        s?.row != null &&
-        s?.seat != null &&
-        Number.isFinite(Number(s.xPct)) &&
-        Number.isFinite(Number(s.yPct)),
-    );
-    state.index = buildLabeledSeatIndex(filtered);
-    state.mtime = mtime;
-    state.seatCount = filtered.length;
-    return state.index;
-  } catch {
-    return null;
-  }
+  if (isGrayCloudLabeledIndexReady()) return state.index;
+  warmupGrayCloudLabeledIndex();
+  return state.index && isGrayCloudLabeledIndexReady() ? state.index : null;
 }
 
 export function getGrayCloudBundleMode() {
