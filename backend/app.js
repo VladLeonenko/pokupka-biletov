@@ -470,8 +470,17 @@ app.get('/hall-maps/supercup-nn-football-gray-bowl.png', (req, res) => {
   res.status(404).type('text/plain').send('Not found');
 });
 
-app.get('/hall-maps/supercup-nn-football-gray-bowl-dots.bin', (req, res) => {
-  const ok = sendDistRootFile(res, 'hall-maps/supercup-nn-football-gray-bowl-dots.bin', (r) => {
+app.get('/hall-maps/lukoil-arena-gray-bowl.png', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/lukoil-arena-gray-bowl.png', (r) => {
+    r.setHeader('Content-Type', 'image/png');
+    r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+  if (ok) return;
+  res.status(404).type('text/plain').send('Not found');
+});
+
+app.get('/hall-maps/lukoil-arena-gray-bowl-dots.bin', (req, res) => {
+  const ok = sendDistRootFile(res, 'hall-maps/lukoil-arena-gray-bowl-dots.bin', (r) => {
     r.setHeader('Content-Type', 'application/octet-stream');
     r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   });

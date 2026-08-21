@@ -16,6 +16,8 @@ import { strictSeatKey } from '../utils/ticketHallSectorNormalize.js';
 
 export { LUKOIL_ARENA_STAGE_MAP_KEY };
 
+const LUKOIL_ARENA_GRAY_BOWL_PNG = '/hall-maps/lukoil-arena-gray-bowl.png';
+
 function parseLayoutJson(row) {
   let layout = row?.layout_json;
   if (typeof layout === 'string') {
@@ -121,6 +123,7 @@ export function slimLukoilArenaStageMapForClient(row) {
       stadiumMapKey: LUKOIL_ARENA_STAGE_MAP_KEY,
       luzhnikiStadiumCheckout: true,
       omitClientSeatCoordinateCloud: true,
+      hallBackgroundRasterUrl: LUKOIL_ARENA_GRAY_BOWL_PNG,
       maxZoomMultiplier: 12,
       sectorFocusZoomMultiplier: 12,
     },
@@ -158,6 +161,7 @@ export function adaptLukoilArenaStageMapForLiveOffers(row, offerRows = []) {
       hideSeatList: false,
       preferLayoutSeatPositions: true,
       omitClientSeatCoordinateCloud: true,
+      hallBackgroundRasterUrl: LUKOIL_ARENA_GRAY_BOWL_PNG,
       maxZoomMultiplier: 12,
       sectorFocusZoomMultiplier: 12,
     },

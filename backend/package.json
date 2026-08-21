@@ -47,6 +47,7 @@
     "strip:luzhniki-pilot-svg-db": "node scripts/strip-luzhniki-pilot-circles-from-db-svg.js",
     "render:luzhniki-gray-bowl-png": "node scripts/render-luzhniki-gray-bowl-png.js",
     "render:supercup-nn-gray-bowl-png": "node scripts/render-supercup-nn-gray-bowl-png.js",
+    "render:lukoil-arena-gray-bowl-png": "node scripts/render-lukoil-arena-gray-bowl-png.js",
     "build:supercup-nn-enriched-svg": "node scripts/build-supercup-nn-enriched-svg.js",
     "sync:supercup-nn-bundle-db": "node scripts/sync-supercup-nn-bundle-to-db.js",
     "render:luzhniki-seat-grid": "node scripts/render-luzhniki-seat-grid-test.js --source prodLayout && node scripts/render-luzhniki-seat-grid-test.js --source cloud && node scripts/render-luzhniki-seat-grid-test.js --source prodLayout --sector \"Сектор D 230\" --out frontend/public/tools/luzhniki-grid-diagnostic-d230.html",
