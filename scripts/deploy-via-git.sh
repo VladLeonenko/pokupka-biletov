@@ -280,6 +280,19 @@ fi
 restore_luzhniki_editor_assets
 rm -f "$LUZHNIKI_BUNDLE_BACKUP" "$LUZHNIKI_HAND_SVG_BACKUP" "$LUZHNIKI_PUBLIC_SVG_BACKUP"
 
+# T-Bank / securepay.tinkoff.ru подписан Russian Trusted CA (Минцифры).
+# Node не доверяет ей из коробки → checkout падает с "fetch failed" без NODE_EXTRA_CA_CERTS.
+CA_BUNDLE="$PROJECT_ROOT/backend/certs/russian-trusted-ca-bundle.pem"
+if [ -f "$CA_BUNDLE" ]; then
+  export NODE_EXTRA_CA_CERTS="$CA_BUNDLE"
+  if [ -f "$BACKEND_ENV" ] && ! grep -q '^NODE_EXTRA_CA_CERTS=' "$BACKEND_ENV"; then
+    echo "NODE_EXTRA_CA_CERTS=$CA_BUNDLE" >> "$BACKEND_ENV"
+  fi
+  echo "✅ NODE_EXTRA_CA_CERTS=$CA_BUNDLE"
+else
+  echo "⚠️ Нет $CA_BUNDLE — оплата T-Bank может падать на SSL (SELF_SIGNED_CERT_IN_CHAIN)"
+fi
+
 # PM2 restart
 echo ""
 echo "🔄 Перезапуск PM2..."
