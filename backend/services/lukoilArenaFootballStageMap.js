@@ -94,22 +94,21 @@ function mergeGeodesySeats(primary, extra) {
 }
 
 /**
- * Клиенту: облако только в пределах зала; флаги стадионного чекаута.
+ * Клиенту: без 44k allSeatCoordinates (3–4MB + canvas на каждый кадр зума).
+ * Чаша = SVG + сектора; цветные точки = sellableSeats (~180).
  * @param {Record<string, unknown> | null | undefined} row
  */
 export function slimLukoilArenaStageMapForClient(row) {
   if (!row) return row;
   const layout = parseLayoutJson(row);
-  const labeledSeats = slimLabeledSeatsForClient(layout.seats);
   const sellableSeats = slimLabeledSeatsForClient(layout.sellableSeats);
   const { hallW, hallH } = lukoilArenaHallSize(layout, row.svg_markup);
-  const cloud = clipHallCoordinateCloud(layout.allSeatCoordinates);
   const pb = layout.pbilet && typeof layout.pbilet === 'object' ? { ...layout.pbilet } : {};
   if (!Number(pb.hallWidth)) pb.hallWidth = hallW;
   if (!Number(pb.hallHeight)) pb.hallHeight = hallH;
   const {
     allSeatCoordinates: _cloud,
-    seats: _seats,
+    seats: _oldInventory,
     sellableSeats: _sellable,
     ...rest
   } = layout;
@@ -118,11 +117,12 @@ export function slimLukoilArenaStageMapForClient(row) {
     layout_json: {
       ...rest,
       pbilet: pb,
-      ...(labeledSeats.length > 0 ? { seats: labeledSeats } : null),
-      ...(sellableSeats.length > 0 ? { sellableSeats } : null),
-      ...(cloud.length > 0 ? { allSeatCoordinates: cloud } : null),
+      ...(sellableSeats.length > 0 ? { seats: sellableSeats, sellableSeats } : { seats: [] }),
       stadiumMapKey: LUKOIL_ARENA_STAGE_MAP_KEY,
       luzhnikiStadiumCheckout: true,
+      omitClientSeatCoordinateCloud: true,
+      maxZoomMultiplier: 12,
+      sectorFocusZoomMultiplier: 12,
     },
   };
 }
@@ -138,6 +138,8 @@ export function adaptLukoilArenaStageMapForLiveOffers(row, offerRows = []) {
     sellableSeats: _seedSellable,
     offerSeatGeodesy: _seedMeta,
     pbiletCategoryCheckout: _oldCategory,
+    maxZoomMultiplier: _editorZoom,
+    sectorFocusZoomMultiplier: _editorFocusZoom,
     ...layoutForGeodesy
   } = layout;
 
@@ -155,6 +157,9 @@ export function adaptLukoilArenaStageMapForLiveOffers(row, offerRows = []) {
       seatSelectionDisabled: false,
       hideSeatList: false,
       preferLayoutSeatPositions: true,
+      omitClientSeatCoordinateCloud: true,
+      maxZoomMultiplier: 12,
+      sectorFocusZoomMultiplier: 12,
     },
     LUKOIL_ARENA_STAGE_MAP_KEY,
   );

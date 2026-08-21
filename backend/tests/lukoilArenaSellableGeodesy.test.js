@@ -63,17 +63,21 @@ test('adaptLukoilArenaStageMapForLiveOffers places unmatched GetBilet seats on s
   assert.ok(keys.has('9|2'));
 });
 
-test('slimLukoilArenaStageMapForClient keeps clipped cloud and sellable', () => {
+test('slimLukoilArenaStageMapForClient drops 47k cloud and unlocks stadium zoom', () => {
   const slim = slimLukoilArenaStageMapForClient({
     svg_markup: '<svg viewBox="0 0 9951 8766"></svg>',
     layout_json: {
       seats: [{ sector: 'Сектор C115', row: '9', seat: '2', xPct: 40, yPct: 86 }],
       sellableSeats: [{ sector: 'сектор c115', row: '2', seat: '11', xPct: 39, yPct: 84 }],
       allSeatCoordinates: [{ xPct: 40, yPct: 80 }, { xPct: 210, yPct: 10 }],
+      maxZoomMultiplier: 2,
       luzhnikiStadiumCheckout: true,
     },
   });
-  assert.equal(slim.layout_json.allSeatCoordinates.length, 1);
+  assert.equal(slim.layout_json.allSeatCoordinates, undefined);
+  assert.equal(slim.layout_json.omitClientSeatCoordinateCloud, true);
+  assert.equal(slim.layout_json.maxZoomMultiplier, 12);
   assert.equal(slim.layout_json.sellableSeats.length, 1);
+  assert.equal(slim.layout_json.seats.length, 1);
   assert.equal(slim.layout_json.pbilet.hallWidth, 9951);
 });
