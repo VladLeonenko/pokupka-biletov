@@ -1949,15 +1949,10 @@ export function TicketHallInteractiveBlock({
     bowlDotsRef.current = null;
     bowlDotsLoadRef.current = null;
     setBowlDotsVersion((v) => v + 1);
-  }, [hallBackgroundDotsUrl, preferBundleBackgroundDots]);
-
-  useEffect(() => {
-    if (!useHallBackgroundRaster || !hallBackgroundDotsUrl) return;
-    if (preferBundleBackgroundDots) return;
-    if (bowlDotsRef.current || bowlDotsLoadRef.current) return;
+    if (preferBundleBackgroundDots || !useHallBackgroundRaster || !hallBackgroundDotsUrl) return;
 
     let cancelled = false;
-    bowlDotsLoadRef.current = fetch(hallBackgroundDotsUrl)
+    const req = fetch(hallBackgroundDotsUrl)
       .then((response) => {
         if (!response.ok) throw new Error(`dots ${response.status}`);
         const ct = response.headers.get('content-type') || '';
@@ -1970,14 +1965,16 @@ export function TicketHallInteractiveBlock({
         setBowlDotsVersion((v) => v + 1);
       })
       .catch(() => {
-        /* zoom без vector dots — не апскейлить PNG */
+        /* PNG остаётся, пока нет vector dots */
       })
       .finally(() => {
-        bowlDotsLoadRef.current = null;
+        if (bowlDotsLoadRef.current === req) bowlDotsLoadRef.current = null;
       });
+    bowlDotsLoadRef.current = req;
 
     return () => {
       cancelled = true;
+      if (bowlDotsLoadRef.current === req) bowlDotsLoadRef.current = null;
     };
   }, [hallBackgroundDotsUrl, preferBundleBackgroundDots, useHallBackgroundRaster]);
   const selectedSectorOffers = useMemo(
@@ -2226,15 +2223,18 @@ export function TicketHallInteractiveBlock({
       const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
       /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
       const skipStadiumBowlDots = theaterSvgSeatCanvas;
+      const hasVectorBowl = preferBundleBackgroundDots
+        ? backgroundSeatCoordinates.length > 0
+        : Boolean(bowlDots);
       /**
-       * PNG только на обзоре или во время жеста.
-       * Апскейл PNG на зуме = «редкие ряды» — так больше не рисуем.
+       * PNG на обзоре / жесте. На зуме — только пока нет vector-чаши,
+       * иначе клик в сектор = пустые прямоугольники SVG без мест.
        */
       if (
         !skipStadiumBowlDots
         && useHallBackgroundRaster
         && hallRaster
-        && (!mapZoomedNow || isMapDragging)
+        && (!mapZoomedNow || isMapDragging || !hasVectorBowl)
       ) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }

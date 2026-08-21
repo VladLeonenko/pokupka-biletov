@@ -35,7 +35,9 @@ export function isEditorLabeledBundle(raw) {
   const seats = Array.isArray(raw.seats) ? raw.seats : [];
   if (mode === 'editor-svg-extract') {
     const manual = manualEditorSeats(seats);
-    return manual.length > 0 && manual.length <= MAX_EDITOR_BUNDLE_SEATS;
+    if (manual.length > 0 && manual.length <= MAX_EDITOR_BUNDLE_SEATS) return true;
+    // Worker уже отфильтровал fieldGrid; geodesySource мог быть снят при clone.
+    return seats.length > 0 && seats.length <= MAX_EDITOR_BUNDLE_SEATS;
   }
   if (/fieldgrid|sector-axes|canonical-overlay/i.test(mode)) return false;
   if (seats.length > MAX_EDITOR_BUNDLE_SEATS) return false;
@@ -161,6 +163,9 @@ export function warmupGrayCloudLabeledIndex() {
       }
       const raw = { mode: msg.bundleMode, seats: msg.seats };
       if (!isEditorLabeledBundle(raw) && !allowAutoGrayBundle()) {
+        console.warn(
+          `[luzhniki] gray-cloud bundle rejected mode=${msg.bundleMode || 'null'} seats=${msg.seats?.length ?? 0}`,
+        );
         state.index = new Map();
         state.mtime = mtime;
         state.seatCount = 0;

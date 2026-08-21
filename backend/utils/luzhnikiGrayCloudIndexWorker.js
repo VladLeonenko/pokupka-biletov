@@ -25,6 +25,12 @@ try {
       seat: String(s.seat),
       xPct,
       yPct,
+      // Нужен parent isEditorLabeledBundle (editor-svg-extract без manual* → пустой индекс → concertLayoutStrict).
+      geodesySource: String(s.geodesySource || '').includes('manual')
+        ? String(s.geodesySource)
+        : bundleMode === 'editor-svg-extract'
+          ? 'manualEditor'
+          : String(s.geodesySource || ''),
     });
   }
   parentPort.postMessage({ ok: true, bundleMode, seats: filtered });
