@@ -2,12 +2,14 @@ const DEFAULT_FAN_ID_REPERTOIRE_IDS = new Set([
   '6a05d17b46a4d000309ecf4e',
   '6a46656d46a4d000309ed0a2',
   'olimpbet-superkubok-rossii',
+  '67c15a6058f79d00302785ea', // Спартак — Зенит, Лукойл Арена, 23.08.2026
 ]);
 
 const DEFAULT_FAN_ID_SLUGS = new Set([
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar',
   'olimpbet-superkubok-rossii',
   'superkubok-rossii-po-futbolu',
+  'spartak-moskva-zenit-sankt-peterburg-futbol',
 ]);
 
 /** На этих мероприятиях нет продажи без номера места в SeatList — скрываем такие офферы из списка. */
@@ -28,6 +30,8 @@ const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
   /** Баста — Guf (Лужники) — стабильный ЧПУ для рекламы. */
   'basta-guf': '69ac1c5246a4d000309ecd5c',
   'basta-i-guf': '69ac1c5246a4d000309ecd5c',
+  /** Спартак — Зенит (Лукойл Арена). */
+  'spartak-moskva-zenit-sankt-peterburg-futbol': '67c15a6058f79d00302785ea',
 };
 
 const BLOCKED_TICKET_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);
