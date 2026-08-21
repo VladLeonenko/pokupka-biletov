@@ -202,18 +202,16 @@ function drawHallBackgroundArcs(
   dense: boolean,
   excludePctBoxes: PctBox[] = [],
   mapZoomed = false,
-  fastRect = false,
 ): void {
   const { left, top, screenW, screenH } = layout;
   const scalePx = screenW / Math.max(1, svgViewBoxWidth);
   const r = hallBackgroundSeatRadiusPx(scalePx, dense, mapZoomed);
-  const d = r * 2;
   ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
+  ctx.beginPath();
   const limW = viewportWidth + 14;
   const limH = viewportHeight + 14;
   const skipField = excludePctBoxes.length > 0;
 
-  if (!fastRect) ctx.beginPath();
   if (seats instanceof Float32Array) {
     for (let i = 0; i < seats.length; i += 2) {
       const xPct = seats[i];
@@ -222,11 +220,8 @@ function drawHallBackgroundArcs(
       const sx = left + (xPct / 100) * screenW;
       const sy = top + (yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-      if (fastRect) ctx.fillRect(sx - r, sy - r, d, d);
-      else {
-        ctx.moveTo(sx + r, sy);
-        ctx.arc(sx, sy, r, 0, Math.PI * 2);
-      }
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
     }
   } else {
     for (const seat of seats) {
@@ -234,14 +229,11 @@ function drawHallBackgroundArcs(
       const sx = left + (seat.xPct / 100) * screenW;
       const sy = top + (seat.yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-      if (fastRect) ctx.fillRect(sx - r, sy - r, d, d);
-      else {
-        ctx.moveTo(sx + r, sy);
-        ctx.arc(sx, sy, r, 0, Math.PI * 2);
-      }
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
     }
   }
-  if (!fastRect) ctx.fill();
+  ctx.fill();
 }
 
 function parseOverlayRect(layout: unknown): OverlayRect {
@@ -2259,7 +2251,6 @@ export function TicketHallInteractiveBlock({
           backgroundSeatCoordinates.length >= 8000,
           fieldDotExcludePctBoxes,
           true,
-          isCoarsePointer,
         );
       } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && !isMapDragging && bowlDots) {
         drawHallBackgroundArcs(
@@ -2272,7 +2263,6 @@ export function TicketHallInteractiveBlock({
           true,
           fieldDotExcludePctBoxes,
           true,
-          isCoarsePointer,
         );
       }
 
@@ -2293,7 +2283,6 @@ export function TicketHallInteractiveBlock({
           bg.length >= 8000,
           fieldDotExcludePctBoxes,
           mapZoomedNow,
-          isCoarsePointer,
         );
       }
 
