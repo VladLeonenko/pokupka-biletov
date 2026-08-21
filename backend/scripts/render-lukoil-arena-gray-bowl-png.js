@@ -88,8 +88,8 @@ async function main() {
 
   const outH = Math.max(1, Math.round((HALL_H / HALL_W) * OUT_W));
   const scalePx = OUT_W / HALL_W;
-  const r = Math.max(0.5, Math.min(1.75, scalePx * 3.6));
-  const rgba = [148, 163, 184, 183];
+  const r = Math.max(1.15, Math.min(2.2, scalePx * 7));
+  const rgba = [148, 163, 184, 210];
 
   const buf = Buffer.alloc(OUT_W * outH * 4, 0);
   const coords = new Float32Array(dots.length * 2);
@@ -97,7 +97,7 @@ async function main() {
     const dot = dots[i];
     coords[i * 2] = dot.xPct;
     coords[i * 2 + 1] = dot.yPct;
-    paintDisc(buf, OUT_W, outH, (dot.xPct / 100) * OUT_W, (dot.yPct / 100) * outH, r * 0.5, rgba);
+    paintDisc(buf, OUT_W, outH, (dot.xPct / 100) * OUT_W, (dot.yPct / 100) * outH, r, rgba);
   }
 
   const dotsOut = out.replace(/\.png$/i, '-dots.bin');

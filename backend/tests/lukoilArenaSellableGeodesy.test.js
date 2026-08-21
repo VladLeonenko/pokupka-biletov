@@ -5,6 +5,7 @@ import {
   clipHallCoordinateCloud,
   lukoilArenaHallSize,
   slimLukoilArenaStageMapForClient,
+  stripNumericSvgSeatLabels,
 } from '../services/lukoilArenaFootballStageMap.js';
 import { LUKOIL_ARENA_STAGE_MAP_KEY } from '../utils/footballStadiumRepertoires.js';
 
@@ -81,4 +82,21 @@ test('slimLukoilArenaStageMapForClient drops 47k cloud and unlocks stadium zoom'
   assert.equal(slim.layout_json.sellableSeats.length, 1);
   assert.equal(slim.layout_json.seats.length, 1);
   assert.equal(slim.layout_json.pbilet.hallWidth, 9951);
+});
+
+test('stripNumericSvgSeatLabels drops seat digits, keeps sector titles', () => {
+  const svg = `
+    <svg viewBox="0 0 100 100">
+      <g id="1" font-size="8"><text><tspan x="0" y="7">23</tspan></text></g>
+      <g id="Сектор-D121"><text id="Сектор-D121"><tspan x="0" y="12">Сектор D121</tspan></text></g>
+    </svg>`;
+  const out = stripNumericSvgSeatLabels(svg);
+  assert.equal(out.includes('>23<'), false);
+  assert.equal(out.includes('Сектор D121'), true);
+  const slim = slimLukoilArenaStageMapForClient({
+    svg_markup: svg,
+    layout_json: { sellableSeats: [], allSeatCoordinates: [] },
+  });
+  assert.equal(String(slim.svg_markup).includes('Сектор D121'), true);
+  assert.equal(String(slim.svg_markup).includes('>23<'), false);
 });

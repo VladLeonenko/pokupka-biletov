@@ -49,6 +49,32 @@ export function lukoilArenaHallSize(layout, svgMarkup) {
   return { hallW: LUKOIL_ARENA_HALL_WIDTH, hallH: LUKOIL_ARENA_HALL_HEIGHT };
 }
 
+/**
+ * Portalbilet не кладёт 4k номеров мест в обзор: цифры 1…N — отдельный слой,
+ * который у нас двоится с серой чашей и тормозит DOM (1.2MB SVG).
+ * Подписи секторов/лож/трибун оставляем.
+ */
+export function stripNumericSvgSeatLabels(svgMarkup) {
+  const src = String(svgMarkup || '');
+  if (!src.includes('<text')) return src;
+  let out = src.replace(/<text\b[\s\S]*?<\/text>/gi, (block) => {
+    const tspans = [...block.matchAll(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/gi)]
+      .map((m) => String(m[1]).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    const labels = tspans.length
+      ? tspans
+      : [block.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()].filter(Boolean);
+    if (labels.length > 0 && labels.every((t) => /^\d{1,3}$/.test(t))) return '';
+    return block;
+  });
+  let prev = '';
+  while (out !== prev) {
+    prev = out;
+    out = out.replace(/<g\b[^>]*>\s*<\/g>/gi, '');
+  }
+  return out;
+}
+
 /** pbilet coordinates содержат хвост за viewBox (~216%) — выкидываем, иначе чаша «съезжает». */
 export function clipHallCoordinateCloud(cloud, maxPct = 102) {
   if (!Array.isArray(cloud)) return [];
@@ -116,6 +142,7 @@ export function slimLukoilArenaStageMapForClient(row) {
   } = layout;
   return {
     ...row,
+    svg_markup: stripNumericSvgSeatLabels(row.svg_markup),
     layout_json: {
       ...rest,
       pbilet: pb,

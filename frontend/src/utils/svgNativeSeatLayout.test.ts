@@ -7,6 +7,7 @@ import {
   parseLayoutSeatPositions,
   parsePreferLayoutSeatPositions,
   sectorMatchScore,
+  stripNumericSvgSeatLabels,
   stripSvgSeatCirclesForBackdrop,
 } from './svgNativeSeatLayout';
 
@@ -107,5 +108,17 @@ describe('svgNativeSeatLayout', () => {
     expect(out).not.toMatch(/#636466/i);
     expect(out).not.toMatch(/place-name/);
     expect(out).toMatch(/#FFFFFF/i);
+  });
+
+  it('strips numeric seat labels and keeps sector names', () => {
+    const src =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<g id="1" font-size="8"><text><tspan x="0" y="7">12</tspan></text></g>' +
+      '<g id="Сектор-D121"><text><tspan x="0" y="12">Сектор D121</tspan></text></g>' +
+      '</svg>';
+    const out = stripNumericSvgSeatLabels(src);
+    expect(out).not.toMatch(/>12</);
+    expect(out).toContain('Сектор D121');
+    expect(out).not.toMatch(/id="1"/);
   });
 });

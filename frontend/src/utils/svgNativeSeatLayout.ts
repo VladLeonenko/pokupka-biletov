@@ -215,6 +215,28 @@ function rewriteSvgWidthHeight(svg: string, width: number, height: number): stri
   return out;
 }
 
+/** Убрать номера мест «1»…«99» из SVG (Лукойл pbilet). Секторы/ложи не трогаем. */
+export function stripNumericSvgSeatLabels(html: string): string {
+  const src = html || '';
+  if (!src.includes('<text')) return src;
+  let out = src.replace(/<text\b[\s\S]*?<\/text>/gi, (block) => {
+    const tspans = [...block.matchAll(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/gi)]
+      .map((m) => String(m[1]).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    const labels = tspans.length
+      ? tspans
+      : [block.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()].filter(Boolean);
+    if (labels.length > 0 && labels.every((t) => /^\d{1,3}$/.test(t))) return '';
+    return block;
+  });
+  let prev = '';
+  while (out !== prev) {
+    prev = out;
+    out = out.replace(/<g\b[^>]*>\s*<\/g>/gi, '');
+  }
+  return out;
+}
+
 /**
  * Сжать intrinsic width/height (viewBox не трогаем).
  * Иначе `new Image()` + DOM-SVG концерта Лужников декодируют 11k×9k.

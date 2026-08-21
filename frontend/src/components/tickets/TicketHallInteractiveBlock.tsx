@@ -10,6 +10,7 @@ import {
   seatMapKey,
   sectorMatchScore,
   stripSvgSeatCirclesForBackdrop,
+  stripNumericSvgSeatLabels,
   capSvgIntrinsicRasterSize,
   STADIUM_LAYER_CSS_MAX_PX,
   type OfferLike,
@@ -882,13 +883,21 @@ export function TicketHallInteractiveBlock({
       (layoutMode === 'auto' && nativeSeats.length >= 2));
 
   const svgHtmlSafe = useMemo(() => {
-    const raw = !useSvgNative
+    let raw = !useSvgNative
       ? hallSvgHtml
       : svgGeometryFromParsedCircles && nativeProcessed?.svgHtml
         ? nativeProcessed.svgHtml
         : hallSvgHtml;
+    if (useHallBackgroundRaster) raw = stripNumericSvgSeatLabels(raw);
     return isStadiumScaleHallLayout(layoutJson) ? capSvgIntrinsicRasterSize(raw) : raw;
-  }, [hallSvgHtml, layoutJson, nativeProcessed, svgGeometryFromParsedCircles, useSvgNative]);
+  }, [
+    hallSvgHtml,
+    layoutJson,
+    nativeProcessed,
+    svgGeometryFromParsedCircles,
+    useHallBackgroundRaster,
+    useSvgNative,
+  ]);
 
   /** viewBox от отображаемого SVG (после processHallSvgForNative). */
   const svgViewBox = useMemo(
@@ -1371,7 +1380,9 @@ export function TicketHallInteractiveBlock({
 
   /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
-  const useCanvasCompositing = stadiumCanvasEnabled && canvasBackdropReady;
+  const [hallRasterReady, setHallRasterReady] = useState(false);
+  const useCanvasCompositing =
+    stadiumCanvasEnabled && (canvasBackdropReady || (useHallBackgroundRaster && hallRasterReady));
 
   useEffect(() => {
     if (!useCanvasCompositing) return;
@@ -1441,11 +1452,13 @@ export function TicketHallInteractiveBlock({
   useEffect(() => {
     if (!useHallBackgroundRaster || !hallBackgroundRasterUrl) {
       hallRasterImageRef.current = null;
+      setHallRasterReady(false);
       setHallRasterVersion((v) => v + 1);
       return;
     }
 
     hallRasterImageRef.current = null;
+    setHallRasterReady(false);
     const img = new Image();
     img.decoding = 'async';
     let cancelled = false;
@@ -1459,11 +1472,13 @@ export function TicketHallInteractiveBlock({
       if (cancelled) return;
       const ok = img.naturalWidth > 0 && img.naturalHeight > 0;
       hallRasterImageRef.current = ok ? img : null;
+      setHallRasterReady(ok);
       finalize();
     };
     img.onerror = () => {
       if (cancelled) return;
       hallRasterImageRef.current = null;
+      setHallRasterReady(false);
       finalize();
     };
     img.src = hallBackgroundRasterUrl;
@@ -2389,6 +2404,7 @@ export function TicketHallInteractiveBlock({
     zoom,
     pan.x,
     pan.y,
+    useCanvasCompositing,
   ]);
 
   const rootClass =
@@ -2437,7 +2453,7 @@ export function TicketHallInteractiveBlock({
         role="presentation"
       >
         <div ref={hoverProbeRef} className={styles.hoverProbeAnchor} aria-hidden="true" />
-        {useCanvasCompositing ? <canvas ref={canvasRef} className={styles.stadiumCanvas} aria-hidden="true" /> : null}
+        {stadiumCanvasEnabled ? <canvas ref={canvasRef} className={styles.stadiumCanvas} aria-hidden="true" /> : null}
         <div ref={panInnerRef} className={styles.panInner}>
           <div
             ref={layersRef}
@@ -2453,7 +2469,7 @@ export function TicketHallInteractiveBlock({
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
             />
-            {useHallBackgroundRaster && !useCanvasCompositing && hallBackgroundRasterUrl ? (
+            {useHallBackgroundRaster && !stadiumCanvasEnabled && hallBackgroundRasterUrl ? (
               <img
                 className={styles.hallBackgroundRaster}
                 src={hallBackgroundRasterUrl}
