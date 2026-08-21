@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Container, Typography, Button, Card, CardContent, Grid, CircularProgress, Chip } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { getAdminOrder, getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
+import { reachMetrikaGoal } from '@/utils/yandexMetrika';
+import { pushPurchase } from '@/utils/dataLayer';
 
 type OrderDetailPageProps = {
   adminView?: boolean;
@@ -46,6 +48,44 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
       void queryClient.invalidateQueries({ queryKey: ['order', orderNumber] });
     }
   }, [paymentPoll?.paymentStatus, orderNumber, queryClient]);
+
+  const purchaseGoalSent = useRef(false);
+  useEffect(() => {
+    if (adminView || !order || !orderNumber) return;
+    const status = paymentPoll?.paymentStatus || order.paymentStatus;
+    if (status !== 'paid') return;
+    const storageKey = `ym_purchase_${orderNumber}`;
+    try {
+      if (purchaseGoalSent.current || sessionStorage.getItem(storageKey)) return;
+      purchaseGoalSent.current = true;
+      sessionStorage.setItem(storageKey, '1');
+    } catch {
+      if (purchaseGoalSent.current) return;
+      purchaseGoalSent.current = true;
+    }
+    const totalCents =
+      typeof (order as any).totalCents === 'number'
+        ? (order as any).totalCents
+        : typeof (order as any).total === 'number'
+          ? (order as any).total
+          : undefined;
+    const totalRub = totalCents != null ? totalCents / 100 : undefined;
+    reachMetrikaGoal('purchase', {
+      order_number: orderNumber,
+      order_price: totalRub,
+      currency: 'RUB',
+    });
+    const products = (order.items || []).map((item: any, idx: number) => {
+      const priceCents = item.priceCents ?? item.price_cents;
+      return {
+        id: String(item.productSlug || item.product_id || item.id || idx),
+        name: String(item.product?.title || item.productTitle || 'Билет'),
+        price: priceCents != null ? Number(priceCents) / 100 : undefined,
+        quantity: item.quantity != null ? Number(item.quantity) : 1,
+      };
+    });
+    pushPurchase(orderNumber, products, totalRub);
+  }, [adminView, order, orderNumber, paymentPoll?.paymentStatus]);
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 

@@ -154,11 +154,13 @@ export function TicketPurchaseDialog({
       });
     },
     onSuccess: (data) => {
-      reachMetrikaGoal('purchase', {
+      // Не purchase: до банка ещё нет оплаты. Реальная цель — OrderDetailPage при paymentStatus=paid.
+      reachMetrikaGoal('payment_redirect', {
         repertoire_id: repertoireId || undefined,
         offer_id: offerId || undefined,
         seats_count: seats.length,
         total_rub: displayFinalRub,
+        order_number: data.orderNumber || undefined,
       });
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
