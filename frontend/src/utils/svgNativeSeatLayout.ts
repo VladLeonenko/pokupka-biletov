@@ -246,13 +246,34 @@ export function capSvgIntrinsicRasterSize(
  * Иначе серые кружки из SVG + цветные sellable сверху = «ареолы» (МХТ/Вахтангов).
  * Места рисуем один раз на canvas, как на Лужниках.
  */
+/** GetBilet: номера рядов как path (МХТ — «1»…«6» в проходе партера). */
+const GETBILET_ROW_GLYPH_FILL_RE = /^#?636466$/i;
+
+function isGetbiletRowGlyphFill(fill: string | null | undefined): boolean {
+  return GETBILET_ROW_GLYPH_FILL_RE.test(String(fill || '').trim());
+}
+
+function stripGetbiletRowGlyphPathsFromSvg(svg: Element): void {
+  svg.querySelectorAll('path').forEach((p) => {
+    if (isGetbiletRowGlyphFill(p.getAttribute('fill'))) p.remove();
+  });
+}
+
+function stripGetbiletRowGlyphPathsHtml(html: string): string {
+  return html
+    .replace(/<path\b[^>]*\bfill=(["'])#?636466\1[^>]*>[\s\S]*?<\/path>/gi, '')
+    .replace(/<path\b[^>]*\bfill=(["'])#?636466\1[^>]*\/?>/gi, '');
+}
+
 export function stripSvgSeatCirclesForBackdrop(html: string): string {
   const trimmed = html?.trim();
   if (!trimmed || !trimmed.includes('<svg')) return html;
   if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
-    return trimmed
-      .replace(/<circle\b[^>]*\bplace-name=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
-      .replace(/<circle\b[^>]*\bdata-replaced=(["'])[\s\S]*?\1[^>]*\/?>/gi, '');
+    return stripGetbiletRowGlyphPathsHtml(
+      trimmed
+        .replace(/<circle\b[^>]*\bplace-name=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
+        .replace(/<circle\b[^>]*\bdata-replaced=(["'])[\s\S]*?\1[^>]*\/?>/gi, ''),
+    );
   }
   try {
     let doc = new DOMParser().parseFromString(trimmed, 'image/svg+xml');
@@ -272,9 +293,10 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
         c.setAttribute('stroke', 'none');
       }
     });
+    stripGetbiletRowGlyphPathsFromSvg(svg);
     return new XMLSerializer().serializeToString(svg);
   } catch {
-    return trimmed;
+    return stripGetbiletRowGlyphPathsHtml(trimmed);
   }
 }
 
@@ -393,6 +415,8 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
     c.removeAttribute('stroke-width');
     c.setAttribute('stroke', 'none');
   }
+
+  stripGetbiletRowGlyphPathsFromSvg(svg);
 
   const ser = new XMLSerializer().serializeToString(svg);
   return { seats, svgHtml: ser };

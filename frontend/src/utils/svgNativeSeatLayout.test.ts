@@ -7,6 +7,7 @@ import {
   parseLayoutSeatPositions,
   parsePreferLayoutSeatPositions,
   sectorMatchScore,
+  stripSvgSeatCirclesForBackdrop,
 } from './svgNativeSeatLayout';
 
 describe('svgNativeSeatLayout', () => {
@@ -93,5 +94,18 @@ describe('svgNativeSeatLayout', () => {
     const small =
       '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="820" viewBox="0 0 1000 820"></svg>';
     expect(capSvgIntrinsicRasterSize(small, 2048)).toBe(small);
+  });
+
+  it('strips GetBilet row-number glyph paths from theater backdrop', () => {
+    const src =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<circle cx="10" cy="10" r="2" fill="#d0d0d0" place-name="Партер" row="1" place="1"/>' +
+      '<path d="M50,80v-8h2v8z" fill="#636466"/>' +
+      '<path d="M0,0h100v100h-100z" fill="#FFFFFF"/>' +
+      '</svg>';
+    const out = stripSvgSeatCirclesForBackdrop(src);
+    expect(out).not.toMatch(/#636466/i);
+    expect(out).not.toMatch(/place-name/);
+    expect(out).toMatch(/#FFFFFF/i);
   });
 });

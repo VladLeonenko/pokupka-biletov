@@ -226,6 +226,13 @@
   pointer-events: none !important;
 }
 
+/** МХТ: path-глифы рядов GetBilet (#636466) — «1»…«6» в проходе партера. */
+.svgLayerHideSeatCircles :global(path[fill='#636466']) {
+  fill: none !important;
+  stroke: none !important;
+  opacity: 0 !important;
+}
+
 .svgLayerFocused :global(svg) {
   opacity: 1;
   filter: saturate(1.08) contrast(1.03) brightness(1.02);

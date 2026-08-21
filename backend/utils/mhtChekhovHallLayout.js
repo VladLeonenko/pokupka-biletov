@@ -188,6 +188,13 @@ export function normalizeMhtChekhovHallSvg(svgMarkup) {
     if (!p.el.attr('place')) p.el.attr('place', p.seat);
   }
 
+  /**
+   * GetBilet конвертит номера рядов в path (fill #636466). После crop viewBox
+   * 1–6 партера остаются в центральном проходе и перекрывают точки.
+   * Места — только circle; path/text не нужны.
+   */
+  svg.find('path, text, tspan').remove();
+
   if (panG2.length) {
     panG2.removeAttr('transform');
     panG2.removeAttr('style');
@@ -293,7 +300,8 @@ export function buildMhtSectorModeFromSeats(absSeats, options = {}) {
  * @param {{ rewriteSvg?: boolean }} [options]
  */
 export function buildMhtChekhovTheaterLayout(svgMarkup, options = {}) {
-  const rewriteSvg = options.rewriteSvg === true;
+  /** По умолчанию пишем SVG с viewBox=crop мест — иначе xPct и подложка расходятся (редактор «разъезжается»). */
+  const rewriteSvg = options.rewriteSvg !== false;
   const normalized = normalizeMhtChekhovHallSvg(svgMarkup);
   const sectorMode = buildMhtSectorModeFromSeats(normalized.absSeats, { pad: 4.5 });
   const layoutJson = {
@@ -305,10 +313,14 @@ export function buildMhtChekhovTheaterLayout(svgMarkup, options = {}) {
     showSeatsAtOverview: true,
     maxZoomMultiplier: 2,
     sectorFocusZoomMultiplier: 2,
+    pbilet: {
+      hallWidth: normalized.viewBox.w,
+      hallHeight: normalized.viewBox.h,
+    },
     seats: normalized.seats,
     sectorMode,
     note:
-      'МХТ: AABB-блоки по SVG-секторам (цвет уровня на FE); sellable GetBilet; SVG исходный',
+      'МХТ: AABB-блоки по SVG-секторам; sellable GetBilet; SVG viewBox = crop мест (как xPct)',
   };
   return {
     svgMarkup: rewriteSvg ? normalized.svgMarkup : String(svgMarkup ?? '').trim(),
