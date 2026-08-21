@@ -33,6 +33,7 @@ Stage: `5f3dedaa08192a003157dc6d`. Эталон UX одобрен 2026-08-14.
 |-----|---------|----------|
 | Вахтангов | `vakhtangov-hall-seats` | `/tools/vakhtangov-hall-seats-editor.html` |
 | МХТ основной | `mht-chekhov-hall-seats` | `/tools/mht-chekhov-hall-seats-editor.html` |
+| Лукойл Арена | `lukoil-arena-seats` | `/tools/lukoil-arena-editor.html` |
 
 **Новая схема зала → редактор (чеклист, без велосипеда):**
 1. `createTheaterHallSeatEditorRouter({ stageId, bundleRelPath, svgPublicPath, enrichedPublicFileName, … })` → `backend/routes/<hall>HallSeatEditor.js`

@@ -65,6 +65,7 @@ import {
   isSupercupNnRepertoire,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   SUPERKUP_NN_STAGE_MAP_KEY,
+  LUKOIL_ARENA_STAGE_EXTERNAL_ID,
   parseOmitClientSeatCoordinateCloud,
   parseHideSeatList,
   parsePbiletCategoryCheckout,
@@ -400,6 +401,7 @@ export function TicketCheckoutPage() {
     if (isFootballStadiumRepertoire(repertoireId)) return true;
     if (stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) return true;
     if (stageIdEff === SUPERKUP_NN_STAGE_MAP_KEY) return true;
+    if (stageIdEff === LUKOIL_ARENA_STAGE_EXTERNAL_ID) return true;
     if (isFootballStadiumCheckoutLayout(ctx?.stageMap?.layout_json)) return true;
     return false;
   }, [repertoireId, stageIdEff, ctx?.stageMap?.layout_json]);

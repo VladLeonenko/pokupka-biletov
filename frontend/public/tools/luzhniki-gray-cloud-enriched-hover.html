@@ -147,7 +147,7 @@
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
-      <button type="button" id="loadSectorDots" hidden title="Суперкубок: подгрузить серые точки сектора (или просто введи сектор — подгрузится сам)">📍 сектор</button>
+      <button type="button" id="loadSectorDots" hidden title="Стадион: подгрузить серые точки сектора (или просто введи сектор — подгрузится сам)">📍 сектор</button>
       <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
       <label id="paintRowWrap">Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
       <label id="paintEndRowWrap" hidden>ряд по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" title="только для колонок: номер последнего ряда сектора" /></label>
@@ -243,7 +243,9 @@
     const hallApi = (urlParams.get('hallApi') || 'luzhniki-gray-cloud-svg').replace(/^\/+|\/+$/g, '');
     const isTheaterHallEditor = hallApi !== 'luzhniki-gray-cloud-svg';
     const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
-    if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isSupercupStadiumEditor;
+    const isStadiumCloudEditor =
+      isSupercupStadiumEditor || hallApi === 'lukoil-arena-seats';
+    if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isStadiumCloudEditor;
     const pageTitle = urlParams.get('title')?.trim();
     if (pageTitle) document.title = pageTitle;
     /** Лужники на localhost сохраняют на prod; остальные залы — на этот же хост (dev API). */
@@ -271,7 +273,7 @@
 
     function updateSaveTargetHint() {
       if (!saveTargetEl) return;
-      if (isSupercupStadiumEditor && isLocalEditor && !saveApiBase) {
+      if (isStadiumCloudEditor && isLocalEditor && !saveApiBase) {
         saveTargetEl.textContent = '→ localhost (dev БД + git, без saveToken)';
         return;
       }
@@ -391,7 +393,7 @@
     function updateSaveStatus() {
       if (!saveStatus) return;
       const n = Object.keys(loadEditStore().overrides).length;
-      const storeLabeled = isSupercupStadiumEditor ? extractLabeledSeatsFromEditStore().length : 0;
+      const storeLabeled = isStadiumCloudEditor ? extractLabeledSeatsFromEditStore().length : 0;
       const parts = [];
       if (n) parts.push(n + ' правок в браузере');
       if (storeLabeled) parts.push('с row/seat: ' + storeLabeled.toLocaleString('ru'));
@@ -684,7 +686,7 @@
     async function saveSvgToServer() {
       flushEditsToDomBeforeSave();
 
-      if (isSupercupStadiumEditor) {
+      if (isStadiumCloudEditor) {
         const storeSeats = extractLabeledSeatsFromEditStore();
         if (storeSeats.length >= 1) {
           try {
@@ -4575,7 +4577,7 @@
       const megaHall = allCircles.length > 12000;
       ensureOverlay();
       fitToView();
-      if (isSupercupStadiumEditor) {
+      if (isStadiumCloudEditor) {
         panMode = true;
         panModeBtn.classList.add('active');
         updatePanCursor();
@@ -4593,18 +4595,18 @@
         renderRowLabels(paintSectorForApply());
         if (restored > 0) {
           showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
-        } else if (isSupercupStadiumEditor && megaHall) {
+        } else if (isStadiumCloudEditor && megaHall) {
           showPaintToast(
             'info',
             allCircles.length.toLocaleString('ru') +
               ' точек сектора · ✋ pan · для другого сектора — 📍',
           );
-        } else if (isSupercupStadiumEditor) {
+        } else if (isStadiumCloudEditor) {
           showPaintToast(
             'info',
             'Подложка + ' +
               allCircles.length.toLocaleString('ru') +
-              ' размеченных · введи сектор (c222) → 📍 сектор',
+              ' размеченных · введи сектор (c115) → 📍 сектор',
           );
         }
       };
@@ -4955,7 +4957,7 @@
       fillNextRowCursor = null;
       updateFillNextRowHint();
       renderRowLabels(paintSectorForApply());
-      if (!isSupercupStadiumEditor) return;
+      if (!isStadiumCloudEditor) return;
       clearTimeout(sectorReloadTimer);
       const sector = paintSectorForApply().trim();
       if (!sector) {
@@ -4965,7 +4967,7 @@
       sectorReloadTimer = window.setTimeout(() => void reloadSectorDots(), 500);
     });
     paintSector.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' || !isSupercupStadiumEditor) return;
+      if (e.key !== 'Enter' || !isStadiumCloudEditor) return;
       e.preventDefault();
       clearTimeout(sectorReloadTimer);
       void reloadSectorDots();

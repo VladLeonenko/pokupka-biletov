@@ -11,6 +11,10 @@ export const SUPERKUP_NN_REPERTOIRE_ID = '6a46656d46a4d000309ed0a2';
 export const SUPERKUP_NN_SLUG = 'olimpbet-superkubok-rossii';
 export const SUPERKUP_NN_STAGE_MAP_KEY = 'supercup-nn-football';
 
+/** GetBilet StageId Лукойл Арена. Карта в БД лежит под этим id, не под stadiumMapKey. */
+export const LUKOIL_ARENA_STAGE_EXTERNAL_ID = '66f16a8c09a369003081a02f';
+export const LUKOIL_ARENA_STAGE_MAP_KEY = 'lukoil-arena';
+
 /** Синхронно с backend/utils/luzhnikiFootballRepertoires.js */
 const DEFAULT_LUZHNIKI_FOOTBALL_REPERTOIRE_IDS = new Set(['6a05d17b46a4d000309ecf4e']);
 
@@ -38,6 +42,11 @@ export function isLuzhnikiConcertRepertoire(repertoireId: string | null | undefi
     .includes(id);
 }
 
+export function isLukoilArenaStageId(stageId: string | null | undefined): boolean {
+  const id = String(stageId || '').trim().toLowerCase();
+  return Boolean(id && id === LUKOIL_ARENA_STAGE_EXTERNAL_ID);
+}
+
 export function isFootballStadiumRepertoire(repertoireId: string | null | undefined): boolean {
   return (
     isLuzhnikiFootballRepertoire(repertoireId) ||
@@ -50,7 +59,11 @@ export function isFootballStadiumCheckoutLayout(layout: unknown): boolean {
   if (isLuzhnikiStadiumCheckoutLayout(layout)) return true;
   if (!layout || typeof layout !== 'object') return false;
   const r = layout as Record<string, unknown>;
-  return r.stadiumMapKey === SUPERKUP_NN_STAGE_MAP_KEY || r.stadiumMapKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY;
+  return (
+    r.stadiumMapKey === SUPERKUP_NN_STAGE_MAP_KEY ||
+    r.stadiumMapKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY ||
+    r.stadiumMapKey === LUKOIL_ARENA_STAGE_MAP_KEY
+  );
 }
 
 export function footballStadiumStageMapKeyForRepertoire(

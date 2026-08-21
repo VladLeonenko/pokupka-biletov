@@ -58,7 +58,12 @@ import {
   SUPERKUP_NN_STAGE_MAP_KEY,
 } from '../services/supercupNnFootballStageMap.js';
 import {
+  adaptLukoilArenaStageMapForLiveOffers,
+  slimLukoilArenaStageMapForClient,
+} from '../services/lukoilArenaFootballStageMap.js';
+import {
   footballStadiumStageMapKeyForRepertoire,
+  isLukoilArenaStageId,
   LUZHNIKI_CONCERT_STAGE_MAP_KEY,
 } from '../utils/footballStadiumRepertoires.js';
 import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
@@ -581,6 +586,7 @@ router.get('/stage/:stageId/map', async (req, res) => {
     const isLuzhnikiMap =
       lookupKey === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY || lookupKey === LUZHNIKI_CONCERT_STAGE_MAP_KEY;
     const isSupercupNnMap = lookupKey === SUPERKUP_NN_STAGE_MAP_KEY;
+    const isLukoilMap = isLukoilArenaStageId(lookupKey) || isLukoilArenaStageId(stageId);
     const bypassCache = req.query.refresh === '1' || req.query.fresh === '1';
     const bundleVersion = isLuzhnikiMap ? getGrayCloudLabeledBundleVersion() : '';
     const cacheKey = isLuzhnikiMap ? `${lookupKey}|${repertoireId || '_'}|${bundleVersion}` : '';
@@ -621,16 +627,25 @@ router.get('/stage/:stageId/map', async (req, res) => {
     if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
 
     let stageRow = r.rows[0];
-    if ((isLuzhnikiMap || isSupercupNnMap) && repertoireId) {
+    if ((isLuzhnikiMap || isSupercupNnMap || isLukoilMap) && repertoireId) {
       try {
         const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
-        const offerRows = filterPublicOffersPayload(
+        let offerRows = filterPublicOffersPayload(
           { ResultData: Array.isArray(payload?.ResultData) ? payload.ResultData : [] },
           repertoireId,
         ).ResultData ?? [];
+        if (isLukoilMap && offerRows.length < 1) {
+          const live = await getPublicOffersForRepertoire(repertoireId);
+          offerRows = filterPublicOffersPayload(
+            { ResultData: Array.isArray(live?.payload?.ResultData) ? live.payload.ResultData : [] },
+            repertoireId,
+          ).ResultData ?? [];
+        }
         stageRow = isLuzhnikiMap
           ? adaptLuzhnikiStageMapForLiveOffers(stageRow, offerRows)
-          : adaptSupercupNnFootballStageMapForLiveOffers(stageRow, offerRows);
+          : isSupercupNnMap
+            ? adaptSupercupNnFootballStageMapForLiveOffers(stageRow, offerRows)
+            : adaptLukoilArenaStageMapForLiveOffers(stageRow, offerRows);
       } catch (err) {
         console.warn('[bilet] stage map sellable geodesy', repertoireId, err?.message || err);
       }
@@ -649,6 +664,9 @@ router.get('/stage/:stageId/map', async (req, res) => {
     }
     if (isSupercupNnMap) {
       stageRow = slimSupercupNnStageMapForClient(stageRow);
+    }
+    if (isLukoilMap) {
+      stageRow = slimLukoilArenaStageMapForClient(stageRow);
     }
 
     return sendPublicJson(req, res, stageRow, { cacheSeconds: 60, staleSeconds: 120 });

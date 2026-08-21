@@ -16,7 +16,8 @@ import {
   HALL_MAP_SAVE_CORS_HEADERS,
   isHallMapSaveTokenRequired,
 } from './hallMapSaveToken.js';
-import { normalizeSectorLabel } from './ticketHallSectorNormalize.js';
+import { pathBBox } from './hallSeatGeodesyFromDots.js';
+import { normalizeSectorLabel, sectorNormsMatch } from './ticketHallSectorNormalize.js';
 import { createHallSvgEditorHandlers } from './hallSeatEditorSvgRoutes.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -34,6 +35,8 @@ const ALLOWED_TOOL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
  *   defaultHallH?: number;
  *   editorMode: string;
  *   seedHint?: string;
+ *   stadiumSectorCloud?: boolean;
+ *   defaultHallKind?: string | null;
  * }} opts
  */
 export function createTheaterHallSeatEditorRouter(opts) {
@@ -46,6 +49,8 @@ export function createTheaterHallSeatEditorRouter(opts) {
   const defaultHallH = Number(opts.defaultHallH) || 1292;
   const editorMode = opts.editorMode || 'theater-hall-editor';
   const seedHint = opts.seedHint || 'seed stage map';
+  const stadiumSectorCloud = opts.stadiumSectorCloud === true;
+  const hasDefaultHallKind = Object.prototype.hasOwnProperty.call(opts, 'defaultHallKind');
 
   const router = express.Router();
 
@@ -94,19 +99,119 @@ export function createTheaterHallSeatEditorRouter(opts) {
     return `${normalizeSectorLabel(sector)}|${String(row).trim().toLowerCase()}|${String(seat).trim().toLowerCase()}`;
   }
 
-  function hallDimensions(layout) {
+  function parseSvgHallSize(svgMarkup) {
+    const m = String(svgMarkup || '').match(/viewBox=["']([^"']+)["']/i);
+    if (!m) return null;
+    const p = m[1].trim().split(/[\s,]+/).map(Number);
+    if (p.length >= 4 && p[2] > 0 && p[3] > 0) return { hallW: p[2], hallH: p[3] };
+    return null;
+  }
+
+  function hallDimensions(layout, svgMarkup) {
     const pb = layout?.pbilet && typeof layout.pbilet === 'object' ? layout.pbilet : {};
+    const fromPbW = Number(pb.hallWidth) || Number(pb.coordinateWidth);
+    const fromPbH = Number(pb.hallHeight) || Number(pb.coordinateHeight);
+    if (fromPbW > 0 && fromPbH > 0) return { hallW: fromPbW, hallH: fromPbH };
+    const fromSvg = parseSvgHallSize(svgMarkup);
+    if (fromSvg) return fromSvg;
     return {
-      hallW: Number(pb.hallWidth) || defaultHallW,
-      hallH: Number(pb.hallHeight) || defaultHallH,
+      hallW: defaultHallW,
+      hallH: defaultHallH,
     };
+  }
+
+  function layoutSectors(layout) {
+    return layout?.sectorMode && typeof layout.sectorMode === 'object' && Array.isArray(layout.sectorMode.sectors)
+      ? layout.sectorMode.sectors
+      : [];
+  }
+
+  function resolveSectorMeta(sectors, sectorQuery) {
+    const q = String(sectorQuery || '').trim();
+    if (!q) return null;
+    return (
+      sectors.find(
+        (s) =>
+          sectorNormsMatch(s?.label, q) ||
+          normalizeSectorLabel(s?.label) === normalizeSectorLabel(q),
+      ) || null
+    );
+  }
+
+  function filterCloudForSector(allCoords, sectorQuery, sectors, hallW, hallH, labeledSeats) {
+    const meta = resolveSectorMeta(sectors, sectorQuery);
+    const inHall = (pt) => {
+      const xPct = Number(pt?.xPct);
+      const yPct = Number(pt?.yPct);
+      return Number.isFinite(xPct) && Number.isFinite(yPct) && xPct >= 0 && yPct >= 0 && xPct <= 102 && yPct <= 102;
+    };
+    const byPath = () => {
+      if (!meta?.path) return [];
+      const bb = pathBBox(meta.path);
+      if (!bb) return [];
+      const margin = 120;
+      return (allCoords || []).filter((pt) => {
+        if (!inHall(pt)) return false;
+        const x = (Number(pt.xPct) / 100) * hallW;
+        const y = (Number(pt.yPct) / 100) * hallH;
+        return (
+          x >= bb.minX - margin &&
+          x <= bb.maxX + margin &&
+          y >= bb.minY - margin &&
+          y <= bb.maxY + margin
+        );
+      });
+    };
+    let coords = byPath();
+    if (coords.length < 20 && Array.isArray(labeledSeats) && labeledSeats.length) {
+      const sectorLabeled = labeledSeats.filter((s) => sectorNormsMatch(s?.sector, sectorQuery));
+      if (sectorLabeled.length >= 2) {
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const s of sectorLabeled) {
+          minX = Math.min(minX, Number(s.xPct));
+          minY = Math.min(minY, Number(s.yPct));
+          maxX = Math.max(maxX, Number(s.xPct));
+          maxY = Math.max(maxY, Number(s.yPct));
+        }
+        const pad = 1.8;
+        const near = (allCoords || []).filter((pt) => {
+          if (!inHall(pt)) return false;
+          return (
+            pt.xPct >= minX - pad &&
+            pt.xPct <= maxX + pad &&
+            pt.yPct >= minY - pad &&
+            pt.yPct <= maxY + pad
+          );
+        });
+        if (near.length > coords.length) coords = near;
+      }
+    }
+    return { coords, sectorLabel: meta?.label || sectorQuery };
+  }
+
+  function filterLabeledSeatsForSector(labeledSeats, sectorQuery) {
+    const q = String(sectorQuery || '').trim();
+    if (!q) return labeledSeats || [];
+    return (labeledSeats || []).filter((s) => sectorNormsMatch(s?.sector, q));
   }
 
   function mergeSeatsOntoBackground(layout, manualSeats) {
     const { hallW, hallH } = hallDimensions(layout);
+    let incoming = manualSeats;
+    if (stadiumSectorCloud) {
+      const existing = (Array.isArray(layout?.seats) ? layout.seats : [])
+        .map(normalizeSeatRow)
+        .filter(Boolean);
+      const touched = new Set(manualSeats.map((s) => normalizeSectorLabel(s.sector)));
+      const kept = existing.filter((s) => !touched.has(normalizeSectorLabel(s.sector)));
+      incoming = [...kept, ...manualSeats];
+    }
     const bg = Array.isArray(layout?.allSeatCoordinates) ? layout.allSeatCoordinates : [];
     const byCoord = new Map();
-    for (const s of manualSeats) {
+    for (const s of incoming) {
       byCoord.set(`${s.xPct.toFixed(4)}|${s.yPct.toFixed(4)}`, s);
     }
     const out = [];
@@ -134,7 +239,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
     }
     /** Нет фона-облака: сохраняем все ручные/извлечённые места. */
     if (bg.length < 1 && out.length < 1) {
-      for (const s of manualSeats) {
+      for (const s of incoming) {
         const sk = seatKey(s.sector, s.row, s.seat);
         if (seenKeys.has(sk)) continue;
         seenKeys.add(sk);
@@ -195,6 +300,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
     mergeSeatsOntoBackground,
     backupExistingFile,
     editorMode,
+    ...(hasDefaultHallKind ? { defaultHallKind: opts.defaultHallKind } : {}),
   });
 
   router.get('/status', async (_req, res) => {
@@ -210,7 +316,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
         if (!n) continue;
         sectorNormCounts[n] = (sectorNormCounts[n] || 0) + 1;
       }
-      const { hallW, hallH } = hallDimensions(layout);
+      const { hallW, hallH } = hallDimensions(layout, row?.svg_markup);
       return res.json({
         ok: true,
         stageId,
@@ -223,6 +329,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
         bundle: { ...bundle, sectorNormCounts },
         svgUrl: svgPublic,
         saveTokenRequired: isHallMapSaveTokenRequired(),
+        stadiumSectorCloud,
         checkoutHint:
           'Checkout: координаты из layout_json.seats (preferLayoutSeatPositions). Цены/наличие — GetBilet.',
       });
@@ -246,7 +353,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
         layout.sectorMode && typeof layout.sectorMode === 'object' && Array.isArray(layout.sectorMode.sectors)
           ? layout.sectorMode.sectors
           : [];
-      const { hallW, hallH } = hallDimensions(layout);
+      const { hallW, hallH } = hallDimensions(layout, row.svg_markup);
       return res.json({
         ok: true,
         stageId,
@@ -266,9 +373,43 @@ export function createTheaterHallSeatEditorRouter(opts) {
     }
   });
 
-  router.get('/enriched.svg', async (_req, res) => {
+  router.get('/enriched.svg', async (req, res) => {
     try {
-      const xml = await svgEditor.buildEnrichedSvgMarkup();
+      let xml;
+      if (stadiumSectorCloud) {
+        const row = await loadStageMapRow();
+        if (!row?.svg_markup) throw new Error('stage map not in DB');
+        const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
+        const bundle = readBundleFile();
+        const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
+        const labeledSeats =
+          bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
+        const sectors = layoutSectors(layout);
+        const { hallW, hallH } = hallDimensions(layout, row.svg_markup);
+        const cloudAll = Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [];
+        const sectorQ = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
+        const includeFullCloud = req.query.full === '1' || req.query.full === 'true';
+        const cloudForSvg = sectorQ
+          ? filterCloudForSector(cloudAll, sectorQ, sectors, hallW, hallH, labeledSeats).coords
+          : includeFullCloud
+            ? cloudAll.filter((pt) => {
+                const xPct = Number(pt?.xPct);
+                const yPct = Number(pt?.yPct);
+                return Number.isFinite(xPct) && Number.isFinite(yPct) && xPct >= 0 && yPct >= 0 && xPct <= 102 && yPct <= 102;
+              })
+            : [];
+        const labeledForSvg = sectorQ ? filterLabeledSeatsForSector(labeledSeats, sectorQ) : labeledSeats;
+        xml = await svgEditor.buildEnrichedSvgMarkup({
+          hallW,
+          hallH,
+          allSeatCoordinates: cloudForSvg,
+          labeledSeats: labeledForSvg,
+          denseCloud: cloudForSvg.length > 12000,
+        });
+        if (sectorQ) res.setHeader('X-Hall-Editor-Sector', sectorQ);
+      } else {
+        xml = await svgEditor.buildEnrichedSvgMarkup();
+      }
       res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       return res.send(xml);
@@ -329,14 +470,20 @@ export function createTheaterHallSeatEditorRouter(opts) {
         sectorNormCounts[n] = (sectorNormCounts[n] || 0) + 1;
       }
 
+      const hallKind =
+        layout.hallKind || (hasDefaultHallKind ? opts.defaultHallKind : 'theater');
+      const pb = layout.pbilet && typeof layout.pbilet === 'object' ? { ...layout.pbilet } : {};
+      if (!Number(pb.hallWidth)) pb.hallWidth = hallW;
+      if (!Number(pb.hallHeight)) pb.hallHeight = hallH;
       const nextLayout = {
         ...layout,
         layoutMode: 'svgNative',
         preferLayoutSeatPositions: true,
-        showSeatsAtOverview: true,
+        ...(stadiumSectorCloud ? {} : { showSeatsAtOverview: true }),
         maxZoomMultiplier: layout.maxZoomMultiplier ?? 2,
         sectorFocusZoomMultiplier: layout.sectorFocusZoomMultiplier ?? 2,
-        hallKind: layout.hallKind ?? 'theater',
+        ...(hallKind ? { hallKind } : {}),
+        pbilet: pb,
         seats,
       };
 

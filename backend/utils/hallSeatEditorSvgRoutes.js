@@ -21,28 +21,40 @@ import { extractLabeledSeatsFromSvgMarkup } from './luzhnikiExtractSeatsFromEnri
  *   mergeSeatsOntoBackground: (layout: object, manualSeats: object[]) => { seats: object[]; hallW: number; hallH: number };
  *   backupExistingFile: (p: string) => string | null;
  *   editorMode: string;
+ *   defaultHallKind?: string | null;
  * }} cfg
  */
 export function createHallSvgEditorHandlers(cfg) {
   const enrichedPublicAbs = path.join(cfg.repoRoot, 'frontend/public/tools', path.basename(cfg.enrichedPublicRel));
   const stageIds = [...new Set([cfg.stageId, ...(cfg.stageIdAliases || [])].filter(Boolean))];
 
-  async function buildEnrichedSvgMarkup() {
+  async function buildEnrichedSvgMarkup(overrides = {}) {
     const row = await cfg.loadStageMapRow();
     if (!row?.svg_markup) throw new Error('stage map not in DB');
     const layout = row.layout_json && typeof row.layout_json === 'object' ? row.layout_json : {};
     const bundle = cfg.readBundleFile();
     const layoutSeats = Array.isArray(layout.seats) ? layout.seats : [];
     const labeledSeats =
-      bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length ? bundle.seats : layoutSeats;
+      overrides.labeledSeats !== undefined
+        ? overrides.labeledSeats
+        : bundle.exists && Array.isArray(bundle.seats) && bundle.seats.length
+          ? bundle.seats
+          : layoutSeats;
     const pb = layout?.pbilet && typeof layout.pbilet === 'object' ? layout.pbilet : {};
-    const hallW = Number(pb.hallWidth);
-    const hallH = Number(pb.hallHeight);
+    const hallW = Number(overrides.hallW ?? pb.hallWidth);
+    const hallH = Number(overrides.hallH ?? pb.hallHeight);
+    const cloud =
+      overrides.allSeatCoordinates !== undefined
+        ? overrides.allSeatCoordinates
+        : Array.isArray(layout.allSeatCoordinates)
+          ? layout.allSeatCoordinates
+          : [];
     return buildHallEnrichedSvg(row.svg_markup, {
       hallW: Number.isFinite(hallW) && hallW > 0 ? hallW : undefined,
       hallH: Number.isFinite(hallH) && hallH > 0 ? hallH : undefined,
-      allSeatCoordinates: Array.isArray(layout.allSeatCoordinates) ? layout.allSeatCoordinates : [],
+      allSeatCoordinates: cloud,
       labeledSeats,
+      denseCloud: overrides.denseCloud,
     });
   }
 
@@ -72,13 +84,16 @@ export function createHallSvgEditorHandlers(cfg) {
     }));
 
     const { seats, hallW, hallH } = cfg.mergeSeatsOntoBackground(layout, manualSeats);
+    const hallKind =
+      layout.hallKind ||
+      ('defaultHallKind' in cfg ? cfg.defaultHallKind : 'theater');
     const nextLayout = {
       ...layout,
       layoutMode: 'svgNative',
       preferLayoutSeatPositions: true,
       maxZoomMultiplier: layout.maxZoomMultiplier ?? 2,
       sectorFocusZoomMultiplier: layout.sectorFocusZoomMultiplier ?? 2,
-      hallKind: layout.hallKind ?? 'theater',
+      ...(hallKind ? { hallKind } : {}),
       seats,
     };
 

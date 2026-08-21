@@ -1390,6 +1390,18 @@ router.get('/stage-map-editors', (_req, res) => {
       stageMapKeys: [KREMLIN_PALACE_MAP_KEY, '5e81e2f2930af7003040129e', '6048e9be13cd03003015dc8d'],
     },
     {
+      id: 'lukoil-arena',
+      label: 'Лукойл Арена',
+      description: 'Серая чаша 47k, ряды по сектору (как Суперкубок NN). Введи сектор → 📍',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'lukoil-arena-seats',
+        'Лукойл Арена — разметка мест',
+        saveToken,
+      ),
+      stageMapKeys: ['66f16a8c09a369003081a02f'],
+    },
+    {
       id: 'supercup-nn-football',
       label: 'Суперкубок NN — Совкомбанк Арена',
       description: 'pbilet 488, seat checkout как Лужники',

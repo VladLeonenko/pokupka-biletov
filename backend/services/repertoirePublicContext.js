@@ -18,7 +18,7 @@ import {
   isLuzhnikiConcertRepertoire,
   LUZHNIKI_CONCERT_STAGE_MAP_KEY,
 } from '../utils/luzhnikiConcertRepertoires.js';
-import { isSupercupNnRepertoire } from '../utils/footballStadiumRepertoires.js';
+import { isLukoilArenaStageId, isSupercupNnRepertoire } from '../utils/footballStadiumRepertoires.js';
 import {
   adaptLuzhnikiStageMapForLiveOffers,
   loadLuzhnikiFootballStageMapRow,
@@ -603,6 +603,12 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
         stageMap = deferStageHeavyFields
           ? { ...mr.rows[0], svg_markup: null, layout_json: null, svg_markup_deferred: true }
           : mr.rows[0];
+        if (deferStageHeavyFields && isLukoilArenaStageId(stageId)) {
+          stageMap = {
+            ...stageMap,
+            layout_json: { luzhnikiStadiumCheckout: true },
+          };
+        }
       }
     } catch {
       /* нет таблицы карт */

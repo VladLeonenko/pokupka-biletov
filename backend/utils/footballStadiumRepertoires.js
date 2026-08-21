@@ -26,6 +26,14 @@ export const SUPERKUP_NN_PBILET_SOURCE_ID = '1';
 export const SUPERKUP_NN_GETBILET_STAGE_ID = '6a46652e46a4d000309ed0a0';
 export const SUPERKUP_NN_GETBILET_PLACE_ID = '6a46642046a4d000309ed09e';
 
+/** GetBilet StageId Лукойл Арена (все матчи этой сцены, схема от Спартак — ЦСКА). */
+export const LUKOIL_ARENA_STAGE_EXTERNAL_ID =
+  process.env.LUKOIL_ARENA_STAGE_EXTERNAL_ID?.trim() || '66f16a8c09a369003081a02f';
+/** Флаг layout_json, не ключ строки getbilet_stage_maps (карта лежит под stage id). */
+export const LUKOIL_ARENA_STAGE_MAP_KEY = 'lukoil-arena';
+export const LUKOIL_ARENA_HALL_WIDTH = 9951;
+export const LUKOIL_ARENA_HALL_HEIGHT = 8766;
+
 const DEFAULT_FOOTBALL_STADIUM_REPERTOIRE_IDS = new Set([
   SUPERKUP_NN_REPERTOIRE_ID,
   SUPERKUP_NN_SLUG,
@@ -48,6 +56,12 @@ export function isSupercupNnRepertoire(repertoireId) {
   if (!id) return false;
   if (DEFAULT_FOOTBALL_STADIUM_REPERTOIRE_IDS.has(id)) return true;
   return parseEnvFootballStadiumRepertoireIds().has(id);
+}
+
+/** @param {string | null | undefined} stageId */
+export function isLukoilArenaStageId(stageId) {
+  const id = String(stageId || '').trim().toLowerCase();
+  return Boolean(id && id === String(LUKOIL_ARENA_STAGE_EXTERNAL_ID).trim().toLowerCase());
 }
 
 /** @param {string | null | undefined} repertoireId */
