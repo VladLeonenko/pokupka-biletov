@@ -2027,16 +2027,16 @@ export function TicketHallInteractiveBlock({
    */
   const visibleNativePlacements = useMemo(() => {
     if (pbiletCategoryCheckout && sectorMode.enabled) return [];
-    if (portalBiletSectorOverview && sectorMode.enabled && !mapZoomed) return [];
     if (!sectorMode.enabled) return nativePlacements;
     return nativePlacements;
-  }, [mapZoomed, nativePlacements, pbiletCategoryCheckout, portalBiletSectorOverview, sectorMode.enabled]);
+  }, [nativePlacements, pbiletCategoryCheckout, sectorMode.enabled]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
-  /** Canvas рисует точки — DOM только hitbox, иначе двойные «ареолы» (театр + стадион). */
-  const uniformDomOverlayGhost = useCanvasCompositing && useSvgNative;
+  const portalOverview = portalBiletSectorOverview && !mapZoomed;
+  /** Canvas рисует точки — DOM только hitbox, иначе двойные «ареолы». На обзоре Portalbilet DOM-маяки sellable поверх секторов. */
+  const uniformDomOverlayGhost = useCanvasCompositing && useSvgNative && !portalOverview;
   /** Сектора на обзоре 100%: подсветка и клик; заливку path убираем только после zoom-in. */
   const hideSectorFill = mapZoomed;
 
@@ -2244,27 +2244,23 @@ export function TicketHallInteractiveBlock({
       const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
       /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
       const skipStadiumBowlDots = theaterSvgSeatCanvas;
-      const hasVectorBowl = preferBundleBackgroundDots
-        ? backgroundSeatCoordinates.length > 0
-        : Boolean(bowlDots);
       const hideBowlAtOverview = portalBiletSectorOverview && !mapZoomedNow;
       /**
-       * PNG на обзоре / жесте. На зуме — только пока нет vector-чаши,
-       * иначе клик в сектор = пустые прямоугольники SVG без мест.
-       * Portalbilet-обзор: чаша только после зума в сектор.
+       * PNG только на обзоре. На зуме PNG = другая «стульчатая» сетка при драге.
+       * Vector-чаша и на жесте, иначе слой прыгает.
        */
       if (
         !skipStadiumBowlDots
         && !hideBowlAtOverview
         && useHallBackgroundRaster
         && hallRaster
-        && (!mapZoomedNow || isMapDragging || !hasVectorBowl)
+        && !mapZoomedNow
       ) {
         ctx.drawImage(hallRaster, x, y, w, h);
       }
 
       const bowlLayout = { left: x, top: y, screenW: w, screenH: h };
-      if (!skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && !isMapDragging && backgroundSeatCoordinates.length > 0) {
+      if (!skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
         drawHallBackgroundArcs(
           ctx,
           backgroundSeatCoordinates,
@@ -2276,7 +2272,7 @@ export function TicketHallInteractiveBlock({
           fieldDotExcludePctBoxes,
           true,
         );
-      } else if (!skipStadiumBowlDots && !hideBowlAtOverview && useHallBackgroundRaster && mapZoomedNow && !isMapDragging && bowlDots) {
+      } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && bowlDots) {
         drawHallBackgroundArcs(
           ctx,
           bowlDots,
@@ -2358,7 +2354,7 @@ export function TicketHallInteractiveBlock({
             ctx.stroke();
           }
         }
-      } else if (visibleNativePlacements.length > 0) {
+      } else if (visibleNativePlacements.length > 0 && !(portalBiletSectorOverview && !mapZoomedNow)) {
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         for (const seat of visibleNativePlacements) {
           const active = activeKeys.has(seat.key);
@@ -2702,7 +2698,7 @@ export function TicketHallInteractiveBlock({
                       ? layerBox.width
                       : Math.round(svgViewBox.width);
                     const syncCanvasHitbox =
-                      sectorMode.enabled && useSvgNative && useCanvasCompositing;
+                      sectorMode.enabled && useSvgNative && useCanvasCompositing && !portalOverview;
                     const hitboxPx = syncCanvasHitbox
                       ? stadiumSeatHitboxLayerPx(
                           zoom,
@@ -2747,12 +2743,12 @@ export function TicketHallInteractiveBlock({
                         className={`${styles.seatDot} ${styles.seatDotNative} ${
                           useStadiumSeatChrome ? styles.seatDotStadium : ''
                         } ${
-                          useCanvasCompositing ? styles.seatDotCanvasHit : ''
+                          useCanvasCompositing && !portalOverview ? styles.seatDotCanvasHit : ''
                         } ${uniformDomOverlayGhost ? styles.seatDotUniformCanvas : ''} ${
                           useStadiumSeatChrome && !selectedSector && !syncCanvasHitbox
                             ? styles.seatDotOverview
                             : ''
-                        } ${active ? styles.seatDotOn : ''} ${
+                        } ${portalOverview && !p.previewOnly ? styles.seatDotOverviewBeacon : ''} ${active ? styles.seatDotOn : ''} ${
                           syncCanvasHitbox ? styles.seatDotStadiumHitbox : ''
                         } ${
                           useStadiumSeatChrome && !mapZoomed ? styles.seatDotNoPickAtOverview : ''
