@@ -519,6 +519,7 @@ import {
   parseMaskFieldBackgroundDots,
   parseOmitClientSeatCoordinateCloud,
   parsePbiletCategoryCheckout,
+  parsePortalBiletSectorOverview,
   parseShowSeatsAtOverview,
 } from '@/utils/luzhnikiStadiumMap';
 import {
@@ -800,6 +801,10 @@ export function TicketHallInteractiveBlock({
   );
   const pbiletCategoryCheckout = useMemo(
     () => parsePbiletCategoryCheckout(layoutJson),
+    [layoutJson],
+  );
+  const portalBiletSectorOverview = useMemo(
+    () => parsePortalBiletSectorOverview(layoutJson),
     [layoutJson],
   );
   const showSeatsAtOverview = useMemo(() => parseShowSeatsAtOverview(layoutJson), [layoutJson]);
@@ -2022,9 +2027,10 @@ export function TicketHallInteractiveBlock({
    */
   const visibleNativePlacements = useMemo(() => {
     if (pbiletCategoryCheckout && sectorMode.enabled) return [];
+    if (portalBiletSectorOverview && sectorMode.enabled && !mapZoomed) return [];
     if (!sectorMode.enabled) return nativePlacements;
     return nativePlacements;
-  }, [nativePlacements, pbiletCategoryCheckout, sectorMode.enabled]);
+  }, [mapZoomed, nativePlacements, pbiletCategoryCheckout, portalBiletSectorOverview, sectorMode.enabled]);
 
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
@@ -2241,12 +2247,15 @@ export function TicketHallInteractiveBlock({
       const hasVectorBowl = preferBundleBackgroundDots
         ? backgroundSeatCoordinates.length > 0
         : Boolean(bowlDots);
+      const hideBowlAtOverview = portalBiletSectorOverview && !mapZoomedNow;
       /**
        * PNG на обзоре / жесте. На зуме — только пока нет vector-чаши,
        * иначе клик в сектор = пустые прямоугольники SVG без мест.
+       * Portalbilet-обзор: чаша только после зума в сектор.
        */
       if (
         !skipStadiumBowlDots
+        && !hideBowlAtOverview
         && useHallBackgroundRaster
         && hallRaster
         && (!mapZoomedNow || isMapDragging || !hasVectorBowl)
@@ -2267,7 +2276,7 @@ export function TicketHallInteractiveBlock({
           fieldDotExcludePctBoxes,
           true,
         );
-      } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && !isMapDragging && bowlDots) {
+      } else if (!skipStadiumBowlDots && !hideBowlAtOverview && useHallBackgroundRaster && mapZoomedNow && !isMapDragging && bowlDots) {
         drawHallBackgroundArcs(
           ctx,
           bowlDots,
@@ -2401,6 +2410,7 @@ export function TicketHallInteractiveBlock({
     svgViewBox.width,
     useHallBackgroundRaster,
     visibleNativePlacements,
+    portalBiletSectorOverview,
     zoom,
     pan.x,
     pan.y,
@@ -2481,7 +2491,7 @@ export function TicketHallInteractiveBlock({
             {sectorMode.enabled ? (
               <svg
                 className={`${styles.sectorLayer} ${
-                  pbiletCategoryCheckout ? styles.sectorLayerCategoryCheckout : ''
+                  pbiletCategoryCheckout || portalBiletSectorOverview ? styles.sectorLayerCategoryCheckout : ''
                 } ${
                   theaterSectorCheckout && !useNativeTheaterSectorPaths ? styles.sectorLayerTheater : ''
                 } ${
