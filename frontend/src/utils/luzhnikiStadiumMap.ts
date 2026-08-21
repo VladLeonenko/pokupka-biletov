@@ -241,9 +241,3 @@ export function parseShowSeatsAtOverview(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   return (layout as Record<string, unknown>).showSeatsAtOverview === true;
 }
-
-/** Обзор как Portalbilet: цветные сектора, места только после зума. Не qty-чекаут. */
-export function parsePortalBiletSectorOverview(layout: unknown): boolean {
-  if (!layout || typeof layout !== 'object') return false;
-  return (layout as Record<string, unknown>).portalBiletSectorOverview === true;
-}

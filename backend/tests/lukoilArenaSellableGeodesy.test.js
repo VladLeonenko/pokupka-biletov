@@ -78,7 +78,6 @@ test('slimLukoilArenaStageMapForClient drops 47k cloud and unlocks stadium zoom'
   assert.equal(slim.layout_json.allSeatCoordinates, undefined);
   assert.equal(slim.layout_json.omitClientSeatCoordinateCloud, true);
   assert.equal(slim.layout_json.hallBackgroundRasterUrl, '/hall-maps/lukoil-arena-gray-bowl.png');
-  assert.equal(slim.layout_json.portalBiletSectorOverview, true);
   assert.equal(slim.layout_json.maxZoomMultiplier, 12);
   assert.equal(slim.layout_json.sellableSeats.length, 1);
   assert.equal(slim.layout_json.seats.length, 1);
