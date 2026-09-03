@@ -20,7 +20,6 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   const slides = slideInput ?? [];
 
   const [idx, setIdx] = useState(0);
-  const [pauseAutoplay, setPauseAutoplay] = useState(false);
   const firstSlideId = slides[0]?.id ?? '';
   const current = slides[idx] ?? slides[0];
 
@@ -32,22 +31,6 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   useEffect(() => {
     setIdx(0);
   }, [firstSlideId]);
-
-  useEffect(() => {
-    if (loading || slides.length <= 1 || pauseAutoplay) return;
-    const firstDelay = 14000;
-    const ms = 6500;
-    let intervalId = 0;
-    const timeoutId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        setIdx((i) => (i + 1) % slides.length);
-      }, ms);
-    }, firstDelay);
-    return () => {
-      window.clearTimeout(timeoutId);
-      window.clearInterval(intervalId);
-    };
-  }, [loading, slides.length, pauseAutoplay]);
 
   if (loading) {
     return (
@@ -94,8 +77,6 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
       className={styles.hero}
       style={heroStyle}
       data-tickets-hero
-      onMouseEnter={() => setPauseAutoplay(true)}
-      onMouseLeave={() => setPauseAutoplay(false)}
     >
       <div className={styles.heroPhotoOverlay} aria-hidden />
       <div className={styles.heroBody}>

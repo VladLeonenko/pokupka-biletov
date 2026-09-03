@@ -14,7 +14,6 @@ import {
   isLegacyFeaturedHeroHref,
   isLegacyFeaturedHeroSlideId,
 } from '@/utils/heroFeaturedEvent';
-import { slugify } from '@/utils/slugify';
 import { venueFromApiOnly } from '@/utils/venueHint';
 import { resolveEventCoverUrl } from '@/utils/ticketsPlaceholders';
 
@@ -139,69 +138,55 @@ function padSlides(slides: HeroSlideView[]): HeroSlideView[] {
 }
 
 function findFeaturedEvent(events: NormalizedBiletEvent[]): NormalizedBiletEvent | undefined {
-  if (!isFeaturedHeroActive()) return undefined;
+  const wantRep = FEATURED_HERO_REPERTOIRE_ID.toLowerCase();
   return events.find((ev) => {
     const rep = String(ev.repertoireId ?? '').trim().toLowerCase();
-    if (FEATURED_HERO_REPERTOIRE_ID && rep === FEATURED_HERO_REPERTOIRE_ID.toLowerCase()) return true;
-    if (FEATURED_HERO_REPERTOIRE_ID && String(ev.id).toLowerCase().includes(FEATURED_HERO_REPERTOIRE_ID.toLowerCase())) {
-      return true;
-    }
-    if (slugify(ev.title) === FEATURED_HERO_SLUG) return true;
+    if (rep === wantRep) return true;
+    if (String(ev.id).toLowerCase().includes(wantRep)) return true;
     if (isFeaturedHeroEventTitle(ev.title)) return true;
     return false;
   });
 }
 
-function isDuplicateFeatured(slide: HeroSlideView, featuredId: string): boolean {
-  if (slide.id === featuredId) return true;
-  if (isFeaturedHeroSlideId(slide.id)) return true;
-  if (isFeaturedHeroHref(slide.ticketHref)) return true;
-  if (isLegacyFeaturedHeroSlideId(slide.id)) return true;
-  if (isLegacyFeaturedHeroHref(slide.ticketHref)) return true;
+function isDuplicateFeatured(slide: HeroSlideView): boolean {
+  if (isFeaturedHeroSlideId(slide.id) || isFeaturedHeroHref(slide.ticketHref)) return true;
+  if (isFeaturedHeroEventTitle(slide.title)) return true;
+  if (isLegacyFeaturedHeroSlideId(slide.id) || isLegacyFeaturedHeroHref(slide.ticketHref)) return true;
   return false;
 }
 
-/** Кабала святош — первый слайд, пока мероприятие в продаже / до 25.10.2026. */
+function featuredFallbackSlide(): HeroSlideView {
+  return {
+    id: FEATURED_HERO_SLUG,
+    title: 'КАБАЛА СВЯТОШ',
+    imageUrl: featuredHeroImageUrl(null),
+    tags: 'ПТ · 18.09.2026 · 19:00 · ДРАМА · 16+',
+    venueLabel: 'МХТ ИМ. А. П. ЧЕХОВА',
+    venueAddress: 'Москва',
+    lineLeft: '18',
+    lineRight: '09.2026',
+    visualShape: 'shard',
+    ticketHref: FEATURED_HERO_HREF,
+    ctaLabel: 'КУПИТЬ БИЛЕТ',
+  };
+}
+
+/** Первый слайд hero всегда «Кабала святош». */
 function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent[]): HeroSlideView[] {
   if (!isFeaturedHeroActive()) return slides;
 
   const featuredEv = findFeaturedEvent(events);
-  const featuredFromEv = featuredEv
+  const featured: HeroSlideView = featuredEv
     ? {
         ...eventToSlide(featuredEv, 0),
+        id: FEATURED_HERO_SLUG,
+        title: 'КАБАЛА СВЯТОШ',
         imageUrl: featuredHeroImageUrl(featuredEv),
-        ticketHref: featuredEv.repertoireId ? ticketCheckoutHref(featuredEv) : FEATURED_HERO_HREF,
+        ticketHref: FEATURED_HERO_HREF,
       }
-    : null;
+    : featuredFallbackSlide();
 
-  const pinnedIdx = slides.findIndex(
-    (s) => isFeaturedHeroSlideId(s.id) || isFeaturedHeroHref(s.ticketHref),
-  );
-  const pinnedRaw = pinnedIdx >= 0 ? { ...slides[pinnedIdx], ticketHref: FEATURED_HERO_HREF } : null;
-  const pinned =
-    pinnedRaw && !pinnedRaw.imageUrl?.trim()
-      ? { ...pinnedRaw, imageUrl: featuredHeroImageUrl(featuredEv) }
-      : pinnedRaw;
-  const featured = featuredFromEv ?? pinned;
-  if (!featured) {
-    const fallback: HeroSlideView = {
-      id: FEATURED_HERO_SLUG,
-      title: 'КАБАЛА СВЯТОШ',
-      imageUrl: featuredHeroImageUrl(null),
-      tags: 'ПТ · 18.09.2026 · 19:00 · ДРАМА · 16+',
-      venueLabel: 'МХТ ИМ. А. П. ЧЕХОВА',
-      venueAddress: 'Москва',
-      lineLeft: '18',
-      lineRight: '09.2026',
-      visualShape: 'shard',
-      ticketHref: FEATURED_HERO_HREF,
-      ctaLabel: 'КУПИТЬ БИЛЕТ',
-    };
-    const rest = slides.filter((s) => !isDuplicateFeatured(s, fallback.id));
-    return padSlides([fallback, ...rest]);
-  }
-
-  const rest = slides.filter((s, i) => i !== pinnedIdx && !isDuplicateFeatured(s, featured.id));
+  const rest = slides.filter((s) => !isDuplicateFeatured(s));
   return padSlides([featured, ...rest]);
 }
 
