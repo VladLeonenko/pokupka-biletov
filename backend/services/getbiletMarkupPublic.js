@@ -3,6 +3,14 @@
  */
 import mainPool from '../db.js';
 import ticketPool from '../ticketDb.js';
+import {
+  isOwnOfferRow,
+  markupRuleForOwnOffer,
+  isOwnUndercutEnabled,
+  getOwnUndercutRub,
+  getOwnMinMarkupPercent,
+} from './getbiletOwnOffers.js';
+import { competitorSeatKeysForRow } from '../utils/getbiletOfferSeatKey.js';
 
 /** @type {import('pg').Pool[]} */
 const markupPools = ticketPool === mainPool ? [ticketPool] : [ticketPool, mainPool];
@@ -186,7 +194,8 @@ function applyMarkupToOfferRow(row, rule) {
   const o = /** @type {Record<string, unknown>} */ ({ ...row });
   const supplier = resolveOfferSupplierRub(o);
   if (!Number.isFinite(supplier) || supplier < 0) return o;
-  const retail = applyGetbiletMarkupToSupplierUnit(supplier, rule);
+  const effectiveRule = isOwnOfferRow(o) ? markupRuleForOwnOffer(rule) ?? rule : rule;
+  const retail = applyGetbiletMarkupToSupplierUnit(supplier, effectiveRule);
   const s = String(retail);
   o.SupplierPrice = String(supplier);
   o.AgentPrice = s;
@@ -196,22 +205,190 @@ function applyMarkupToOfferRow(row, rule) {
   return o;
 }
 
+function retailOfMarkedRow(row) {
+  const n = Number(row?.AgentPrice ?? row?.NominalPrice ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function setMarkedRetail(row, retail) {
+  const s = String(Math.round(retail * 100) / 100);
+  const o = /** @type {Record<string, unknown>} */ ({ ...row });
+  o.AgentPrice = s;
+  o.NominalPrice = s;
+  if ('agentPrice' in o) o.agentPrice = s;
+  if ('nominalPrice' in o) o.nominalPrice = s;
+  o.UndercutToBeatRival = true;
+  return o;
+}
+
+function ownRetailFloorRub(row) {
+  const supplier = Number(row?.SupplierPrice);
+  if (!Number.isFinite(supplier) || supplier < 0) return 0;
+  return Math.round(supplier * (1 + getOwnMinMarkupPercent() / 100) * 100) / 100;
+}
+
+/**
+ * Свои места на том же сеансе/секторе/ряду/месте — не дороже чужих (минус N ₽), но не ниже пола.
+ * @param {unknown[]} rows
+ * @param {unknown[]} [peerRows] — сырые/уже наценённые соседи, если ResultData — один оффер
+ */
+export function undercutOwnOffersAgainstRivals(rows, peerRows) {
+  if (!isOwnUndercutEnabled() || !Array.isArray(rows) || rows.length === 0) return rows;
+  const undercutRub = getOwnUndercutRub();
+  const peers = Array.isArray(peerRows)
+    ? peerRows.filter((r) => r && typeof r === 'object')
+    : [];
+  const universe = peers.length > 0 ? [...rows, ...peers] : rows;
+
+  /** @type {Map<string, number>} */
+  const rivalMinBySeat = new Map();
+  for (const row of universe) {
+    if (!row || typeof row !== 'object') continue;
+    const o = /** @type {Record<string, unknown>} */ (row);
+    if (isOwnOfferRow(o)) continue;
+    const retail = retailOfMarkedRow(o);
+    if (retail == null) continue;
+    for (const key of competitorSeatKeysForRow(o)) {
+      const prev = rivalMinBySeat.get(key);
+      if (prev == null || retail < prev) rivalMinBySeat.set(key, retail);
+    }
+  }
+  if (rivalMinBySeat.size === 0) return rows;
+
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object') return row;
+    const o = /** @type {Record<string, unknown>} */ (row);
+    if (!isOwnOfferRow(o)) return row;
+    const retail = retailOfMarkedRow(o);
+    if (retail == null) return row;
+    const keys = competitorSeatKeysForRow(o);
+    if (keys.length === 0) return row;
+    let beat = null;
+    for (const key of keys) {
+      const rival = rivalMinBySeat.get(key);
+      if (rival == null) continue;
+      const target = Math.round((rival - undercutRub) * 100) / 100;
+      if (beat == null || target < beat) beat = target;
+    }
+    if (beat == null || beat >= retail) return row;
+    const floor = ownRetailFloorRub(o);
+    const next = Math.max(floor, beat);
+    if (!(next < retail)) return row;
+    return setMarkedRetail(o, next);
+  });
+}
+
+function isExternalFromUndercutEnabled() {
+  const v = (process.env.GETBILET_EXTERNAL_UNDERCUT_ENABLED ?? '1').trim().toLowerCase();
+  return v !== '0' && v !== 'false' && v !== 'off' && v !== 'no';
+}
+
+function retailFloorRub(row) {
+  const supplier = Number(row?.SupplierPrice);
+  if (Number.isFinite(supplier) && supplier >= 0) {
+    return Math.round(supplier * (1 + getOwnMinMarkupPercent() / 100) * 100) / 100;
+  }
+  return ownRetailFloorRub(row);
+}
+
+/**
+ * «От N ₽» на нашей витрине не выше, чем на Афише/Портбилете (минус N ₽), с полом по закупу.
+ * Режем сначала свои офферы (самый низкий закуп), иначе самый дешёвый чужой.
+ * @param {unknown[]} rows
+ * @param {number | null | undefined} externalMinRub
+ */
+export function beatExternalFromPrice(rows, externalMinRub) {
+  if (!isExternalFromUndercutEnabled() || !Array.isArray(rows) || rows.length === 0) return rows;
+  const ext = Number(externalMinRub);
+  if (!Number.isFinite(ext) || ext <= 0) return rows;
+  const target = Math.round((ext - getOwnUndercutRub()) * 100) / 100;
+  let ourMin = null;
+  for (const row of rows) {
+    const p = retailOfMarkedRow(row);
+    if (p == null) continue;
+    if (ourMin == null || p < ourMin) ourMin = p;
+  }
+  if (ourMin == null || ourMin <= target) return rows;
+
+  const own = [];
+  const rest = [];
+  for (const row of rows) {
+    if (row && typeof row === 'object' && isOwnOfferRow(row)) own.push(row);
+    else rest.push(row);
+  }
+  const ordered = [...own, ...rest].sort((a, b) => {
+    const fa = retailFloorRub(a);
+    const fb = retailFloorRub(b);
+    return fa - fb;
+  });
+
+  const drop = new Map();
+  for (const row of ordered) {
+    const retail = retailOfMarkedRow(row);
+    if (retail == null) continue;
+    const next = Math.max(retailFloorRub(row), target);
+    if (next < retail) {
+      drop.set(row, next);
+      if (next <= target) break;
+    }
+  }
+  if (drop.size === 0) return rows;
+  return rows.map((row) => (drop.has(row) ? setMarkedRetail(row, drop.get(row)) : row));
+}
+
+/**
+ * @param {unknown} data
+ * @param {number | null | undefined} externalMinRub
+ */
+export function applyExternalFromPriceToOfferPayload(data, externalMinRub) {
+  if (data == null || typeof data !== 'object') return data;
+  const d = /** @type {Record<string, unknown>} */ ({ .../** @type {object} */ (data) });
+  const rd = d.ResultData;
+  if (Array.isArray(rd)) {
+    d.ResultData = beatExternalFromPrice(rd, externalMinRub);
+    return d;
+  }
+  if (rd && typeof rd === 'object') {
+    const [one] = beatExternalFromPrice([rd], externalMinRub);
+    d.ResultData = one ?? rd;
+  }
+  return d;
+}
+
 /**
  * @param {unknown} data — ответ GetOfferList / GetOfferById
  * @param {GetbiletMarkupRule | null | undefined} rule
+ * @param {unknown[]} [peerRows] — остальные офферы репертуара (для GetOfferById)
  */
-export function applyGetbiletMarkupToOfferPayload(data, rule) {
+export function applyGetbiletMarkupToOfferPayload(data, rule, peerRows) {
   if (!rule || data == null || typeof data !== 'object') return data;
   const d = /** @type {Record<string, unknown>} */ ({ .../** @type {Record<string, unknown>} */ (data) });
   const rd = d.ResultData;
   if (Array.isArray(rd)) {
-    d.ResultData = rd.map((row) =>
+    const marked = rd.map((row) =>
       row && typeof row === 'object' ? applyMarkupToOfferRow(/** @type {Record<string, unknown>} */ (row), rule) : row,
     );
+    const peerMarked = Array.isArray(peerRows)
+      ? peerRows.map((row) =>
+          row && typeof row === 'object'
+            ? applyMarkupToOfferRow(/** @type {Record<string, unknown>} */ (row), rule)
+            : row,
+        )
+      : undefined;
+    d.ResultData = undercutOwnOffersAgainstRivals(marked, peerMarked);
     return d;
   }
   if (rd && typeof rd === 'object' && !Array.isArray(rd)) {
-    d.ResultData = applyMarkupToOfferRow(/** @type {Record<string, unknown>} */ (rd), rule);
+    const marked = applyMarkupToOfferRow(/** @type {Record<string, unknown>} */ (rd), rule);
+    const peerMarked = Array.isArray(peerRows)
+      ? peerRows.map((row) =>
+          row && typeof row === 'object'
+            ? applyMarkupToOfferRow(/** @type {Record<string, unknown>} */ (row), rule)
+            : row,
+        )
+      : [];
+    const [undercut] = undercutOwnOffersAgainstRivals([marked], peerMarked);
+    d.ResultData = undercut ?? marked;
     return d;
   }
   return d;

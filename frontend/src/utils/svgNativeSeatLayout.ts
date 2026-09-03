@@ -1,8 +1,15 @@
+import { isOwnOfferLike } from './ownOfferPrefer';
+
 export type OfferLike = {
   Id?: string;
   Sector?: string;
   Row?: string;
   SeatList?: string[];
+  OwnOffer?: boolean;
+  ownOffer?: boolean;
+  ManualOffer?: boolean;
+  AgentPrice?: string | number;
+  NominalPrice?: string | number;
 };
 
 export type SvgNativeSeat = {
@@ -457,6 +464,15 @@ export function buildOfferSeatIndex(offers: OfferLike[]): Map<string, { offer: O
       m.set(k, arr);
     }
   }
+  for (const arr of m.values()) {
+    arr.sort((a, b) => {
+      const ownDelta = Number(isOwnOfferLike(b.offer)) - Number(isOwnOfferLike(a.offer));
+      if (ownDelta !== 0) return ownDelta;
+      const pa = Number(a.offer.AgentPrice ?? a.offer.NominalPrice ?? Infinity);
+      const pb = Number(b.offer.AgentPrice ?? b.offer.NominalPrice ?? Infinity);
+      return (Number.isFinite(pa) ? pa : Infinity) - (Number.isFinite(pb) ? pb : Infinity);
+    });
+  }
   return m;
 }
 
@@ -565,6 +581,7 @@ export type SvgNativePlacement = {
   priceKey: string;
   /** Только ориентир: без выбора и брони */
   previewOnly?: boolean;
+  ownOffer?: boolean;
 };
 
 function sortSeatTokens(a: string, b: string): number {
@@ -630,6 +647,7 @@ export function buildSvgNativePlacements(
       yPct: s.yPct,
       title: `${s.sector} · ряд ${offer.Row ?? s.row} · место ${seat} · ${getPriceKey(offer)} ₽`,
       priceKey: getPriceKey(offer),
+      ownOffer: isOwnOfferLike(offer),
     });
   }
 
@@ -706,6 +724,7 @@ export function buildSvgNativePlacements(
         yPct: s.yPct,
         title: `${first.sector} · ряд ${offer.Row ?? first.row} · место ${seatApi} · ${getPriceKey(offer)} ₽`,
         priceKey: getPriceKey(offer),
+        ownOffer: isOwnOfferLike(offer),
       });
     }
   }
@@ -732,6 +751,7 @@ export function buildSvgNativePlacements(
       yPct: s.yPct,
       title: `${s.sector} · ряд ${offer.Row ?? ''} · место ${seat} · ${getPriceKey(offer)} ₽`,
       priceKey: getPriceKey(offer),
+      ownOffer: isOwnOfferLike(offer),
     });
   }
 

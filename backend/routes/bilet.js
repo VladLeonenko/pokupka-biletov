@@ -17,8 +17,6 @@ import {
   restV2GetCategoryList,
   restV2GetOfferById,
   restV2GetOfferIdBySeatInfo,
-  restV2GetOfferListByEventInfo,
-  restV2GetOfferListByRepertoireId,
   restV2GetPlaceList,
   restV2GetRepertoireListByStageId,
   restV2GetStageListByPlaceId,
@@ -66,13 +64,14 @@ import {
   isLukoilArenaStageId,
   LUZHNIKI_CONCERT_STAGE_MAP_KEY,
 } from '../utils/footballStadiumRepertoires.js';
-import { invalidateOffersCache } from '../services/getbiletOffersCache.js';
+import { invalidateOffersCache, getOfferListByRepertoireIdCached } from '../services/getbiletOffersCache.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
 import {
   applyGetbiletMarkupToOfferPayload,
   getGetbiletMarkupRuleForRepertoire,
 } from '../services/getbiletMarkupPublic.js';
+import { sanitizePublicOffersPayload } from '../services/getbiletOwnOffers.js';
 import {
   getGetbiletEventsHttpCache,
   setGetbiletEventsHttpCache,
@@ -653,8 +652,11 @@ router.get('/stage/:stageId/map', async (req, res) => {
     if (isLuzhnikiMap) {
       stageRow = slimLuzhnikiStageMapForClient(stageRow);
       const pending = stageRow?.layout_json?.sellableSeatsPending === true;
+      const sellableN = Array.isArray(stageRow?.layout_json?.sellableSeats)
+        ? stageRow.layout_json.sellableSeats.length
+        : 0;
       if (pending) warmupGrayCloudLabeledIndex();
-      if (!pending) {
+      if (!pending && sellableN > 0) {
         luzhnikiStageMapResponseCache.set(cacheKey, {
           createdAt: Date.now(),
           stageRow,
@@ -716,6 +718,7 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
       {
         context,
         offers: offersPayload,
+        offersMeta: offersResult.meta ?? null,
       },
       { noCache: true },
     );
@@ -1063,8 +1066,15 @@ router.post('/v2/GetOfferListByEventInfo', async (req, res) => {
     assertRestV2();
     const rid = requireNonEmptyString(req.body?.RepertoireId ?? req.body?.repertoireId, 'RepertoireId');
     const dt = requireNonEmptyString(req.body?.EventDateTime ?? req.body?.eventDateTime, 'EventDateTime');
-    const data = await restV2GetOfferListByEventInfo(rid, dt);
-    return res.json(data);
+    const { payload, markupRule } = await getPublicOffersForRepertoire(rid);
+    const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+    const filtered = rows.filter((row) => {
+      if (!row || typeof row !== 'object') return false;
+      const raw = row.EventDateTime ?? row.eventDateTime ?? row.BeginDateTime ?? row.beginDateTime;
+      return String(raw ?? '').trim() === dt;
+    });
+    setMarkupResponseHeader(res, markupRule);
+    return res.json({ ...payload, ResultData: filtered });
   } catch (err) {
     return sendGetbiletError(err, res);
   }
@@ -1075,19 +1085,44 @@ router.post('/v2/GetOfferById', async (req, res) => {
     assertRestV2();
     const oid = requireNonEmptyString(req.body?.OfferId ?? req.body?.offerId, 'OfferId');
     const repRaw = req.body?.RepertoireId ?? req.body?.repertoireId;
+    let repertoireId = typeof repRaw === 'string' && repRaw.trim() ? repRaw.trim() : '';
+    if (repertoireId) {
+      try {
+        const { payload, markupRule } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
+        const listed = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        const fromList = listed.find(
+          (row) => row && typeof row === 'object' && String(row.Id ?? '') === oid,
+        );
+        if (fromList) {
+          setMarkupResponseHeader(res, markupRule);
+          return res.json(sanitizePublicOffersPayload({ Success: true, ResultData: fromList }));
+        }
+      } catch (e) {
+        console.warn('[getbilet] GetOfferById cache:', e instanceof Error ? e.message : e);
+      }
+    }
     const data = await restV2GetOfferById(oid);
-    const repertoireId =
-      typeof repRaw === 'string' && repRaw.trim()
-        ? repRaw.trim()
-        : typeof data?.ResultData === 'object' && data.ResultData && !Array.isArray(data.ResultData)
+    if (!repertoireId) {
+      repertoireId =
+        typeof data?.ResultData === 'object' && data.ResultData && !Array.isArray(data.ResultData)
           ? String(data.ResultData.RepertoireId ?? data.ResultData.repertoireId ?? '').trim()
           : Array.isArray(data?.ResultData) && data.ResultData[0]
             ? String(data.ResultData[0].RepertoireId ?? data.ResultData[0].repertoireId ?? '').trim()
             : '';
+    }
     const markupRule = repertoireId ? await getGetbiletMarkupRuleForRepertoire(repertoireId) : null;
-    const withMarkup = applyGetbiletMarkupToOfferPayload(data, markupRule);
+    let peerRows = [];
+    if (repertoireId) {
+      try {
+        const { data: raw } = await getOfferListByRepertoireIdCached(repertoireId, { cacheOnly: true });
+        peerRows = Array.isArray(raw?.ResultData) ? raw.ResultData : [];
+      } catch (e) {
+        console.warn('[getbilet] GetOfferById peers:', e instanceof Error ? e.message : e);
+      }
+    }
+    const withMarkup = applyGetbiletMarkupToOfferPayload(data, markupRule, peerRows);
     setMarkupResponseHeader(res, markupRule);
-    return res.json(withMarkup);
+    return res.json(sanitizePublicOffersPayload(withMarkup));
   } catch (err) {
     return sendGetbiletError(err, res);
   }

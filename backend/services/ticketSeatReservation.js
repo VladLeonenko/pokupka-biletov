@@ -7,9 +7,9 @@ import {
 } from '../services/getbiletRestV2.js';
 import {
   applyGetbiletMarkupToOfferPayload,
-  applyGetbiletMarkupToSupplierUnit,
   getGetbiletMarkupRuleForRepertoire,
 } from '../services/getbiletMarkupPublic.js';
+import { getPublicOffersForRepertoire } from './getbiletOffersPublic.js';
 
 const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
 
@@ -100,25 +100,39 @@ async function resolveOfferUnitRub({ offerId, repertoireId }) {
 
   let offerPayload = await restV2GetOfferById(offerId);
   const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
-  offerPayload = applyGetbiletMarkupToOfferPayload(offerPayload, markupRule);
+  let peerRows = [];
+  try {
+    const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
+    const listed = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+    const fromList = listed.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === String(offerId));
+    if (fromList) {
+      const unit = Number(fromList.AgentPrice ?? fromList.NominalPrice ?? 0);
+      if (Number.isFinite(unit) && unit > 0) {
+        const cachedRow = await loadCachedOfferRowById(repertoireId, offerId);
+        return { unitRub: unit, isDemo: false, cachedRow, isManual: false };
+      }
+    }
+  } catch (e) {
+    console.warn('[ticketSeatReservation] public offers for hold:', e instanceof Error ? e.message : e);
+  }
+  const cachedRow = await loadCachedOfferRowById(repertoireId, offerId);
+  try {
+    const r = await ticketPool.query(
+      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
+      [repertoireId],
+    );
+    const raw = r.rows[0]?.payload_json;
+    peerRows = Array.isArray(raw?.ResultData) ? raw.ResultData : [];
+  } catch {
+    peerRows = cachedRow ? [cachedRow] : [];
+  }
+  offerPayload = applyGetbiletMarkupToOfferPayload(offerPayload, markupRule, peerRows);
   const parsed = parseOfferRow(offerPayload);
   if (!parsed) {
     throw new GetbiletValidationError('Не удалось получить цену предложения');
   }
 
-  let unitRub = parsed.unitRub;
-  const cachedRow = await loadCachedOfferRowById(repertoireId, offerId);
-  if (cachedRow) {
-    const supplier = Number(cachedRow.AgentPrice ?? cachedRow.NominalPrice ?? 0);
-    if (Number.isFinite(supplier) && supplier >= 0) {
-      const fromList = applyGetbiletMarkupToSupplierUnit(supplier, markupRule);
-      if (Number.isFinite(fromList) && fromList > 0) {
-        unitRub = fromList;
-      }
-    }
-  }
-
-  return { unitRub, isDemo: false, cachedRow, isManual: false };
+  return { unitRub: parsed.unitRub, isDemo: false, cachedRow, isManual: false };
 }
 
 /** @param {unknown} body */

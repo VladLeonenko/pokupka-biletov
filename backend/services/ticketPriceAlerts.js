@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import ticketPool from '../ticketDb.js';
-import { getOfferListByRepertoireIdCached } from './getbiletOffersCache.js';
+import { getPublicOffersForRepertoire } from './getbiletOffersPublic.js';
 import { sendTransactionalMail } from './mail/transporter.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -186,7 +186,7 @@ export async function createTicketPriceAlert(input) {
   }
 
   const token = crypto.randomBytes(24).toString('hex');
-  const { data } = await getOfferListByRepertoireIdCached(repertoireId, { forceRefresh: false });
+  const { payload: data } = await getPublicOffersForRepertoire(repertoireId, { forceRefresh: false });
   const snapshot = computeOffersSnapshot(data, {
     session_dt: input.sessionDateTime,
     zone_filter: input.zoneFilter,
@@ -278,8 +278,8 @@ export async function processTicketPriceAlerts(opts = {}) {
     try {
       const rep = String(alert.repertoire_id);
       if (!offersByRep.has(rep)) {
-        const { data } = await getOfferListByRepertoireIdCached(rep, { forceRefresh });
-        offersByRep.set(rep, data);
+        const { payload } = await getPublicOffersForRepertoire(rep, { forceRefresh });
+        offersByRep.set(rep, payload);
       }
       const offersPayload = offersByRep.get(rep);
       const prev =

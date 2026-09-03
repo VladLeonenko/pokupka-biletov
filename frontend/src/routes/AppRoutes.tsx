@@ -123,6 +123,9 @@ const GetbiletMarkupPage = lazy(() =>
 const GetbiletPromosPage = lazy(() =>
   import('@/pages/getbilet/GetbiletPromosPage').then(m => ({ default: m.GetbiletPromosPage }))
 );
+const GetbiletCompetitorPricesPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletCompetitorPricesPage').then(m => ({ default: m.GetbiletCompetitorPricesPage }))
+);
 const GetbiletStageMapsPage = lazy(() =>
   import('@/pages/getbilet/GetbiletStageMapsPage').then(m => ({ default: m.GetbiletStageMapsPage }))
 );
@@ -301,6 +304,7 @@ export function AppRoutes() {
       <Route path="/admin/getbilet/events/:id" element={<Protected><GetbiletEventEditPage /></Protected>} />
       <Route path="/admin/getbilet/stage-maps" element={<Protected><GetbiletStageMapsPage /></Protected>} />
       <Route path="/admin/getbilet/markup" element={<Protected><GetbiletMarkupPage /></Protected>} />
+      <Route path="/admin/getbilet/competitor-prices" element={<Protected><GetbiletCompetitorPricesPage /></Protected>} />
       <Route path="/admin/getbilet/promos" element={<Protected><GetbiletPromosPage /></Protected>} />
       <Route path="/admin/tickets-vitrine" element={<Protected><TicketsVitrinePage /></Protected>} />
       {/* Redirect old admin routes to new /admin routes */}

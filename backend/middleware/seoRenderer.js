@@ -29,6 +29,7 @@ import {
 import ticketPool from '../ticketDb.js';
 import pool from '../db.js';
 import { computeOffersSnapshot } from '../services/ticketPriceAlerts.js';
+import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import {
   resolveTicketSeo,
   composeAutoTicketDescription,
@@ -778,15 +779,10 @@ function buildMoneyTicketTitle(displayTitle, minPrice, max = 70) {
   return `${name}${suffix}`;
 }
 
-/** Только DB-кэш офферов — без внешнего API в hot path SSR. */
+/** Только DB-кэш офферов — без внешнего API в hot path SSR. Цены как на витрине (наценка + свои места). */
 async function getCachedMinPrice(repertoireId) {
   try {
-    const r = await ticketPool.query(
-      `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
-      [repertoireId],
-    );
-    const payload = r.rows[0]?.payload_json;
-    if (!payload) return null;
+    const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
     const snap = computeOffersSnapshot(payload);
     return snap.minPrice;
   } catch {

@@ -4,6 +4,7 @@
 import ticketPool from '../ticketDb.js';
 import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
 import { restV2GetOfferListByRepertoireId } from './getbiletRestV2.js';
+import { scheduleCompetitorSnapshot } from './getbiletCompetitorPrices.js';
 
 const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
 
@@ -71,6 +72,7 @@ async function upsert(repertoireId, data) {
        fetched_at = NOW()`,
     [repertoireId, JSON.stringify(data)],
   );
+  scheduleCompetitorSnapshot(repertoireId, data);
 }
 
 /**
@@ -228,8 +230,9 @@ export async function getOfferListByRepertoireIdCached(repertoireId, opts = {}) 
     if (cacheOnly || (await isDbManualRepertoireKey(repertoireId))) {
       return { data: EMPTY_OFFERS, meta: { cache: cacheOnly ? 'cache_only_miss' : 'manual_miss' } };
     }
-    const data = await fetchUpsert(repertoireId);
-    return { data, meta: { cache: 'miss' } };
+    /** Не держать /page на таймауте GetBilet (25с). Чаша сразу, офферы — следующим poll. */
+    scheduleBackgroundRefresh(repertoireId);
+    return { data: EMPTY_OFFERS, meta: { cache: 'miss_pending' } };
   }
 
   const ageMs = Date.now() - new Date(row.fetched_at).getTime();

@@ -17,7 +17,7 @@ import {
   type SvgNativePlacement,
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
-import styles from './TicketHallInteractiveBlock.module.css';
+import { isOwnOfferLike, shouldReplaceMappedOffer } from '../../utils/ownOfferPrefer';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense hall). */
 const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
@@ -33,6 +33,7 @@ function stadiumSeatCanvasRadiusPx(
   svgViewBoxWidth: number,
   active: boolean,
   mapZoomed: boolean,
+  ownOffer = false,
 ): number {
   const w = layerWidth * zoom;
   const baseR = Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
@@ -41,6 +42,9 @@ function stadiumSeatCanvasRadiusPx(
   if (!mapZoomed) {
     r *= 0.5;
     r = Math.max(active ? 1.2 : 1.3, r);
+  }
+  if (ownOffer && !active) {
+    r *= mapZoomed ? 1.45 : 1.55;
   }
   return r;
 }
@@ -124,6 +128,9 @@ export type HallOfferRow = {
   SeatList?: string[];
   NominalPrice?: string;
   AgentPrice?: string;
+  OwnOffer?: boolean;
+  ownOffer?: boolean;
+  ManualOffer?: boolean;
 };
 
 type OverlayRect = { x: number; y: number; w: number; h: number };
@@ -208,10 +215,25 @@ function drawHallBackgroundArcs(
   const scalePx = screenW / Math.max(1, svgViewBoxWidth);
   const r = hallBackgroundSeatRadiusPx(scalePx, dense, mapZoomed);
   ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
-  ctx.beginPath();
   const limW = viewportWidth + 14;
   const limH = viewportHeight + 14;
   const skipField = excludePctBoxes.length > 0;
+  /** Safari/Chrome рвут один path на ~77k arc — fill становится пустым. */
+  const CHUNK = 4000;
+  let pending = 0;
+  ctx.beginPath();
+  const flush = () => {
+    if (pending < 1) return;
+    ctx.fill();
+    ctx.beginPath();
+    pending = 0;
+  };
+  const addArc = (sx: number, sy: number) => {
+    ctx.moveTo(sx + r, sy);
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    pending += 1;
+    if (pending >= CHUNK) flush();
+  };
 
   if (seats instanceof Float32Array) {
     for (let i = 0; i < seats.length; i += 2) {
@@ -221,8 +243,7 @@ function drawHallBackgroundArcs(
       const sx = left + (xPct / 100) * screenW;
       const sy = top + (yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-      ctx.moveTo(sx + r, sy);
-      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      addArc(sx, sy);
     }
   } else {
     for (const seat of seats) {
@@ -230,11 +251,10 @@ function drawHallBackgroundArcs(
       const sx = left + (seat.xPct / 100) * screenW;
       const sy = top + (seat.yPct / 100) * screenH;
       if (sx < -8 || sy < -8 || sx > limW || sy > limH) continue;
-      ctx.moveTo(sx + r, sy);
-      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      addArc(sx, sy);
     }
   }
-  ctx.fill();
+  flush();
 }
 
 function parseOverlayRect(layout: unknown): OverlayRect {
@@ -630,6 +650,8 @@ function pathBBox(path: string): BBox | null {
 
 function sortOffersForGrid(rows: HallOfferRow[]): HallOfferRow[] {
   return [...rows].sort((a, b) => {
+    const ownDelta = Number(isOwnOfferLike(b)) - Number(isOwnOfferLike(a));
+    if (ownDelta !== 0) return ownDelta;
     const sa = String(a.Sector ?? '');
     const sb = String(b.Sector ?? '');
     if (sa !== sb) return sa.localeCompare(sb, 'ru');
@@ -701,6 +723,8 @@ type Props = {
   sessionDateLabel?: string | null;
   /** Тост «Требуется Fan ID» поверх схемы */
   showFanIdNotice?: boolean;
+  /** Инкремент с родителя: зум камеры к своим местам (OwnOffer). */
+  ownSeatsFocusNonce?: number;
 };
 
 /**
@@ -731,6 +755,7 @@ export function TicketHallInteractiveBlock({
   categoryPreviewImageUrl = null,
   sessionDateLabel = null,
   showFanIdNotice = false,
+  ownSeatsFocusNonce = 0,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -809,17 +834,6 @@ export function TicketHallInteractiveBlock({
     (label: string) => isConcertZoneOnlySectorLabel(label, layoutJson),
     [layoutJson],
   );
-  /** Серая чаша при zoom: координаты из bundle редактора (API), не статический dots.bin. */
-  const preferBundleBackgroundDots = useMemo(() => {
-    if (!layoutJson || typeof layoutJson !== 'object') return false;
-    const rec = layoutJson as Record<string, unknown>;
-    return (
-      omitClientSeatCoordinateCloud &&
-      backgroundSeatCoordinates.length >= 100 &&
-      rec.sellableSeatsFromLiveOffers === true &&
-      rec.sellableGeodesyMode === 'manualBundleFast'
-    );
-  }, [layoutJson, omitClientSeatCoordinateCloud, backgroundSeatCoordinates.length]);
   const useHallBackgroundRaster = Boolean(
     hallBackgroundRasterUrl
     && (omitClientSeatCoordinateCloud || backgroundSeatCoordinates.length < 1),
@@ -965,12 +979,14 @@ export function TicketHallInteractiveBlock({
         if (list.length === 0) continue;
         const oid = String(offer.Id ?? '');
         if (!oid) continue;
-        const offerPrice = Number(getPriceKey(offer));
         for (const seat of list) {
           if (!seat.trim()) continue;
           for (const key of labeledSeatLookupKeys(offer.Sector, offer.Row, seat)) {
             const prev = offerBySeatKey.get(key);
-            if (!prev || offerPrice > Number(getPriceKey(prev.offer))) {
+            if (
+              !prev ||
+              shouldReplaceMappedOffer(prev.offer, offer, getPriceKey, isOwnOfferLike)
+            ) {
               offerBySeatKey.set(key, { offer, seat, list });
             }
           }
@@ -992,27 +1008,9 @@ export function TicketHallInteractiveBlock({
         const sectorLabel = String(offer.Sector ?? hit.sector);
         const priceKey = getPriceKey(offer);
         const nextPrice = Number(priceKey);
+        const ownOffer = isOwnOfferLike(offer);
         const existingIdx = placedBySvgKey.get(svgKey);
-        if (existingIdx != null) {
-          const prev = placements[existingIdx];
-          if (!prev || !(nextPrice > Number(prev.priceKey))) return;
-          placements[existingIdx] = {
-            svgKey,
-            key: selectionSeatKey(oid, rowLabel, seat),
-            offerId: oid,
-            sectorLabel,
-            seat,
-            rowLabel,
-            available: list,
-            xPct: hit.xPct,
-            yPct: hit.yPct,
-            title: `${sectorLabel}, ${rowLabel} ряд, место ${seat}, цена ${formatRub(nextPrice)}`,
-            priceKey,
-          };
-          return;
-        }
-        placedBySvgKey.set(svgKey, placements.length);
-        placements.push({
+        const nextPlacement: SvgNativePlacement = {
           svgKey,
           key: selectionSeatKey(oid, rowLabel, seat),
           offerId: oid,
@@ -1024,7 +1022,26 @@ export function TicketHallInteractiveBlock({
           yPct: hit.yPct,
           title: `${sectorLabel}, ${rowLabel} ряд, место ${seat}, цена ${formatRub(nextPrice)}`,
           priceKey,
-        });
+          ownOffer,
+        };
+        if (existingIdx != null) {
+          const prev = placements[existingIdx];
+          if (
+            !prev ||
+            !shouldReplaceMappedOffer(
+              { OwnOffer: prev.ownOffer, AgentPrice: prev.priceKey },
+              offer,
+              getPriceKey,
+              isOwnOfferLike,
+            )
+          ) {
+            return;
+          }
+          placements[existingIdx] = nextPlacement;
+          return;
+        }
+        placedBySvgKey.set(svgKey, placements.length);
+        placements.push(nextPlacement);
       };
 
       if (sellableFromApi.length > 0) {
@@ -1507,11 +1524,15 @@ export function TicketHallInteractiveBlock({
   }, [hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
 
   useEffect(() => {
+    if (stadiumCanvasEnabled && useCanvasCompositing) {
+      setMapPreparing(false);
+      return;
+    }
     const timeout = window.setTimeout(() => {
       setMapPreparing(false);
-    }, stadiumCanvasEnabled ? 520 : 280);
+    }, stadiumCanvasEnabled ? 900 : 280);
     return () => window.clearTimeout(timeout);
-  }, [canvasImageVersion, hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, variant]);
+  }, [canvasImageVersion, hallRasterVersion, hallSvgHtml, stadiumCanvasEnabled, svgHtmlSafe, useCanvasCompositing, variant]);
 
   const applyFit = useCallback((resetPan: boolean) => {
     const vp = viewportRef.current;
@@ -1787,6 +1808,42 @@ export function TicketHallInteractiveBlock({
     theaterSectorCheckout,
   ]);
 
+  useEffect(() => {
+    if (!ownSeatsFocusNonce) return;
+    const timer = window.setTimeout(() => {
+      const vp = viewportRef.current;
+      const layers = layersRef.current;
+      if (!vp || !layers || layers.offsetWidth < 8 || layers.offsetHeight < 8) return;
+      const own = nativePlacements.filter((p) => p.ownOffer && !p.previewOnly);
+      if (own.length === 0) return;
+      let minXp = Infinity;
+      let minYp = Infinity;
+      let maxXp = -Infinity;
+      let maxYp = -Infinity;
+      for (const seat of own) {
+        minXp = Math.min(minXp, seat.xPct);
+        minYp = Math.min(minYp, seat.yPct);
+        maxXp = Math.max(maxXp, seat.xPct);
+        maxYp = Math.max(maxYp, seat.yPct);
+      }
+      const pad = own.length <= 4 ? 10 : 6;
+      minXp = Math.max(0, minXp - pad);
+      minYp = Math.max(0, minYp - pad);
+      maxXp = Math.min(100, maxXp + pad);
+      maxYp = Math.min(100, maxYp + pad);
+      const spanX = Math.max(8, maxXp - minXp);
+      const spanY = Math.max(8, maxYp - minYp);
+      const boxW = (spanX / 100) * layers.offsetWidth;
+      const boxH = (spanY / 100) * layers.offsetHeight;
+      const fit = Math.min(vp.clientWidth / Math.max(1, boxW), vp.clientHeight / Math.max(1, boxH)) * 0.78;
+      const targetZoom = clampZoom(Math.max(fitZoom * 1.45, Math.min(fit, maxZoom)));
+      const centerX = (((minXp + maxXp) / 2) / 100) * layers.offsetWidth;
+      const centerY = (((minYp + maxYp) / 2) / 100) * layers.offsetHeight;
+      focusLayerPoint(centerX, centerY, targetZoom);
+    }, variant === 'dialog' ? 280 : 120);
+    return () => window.clearTimeout(timer);
+  }, [clampZoom, fitZoom, focusLayerPoint, maxZoom, nativePlacements, ownSeatsFocusNonce, variant]);
+
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
     const next = getNextZoomLevel(current, direction);
@@ -1964,7 +2021,12 @@ export function TicketHallInteractiveBlock({
     bowlDotsRef.current = null;
     bowlDotsLoadRef.current = null;
     setBowlDotsVersion((v) => v + 1);
-    if (preferBundleBackgroundDots || !useHallBackgroundRaster || !hallBackgroundDotsUrl) return;
+  }, [hallBackgroundDotsUrl, useHallBackgroundRaster]);
+
+  useEffect(() => {
+    if (!useHallBackgroundRaster || !hallBackgroundDotsUrl) return;
+    if (!mapZoomed) return;
+    if (bowlDotsRef.current || bowlDotsLoadRef.current) return;
 
     let cancelled = false;
     const req = fetch(hallBackgroundDotsUrl)
@@ -1991,7 +2053,7 @@ export function TicketHallInteractiveBlock({
       cancelled = true;
       if (bowlDotsLoadRef.current === req) bowlDotsLoadRef.current = null;
     };
-  }, [hallBackgroundDotsUrl, preferBundleBackgroundDots, useHallBackgroundRaster]);
+  }, [hallBackgroundDotsUrl, useHallBackgroundRaster, mapZoomed]);
   const selectedSectorOffers = useMemo(
     () => (selectedSectorSummary ? sortOffersForGrid(selectedSectorSummary.offers) : []),
     [selectedSectorSummary],
@@ -2235,67 +2297,44 @@ export function TicketHallInteractiveBlock({
 
       const hallRaster = hallRasterImageRef.current;
       const mapZoomedNow = zoom > fitZoom + 0.01;
-      const bowlDots = preferBundleBackgroundDots ? null : bowlDotsRef.current;
       /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
       const skipStadiumBowlDots = theaterSvgSeatCanvas;
-      /**
-       * PNG только на обзоре. На зуме PNG при драге = чужая «стульчатая» сетка.
-       * Vector-чаша и на жесте.
-       */
-      if (
-        !skipStadiumBowlDots
-        && useHallBackgroundRaster
-        && hallRaster
-        && !mapZoomedNow
-      ) {
-        ctx.drawImage(hallRaster, x, y, w, h);
-      }
-
       const bowlLayout = { left: x, top: y, screenW: w, screenH: h };
-      if (!skipStadiumBowlDots && preferBundleBackgroundDots && mapZoomedNow && backgroundSeatCoordinates.length > 0) {
-        drawHallBackgroundArcs(
-          ctx,
-          backgroundSeatCoordinates,
-          bowlLayout,
-          width,
-          height,
-          svgViewBox.width,
-          backgroundSeatCoordinates.length >= 8000,
-          fieldDotExcludePctBoxes,
-          true,
-        );
-      } else if (!skipStadiumBowlDots && useHallBackgroundRaster && mapZoomedNow && bowlDots) {
-        drawHallBackgroundArcs(
-          ctx,
-          bowlDots,
-          bowlLayout,
-          width,
-          height,
-          svgViewBox.width,
-          true,
-          fieldDotExcludePctBoxes,
-          true,
-        );
-      }
-
-      const bg = backgroundSeatCoordinates;
-      if (
-        !skipStadiumBowlDots
-        && !useHallBackgroundRaster
-        && bg.length > 0
-        && (mapZoomedNow || bg.length >= 8000)
-      ) {
-        drawHallBackgroundArcs(
-          ctx,
-          bg,
-          { left: x, top: y, screenW: w, screenH: h },
-          width,
-          height,
-          svgViewBox.width,
-          bg.length >= 8000,
-          fieldDotExcludePctBoxes,
-          mapZoomedNow,
-        );
+      const jsonBowl =
+        !useHallBackgroundRaster
+        && backgroundSeatCoordinates.length > 0
+        && (mapZoomedNow || backgroundSeatCoordinates.length >= 8000)
+          ? backgroundSeatCoordinates
+          : null;
+      const vectorBowl = bowlDotsRef.current ?? jsonBowl;
+      const vectorReady = Boolean(
+        vectorBowl
+        && (vectorBowl instanceof Float32Array ? vectorBowl.length >= 2000 : vectorBowl.length > 0),
+      );
+      /**
+       * Обзор = PNG (эталон тех же 77k). Зум = dots.bin, но PNG не снимать,
+       * пока bin не в памяти — иначе пустая схема.
+       * Editor bundle не использовать как чашу.
+       */
+      if (!skipStadiumBowlDots) {
+        const drawVector = vectorReady && (mapZoomedNow || !hallRaster);
+        if (drawVector && vectorBowl) {
+          const dense =
+            vectorBowl instanceof Float32Array || vectorBowl.length >= 8000;
+          drawHallBackgroundArcs(
+            ctx,
+            vectorBowl,
+            bowlLayout,
+            width,
+            height,
+            svgViewBox.width,
+            dense,
+            fieldDotExcludePctBoxes,
+            mapZoomedNow,
+          );
+        } else if (hallRaster) {
+          ctx.drawImage(hallRaster, x, y, w, h);
+        }
       }
 
       /**
@@ -2323,55 +2362,84 @@ export function TicketHallInteractiveBlock({
 
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         const mapZoomedNowTheater = zoom > fitZoom + 0.01;
-        for (const seat of visibleNativePlacements) {
-          if (seat.previewOnly) continue;
+        const drawTheaterSellable = (seat: (typeof visibleNativePlacements)[number]) => {
+          if (seat.previewOnly) return;
           const active = activeKeys.has(seat.key);
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
-          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
+          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
             box.width,
             svgViewBox.width,
             active,
             mapZoomedNowTheater,
+            Boolean(seat.ownOffer),
           );
           ctx.beginPath();
           ctx.fillStyle = colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
+          if (seat.ownOffer && !active) {
+            ctx.lineWidth = Math.max(1.1, r * 0.28);
+            ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+            ctx.stroke();
+          }
           if (active) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
           }
+        };
+        for (const seat of visibleNativePlacements) {
+          if (seat.ownOffer) continue;
+          drawTheaterSellable(seat);
+        }
+        for (const seat of visibleNativePlacements) {
+          if (!seat.ownOffer) continue;
+          drawTheaterSellable(seat);
         }
       } else if (visibleNativePlacements.length > 0) {
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
-        for (const seat of visibleNativePlacements) {
+        const mapZoomedNow = zoom > fitZoom + 0.01;
+        const drawStadiumSellable = (seat: (typeof visibleNativePlacements)[number]) => {
           const active = activeKeys.has(seat.key);
           /** Серые «лишние» точки без оффера совпадают с фоном allSeatCoordinates — не дублировать. Офферы GetBilet всегда цветом цены. */
-          if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) continue;
+          if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) return;
 
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
-          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) continue;
+          if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
             box.width,
             svgViewBox.width,
             active,
-            zoom > fitZoom + 0.01,
+            mapZoomedNow,
+            Boolean(seat.ownOffer) && !seat.previewOnly,
           );
           ctx.beginPath();
           ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
+          if (seat.ownOffer && !seat.previewOnly && !active) {
+            ctx.lineWidth = Math.max(1.1, r * 0.28);
+            ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+            ctx.stroke();
+          }
           if (active && !seat.previewOnly) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
           }
+        };
+        for (const seat of visibleNativePlacements) {
+          if (seat.ownOffer) continue;
+          drawStadiumSellable(seat);
+        }
+        for (const seat of visibleNativePlacements) {
+          if (!seat.ownOffer) continue;
+          drawStadiumSellable(seat);
         }
       }
     });
@@ -2388,7 +2456,6 @@ export function TicketHallInteractiveBlock({
     getLayerScreenBox,
     hallRasterVersion,
     isMapDragging,
-    preferBundleBackgroundDots,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
     theaterSvgSeatCanvas,

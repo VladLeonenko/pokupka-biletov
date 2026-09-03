@@ -62,6 +62,8 @@ export interface GetbiletEventRow {
   /** Снимок AI-описания для публичной страницы (см. backfill description_pack) */
   description_pack_json?: Record<string, unknown> | null;
   notes_internal: string | null;
+  /** URL Яндекс Афиши / Портбилета и др. */
+  competitor_urls_json?: { source: string; url: string; label?: string | null }[] | null;
   is_published: boolean;
   sort_order: number;
   group_id?: number | null;
@@ -621,4 +623,176 @@ export async function refreshPbiletCategoryStageMap(id: number): Promise<Refresh
     headers: authHeaders(),
   });
   return handle(res);
+}
+
+export type CompetitorEventDaily = {
+  snapshot_date: string;
+  repertoire_external_id?: string;
+  event_title: string | null;
+  own_seats: number;
+  rival_seats: number;
+  overlap_seats: number;
+  seats_we_lose: number;
+  seats_cannot_beat: number;
+  own_min_retail_rub: string | number | null;
+  rival_min_retail_rub: string | number | null;
+  suggested_own_markup_percent: string | number | null;
+};
+
+export type CompetitorAgentRow = {
+  event_datetime: string;
+  agent_id: string;
+  agent_code: string | null;
+  agent_company: string | null;
+  is_own: boolean;
+  offer_count: number;
+  seat_count: number;
+  min_supplier_rub: string | number | null;
+  max_supplier_rub: string | number | null;
+  min_retail_rub: string | number | null;
+  overlap_seats: number;
+  seats_cheaper_than_own: number;
+};
+
+export type CompetitorOverview = {
+  ownAgentIds: string[];
+  ownCompany: string | null;
+  ownCode: string | null;
+  undercutRub: number;
+  minMarkupPercent: number;
+  snapshotDate: string | null;
+  events: (CompetitorEventDaily & { repertoire_external_id: string })[];
+  history: { snapshot_date: string; own_seats: number; overlap_seats: number; seats_we_lose: number; seats_cannot_beat: number }[];
+};
+
+export type CompetitorEventDetail = {
+  ownAgentIds: string[];
+  undercutRub: number;
+  minMarkupPercent: number;
+  repertoireId: string;
+  snapshotDate: string;
+  daily: CompetitorEventDaily[];
+  agents: CompetitorAgentRow[];
+};
+
+export async function getCompetitorPricesOverview(days = 14): Promise<CompetitorOverview> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/competitor-prices?days=${days}`, {
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
+export async function getCompetitorPricesEvent(
+  repertoireId: string,
+  days = 14,
+): Promise<CompetitorEventDetail> {
+  const res = await fetch(
+    `${API_BASE}/api/admin/getbilet/competitor-prices/${encodeURIComponent(repertoireId)}?days=${days}`,
+    { headers: authHeaders() },
+  );
+  return handle(res);
+}
+
+export async function scanCompetitorPrices(): Promise<{
+  ok: boolean;
+  scanned: number;
+  withOwn: number;
+  losing: number;
+  snapshotDate: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/competitor-prices/scan`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
+export type ExternalCompetitorEventRow = {
+  snapshot_date: string;
+  repertoire_external_id: string;
+  event_title: string | null;
+  event_id?: number | null;
+  our_min_rub: string | number | null;
+  competitor_min_rub: string | number | null;
+  cheapest_source: string | null;
+  cheapest_url: string | null;
+  sources_ok: number;
+  sources_fail: number;
+  competitor_urls_json?: { source: string; url: string; label?: string }[];
+};
+
+export type ExternalCompetitorOverview = {
+  snapshotDate: string | null;
+  cseConfigured: boolean;
+  eventsWithoutUrls: number;
+  events: ExternalCompetitorEventRow[];
+  history: { snapshot_date: string; events: number; losing: number }[];
+};
+
+export async function getExternalCompetitorOverview(days = 14): Promise<ExternalCompetitorOverview> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/competitor-prices/external?days=${days}`, {
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
+export async function getExternalCompetitorEvent(repertoireId: string, days = 14) {
+  const res = await fetch(
+    `${API_BASE}/api/admin/getbilet/competitor-prices/external/${encodeURIComponent(repertoireId)}?days=${days}`,
+    { headers: authHeaders() },
+  );
+  return handle<{
+    repertoireId: string;
+    eventId: number | null;
+    urls: { source: string; url: string; label: string | null }[];
+    snapshotDate: string;
+    daily: ExternalCompetitorEventRow[];
+    sources: {
+      source: string;
+      url: string;
+      min_price_rub: string | number | null;
+      max_price_rub: string | number | null;
+      our_min_price_rub: string | number | null;
+      extract_method: string | null;
+      http_status: number | null;
+      error: string | null;
+      used_playwright: boolean;
+    }[];
+  }>(res);
+}
+
+export async function scanExternalCompetitorPrices(body?: { discover?: boolean; limit?: number }) {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/competitor-prices/external/scan`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body || {}),
+  });
+  return handle<{
+    ok: boolean;
+    snapshotDate?: string;
+    events?: number;
+    scannedUrls?: number;
+    withPrice?: number;
+    discovered?: number;
+    losing?: number;
+    message?: string;
+  }>(res);
+}
+
+export async function discoverExternalCompetitorUrls(limit = 15) {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/competitor-prices/external/discover`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ limit }),
+  });
+  return handle<{ events: number; added: number; cseConfigured: boolean }>(res);
+}
+
+export async function saveExternalCompetitorUrls(eventId: number, urls: string) {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/competitor-prices/external/${eventId}/urls`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ urls }),
+  });
+  return handle<{ urls: { source: string; url: string }[] }>(res);
 }

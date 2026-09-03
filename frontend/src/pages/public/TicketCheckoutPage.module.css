@@ -706,3 +706,69 @@
   font-weight: 700;
   color: #1a1a1a;
 }
+
+.ownSeatsBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(255, 78, 24, 0.35);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.ownSeatsBannerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: #1a1a1a;
+}
+
+.ownSeatsBannerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ownSeatsBannerCta {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: #ff4e18;
+  cursor: pointer;
+}
+
+.ownSeatsBannerClose {
+  border: 0;
+  background: transparent;
+  width: 36px;
+  height: 36px;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+@media (max-width: 599px) {
+  .ownSeatsBanner {
+    position: sticky;
+    top: 8px;
+    z-index: 8;
+    margin-bottom: 10px;
+    padding: 10px 8px 10px 12px;
+  }
+
+  .ownSeatsBannerCta {
+    padding: 10px 12px;
+  }
+}

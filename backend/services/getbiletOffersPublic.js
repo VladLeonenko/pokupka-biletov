@@ -10,10 +10,12 @@ import {
   loadManualOffersForRepertoire,
   mergeManualOffersIntoPayload,
 } from './getbiletManualOffers.js';
+import { sanitizePublicOffersPayload } from './getbiletOwnOffers.js';
+import { applyExternalSiteUndercutToPayload } from './externalCompetitorPrices.js';
 
 /**
  * @param {string} repertoireId
- * @param {{ forceRefresh?: boolean, cacheOnly?: boolean }} [opts]
+ * @param {{ forceRefresh?: boolean, cacheOnly?: boolean, skipExternalUndercut?: boolean }} [opts]
  * @returns {Promise<{
  *   payload: unknown;
  *   meta: { cache?: string; ageMs?: number };
@@ -25,7 +27,11 @@ export async function getPublicOffersForRepertoire(repertoireId, opts = {}) {
   const manual = await loadManualOffersForRepertoire(repertoireId);
   const merged = mergeManualOffersIntoPayload(data, manual);
   const markupRule = await getGetbiletMarkupRuleForRepertoire(repertoireId);
-  const payload = applyGetbiletMarkupToOfferPayload(merged, markupRule);
+  let marked = applyGetbiletMarkupToOfferPayload(merged, markupRule);
+  if (!opts.skipExternalUndercut) {
+    marked = await applyExternalSiteUndercutToPayload(repertoireId, marked);
+  }
+  const payload = sanitizePublicOffersPayload(marked);
   if (!markupRule) {
     console.warn('[getbilet] public offers without markup rule:', repertoireId);
   }

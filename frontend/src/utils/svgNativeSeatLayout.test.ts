@@ -121,4 +121,28 @@ describe('svgNativeSeatLayout', () => {
     expect(out).toContain('Сектор D121');
     expect(out).not.toMatch(/id="1"/);
   });
+
+  it('same seat prefers OwnOffer over a cheaper competitor', () => {
+    const seats = parseLayoutSeatPositions({
+      seats: [{ sector: 'Партер', row: '1', seat: '2', xPct: 10, yPct: 10 }],
+    });
+    const result = buildSvgNativePlacements(
+      seats,
+      [
+        { Id: 'rival', Sector: 'Партер', Row: '1', SeatList: ['2'], AgentPrice: '80000' },
+        {
+          Id: 'ours',
+          Sector: 'Партер',
+          Row: '1',
+          SeatList: ['2'],
+          AgentPrice: '106750',
+          OwnOffer: true,
+        },
+      ],
+      (offer) => String(offer.AgentPrice ?? ''),
+    );
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0].offerId).toBe('ours');
+    expect(result.placements[0].ownOffer).toBe(true);
+  });
 });

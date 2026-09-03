@@ -35,6 +35,19 @@ import { KREMLIN_PALACE_MAP_KEY } from '../services/kremlinPalaceMap.js';
 import { getVenueLookupMaps } from '../services/getbiletVenueLabels.js';
 import { refreshPbiletCategoryStageMap } from '../services/supercupNnFootballStageMap.js';
 import { SUPERKUP_NN_STAGE_MAP_KEY } from '../utils/footballStadiumRepertoires.js';
+import {
+  getCompetitorEventDetail,
+  getCompetitorOverview,
+  scanCompetitorPricesFromOffersCache,
+} from '../services/getbiletCompetitorPrices.js';
+import {
+  discoverMissingCompetitorUrls,
+  getExternalCompetitorEventDetail,
+  getExternalCompetitorOverview,
+  parseCompetitorUrlList,
+  saveCompetitorUrlsForEvent,
+  scanExternalCompetitorPrices,
+} from '../services/externalCompetitorPrices.js';
 
 /** SQL: название площадки из payload кэша (не спектакль). */
 const CATALOG_STAGE_VENUE_SQL = `
@@ -315,14 +328,16 @@ router.post('/events', async (req, res) => {
   if (!ext) return res.status(400).json({ error: 'Укажите внешний id GetBilet' });
   const published = is_published !== false;
   const hidden = storefrontHiddenFromPublished(published);
+  const urlsJson = parseCompetitorUrlList(req.body?.competitor_urls_json ?? req.body?.competitor_urls ?? []);
   try {
     const r = await ticketPool.query(
       `INSERT INTO getbilet_events (
         getbilet_external_id, title_manual, description_manual, notes_internal,
         venue_manual, venue_address_manual, card_subtitle_manual,
         poster_url_manual, poster_url_web, banner_url_manual, poster_page_url,
+        competitor_urls_json,
         is_published, storefront_hidden, sort_order, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, COALESCE($14, 0), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, COALESCE($15, 0), NOW())
       RETURNING *`,
       [
         ext,
@@ -336,6 +351,7 @@ router.post('/events', async (req, res) => {
         poster_url_web?.trim() || null,
         banner_url_manual?.trim() || null,
         poster_page_url?.trim() || null,
+        JSON.stringify(urlsJson),
         published,
         hidden,
         sort_order,
@@ -380,6 +396,7 @@ router.put('/events/:id', async (req, res) => {
     poster_url_web,
     banner_url_manual,
     poster_page_url,
+    competitor_urls_json,
     is_published,
     sort_order,
     group_id,
@@ -427,6 +444,7 @@ router.put('/events/:id', async (req, res) => {
         venue_manual = $14,
         venue_address_manual = $15,
         card_subtitle_manual = $16,
+        competitor_urls_json = $17::jsonb,
         updated_at = NOW()
       WHERE id = $1`,
       [
@@ -446,6 +464,9 @@ router.put('/events/:id', async (req, res) => {
         venue_manual !== undefined ? venue_manual?.trim() || null : c.venue_manual,
         venue_address_manual !== undefined ? venue_address_manual?.trim() || null : c.venue_address_manual,
         card_subtitle_manual !== undefined ? card_subtitle_manual?.trim() || null : c.card_subtitle_manual,
+        competitor_urls_json !== undefined
+          ? JSON.stringify(parseCompetitorUrlList(competitor_urls_json))
+          : JSON.stringify(c.competitor_urls_json || []),
       ]
     );
 
@@ -1710,6 +1731,134 @@ router.post('/stage-maps/:id/refresh-pbilet-category', async (req, res) => {
     res.json(data);
   } catch (e) {
     res.status(400).json({ error: e.message || String(e) });
+  }
+});
+
+// --- Цены конкурентов GetBilet ---
+
+// --- Цены конкурентов: внешние сайты, затем агенты GetBilet ---
+
+router.get('/competitor-prices/external', async (req, res) => {
+  try {
+    const days = Number(req.query.days);
+    const data = await getExternalCompetitorOverview({ days: Number.isFinite(days) ? days : 14 });
+    res.json(data);
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && (e.code === '42P01' || e.code === '42703')) {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Нет таблиц внешних цен — примените миграцию 083_getbilet_external_competitor_prices.sql',
+      });
+    }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.get('/competitor-prices/external/:repertoireId', async (req, res) => {
+  try {
+    const days = Number(req.query.days);
+    const data = await getExternalCompetitorEventDetail(req.params.repertoireId, {
+      days: Number.isFinite(days) ? days : 14,
+    });
+    res.json(data);
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && (e.code === '42P01' || e.code === '42703')) {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Нет таблиц внешних цен — примените миграцию 083',
+      });
+    }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.post('/competitor-prices/external/scan', async (req, res) => {
+  try {
+    const data = await scanExternalCompetitorPrices({
+      discover: Boolean(req.body?.discover),
+      limit: req.body?.limit,
+    });
+    res.json(data);
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && (e.code === '42P01' || e.code === '42703')) {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Нет таблиц внешних цен — примените миграцию 083',
+      });
+    }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.post('/competitor-prices/external/discover', async (req, res) => {
+  try {
+    const data = await discoverMissingCompetitorUrls({ limit: req.body?.limit });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.put('/competitor-prices/external/:eventId/urls', async (req, res) => {
+  const eventId = parseId(req.params.eventId);
+  if (!eventId) return res.status(400).json({ error: 'Некорректный id' });
+  try {
+    const urls = await saveCompetitorUrlsForEvent(eventId, req.body?.urls ?? req.body?.competitor_urls_json);
+    res.json({ urls });
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42703') {
+      return res.status(503).json({ error: 'schema', message: 'Колонка competitor_urls_json — миграция 083' });
+    }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.get('/competitor-prices', async (req, res) => {
+  try {
+    const days = Number(req.query.days);
+    const data = await getCompetitorOverview({ days: Number.isFinite(days) ? days : 14 });
+    res.json(data);
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Нет таблиц снимков цен — примените миграцию 082_getbilet_competitor_prices.sql',
+      });
+    }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.get('/competitor-prices/:repertoireId', async (req, res) => {
+  try {
+    const days = Number(req.query.days);
+    const data = await getCompetitorEventDetail(req.params.repertoireId, {
+      days: Number.isFinite(days) ? days : 14,
+    });
+    res.json(data);
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Нет таблиц снимков цен — примените миграцию 082_getbilet_competitor_prices.sql',
+      });
+    }
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.post('/competitor-prices/scan', async (_req, res) => {
+  try {
+    const data = await scanCompetitorPricesFromOffersCache({ refreshAgents: true });
+    res.json({ ok: true, ...data });
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42P01') {
+      return res.status(503).json({
+        error: 'schema',
+        message: 'Нет таблиц снимков цен — примените миграцию 082_getbilet_competitor_prices.sql',
+      });
+    }
+    res.status(500).json({ error: e.message || String(e) });
   }
 });
 

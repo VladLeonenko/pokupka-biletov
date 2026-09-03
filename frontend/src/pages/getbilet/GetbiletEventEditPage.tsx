@@ -69,6 +69,7 @@ export function GetbiletEventEditPage() {
   const [card_subtitle_manual, setCardSubtitleManual] = useState('');
   const [description_manual, setDesc] = useState('');
   const [notes_internal, setNotes] = useState('');
+  const [competitorUrlsText, setCompetitorUrlsText] = useState('');
   const [is_published, setPub] = useState(true);
   const [sort_order, setSort] = useState(0);
   const [group_id, setGroup] = useState<number | ''>('');
@@ -97,6 +98,11 @@ export function GetbiletEventEditPage() {
     setCardSubtitleManual((r?.card_subtitle ?? existing.card_subtitle_manual) || '');
     setDesc((r?.description ?? existing.description_manual) || '');
     setNotes(existing.notes_internal || '');
+    setCompetitorUrlsText(
+      Array.isArray(existing.competitor_urls_json)
+        ? existing.competitor_urls_json.map((u) => u.url).join('\n')
+        : '',
+    );
     setPub(existing.is_published);
     setSort(existing.sort_order);
     setGroup(existing.group_id ?? '');
@@ -131,6 +137,7 @@ export function GetbiletEventEditPage() {
         description_manual: description_manual || null,
         description_pack_json,
         notes_internal: notes_internal || null,
+        competitor_urls_json: competitorUrlsText,
         is_published,
         sort_order: Number(sort_order) || 0,
         group_id: group_id === '' ? null : group_id,
@@ -286,6 +293,15 @@ export function GetbiletEventEditPage() {
           onChange={(e) => setPosterPageUrl(e.target.value)}
           fullWidth
           helperText="Страница с афишей (как на neglinka29.ru / мхат): оттуда берём og:image или картинку из текста"
+        />
+        <TextField
+          label="Конкуренты: Яндекс Афиша, Портбилет и др. (URL, по одному в строке)"
+          value={competitorUrlsText}
+          onChange={(e) => setCompetitorUrlsText(e.target.value)}
+          fullWidth
+          multiline
+          minRows={3}
+          helperText="С этих страниц снимаем «от N ₽» и сравниваем с нашей витриной"
         />
         <FormControlLabel
           control={

@@ -91,6 +91,7 @@ import {
 } from '@/components/tickets/TicketPriceFilterCarousel';
 import { buildPriceColorMap, colorForPriceIndex } from '@/utils/ticketPriceColors';
 import { normalizeSectorLabel } from '@/utils/ticketHallSectorNormalize';
+import { isOwnOfferLike } from '@/utils/ownOfferPrefer';
 
 const TicketHallInteractiveBlock = lazy(() =>
   import('@/components/tickets/TicketHallInteractiveBlock').then((m) => ({
@@ -175,6 +176,9 @@ type OfferRow = {
   PlaceAddress?: string;
   placeAddress?: string;
   Extra?: string[];
+  OwnOffer?: boolean;
+  ownOffer?: boolean;
+  ManualOffer?: boolean;
 };
 
 function firstVenueFromOffers(rows: OfferRow[]): string | null {
@@ -217,6 +221,30 @@ function minPriceForOffers(rows: OfferRow[]): number | null {
   const nums = rows.map((r) => Number(priceKey(r))).filter((n) => Number.isFinite(n));
   if (nums.length === 0) return null;
   return Math.min(...nums);
+}
+
+function ownOffersHint(rows: OfferRow[]): { count: number; minPrice: number; label: string } | null {
+  const own = rows.filter((r) => isOwnOfferLike(r) && getOfferSeatList(r).length > 0);
+  if (own.length === 0) return null;
+  const minPrice = minPriceForOffers(own);
+  if (minPrice == null) return null;
+  const cheapest = [...own].sort((a, b) => Number(priceKey(a)) - Number(priceKey(b)))[0];
+  const seats = getOfferSeatList(cheapest);
+  const sector = String(cheapest.Sector ?? '').trim() || 'зал';
+  const row = String(cheapest.Row ?? '').trim();
+  const seatPart =
+    seats.length === 0
+      ? ''
+      : seats.length <= 4
+        ? `, ${row ? `${row} ряд, ` : ''}места ${seats.join(' и ')}`
+        : row
+          ? `, ${row} ряд`
+          : '';
+  return {
+    count: own.reduce((n, o) => n + getOfferSeatList(o).length, 0),
+    minPrice,
+    label: `${sector}${seatPart}`,
+  };
 }
 
 function normSessionHintSeg(s: string) {
@@ -374,11 +402,13 @@ export function TicketCheckoutPage() {
     queryKey: ['bilet-repertoire-page', repertoireId, 'markup-v2'],
     queryFn: () => fetchRepertoirePageBundle(repertoireId),
     enabled: Boolean(repertoireId),
-    staleTime: 0,
+    staleTime: 15_000,
     gcTime: 5 * 60_000,
-    refetchOnMount: 'always',
+    refetchOnMount: true,
     refetchOnWindowFocus: true,
     retry: 1,
+    refetchInterval: (query) =>
+      query.state.data?.offersMeta?.cache === 'miss_pending' ? 800 : false,
   });
 
   const slugResolving = Boolean(routeSlug && !routeKeyIsId && !slugResolveFetched);
@@ -397,6 +427,12 @@ export function TicketCheckoutPage() {
     ctx?.stageId === stageIdEff ? ctx?.stageMap?.svg_markup?.trim() ?? '' : '';
   const svgDeferred = Boolean(ctx?.stageMap?.svg_markup_deferred);
   const hasUsableHallSvgFromContext = Boolean(contextHallSvgTrimmed);
+  const pageOffersReady = useMemo(() => {
+    if (!raw || typeof raw !== 'object') return false;
+    const arr = (raw as { ResultData?: unknown }).ResultData;
+    return Array.isArray(arr) && arr.length > 0;
+  }, [raw]);
+
   const isFootballStadiumStageEarly = useMemo(() => {
     if (isFootballStadiumRepertoire(repertoireId)) return true;
     if (stageIdEff === LUZHNIKI_FOOTBALL_STAGE_MAP_KEY) return true;
@@ -419,15 +455,15 @@ export function TicketCheckoutPage() {
   }, [repertoireId, stageIdEff, ctx?.stageMap?.layout_json]);
 
   const { data: mapByStageId, isFetched: stageMapFetched } = useQuery({
-    queryKey: ['bilet-stage-map', stageMapQueryId, repertoireId ?? ''],
+    queryKey: ['bilet-stage-map', stageMapQueryId, repertoireId ?? '', pageOffersReady ? 'o' : 'n'],
     queryFn: () => fetchStageMap(stageMapQueryId!, repertoireId),
     enabled:
       Boolean(stageMapQueryId) &&
-      !ctxLoading &&
-      (svgDeferred ||
-        ctx?.stageId !== stageIdEff ||
-        !hasUsableHallSvgFromContext ||
-        (isFootballStadiumStageEarly && Boolean(repertoireId?.trim()))),
+      ((isFootballStadiumStageEarly && Boolean(repertoireId?.trim())) ||
+        (!ctxLoading &&
+          (svgDeferred ||
+            ctx?.stageId !== stageIdEff ||
+            !hasUsableHallSvgFromContext))),
     staleTime: isFootballStadiumStageEarly ? 30_000 : 120_000,
     refetchInterval: (query) => {
       const layout = query.state.data?.layout_json;
@@ -524,6 +560,8 @@ export function TicketCheckoutPage() {
   const [stadiumSectorFilter, setStadiumSectorFilter] = useState<string>('all');
   /** Фильтр ценовой группы на схеме (карусель над картой, как portalbilet). */
   const [mapSelectedPriceKey, setMapSelectedPriceKey] = useState<string | null>(null);
+  const [ownSeatsFocusNonce, setOwnSeatsFocusNonce] = useState(0);
+  const [ownHintDismissed, setOwnHintDismissed] = useState(false);
   const [showAllOfferRows, setShowAllOfferRows] = useState(false);
 
   const filterInitRepRef = useRef<string | null>(null);
@@ -629,6 +667,7 @@ export function TicketCheckoutPage() {
   const [ticketRequestError, setTicketRequestError] = useState<string | null>(null);
   const viewedGoalKeyRef = useRef<string | null>(null);
   const addToCartSnapshotRef = useRef<string | null>(null);
+  const hallMapRef = useRef<HTMLDivElement | null>(null);
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('md'));
@@ -636,6 +675,15 @@ export function TicketCheckoutPage() {
   useEffect(() => {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
+
+  useEffect(() => {
+    if (!repertoireId) return;
+    try {
+      setOwnHintDismissed(sessionStorage.getItem(`bv-own-hint:${repertoireId}`) === '1');
+    } catch {
+      setOwnHintDismissed(false);
+    }
+  }, [repertoireId]);
 
   const flatSessionRows = useMemo(() => {
     const sessionKey = selectedSessionKey ?? defaultSessionKey;
@@ -646,6 +694,14 @@ export function TicketCheckoutPage() {
         out.push({ dt, row });
       }
     }
+    out.sort((a, b) => {
+      const ownDelta = Number(isOwnOfferLike(b.row)) - Number(isOwnOfferLike(a.row));
+      if (ownDelta !== 0) return ownDelta;
+      const pa = Number(priceKey(a.row));
+      const pb = Number(priceKey(b.row));
+      if (Number.isFinite(pa) && Number.isFinite(pb) && pa !== pb) return pa - pb;
+      return 0;
+    });
     return out;
   }, [sessionEntriesSorted, selectedSessionKey, defaultSessionKey]);
 
@@ -664,7 +720,18 @@ export function TicketCheckoutPage() {
       }
       m.get(dt)!.push(row);
     }
-    return order.map((dt) => [dt, m.get(dt)!] as [string, OfferRow[]]);
+    return order.map((dt) => {
+      const rows = m.get(dt)!;
+      rows.sort((a, b) => {
+        const ownDelta = Number(isOwnOfferLike(b)) - Number(isOwnOfferLike(a));
+        if (ownDelta !== 0) return ownDelta;
+        const pa = Number(priceKey(a));
+        const pb = Number(priceKey(b));
+        if (Number.isFinite(pa) && Number.isFinite(pb) && pa !== pb) return pa - pb;
+        return 0;
+      });
+      return [dt, rows] as [string, OfferRow[]];
+    });
   }, [flatSessionRows, showAllOfferRows, offerRowsPreviewLimit]);
 
   const prevSessionKeyRef = useRef<string | null>(null);
@@ -1167,8 +1234,9 @@ export function TicketCheckoutPage() {
     const key = selectedSessionKey ?? defaultSessionKey;
     if (key) return key;
     if (noOffersAfterFetch) return '_';
+    if (isFootballStadiumStageEarly) return '_';
     return null;
-  }, [selectedSessionKey, defaultSessionKey, noOffersAfterFetch]);
+  }, [selectedSessionKey, defaultSessionKey, noOffersAfterFetch, isFootballStadiumStageEarly]);
 
   const alertSessionDt =
     hallMapSessionKey && hallMapSessionKey !== '_' ? hallMapSessionKey : null;
@@ -1205,14 +1273,24 @@ export function TicketCheckoutPage() {
   }, [hallMapSessionKey]);
 
   const priceChipsForMap = useMemo((): PriceFilterChip[] => {
-    const keys = Array.from(new Set(offersForMap.map(priceKey)))
-      .filter((pk) => Number.isFinite(Number(pk)) && Number(pk) > 0)
-      .sort((a, b) => Number(a) - Number(b));
+    const keys = Array.from(new Set(offersForMap.map(priceKey))).filter(
+      (pk) => Number.isFinite(Number(pk)) && Number(pk) > 0,
+    );
+    const ownPriceKeys = new Set(
+      offersForMap.filter((o) => isOwnOfferLike(o)).map(priceKey).filter((pk) => Number.isFinite(Number(pk)) && Number(pk) > 0),
+    );
+    keys.sort((a, b) => {
+      const ownA = ownPriceKeys.has(a) ? 0 : 1;
+      const ownB = ownPriceKeys.has(b) ? 0 : 1;
+      if (ownA !== ownB) return ownA - ownB;
+      return Number(a) - Number(b);
+    });
+    const maxPrice = Math.max(0, ...keys.map((pk) => Number(pk)));
     return keys.map((pk, i) => ({
       priceKey: pk,
       price: Number(pk),
       color: priceColorMap.get(pk) ?? colorForPriceIndex(i),
-      showPlus: i === keys.length - 1 && keys.length > 1,
+      showPlus: keys.length > 1 && Number(pk) === maxPrice,
     }));
   }, [offersForMap, priceColorMap]);
 
@@ -1220,6 +1298,8 @@ export function TicketCheckoutPage() {
     if (!mapSelectedPriceKey) return offersForMap;
     return offersForMap.filter((o) => priceKey(o) === mapSelectedPriceKey);
   }, [offersForMap, mapSelectedPriceKey]);
+
+  const ownHint = useMemo(() => ownOffersHint(offersForMap), [offersForMap]);
 
   const handleMapPriceSelect = useCallback(
     (pk: string) => {
@@ -1688,8 +1768,49 @@ export function TicketCheckoutPage() {
             </Typography>
           </Box>
 
+          {ownHint && hallMapReady && !ownHintDismissed ? (
+            <div className={styles.ownSeatsBanner} role="status">
+              <div className={styles.ownSeatsBannerText}>
+                <strong>Выгоднее наши места</strong>
+                <span>
+                  {ownHint.label} · от {ownHint.minPrice.toLocaleString('ru-RU')} ₽
+                  {ownHint.count > 2 ? ` · ${ownHint.count} мест` : ''}
+                </span>
+              </div>
+              <div className={styles.ownSeatsBannerActions}>
+                <button
+                  type="button"
+                  className={styles.ownSeatsBannerCta}
+                  onClick={() => {
+                    setMapSelectedPriceKey(null);
+                    setOwnSeatsFocusNonce((n) => n + 1);
+                    hallMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (isMobileViewport) setMapDialogOpen(true);
+                  }}
+                >
+                  Показать выгодные
+                </button>
+                <button
+                  type="button"
+                  className={styles.ownSeatsBannerClose}
+                  aria-label="Скрыть"
+                  onClick={() => {
+                    setOwnHintDismissed(true);
+                    try {
+                      sessionStorage.setItem(`bv-own-hint:${repertoireId}`, '1');
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {showHallMapShell ? (
-            <Paper className={styles.primaryHallMap} elevation={0}>
+            <Paper className={styles.primaryHallMap} elevation={0} ref={hallMapRef} id="ticket-hall-map">
               <Box className={styles.primaryHallMapHead}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
@@ -1750,6 +1871,7 @@ export function TicketCheckoutPage() {
                       categoryPreviewImageUrl={categoryPreviewImageUrl}
                       sessionDateLabel={mapSessionShortDate}
                       focusSectorNorm={mapFocusSectorNorm}
+                      ownSeatsFocusNonce={ownSeatsFocusNonce}
                     />
                   </Suspense>
                 </>
@@ -2324,6 +2446,7 @@ export function TicketCheckoutPage() {
                         categoryPreviewImageUrl={categoryPreviewImageUrl}
                         sessionDateLabel={mapSessionShortDate}
                         focusSectorNorm={mapFocusSectorNorm}
+                        ownSeatsFocusNonce={ownSeatsFocusNonce}
                       />
                     </Suspense>
                   </>

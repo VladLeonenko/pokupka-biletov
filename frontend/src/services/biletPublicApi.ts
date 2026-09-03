@@ -829,6 +829,7 @@ export type RepertoireContext = {
 export type RepertoirePageBundle = {
   context: RepertoireContext;
   offers: unknown;
+  offersMeta?: { cache?: string; ageMs?: number } | null;
 };
 
 /** Контекст + офферы одним запросом (страница /ticket). */
