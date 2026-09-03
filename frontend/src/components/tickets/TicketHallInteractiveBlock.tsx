@@ -18,6 +18,7 @@ import {
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
 import { isOwnOfferLike, shouldReplaceMappedOffer } from '../../utils/ownOfferPrefer';
+import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense hall). */
 const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
