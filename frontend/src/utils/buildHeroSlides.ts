@@ -161,9 +161,9 @@ function isDuplicateFeatured(slide: HeroSlideView, featuredId: string): boolean 
   return false;
 }
 
-/** OLIMPBET Суперкубок — первый слайд, пока мероприятие в продаже / до 19.07.2026. */
+/** Кабала святош — первый слайд, пока мероприятие в продаже / до 25.10.2026. */
 function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent[]): HeroSlideView[] {
-  if (slides.length === 0 || !isFeaturedHeroActive()) return slides;
+  if (!isFeaturedHeroActive()) return slides;
 
   const featuredEv = findFeaturedEvent(events);
   const featuredFromEv = featuredEv
@@ -186,13 +186,13 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
   if (!featured) {
     const fallback: HeroSlideView = {
       id: FEATURED_HERO_SLUG,
-      title: 'OLIMPBET СУПЕРКУБОК РОССИИ — ЗЕНИТ / СПАРТАК',
+      title: 'КАБАЛА СВЯТОШ',
       imageUrl: featuredHeroImageUrl(null),
-      tags: 'СБ · 18.07.2026 · 19:30 · СПОРТ',
-      venueLabel: 'СТАДИОН «НИЖНИЙ НОВГОРОД»',
-      venueAddress: 'Нижний Новгород',
+      tags: 'ПТ · 18.09.2026 · 19:00 · ДРАМА · 16+',
+      venueLabel: 'МХТ ИМ. А. П. ЧЕХОВА',
+      venueAddress: 'Москва',
       lineLeft: '18',
-      lineRight: '07.2026',
+      lineRight: '09.2026',
       visualShape: 'shard',
       ticketHref: FEATURED_HERO_HREF,
       ctaLabel: 'КУПИТЬ БИЛЕТ',

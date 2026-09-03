@@ -223,12 +223,19 @@ function minPriceForOffers(rows: OfferRow[]): number | null {
   return Math.min(...nums);
 }
 
-function ownOffersHint(rows: OfferRow[]): { count: number; minPrice: number; label: string } | null {
+function ownOffersHint(rows: OfferRow[]): {
+  priceKey: string;
+  minPrice: number;
+  count: number;
+  label: string;
+} | null {
   const own = rows.filter((r) => isOwnOfferLike(r) && getOfferSeatList(r).length > 0);
   if (own.length === 0) return null;
   const minPrice = minPriceForOffers(own);
   if (minPrice == null) return null;
-  const cheapest = [...own].sort((a, b) => Number(priceKey(a)) - Number(priceKey(b)))[0];
+  const priceKeyStr = String(minPrice);
+  const group = own.filter((r) => Number(priceKey(r)) === minPrice);
+  const cheapest = [...group].sort((a, b) => Number(priceKey(a)) - Number(priceKey(b)))[0];
   const seats = getOfferSeatList(cheapest);
   const sector = String(cheapest.Sector ?? '').trim() || 'зал';
   const row = String(cheapest.Row ?? '').trim();
@@ -241,8 +248,9 @@ function ownOffersHint(rows: OfferRow[]): { count: number; minPrice: number; lab
           ? `, ${row} ряд`
           : '';
   return {
-    count: own.reduce((n, o) => n + getOfferSeatList(o).length, 0),
+    priceKey: priceKey(cheapest) || priceKeyStr,
     minPrice,
+    count: group.reduce((n, o) => n + getOfferSeatList(o).length, 0),
     label: `${sector}${seatPart}`,
   };
 }
@@ -1286,11 +1294,13 @@ export function TicketCheckoutPage() {
       return Number(a) - Number(b);
     });
     const maxPrice = Math.max(0, ...keys.map((pk) => Number(pk)));
+    const ownBestKey = ownOffersHint(offersForMap)?.priceKey ?? null;
     return keys.map((pk, i) => ({
       priceKey: pk,
       price: Number(pk),
       color: priceColorMap.get(pk) ?? colorForPriceIndex(i),
       showPlus: keys.length > 1 && Number(pk) === maxPrice,
+      ownBest: ownBestKey != null && pk === ownBestKey,
     }));
   }, [offersForMap, priceColorMap]);
 
@@ -1300,6 +1310,9 @@ export function TicketCheckoutPage() {
   }, [offersForMap, mapSelectedPriceKey]);
 
   const ownHint = useMemo(() => ownOffersHint(offersForMap), [offersForMap]);
+  const ownHintColor = ownHint
+    ? priceColorMap.get(ownHint.priceKey) ?? colorForPriceIndex(0)
+    : null;
 
   const handleMapPriceSelect = useCallback(
     (pk: string) => {
@@ -1325,6 +1338,27 @@ export function TicketCheckoutPage() {
       setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
     }
   }, [isFootballStadiumStage, pb.min, pb.max]);
+
+  const showOwnBestPriceGroup = useCallback(() => {
+    if (!ownHint) return;
+    const n = Number(ownHint.priceKey);
+    setMapSelectedPriceKey(ownHint.priceKey);
+    if (!isFootballStadiumStage && Number.isFinite(n)) {
+      setFilterState((s) => ({ ...s, priceRange: [n, n] }));
+    }
+    setOwnSeatsFocusNonce((v) => v + 1);
+    hallMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (isMobileViewport) setMapDialogOpen(true);
+  }, [ownHint, isFootballStadiumStage, isMobileViewport]);
+
+  const dismissOwnHint = useCallback(() => {
+    setOwnHintDismissed(true);
+    try {
+      sessionStorage.setItem(`bv-own-hint:${repertoireId}`, '1');
+    } catch {
+      /* ignore */
+    }
+  }, [repertoireId]);
 
   const hallSchemeSubtitle = useMemo(() => {
     if (seatSelectionDisabledUi) {
@@ -1768,47 +1802,6 @@ export function TicketCheckoutPage() {
             </Typography>
           </Box>
 
-          {ownHint && hallMapReady && !ownHintDismissed ? (
-            <div className={styles.ownSeatsBanner} role="status">
-              <div className={styles.ownSeatsBannerText}>
-                <strong>Выгоднее наши места</strong>
-                <span>
-                  {ownHint.label} · от {ownHint.minPrice.toLocaleString('ru-RU')} ₽
-                  {ownHint.count > 2 ? ` · ${ownHint.count} мест` : ''}
-                </span>
-              </div>
-              <div className={styles.ownSeatsBannerActions}>
-                <button
-                  type="button"
-                  className={styles.ownSeatsBannerCta}
-                  onClick={() => {
-                    setMapSelectedPriceKey(null);
-                    setOwnSeatsFocusNonce((n) => n + 1);
-                    hallMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    if (isMobileViewport) setMapDialogOpen(true);
-                  }}
-                >
-                  Показать выгодные
-                </button>
-                <button
-                  type="button"
-                  className={styles.ownSeatsBannerClose}
-                  aria-label="Скрыть"
-                  onClick={() => {
-                    setOwnHintDismissed(true);
-                    try {
-                      sessionStorage.setItem(`bv-own-hint:${repertoireId}`, '1');
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           {showHallMapShell ? (
             <Paper className={styles.primaryHallMap} elevation={0} ref={hallMapRef} id="ticket-hall-map">
               <Box className={styles.primaryHallMapHead}>
@@ -1849,31 +1842,61 @@ export function TicketCheckoutPage() {
                       onReset={handleMapPriceReset}
                     />
                   ) : null}
-                  <Suspense fallback={<HallMapLoadingPane />}>
-                    <TicketHallInteractiveBlock
-                      hallSvgHtml={hallSvg!}
-                      layoutJson={layoutJsonForStage}
-                      offers={offersForMapDisplay}
-                      getPriceKey={(o) => priceKey(o as OfferRow)}
-                      colorForSeat={colorSeat}
-                      activeOfferId={offerId}
-                      selectedSeats={seats}
-                      parentSelectedSeats={mapSelectedSeats}
-                      onToggleSeat={toggleSeat}
-                      selectedOffer={selectedOfferForMap}
-                      onReserveFromMap={() => void openPurchaseWithHold()}
-                      onClearSelection={resetSelectedSeats}
-                      onSelectionChange={handleMapSelectionChange}
-                      reservePending={reservePending}
-                      onNavigateToList={navigateToPlacesList}
-                      hideSelectionBar
-                      showFanIdNotice={requiresFanId}
-                      categoryPreviewImageUrl={categoryPreviewImageUrl}
-                      sessionDateLabel={mapSessionShortDate}
-                      focusSectorNorm={mapFocusSectorNorm}
-                      ownSeatsFocusNonce={ownSeatsFocusNonce}
-                    />
-                  </Suspense>
+                  <div className={styles.hallMapStage}>
+                    <Suspense fallback={<HallMapLoadingPane />}>
+                      <TicketHallInteractiveBlock
+                        hallSvgHtml={hallSvg!}
+                        layoutJson={layoutJsonForStage}
+                        offers={offersForMapDisplay}
+                        getPriceKey={(o) => priceKey(o as OfferRow)}
+                        colorForSeat={colorSeat}
+                        activeOfferId={offerId}
+                        selectedSeats={seats}
+                        parentSelectedSeats={mapSelectedSeats}
+                        onToggleSeat={toggleSeat}
+                        selectedOffer={selectedOfferForMap}
+                        onReserveFromMap={() => void openPurchaseWithHold()}
+                        onClearSelection={resetSelectedSeats}
+                        onSelectionChange={handleMapSelectionChange}
+                        reservePending={reservePending}
+                        onNavigateToList={navigateToPlacesList}
+                        hideSelectionBar
+                        showFanIdNotice={requiresFanId}
+                        categoryPreviewImageUrl={categoryPreviewImageUrl}
+                        sessionDateLabel={mapSessionShortDate}
+                        focusSectorNorm={mapFocusSectorNorm}
+                        ownSeatsFocusNonce={ownSeatsFocusNonce}
+                        ownHighlightPriceKey={ownHint?.priceKey ?? null}
+                      />
+                    </Suspense>
+                    {ownHint && ownHintColor && hallMapReady && !ownHintDismissed ? (
+                      <div className={styles.ownSeatsOnMap} role="status">
+                        <button
+                          type="button"
+                          className={styles.ownSeatsOnMapCard}
+                          onClick={showOwnBestPriceGroup}
+                          style={{ ['--own-best-color' as string]: ownHintColor }}
+                        >
+                          <span className={styles.ownSeatsOnMapSwatch} aria-hidden />
+                          <span className={styles.ownSeatsOnMapText}>
+                            <strong>Выгоднее наши места</strong>
+                            <span>
+                              эта цена {ownHint.minPrice.toLocaleString('ru-RU')} ₽
+                              {ownHint.count > 1 ? ` · ${ownHint.count} мест` : ''}
+                            </span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.ownSeatsOnMapClose}
+                          aria-label="Скрыть"
+                          onClick={dismissOwnHint}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               ) : (
                 <HallMapLoadingPane />
@@ -2423,32 +2446,62 @@ export function TicketCheckoutPage() {
                         onReset={handleMapPriceReset}
                       />
                     ) : null}
-                    <Suspense fallback={<HallMapLoadingPane />}>
-                      <TicketHallInteractiveBlock
-                        variant="dialog"
-                        hallSvgHtml={hallSvg!}
-                        layoutJson={layoutJsonForStage}
-                        offers={offersForMapDisplay}
-                        getPriceKey={(o) => priceKey(o as OfferRow)}
-                        colorForSeat={colorSeat}
-                        activeOfferId={offerId}
-                        selectedSeats={seats}
-                        parentSelectedSeats={mapSelectedSeats}
-                        onToggleSeat={toggleSeat}
-                        selectedOffer={selectedOfferForMap}
-                        onReserveFromMap={() => void openPurchaseWithHold()}
-                        onClearSelection={resetSelectedSeats}
-                        onSelectionChange={handleMapSelectionChange}
-                        reservePending={reservePending}
-                        onNavigateToList={navigateToPlacesList}
-                        hideSelectionBar
-                        showFanIdNotice={requiresFanId}
-                        categoryPreviewImageUrl={categoryPreviewImageUrl}
-                        sessionDateLabel={mapSessionShortDate}
-                        focusSectorNorm={mapFocusSectorNorm}
-                        ownSeatsFocusNonce={ownSeatsFocusNonce}
-                      />
-                    </Suspense>
+                    <div className={styles.hallMapStage}>
+                      <Suspense fallback={<HallMapLoadingPane />}>
+                        <TicketHallInteractiveBlock
+                          variant="dialog"
+                          hallSvgHtml={hallSvg!}
+                          layoutJson={layoutJsonForStage}
+                          offers={offersForMapDisplay}
+                          getPriceKey={(o) => priceKey(o as OfferRow)}
+                          colorForSeat={colorSeat}
+                          activeOfferId={offerId}
+                          selectedSeats={seats}
+                          parentSelectedSeats={mapSelectedSeats}
+                          onToggleSeat={toggleSeat}
+                          selectedOffer={selectedOfferForMap}
+                          onReserveFromMap={() => void openPurchaseWithHold()}
+                          onClearSelection={resetSelectedSeats}
+                          onSelectionChange={handleMapSelectionChange}
+                          reservePending={reservePending}
+                          onNavigateToList={navigateToPlacesList}
+                          hideSelectionBar
+                          showFanIdNotice={requiresFanId}
+                          categoryPreviewImageUrl={categoryPreviewImageUrl}
+                          sessionDateLabel={mapSessionShortDate}
+                          focusSectorNorm={mapFocusSectorNorm}
+                          ownSeatsFocusNonce={ownSeatsFocusNonce}
+                          ownHighlightPriceKey={ownHint?.priceKey ?? null}
+                        />
+                      </Suspense>
+                      {ownHint && ownHintColor && !ownHintDismissed ? (
+                        <div className={styles.ownSeatsOnMap} role="status">
+                          <button
+                            type="button"
+                            className={styles.ownSeatsOnMapCard}
+                            onClick={showOwnBestPriceGroup}
+                            style={{ ['--own-best-color' as string]: ownHintColor }}
+                          >
+                            <span className={styles.ownSeatsOnMapSwatch} aria-hidden />
+                            <span className={styles.ownSeatsOnMapText}>
+                              <strong>Выгоднее наши места</strong>
+                              <span>
+                                эта цена {ownHint.minPrice.toLocaleString('ru-RU')} ₽
+                                {ownHint.count > 1 ? ` · ${ownHint.count} мест` : ''}
+                              </span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.ownSeatsOnMapClose}
+                            aria-label="Скрыть"
+                            onClick={dismissOwnHint}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </>
                 ) : (
                   <HallMapLoadingPane />

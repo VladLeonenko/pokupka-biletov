@@ -707,68 +707,90 @@
   color: #1a1a1a;
 }
 
-.ownSeatsBanner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 12px;
-  padding: 12px 12px 12px 14px;
-  border-radius: 12px;
-  background: #fff;
-  border: 1px solid rgba(255, 78, 24, 0.35);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
-}
-
-.ownSeatsBannerText {
+.hallMapStage {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  font-size: 0.86rem;
-  line-height: 1.35;
-  color: #1a1a1a;
 }
 
-.ownSeatsBannerActions {
+.ownSeatsOnMap {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 16;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.ownSeatsOnMapCard {
+  pointer-events: auto;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.ownSeatsBannerCta {
-  border: 0;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #fff;
-  background: #ff4e18;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--own-best-color, #ff4e18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+  text-align: left;
   cursor: pointer;
 }
 
-.ownSeatsBannerClose {
+.ownSeatsOnMapSwatch {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--own-best-color, #ff4e18);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--own-best-color, #ff4e18);
+}
+
+.ownSeatsOnMapText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: #1a1a1a;
+}
+
+.ownSeatsOnMapText strong {
+  font-size: 0.88rem;
+}
+
+.ownSeatsOnMapClose {
+  pointer-events: auto;
+  flex-shrink: 0;
   border: 0;
-  background: transparent;
-  width: 36px;
-  height: 36px;
-  font-size: 1.35rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  width: 40px;
+  height: auto;
+  font-size: 1.4rem;
   line-height: 1;
   color: rgba(0, 0, 0, 0.45);
   cursor: pointer;
 }
 
 @media (max-width: 599px) {
-  .ownSeatsBanner {
-    position: sticky;
+  .ownSeatsOnMap {
     top: 8px;
-    z-index: 8;
-    margin-bottom: 10px;
-    padding: 10px 8px 10px 12px;
+    left: 8px;
+    right: 8px;
   }
 
-  .ownSeatsBannerCta {
-    padding: 10px 12px;
+  .ownSeatsOnMapCard {
+    padding: 9px 10px;
   }
 }

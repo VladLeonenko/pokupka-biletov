@@ -1,18 +1,17 @@
 /** Приоритетный hero на главной (маркетинг / прод). */
-export const FEATURED_HERO_SLUG = 'olimpbet-superkubok-rossii';
-export const FEATURED_HERO_REPERTOIRE_ID = 'olimpbet-superkubok-rossii';
+export const FEATURED_HERO_SLUG = 'kabala-svyatosh';
+export const FEATURED_HERO_REPERTOIRE_ID = '686cd69c58f79d0030278b9d';
 export const FEATURED_HERO_HREF = `/ticket/${FEATURED_HERO_SLUG}`;
 
 /** Снятый с витрины суперфинал (май 2026) — убираем из слайдера при дедупе. */
 export const LEGACY_FEATURED_HERO_SLUG = 'superfinal-fonbet-kubka-rossii-spartak-krasnodar';
 export const LEGACY_FEATURED_HERO_REPERTOIRE_ID = '6a05d17b46a4d000309ecf4e';
 
-/** После этой даты (локально) — обычный слайдер без закрепа. */
-const FEATURED_HERO_UNTIL_MS = new Date(2026, 6, 19, 0, 0, 0, 0).getTime();
+/** После этой даты (локально) — обычный слайдер без закрепа. Последний сеанс Кабалы — 24.10.2026. */
+const FEATURED_HERO_UNTIL_MS = new Date(2026, 9, 25, 0, 0, 0, 0).getTime();
 
-/** Официальная афиша (РФС, матч Зенит — Спартак / Суперкубок 2026). */
-export const FEATURED_HERO_IMAGE_URL =
-  'https://hb.bizmrg.com/websiterfs/news/224597/6a424b6fbd659_582x388.jpg';
+/** Баннер события с витрины (fallback, если в каталоге ещё нет bannerUrl). */
+export const FEATURED_HERO_IMAGE_URL = '/uploads/images/--1777394907182.jpeg';
 export const FEATURED_HERO_BANNER_URL = FEATURED_HERO_IMAGE_URL;
 
 export function featuredHeroImageUrl(
@@ -49,9 +48,7 @@ export function isFeaturedHeroActive(): boolean {
 export function isFeaturedHeroEventTitle(title: string | undefined): boolean {
   const t = String(title || '').trim();
   if (!t) return false;
-  if (/olimpbet/i.test(t) && /суперкубок/i.test(t)) return true;
-  if (/суперкубок\s+россии/i.test(t)) return true;
-  return false;
+  return /кабала\s+святош/i.test(t);
 }
 
 function matchesSlugOrRep(id: string, slug: string, rep: string): boolean {

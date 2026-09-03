@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import styles from './TicketPriceFilterCarousel.module.css';
 
 export type PriceFilterChip = {
@@ -6,6 +7,8 @@ export type PriceFilterChip = {
   color: string;
   /** Для верхней ценовой категории — «28 700+ ₽» как на portalbilet */
   showPlus?: boolean;
+  /** Самая выгодная группа наших мест — чип с меткой «наши». */
+  ownBest?: boolean;
 };
 
 type Props = {
@@ -51,18 +54,23 @@ export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, o
               <li key={chip.priceKey}>
                 <button
                   type="button"
-                  className={`${styles.chip} ${selected ? styles.chipSelected : ''}`}
+                  className={`${styles.chip} ${selected ? styles.chipSelected : ''} ${
+                    chip.ownBest ? styles.chipOwnBest : ''
+                  }`}
                   style={
-                    selected
-                      ? { borderColor: chip.color, color: chip.color }
-                      : undefined
+                    {
+                      ...(selected || chip.ownBest
+                        ? { borderColor: chip.color, color: chip.ownBest ? '#1a1a1a' : chip.color }
+                        : null),
+                      ...(chip.ownBest ? { ['--own-best-color' as string]: chip.color } : null),
+                    } as CSSProperties
                   }
                   onClick={() => onSelect(chip.priceKey)}
                   aria-pressed={selected}
                   data-testid="price-filter-wrapper"
                 >
                   <span
-                    className={styles.colorDot}
+                    className={`${styles.colorDot} ${chip.ownBest ? styles.colorDotOwnBest : ''}`}
                     style={{ backgroundColor: chip.color }}
                     data-testid="price-filter-color-element"
                     aria-hidden
@@ -75,6 +83,7 @@ export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, o
                       ₽
                     </span>
                   </span>
+                  {chip.ownBest ? <span className={styles.ownBestBadge}>наши</span> : null}
                 </button>
               </li>
             );

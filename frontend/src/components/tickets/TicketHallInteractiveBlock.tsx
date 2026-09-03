@@ -50,6 +50,15 @@ function stadiumSeatCanvasRadiusPx(
   return r;
 }
 
+function isOwnHighlightSeat(
+  seat: { ownOffer?: boolean; previewOnly?: boolean; priceKey: string },
+  highlightKey?: string | null,
+): boolean {
+  if (!seat.ownOffer || seat.previewOnly) return false;
+  if (!highlightKey) return true;
+  return seat.priceKey === highlightKey;
+}
+
 /** DOM-хитбокс в px слоя: после transform(zoom) в viewport = 2*r. */
 function stadiumSeatHitboxLayerPx(
   zoom: number,
@@ -726,6 +735,8 @@ type Props = {
   showFanIdNotice?: boolean;
   /** Инкремент с родителя: зум камеры к своим местам (OwnOffer). */
   ownSeatsFocusNonce?: number;
+  /** Увеличивать и зумить только эту ценовую группу своих мест. */
+  ownHighlightPriceKey?: string | null;
 };
 
 /**
@@ -757,6 +768,7 @@ export function TicketHallInteractiveBlock({
   sessionDateLabel = null,
   showFanIdNotice = false,
   ownSeatsFocusNonce = 0,
+  ownHighlightPriceKey = null,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -1815,7 +1827,12 @@ export function TicketHallInteractiveBlock({
       const vp = viewportRef.current;
       const layers = layersRef.current;
       if (!vp || !layers || layers.offsetWidth < 8 || layers.offsetHeight < 8) return;
-      const own = nativePlacements.filter((p) => p.ownOffer && !p.previewOnly);
+      const own = nativePlacements.filter(
+        (p) =>
+          p.ownOffer &&
+          !p.previewOnly &&
+          (!ownHighlightPriceKey || p.priceKey === ownHighlightPriceKey),
+      );
       if (own.length === 0) return;
       let minXp = Infinity;
       let minYp = Infinity;
@@ -1843,7 +1860,16 @@ export function TicketHallInteractiveBlock({
       focusLayerPoint(centerX, centerY, targetZoom);
     }, variant === 'dialog' ? 280 : 120);
     return () => window.clearTimeout(timer);
-  }, [clampZoom, fitZoom, focusLayerPoint, maxZoom, nativePlacements, ownSeatsFocusNonce, variant]);
+  }, [
+    clampZoom,
+    fitZoom,
+    focusLayerPoint,
+    maxZoom,
+    nativePlacements,
+    ownHighlightPriceKey,
+    ownSeatsFocusNonce,
+    variant,
+  ]);
 
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
@@ -2369,19 +2395,20 @@ export function TicketHallInteractiveBlock({
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
+          const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
             box.width,
             svgViewBox.width,
             active,
             mapZoomedNowTheater,
-            Boolean(seat.ownOffer),
+            highlight,
           );
           ctx.beginPath();
           ctx.fillStyle = colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
-          if (seat.ownOffer && !active) {
+          if (highlight && !active) {
             ctx.lineWidth = Math.max(1.1, r * 0.28);
             ctx.strokeStyle = 'rgba(255,255,255,0.92)';
             ctx.stroke();
@@ -2411,19 +2438,20 @@ export function TicketHallInteractiveBlock({
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
+          const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
             box.width,
             svgViewBox.width,
             active,
             mapZoomedNow,
-            Boolean(seat.ownOffer) && !seat.previewOnly,
+            highlight,
           );
           ctx.beginPath();
           ctx.fillStyle = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
-          if (seat.ownOffer && !seat.previewOnly && !active) {
+          if (highlight && !active) {
             ctx.lineWidth = Math.max(1.1, r * 0.28);
             ctx.strokeStyle = 'rgba(255,255,255,0.92)';
             ctx.stroke();
@@ -2462,6 +2490,7 @@ export function TicketHallInteractiveBlock({
     theaterSvgSeatCanvas,
     theaterSectorCheckout,
     nativeSeats,
+    ownHighlightPriceKey,
     uniformHallSeatAppearance,
     svgViewBox.width,
     useHallBackgroundRaster,
