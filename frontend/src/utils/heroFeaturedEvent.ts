@@ -7,8 +7,7 @@ export const FEATURED_HERO_HREF = `/ticket/${FEATURED_HERO_SLUG}`;
 export const LEGACY_FEATURED_HERO_SLUG = 'superfinal-fonbet-kubka-rossii-spartak-krasnodar';
 export const LEGACY_FEATURED_HERO_REPERTOIRE_ID = '6a05d17b46a4d000309ecf4e';
 
-/** После этой даты (локально) — обычный слайдер без закрепа. Последний сеанс Кабалы — 24.10.2026. */
-const FEATURED_HERO_UNTIL_MS = new Date(2026, 9, 25, 0, 0, 0, 0).getTime();
+/** Пока закрепляем Кабалу — не завязываем на локальные часы браузера. Снимаем, сменив slug/id. */
 
 /** Баннер события с витрины (fallback, если в каталоге ещё нет bannerUrl). */
 export const FEATURED_HERO_IMAGE_URL = '/uploads/images/--1777394907182.jpeg';
@@ -42,7 +41,7 @@ export function heroSlideImageUrl(
 }
 
 export function isFeaturedHeroActive(): boolean {
-  return Date.now() < FEATURED_HERO_UNTIL_MS;
+  return true;
 }
 
 export function isFeaturedHeroEventTitle(title: string | undefined): boolean {
