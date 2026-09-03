@@ -1867,35 +1867,15 @@ export function TicketCheckoutPage() {
                         focusSectorNorm={mapFocusSectorNorm}
                         ownSeatsFocusNonce={ownSeatsFocusNonce}
                         ownHighlightPriceKey={ownHint?.priceKey ?? null}
+                        ownHintBanner={
+                          ownHint && ownHintColor && !ownHintDismissed
+                            ? { color: ownHintColor, price: ownHint.minPrice, count: ownHint.count }
+                            : null
+                        }
+                        onOwnHintActivate={showOwnBestPriceGroup}
+                        onOwnHintDismiss={dismissOwnHint}
                       />
                     </Suspense>
-                    {ownHint && ownHintColor && hallMapReady && !ownHintDismissed ? (
-                      <div className={styles.ownSeatsOnMap} role="status">
-                        <button
-                          type="button"
-                          className={styles.ownSeatsOnMapCard}
-                          onClick={showOwnBestPriceGroup}
-                          style={{ ['--own-best-color' as string]: ownHintColor }}
-                        >
-                          <span className={styles.ownSeatsOnMapSwatch} aria-hidden />
-                          <span className={styles.ownSeatsOnMapText}>
-                            <strong>Выгоднее наши места</strong>
-                            <span>
-                              эта цена {ownHint.minPrice.toLocaleString('ru-RU')} ₽
-                              {ownHint.count > 1 ? ` · ${ownHint.count} мест` : ''}
-                            </span>
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.ownSeatsOnMapClose}
-                          aria-label="Скрыть"
-                          onClick={dismissOwnHint}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 </>
               ) : (
@@ -2472,35 +2452,15 @@ export function TicketCheckoutPage() {
                           focusSectorNorm={mapFocusSectorNorm}
                           ownSeatsFocusNonce={ownSeatsFocusNonce}
                           ownHighlightPriceKey={ownHint?.priceKey ?? null}
+                          ownHintBanner={
+                            ownHint && ownHintColor && !ownHintDismissed
+                              ? { color: ownHintColor, price: ownHint.minPrice, count: ownHint.count }
+                              : null
+                          }
+                          onOwnHintActivate={showOwnBestPriceGroup}
+                          onOwnHintDismiss={dismissOwnHint}
                         />
                       </Suspense>
-                      {ownHint && ownHintColor && !ownHintDismissed ? (
-                        <div className={styles.ownSeatsOnMap} role="status">
-                          <button
-                            type="button"
-                            className={styles.ownSeatsOnMapCard}
-                            onClick={showOwnBestPriceGroup}
-                            style={{ ['--own-best-color' as string]: ownHintColor }}
-                          >
-                            <span className={styles.ownSeatsOnMapSwatch} aria-hidden />
-                            <span className={styles.ownSeatsOnMapText}>
-                              <strong>Выгоднее наши места</strong>
-                              <span>
-                                эта цена {ownHint.minPrice.toLocaleString('ru-RU')} ₽
-                                {ownHint.count > 1 ? ` · ${ownHint.count} мест` : ''}
-                              </span>
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.ownSeatsOnMapClose}
-                            aria-label="Скрыть"
-                            onClick={dismissOwnHint}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ) : null}
                     </div>
                   </>
                 ) : (

@@ -95,7 +95,8 @@
 
 .chipOwnBest {
   background: #fff;
-  box-shadow: 0 0 0 2px rgba(255, 78, 24, 0.22);
+  border-color: var(--own-best-color, #ff4e18);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--own-best-color, #ff4e18) 28%, transparent);
 }
 
 .colorDot {

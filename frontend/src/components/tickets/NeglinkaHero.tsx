@@ -21,6 +21,7 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
 
   const [idx, setIdx] = useState(0);
   const [pauseAutoplay, setPauseAutoplay] = useState(false);
+  const firstSlideId = slides[0]?.id ?? '';
   const current = slides[idx] ?? slides[0];
 
   const go = useCallback((d: -1 | 1) => {
@@ -29,12 +30,23 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   }, [slides.length]);
 
   useEffect(() => {
+    setIdx(0);
+  }, [firstSlideId]);
+
+  useEffect(() => {
     if (loading || slides.length <= 1 || pauseAutoplay) return;
+    const firstDelay = 14000;
     const ms = 6500;
-    const id = window.setInterval(() => {
-      setIdx((i) => (i + 1) % slides.length);
-    }, ms);
-    return () => clearInterval(id);
+    let intervalId = 0;
+    const timeoutId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        setIdx((i) => (i + 1) % slides.length);
+      }, ms);
+    }, firstDelay);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
   }, [loading, slides.length, pauseAutoplay]);
 
   if (loading) {
