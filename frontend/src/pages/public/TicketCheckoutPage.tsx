@@ -1580,6 +1580,7 @@ export function TicketCheckoutPage() {
               loading="eager"
               decoding="async"
               sizes="100vw"
+              alt={`Постер «${displayTitle}»`}
             />
             <div className={styles.heroVignette} />
             <div className={styles.heroGradientBottom} />
@@ -1669,6 +1670,7 @@ export function TicketCheckoutPage() {
                     className={styles.heroPosterImg}
                     loading="eager"
                     decoding="async"
+                    alt={`Постер «${displayTitle}»`}
                   />
                 </div>
               ) : null}

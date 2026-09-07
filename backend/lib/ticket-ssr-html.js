@@ -199,7 +199,7 @@ export function buildTicketEventSsrHtml(p) {
   </nav>
   <article>
     <h1>${h1}</h1>
-    ${poster ? `<p><img src="${poster}" alt="${titleAttr}" width="320" height="auto" loading="lazy" /></p>` : ''}
+    ${poster ? `<p><img src="${poster}" alt="Постер «${titleAttr}»" width="320" height="auto" loading="lazy" /></p>` : ''}
     ${when ? `<p><strong>Дата:</strong> ${when}</p>` : ''}
     ${venue ? `<p><strong>Площадка:</strong> ${venue}${address ? `, ${address}` : ''}</p>` : ''}
     ${price ? `<p><strong>Цена:</strong> ${escapeHtml(price)}</p>` : ''}

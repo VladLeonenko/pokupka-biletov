@@ -13,6 +13,8 @@ type Props = {
   /** Подсказка браузеру для выбора размера (srcset/CDN) */
   sizes?: string;
   srcSet?: string;
+  /** Alt для SEO/доступности (по умолчанию пустой). */
+  alt?: string;
 };
 
 /**
@@ -29,6 +31,7 @@ export function TicketEventPosterImg({
   decoding = 'async',
   sizes,
   srcSet,
+  alt = '',
 }: Props) {
   const primary = (src || '').trim();
   const fallback = (fallbackSrc || '').trim();
@@ -55,7 +58,7 @@ export function TicketEventPosterImg({
       src={current}
       srcSet={useSrcSet ? srcSet : undefined}
       sizes={sizes || undefined}
-      alt=""
+      alt={alt}
       className={className}
       loading={loading}
       decoding={decoding}
