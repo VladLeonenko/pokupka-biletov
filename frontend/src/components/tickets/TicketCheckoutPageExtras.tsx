@@ -14,6 +14,7 @@ import {
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { useTicketRecentRepertoires } from '@/hooks/useTicketRecentRepertoires';
+import { slugify } from '@/utils/slugify';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 import { LEGACY_FEATURED_HERO_REPERTOIRE_ID } from '@/utils/heroFeaturedEvent';
 import styles from './TicketCheckoutPageExtras.module.css';
@@ -158,7 +159,13 @@ export function TicketCheckoutPageExtras({
         </h2>
         {venueLabel || venueAddress ? (
           <div>
-            {venueLabel ? <p className={styles.venueLine}>{venueLabel}</p> : null}
+            {venueLabel ? (
+              <p className={styles.venueLine}>
+                <Link to={`/events/venue/${slugify(venueLabel)}`} className={styles.venueLink}>
+                  {venueLabel}
+                </Link>
+              </p>
+            ) : null}
             {venueAddress ? (
               <p className={styles.venueAddress}>{venueAddress}</p>
             ) : null}

@@ -79,6 +79,16 @@
   color: #111;
 }
 
+.venueLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.venueLink:hover {
+  color: var(--neg-orange, #ff4e18);
+  text-decoration: underline;
+}
+
 .venueAddress {
   margin: 0;
   font-size: 0.9rem;
