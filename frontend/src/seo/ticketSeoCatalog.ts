@@ -150,6 +150,16 @@ export const TICKET_SEO: Record<string, TicketSeoEntry> = {
       `«Красная Шапочка»{{price}} — {{when}}, {{venue}}. ${MECHANICS}.`,
     h1: '«Красная Шапочка»',
   },
+  'kabala-svyatosh': {
+    title: 'Купить билеты на «Кабала святош»{{price}}',
+    description:
+      `Купить билеты на спектакль «Кабала святош»{{price}} — {{when}}, {{venue}}. ${MECHANICS}.`,
+    h1: 'Билеты на «Кабала святош»',
+    keywords:
+      'купить билеты кабала святош, кабала святош билеты, спектакль кабала святош билеты, кабала святош билеты москва',
+    aliases: ['686cd69c58f79d0030278b9d'],
+    defaults: { venue: 'МХТ им. А. П. Чехова, Москва' },
+  },
 };
 
 function parseEventDateParts(iso?: string | null) {
