@@ -343,7 +343,7 @@ export function composeAutoTicketDescription(p) {
   const bits = [];
   if (facts.when) bits.push(facts.when);
   if (facts.venue) bits.push(facts.venue);
-  const head = `Билеты на «${p.displayTitle}»${facts.price}.`;
+  const head = `Купить билеты на «${p.displayTitle}»${facts.price}.`;
   const mid = bits.length ? ` ${bits.join(', ')}.` : '';
   let lead = '';
   if (p.lead) {

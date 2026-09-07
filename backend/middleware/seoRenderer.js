@@ -768,15 +768,16 @@ function buildMoneyTicketTitle(displayTitle, minPrice, max = 70) {
     minPrice != null && Number.isFinite(Number(minPrice))
       ? ` от ${Math.round(Number(minPrice))} ₽`
       : '';
-  const suffix = `: билеты${pricePart}`;
-  const budget = Math.max(18, max - suffix.length);
+  // Деньги-ключ «купить билеты» в начале title.
+  const prefix = 'Купить билеты на ';
+  const budget = Math.max(18, max - prefix.length - pricePart.length);
   let name = String(displayTitle || 'Мероприятие').replace(/\s+/g, ' ').trim();
   if (name.length > budget) {
     const cut = name.slice(0, budget);
     const sp = cut.lastIndexOf(' ');
     name = (sp > 12 ? cut.slice(0, sp) : cut).trim();
   }
-  return `${name}${suffix}`;
+  return `${prefix}${name}${pricePart}`;
 }
 
 /** Только DB-кэш офферов — без внешнего API в hot path SSR. Цены как на витрине (наценка + свои места). */

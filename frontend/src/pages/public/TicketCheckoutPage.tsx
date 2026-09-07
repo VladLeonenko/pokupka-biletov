@@ -1545,7 +1545,7 @@ export function TicketCheckoutPage() {
       <SeoMetaTags
         title={
           catalogSeo?.title ||
-          `Билеты — ${displayTitle}: места онлайн`
+          `Купить билеты на ${displayTitle}`
         }
         description={
           catalogSeo?.description ||
