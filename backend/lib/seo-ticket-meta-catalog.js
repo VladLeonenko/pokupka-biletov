@@ -285,7 +285,8 @@ function clipMeta(s, max) {
   if (t.length <= max) return t;
   const cut = t.slice(0, max);
   const sp = cut.lastIndexOf(' ');
-  return (sp > Math.floor(max * 0.6) ? cut.slice(0, sp) : cut).trim();
+  const out = (sp > Math.floor(max * 0.6) ? cut.slice(0, sp) : cut).trim();
+  return cleanupMeta(out);
 }
 
 /**
@@ -332,7 +333,11 @@ export function composeAutoTicketDescription(p) {
   if (facts.venue) bits.push(facts.venue);
   const head = `Билеты на «${p.displayTitle}»${facts.price}.`;
   const mid = bits.length ? ` ${bits.join(', ')}.` : '';
-  const lead = p.lead ? ` ${String(p.lead).trim().slice(0, 60)}` : '';
+  let lead = '';
+  if (p.lead) {
+    const raw = String(p.lead).trim();
+    lead = raw.length > 80 ? ` ${raw.slice(0, 80).replace(/\s+\S*$/, '')}…` : ` ${raw}`;
+  }
   // lead только если мало фактов
   const body = bits.length >= 2 ? `${head}${mid} ${MECHANICS}.` : `${head}${mid}${lead} ${MECHANICS}.`;
   return clipMeta(body, 160);

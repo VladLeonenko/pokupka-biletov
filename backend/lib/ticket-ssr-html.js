@@ -68,7 +68,9 @@ export function injectSsrIntoHtml(html, ssrFragment) {
  */
 export function injectCrawlMirror(html, ssrFragment) {
   if (!ssrFragment || /id="bv-ssr-crawl"/.test(html)) return html;
-  const mirror = `<div id="bv-ssr-crawl" data-bv-ssr-crawl="1">${ssrFragment}</div>\n    `;
+  // Не дублируем <h1> в зеркале — он уже в #root (иначе на страницу два H1).
+  const fragment = ssrFragment.replace(/<h1>[\s\S]*?<\/h1>/, '');
+  const mirror = `<div id="bv-ssr-crawl" data-bv-ssr-crawl="1">${fragment}</div>\n    `;
   if (html.includes('<div id="root"')) {
     return html.replace('<div id="root"', `${mirror}<div id="root"`);
   }
