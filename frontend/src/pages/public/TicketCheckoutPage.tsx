@@ -1277,11 +1277,16 @@ export function TicketCheckoutPage() {
   }, [hallMapSessionKey]);
 
   const priceChipsForMap = useMemo((): PriceFilterChip[] => {
-    const keys = Array.from(new Set(offersForMap.map(priceKey))).filter(
+    // Только офферы с конкретными местами: иначе чип ведёт на «0 мест» на схеме.
+    const displayableOffers = offersForMap.filter((o) => getOfferSeatList(o).length > 0);
+    const keys = Array.from(new Set(displayableOffers.map(priceKey))).filter(
       (pk) => Number.isFinite(Number(pk)) && Number(pk) > 0,
     );
     const ownPriceKeys = new Set(
-      offersForMap.filter((o) => isOwnOfferLike(o)).map(priceKey).filter((pk) => Number.isFinite(Number(pk)) && Number(pk) > 0),
+      displayableOffers
+        .filter((o) => isOwnOfferLike(o))
+        .map(priceKey)
+        .filter((pk) => Number.isFinite(Number(pk)) && Number(pk) > 0),
     );
     keys.sort((a, b) => {
       const ownA = ownPriceKeys.has(a) ? 0 : 1;
