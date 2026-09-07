@@ -7,7 +7,7 @@ export type PriceFilterChip = {
   color: string;
   /** Для верхней ценовой категории — «28 700+ ₽» как на portalbilet */
   showPlus?: boolean;
-  /** Самая выгодная группа наших мест — чип с меткой «наши». */
+  /** Самая выгодная группа наших мест — чип с меткой «выгодно». */
   ownBest?: boolean;
 };
 
@@ -83,7 +83,7 @@ export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, o
                       ₽
                     </span>
                   </span>
-                  {chip.ownBest ? <span className={styles.ownBestBadge}>наши</span> : null}
+                  {chip.ownBest ? <span className={styles.ownBestBadge}>выгодно</span> : null}
                 </button>
               </li>
             );

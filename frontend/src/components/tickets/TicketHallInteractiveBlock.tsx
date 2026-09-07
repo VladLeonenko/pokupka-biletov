@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton, Paper, Popper, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import {
@@ -26,6 +26,8 @@ const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
 const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
 /** Подложка при zoom — без grayscale, поле остаётся зелёным. */
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
+/** Акцент «выгодное предложение» (наши места с лучшей ценой; совпадает с CSS var(--own-best-color) fallback). */
+const OWN_BEST_ACCENT = '#ff4e18';
 
 /** Радиус sellable-точки на canvas (px viewport), как Лужники: w = layerWidth * zoom. */
 function stadiumSeatCanvasRadiusPx(
@@ -34,7 +36,6 @@ function stadiumSeatCanvasRadiusPx(
   svgViewBoxWidth: number,
   active: boolean,
   mapZoomed: boolean,
-  ownOffer = false,
 ): number {
   const w = layerWidth * zoom;
   const baseR = Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
@@ -44,55 +45,32 @@ function stadiumSeatCanvasRadiusPx(
     r *= 0.5;
     r = Math.max(active ? 1.2 : 1.3, r);
   }
-  if (ownOffer && !active) {
-    r *= mapZoomed ? 2.05 : 2.35;
-  }
   return r;
+}
+
+/** Рамка «выгодное предложение»: точка того же размера, но с заметной обводкой по контуру. */
+function strokeOwnBestRing(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.arc(sx, sy, r, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(1.8, r * 0.5);
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+  ctx.lineWidth = Math.max(1.2, r * 0.32);
+  ctx.strokeStyle = OWN_BEST_ACCENT;
+  ctx.stroke();
 }
 
 function isOwnHighlightSeat(
   seat: { ownOffer?: boolean; previewOnly?: boolean; priceKey: string },
-  highlightKey?: string | null,
+  _highlightKey?: string | null,
 ): boolean {
-  if (!seat.ownOffer || seat.previewOnly) return false;
-  if (!highlightKey) return true;
-  return seat.priceKey === highlightKey;
-}
-
-function strokeOwnPriceCluster(
-  ctx: CanvasRenderingContext2D,
-  seats: { xPct: number; yPct: number; ownOffer?: boolean; previewOnly?: boolean; priceKey: string }[],
-  highlightKey: string | null | undefined,
-  origin: { x: number; y: number; w: number; h: number },
-  colorForSeat: (pk: string) => string,
-) {
-  if (!highlightKey) return;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let color = '';
-  for (const seat of seats) {
-    if (!isOwnHighlightSeat(seat, highlightKey)) continue;
-    const sx = origin.x + (seat.xPct / 100) * origin.w;
-    const sy = origin.y + (seat.yPct / 100) * origin.h;
-    minX = Math.min(minX, sx);
-    minY = Math.min(minY, sy);
-    maxX = Math.max(maxX, sx);
-    maxY = Math.max(maxY, sy);
-    color = colorForSeat(seat.priceKey);
-  }
-  if (!Number.isFinite(minX) || !Number.isFinite(maxX)) return;
-  const pad = 16;
-  ctx.save();
-  ctx.strokeStyle = color || 'rgba(255, 78, 24, 0.95)';
-  ctx.lineWidth = 2.2;
-  ctx.setLineDash([6, 5]);
-  ctx.globalAlpha = 0.92;
-  ctx.beginPath();
-  ctx.roundRect(minX - pad, minY - pad, Math.max(32, maxX - minX + pad * 2), Math.max(32, maxY - minY + pad * 2), 12);
-  ctx.stroke();
-  ctx.restore();
+  // «Выгодное предложение» — все наши места, независимо от ценовой группы.
+  return Boolean(seat.ownOffer && !seat.previewOnly);
 }
 
 /** DOM-хитбокс в px слоя: после transform(zoom) в viewport = 2*r. */
@@ -1870,12 +1848,7 @@ export function TicketHallInteractiveBlock({
       const vp = viewportRef.current;
       const layers = layersRef.current;
       if (!vp || !layers || layers.offsetWidth < 8 || layers.offsetHeight < 8) return;
-      const own = nativePlacements.filter(
-        (p) =>
-          p.ownOffer &&
-          !p.previewOnly &&
-          (!ownHighlightPriceKey || p.priceKey === ownHighlightPriceKey),
-      );
+      const own = nativePlacements.filter((p) => p.ownOffer && !p.previewOnly);
       if (own.length === 0) return;
       let minXp = Infinity;
       let minYp = Infinity;
@@ -1914,68 +1887,34 @@ export function TicketHallInteractiveBlock({
     variant,
   ]);
 
-  const [ownHintGeom, setOwnHintGeom] = useState<{
-    cx: number;
-    cy: number;
-    cardLeft: number;
-    cardTop: number;
-    cardW: number;
-    cardH: number;
-    vpW: number;
-    vpH: number;
-  } | null>(null);
+  // «Выгодное предложение»: компактная подсказка — выезжает один раз, уезжает, закрывается.
+  const [ownHintLeaving, setOwnHintLeaving] = useState(false);
+  const ownHintShown = Boolean(ownHintBanner);
 
-  useLayoutEffect(() => {
-    if (!ownHintBanner || !ownHighlightPriceKey) {
-      setOwnHintGeom(null);
+  useEffect(() => {
+    if (!ownHintShown) {
+      setOwnHintLeaving(false);
       return;
     }
-    const CARD_W = 248;
-    const CARD_H = 62;
-    const update = () => {
-      const vp = viewportRef.current;
-      const box = getLayerScreenBox();
-      if (!vp || !box || box.screenW < 8 || box.screenH < 8) {
-        setOwnHintGeom(null);
-        return;
-      }
-      const seats = nativePlacements.filter((p) => isOwnHighlightSeat(p, ownHighlightPriceKey));
-      const vpW = vp.clientWidth;
-      const vpH = vp.clientHeight;
-      let cx = vpW * 0.42;
-      let cy = vpH * 0.62;
-      if (seats.length > 0) {
-        let sx = 0;
-        let sy = 0;
-        for (const seat of seats) {
-          sx += seat.xPct;
-          sy += seat.yPct;
-        }
-        cx = box.left + (sx / seats.length / 100) * box.screenW;
-        cy = box.top + (sy / seats.length / 100) * box.screenH;
-      }
-      let cardLeft = cx - CARD_W - 36;
-      let cardTop = cy - CARD_H - 20;
-      if (cardLeft < 10) cardLeft = Math.min(vpW - CARD_W - 58, cx + 36);
-      if (cardTop < 10) cardTop = Math.min(vpH - CARD_H - 12, cy + 28);
-      cardLeft = Math.max(10, Math.min(cardLeft, vpW - CARD_W - 10));
-      cardTop = Math.max(10, Math.min(cardTop, vpH - CARD_H - 10));
-      setOwnHintGeom({ cx, cy, cardLeft, cardTop, cardW: CARD_W, cardH: CARD_H, vpW, vpH });
+    setOwnHintLeaving(false);
+    const auto = window.setTimeout(() => setOwnHintLeaving(true), 6000);
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest('[data-own-hint="true"]')) return;
+      setOwnHintLeaving(true);
     };
-    update();
-    const vp = viewportRef.current;
-    const ro = vp ? new ResizeObserver(update) : null;
-    if (vp) ro?.observe(vp);
-    return () => ro?.disconnect();
-  }, [getLayerScreenBox, nativePlacements, ownHighlightPriceKey, ownHintBanner, pan.x, pan.y, zoom]);
+    window.addEventListener('pointerdown', onPointerDown, true);
+    return () => {
+      window.clearTimeout(auto);
+      window.removeEventListener('pointerdown', onPointerDown, true);
+    };
+  }, [ownHintShown]);
 
-  const ownHintPointer = useMemo(() => {
-    if (!ownHintGeom) return null;
-    const { cx, cy, cardLeft, cardTop, cardW, cardH } = ownHintGeom;
-    const ax = cx < cardLeft ? cardLeft : cx > cardLeft + cardW ? cardLeft + cardW : cardLeft + cardW / 2;
-    const ay = cy < cardTop ? cardTop : cy > cardTop + cardH ? cardTop + cardH : cardTop + cardH / 2;
-    return { ax, ay };
-  }, [ownHintGeom]);
+  useEffect(() => {
+    if (!ownHintLeaving || !ownHintShown) return;
+    const t = window.setTimeout(() => onOwnHintDismiss?.(), 360);
+    return () => window.clearTimeout(t);
+  }, [ownHintLeaving, ownHintShown, onOwnHintDismiss]);
 
   const stepZoom = useCallback((direction: 1 | -1) => {
     const current = zoomRef.current;
@@ -2502,34 +2441,21 @@ export function TicketHallInteractiveBlock({
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
-          const dimOthers = Boolean(ownHintBanner) && Boolean(ownHighlightPriceKey) && !highlight && !active;
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
             box.width,
             svgViewBox.width,
             active,
             mapZoomedNowTheater,
-            highlight,
           );
           const fill = colorForSeat(seat.priceKey);
           ctx.save();
-          if (dimOthers) ctx.globalAlpha = 0.22;
-          if (highlight && !active) {
-            ctx.beginPath();
-            ctx.fillStyle = fill;
-            ctx.globalAlpha = dimOthers ? 0.22 : 0.32;
-            ctx.arc(sx, sy, r * 2.15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-          }
           ctx.beginPath();
           ctx.fillStyle = fill;
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
           if (highlight && !active) {
-            ctx.lineWidth = Math.max(1.4, r * 0.32);
-            ctx.strokeStyle = '#fff';
-            ctx.stroke();
+            strokeOwnBestRing(ctx, sx, sy, r);
           }
           if (active) {
             ctx.lineWidth = 2;
@@ -2546,15 +2472,6 @@ export function TicketHallInteractiveBlock({
           if (!seat.ownOffer) continue;
           drawTheaterSellable(seat);
         }
-        if (ownHintBanner) {
-          strokeOwnPriceCluster(
-            ctx,
-            visibleNativePlacements,
-            ownHighlightPriceKey,
-            { x, y, w, h },
-            colorForSeat,
-          );
-        }
       } else if (visibleNativePlacements.length > 0) {
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         const mapZoomedNow = zoom > fitZoom + 0.01;
@@ -2567,34 +2484,21 @@ export function TicketHallInteractiveBlock({
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
-          const dimOthers = Boolean(ownHintBanner) && Boolean(ownHighlightPriceKey) && !highlight && !active;
           const r = stadiumSeatCanvasRadiusPx(
             zoom,
             box.width,
             svgViewBox.width,
             active,
             mapZoomedNow,
-            highlight,
           );
           const fill = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.save();
-          if (dimOthers) ctx.globalAlpha = 0.22;
-          if (highlight && !active && !seat.previewOnly) {
-            ctx.beginPath();
-            ctx.fillStyle = fill;
-            ctx.globalAlpha = 0.32;
-            ctx.arc(sx, sy, r * 2.15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-          }
           ctx.beginPath();
           ctx.fillStyle = fill;
           ctx.arc(sx, sy, r, 0, Math.PI * 2);
           ctx.fill();
           if (highlight && !active) {
-            ctx.lineWidth = Math.max(1.4, r * 0.32);
-            ctx.strokeStyle = '#fff';
-            ctx.stroke();
+            strokeOwnBestRing(ctx, sx, sy, r);
           }
           if (active && !seat.previewOnly) {
             ctx.lineWidth = 2;
@@ -2610,15 +2514,6 @@ export function TicketHallInteractiveBlock({
         for (const seat of visibleNativePlacements) {
           if (!seat.ownOffer) continue;
           drawStadiumSellable(seat);
-        }
-        if (ownHintBanner) {
-          strokeOwnPriceCluster(
-            ctx,
-            visibleNativePlacements,
-            ownHighlightPriceKey,
-            { x, y, w, h },
-            colorForSeat,
-          );
         }
       }
     });
@@ -2641,7 +2536,6 @@ export function TicketHallInteractiveBlock({
     theaterSectorCheckout,
     nativeSeats,
     ownHighlightPriceKey,
-    ownHintBanner,
     uniformHallSeatAppearance,
     svgViewBox.width,
     useHallBackgroundRaster,
@@ -3467,50 +3361,29 @@ export function TicketHallInteractiveBlock({
             </div>
           ) : null}
         </div>
-        {ownHintBanner && ownHintGeom && ownHintPointer ? (
+        {ownHintBanner ? (
           <div
-            className={styles.ownHintLayer}
-            style={{ ['--own-best-color' as string]: ownHintBanner.color }}
+            className={`${styles.ownHintLayer}${ownHintLeaving ? ` ${styles.ownHintLeaving}` : ''}`}
             data-testid="own-seats-on-map"
           >
-            <svg
-              className={styles.ownHintSvg}
-              viewBox={`0 0 ${ownHintGeom.vpW} ${ownHintGeom.vpH}`}
-              preserveAspectRatio="none"
-              aria-hidden
-            >
-              <line
-                x1={ownHintPointer.ax}
-                y1={ownHintPointer.ay}
-                x2={ownHintGeom.cx}
-                y2={ownHintGeom.cy}
-                stroke={ownHintBanner.color}
-                strokeWidth="2.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span
-              className={styles.ownHintTarget}
-              style={{ left: ownHintGeom.cx, top: ownHintGeom.cy }}
-              aria-hidden
-            />
-            <div
-              className={styles.ownHintCardWrap}
-              style={{ left: ownHintGeom.cardLeft, top: ownHintGeom.cardTop }}
-            >
+            <div className={styles.ownHintCardWrap} data-own-hint="true">
               <button
                 type="button"
                 className={styles.ownHintCard}
-                onClick={onOwnHintActivate}
+                onClick={() => {
+                  onOwnHintActivate?.();
+                  setOwnHintLeaving(true);
+                }}
                 onPointerDown={(ev) => ev.stopPropagation()}
               >
-                <span className={styles.ownHintSwatch} aria-hidden />
+                <span
+                  className={styles.ownHintSwatch}
+                  style={{ background: ownHintBanner.color }}
+                  aria-hidden
+                />
                 <span className={styles.ownHintText}>
-                  <strong>Выгоднее наши места</strong>
-                  <span>
-                    эта цена {ownHintBanner.price.toLocaleString('ru-RU')} ₽
-                    {ownHintBanner.count > 1 ? ` · ${ownHintBanner.count} мест` : ''}
-                  </span>
+                  <strong>Выгодное предложение</strong>
+                  <span>Ищите места с рамкой — это самая выгодная цена</span>
                 </span>
               </button>
               {onOwnHintDismiss ? (
@@ -3518,7 +3391,7 @@ export function TicketHallInteractiveBlock({
                   type="button"
                   className={styles.ownHintClose}
                   aria-label="Скрыть"
-                  onClick={onOwnHintDismiss}
+                  onClick={() => setOwnHintLeaving(true)}
                   onPointerDown={(ev) => ev.stopPropagation()}
                 >
                   ×

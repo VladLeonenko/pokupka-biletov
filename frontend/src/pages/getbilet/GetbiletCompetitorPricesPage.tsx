@@ -31,6 +31,7 @@ import {
 import { useToast } from '@/components/common/ToastProvider';
 
 function rub(n: unknown) {
+  if (n == null || n === '') return '—';
   const x = Number(n);
   if (!Number.isFinite(x)) return '—';
   return `${Math.round(x).toLocaleString('ru-RU')} ₽`;
@@ -370,8 +371,9 @@ function GetbiletAgentsTab() {
           <TableHead>
             <TableRow>
               <TableCell>Событие</TableCell>
-              <TableCell align="right">Наши места</TableCell>
-              <TableCell align="right">Проигрываем</TableCell>
+              <TableCell align="right">Мы (от)</TableCell>
+              <TableCell align="right">Они (от)</TableCell>
+              <TableCell align="right">Проигрываем мест</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -383,7 +385,8 @@ function GetbiletAgentsTab() {
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>{ev.event_title || ev.repertoire_external_id}</TableCell>
-                <TableCell align="right">{ev.own_seats}</TableCell>
+                <TableCell align="right">{rub(ev.own_min_retail_rub)}</TableCell>
+                <TableCell align="right">{rub(ev.rival_min_retail_rub)}</TableCell>
                 <TableCell align="right">{ev.seats_we_lose}</TableCell>
               </TableRow>
             ))}
@@ -391,9 +394,63 @@ function GetbiletAgentsTab() {
         </Table>
       </Paper>
       {selectedId && detailQ.data && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          Снимок {fmtDate(detailQ.data.snapshotDate)}, агентов {detailQ.data.agents.length}
-        </Typography>
+        <Paper variant="outlined" sx={{ p: 2, mt: 2, overflow: 'auto' }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Снимок {fmtDate(detailQ.data.snapshotDate)}
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>День</TableCell>
+                <TableCell align="right">Мы (от)</TableCell>
+                <TableCell align="right">Они (от)</TableCell>
+                <TableCell align="right">Проигрываем мест</TableCell>
+                <TableCell align="right">Совет наценки</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(detailQ.data.daily || []).map((d) => (
+                <TableRow key={d.snapshot_date}>
+                  <TableCell>{fmtDate(d.snapshot_date)}</TableCell>
+                  <TableCell align="right">{rub(d.own_min_retail_rub)}</TableCell>
+                  <TableCell align="right">{rub(d.rival_min_retail_rub)}</TableCell>
+                  <TableCell align="right">{d.seats_we_lose}</TableCell>
+                  <TableCell align="right">
+                    {d.suggested_own_markup_percent != null ? `${d.suggested_own_markup_percent}%` : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Table size="small" sx={{ mt: 2 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Дата и время</TableCell>
+                <TableCell>Продавец</TableCell>
+                <TableCell>Тип</TableCell>
+                <TableCell align="right">Мин. цена</TableCell>
+                <TableCell align="right">Мест</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(detailQ.data.agents || []).map((a, i) => (
+                <TableRow key={`${a.agent_id}-${a.event_datetime}-${i}`} hover>
+                  <TableCell>{a.event_datetime}</TableCell>
+                  <TableCell>{a.agent_company || a.agent_code || a.agent_id}</TableCell>
+                  <TableCell>
+                    {a.is_own ? (
+                      <Chip size="small" color="primary" label="Мы" />
+                    ) : (
+                      <Chip size="small" color="default" label="Конкурент" />
+                    )}
+                  </TableCell>
+                  <TableCell align="right">{rub(a.min_retail_rub)}</TableCell>
+                  <TableCell align="right">{a.seat_count || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
       )}
       <Button size="small" sx={{ mt: 1 }} onClick={() => refetch()}>
         Обновить

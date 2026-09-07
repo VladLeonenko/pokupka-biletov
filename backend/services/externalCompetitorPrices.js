@@ -235,7 +235,16 @@ async function cseWebSearch(query) {
   url.searchParams.set('hl', 'ru');
   url.searchParams.set('gl', 'ru');
   const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`CSE HTTP ${res.status}`);
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body?.error?.message || detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`Google Custom Search: ${detail}`);
+  }
   const body = await res.json();
   const items = Array.isArray(body?.items) ? body.items : [];
   return items
@@ -543,6 +552,10 @@ export async function discoverMissingCompetitorUrls({ limit = 15 } = {}) {
       });
     }
     await sleep(300);
+  }
+  if (added === 0 && rows.length > 0 && rows.some((r) => r.error)) {
+    const firstErr = rows.find((r) => r.error)?.error;
+    throw new Error(`Не удалось найти ссылки конкурентов: ${firstErr}`);
   }
   return { events: events.length, added, rows, cseConfigured: isWebSearchConfigured() };
 }

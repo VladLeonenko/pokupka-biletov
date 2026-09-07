@@ -250,7 +250,7 @@ function ownOffersHint(rows: OfferRow[]): {
   return {
     priceKey: priceKey(cheapest) || priceKeyStr,
     minPrice,
-    count: group.reduce((n, o) => n + getOfferSeatList(o).length, 0),
+    count: own.reduce((n, o) => n + getOfferSeatList(o).length, 0),
     label: `${sector}${seatPart}`,
   };
 }
@@ -686,11 +686,7 @@ export function TicketCheckoutPage() {
 
   useEffect(() => {
     if (!repertoireId) return;
-    try {
-      setOwnHintDismissed(sessionStorage.getItem(`bv-own-hint:${repertoireId}`) === '1');
-    } catch {
-      setOwnHintDismissed(false);
-    }
+    setOwnHintDismissed(false);
   }, [repertoireId]);
 
   const flatSessionRows = useMemo(() => {
@@ -1294,13 +1290,12 @@ export function TicketCheckoutPage() {
       return Number(a) - Number(b);
     });
     const maxPrice = Math.max(0, ...keys.map((pk) => Number(pk)));
-    const ownBestKey = ownOffersHint(offersForMap)?.priceKey ?? null;
     return keys.map((pk, i) => ({
       priceKey: pk,
       price: Number(pk),
       color: priceColorMap.get(pk) ?? colorForPriceIndex(i),
       showPlus: keys.length > 1 && Number(pk) === maxPrice,
-      ownBest: ownBestKey != null && pk === ownBestKey,
+      ownBest: ownPriceKeys.has(pk),
     }));
   }, [offersForMap, priceColorMap]);
 
@@ -1341,24 +1336,14 @@ export function TicketCheckoutPage() {
 
   const showOwnBestPriceGroup = useCallback(() => {
     if (!ownHint) return;
-    const n = Number(ownHint.priceKey);
-    setMapSelectedPriceKey(ownHint.priceKey);
-    if (!isFootballStadiumStage && Number.isFinite(n)) {
-      setFilterState((s) => ({ ...s, priceRange: [n, n] }));
-    }
     setOwnSeatsFocusNonce((v) => v + 1);
     hallMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (isMobileViewport) setMapDialogOpen(true);
-  }, [ownHint, isFootballStadiumStage, isMobileViewport]);
+  }, [ownHint, isMobileViewport]);
 
   const dismissOwnHint = useCallback(() => {
     setOwnHintDismissed(true);
-    try {
-      sessionStorage.setItem(`bv-own-hint:${repertoireId}`, '1');
-    } catch {
-      /* ignore */
-    }
-  }, [repertoireId]);
+  }, []);
 
   const hallSchemeSubtitle = useMemo(() => {
     if (seatSelectionDisabledUi) {

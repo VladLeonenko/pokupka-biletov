@@ -121,37 +121,22 @@
 
 .ownHintLayer {
   position: absolute;
-  inset: 0;
+  left: 12px;
+  bottom: 12px;
   z-index: 18;
   pointer-events: none;
+  animation: ownHintSlideIn 0.32s ease-out both;
 }
 
-.ownHintSvg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.ownHintTarget {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  margin: -11px 0 0 -11px;
-  border-radius: 50%;
-  border: 2.5px solid var(--own-best-color, #ff4e18);
-  background: color-mix(in srgb, var(--own-best-color, #ff4e18) 30%, transparent);
-  box-shadow: 0 0 0 0 var(--own-best-color, #ff4e18);
-  animation: ownHintRipple 1.7s ease-out infinite;
+.ownHintLeaving {
+  animation: ownHintSlideOut 0.36s ease-in both;
 }
 
 .ownHintCardWrap {
-  position: absolute;
   display: flex;
   align-items: stretch;
   gap: 4px;
-  width: 248px;
+  max-width: 300px;
   pointer-events: auto;
 }
 
@@ -160,23 +145,22 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1.5px solid var(--own-best-color, #ff4e18);
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
   text-align: left;
   cursor: pointer;
 }
 
 .ownHintSwatch {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--own-best-color, #ff4e18);
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--own-best-color, #ff4e18);
 }
 
@@ -185,13 +169,13 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   line-height: 1.3;
   color: #1a1a1a;
 }
 
 .ownHintText strong {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
 .ownHintClose {
@@ -207,21 +191,25 @@
   cursor: pointer;
 }
 
-@keyframes ownHintRipple {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--own-best-color, #ff4e18) 45%, transparent);
+@keyframes ownHintSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
   }
-  70% {
-    box-shadow: 0 0 0 14px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
-@media (max-width: 599px) {
-  .ownHintCardWrap {
-    width: min(248px, calc(100% - 52px));
+@keyframes ownHintSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-14px);
   }
 }
 

@@ -117,9 +117,27 @@ function normRow(s: string): string {
   return normToken(s.replace(/ряд/gi, ' '));
 }
 
+/**
+ * Синонимы секторов: GetBilet называет зоны иначе, чем подписи на схеме (МХТ и др.).
+ * Ключ — нормированный сектор оффера GetBilet; значение — каноническое имя сектора схемы.
+ */
+const SECTOR_ALIASES: Record<string, string> = {
+  'ложа бенуара левая': 'ложа бенуар левая',
+  'ложа бенуара правая': 'ложа бенуар правая',
+  'ложа бельэтажа левая': 'ложа бельэтажа левая сторона',
+  'ложа бельэтажа правая': 'ложа бельэтажа правая сторона',
+  'бельэтаж ложа правая': 'ложа бельэтажа правая сторона',
+  'балкон левая сторона с ограниченной видимостью': 'балкон левая сторона (неудобное)',
+};
+
+function normSector(s: string): string {
+  const t = normToken(s);
+  return SECTOR_ALIASES[t] ?? t;
+}
+
 /** Ключ для сопоставления схемы и GetBilet (сектор / ряд / место). */
 export function seatMapKey(sector: string, row: string, seat: string): string {
-  return `${normToken(sector)}|${normToken(row)}|${normToken(seat)}`;
+  return `${normSector(sector)}|${normToken(row)}|${normToken(seat)}`;
 }
 
 function parseMatrix(transform: string | null): [number, number, number, number, number, number] | null {
@@ -478,7 +496,7 @@ export function buildOfferSeatIndex(offers: OfferLike[]): Map<string, { offer: O
 
 /** Без скобок с уточнениями — для «Балкон … (ограниченный обзор)» vs «Балкон …». */
 function normSectorLoose(s: string): string {
-  return normToken(s.replace(/\([^)]*\)/g, ' '));
+  return normSector(s.replace(/\([^)]*\)/g, ' '));
 }
 
 /** Код трибуны из GetBilet: «сектор c140» → c140, «C-235» → c235. */
@@ -497,8 +515,8 @@ export function extractSectorCode(s: string): string | null {
  * Выше = лучше. Старый boolean includes() давал ложные попадания между разными зонами зала.
  */
 export function sectorMatchScore(apiSector: string, svgSector: string): number {
-  const a = normToken(apiSector);
-  const b = normToken(svgSector);
+  const a = normSector(apiSector);
+  const b = normSector(svgSector);
   if (!a || !b) return 0;
   const ca = extractSectorCode(apiSector);
   const cb = extractSectorCode(svgSector);
