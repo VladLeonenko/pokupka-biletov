@@ -773,6 +773,42 @@ export function buildSvgNativePlacements(
     });
   }
 
+  /**
+   * Офферы «на ряд» с пустым SeatList: GetBilet отдаёт их без разбивки по местам.
+   * Помечаем все ещё свободные места этого сектора/ряда по цене такого оффера
+   * (свои — первыми, чтобы не перекрывались чужими).
+   */
+  const rowLevelOffers = offers
+    .filter((o) => !(Array.isArray(o.SeatList) && o.SeatList.length > 0))
+    .sort((a, b) => Number(isOwnOfferLike(b)) - Number(isOwnOfferLike(a)));
+  for (const offer of rowLevelOffers) {
+    const sector = String(offer.Sector ?? '').trim();
+    const row = String(offer.Row ?? '').trim();
+    const oid = String(offer.Id ?? '');
+    if (!sector || !row || !oid) continue;
+    for (const s of uniqueSvg.values()) {
+      const k = seatMapKey(s.sector, s.row, s.seat);
+      if (placedSvg.has(k)) continue;
+      if (normSector(s.sector) !== normSector(sector)) continue;
+      if (normRow(s.row) !== normRow(row)) continue;
+      placedSvg.add(k);
+      out.push({
+        key: `${oid}-row-${s.xPct.toFixed(3)}-${s.yPct.toFixed(3)}`,
+        svgKey: k,
+        offerId: oid,
+        sectorLabel: sector,
+        seat: s.seat,
+        rowLabel: row,
+        available: [],
+        xPct: s.xPct,
+        yPct: s.yPct,
+        title: `${s.sector} · ряд ${row} · место ${s.seat} · ${getPriceKey(offer)} ₽`,
+        priceKey: getPriceKey(offer),
+        ownOffer: isOwnOfferLike(offer),
+      });
+    }
+  }
+
   const matchedOfferSeatKeys = new Set<string>();
   for (const p of out) {
     const offer = offers.find((o) => String(o.Id ?? '') === p.offerId);
