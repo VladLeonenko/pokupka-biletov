@@ -52,16 +52,17 @@ export function TicketCheckoutPageExtras({
   const [deferCatalog, setDeferCatalog] = useState(false);
 
   useEffect(() => {
+    const cb = () => setDeferCatalog(true);
     const win = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
-    const id = win.requestIdleCallback?.(() => setDeferCatalog(true), { timeout: 2500 })
-      ?? window.setTimeout(() => setDeferCatalog(true), 900);
-    return () => {
-      if (typeof id === 'number' && win.requestIdleCallback) {
-        window.cancelIdleCallback?.(id);
-      } else {
-        clearTimeout(id as ReturnType<typeof setTimeout>);
-      }
-    };
+    let cancel: (() => void) | undefined;
+    if (typeof win.requestIdleCallback === 'function') {
+      const id = win.requestIdleCallback(cb, { timeout: 2500 });
+      cancel = () => window.cancelIdleCallback?.(id);
+    } else {
+      const id = window.setTimeout(cb, 900);
+      cancel = () => clearTimeout(id);
+    }
+    return () => cancel?.();
   }, []);
 
   const { data: rawEvents } = useQuery({

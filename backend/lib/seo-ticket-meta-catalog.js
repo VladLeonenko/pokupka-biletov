@@ -123,9 +123,9 @@ export const TICKET_SEO = {
 
   // --- Театр ---
   'kabala-svyatosh': {
-    title: 'Купить билеты на «Кабала святош»{{price}}',
+    title: 'Купить билеты на «Кабала святош»',
     description:
-      'Купить билеты на спектакль «Кабала святош»{{price}} — {{venue}}. ' + MECHANICS + '.',
+      'Купить билеты на спектакль «Кабала святош» — {{venue}}. ' + MECHANICS + '.',
     h1: 'Билеты на «Кабала святош»',
     keywords:
       'купить билеты кабала святош, кабала святош билеты, спектакль кабала святош билеты, кабала святош билеты москва',
@@ -343,7 +343,7 @@ export function composeAutoTicketDescription(p) {
   const bits = [];
   if (facts.when) bits.push(facts.when);
   if (facts.venue) bits.push(facts.venue);
-  const head = `Купить билеты на «${p.displayTitle}»${facts.price}.`;
+  const head = `Купить билеты на «${p.displayTitle}».`;
   const mid = bits.length ? ` ${bits.join(', ')}.` : '';
   let lead = '';
   if (p.lead) {

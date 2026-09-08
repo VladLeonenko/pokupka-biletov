@@ -763,21 +763,18 @@ function clipSeoTitle(text, max = 70) {
 }
 
 /** Title money URL: имя режется, суффикс с ценой сохраняется. */
-function buildMoneyTicketTitle(displayTitle, minPrice, max = 70) {
-  const pricePart =
-    minPrice != null && Number.isFinite(Number(minPrice))
-      ? ` от ${Math.round(Number(minPrice))} ₽`
-      : '';
-  // Деньги-ключ «купить билеты» в начале title.
+function buildMoneyTicketTitle(displayTitle, _minPrice, max = 70) {
+  // Деньги-ключ «купить билеты» в начале title. Цену в title не пишем —
+  // она меняется/выкупается, и сниппет будет обманывать (цена актуальна на схеме зала).
   const prefix = 'Купить билеты на ';
-  const budget = Math.max(18, max - prefix.length - pricePart.length);
+  const budget = Math.max(18, max - prefix.length);
   let name = String(displayTitle || 'Мероприятие').replace(/\s+/g, ' ').trim();
   if (name.length > budget) {
     const cut = name.slice(0, budget);
     const sp = cut.lastIndexOf(' ');
     name = (sp > 12 ? cut.slice(0, sp) : cut).trim();
   }
-  return `${prefix}${name}${pricePart}`;
+  return `${prefix}${name}`;
 }
 
 /** Только DB-кэш офферов — без внешнего API в hot path SSR. Цены как на витрине (наценка + свои места). */
