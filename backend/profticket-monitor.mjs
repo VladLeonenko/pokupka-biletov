@@ -38,7 +38,7 @@ function targetEvent(e) {
   const day = d.slice(8, 10);
   const time = String(e.begin_time || '');
   if (month === '12') return DEC_DAYS.includes(day) && TIMES.includes(time);
-  if (month === '01') return true; // покупаем любой январь, что есть в продаже
+  if (month === '01') return (JAN_TARGETS[day] || []).includes(time);
   return false;
 }
 
