@@ -228,12 +228,6 @@ export function findBestSeatsByPreference(hall, preference = MHT_KABALA_PREFEREN
     for (const p of anyPairs) out.push({ ...p, _rank: toNum(p.row) });
   }
 
-  // Fallback на одиночные места, если совсем нет пар — чтобы не уходить с пустыми руками.
-  if (out.length === 0 && count > 1) {
-    const singles = findBestSeatPairs(hall, { count: 1, limit });
-    for (const p of singles) out.push({ ...p, _rank: toNum(p.row) });
-  }
-
   // Убираем пересечения по id мест: каждое место отдаём только одной группе.
   const taken = new Set();
   const disjoint = [];
