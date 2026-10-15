@@ -31,7 +31,10 @@ async function api(path, opts = {}) {
       signal: ac.signal,
     });
     mergeCookies(res.headers.get('set-cookie'));
-    return res.json();
+    const text = await res.text();
+    try { return JSON.parse(text); } catch (parseErr) { return { error: { code: -1, message: `JSON parse error: ${parseErr.message} | body=${text.slice(0, 200)}` } }; }
+  } catch (err) {
+    return { error: { code: -2, message: err?.message || String(err) } };
   } finally {
     clearTimeout(timer);
   }
