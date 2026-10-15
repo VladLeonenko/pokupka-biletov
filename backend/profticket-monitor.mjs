@@ -20,7 +20,7 @@ const MAX_BOOKINGS = Number(process.env.PROFTICKET_MAX_BOOKINGS || 150); // 150 
 const MAX_SEATS_PER_ORDER = Number(process.env.PROFTICKET_MAX_SEATS_PER_ORDER || 6); // до 6 мест (3 пары) в заказ, как у остальных
 const GLOBAL_SHOW_ID = 10362;
 
-// Декабрь: целевые числа; январь: только указанные даты/время.
+// Декабрь: целевые числа; январь: ЛЮБЫЕ доступные даты/время (площадка выложила 1,11-24 января).
 const DEC_DAYS = ['12', '13', '19', '20', '30', '31'];
 const JAN_TARGETS = {
   '02': ['14:30'],
@@ -38,7 +38,7 @@ function targetEvent(e) {
   const day = d.slice(8, 10);
   const time = String(e.begin_time || '');
   if (month === '12') return DEC_DAYS.includes(day) && TIMES.includes(time);
-  if (month === '01') return (JAN_TARGETS[day] || []).includes(time);
+  if (month === '01') return true; // покупаем любой январь, что есть в продаже
   return false;
 }
 
