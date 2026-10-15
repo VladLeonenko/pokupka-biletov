@@ -40,14 +40,21 @@ async function api(path, opts = {}) {
   }
 }
 
-// Список событий (все декабрьские представления).
+// Список событий. С 12:00 15 октября 2027 доступен январь (period_id=4, date=2027.01).
 export async function getEvents() {
-  const j = await api(`/event/list/?company_id=53&page=1&period_id=0&language=${LANG}`);
-  const out = [];
+  // Пробуем январь 2027; если пусто — fallback на декабрь 2026.
+  let j = await api(`/event/list/?company_id=53&type=events&page=1&period_id=4&date=2027.01&language=${LANG}`);
+  let items = [];
   for (const d of j?.response?.items || []) {
-    for (const e of d.events || []) out.push(e);
+    for (const e of d.events || []) items.push(e);
   }
-  return out;
+  if (!items.length) {
+    j = await api(`/event/list/?company_id=53&page=1&period_id=0&language=${LANG}`);
+    for (const d of j?.response?.items || []) {
+      for (const e of d.events || []) items.push(e);
+    }
+  }
+  return items;
 }
 
 // Схема зала события: items[] с полями id,row,seat,cod_sec,name_sec,avail,price.
