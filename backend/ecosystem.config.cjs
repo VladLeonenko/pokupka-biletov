@@ -14,7 +14,7 @@ module.exports = {
       script: 'sniper-monitor.mjs',
       args: [
         '--url', 'https://mxat.ru/repertuar/show/kabala_svyatosh/',
-        '--exclude-month', 'сентябр',
+        '--exclude-month', 'сентябр,январ,феврал,март,апрел,май,июн,июл,август,октябр,ноябр',
         '--exclude-dates', '21',
         '--pairs', '200',
         '--contacts-file', 'sniper-contacts.json',
