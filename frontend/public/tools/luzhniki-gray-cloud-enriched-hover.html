@@ -119,6 +119,14 @@
     .hint { font-size: 11px; opacity: 0.55; }
     #zoomSlider { width: min(120px, 22vw); vertical-align: middle; accent-color: #38bdf8; }
     #paintTargetSector { width: 92px; }
+    .viewport.mode-labels { cursor: default; }
+    .viewport.mode-labels .stage svg circle { pointer-events: none; }
+    #editor-hall-labels text { cursor: grab; user-select: none; }
+    #editor-hall-labels text.lab-sel {
+      fill: #fbbf24 !important;
+      stroke: #1e293b !important;
+    }
+    #labelsBar label input.wide { width: 140px; }
   </style>
 </head>
 <body>
@@ -138,6 +146,7 @@
       <button type="button" id="modeView" class="active" title="Только просмотр">👁</button>
       <button type="button" id="modeEdit" title="Правка точки в карточке">✎</button>
       <button type="button" id="modePaint" title="Протянуть линию вдоль ряда">〰</button>
+      <button type="button" id="modeLabels" title="Надписи секторов на схеме (drag + текст)">Aa</button>
     </div>
     <div class="group" id="paintBar" hidden>
       <label title="макс. захват вокруг линии">Коридор <input type="number" id="paintCorridor" min="8" max="60" value="20" /></label>
@@ -168,12 +177,26 @@
       <button type="button" id="copySectorBtn" title="скопировать разметку сектора в другой сектор">⇄ копия</button>
       <button type="button" id="copyMirrorSectorBtn" title="скопировать в зеркальный сектор через центр поля (верх↔низ)">⇄ зеркало</button>
     </div>
+    <div class="group" id="labelsBar" hidden>
+      <label title="текущее имя сектора на местах">Сектор <input type="text" id="renameFrom" class="wide" list="sectorNameList" placeholder="Партер" /></label>
+      <label title="новое имя">→ <input type="text" id="renameTo" class="wide" placeholder="Партер А" /></label>
+      <button type="button" id="renameSectorBtn" class="warn" title="переименовать во всех местах + layout + надписи">Переименовать</button>
+      <datalist id="sectorNameList"></datalist>
+      <span class="sep"></span>
+      <button type="button" id="addLabelBtn" title="добавить надпись в центре схемы">+ надпись</button>
+      <button type="button" id="delLabelBtn" title="удалить выбранную надпись">⌫</button>
+      <label>Текст <input type="text" id="labelText" class="wide" placeholder="ПАРТЕР" /></label>
+      <label>size <input type="number" id="labelFontSize" min="4" max="400" value="14" style="width:56px" /></label>
+      <label>° <input type="number" id="labelRotate" min="-180" max="180" value="0" style="width:56px" /></label>
+      <button type="button" id="saveLabelsBtn" class="warn" title="POST hallMapLabels на сервер">💾 надписи</button>
+      <span class="hint" id="labelsHint">drag надпись · клик пусто — снять выбор</span>
+    </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-parter-band</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-labels-v1</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -201,7 +224,20 @@
     const modeViewBtn = document.getElementById('modeView');
     const modeEditBtn = document.getElementById('modeEdit');
     const modePaintBtn = document.getElementById('modePaint');
+    const modeLabelsBtn = document.getElementById('modeLabels');
     const paintBar = document.getElementById('paintBar');
+    const labelsBar = document.getElementById('labelsBar');
+    const renameFromInput = document.getElementById('renameFrom');
+    const renameToInput = document.getElementById('renameTo');
+    const renameSectorBtn = document.getElementById('renameSectorBtn');
+    const sectorNameList = document.getElementById('sectorNameList');
+    const addLabelBtn = document.getElementById('addLabelBtn');
+    const delLabelBtn = document.getElementById('delLabelBtn');
+    const labelTextInput = document.getElementById('labelText');
+    const labelFontSizeInput = document.getElementById('labelFontSize');
+    const labelRotateInput = document.getElementById('labelRotate');
+    const saveLabelsBtn = document.getElementById('saveLabelsBtn');
+    const labelsHint = document.getElementById('labelsHint');
     const paintSector = document.getElementById('paintSector');
     const paintApplyMode = document.getElementById('paintApplyMode');
     const paintRow = document.getElementById('paintRow');
@@ -302,8 +338,15 @@
     let panStartY = 0;
     let vbW = 11413;
     let vbH = 9676;
-    /** @type {'view'|'edit'|'paint'} */
+    /** @type {'view'|'edit'|'paint'|'labels'} */
     let appMode = 'view';
+    /** @type {{ text: string, x: number, y: number, fontSize?: number, rotate?: number }[]} */
+    let hallMapLabels = [];
+    let selectedLabelIdx = -1;
+    let labelsG = null;
+    /** @type {{ idx: number, ox: number, oy: number, sx: number, sy: number } | null} */
+    let labelDrag = null;
+    let labelsDirty = false;
     let paintDrag = false;
     /** @type {{ clientX: number, clientY: number, additive: boolean } | null} */
     let paintPending = null;
@@ -637,6 +680,8 @@
       const clone = svgRoot.cloneNode(true);
       const ov = clone.querySelector('#editor-overlay');
       if (ov) ov.remove();
+      const labs = clone.querySelector('#editor-hall-labels');
+      if (labs) labs.remove();
       clone.querySelectorAll(
         'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor, circle.audit-issue, circle.audit-warn, circle.audit-proposed',
       ).forEach((c) => {
@@ -792,26 +837,38 @@
       modeViewBtn.classList.toggle('active', mode === 'view');
       modeEditBtn.classList.toggle('active', mode === 'edit');
       modePaintBtn.classList.toggle('active', mode === 'paint');
+      modeLabelsBtn?.classList.toggle('active', mode === 'labels');
       paintBar.hidden = mode !== 'paint';
+      if (labelsBar) labelsBar.hidden = mode !== 'labels';
       viewport.classList.toggle('mode-paint', mode === 'paint');
       viewport.classList.toggle('mode-edit', mode === 'edit');
+      viewport.classList.toggle('mode-labels', mode === 'labels');
       cancelPaintDrag();
+      labelDrag = null;
       if (mode !== 'paint') {
         rectSelectMode = false;
         rectSelectBtn?.classList.remove('active');
         clearPaintSelection();
       }
-      if (mode === 'paint') {
+      if (mode === 'paint' || mode === 'labels') {
         panMode = false;
         dragPan = false;
         panModeBtn.classList.remove('active');
         viewport.classList.remove('dragging');
         updatePanCursor();
         infoPanel.classList.remove('visible');
+        clearSelection();
       } else if (selectedCircle) {
         renderInfo(readCircleMeta(selectedCircle));
       } else if (infoPanel.classList.contains('visible')) {
         infoPanel.classList.remove('visible');
+      }
+      if (mode === 'labels') {
+        refreshSectorNameList();
+        renderLabelsLayer();
+        syncLabelFieldsFromSelection();
+      } else {
+        renderLabelsLayer();
       }
       refreshStatusHint();
     }
@@ -925,6 +982,13 @@
           ' точек → ряд/⌫ → ▶';
       } else if (appMode === 'edit') {
         status.textContent = base + ' · ✎: клик — карточка, правка row/place, Применить';
+      } else if (appMode === 'labels') {
+        status.textContent =
+          base +
+          ' · Aa: drag надписи · ' +
+          hallMapLabels.length +
+          ' шт' +
+          (labelsDirty ? ' · не сохранено' : '');
       } else {
         status.textContent = base + ' · клик — карточка · Space+drag — pan';
       }
@@ -1486,6 +1550,293 @@
       rowLabelG.setAttribute('style', 'pointer-events: none;');
       overlayG.appendChild(rowLabelG);
       svgRoot.appendChild(overlayG);
+      ensureLabelsLayer();
+    }
+
+    function defaultLabelFontSize() {
+      return Math.max(10, Math.round(Math.min(vbW, vbH) * 0.018));
+    }
+
+    function ensureLabelsLayer() {
+      if (!svgRoot) return;
+      if (labelsG && labelsG.parentNode === svgRoot) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      labelsG = document.createElementNS(ns, 'g');
+      labelsG.setAttribute('id', 'editor-hall-labels');
+      labelsG.setAttribute(
+        'style',
+        'pointer-events: auto; font-family: system-ui, -apple-system, Segoe UI, sans-serif;',
+      );
+      svgRoot.appendChild(labelsG);
+      renderLabelsLayer();
+    }
+
+    function refreshSectorNameList() {
+      if (!sectorNameList) return;
+      const names = new Set();
+      for (const c of allCircles) {
+        const s = decodeAttr(c.getAttribute('data-sector') || c.getAttribute('place-name') || '').trim();
+        if (s) names.add(s);
+      }
+      for (const lab of hallMapLabels) {
+        if (lab?.text) names.add(String(lab.text).trim());
+      }
+      sectorNameList.innerHTML = [...names]
+        .sort((a, b) => a.localeCompare(b, 'ru'))
+        .map((n) => '<option value="' + escapeHtml(n) + '"></option>')
+        .join('');
+    }
+
+    function syncLabelFieldsFromSelection() {
+      if (!labelTextInput) return;
+      const lab = selectedLabelIdx >= 0 ? hallMapLabels[selectedLabelIdx] : null;
+      if (!lab) {
+        labelTextInput.value = '';
+        if (labelFontSizeInput) labelFontSizeInput.value = String(defaultLabelFontSize());
+        if (labelRotateInput) labelRotateInput.value = '0';
+        if (labelsHint) labelsHint.textContent = hallMapLabels.length + ' надписей · выбери или +';
+        return;
+      }
+      labelTextInput.value = lab.text || '';
+      if (labelFontSizeInput) {
+        labelFontSizeInput.value = String(lab.fontSize || defaultLabelFontSize());
+      }
+      if (labelRotateInput) labelRotateInput.value = String(lab.rotate || 0);
+      if (labelsHint) {
+        labelsHint.textContent =
+          '#' +
+          (selectedLabelIdx + 1) +
+          ' · x=' +
+          Math.round(lab.x) +
+          ' y=' +
+          Math.round(lab.y) +
+          (labelsDirty ? ' · dirty' : '');
+      }
+    }
+
+    function applyLabelFieldsToSelection() {
+      if (selectedLabelIdx < 0 || !hallMapLabels[selectedLabelIdx]) return;
+      const lab = hallMapLabels[selectedLabelIdx];
+      const text = String(labelTextInput?.value || '').trim();
+      if (text) lab.text = text;
+      const fs = Number(labelFontSizeInput?.value);
+      if (Number.isFinite(fs) && fs > 0) lab.fontSize = fs;
+      else delete lab.fontSize;
+      const rot = Number(labelRotateInput?.value);
+      if (Number.isFinite(rot) && rot !== 0) lab.rotate = rot;
+      else delete lab.rotate;
+      labelsDirty = true;
+      renderLabelsLayer();
+      syncLabelFieldsFromSelection();
+    }
+
+    function renderLabelsLayer() {
+      if (!svgRoot) return;
+      ensureLabelsLayer();
+      if (!labelsG) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      labelsG.innerHTML = '';
+      const pe = appMode === 'labels' ? 'auto' : 'none';
+      labelsG.style.pointerEvents = pe;
+      labelsG.setAttribute('pointer-events', pe);
+      hallMapLabels.forEach((lab, idx) => {
+        if (!lab || !lab.text) return;
+        const fs = Number(lab.fontSize) > 0 ? Number(lab.fontSize) : defaultLabelFontSize();
+        const rot = Number(lab.rotate) || 0;
+        const t = document.createElementNS(ns, 'text');
+        t.setAttribute('data-label-idx', String(idx));
+        t.setAttribute('x', String(lab.x));
+        t.setAttribute('y', String(lab.y));
+        t.setAttribute('font-size', String(fs));
+        t.setAttribute('font-weight', '650');
+        t.setAttribute('fill', idx === selectedLabelIdx ? '#fbbf24' : 'rgba(248, 250, 252, 0.92)');
+        t.setAttribute('stroke', idx === selectedLabelIdx ? '#1e293b' : '#0f172a');
+        t.setAttribute('stroke-width', String(Math.max(1.5, fs * 0.18)));
+        t.setAttribute('paint-order', 'stroke fill');
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('dominant-baseline', 'middle');
+        if (rot) t.setAttribute('transform', 'rotate(' + rot + ' ' + lab.x + ' ' + lab.y + ')');
+        if (idx === selectedLabelIdx) t.classList.add('lab-sel');
+        t.textContent = lab.text;
+        labelsG.appendChild(t);
+      });
+      refreshStatusHint();
+    }
+
+    async function loadHallMapLabelsFromServer() {
+      try {
+        const r = await fetch(saveApiUrl() + '/bundle?_=' + Date.now(), { cache: 'no-store' });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) return;
+        hallMapLabels = Array.isArray(data.hallMapLabels)
+          ? data.hallMapLabels
+              .map((item) => {
+                if (!item || typeof item !== 'object') return null;
+                const text = String(item.text ?? '').trim();
+                const x = Number(item.x);
+                const y = Number(item.y);
+                if (!text || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+                const out = { text, x, y };
+                const fontSize = Number(item.fontSize);
+                const rotate = Number(item.rotate);
+                if (Number.isFinite(fontSize) && fontSize > 0) out.fontSize = fontSize;
+                if (Number.isFinite(rotate) && rotate !== 0) out.rotate = rotate;
+                return out;
+              })
+              .filter(Boolean)
+          : [];
+        labelsDirty = false;
+        selectedLabelIdx = -1;
+        renderLabelsLayer();
+        refreshSectorNameList();
+        syncLabelFieldsFromSelection();
+        if (labelsHint && hallMapLabels.length) {
+          labelsHint.textContent = 'загружено ' + hallMapLabels.length + ' надписей';
+        }
+      } catch {
+        /* offline */
+      }
+    }
+
+    async function saveHallMapLabelsToServer() {
+      if (!saveAuthToken && !(isLocalEditor && isTheaterHallEditor && !saveApiBase)) {
+        showPaintToast('err', 'Нужен saveToken в URL для сохранения надписей');
+        return { ok: false };
+      }
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (saveAuthToken) headers['x-luzhniki-svg-save-token'] = saveAuthToken;
+        const r = await fetch(saveApiUrl() + '/labels', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ hallMapLabels }),
+          credentials: 'omit',
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) throw new Error(data.error || r.status + ' ' + r.statusText);
+        if (Array.isArray(data.hallMapLabels)) hallMapLabels = data.hallMapLabels;
+        labelsDirty = false;
+        renderLabelsLayer();
+        syncLabelFieldsFromSelection();
+        showPaintToast('ok', 'Надписи сохранены (' + hallMapLabels.length + ')');
+        return { ok: true };
+      } catch (e) {
+        showPaintToast('err', 'labels: ' + e.message);
+        return { ok: false };
+      }
+    }
+
+    function addHallMapLabel() {
+      const text = String(labelTextInput?.value || '').trim() || 'СЕКТОР';
+      const fontSize = Number(labelFontSizeInput?.value) || defaultLabelFontSize();
+      const rotate = Number(labelRotateInput?.value) || 0;
+      const lab = { text, x: vbW / 2, y: vbH / 2, fontSize };
+      if (rotate) lab.rotate = rotate;
+      hallMapLabels.push(lab);
+      selectedLabelIdx = hallMapLabels.length - 1;
+      labelsDirty = true;
+      renderLabelsLayer();
+      syncLabelFieldsFromSelection();
+      showPaintToast('info', 'Надпись добавлена — перетащи и 💾 надписи');
+    }
+
+    function deleteSelectedLabel() {
+      if (selectedLabelIdx < 0 || selectedLabelIdx >= hallMapLabels.length) {
+        showPaintToast('err', 'Сначала выбери надпись');
+        return;
+      }
+      hallMapLabels.splice(selectedLabelIdx, 1);
+      selectedLabelIdx = -1;
+      labelsDirty = true;
+      renderLabelsLayer();
+      syncLabelFieldsFromSelection();
+    }
+
+    function renameSectorInDom(from, to) {
+      const fromNorm = normalizeSectorLabel(from);
+      let n = 0;
+      for (const c of allCircles) {
+        const cur = decodeAttr(c.getAttribute('data-sector') || c.getAttribute('place-name') || '').trim();
+        if (!cur) continue;
+        if (normalizeSectorLabel(cur) !== fromNorm && cur !== from) continue;
+        c.setAttribute('data-sector', to);
+        c.setAttribute('place-name', to);
+        c.classList.add('seat-edited-in-editor');
+        n += 1;
+        try {
+          const store = loadEditStore();
+          const key = circleCoordKey(c);
+          store.overrides[key] = {
+            ...(store.overrides[key] || {}),
+            'data-sector': to,
+            'place-name': to,
+          };
+          store.updatedAt = Date.now();
+          saveEditStore(store);
+        } catch {
+          /* ignore */
+        }
+      }
+      return n;
+    }
+
+    async function renameSectorFlow() {
+      const from = String(renameFromInput?.value || '').trim();
+      const to = String(renameToInput?.value || '').trim();
+      if (!from || !to) {
+        showPaintToast('err', 'Укажи сектор «от» и «к»');
+        return;
+      }
+      if (from === to) {
+        showPaintToast('info', 'Имена совпадают');
+        return;
+      }
+      const domN = renameSectorInDom(from, to);
+      let labelsN = 0;
+      for (const lab of hallMapLabels) {
+        if (String(lab.text || '').trim() === from) {
+          lab.text = to;
+          labelsN += 1;
+        }
+      }
+      if (labelsN) {
+        labelsDirty = true;
+        renderLabelsLayer();
+      }
+      refreshSectorNameList();
+      if (renameFromInput) renameFromInput.value = to;
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (saveAuthToken) headers['x-luzhniki-svg-save-token'] = saveAuthToken;
+        const r = await fetch(saveApiUrl() + '/rename-sector', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ from, to }),
+          credentials: 'omit',
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) throw new Error(data.error || r.status + ' ' + r.statusText);
+        showPaintToast(
+          'ok',
+          'Переименовано: DOM ' +
+            domN +
+            ' · seats ' +
+            (data.seatsTouched ?? '?') +
+            ' · labels ' +
+            (data.labelsTouched ?? labelsN),
+        );
+      } catch (e) {
+        showPaintToast('err', 'rename API: ' + e.message + ' (DOM уже ' + domN + ')');
+      }
+
+      if (domN > 0) {
+        const result = await saveSvgToServer();
+        if (!result.ok) showPaintToast('info', 'Сектор в DOM ок — дожми 💾 Сохранить для SVG');
+      }
+      if (labelsDirty) await saveHallMapLabelsToServer();
+      updateSaveStatus();
+      recountStats?.();
     }
 
     /** Экран → viewBox: inverse pan + rotate + scale (bbox при rotate врёт). */
@@ -4559,6 +4910,7 @@
     function attachInteraction(svg) {
       svgRoot = svg;
       overlayG = null;
+      labelsG = null;
       previewLine = null;
       rectSelectEl = null;
       previewPolyline = null;
@@ -4593,6 +4945,10 @@
         paintUnlabeled(svg);
         updateSaveStatus();
         renderRowLabels(paintSectorForApply());
+        ensureLabelsLayer();
+        renderLabelsLayer();
+        refreshSectorNameList();
+        void loadHallMapLabelsFromServer();
         if (restored > 0) {
           showPaintToast('info', 'Подгружено ' + restored + ' правок из браузера');
         } else if (isStadiumCloudEditor && megaHall) {
@@ -4624,6 +4980,7 @@
           paintSuppressClick = false;
           return;
         }
+        if (appMode === 'labels') return;
         const t = circleAtClient(e.clientX, e.clientY);
         if (!t) return;
         e.stopPropagation();
@@ -4633,6 +4990,15 @@
 
       viewport.addEventListener('click', (e) => {
         if (didDrag || appMode === 'paint') return;
+        if (appMode === 'labels') {
+          if (labelDrag) return;
+          const t = e.target;
+          if (t && t.getAttribute && t.getAttribute('data-label-idx') != null) return;
+          selectedLabelIdx = -1;
+          renderLabelsLayer();
+          syncLabelFieldsFromSelection();
+          return;
+        }
         if (e.target === viewport || e.target === stage || e.target === svgRoot) clearSelection();
       });
     }
@@ -4663,6 +5029,58 @@
       }
 
       if (e.button !== 0) return;
+
+      if (appMode === 'labels' && svgRoot) {
+        if (spacePan) {
+          dragPan = true;
+          didDrag = false;
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          panStartX = panX;
+          panStartY = panY;
+          viewport.classList.add('dragging');
+          e.preventDefault();
+          return;
+        }
+        const t = e.target;
+        const idxAttr = t && t.getAttribute ? t.getAttribute('data-label-idx') : null;
+        if (idxAttr != null) {
+          const idx = Number(idxAttr);
+          const lab = hallMapLabels[idx];
+          if (lab) {
+            selectedLabelIdx = idx;
+            syncLabelFieldsFromSelection();
+            renderLabelsLayer();
+            const sp = clientToSvg(e.clientX, e.clientY);
+            labelDrag = {
+              idx,
+              ox: lab.x,
+              oy: lab.y,
+              sx: e.clientX,
+              sy: e.clientY,
+              svgSx: sp ? sp.x : lab.x,
+              svgSy: sp ? sp.y : lab.y,
+            };
+            didDrag = false;
+            if (viewport.setPointerCapture) {
+              try {
+                viewport.setPointerCapture(e.pointerId);
+                paintCaptureId = e.pointerId;
+              } catch (_) {
+                /* noop */
+              }
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
+        selectedLabelIdx = -1;
+        syncLabelFieldsFromSelection();
+        renderLabelsLayer();
+        e.preventDefault();
+        return;
+      }
 
       if (appMode === 'paint' && svgRoot) {
         if (spacePan) {
@@ -4799,7 +5217,23 @@
         }
         return;
       }
-      if (appMode === 'paint') return;
+      if (labelDrag) {
+        e.preventDefault();
+        const lab = hallMapLabels[labelDrag.idx];
+        const p = clientToSvg(e.clientX, e.clientY);
+        if (lab && p) {
+          if (Math.abs(e.clientX - labelDrag.sx) > 2 || Math.abs(e.clientY - labelDrag.sy) > 2) {
+            didDrag = true;
+          }
+          lab.x = labelDrag.ox + (p.x - labelDrag.svgSx);
+          lab.y = labelDrag.oy + (p.y - labelDrag.svgSy);
+          labelsDirty = true;
+          renderLabelsLayer();
+          syncLabelFieldsFromSelection();
+        }
+        return;
+      }
+      if (appMode === 'paint' || appMode === 'labels') return;
       if (!dragPan) return;
       if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
       panX = panStartX + (e.clientX - dragStartX);
@@ -4834,6 +5268,16 @@
         endPaintPointer(e);
         return;
       }
+      if (labelDrag) {
+        labelDrag = null;
+        try {
+          if (paintCaptureId >= 0) viewport.releasePointerCapture(paintCaptureId);
+        } catch (_) {
+          /* noop */
+        }
+        paintCaptureId = -1;
+        return;
+      }
       if (!dragPan) return;
       dragPan = false;
       viewport.classList.remove('dragging');
@@ -4842,11 +5286,13 @@
     window.addEventListener('pointerup', (e) => {
       releaseTrackedPointer(e);
       if (paintPending) endPaintPointer(e);
+      if (labelDrag) labelDrag = null;
     });
 
     viewport.addEventListener('pointercancel', (e) => {
       releaseTrackedPointer(e);
       if (paintPending) cancelPaintDrag();
+      labelDrag = null;
       dragPan = false;
       viewport.classList.remove('dragging');
     });
@@ -4934,6 +5380,20 @@
     modeViewBtn.addEventListener('click', () => setAppMode('view'));
     modeEditBtn.addEventListener('click', () => setAppMode('edit'));
     modePaintBtn.addEventListener('click', () => setAppMode('paint'));
+    modeLabelsBtn?.addEventListener('click', () => setAppMode('labels'));
+    renameSectorBtn?.addEventListener('click', () => void renameSectorFlow());
+    addLabelBtn?.addEventListener('click', () => addHallMapLabel());
+    delLabelBtn?.addEventListener('click', () => deleteSelectedLabel());
+    saveLabelsBtn?.addEventListener('click', () => void saveHallMapLabelsToServer());
+    labelTextInput?.addEventListener('change', () => applyLabelFieldsToSelection());
+    labelTextInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyLabelFieldsToSelection();
+      }
+    });
+    labelFontSizeInput?.addEventListener('change', () => applyLabelFieldsToSelection());
+    labelRotateInput?.addEventListener('change', () => applyLabelFieldsToSelection());
     function syncPaintApplyModeUi() {
       const mode = paintApplyMode?.value || 'row';
       const isColumn = mode === 'first-col' || mode === 'last-col';

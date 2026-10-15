@@ -80,6 +80,60 @@ function seatKey(sector, row, seat) {
   return `${normalizeSectorLabel(sector)}|${String(row).trim().toLowerCase()}|${String(seat).trim().toLowerCase()}`;
 }
 
+function normalizeHallMapLabel(item) {
+  if (!item || typeof item !== 'object') return null;
+  const text = String(item.text ?? '').trim();
+  const x = Number(item.x);
+  const y = Number(item.y);
+  if (!text || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const fontSize = Number(item.fontSize);
+  const rotate = Number(item.rotate);
+  const out = { text, x, y };
+  if (Number.isFinite(fontSize) && fontSize > 0) out.fontSize = fontSize;
+  if (Number.isFinite(rotate) && rotate !== 0) out.rotate = rotate;
+  return out;
+}
+
+function applySectorRenameInLayout(layout, fromLabel, toLabel) {
+  const from = String(fromLabel || '').trim();
+  const to = String(toLabel || '').trim();
+  if (!from || !to || from === to) return { seatsTouched: 0, sectorsTouched: 0, labelsTouched: 0 };
+  const fromNorm = normalizeSectorLabel(from);
+  let seatsTouched = 0;
+  let sectorsTouched = 0;
+  let labelsTouched = 0;
+  if (Array.isArray(layout.seats)) {
+    layout.seats = layout.seats.map((s) => {
+      if (!s || typeof s !== 'object') return s;
+      if (normalizeSectorLabel(s.sector) !== fromNorm && String(s.sector || '').trim() !== from) return s;
+      seatsTouched += 1;
+      return { ...s, sector: to };
+    });
+  }
+  if (layout.sectorMode && typeof layout.sectorMode === 'object' && Array.isArray(layout.sectorMode.sectors)) {
+    layout.sectorMode = {
+      ...layout.sectorMode,
+      sectors: layout.sectorMode.sectors.map((sec) => {
+        if (!sec || typeof sec !== 'object') return sec;
+        if (normalizeSectorLabel(sec.label) !== fromNorm && String(sec.label || '').trim() !== from) {
+          return sec;
+        }
+        sectorsTouched += 1;
+        return { ...sec, label: to };
+      }),
+    };
+  }
+  if (Array.isArray(layout.hallMapLabels)) {
+    layout.hallMapLabels = layout.hallMapLabels.map((lab) => {
+      if (!lab || typeof lab !== 'object') return lab;
+      if (String(lab.text || '').trim() !== from) return lab;
+      labelsTouched += 1;
+      return { ...lab, text: to };
+    });
+  }
+  return { seatsTouched, sectorsTouched, labelsTouched };
+}
+
 function hallDimensions(layout) {
   const pb = layout?.pbilet && typeof layout.pbilet === 'object' ? layout.pbilet : {};
   return {
@@ -218,6 +272,7 @@ router.get('/bundle', async (_req, res) => {
       layout.sectorMode && typeof layout.sectorMode === 'object' && Array.isArray(layout.sectorMode.sectors)
         ? layout.sectorMode.sectors
         : [];
+    const hallMapLabels = Array.isArray(layout.hallMapLabels) ? layout.hallMapLabels : [];
     const { hallW, hallH } = hallDimensions(layout);
     return res.json({
       ok: true,
@@ -230,6 +285,7 @@ router.get('/bundle', async (_req, res) => {
       seats,
       sectors,
       sectorLabels: sectors.map((s) => s.label).filter(Boolean),
+      hallMapLabels,
       bundleSource: fileBundle.exists && fileBundle.seats.length ? 'file' : 'db',
       updatedAt: row.updated_at,
     });
@@ -301,6 +357,13 @@ router.post('/', express.json({ limit: '16mb' }), async (req, res) => {
       sectorNormCounts[n] = (sectorNormCounts[n] || 0) + 1;
     }
 
+    const hallMapLabelsRaw = req.body?.hallMapLabels;
+    const hallMapLabels = Array.isArray(hallMapLabelsRaw)
+      ? hallMapLabelsRaw.map(normalizeHallMapLabel).filter(Boolean)
+      : Array.isArray(layout.hallMapLabels)
+        ? layout.hallMapLabels
+        : undefined;
+
     const nextLayout = {
       ...layout,
       layoutMode: 'svgNative',
@@ -310,6 +373,7 @@ router.post('/', express.json({ limit: '16mb' }), async (req, res) => {
       hallKind: 'theater',
       seats,
     };
+    if (hallMapLabels) nextLayout.hallMapLabels = hallMapLabels;
 
     fs.mkdirSync(path.dirname(BUNDLE_PATH), { recursive: true });
     const backup = backupExistingFile(BUNDLE_PATH);
@@ -345,7 +409,108 @@ router.post('/', express.json({ limit: '16mb' }), async (req, res) => {
       builtAt: bundlePayload.builtAt,
       backup,
       paths: { bundle: BUNDLE_PATH },
+      hallMapLabels: nextLayout.hallMapLabels || [],
     });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/** Сохранить только надписи схемы (hallMapLabels) — без перезаписи seats. */
+router.post('/labels', express.json({ limit: '2mb' }), async (req, res) => {
+  if (!checkSaveAuth(req, res)) return;
+  try {
+    const row = await loadStageMapRow();
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'stage map not in DB' });
+    }
+    const layout =
+      row.layout_json && typeof row.layout_json === 'object' ? { ...row.layout_json } : {};
+    if (!Array.isArray(req.body?.hallMapLabels)) {
+      return res.status(400).json({ ok: false, error: 'нужен массив hallMapLabels[{ text, x, y, fontSize?, rotate? }]' });
+    }
+    const hallMapLabels = req.body.hallMapLabels.map(normalizeHallMapLabel).filter(Boolean);
+    const nextLayout = { ...layout, hallMapLabels };
+    const builtAt = new Date().toISOString();
+    await ticketPool.query(
+      `UPDATE getbilet_stage_maps
+       SET layout_json = $2::jsonb,
+           notes_internal = COALESCE(notes_internal, '') || $3,
+           updated_at = NOW()
+       WHERE stage_external_id = $1`,
+      [
+        STAGE_ID,
+        JSON.stringify(nextLayout),
+        `\n[${builtAt}] editor labels: ${hallMapLabels.length}`,
+      ],
+    );
+    return res.json({ ok: true, hallMapLabels, count: hallMapLabels.length, builtAt });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * Переименовать сектор во всех seats + sectorMode + hallMapLabels.
+ * Body: { from: "Партер", to: "Партер А" }
+ */
+router.post('/rename-sector', express.json({ limit: '1mb' }), async (req, res) => {
+  if (!checkSaveAuth(req, res)) return;
+  try {
+    const from = String(req.body?.from || '').trim();
+    const to = String(req.body?.to || '').trim();
+    if (!from || !to) {
+      return res.status(400).json({ ok: false, error: 'нужны from и to' });
+    }
+    if (from === to) {
+      return res.json({ ok: true, seatsTouched: 0, sectorsTouched: 0, labelsTouched: 0, skipped: true });
+    }
+    const row = await loadStageMapRow();
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'stage map not in DB' });
+    }
+    const layout =
+      row.layout_json && typeof row.layout_json === 'object' ? { ...row.layout_json } : {};
+    const touched = applySectorRenameInLayout(layout, from, to);
+    const builtAt = new Date().toISOString();
+
+    if (Array.isArray(layout.seats) && layout.seats.length) {
+      const { hallW, hallH } = hallDimensions(layout);
+      fs.mkdirSync(path.dirname(BUNDLE_PATH), { recursive: true });
+      backupExistingFile(BUNDLE_PATH);
+      fs.writeFileSync(
+        BUNDLE_PATH,
+        `${JSON.stringify(
+          {
+            builtAt,
+            mode: 'bolshoi-new-stage-editor',
+            stageId: STAGE_ID,
+            hallWidth: hallW,
+            hallHeight: hallH,
+            seatCount: layout.seats.length,
+            labeledSeatCount: layout.seats.length,
+            seats: layout.seats,
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+    }
+
+    await ticketPool.query(
+      `UPDATE getbilet_stage_maps
+       SET layout_json = $2::jsonb,
+           notes_internal = COALESCE(notes_internal, '') || $3,
+           updated_at = NOW()
+       WHERE stage_external_id = $1`,
+      [
+        STAGE_ID,
+        JSON.stringify(layout),
+        `\n[${builtAt}] rename sector "${from}" → "${to}" seats=${touched.seatsTouched}`,
+      ],
+    );
+    return res.json({ ok: true, from, to, ...touched, builtAt });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
