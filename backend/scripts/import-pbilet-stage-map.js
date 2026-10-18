@@ -152,7 +152,9 @@ function collectAllSeatCoordinates(coordinatesPayload, width, height) {
     .map((item) => {
       const x = Number(item?.x);
       const y = Number(item?.y);
+      // pbilet иногда отдаёт «фантомные» точки далеко за залом (отриц. / вне layout)
       if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      if (x < 0 || y < 0 || x > width || y > height) return null;
       return {
         xPct: (x / width) * 100,
         yPct: (y / height) * 100,

@@ -141,6 +141,8 @@ export function buildHallEnrichedSvg(bgSvgMarkup, opts = {}) {
     const xPct = Number(pt?.xPct ?? pt?.x);
     const yPct = Number(pt?.yPct ?? pt?.y);
     if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
+    // отсекаем фантомы pbilet / битый импорт (отрицательные %, за пределами зала)
+    if (xPct < 0 || yPct < 0 || xPct > 100 || yPct > 100) continue;
     queuePoint(xPct, yPct, labeledByCoord.get(coordKey(xPct, yPct)));
   }
   for (const s of opts.labeledSeats || []) {
