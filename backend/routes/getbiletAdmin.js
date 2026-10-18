@@ -1399,6 +1399,18 @@ router.get('/stage-map-editors', (_req, res) => {
       stageMapKeys: [BOLSHOI_NEW_STAGE_MAP_KEY],
     },
     {
+      id: 'bolshoi-historical-stage',
+      label: 'Большой театр — Историческая сцена',
+      description: 'Тот же редактор, что Лужники (Aa надписи / переименование секторов)',
+      path: '/tools/luzhniki-gray-cloud-enriched-hover.html',
+      url: buildUnifiedHallEditorUrl(
+        'bolshoi-historical-stage-seats',
+        'Большой театр — Историческая сцена',
+        saveToken,
+      ),
+      stageMapKeys: ['bolshoi-historical-stage'],
+    },
+    {
       id: 'kremlin-palace',
       label: 'Государственный Кремлёвский дворец',
       description: 'Ticketland → hull sectors, редактор как Лужники',

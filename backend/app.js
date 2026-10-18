@@ -27,6 +27,7 @@ import vakhtangovHallSeatEditorRouter from './routes/vakhtangovHallSeatEditor.js
 import mhtChekhovHallSeatEditorRouter from './routes/mhtChekhovHallSeatEditor.js';
 import ramtHallSeatEditorRouter from './routes/ramtHallSeatEditor.js';
 import bolshoiNewStageHallSeatEditorRouter from './routes/bolshoiNewStageHallSeatEditor.js';
+import bolshoiHistoricalStageHallSeatEditorRouter from './routes/bolshoiHistoricalStageHallSeatEditor.js';
 import kremlinPalaceHallSeatEditorRouter from './routes/kremlinPalaceHallSeatEditor.js';
 import supercupNnHallSeatEditorRouter from './routes/supercupNnHallSeatEditor.js';
 import lukoilArenaHallSeatEditorRouter from './routes/lukoilArenaHallSeatEditor.js';
@@ -264,6 +265,7 @@ app.use('/api/tools/vakhtangov-hall-seats', vakhtangovHallSeatEditorRouter);
 app.use('/api/tools/mht-chekhov-hall-seats', mhtChekhovHallSeatEditorRouter);
 app.use('/api/tools/ramt-hall-seats', ramtHallSeatEditorRouter);
 app.use('/api/tools/bolshoi-new-stage-seats', bolshoiNewStageHallSeatEditorRouter);
+app.use('/api/tools/bolshoi-historical-stage-seats', bolshoiHistoricalStageHallSeatEditorRouter);
 app.use('/api/tools/kremlin-palace-seats', kremlinPalaceHallSeatEditorRouter);
 app.use('/api/tools/supercup-nn-football-seats', supercupNnHallSeatEditorRouter);
 app.use('/api/tools/lukoil-arena-seats', lukoilArenaHallSeatEditorRouter);

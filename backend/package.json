@@ -31,6 +31,8 @@
     "seed:mht-stage-map": "node scripts/seed-mht-main-hall-stage-map.js",
     "seed:ramt-big-stage-map": "node scripts/seed-ramt-big-stage-map.js",
     "seed:bolshoi-new-stage-map": "node scripts/seed-bolshoi-new-stage-map.js",
+    "seed:bolshoi-historical-stage-map": "node scripts/seed-bolshoi-historical-stage-map.js",
+    "seed:bolshoi-opera-events": "node scripts/seed-bolshoi-opera-events.js",
     "seed:kremlin-palace-map": "node scripts/seed-kremlin-palace-map.js",
     "seed:luzhniki-concert-map": "node scripts/seed-luzhniki-concert-map.js",
     "seed:luzhniki-football-map": "node scripts/seed-luzhniki-football-geodesy.js",

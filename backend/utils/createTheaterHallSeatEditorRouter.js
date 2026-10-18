@@ -365,6 +365,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
         seats,
         sectors,
         sectorLabels: sectors.map((s) => s.label).filter(Boolean),
+        hallMapLabels: Array.isArray(layout.hallMapLabels) ? layout.hallMapLabels : [],
         bundleSource: fileBundle.exists && fileBundle.seats.length ? 'file' : 'db',
         updatedAt: row.updated_at,
       });
@@ -522,6 +523,150 @@ export function createTheaterHallSeatEditorRouter(opts) {
         backup,
         paths: { bundle: bundlePath },
       });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  function normalizeHallMapLabel(item) {
+    if (!item || typeof item !== 'object') return null;
+    const text = String(item.text ?? '').trim();
+    const x = Number(item.x);
+    const y = Number(item.y);
+    if (!text || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const fontSize = Number(item.fontSize);
+    const rotate = Number(item.rotate);
+    const out = { text, x, y };
+    if (Number.isFinite(fontSize) && fontSize > 0) out.fontSize = fontSize;
+    if (Number.isFinite(rotate) && rotate !== 0) out.rotate = rotate;
+    return out;
+  }
+
+  function applySectorRenameInLayout(layout, fromLabel, toLabel) {
+    const from = String(fromLabel || '').trim();
+    const to = String(toLabel || '').trim();
+    if (!from || !to || from === to) return { seatsTouched: 0, sectorsTouched: 0, labelsTouched: 0 };
+    const fromNorm = normalizeSectorLabel(from);
+    let seatsTouched = 0;
+    let sectorsTouched = 0;
+    let labelsTouched = 0;
+    if (Array.isArray(layout.seats)) {
+      layout.seats = layout.seats.map((s) => {
+        if (!s || typeof s !== 'object') return s;
+        if (normalizeSectorLabel(s.sector) !== fromNorm && String(s.sector || '').trim() !== from) {
+          return s;
+        }
+        seatsTouched += 1;
+        return { ...s, sector: to };
+      });
+    }
+    if (layout.sectorMode && typeof layout.sectorMode === 'object' && Array.isArray(layout.sectorMode.sectors)) {
+      layout.sectorMode = {
+        ...layout.sectorMode,
+        sectors: layout.sectorMode.sectors.map((sec) => {
+          if (!sec || typeof sec !== 'object') return sec;
+          if (normalizeSectorLabel(sec.label) !== fromNorm && String(sec.label || '').trim() !== from) {
+            return sec;
+          }
+          sectorsTouched += 1;
+          return { ...sec, label: to };
+        }),
+      };
+    }
+    if (Array.isArray(layout.hallMapLabels)) {
+      layout.hallMapLabels = layout.hallMapLabels.map((lab) => {
+        if (!lab || typeof lab !== 'object') return lab;
+        if (String(lab.text || '').trim() !== from) return lab;
+        labelsTouched += 1;
+        return { ...lab, text: to };
+      });
+    }
+    return { seatsTouched, sectorsTouched, labelsTouched };
+  }
+
+  router.post('/labels', express.json({ limit: '2mb' }), async (req, res) => {
+    if (!checkSaveAuth(req, res)) return;
+    try {
+      const row = await loadStageMapRow();
+      if (!row) return res.status(404).json({ ok: false, error: 'stage map not in DB' });
+      const layout =
+        row.layout_json && typeof row.layout_json === 'object' ? { ...row.layout_json } : {};
+      if (!Array.isArray(req.body?.hallMapLabels)) {
+        return res.status(400).json({
+          ok: false,
+          error: 'нужен массив hallMapLabels[{ text, x, y, fontSize?, rotate? }]',
+        });
+      }
+      const hallMapLabels = req.body.hallMapLabels.map(normalizeHallMapLabel).filter(Boolean);
+      const nextLayout = { ...layout, hallMapLabels };
+      const builtAt = new Date().toISOString();
+      await ticketPool.query(
+        `UPDATE getbilet_stage_maps
+         SET layout_json = $2::jsonb,
+             notes_internal = COALESCE(notes_internal, '') || $3,
+             updated_at = NOW()
+         WHERE stage_external_id = ANY($1::text[])`,
+        [stageIdAliases, JSON.stringify(nextLayout), `\n[${builtAt}] editor labels: ${hallMapLabels.length}`],
+      );
+      return res.json({ ok: true, hallMapLabels, count: hallMapLabels.length, builtAt });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  router.post('/rename-sector', express.json({ limit: '1mb' }), async (req, res) => {
+    if (!checkSaveAuth(req, res)) return;
+    try {
+      const from = String(req.body?.from || '').trim();
+      const to = String(req.body?.to || '').trim();
+      if (!from || !to) return res.status(400).json({ ok: false, error: 'нужны from и to' });
+      if (from === to) {
+        return res.json({ ok: true, seatsTouched: 0, sectorsTouched: 0, labelsTouched: 0, skipped: true });
+      }
+      const row = await loadStageMapRow();
+      if (!row) return res.status(404).json({ ok: false, error: 'stage map not in DB' });
+      const layout =
+        row.layout_json && typeof row.layout_json === 'object' ? { ...row.layout_json } : {};
+      const touched = applySectorRenameInLayout(layout, from, to);
+      const builtAt = new Date().toISOString();
+
+      if (Array.isArray(layout.seats) && layout.seats.length) {
+        const { hallW, hallH } = hallDimensions(layout, row.svg_markup);
+        fs.mkdirSync(path.dirname(bundlePath), { recursive: true });
+        backupExistingFile(bundlePath);
+        fs.writeFileSync(
+          bundlePath,
+          `${JSON.stringify(
+            {
+              builtAt,
+              mode: editorMode,
+              stageId,
+              hallWidth: hallW,
+              hallHeight: hallH,
+              seatCount: layout.seats.length,
+              labeledSeatCount: layout.seats.length,
+              seats: layout.seats,
+            },
+            null,
+            2,
+          )}\n`,
+          'utf8',
+        );
+      }
+
+      await ticketPool.query(
+        `UPDATE getbilet_stage_maps
+         SET layout_json = $2::jsonb,
+             notes_internal = COALESCE(notes_internal, '') || $3,
+             updated_at = NOW()
+         WHERE stage_external_id = ANY($1::text[])`,
+        [
+          stageIdAliases,
+          JSON.stringify(layout),
+          `\n[${builtAt}] rename sector "${from}" → "${to}" seats=${touched.seatsTouched}`,
+        ],
+      );
+      return res.json({ ok: true, from, to, ...touched, builtAt });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
     }
