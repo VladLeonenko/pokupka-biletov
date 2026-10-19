@@ -965,7 +965,30 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
     if (cardId && cardId.toLowerCase() === target) return true;
     return false;
   });
-  if (matches.length === 0) return null;
+
+  /** Manual seed-события могут не попасть в compact /events — ищем по title_manual. */
+  if (matches.length === 0) {
+    try {
+      const r = await ticketPool.query(
+        `SELECT getbilet_external_id, title_manual
+         FROM getbilet_events
+         WHERE is_published IS NOT FALSE
+           AND title_manual IS NOT NULL
+           AND title_manual <> ''
+         ORDER BY updated_at DESC NULLS LAST
+         LIMIT 400`,
+      );
+      for (const row of r.rows) {
+        const title = String(row.title_manual || '').trim();
+        if (!title || slugify(title) !== target) continue;
+        const hitManual = await buildResolveHitFromRepertoireId(row.getbilet_external_id);
+        if (hitManual) return hitManual;
+      }
+    } catch {
+      /* нет таблицы / колонки */
+    }
+    return null;
+  }
   let hit = matches[0];
   if (matches.length > 1) {
     const now = Date.now();

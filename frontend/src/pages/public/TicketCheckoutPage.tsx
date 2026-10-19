@@ -1424,7 +1424,16 @@ export function TicketCheckoutPage() {
     [ctx?.title, resolvedEventFromSlug],
   );
 
-  const canonicalSlug = useMemo(() => slugify(canonicalSourceTitle) || 'event', [canonicalSourceTitle]);
+  /**
+   * Manual seed-ключи (`rigoletto-2026-10-15`) оставляем как канон —
+   * иначе slugify(title) даёт `rigoletto-sr-15-oktyabrya-…`, resolve-slug → 404 → /events.
+   */
+  const canonicalSlug = useMemo(() => {
+    const rid = repertoireId.trim();
+    if (rid && looksLikeManualTicketRouteKey(rid)) return rid.toLowerCase();
+    if (routeSlugIsManual && routeSlug) return routeSlug.trim().toLowerCase();
+    return slugify(canonicalSourceTitle) || 'event';
+  }, [repertoireId, routeSlug, routeSlugIsManual, canonicalSourceTitle]);
 
   const canonicalTicketPath = useMemo(() => {
     if (!canonicalSlug || canonicalSlug === 'event') return '/events';

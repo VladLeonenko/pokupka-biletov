@@ -1,7 +1,17 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { CircularProgress, Box } from '@mui/material';
+
+/** /events/rigoletto-… → /ticket/… (частая ошибка ссылки). */
+function EventsIdToTicketRedirect() {
+  const { eventSlug = '' } = useParams<{ eventSlug: string }>();
+  const s = eventSlug.trim();
+  if (!s || ['city', 'genre', 'venue', 'map'].includes(s.toLowerCase())) {
+    return <Navigate to="/events" replace />;
+  }
+  return <Navigate to={`/ticket/${encodeURIComponent(s)}`} replace />;
+}
 
 // Lazy load всех админских страниц для уменьшения main bundle
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
@@ -197,6 +207,7 @@ export function AppRoutes() {
       <Route path="/events/city/:citySlug" element={<EventsSearchPage />} />
       <Route path="/events/genre/:genreSlug" element={<EventsSearchPage />} />
       <Route path="/events/venue/:venueSlug" element={<EventsSearchPage />} />
+      <Route path="/events/:eventSlug" element={<EventsIdToTicketRedirect />} />
       <Route path="/ticket/:eventSlug" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug/:sessionCompact" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug" element={<TicketCheckoutPage />} />

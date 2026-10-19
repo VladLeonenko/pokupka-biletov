@@ -189,14 +189,14 @@
       <label>size <input type="number" id="labelFontSize" min="4" max="400" value="14" style="width:56px" /></label>
       <label>° <input type="number" id="labelRotate" min="-180" max="180" value="0" style="width:56px" /></label>
       <button type="button" id="saveLabelsBtn" class="warn" title="POST hallMapLabels на сервер">💾 надписи</button>
-      <span class="hint" id="labelsHint">drag надпись · клик пусто — снять выбор</span>
+      <span class="hint" id="labelsHint">drag · Shift+колёсико/тачпад — угол · размер на экране держится при зуме</span>
     </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-labels-v1</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-labels-v2</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -1005,6 +1005,7 @@
         'deg) scale(' +
         zoom +
         ')';
+      if (appMode === 'labels' && hallMapLabels.length) renderLabelsLayer();
       refreshStatusHint();
     }
 
@@ -1630,6 +1631,13 @@
       syncLabelFieldsFromSelection();
     }
 
+    /** SVG font-size: на экране ≥14px при отдалении, при зуме растёт вместе со схемой. */
+    function labelScreenFontSize(storedFs) {
+      const base = Number(storedFs) > 0 ? Number(storedFs) : defaultLabelFontSize();
+      const z = Math.max(zoom || 0.05, 0.04);
+      return Math.max(base, 14 / z);
+    }
+
     function renderLabelsLayer() {
       if (!svgRoot) return;
       ensureLabelsLayer();
@@ -1641,7 +1649,8 @@
       labelsG.setAttribute('pointer-events', pe);
       hallMapLabels.forEach((lab, idx) => {
         if (!lab || !lab.text) return;
-        const fs = Number(lab.fontSize) > 0 ? Number(lab.fontSize) : defaultLabelFontSize();
+        const storedFs = Number(lab.fontSize) > 0 ? Number(lab.fontSize) : defaultLabelFontSize();
+        const fs = appMode === 'labels' ? labelScreenFontSize(storedFs) : storedFs;
         const rot = Number(lab.rotate) || 0;
         const t = document.createElementNS(ns, 'text');
         t.setAttribute('data-label-idx', String(idx));
@@ -5247,6 +5256,27 @@
       (e) => {
         e.preventDefault();
         if (paintPending) return;
+        /** Shift / Alt + тачпад/колёсико — крутить выбранную надпись. */
+        if (
+          appMode === 'labels' &&
+          selectedLabelIdx >= 0 &&
+          hallMapLabels[selectedLabelIdx] &&
+          (e.shiftKey || e.altKey || e.metaKey)
+        ) {
+          const lab = hallMapLabels[selectedLabelIdx];
+          const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+          const step = (delta > 0 ? 1 : -1) * (e.shiftKey ? 3 : 5);
+          let rot = (Number(lab.rotate) || 0) + step;
+          while (rot > 180) rot -= 360;
+          while (rot < -180) rot += 360;
+          if (Math.abs(rot) < 0.5) delete lab.rotate;
+          else lab.rotate = Math.round(rot * 10) / 10;
+          labelsDirty = true;
+          if (labelRotateInput) labelRotateInput.value = String(lab.rotate || 0);
+          renderLabelsLayer();
+          syncLabelFieldsFromSelection();
+          return;
+        }
         const factor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
         setZoomAt(clampZoom(zoom * factor), e.clientX, e.clientY);
       },
