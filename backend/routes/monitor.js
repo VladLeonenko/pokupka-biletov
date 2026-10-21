@@ -1,7 +1,10 @@
 // Управление мониторами-снайперами из админки (старт/стоп через PM2).
 import express from 'express';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
+
+const require = createRequire(import.meta.url);
 
 const MONITORS = [
   { name: 'sniper-monitor', label: 'Кабала святош (Афиша)' },
@@ -14,32 +17,89 @@ const MONITORS = [
   { name: 'profticket-session-pool', label: 'Profticket session pool' },
 ];
 
-/** pm2 jlist часто пишет warning до JSON («In-memory PM2 is out-of-date»). */
-function parsePm2Jlist(stdout) {
-  const s = String(stdout || '');
-  const i = s.indexOf('[');
-  if (i < 0) throw new Error('pm2 jlist: нет JSON-массива');
-  return JSON.parse(s.slice(i));
+function loadPm2() {
+  for (const p of [
+    '/usr/lib/node_modules/pm2/index.js',
+    '/usr/local/lib/node_modules/pm2/index.js',
+  ]) {
+    try {
+      return require(p);
+    } catch {
+      /* try next */
+    }
+  }
+  try {
+    return require('pm2');
+  } catch {
+    return null;
+  }
 }
 
-function pm2Jlist() {
+/** Из‑под PM2 jlist красит warning ANSI (`\x1b[31m`) — первый `[` это не JSON. */
+function parsePm2Jlist(stdout) {
+  const raw = String(stdout || '');
+  const s = raw.replace(/\u001b\[[0-9;]*m/g, '');
+  const i = s.indexOf('[{');
+  if (i < 0) throw new Error('pm2 jlist: нет JSON-массива');
+  const j = s.lastIndexOf(']');
+  if (j < i) throw new Error('pm2 jlist: обрезанный JSON');
+  return JSON.parse(s.slice(i, j + 1));
+}
+
+function pm2JlistViaExec() {
   return new Promise((resolve, reject) => {
-    exec('pm2 jlist', { timeout: 10000 }, (err, stdout, stderr) => {
-      if (err) return reject(err);
-      try {
-        resolve(parsePm2Jlist(stdout || stderr || ''));
-      } catch (e) {
-        reject(e);
-      }
+    execFile(
+      'pm2',
+      ['jlist'],
+      {
+        timeout: 15000,
+        maxBuffer: 20 * 1024 * 1024,
+        env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', PM2_SILENT: '1' },
+      },
+      (err, stdout, stderr) => {
+        if (err) return reject(err);
+        try {
+          resolve(parsePm2Jlist(stdout || stderr || ''));
+        } catch (e) {
+          reject(e);
+        }
+      },
+    );
+  });
+}
+
+function pm2JlistViaApi() {
+  const pm2 = loadPm2();
+  if (!pm2) return Promise.reject(new Error('pm2 module not found'));
+  return new Promise((resolve, reject) => {
+    pm2.connect(true, (cerr) => {
+      if (cerr) return reject(cerr);
+      pm2.list((lerr, list) => {
+        try {
+          pm2.disconnect();
+        } catch {
+          /* ignore */
+        }
+        if (lerr) return reject(lerr);
+        resolve(Array.isArray(list) ? list : []);
+      });
     });
   });
 }
 
+async function pm2Jlist() {
+  try {
+    return await pm2JlistViaApi();
+  } catch {
+    return pm2JlistViaExec();
+  }
+}
+
 function pm2Action(action, name) {
   return new Promise((resolve, reject) => {
-    exec(`pm2 ${action} ${name}`, { timeout: 20000 }, (err, stdout, stderr) => {
+    execFile('pm2', [action, name], { timeout: 20000 }, (err, stdout, stderr) => {
       if (err) return reject(new Error((stderr || err.message).slice(0, 300)));
-      resolve((stdout + stderr).slice(0, 500));
+      resolve(String(stdout || '') + String(stderr || '').slice(0, 500));
     });
   });
 }
