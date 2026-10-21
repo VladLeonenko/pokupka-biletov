@@ -25,15 +25,15 @@ const SECTORS = [
 
 /** Цены в рублях (8 категорий, порядок SECTORS). */
 const EVENTS = [
-  { id: 'rigoletto-2026-10-13', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-13T12:00:00.000Z', cardSubtitle: 'пн 13 октября · 15:00 · 12+', prices: [60000, 50000, 40000, 30000, 25000, 500000, 400000, 150000] },
-  { id: 'rigoletto-2026-10-14', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-14T16:00:00.000Z', cardSubtitle: 'вт 14 октября · 19:00 · 12+', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
-  { id: 'rigoletto-2026-10-15', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-15T16:00:00.000Z', cardSubtitle: 'ср 15 октября · 19:00 · 12+', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
-  { id: 'karmen-2026-10-26', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-26T16:00:00.000Z', cardSubtitle: 'пн 26 октября · 19:00 · 12+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  { id: 'karmen-2026-10-27', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-27T16:00:00.000Z', cardSubtitle: 'вт 27 октября · 19:00 · 12+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'rigoletto-2026-10-13', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-13T12:00:00.000Z', cardSubtitle: 'пн 13 октября · 15:00 · 12+', poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg', prices: [60000, 50000, 40000, 30000, 25000, 500000, 400000, 150000] },
+  { id: 'rigoletto-2026-10-14', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-14T16:00:00.000Z', cardSubtitle: 'вт 14 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
+  { id: 'rigoletto-2026-10-15', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-15T16:00:00.000Z', cardSubtitle: 'ср 15 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
+  { id: 'karmen-2026-10-26', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-26T16:00:00.000Z', cardSubtitle: 'пн 26 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-carmen-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'karmen-2026-10-27', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-27T16:00:00.000Z', cardSubtitle: 'вт 27 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-carmen-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
   /** Балет; цены как у Кармен (премиум Историческая), пока нет отдельного прайса. */
-  { id: 'romeo-dzhuletta-2026-10-29', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-29T16:00:00.000Z', cardSubtitle: 'чт 29 октября · 19:00 · 6+', genre: 'Балет', age: '6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  { id: 'romeo-dzhuletta-2026-10-30', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-30T16:00:00.000Z', cardSubtitle: 'пт 30 октября · 19:00 · 6+', genre: 'Балет', age: '6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  { id: 'romeo-dzhuletta-2026-10-31', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-31T16:00:00.000Z', cardSubtitle: 'сб 31 октября · 19:00 · 6+', genre: 'Балет', age: '6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'romeo-dzhuletta-2026-10-29', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-29T16:00:00.000Z', cardSubtitle: 'чт 29 октября · 19:00 · 6+', genre: 'Балет', age: '6+', poster: '/uploads/images/bolshoi-romeo-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'romeo-dzhuletta-2026-10-30', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-30T16:00:00.000Z', cardSubtitle: 'пт 30 октября · 19:00 · 6+', genre: 'Балет', age: '6+', poster: '/uploads/images/bolshoi-romeo-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'romeo-dzhuletta-2026-10-31', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-31T16:00:00.000Z', cardSubtitle: 'сб 31 октября · 19:00 · 6+', genre: 'Балет', age: '6+', poster: '/uploads/images/bolshoi-romeo-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
 ];
 
 const NEW_STAGE_ID = process.env.BOLSHOI_NEW_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-new-stage';
@@ -115,17 +115,22 @@ async function seedOne(ev, stageId, stageName, genre, age, sectors) {
     ResultData: buildOffers(ev, sectors),
   };
 
+  const poster = String(ev.poster || '').trim() || null;
   await ticketPool.query(
     `INSERT INTO getbilet_events (
        getbilet_external_id, title_manual, description_manual, description_pack_json,
        venue_manual, venue_address_manual, card_subtitle_manual, notes_internal,
+       poster_url_manual, banner_url_manual,
        is_published, sort_order, updated_at
-     ) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,TRUE,$9,NOW())
+     ) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$9,TRUE,$10,NOW())
      ON CONFLICT (getbilet_external_id) DO UPDATE SET
        title_manual=EXCLUDED.title_manual, description_manual=EXCLUDED.description_manual,
        description_pack_json=EXCLUDED.description_pack_json, venue_manual=EXCLUDED.venue_manual,
        venue_address_manual=EXCLUDED.venue_address_manual, card_subtitle_manual=EXCLUDED.card_subtitle_manual,
-       notes_internal=EXCLUDED.notes_internal, is_published=TRUE, sort_order=EXCLUDED.sort_order, updated_at=NOW()`,
+       notes_internal=EXCLUDED.notes_internal,
+       poster_url_manual=COALESCE(EXCLUDED.poster_url_manual, getbilet_events.poster_url_manual),
+       banner_url_manual=COALESCE(EXCLUDED.banner_url_manual, getbilet_events.banner_url_manual),
+       is_published=TRUE, sort_order=EXCLUDED.sort_order, updated_at=NOW()`,
     [
       ev.id,
       `${ev.title} — ${ev.cardSubtitle}`,
@@ -135,6 +140,7 @@ async function seedOne(ev, stageId, stageName, genre, age, sectors) {
       ev.address,
       ev.cardSubtitle,
       'OFFERS_CACHE_ONLY · ручное событие Большого (предзаказ по секторам, без GetBilet).',
+      poster,
       -400,
     ],
   );
