@@ -30,6 +30,10 @@ const EVENTS = [
   { id: 'rigoletto-2026-10-15', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-15T16:00:00.000Z', cardSubtitle: 'ср 15 октября · 19:00 · 12+', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
   { id: 'karmen-2026-10-26', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-26T16:00:00.000Z', cardSubtitle: 'пн 26 октября · 19:00 · 12+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
   { id: 'karmen-2026-10-27', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-27T16:00:00.000Z', cardSubtitle: 'вт 27 октября · 19:00 · 12+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  /** Балет; цены как у Кармен (премиум Историческая), пока нет отдельного прайса. */
+  { id: 'romeo-dzhuletta-2026-10-29', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-29T16:00:00.000Z', cardSubtitle: 'чт 29 октября · 19:00 · 6+', genre: 'Балет', age: '6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'romeo-dzhuletta-2026-10-30', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-30T16:00:00.000Z', cardSubtitle: 'пт 30 октября · 19:00 · 6+', genre: 'Балет', age: '6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  { id: 'romeo-dzhuletta-2026-10-31', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-31T16:00:00.000Z', cardSubtitle: 'сб 31 октября · 19:00 · 6+', genre: 'Балет', age: '6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
 ];
 
 const NEW_STAGE_ID = process.env.BOLSHOI_NEW_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-new-stage';
@@ -163,7 +167,11 @@ async function expandHistoricalOffersFromStageMap() {
     return;
   }
   const byLabel = bolshoiSellableSeatsByRow(seats);
-  const ids = [...EVENTS.map((e) => e.id)];
+  const onlyRaw = String(process.env.ONLY_EVENT_IDS || '').trim();
+  const only = onlyRaw
+    ? new Set(onlyRaw.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean))
+    : null;
+  const ids = EVENTS.map((e) => e.id).filter((id) => !only || only.has(id));
   for (const id of ids) {
     const r = await ticketPool.query(
       `SELECT payload_json FROM getbilet_repertoire_offers_cache WHERE repertoire_external_id = $1`,
@@ -200,11 +208,25 @@ async function main() {
 
   for (const ev of EVENTS) {
     if (!allow(ev.id)) continue;
-    await seedOne(ev, HISTORICAL_STAGE_ID, 'Большой театр — Историческая сцена', 'Опера', '12+', SECTORS);
+    await seedOne(
+      ev,
+      HISTORICAL_STAGE_ID,
+      'Большой театр — Историческая сцена',
+      ev.genre || 'Опера',
+      ev.age || '12+',
+      SECTORS,
+    );
   }
   for (const ev of NEW_EVENTS) {
     if (!allow(ev.id)) continue;
-    await seedOne(ev, NEW_STAGE_ID, 'Большой театр — Новая сцена', 'Балет', '12+', NEW_SECTORS);
+    await seedOne(
+      ev,
+      NEW_STAGE_ID,
+      'Большой театр — Новая сцена',
+      ev.genre || 'Балет',
+      ev.age || '12+',
+      NEW_SECTORS,
+    );
   }
   await expandHistoricalOffersFromStageMap();
 }
