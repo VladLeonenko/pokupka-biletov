@@ -67,6 +67,7 @@ import {
   SUPERKUP_NN_STAGE_MAP_KEY,
   LUKOIL_ARENA_STAGE_EXTERNAL_ID,
   parseOmitClientSeatCoordinateCloud,
+  parseHallPreviewSectorCheckout,
   parseHideSeatList,
   parsePbiletCategoryCheckout,
 } from '@/utils/luzhnikiStadiumMap';
@@ -1194,6 +1195,7 @@ export function TicketCheckoutPage() {
     if (isSupercupNnRepertoire(repertoireId)) return true;
     if (isLuzhnikiConcertRepertoire(repertoireId)) return true;
     if (parsePbiletCategoryCheckout(layoutJsonForStage)) return true;
+    if (parseHallPreviewSectorCheckout(layoutJsonForStage)) return true;
     return false;
   }, [ctx?.checkoutHideSeatList, layoutJsonForStage, repertoireId]);
 
@@ -1351,6 +1353,9 @@ export function TicketCheckoutPage() {
   }, []);
 
   const hallSchemeSubtitle = useMemo(() => {
+    if (parseHallPreviewSectorCheckout(layoutJsonForStage)) {
+      return 'Кликните по сектору на схеме и выберите количество билетов. Конкретные места подберёт система.';
+    }
     if (seatSelectionDisabledUi) {
       const lj = layoutJsonForStage as Record<string, unknown> | undefined;
       const pbilet = lj?.pbilet as Record<string, unknown> | undefined;

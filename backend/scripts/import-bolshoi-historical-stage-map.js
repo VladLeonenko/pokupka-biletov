@@ -85,6 +85,13 @@ async function main() {
     hallViewportBackground: '#ffffff',
     /** Remap sellable-лейблы ↔ офферы; иначе SVG «Партер» не матчится с «Партер (середина)». */
     preferLayoutSeatPositions: true,
+    /**
+     * Продажа по сектору + qty (не конкретное место).
+     * Схема/места остаются превью; клик по зоне → модалка количества.
+     */
+    hallPreviewSectorCheckout: true,
+    seatSelectionDisabled: true,
+    hideSeatList: true,
     sectorMode,
     hallMapLabels: BOLSHOI_HALL_MAP_LABELS,
     categoryCheckoutDefaults: {

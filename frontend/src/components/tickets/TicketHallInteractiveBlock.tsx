@@ -176,6 +176,8 @@ type SectorMeta = {
   minPrice?: number | null;
   maxPrice?: number | null;
   previewImageUrl?: string | null;
+  maxQuantity?: number | null;
+  boxWhole?: boolean;
 };
 type SectorSummary = {
   meta: SectorMeta;
@@ -515,6 +517,7 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
           }
           const minPrice = Number(s.minPrice);
           const maxPrice = Number(s.maxPrice);
+          const maxQuantityRaw = Number(s.maxQuantity);
           const previewImageUrl = String(s.previewImageUrl ?? '').trim() || null;
           return {
             id,
@@ -524,6 +527,8 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
             minPrice: Number.isFinite(minPrice) ? minPrice : null,
             maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
             previewImageUrl,
+            maxQuantity: Number.isFinite(maxQuantityRaw) && maxQuantityRaw > 0 ? maxQuantityRaw : null,
+            boxWhole: s.boxWhole === true,
           };
         })
         .filter(Boolean) as SectorMeta[]
@@ -561,6 +566,7 @@ import {
   parseHallBackgroundRasterUrl,
   parseHallMapFieldMasks,
   parseMaskFieldBackgroundDots,
+  parseHallPreviewSectorCheckout,
   parseOmitClientSeatCoordinateCloud,
   parsePbiletCategoryCheckout,
   parseShowSeatsAtOverview,
@@ -859,6 +865,11 @@ export function TicketHallInteractiveBlock({
   );
   const pbiletCategoryCheckout = useMemo(
     () => parsePbiletCategoryCheckout(layoutJson),
+    [layoutJson],
+  );
+  /** Большой Историческая: превью зала + покупка сектор/qty без выбора места. */
+  const hallPreviewSectorCheckout = useMemo(
+    () => parseHallPreviewSectorCheckout(layoutJson),
     [layoutJson],
   );
   const showSeatsAtOverview = useMemo(() => parseShowSeatsAtOverview(layoutJson), [layoutJson]);
@@ -1997,16 +2008,26 @@ export function TicketHallInteractiveBlock({
     [getPriceKey, onSelectionChange, selectedSector],
   );
 
-  /** Танцпол/фанзона: qty из всех офферов зоны, цена = max среди селлеров. */
+  /** Танцпол/фанзона / Большой сектор: qty из всех офферов зоны, цена = max среди селлеров. */
   const setFieldZoneQty = useCallback(
-    (sectorOffers: OfferLike[], targetQty: number, alignPrice: number, sectorLabel: string) => {
+    (
+      sectorOffers: OfferLike[],
+      targetQty: number,
+      alignPrice: number,
+      sectorLabel: string,
+      maxCap?: number,
+    ) => {
       const priceKey = String(alignPrice);
       const sectorNorm = normalizeSectorLabel(sectorLabel);
       const sorted = [...sectorOffers]
         .filter((o) => Array.isArray(o.SeatList) && o.SeatList.length > 0)
         .sort((a, b) => Number(getPriceKey(b)) - Number(getPriceKey(a)));
       const totalSeats = sorted.reduce((sum, o) => sum + (o.SeatList?.length ?? 0), 0);
-      const clamped = Math.max(0, Math.min(targetQty, totalSeats));
+      const cap =
+        Number.isFinite(maxCap) && (maxCap as number) > 0
+          ? Math.min(totalSeats, maxCap as number)
+          : totalSeats;
+      const clamped = Math.max(0, Math.min(targetQty, cap));
       setSelectedSeatDetails((prev) => {
         const kept = prev.filter((d) => normalizeSectorLabel(d.sector) !== sectorNorm);
         const next = [...kept];
@@ -2037,6 +2058,7 @@ export function TicketHallInteractiveBlock({
   );
 
   activatePlacementRef.current = (p: SvgNativePlacement) => {
+    if (hallPreviewSectorCheckout || seatSelectionDisabled) return;
     if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) return;
     const seatInfo: HallSelectedSeat = {
       key: p.key,
@@ -2148,7 +2170,40 @@ export function TicketHallInteractiveBlock({
   const zoneQuantityCheckout = Boolean(
     selectedSectorSummary && isZoneOnlySector(selectedSectorSummary.meta.label),
   );
-  const useCategoryQtyUi = pbiletCategoryCheckout || zoneQuantityCheckout;
+  /** Единый qty по сектору (танцпол / Большой hallPreview): без выбора ряда/места. */
+  const sectorQtyCheckout = hallPreviewSectorCheckout || zoneQuantityCheckout;
+  const useCategoryQtyUi = pbiletCategoryCheckout || sectorQtyCheckout;
+  const sectorQtyCap = useMemo(() => {
+    if (!selectedSectorSummary) return 0;
+    const seats = selectedSectorSummary.seatCount;
+    const maxQ = selectedSectorSummary.meta.maxQuantity;
+    if (selectedSectorSummary.meta.boxWhole) {
+      return Math.min(seats, maxQ && maxQ > 0 ? maxQ : seats);
+    }
+    if (maxQ != null && maxQ > 0) return Math.min(seats, maxQ);
+    return seats;
+  }, [selectedSectorSummary]);
+
+  /** Ложа «целиком»: сразу ставим полный комплект мест. */
+  useEffect(() => {
+    if (!hallPreviewSectorCheckout || !selectedSectorSummary) return;
+    if (!selectedSectorSummary.meta.boxWhole) return;
+    if (selectedSectorSummary.maxPrice == null || sectorQtyCap <= 0) return;
+    if (categoryModalSelectedCount === sectorQtyCap) return;
+    setFieldZoneQty(
+      selectedSectorSummary.offers,
+      sectorQtyCap,
+      selectedSectorSummary.maxPrice,
+      selectedSectorSummary.meta.label,
+      sectorQtyCap,
+    );
+  }, [
+    hallPreviewSectorCheckout,
+    selectedSectorSummary,
+    sectorQtyCap,
+    categoryModalSelectedCount,
+    setFieldZoneQty,
+  ]);
 
   /**
    * На обзоре: pbilet category — только полигоны.
@@ -2729,7 +2784,7 @@ export function TicketHallInteractiveBlock({
                       onClick={(ev) => {
                         ev.stopPropagation();
                         if (suppressMapClickRef.current) return;
-                        if (zoneOnly) {
+                        if (zoneOnly || hallPreviewSectorCheckout) {
                           setSelectedSector(normalizeSectorLabel(sector.meta.label));
                           setSectorPanelCollapsed(false);
                           return;
@@ -3024,7 +3079,7 @@ export function TicketHallInteractiveBlock({
                 aria-hidden="true"
                 onPointerDown={(ev) => ev.stopPropagation()}
                 onClick={() => {
-                  if (zoneQuantityCheckout) {
+                  if (sectorQtyCheckout) {
                     setSelectedSector(null);
                     return;
                   }
@@ -3044,7 +3099,7 @@ export function TicketHallInteractiveBlock({
                   className={styles.categoryModalClose}
                   aria-label="Закрыть"
                   onClick={() => {
-                    if (zoneQuantityCheckout) {
+                    if (sectorQtyCheckout) {
                       setSelectedSector(null);
                       return;
                     }
@@ -3070,8 +3125,10 @@ export function TicketHallInteractiveBlock({
                       )}
                     </div>
                     <p className={styles.categoryModalHint}>
-                      {zoneQuantityCheckout
-                        ? 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
+                      {sectorQtyCheckout
+                        ? hallPreviewSectorCheckout
+                          ? 'Выберите количество билетов в секторе. Конкретные места подберёт система.'
+                          : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
                         : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
                   </div>
@@ -3080,13 +3137,13 @@ export function TicketHallInteractiveBlock({
                       <div className={styles.categoryModalDate}>{sessionDateLabel}</div>
                     ) : null}
                     <p className={styles.categoryModalLead}>
-                      {zoneQuantityCheckout
-                        ? 'Бронирование по зоне — места подберёт система.'
+                      {sectorQtyCheckout
+                        ? 'Бронирование по сектору — места подберёт система.'
                         : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
                     </p>
                     <div className={styles.categoryModalOfferList}>
-                      {zoneQuantityCheckout ? (
-                        selectedSectorSummary.seatCount > 0 && selectedSectorSummary.maxPrice != null ? (
+                      {sectorQtyCheckout ? (
+                        sectorQtyCap > 0 && selectedSectorSummary.maxPrice != null ? (
                           <div className={styles.categoryModalOfferCard}>
                             <div className={styles.categoryModalOfferTop}>
                               <span className={styles.categoryModalOfferPrice}>
@@ -3097,13 +3154,18 @@ export function TicketHallInteractiveBlock({
                                   type="button"
                                   className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnMinus}`}
                                   aria-label="Меньше"
-                                  disabled={categoryModalSelectedCount <= 0}
+                                  disabled={
+                                    categoryModalSelectedCount <= 0 ||
+                                    (hallPreviewSectorCheckout &&
+                                      selectedSectorSummary.meta.boxWhole === true)
+                                  }
                                   onClick={() =>
                                     setFieldZoneQty(
                                       selectedSectorSummary.offers,
                                       categoryModalSelectedCount - 1,
                                       selectedSectorSummary.maxPrice!,
                                       selectedSectorSummary.meta.label,
+                                      sectorQtyCap,
                                     )
                                   }
                                 >
@@ -3114,13 +3176,19 @@ export function TicketHallInteractiveBlock({
                                   type="button"
                                   className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnPlus}`}
                                   aria-label="Больше"
-                                  disabled={categoryModalSelectedCount >= selectedSectorSummary.seatCount}
+                                  disabled={
+                                    categoryModalSelectedCount >= sectorQtyCap ||
+                                    (hallPreviewSectorCheckout &&
+                                      selectedSectorSummary.meta.boxWhole === true &&
+                                      categoryModalSelectedCount >= sectorQtyCap)
+                                  }
                                   onClick={() =>
                                     setFieldZoneQty(
                                       selectedSectorSummary.offers,
                                       categoryModalSelectedCount + 1,
                                       selectedSectorSummary.maxPrice!,
                                       selectedSectorSummary.meta.label,
+                                      sectorQtyCap,
                                     )
                                   }
                                 >
@@ -3129,7 +3197,9 @@ export function TicketHallInteractiveBlock({
                               </div>
                             </div>
                             <div className={styles.sectorOfferAvail}>
-                              Свободно {selectedSectorSummary.seatCount} шт
+                              {selectedSectorSummary.meta.boxWhole
+                                ? `Ложа целиком · ${sectorQtyCap} мест`
+                                : `До ${sectorQtyCap} шт в заказе`}
                             </div>
                           </div>
                         ) : (

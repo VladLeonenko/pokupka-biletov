@@ -136,6 +136,15 @@ export function parsePbiletCategoryCheckout(layout: unknown): boolean {
   return (layout as Record<string, unknown>).pbiletCategoryCheckout === true;
 }
 
+/**
+ * Театр (Большой Историческая / Новая Партер): схема с местами как превью,
+ * покупка только сектор + количество (без выбора конкретного места).
+ */
+export function parseHallPreviewSectorCheckout(layout: unknown): boolean {
+  if (!layout || typeof layout !== 'object') return false;
+  return (layout as Record<string, unknown>).hallPreviewSectorCheckout === true;
+}
+
 export function parseHideSeatList(layout: unknown): boolean {
   if (!layout || typeof layout !== 'object') return false;
   return (layout as Record<string, unknown>).hideSeatList === true;
