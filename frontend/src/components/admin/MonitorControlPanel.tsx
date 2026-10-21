@@ -37,8 +37,18 @@ export function MonitorControlPanel() {
       const res = await fetch(`${getApiBase()}/api/monitors`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (res.ok) setMonitors((await res.json()).data ?? []);
-    } catch {}
+      const parsed = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMonitors(parsed.data ?? []);
+        setMsg(null);
+      } else {
+        setMonitors([]);
+        setMsg(parsed.error || `Ошибка ${res.status}`);
+      }
+    } catch {
+      setMonitors([]);
+      setMsg('Сеть недоступна');
+    }
   }, []);
 
   useEffect(() => {

@@ -5,17 +5,32 @@ import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 
 const MONITORS = [
   { name: 'sniper-monitor', label: 'Кабала святош (Афиша)' },
+  { name: 'sniper-monitor-cycle2', label: 'Кабала святош — цикл 2 (Афиша)' },
   { name: 'ton-browser-monitor', label: 'Обыкновенная смерть (Театр Наций, браузер)' },
   { name: 'ton-monitor', label: 'Обыкновенная смерть (Театр Наций, HTTP-запасной)' },
   { name: 'intickets-monitor', label: 'Опера нищих (Театр Пушкина, Intickets)' },
   { name: 'profticket-monitor', label: 'Новогодний лабиринт (Цирк Никулина, Profticket)' },
+  { name: 'profticket-browser-monitor', label: 'Profticket browser' },
+  { name: 'profticket-session-pool', label: 'Profticket session pool' },
 ];
+
+/** pm2 jlist часто пишет warning до JSON («In-memory PM2 is out-of-date»). */
+function parsePm2Jlist(stdout) {
+  const s = String(stdout || '');
+  const i = s.indexOf('[');
+  if (i < 0) throw new Error('pm2 jlist: нет JSON-массива');
+  return JSON.parse(s.slice(i));
+}
 
 function pm2Jlist() {
   return new Promise((resolve, reject) => {
-    exec('pm2 jlist', { timeout: 10000 }, (err, stdout) => {
+    exec('pm2 jlist', { timeout: 10000 }, (err, stdout, stderr) => {
       if (err) return reject(err);
-      try { resolve(JSON.parse(stdout)); } catch (e) { reject(e); }
+      try {
+        resolve(parsePm2Jlist(stdout || stderr || ''));
+      } catch (e) {
+        reject(e);
+      }
     });
   });
 }
