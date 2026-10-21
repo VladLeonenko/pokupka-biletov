@@ -495,9 +495,18 @@ function sessionListCacheSet(repertoireId, data) {
  * @param {Record<string, unknown>} repertoireRow
  * @returns {Promise<Record<string, unknown>[]>}
  */
+/** Ручные seed-id (romeo-dzhuletta-…): сеансы живут в офферах, на витрине — одна карточка + переключатель дат. */
+function isManualMultiSessionRepertoireId(rid) {
+  const id = String(rid || '').trim();
+  if (!id) return false;
+  if (/^[a-f0-9]{24}$/i.test(id)) return false;
+  return true;
+}
+
 async function expandOneRepertoireToSessions(repertoireRow) {
   const rid = pickMongoId(repertoireRow);
   if (!rid) return [repertoireRow];
+  if (isManualMultiSessionRepertoireId(rid)) return [repertoireRow];
 
   const cached = sessionListCacheGet(rid);
   let data = cached;

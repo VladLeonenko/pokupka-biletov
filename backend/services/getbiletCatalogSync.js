@@ -82,9 +82,36 @@ export async function syncGetbiletCatalogFromApi() {
  * @returns {Promise<Record<string, unknown>[]>}
  */
 export async function loadCatalogActionsFromDatabase() {
-  const r = await ticketPool.query(
-    `SELECT payload_json, stage_id FROM getbilet_catalog_cache ORDER BY synced_at DESC`,
-  );
+  /**
+   * Каталог на проде = database: без фильтра is_published в ленту попадали
+   * «сиблинги» ручных сидов (romeo-…-30/31), даже после unpublish.
+   * Нет строки getbilet_events → оставляем (чистый GetBilet-кэш).
+   */
+  let r;
+  try {
+    r = await ticketPool.query(
+      `SELECT c.payload_json, c.stage_id
+       FROM getbilet_catalog_cache c
+       LEFT JOIN getbilet_events e ON e.getbilet_external_id = c.repertoire_external_id
+       WHERE e.id IS NULL
+          OR (COALESCE(e.is_published, TRUE) = TRUE
+              AND COALESCE(e.storefront_hidden, FALSE) = FALSE)
+       ORDER BY c.synced_at DESC`,
+    );
+  } catch (e) {
+    const code = e && typeof e === 'object' && 'code' in e ? /** @type {{ code?: string }} */ (e).code : '';
+    if (code === '42703') {
+      r = await ticketPool.query(
+        `SELECT c.payload_json, c.stage_id
+         FROM getbilet_catalog_cache c
+         LEFT JOIN getbilet_events e ON e.getbilet_external_id = c.repertoire_external_id
+         WHERE e.id IS NULL OR COALESCE(e.is_published, TRUE) = TRUE
+         ORDER BY c.synced_at DESC`,
+      );
+    } else {
+      throw e;
+    }
+  }
   const actions = [];
   for (const row of r.rows) {
     const p = row.payload_json;
