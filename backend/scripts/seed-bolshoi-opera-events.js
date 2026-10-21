@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * События Большого театра (без GetBilet, предзаказ по секторам) — как футбольный матч.
+ * Один спектакль = один repertoire id, несколько дат = несколько EventDateTime в офферах.
  * npm run seed:bolshoi-opera-events
  */
 import ticketPool from '../ticketDb.js';
@@ -23,17 +24,54 @@ const SECTORS = [
   { key: 'vip_parter',     label: 'Партер ряд А (Вип)',                     seatList: ['1'], box: false },
 ];
 
-/** Цены в рублях (8 категорий, порядок SECTORS). */
+/**
+ * Историческая сцена: один id на спектакль, sessions[] — даты/цены.
+ * siblingIds — старые отдельные карточки (снимаем с публикации при сиде).
+ */
 const EVENTS = [
-  { id: 'rigoletto-2026-10-13', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-13T12:00:00.000Z', cardSubtitle: 'пн 13 октября · 15:00 · 12+', poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg', prices: [60000, 50000, 40000, 30000, 25000, 500000, 400000, 150000] },
-  { id: 'rigoletto-2026-10-14', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-14T16:00:00.000Z', cardSubtitle: 'вт 14 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
-  { id: 'rigoletto-2026-10-15', title: 'Риголетто', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-15T16:00:00.000Z', cardSubtitle: 'ср 15 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
-  { id: 'karmen-2026-10-26', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-26T16:00:00.000Z', cardSubtitle: 'пн 26 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-carmen-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  { id: 'karmen-2026-10-27', title: 'Кармен', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-27T16:00:00.000Z', cardSubtitle: 'вт 27 октября · 19:00 · 12+', poster: '/uploads/images/bolshoi-carmen-1792582486308.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  /** Балет; цены как у Кармен (премиум Историческая), пока нет отдельного прайса. */
-  { id: 'romeo-dzhuletta-2026-10-29', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-29T16:00:00.000Z', cardSubtitle: 'чт 29 октября · 19:00 · 6+', genre: 'Балет', age: '6+', poster: '/uploads/images/bolshoi-romeo-1792582854626.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  { id: 'romeo-dzhuletta-2026-10-30', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-30T16:00:00.000Z', cardSubtitle: 'пт 30 октября · 19:00 · 6+', genre: 'Балет', age: '6+', poster: '/uploads/images/bolshoi-romeo-1792582854626.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
-  { id: 'romeo-dzhuletta-2026-10-31', title: 'Ромео и Джульетта', venue: 'Большой театр — Историческая сцена', address: 'Театральная пл., 1, Москва', iso: '2026-10-31T16:00:00.000Z', cardSubtitle: 'сб 31 октября · 19:00 · 6+', genre: 'Балет', age: '6+', poster: '/uploads/images/bolshoi-romeo-1792582854626.jpg', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+  {
+    id: 'rigoletto-2026-10-13',
+    siblingIds: ['rigoletto-2026-10-14', 'rigoletto-2026-10-15'],
+    title: 'Риголетто',
+    venue: 'Большой театр — Историческая сцена',
+    address: 'Театральная пл., 1, Москва',
+    cardSubtitle: '13–15 октября · 12+',
+    poster: '/uploads/images/bolshoi-rigoletto-1792582486308.jpg',
+    sessions: [
+      { iso: '2026-10-13T12:00:00.000Z', label: 'пн 13 октября · 15:00 · 12+', prices: [60000, 50000, 40000, 30000, 25000, 500000, 400000, 150000] },
+      { iso: '2026-10-14T16:00:00.000Z', label: 'вт 14 октября · 19:00 · 12+', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
+      { iso: '2026-10-15T16:00:00.000Z', label: 'ср 15 октября · 19:00 · 12+', prices: [75000, 65000, 55000, 45000, 30000, 600000, 450000, 170000] },
+    ],
+  },
+  {
+    id: 'karmen-2026-10-26',
+    siblingIds: ['karmen-2026-10-27'],
+    title: 'Кармен',
+    venue: 'Большой театр — Историческая сцена',
+    address: 'Театральная пл., 1, Москва',
+    cardSubtitle: '26–27 октября · 19:00 · 12+',
+    poster: '/uploads/images/bolshoi-carmen-1792582486308.jpg',
+    sessions: [
+      { iso: '2026-10-26T16:00:00.000Z', label: 'пн 26 октября · 19:00 · 12+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+      { iso: '2026-10-27T16:00:00.000Z', label: 'вт 27 октября · 19:00 · 12+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+    ],
+  },
+  {
+    id: 'romeo-dzhuletta-2026-10-29',
+    siblingIds: ['romeo-dzhuletta-2026-10-30', 'romeo-dzhuletta-2026-10-31'],
+    title: 'Ромео и Джульетта',
+    venue: 'Большой театр — Историческая сцена',
+    address: 'Театральная пл., 1, Москва',
+    cardSubtitle: '29–31 октября · 19:00 · 6+',
+    genre: 'Балет',
+    age: '6+',
+    poster: '/uploads/images/bolshoi-romeo-1792582854626.jpg',
+    sessions: [
+      { iso: '2026-10-29T16:00:00.000Z', label: 'чт 29 октября · 19:00 · 6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+      { iso: '2026-10-30T16:00:00.000Z', label: 'пт 30 октября · 19:00 · 6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+      { iso: '2026-10-31T16:00:00.000Z', label: 'сб 31 октября · 19:00 · 6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
+    ],
+  },
 ];
 
 const NEW_STAGE_ID = process.env.BOLSHOI_NEW_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-new-stage';
@@ -41,16 +79,32 @@ const NEW_STAGE_ID = process.env.BOLSHOI_NEW_STAGE_EXTERNAL_ID?.trim() || 'bolsh
 /** Новая сцена: 1 продаваемый сектор — Партер (ряды 1–8 блоком). */
 const NEW_SECTORS = [{ key: 'parter', label: 'Партер', seatList: ['1'], box: false }];
 
-/** Кармен-сюита. Дивертисмент (Новая сцена) — все даты 65000 ₽. */
+/** Кармен-сюита — одна карточка, 4 сеанса. */
 const NEW_EVENTS = [
-  { id: 'karmen-syuita-2026-10-16', title: 'Кармен-сюита. Дивертисмент', venue: 'Большой театр — Новая сцена', address: 'ул. Большая Дмитровка, 4/2, Москва', iso: '2026-10-16T16:00:00.000Z', cardSubtitle: 'чт 16 октября · 19:00 · 12+', prices: [65000] },
-  { id: 'karmen-syuita-2026-10-17-12', title: 'Кармен-сюита. Дивертисмент', venue: 'Большой театр — Новая сцена', address: 'ул. Большая Дмитровка, 4/2, Москва', iso: '2026-10-17T09:00:00.000Z', cardSubtitle: 'пт 17 октября · 12:00 · 12+', prices: [65000] },
-  { id: 'karmen-syuita-2026-10-17-19', title: 'Кармен-сюита. Дивертисмент', venue: 'Большой театр — Новая сцена', address: 'ул. Большая Дмитровка, 4/2, Москва', iso: '2026-10-17T16:00:00.000Z', cardSubtitle: 'пт 17 октября · 19:00 · 12+', prices: [65000] },
-  { id: 'karmen-syuita-2026-10-18', title: 'Кармен-сюита. Дивертисмент', venue: 'Большой театр — Новая сцена', address: 'ул. Большая Дмитровка, 4/2, Москва', iso: '2026-10-18T11:00:00.000Z', cardSubtitle: 'сб 18 октября · 14:00 · 12+', prices: [65000] },
+  {
+    id: 'karmen-syuita-2026-10-16',
+    siblingIds: ['karmen-syuita-2026-10-17-12', 'karmen-syuita-2026-10-17-19', 'karmen-syuita-2026-10-18'],
+    title: 'Кармен-сюита. Дивертисмент',
+    venue: 'Большой театр — Новая сцена',
+    address: 'ул. Большая Дмитровка, 4/2, Москва',
+    cardSubtitle: '16–18 октября · 12+',
+    sessions: [
+      { iso: '2026-10-16T16:00:00.000Z', label: 'чт 16 октября · 19:00 · 12+', prices: [65000] },
+      { iso: '2026-10-17T09:00:00.000Z', label: 'пт 17 октября · 12:00 · 12+', prices: [65000] },
+      { iso: '2026-10-17T16:00:00.000Z', label: 'пт 17 октября · 19:00 · 12+', prices: [65000] },
+      { iso: '2026-10-18T11:00:00.000Z', label: 'сб 18 октября · 14:00 · 12+', prices: [65000] },
+    ],
+  },
 ];
 
+function sessionsOf(ev) {
+  if (Array.isArray(ev.sessions) && ev.sessions.length) return ev.sessions;
+  return [{ iso: ev.iso, label: ev.cardSubtitle, prices: ev.prices }];
+}
 
 function buildCatalogPayload(ev, stageId, stageName, genre, age) {
+  const sess = sessionsOf(ev);
+  const firstIso = sess[0].iso;
   return {
     Id: ev.id,
     RepertoireId: ev.id,
@@ -63,8 +117,8 @@ function buildCatalogPayload(ev, stageId, stageName, genre, age) {
     StageName: stageName,
     PlaceName: ev.venue,
     PlaceAddress: ev.address,
-    EventDateTime: ev.iso,
-    beginDateTime: ev.iso,
+    EventDateTime: firstIso,
+    beginDateTime: firstIso,
   };
 }
 
@@ -92,18 +146,36 @@ function buildDescriptionPack(ev, stageName, genre, age) {
 }
 
 function buildOffers(ev, sectors) {
-  return ev.prices.map((price, i) => {
-    const s = sectors[i];
-    return {
-      Id: `${ev.id}-${s.key}`,
-      Sector: s.label,
-      Row: '1',
-      SeatList: s.seatList,
-      NominalPrice: String(price),
-      AgentPrice: String(price),
-      EventDateTime: ev.iso,
-    };
-  });
+  const out = [];
+  for (const sess of sessionsOf(ev)) {
+    const prices = sess.prices || ev.prices || [];
+    const day = String(sess.iso || '').slice(0, 10);
+    for (let i = 0; i < prices.length; i++) {
+      const s = sectors[i];
+      if (!s) continue;
+      const price = prices[i];
+      out.push({
+        Id: `${ev.id}-${day}-${s.key}`,
+        Sector: s.label,
+        Row: '1',
+        SeatList: s.seatList,
+        NominalPrice: String(price),
+        AgentPrice: String(price),
+        EventDateTime: sess.iso,
+      });
+    }
+  }
+  return out;
+}
+
+async function unpublishSiblings(siblingIds) {
+  if (!siblingIds?.length) return;
+  await ticketPool.query(
+    `UPDATE getbilet_events SET is_published = FALSE, updated_at = NOW()
+     WHERE getbilet_external_id = ANY($1::text[])`,
+    [siblingIds],
+  );
+  console.log(`[seed-bolshoi] unpublished siblings: ${siblingIds.join(', ')}`);
 }
 
 async function seedOne(ev, stageId, stageName, genre, age, sectors) {
@@ -133,7 +205,7 @@ async function seedOne(ev, stageId, stageName, genre, age, sectors) {
        is_published=TRUE, sort_order=EXCLUDED.sort_order, updated_at=NOW()`,
     [
       ev.id,
-      `${ev.title} — ${ev.cardSubtitle}`,
+      ev.title,
       catalog.Description,
       JSON.stringify(desc),
       ev.venue,
@@ -159,9 +231,13 @@ async function seedOne(ev, stageId, stageName, genre, age, sectors) {
     [ev.id, JSON.stringify(offersPayload)],
   );
 
-  console.log(`[seed-bolshoi] ${ev.id} · ${ev.cardSubtitle} · offers=${ev.prices.length}`);
+  await unpublishSiblings(ev.siblingIds || []);
+
+  const nSess = sessionsOf(ev).length;
+  console.log(`[seed-bolshoi] ${ev.id} · ${ev.cardSubtitle} · sessions=${nSess} · offers=${offersPayload.ResultData.length}`);
 }
 
+/** Expand по рядам, сохраняя EventDateTime (отдельный expand на каждый сеанс). */
 async function expandHistoricalOffersFromStageMap() {
   const map = await ticketPool.query(
     `SELECT layout_json->'seats' AS seats FROM getbilet_stage_maps WHERE stage_external_id = $1`,
@@ -186,16 +262,27 @@ async function expandHistoricalOffersFromStageMap() {
     const payload = r.rows[0]?.payload_json;
     if (!payload?.ResultData) continue;
     const base = payload.ResultData;
-    /** Схлопнуть предыдущий expand обратно в 1 оффер/сектор по цене. */
+    /** Схлопнуть предыдущий expand: 1 оффер на сектор+дату. */
     const uniq = [];
     const seen = new Set();
     for (const off of base) {
-      const lab = String(off.Sector || '');
-      if (!lab || seen.has(lab)) continue;
-      seen.add(lab);
+      const key = `${off.Sector || ''}|${off.EventDateTime || ''}`;
+      if (!off.Sector || seen.has(key)) continue;
+      seen.add(key);
       uniq.push(off);
     }
-    payload.ResultData = expandBolshoiOffersByRows(uniq, byLabel, id);
+    const byDt = new Map();
+    for (const off of uniq) {
+      const k = off.EventDateTime || '_';
+      if (!byDt.has(k)) byDt.set(k, []);
+      byDt.get(k).push(off);
+    }
+    const next = [];
+    for (const [dt, offs] of byDt) {
+      const day = String(dt).slice(0, 10);
+      next.push(...expandBolshoiOffersByRows(offs, byLabel, `${id}-${day}`));
+    }
+    payload.ResultData = next.length ? next : uniq;
     await ticketPool.query(
       `UPDATE getbilet_repertoire_offers_cache SET payload_json = $1::jsonb, fetched_at = NOW()
        WHERE repertoire_external_id = $2`,
@@ -240,4 +327,3 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((e) => { console.error(e); process.exit(1); });
-

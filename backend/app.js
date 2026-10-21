@@ -99,6 +99,9 @@ import {
   ticketsVitrinePublicRouter,
   ticketsVitrineAdminRouter,
 } from './routes/ticketsVitrine.js';
+import { sniperRouter } from './routes/sniper.js';
+import { monitorRouter } from './routes/monitor.js';
+import { tonRouter } from './routes/ton.js';
 
 const app = express();
 
@@ -395,6 +398,9 @@ app.use('/api/chatbot', requireAuth, requireAdmin, chatbotRouter);
 app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский парсинг
 app.use('/api/admin/getbilet', requireAuth, requireAdminOrSalesManager, getbiletAdminRouter);
 app.use('/api/admin/tickets-vitrine', ticketsVitrineAdminRouter);
+app.use('/api/snipe', sniperRouter);
+app.use('/api/monitors', monitorRouter);
+app.use('/api/ton', tonRouter);
 
 // Корень dist: /manifest, /sw, /robots — до sitemap/SPA (несколько кандидатов: PM2 cwd ≠ __dirname)
 function getFrontendDistRoots() {

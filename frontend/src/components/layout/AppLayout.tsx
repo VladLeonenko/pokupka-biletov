@@ -27,6 +27,7 @@ import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import MapIcon from '@mui/icons-material/Map';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import { NotificationsBell } from '@/components/common/NotificationsBell';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Цены конкурентов (Афиша…)', icon: <TrendingDownIcon />, path: '/admin/getbilet/competitor-prices', roles: ['admin', 'sales_manager'] },
   { label: 'GetBilet: промокоды', icon: <LocalOfferIcon />, path: '/admin/getbilet/promos', roles: ['admin', 'sales_manager'] },
   { label: 'Витрина билетов (контент)', icon: <StorefrontIcon />, path: '/admin/tickets-vitrine', roles: ['admin', 'sales_manager'] },
+  { label: 'Снайпер мест', icon: <GpsFixedIcon />, path: '/admin/sniper', roles: ['admin'] },
   { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories', roles: ['admin'] },
   { label: 'Акции', icon: <LocalOfferIcon />, path: '/admin/promotions', roles: ['admin', 'sales_manager'] },
   { label: 'Формы', icon: <AssignmentIcon />, path: '/admin/forms', roles: ['admin', 'sales_manager'] },

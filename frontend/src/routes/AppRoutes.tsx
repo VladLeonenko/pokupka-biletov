@@ -142,6 +142,9 @@ const GetbiletStageMapsPage = lazy(() =>
 const TicketsVitrinePage = lazy(() =>
   import('@/pages/admin/TicketsVitrinePage').then(m => ({ default: m.TicketsVitrinePage }))
 );
+const CheckoutLoadTestPage = lazy(() =>
+  import('@/pages/admin/CheckoutLoadTestPage').then(m => ({ default: m.CheckoutLoadTestPage }))
+);
 
 // Loading fallback для lazy компонентов
 const LoadingFallback = () => (
@@ -318,6 +321,7 @@ export function AppRoutes() {
       <Route path="/admin/getbilet/competitor-prices" element={<Protected><GetbiletCompetitorPricesPage /></Protected>} />
       <Route path="/admin/getbilet/promos" element={<Protected><GetbiletPromosPage /></Protected>} />
       <Route path="/admin/tickets-vitrine" element={<Protected><TicketsVitrinePage /></Protected>} />
+      <Route path="/admin/sniper" element={<ProtectedAdmin><Suspense fallback={<LoadingFallback />}><CheckoutLoadTestPage /></Suspense></ProtectedAdmin>} />
       {/* Redirect old admin routes to new /admin routes */}
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
       <Route path="/pages" element={<Navigate to="/admin/pages" replace />} />

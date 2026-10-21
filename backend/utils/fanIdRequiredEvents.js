@@ -31,6 +31,15 @@ const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
   'kabala-svjatosch': '686cd69c58f79d0030278b9d',
   /** Спартак — Зенит (Лукойл Арена) — ЧПУ для Директа. */
   'spartak-moskva-zenit-sankt-peterburg-futbol': '67c15a6058f79d00302785ea',
+  /** Большой: старые per-date id → каноническая карточка со всеми сеансами. */
+  'rigoletto-2026-10-14': 'rigoletto-2026-10-13',
+  'rigoletto-2026-10-15': 'rigoletto-2026-10-13',
+  'karmen-2026-10-27': 'karmen-2026-10-26',
+  'romeo-dzhuletta-2026-10-30': 'romeo-dzhuletta-2026-10-29',
+  'romeo-dzhuletta-2026-10-31': 'romeo-dzhuletta-2026-10-29',
+  'karmen-syuita-2026-10-17-12': 'karmen-syuita-2026-10-16',
+  'karmen-syuita-2026-10-17-19': 'karmen-syuita-2026-10-16',
+  'karmen-syuita-2026-10-18': 'karmen-syuita-2026-10-16',
 });
 
 /** @param {string | null | undefined} slug */
