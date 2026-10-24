@@ -8,20 +8,21 @@ import ticketPool from '../ticketDb.js';
 import {
   bolshoiSellableSeatsByRow,
   expandBolshoiOffersByRows,
+  remapBolshoiSeatsToSellableLabels,
 } from '../utils/bolshoiSellableSectors.js';
 
 const HISTORICAL_STAGE_ID = process.env.BOLSHOI_HISTORICAL_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-historical-stage';
 
-/** 8 продаваемых зон (лейблы = bolshoiSellableSectors.js). */
+/** 8 продаваемых зон (лейблы = bolshoiSellableSectors.js). SeatList = max qty слотов для qty-UI. */
 const SECTORS = [
-  { key: 'parter_mid',     label: 'Партер (середина)',                      seatList: ['1'], box: false },
-  { key: 'beletazh_right', label: 'Бельэтаж правая (ложи 4–6)',             seatList: ['1'], box: false },
-  { key: 'lozha1_right',   label: '1 ярус правая (ложи 5–8)',               seatList: ['1'], box: false },
-  { key: 'balkon2_left',   label: 'Балкон 2 яруса левая',                   seatList: ['1'], box: false },
-  { key: 'balkon3_left',   label: 'Балкон 3 яруса левая',                   seatList: ['1'], box: false },
+  { key: 'parter_mid',     label: 'Партер (середина)',                      seatList: ['1','2','3','4','5','6','7','8'], box: false },
+  { key: 'beletazh_right', label: 'Бельэтаж правая (ложи 4–6)',             seatList: ['1','3','5'], box: false },
+  { key: 'lozha1_right',   label: '1 ярус правая (ложи 5–8)',               seatList: ['1','3','5'], box: false },
+  { key: 'balkon2_left',   label: 'Балкон 2 яруса левая',                   seatList: ['1','2','3','4','5','6','7','8'], box: false },
+  { key: 'balkon3_left',   label: 'Балкон 3 яруса левая',                   seatList: ['1','2','3','4','5','6','7','8'], box: false },
   { key: 'beletazh_box',   label: 'Ложа бельэтажа целиком (левая 4)',       seatList: ['1','2','3','4','5','6','7','8'], box: true },
   { key: 'lozha1_box',     label: 'Ложа 1 яруса целиком (левая 9)',         seatList: ['1','2','3','4','5','6'], box: true },
-  { key: 'vip_parter',     label: 'Партер ряд А (Вип)',                     seatList: ['1'], box: false },
+  { key: 'vip_parter',     label: 'Партер ряд А (Вип)',                     seatList: ['1','2','3','4','5','6','7','8'], box: false },
 ];
 
 /**
@@ -312,7 +313,20 @@ async function expandHistoricalOffersFromStageMap() {
     console.warn('[seed-bolshoi] нет seats в stage map — офферы без expand по рядам');
     return;
   }
-  const byLabel = bolshoiSellableSeatsByRow(seats);
+  /** Сырые sector из редактора («Партер», «Бельэтаж Правая…») → sellable labels. */
+  const remapped = remapBolshoiSeatsToSellableLabels(seats);
+  const byLabel = bolshoiSellableSeatsByRow(remapped);
+  let sellableHits = 0;
+  for (const byRow of byLabel.values()) {
+    for (const list of byRow.values()) sellableHits += list.length;
+  }
+  console.log(`[seed-bolshoi] remap seats ${seats.length} → sellable seat-slots ${sellableHits}`);
+  if (sellableHits < 10) {
+    console.warn(
+      '[seed-bolshoi] мало sellable после remap (часто из‑за mangled sector names в editor) — оставляем базовые SeatList из SECTORS',
+    );
+    return;
+  }
   const onlyRaw = String(process.env.ONLY_EVENT_IDS || '').trim();
   const only = onlyRaw
     ? new Set(onlyRaw.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean))

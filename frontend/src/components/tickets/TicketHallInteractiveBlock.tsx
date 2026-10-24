@@ -2181,12 +2181,14 @@ export function TicketHallInteractiveBlock({
     if (!selectedSectorSummary) return 0;
     const seats = selectedSectorSummary.seatCount;
     const maxQ = selectedSectorSummary.meta.maxQuantity;
+    /** Большой hallPreview: лимит из sectorMode.maxQuantity (оффер SeatList может быть короче до expand). */
+    if (hallPreviewSectorCheckout && maxQ != null && maxQ > 0) return maxQ;
     if (selectedSectorSummary.meta.boxWhole) {
       return Math.min(seats, maxQ && maxQ > 0 ? maxQ : seats);
     }
     if (maxQ != null && maxQ > 0) return Math.min(seats, maxQ);
     return seats;
-  }, [selectedSectorSummary]);
+  }, [hallPreviewSectorCheckout, selectedSectorSummary]);
 
   /** Ложа «целиком»: сразу ставим полный комплект мест. */
   useEffect(() => {
