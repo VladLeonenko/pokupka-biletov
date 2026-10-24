@@ -7,7 +7,10 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 
 import { buildHallEnrichedSvg } from './buildHallEnrichedSvg.js';
-import { extractLabeledSeatsFromSvgMarkup } from './luzhnikiExtractSeatsFromEnrichedSvg.js';
+import {
+  extractAllCircleCoordinatesFromSvgMarkup,
+  extractLabeledSeatsFromSvgMarkup,
+} from './luzhnikiExtractSeatsFromEnrichedSvg.js';
 
 /**
  * @param {{
@@ -22,6 +25,7 @@ import { extractLabeledSeatsFromSvgMarkup } from './luzhnikiExtractSeatsFromEnri
  *   backupExistingFile: (p: string) => string | null;
  *   editorMode: string;
  *   defaultHallKind?: string | null;
+ *   syncCloudFromSvg?: boolean;
  * }} cfg
  */
 export function createHallSvgEditorHandlers(cfg) {
@@ -83,7 +87,14 @@ export function createHallSvgEditorHandlers(cfg) {
       geodesySource: String(s.geodesySource || '').includes('manual') ? 'manual-editor' : 'editor-svg-extract',
     }));
 
-    const { seats, hallW, hallH } = cfg.mergeSeatsOntoBackground(layout, manualSeats);
+    const syncCloud = cfg.syncCloudFromSvg === true;
+    const cloudFromSvg = syncCloud ? extractAllCircleCoordinatesFromSvgMarkup(xml) : null;
+    const layoutForMerge =
+      syncCloud && Array.isArray(cloudFromSvg) && cloudFromSvg.length >= 1
+        ? { ...layout, allSeatCoordinates: cloudFromSvg }
+        : layout;
+
+    const { seats, hallW, hallH } = cfg.mergeSeatsOntoBackground(layoutForMerge, manualSeats);
     const hallKind =
       layout.hallKind ||
       ('defaultHallKind' in cfg ? cfg.defaultHallKind : 'theater');
@@ -94,6 +105,9 @@ export function createHallSvgEditorHandlers(cfg) {
       maxZoomMultiplier: layout.maxZoomMultiplier ?? 2,
       sectorFocusZoomMultiplier: layout.sectorFocusZoomMultiplier ?? 2,
       ...(hallKind ? { hallKind } : {}),
+      ...(syncCloud && Array.isArray(cloudFromSvg) && cloudFromSvg.length >= 1
+        ? { allSeatCoordinates: cloudFromSvg }
+        : {}),
       seats,
     };
 

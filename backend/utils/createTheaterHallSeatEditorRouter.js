@@ -302,6 +302,8 @@ export function createTheaterHallSeatEditorRouter(opts) {
     mergeSeatsOntoBackground,
     backupExistingFile,
     editorMode,
+    /** Театр: add/delete в редакторе → cloud следует за SVG. Стадион — нет (секторные срезы). */
+    syncCloudFromSvg: !stadiumSectorCloud,
     ...(hasDefaultHallKind ? { defaultHallKind: opts.defaultHallKind } : {}),
   });
 

@@ -153,6 +153,9 @@
       <label title="отсечь соседние ряды по ⊥ расстоянию"><input type="checkbox" id="paintOneRow" checked /> 1 ряд</label>
       <button type="button" id="paintClearSel">✕ выделение</button>
       <button type="button" id="rectSelectBtn" title="протянуть рамку и выделить все точки внутри">▢ область</button>
+      <button type="button" id="placeSeatBtn" title="клик по схеме — новое оранжевое место (Сектор / Ряд / Место с)">＋ место</button>
+      <button type="button" id="deleteSeatBtn" title="удалить выделенные места со схемы (и с сервера после ▶/💾)">⌫ место</button>
+      <button type="button" id="extendRowBtn" title="добавить +1 место в конец ряда по шагу последних двух точек">+1 в ряд</button>
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
@@ -196,7 +199,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-labels-v2</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v3</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -250,6 +253,9 @@
     const paintOneRow = document.getElementById('paintOneRow');
     const paintClearSel = document.getElementById('paintClearSel');
     const rectSelectBtn = document.getElementById('rectSelectBtn');
+    const placeSeatBtn = document.getElementById('placeSeatBtn');
+    const deleteSeatBtn = document.getElementById('deleteSeatBtn');
+    const extendRowBtn = document.getElementById('extendRowBtn');
     const paintApply = document.getElementById('paintApply');
     const sectorApply = document.getElementById('sectorApply');
     const fillNextRowBtn = document.getElementById('fillNextRowBtn');
@@ -358,6 +364,8 @@
     let paintPreviewRaf = 0;
     let paintSuppressClick = false;
     let rectSelectMode = false;
+    /** Клик ставит новое место (Сектор / Ряд / Место с). */
+    let placeSeatMode = false;
     /** @type {{ start: { x: number, y: number }, current: { x: number, y: number }, additive: boolean, clientX: number, clientY: number } | null} */
     let rectSelectPending = null;
     /** @type {Map<number, { x: number, y: number }>} */
@@ -847,6 +855,8 @@
       labelDrag = null;
       if (mode !== 'paint') {
         rectSelectMode = false;
+        placeSeatMode = false;
+        placeSeatBtn?.classList.remove('active');
         rectSelectBtn?.classList.remove('active');
         clearPaintSelection();
       }
@@ -972,14 +982,18 @@
         (viewRotateDeg ? ' · ↻' + viewRotateDeg.toFixed(0) + '°' : '') +
         ')';
       if (appMode === 'paint') {
-        const paintAction = rectSelectMode ? '▢ протяни рамку' : '〰 тяни линию';
+        const paintAction = placeSeatMode
+          ? '＋ клик — новое место'
+          : rectSelectMode
+            ? '▢ протяни рамку'
+            : '〰 тяни линию';
         status.textContent =
           base +
           ' · ' +
           paintAction +
           ' (Space — сдвиг карты) · ' +
           paintSelection.length +
-          ' точек → ряд/⌫ → ▶';
+          ' точек → ряд/⌫/+1 → ▶';
       } else if (appMode === 'edit') {
         status.textContent = base + ' · ✎: клик — карточка, правка row/place, Применить';
       } else if (appMode === 'labels') {
@@ -1264,14 +1278,102 @@
     function undo() {
       const batch = undoStack.pop();
       if (!batch) return;
-      for (const { el, attrs } of batch) restoreCircle(el, attrs);
-      persistCircleEdits(batch.map((b) => b.el));
+      const touched = [];
+      for (const entry of batch) {
+        if (entry.action === 'remove') {
+          const parent = entry.parent;
+          if (parent && entry.el) {
+            if (entry.nextSibling && entry.nextSibling.parentNode === parent) {
+              parent.insertBefore(entry.el, entry.nextSibling);
+            } else {
+              parent.appendChild(entry.el);
+            }
+            registerCircleInIndexes(entry.el);
+            if (entry.attrs) restoreCircle(entry.el, entry.attrs);
+            touched.push(entry.el);
+          }
+        } else if (entry.action === 'add') {
+          if (entry.el) {
+            forgetCircleEdit(entry.el);
+            unregisterCircleFromIndexes(entry.el);
+            entry.el.remove();
+          }
+        } else if (entry.el && entry.attrs) {
+          restoreCircle(entry.el, entry.attrs);
+          touched.push(entry.el);
+        }
+      }
+      if (touched.length) persistCircleEdits(touched);
       undoBtn.disabled = undoStack.length === 0;
       if (svgRoot) {
         paintUnlabeled(svgRoot);
         recountStats();
+        rebuildCircleCoordIndex();
+        circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
       }
-      if (selectedCircle) renderInfo(readCircleMeta(selectedCircle));
+      if (selectedCircle && !selectedCircle.isConnected) {
+        selectedCircle = null;
+        infoPanel.classList.remove('visible');
+      } else if (selectedCircle) {
+        renderInfo(readCircleMeta(selectedCircle));
+      }
+    }
+
+    function forgetCircleEdit(circle) {
+      const store = loadEditStore();
+      const key = circleCoordKey(circle);
+      if (store.overrides[key]) {
+        delete store.overrides[key];
+        store.updatedAt = Date.now();
+        saveEditStore(store);
+        updateSaveStatus();
+      }
+    }
+
+    function registerCircleInIndexes(circle) {
+      if (!allCircles.includes(circle)) allCircles.push(circle);
+      applyEditorVisual(circle);
+    }
+
+    function unregisterCircleFromIndexes(circle) {
+      const idx = allCircles.indexOf(circle);
+      if (idx >= 0) allCircles.splice(idx, 1);
+      const selIdx = paintSelection.indexOf(circle);
+      if (selIdx >= 0) {
+        paintSelection.splice(selIdx, 1);
+        circle.classList.remove('paint-selected');
+        updatePaintSelCount();
+      }
+      if (selectedCircle === circle) {
+        selectedCircle = null;
+        infoPanel.classList.remove('visible');
+      }
+      paintPreviewMarked.delete(circle);
+    }
+
+    function typicalSeatRadius() {
+      if (!allCircles.length) return 3.2;
+      const sample = allCircles.length > 80 ? allCircles.slice(0, 80) : allCircles;
+      const rs = sample.map((c) => Number(c.getAttribute('r'))).filter((n) => Number.isFinite(n) && n > 0);
+      return median(rs) || 3.2;
+    }
+
+    function createSeatCircleAt(cx, cy, sector, row, seat) {
+      if (!svgRoot) return null;
+      const ns = 'http://www.w3.org/2000/svg';
+      const circle = document.createElementNS(ns, 'circle');
+      const r = typicalSeatRadius();
+      circle.setAttribute('cx', String(Math.round(cx * 100) / 100));
+      circle.setAttribute('cy', String(Math.round(cy * 100) / 100));
+      circle.setAttribute('r', String(Math.round(r * 100) / 100));
+      circle.setAttribute('fill', '#f59e0b');
+      circle.setAttribute('stroke', '#b45309');
+      circle.setAttribute('stroke-width', '0.6');
+      applySeatToCircle(circle, sector, row, seat, 'manual');
+      const layer = svgRoot.querySelector('#hall-seat-coordinates') || svgRoot;
+      layer.appendChild(circle);
+      registerCircleInIndexes(circle);
+      return circle;
     }
 
     function applySeatToCircle(circle, sector, row, seat, source) {
@@ -2292,6 +2394,7 @@
       rectSelectMode = Boolean(on);
       rectSelectBtn?.classList.toggle('active', rectSelectMode);
       if (rectSelectMode) {
+        setPlaceSeatMode(false);
         showPaintToast(
           'info',
           '▢ область: протяни рамку (работает и при ↻ rotate), затем ⌫ ряд/место',
@@ -2300,6 +2403,220 @@
         hideRectSelect();
       }
       refreshStatusHint();
+    }
+
+    function setPlaceSeatMode(on) {
+      placeSeatMode = Boolean(on);
+      placeSeatBtn?.classList.toggle('active', placeSeatMode);
+      if (placeSeatMode) {
+        if (rectSelectMode) setRectSelectMode(false);
+        showPaintToast(
+          'info',
+          '＋ место: клик по схеме · Сектор / Ряд / «Место с» (потом авто +1) · ▶ или 💾 → сервер',
+        );
+      }
+      refreshStatusHint();
+    }
+
+    function resolvePlaceSeatFields() {
+      const sector = paintSectorForApply().trim() || inferSectorFromSelection(paintSelection);
+      const row = getEffectivePaintRow();
+      const seatNum = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      if (!sector) {
+        showPaintToast('err', 'Укажи сектор перед ＋ место');
+        return null;
+      }
+      if (!isValidPaintRow(row)) {
+        showPaintToast('err', 'Укажи ряд перед ＋ место');
+        return null;
+      }
+      paintSector.value = normalizeSectorLabel(sector) || sector;
+      return { sector: canonicalSectorLabel(sector) || sector, row: String(row).trim(), seatNum };
+    }
+
+    async function placeSeatAtSvgPoint(x, y) {
+      const fields = resolvePlaceSeatFields();
+      if (!fields || !svgRoot) return null;
+      const circle = createSeatCircleAt(x, y, fields.sector, fields.row, String(fields.seatNum));
+      if (!circle) return null;
+      pushUndo([{ el: circle, attrs: snapshotCircle(circle), action: 'add' }]);
+      persistCircleEdits([circle], { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      rebuildCircleCoordIndex();
+      circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
+      setPaintSelection([circle]);
+      paintStartSeat.value = String(fields.seatNum + 1);
+      showPaintToast(
+        'ok',
+        '＋ ' + fields.sector + ' ряд ' + fields.row + ' место ' + fields.seatNum + ' → сервер…',
+      );
+      await pushEditsToServer(normalizeSectorLabel(fields.sector));
+      renderRowLabels(fields.sector);
+      return circle;
+    }
+
+    async function deleteSelectedSeats() {
+      clearAuditMarks();
+      const targets = paintSelection.length
+        ? paintSelection.slice()
+        : selectedCircle
+          ? [selectedCircle]
+          : [];
+      if (!targets.length) {
+        showPaintToast('err', 'Выдели места (клик / ▢ область), потом ⌫ место');
+        return 0;
+      }
+      if (
+        !window.confirm(
+          'Удалить ' + targets.length + ' мест со схемы?\n\nПосле ▶/💾 они пропадут из seats/bundle.',
+        )
+      ) {
+        showPaintToast('info', 'Удаление отменено');
+        return 0;
+      }
+      const batch = targets.map((c) => ({
+        el: c,
+        attrs: snapshotCircle(c),
+        action: 'remove',
+        parent: c.parentNode,
+        nextSibling: c.nextSibling,
+      }));
+      for (const c of targets) {
+        forgetCircleEdit(c);
+        unregisterCircleFromIndexes(c);
+        c.remove();
+      }
+      pushUndo(batch);
+      clearPaintSelection();
+      paintUnlabeled(svgRoot);
+      recountStats();
+      rebuildCircleCoordIndex();
+      circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
+      updateSaveStatus();
+      showPaintToast('ok', '⌫ удалено ' + targets.length + ' → сервер…');
+      await pushEditsToServer('');
+      return targets.length;
+    }
+
+    function collectRowCirclesForExtend() {
+      if (paintSelection.length) {
+        const sectors = new Set(
+          paintSelection.map((c) => normalizeSectorLabel(circleSector(c))).filter(Boolean),
+        );
+        const rows = new Set(
+          paintSelection.map((c) => normalizePaintRowNum(circleRow(c))).filter(Boolean),
+        );
+        if (sectors.size === 1 && rows.size === 1) {
+          const sectorNorm = Array.from(sectors)[0];
+          const rowKey = Array.from(rows)[0];
+          const list = allCircles.filter(
+            (c) =>
+              normalizeSectorLabel(circleSector(c)) === sectorNorm &&
+              normalizePaintRowNum(circleRow(c)) === rowKey &&
+              circleSeatNum(c) != null,
+          );
+          if (list.length) {
+            return {
+              sector: canonicalSectorLabel(circleSector(list[0])) || circleSector(list[0]),
+              row: rowKey,
+              list,
+              fromSelection: true,
+            };
+          }
+        }
+      }
+      const sector = paintSectorForApply().trim();
+      const row = getEffectivePaintRow();
+      if (!sector || !isValidPaintRow(row)) return null;
+      const sectorNorm = normalizeSectorLabel(sector);
+      const rowKey = normalizePaintRowNum(row);
+      const list = allCircles.filter(
+        (c) =>
+          normalizeSectorLabel(circleSector(c)) === sectorNorm &&
+          normalizePaintRowNum(circleRow(c)) === rowKey &&
+          circleSeatNum(c) != null,
+      );
+      if (!list.length) return null;
+      return {
+        sector: canonicalSectorLabel(sector) || sector,
+        row: rowKey,
+        list,
+        fromSelection: false,
+      };
+    }
+
+    async function extendSelectedRowByOne() {
+      clearAuditMarks();
+      const pack = collectRowCirclesForExtend();
+      if (!pack) {
+        showPaintToast('err', 'Выдели места одного ряда или укажи Сектор+Ряд, затем +1 в ряд');
+        return 0;
+      }
+      const sorted = pack.list
+        .slice()
+        .sort((a, b) => (circleSeatNum(a) || 0) - (circleSeatNum(b) || 0));
+      const minSeat = circleSeatNum(sorted[0]);
+      const maxSeat = circleSeatNum(sorted[sorted.length - 1]);
+      let extendHigh = true;
+      if (pack.fromSelection && paintSelection.length) {
+        const selSeats = paintSelection.map(circleSeatNum).filter((n) => n != null);
+        const hasMin = selSeats.includes(minSeat);
+        const hasMax = selSeats.includes(maxSeat);
+        if (hasMin && !hasMax) extendHigh = false;
+        else extendHigh = true;
+      }
+      /** @type {Element} */
+      let tip = extendHigh ? sorted[sorted.length - 1] : sorted[0];
+      /** @type {Element | null} */
+      let prev = null;
+      if (sorted.length >= 2) {
+        prev = extendHigh ? sorted[sorted.length - 2] : sorted[1];
+      }
+      const tipSeat = circleSeatNum(tip);
+      const newSeat = extendHigh ? tipSeat + 1 : tipSeat - 1;
+      if (!Number.isFinite(newSeat) || newSeat < 1) {
+        showPaintToast('err', 'Нельзя продолжить ряд: место ' + newSeat);
+        return 0;
+      }
+      if (sorted.some((c) => circleSeatNum(c) === newSeat)) {
+        showPaintToast('err', 'Место ' + newSeat + ' уже есть в ряду ' + pack.row);
+        return 0;
+      }
+      const tx = +tip.getAttribute('cx');
+      const ty = +tip.getAttribute('cy');
+      let nx;
+      let ny;
+      if (prev) {
+        const px = +prev.getAttribute('cx');
+        const py = +prev.getAttribute('cy');
+        nx = tx + (tx - px);
+        ny = ty + (ty - py);
+      } else {
+        const step = typicalSeatRadius() * 2.4;
+        const mid = vbW / 2;
+        nx = tx + (tx < mid ? -step : step);
+        ny = ty;
+      }
+      const circle = createSeatCircleAt(nx, ny, pack.sector, pack.row, String(newSeat));
+      if (!circle) return 0;
+      pushUndo([{ el: circle, attrs: snapshotCircle(circle), action: 'add' }]);
+      persistCircleEdits([circle], { deferServer: true });
+      paintUnlabeled(svgRoot);
+      recountStats();
+      rebuildCircleCoordIndex();
+      circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
+      setPaintSelection([circle]);
+      paintSector.value = normalizeSectorLabel(pack.sector) || pack.sector;
+      setPaintRowFromMeta(pack.row);
+      paintStartSeat.value = String(newSeat + (extendHigh ? 1 : 0));
+      showPaintToast(
+        'ok',
+        '+1 ' + pack.sector + ' ряд ' + pack.row + ' место ' + newSeat + ' → сервер…',
+      );
+      await pushEditsToServer(normalizeSectorLabel(pack.sector));
+      renderRowLabels(pack.sector);
+      return 1;
     }
 
     /** Сектор из поля (пусто = любой сектор вдоль линии). */
@@ -5108,6 +5425,18 @@
           e.preventDefault();
           return;
         }
+        if (placeSeatMode) {
+          dragPan = false;
+          viewport.classList.remove('dragging');
+          paintPending = null;
+          paintDrag = false;
+          didDrag = false;
+          paintSuppressClick = true;
+          void placeSeatAtSvgPoint(p.x, p.y);
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         if (rectSelectMode) {
           dragPan = false;
           viewport.classList.remove('dragging');
@@ -5383,8 +5712,18 @@
       }
       if (e.code === 'Escape') {
         if (rectSelectPending || paintPending) cancelPaintDrag();
+        else if (placeSeatMode) setPlaceSeatMode(false);
         else if (paintSelection.length) clearPaintSelection();
         else clearSelection();
+      }
+      if (
+        (e.key === 'Delete' || e.key === 'Backspace') &&
+        appMode === 'paint' &&
+        paintSelection.length &&
+        !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')
+      ) {
+        e.preventDefault();
+        void deleteSelectedSeats();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
@@ -5468,6 +5807,9 @@
       showPaintToast('info', 'Выделение сброшено');
     });
     rectSelectBtn.addEventListener('click', () => setRectSelectMode(!rectSelectMode));
+    placeSeatBtn?.addEventListener('click', () => setPlaceSeatMode(!placeSeatMode));
+    deleteSeatBtn?.addEventListener('click', () => void deleteSelectedSeats());
+    extendRowBtn?.addEventListener('click', () => void extendSelectedRowByOne());
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
     clearRowSeatBtn.addEventListener('click', () => clearRowSeatForSelection());
     paintApply.addEventListener('click', () => applyPaintToSelection());

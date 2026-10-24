@@ -94,3 +94,33 @@ export function extractLabeledSeatsFromSvgMarkup(svgMarkup) {
     labeledCount: seats.length,
   };
 }
+
+/**
+ * Все circle-координаты из SVG (размеченные + серое облако) → allSeatCoordinates.
+ * @param {string} svgMarkup
+ * @returns {{ xPct: number, yPct: number }[]}
+ */
+export function extractAllCircleCoordinatesFromSvgMarkup(svgMarkup) {
+  const { w, h } = parseViewBox(svgMarkup);
+  const matrix = extractGlobalCircleMatrix(svgMarkup);
+  const out = [];
+  const seen = new Set();
+  const re = /<circle\b[^>]*\/?>/gi;
+  let m;
+  while ((m = re.exec(svgMarkup))) {
+    const tag = m[0];
+    const cx = Number(attr(tag, 'cx'));
+    const cy = Number(attr(tag, 'cy'));
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+    const { x, y } = applyMatrix(cx, cy, matrix);
+    const xPct = (x / w) * 100;
+    const yPct = (y / h) * 100;
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) continue;
+    if (xPct < -1 || yPct < -1 || xPct > 101 || yPct > 101) continue;
+    const k = `${xPct.toFixed(4)}|${yPct.toFixed(4)}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ xPct, yPct });
+  }
+  return out;
+}
