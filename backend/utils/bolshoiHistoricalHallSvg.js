@@ -210,6 +210,39 @@ export function matchBolshoiLabelsToOfficialRects(rects, labeled) {
     const missing = pts.filter((hp) => !seen.has(`${sector}|${hp.row}|${hp.seat}`));
     if (missing.length) assignGroup(sector, missing, 140);
   }
+  /** Ещё мягче для Партера/Амфитеатра — иначе ряды 1–2 теряют места (30→21). */
+  for (const [sector, pts] of secs) {
+    if (sector !== 'Партер' && sector !== 'Амфитеатр') continue;
+    const missing = pts.filter((hp) => !seen.has(`${sector}|${hp.row}|${hp.seat}`));
+    if (missing.length) assignGroup(sector, missing, 220);
+  }
+
+  /**
+   * Несматченные подписи lotus → место по affine-координатам labeled.
+   * Иначе Партер ряд 1/2/А/Б остаются дырявыми относительно moscow777 (30/30/28/28).
+   */
+  for (const hp of labeled) {
+    const key = `${hp.sector}|${hp.row}|${hp.seat}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const m = mapL(hp);
+    const half = 5.5;
+    places.push({
+      id: key,
+      sectionId: sectionIdFromLabel(hp.sector),
+      section: hp.sector,
+      row: hp.row,
+      seat: hp.seat,
+      x: m.x - half,
+      y: m.y - half,
+      w: half * 2,
+      h: half * 2,
+      cx: m.x,
+      cy: m.y,
+      matchDist: -1,
+      fromLabeledOnly: true,
+    });
+  }
 
   /** Официальные места без подписи — серые «фон». */
   for (let i = 0; i < rects.length; i += 1) {

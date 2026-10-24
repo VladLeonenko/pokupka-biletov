@@ -184,16 +184,14 @@ export function remapBolshoiSeatsToSellableLabels(seats) {
     sellable: false,
   }));
 
-  /** Геометрический ряд А: минимальный yPct среди Партер. */
-  const parter = out.filter((s) => detail(s) === 'Партер' && Number.isFinite(Number(s.yPct)));
-  if (parter.length) {
-    const minY = Math.min(...parter.map((s) => Number(s.yPct)));
-    for (const s of parter) {
-      if (Number(s.yPct) <= minY + 0.35) {
-        s._vipRowA = true;
-        s.row = 'А';
-      }
-    }
+  /**
+   * VIP только из подписей (ряд А / Б). Нельзя переименовывать геометрический
+   * первый ряд Партера в «А» — это съедало ряд 1 (30 мест → «28» VIP).
+   */
+  for (const s of out) {
+    if (detail(s) !== 'Партер') continue;
+    const row = String(s.row || '').trim();
+    if (row === 'А') s._vipRowA = true;
   }
 
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
