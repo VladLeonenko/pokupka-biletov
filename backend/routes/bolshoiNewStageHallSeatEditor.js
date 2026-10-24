@@ -371,6 +371,13 @@ router.post('/', express.json({ limit: '16mb' }), async (req, res) => {
       maxZoomMultiplier: layout.maxZoomMultiplier ?? 2,
       sectorFocusZoomMultiplier: layout.sectorFocusZoomMultiplier ?? 2,
       hallKind: 'theater',
+      hallPreviewSectorCheckout: true,
+      seatSelectionDisabled: true,
+      hideSeatList: true,
+      sectorMode:
+        layout.sectorMode && typeof layout.sectorMode === 'object'
+          ? { ...layout.sectorMode, enabled: true }
+          : layout.sectorMode,
       seats,
     };
     if (hallMapLabels) nextLayout.hallMapLabels = hallMapLabels;

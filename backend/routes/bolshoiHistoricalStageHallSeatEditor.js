@@ -19,4 +19,6 @@ export default createTheaterHallSeatEditorRouter({
   editorMode: 'bolshoi-historical-stage-editor',
   seedHint: 'npm run seed:bolshoi-historical-stage-map',
   defaultHallKind: 'theater',
+  /** Save редактора не должен сбрасывать предзаказ по секторам. */
+  forceHallPreviewSectorCheckout: true,
 });

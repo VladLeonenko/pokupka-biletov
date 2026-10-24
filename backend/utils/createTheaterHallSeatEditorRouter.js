@@ -37,6 +37,7 @@ const ALLOWED_TOOL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
  *   seedHint?: string;
  *   stadiumSectorCloud?: boolean;
  *   defaultHallKind?: string | null;
+ *   forceHallPreviewSectorCheckout?: boolean;
  * }} opts
  */
 export function createTheaterHallSeatEditorRouter(opts) {
@@ -51,6 +52,7 @@ export function createTheaterHallSeatEditorRouter(opts) {
   const seedHint = opts.seedHint || 'seed stage map';
   const stadiumSectorCloud = opts.stadiumSectorCloud === true;
   const hasDefaultHallKind = Object.prototype.hasOwnProperty.call(opts, 'defaultHallKind');
+  const forceHallPreviewSectorCheckout = opts.forceHallPreviewSectorCheckout === true;
 
   const router = express.Router();
 
@@ -484,6 +486,17 @@ export function createTheaterHallSeatEditorRouter(opts) {
         maxZoomMultiplier: layout.maxZoomMultiplier ?? 2,
         sectorFocusZoomMultiplier: layout.sectorFocusZoomMultiplier ?? 2,
         ...(hallKind ? { hallKind } : {}),
+        ...(forceHallPreviewSectorCheckout
+          ? {
+              hallPreviewSectorCheckout: true,
+              seatSelectionDisabled: true,
+              hideSeatList: true,
+              sectorMode:
+                layout.sectorMode && typeof layout.sectorMode === 'object'
+                  ? { ...layout.sectorMode, enabled: true }
+                  : layout.sectorMode,
+            }
+          : {}),
         pbilet: pb,
         seats,
       };

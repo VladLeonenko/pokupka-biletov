@@ -102,15 +102,66 @@ function sessionsOf(ev) {
   return [{ iso: ev.iso, label: ev.cardSubtitle, prices: ev.prices }];
 }
 
+/** Развёрнутые тексты для description_pack / description_manual (по id события). */
+const EVENT_COPY = {
+  'romeo-dzhuletta-2026-10-29': {
+    composer: 'Сергей Прокофьев',
+    about: [
+      'Балет Сергея Прокофьева по трагедии Шекспира — одна из визитных карточек Большого театра. История вражды Монтекки и Капулетти и любви Ромео и Джульетты звучит в полной партитуре на Исторической сцене.',
+      'В программе — классическая хореография и оркестр Большого театра. Возрастной ценз 6+: подходит и для первого знакомства с балетом.',
+    ],
+    how: [
+      'Билеты оформляются предзаказом по секторам зала: выберите зону на схеме и количество мест — конкретные места подберёт система.',
+      'После оплаты электронный билет придёт на email. Даты: 29, 30 и 31 октября, начало в 19:00.',
+    ],
+  },
+  'karmen-2026-10-26': {
+    composer: 'Жорж Бизе',
+    about: [
+      'Опера Жоржа Бизе «Кармен» — история свободолюбивой цыганки, солдата Хосе и тореро Эскамильо. Одна из самых исполняемых опер мира в постановке Большого театра на Исторической сцене.',
+      'В спектакле — оркестр, хор и солисты Большого. Возраст 12+.',
+    ],
+    how: [
+      'Предзаказ по секторам: клик по зоне на схеме → количество билетов. Места в секторе закрепляет система после оплаты.',
+      'Сеансы 26 и 27 октября, начало в 19:00. Электронный билет на email.',
+    ],
+  },
+  'rigoletto-2026-10-13': {
+    composer: 'Джузеппе Верди',
+    about: [
+      'Опера Верди «Риголетто» — драма шута при дворе герцога Мантуанского, дочери Джильды и проклятия Монтероне. Классика итальянского bel canto на Исторической сцене Большого театра.',
+      'В постановке участвуют солисты, хор и оркестр Большого. Возраст 12+.',
+    ],
+    how: [
+      'Оформление — предзаказ по секторам зала без выбора конкретного места на схеме.',
+      'Даты 13–15 октября. Электронный билет после оплаты.',
+    ],
+  },
+  'karmen-syuita-2026-10-16': {
+    composer: 'Жорж Бизе / Родион Щедрин',
+    about: [
+      '«Кармен-сюита» — балет на музыку Бизе в оркестровке Родиона Щедрина, один из самых узнаваемых спектаклей Новой сцены Большого театра. В программе также дивертисмент.',
+      'Компактный вечер для любителей современной балетной классики. Возраст 12+.',
+    ],
+    how: [
+      'Предзаказ мест в партере Новой сцены: сектор → количество → оплата онлайн.',
+      'Сеансы 16–18 октября (включая дневные). Электронный билет на email.',
+    ],
+  },
+};
+
 function buildCatalogPayload(ev, stageId, stageName, genre, age) {
   const sess = sessionsOf(ev);
   const firstIso = sess[0].iso;
+  const copy = EVENT_COPY[ev.id];
+  const lead = copy?.about?.[0]
+    || `${genre} «${ev.title}» в ${stageName}. Предзаказ билетов по секторам (${ev.cardSubtitle}).`;
   return {
     Id: ev.id,
     RepertoireId: ev.id,
     Name: ev.title,
     ShortDescription: `${genre} «${ev.title}» · ${stageName}. ${ev.cardSubtitle}`,
-    Description: `${genre} «${ev.title}» на ${stageName}. Предзаказ билетов по секторам (${ev.cardSubtitle}).`,
+    Description: lead,
     GenreName: genre,
     Age: age,
     stageId,
@@ -123,23 +174,36 @@ function buildCatalogPayload(ev, stageId, stageName, genre, age) {
 }
 
 function buildDescriptionPack(ev, stageName, genre, age) {
+  const copy = EVENT_COPY[ev.id] || {};
+  const aboutParas = copy.about || [
+    `${genre} «${ev.title}» в ${stageName}.`,
+    'Предзаказ билетов осуществляется по секторам зала.',
+  ];
+  const howParas = copy.how || [
+    'Выберите сектор на схеме и укажите количество билетов — места подберёт система.',
+    'После оплаты электронный билет придёт на email.',
+  ];
+  const composer = copy.composer ? ` · ${copy.composer}` : '';
   return {
-    heroKicker: `${genre} · Большой театр`,
+    heroKicker: `${genre} · Большой театр${composer}`,
     heroSubline: `${stageName} · ${ev.cardSubtitle}`,
-    heroLead: `${genre} «${ev.title}» на ${stageName}. Предзаказ мест по секторам.`,
+    heroLead: aboutParas[0],
     eventMeta: [
       { label: 'Возраст', value: age },
       { label: 'Площадка', value: stageName },
       { label: 'Адрес', value: ev.address },
+      ...(copy.composer ? [{ label: 'Музыка', value: copy.composer }] : []),
     ],
     sections: [
       {
         id: 'about',
         title: 'О событии',
-        paragraphs: [
-          `${genre} «${ev.title}» на ${stageName}.`,
-          'Предзаказ билетов осуществляется по секторам зала.',
-        ],
+        paragraphs: aboutParas,
+      },
+      {
+        id: 'tickets',
+        title: 'Как купить билеты',
+        paragraphs: howParas,
       },
     ],
   };
@@ -322,8 +386,32 @@ async function main() {
     );
   }
   await expandHistoricalOffersFromStageMap();
+
+  try {
+    const { notifySearchIndexing, publicUrl } = await import('../lib/search-indexing.js');
+    const ids = [...EVENTS, ...NEW_EVENTS].map((e) => e.id).filter((id) => !only || only.has(id));
+    const urls = ids.flatMap((id) => [
+      publicUrl(`/ticket/${encodeURIComponent(id)}`),
+    ]);
+    urls.push(publicUrl('/events'));
+    await notifySearchIndexing(urls);
+    console.log(`[seed-bolshoi] IndexNow pinged ${urls.length} url(s)`);
+  } catch (e) {
+    console.warn('[seed-bolshoi] IndexNow skip:', e?.message || e);
+  }
 }
 
 main()
-  .then(() => process.exit(0))
-  .catch((e) => { console.error(e); process.exit(1); });
+  .then(async () => {
+    await ticketPool.end();
+    process.exit(0);
+  })
+  .catch(async (e) => {
+    console.error(e);
+    try {
+      await ticketPool.end();
+    } catch {
+      /* ignore */
+    }
+    process.exit(1);
+  });

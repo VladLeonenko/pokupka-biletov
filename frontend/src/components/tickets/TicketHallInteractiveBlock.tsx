@@ -873,8 +873,12 @@ export function TicketHallInteractiveBlock({
     [layoutJson],
   );
   const showSeatsAtOverview = useMemo(() => parseShowSeatsAtOverview(layoutJson), [layoutJson]);
-  /** Portalbilet NN / pbilet 1800: только полигоны категорий, без grid-точек по офферам. */
-  const categorySectorOnlyCheckout = pbiletCategoryCheckout && sectorMode.enabled;
+  /**
+   * Только полигоны/qty: pbilet category ИЛИ Большой hallPreview (без клика по местам).
+   * Иначе на зуме DOM/canvas sellable снова даёт выбор конкретного места.
+   */
+  const categorySectorOnlyCheckout =
+    (pbiletCategoryCheckout || hallPreviewSectorCheckout) && sectorMode.enabled;
   const isZoneOnlySector = useCallback(
     (label: string) => isConcertZoneOnlySectorLabel(label, layoutJson),
     [layoutJson],
@@ -2220,13 +2224,20 @@ export function TicketHallInteractiveBlock({
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
   /** Canvas рисует точки — DOM только hitbox, иначе двойные «ареолы» (театр + стадион). */
   const uniformDomOverlayGhost = useCanvasCompositing && useSvgNative;
-  /** Сектора на обзоре 100%: подсветка и клик; заливку path убираем только после zoom-in. */
-  const hideSectorFill = mapZoomed;
+  /**
+   * Стадион: на zoom убираем заливку path (остаются sellable точки).
+   * Большой hallPreview: цветные зоны остаются на любом зуме — иначе «пропали сектора».
+   */
+  const hideSectorFill = mapZoomed && !hallPreviewSectorCheckout;
 
   placementsForHoverRef.current = visibleNativePlacements;
 
   const probeSeatHover = useCallback(
     (clientX: number, clientY: number) => {
+      if (hallPreviewSectorCheckout || seatSelectionDisabled) {
+        hideSeatInfo();
+        return;
+      }
       if (!stadiumCanvasEnabled && !sectorMode.enabled) return;
       if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) {
         hideSeatInfo();
@@ -2255,18 +2266,28 @@ export function TicketHallInteractiveBlock({
         hideSeatInfo();
       }
     },
-    [buildPlacementPickCtx, fitZoom, hideSeatInfo, sectorMode.enabled, showSeatInfo, stadiumCanvasEnabled],
+    [
+      buildPlacementPickCtx,
+      fitZoom,
+      hallPreviewSectorCheckout,
+      hideSeatInfo,
+      seatSelectionDisabled,
+      sectorMode.enabled,
+      showSeatInfo,
+      stadiumCanvasEnabled,
+    ],
   );
   probeSeatHoverRef.current = probeSeatHover;
 
   const pickSellableAtClient = useCallback(
     (clientX: number, clientY: number): SvgNativePlacement | null => {
+      if (hallPreviewSectorCheckout || seatSelectionDisabled) return null;
       if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) return null;
       const pickCtx = buildPlacementPickCtx(zoomRef.current > fitZoomRef.current + 0.01);
       if (!pickCtx) return null;
       return findNearestSellablePlacement(clientX, clientY, pickCtx);
     },
-    [buildPlacementPickCtx, sectorMode.enabled],
+    [buildPlacementPickCtx, hallPreviewSectorCheckout, seatSelectionDisabled, sectorMode.enabled],
   );
 
   useEffect(() => {
