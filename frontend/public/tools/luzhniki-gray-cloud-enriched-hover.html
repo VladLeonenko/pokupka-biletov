@@ -1527,13 +1527,16 @@
       setPaintRowFromMeta(meta.row);
     }
 
-    /** Красные «без ряда»: data-unlabeled, row пустой / «—», или нет валидного ряда. */
+    /** Красные «без ряда»: data-unlabeled или row пустой / «—». Ряды А/Б/цифры — норма. */
     function isUnlabeledCircle(c) {
       if (!c || c.tagName?.toLowerCase() !== 'circle') return false;
       if (c.getAttribute('data-unlabeled') === '1') return true;
-      const row = circleRow(c);
+      const row = String(circleRow(c) || '').trim();
       if (!row || row === '—' || row === '-' || row === '–') return true;
-      return !isValidPaintRow(row);
+      if (isValidPaintRow(row)) return false;
+      // VIP / буквенные ряды (А, Б, A, B, 2А…)
+      if (/^[А-Яа-яA-Za-z]/.test(row) || /\d/.test(row)) return false;
+      return true;
     }
 
     function paintUnlabeled(svg) {
