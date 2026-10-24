@@ -155,6 +155,7 @@
       <button type="button" id="rectSelectBtn" title="протянуть рамку и выделить все точки внутри">▢ область</button>
       <button type="button" id="placeSeatBtn" title="клик по схеме — новое оранжевое место (Сектор / Ряд / Место с)">＋ место</button>
       <button type="button" id="deleteSeatBtn" title="удалить выделенные места со схемы (и с сервера после ▶/💾)">⌫ место</button>
+      <button type="button" id="deleteUnlabeledBtn" title="удалить все красные точки без ряда (row пустой / — / data-unlabeled)">⌫ без ряда</button>
       <button type="button" id="extendRowLeftBtn" title="продолжить ряд влево (−cx) на 1 место">+1 ←</button>
       <button type="button" id="extendRowRightBtn" title="продолжить ряд вправо (+cx) на 1 место">+1 →</button>
       <span class="hint" id="paintSelCount">0 точек</span>
@@ -200,7 +201,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v4</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v5</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -256,6 +257,7 @@
     const rectSelectBtn = document.getElementById('rectSelectBtn');
     const placeSeatBtn = document.getElementById('placeSeatBtn');
     const deleteSeatBtn = document.getElementById('deleteSeatBtn');
+    const deleteUnlabeledBtn = document.getElementById('deleteUnlabeledBtn');
     const extendRowLeftBtn = document.getElementById('extendRowLeftBtn');
     const extendRowRightBtn = document.getElementById('extendRowRightBtn');
     const paintApply = document.getElementById('paintApply');
@@ -1525,10 +1527,21 @@
       setPaintRowFromMeta(meta.row);
     }
 
+    /** Красные «без ряда»: data-unlabeled, row пустой / «—», или нет валидного ряда. */
+    function isUnlabeledCircle(c) {
+      if (!c || c.tagName?.toLowerCase() !== 'circle') return false;
+      if (c.getAttribute('data-unlabeled') === '1') return true;
+      const row = circleRow(c);
+      if (!row || row === '—' || row === '-' || row === '–') return true;
+      return !isValidPaintRow(row);
+    }
+
     function paintUnlabeled(svg) {
       svg.querySelectorAll('circle.unlabeled-dot').forEach((c) => c.classList.remove('unlabeled-dot'));
       if (!markUnlabeled.checked) return;
-      svg.querySelectorAll('circle[data-unlabeled="1"]').forEach((c) => c.classList.add('unlabeled-dot'));
+      svg.querySelectorAll('circle').forEach((c) => {
+        if (isUnlabeledCircle(c)) c.classList.add('unlabeled-dot');
+      });
     }
 
     function recountStats() {
@@ -1536,12 +1549,14 @@
       let labeled = 0;
       let unlabeled = 0;
       svgRoot.querySelectorAll('circle').forEach((c) => {
-        if (c.getAttribute('data-unlabeled') === '1') unlabeled++;
+        if (isUnlabeledCircle(c)) unlabeled++;
         else if (c.getAttribute('data-sector') || c.getAttribute('place-name')) labeled++;
       });
       status.textContent =
         'Точек ' + (labeled + unlabeled).toLocaleString('ru') +
-        ' · с разметкой ' + labeled.toLocaleString('ru') + ' · undo: ' + undoStack.length;
+        ' · с разметкой ' + labeled.toLocaleString('ru') +
+        ' · без ряда ' + unlabeled.toLocaleString('ru') +
+        ' · undo: ' + undoStack.length;
       refreshStatusHint();
     }
 
@@ -2458,25 +2473,8 @@
       return circle;
     }
 
-    async function deleteSelectedSeats() {
-      clearAuditMarks();
-      const targets = paintSelection.length
-        ? paintSelection.slice()
-        : selectedCircle
-          ? [selectedCircle]
-          : [];
-      if (!targets.length) {
-        showPaintToast('err', 'Выдели места (клик / ▢ область), потом ⌫ место');
-        return 0;
-      }
-      if (
-        !window.confirm(
-          'Удалить ' + targets.length + ' мест со схемы?\n\nПосле ▶/💾 они пропадут из seats/bundle.',
-        )
-      ) {
-        showPaintToast('info', 'Удаление отменено');
-        return 0;
-      }
+    async function removeCirclesFromScheme(targets, toastLabel) {
+      if (!targets.length) return 0;
       const batch = targets.map((c) => ({
         el: c,
         attrs: snapshotCircle(c),
@@ -2496,9 +2494,52 @@
       rebuildCircleCoordIndex();
       circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
       updateSaveStatus();
-      showPaintToast('ok', '⌫ удалено ' + targets.length + ' → сервер…');
+      showPaintToast('ok', (toastLabel || '⌫ удалено ') + targets.length + ' → сервер…');
       await pushEditsToServer('');
       return targets.length;
+    }
+
+    async function deleteSelectedSeats() {
+      clearAuditMarks();
+      const targets = paintSelection.length
+        ? paintSelection.slice()
+        : selectedCircle
+          ? [selectedCircle]
+          : [];
+      if (!targets.length) {
+        showPaintToast('err', 'Выдели места (клик / ▢ область), потом ⌫ место');
+        return 0;
+      }
+      if (
+        !window.confirm(
+          'Удалить ' + targets.length + ' мест со схемы?\n\nПосле ▶/💾 они пропадут из seats/bundle.',
+        )
+      ) {
+        showPaintToast('info', 'Удаление отменено');
+        return 0;
+      }
+      return removeCirclesFromScheme(targets, '⌫ удалено ');
+    }
+
+    async function deleteUnlabeledSeats() {
+      clearAuditMarks();
+      if (!svgRoot) return 0;
+      const targets = allCircles.filter((c) => isUnlabeledCircle(c));
+      if (!targets.length) {
+        showPaintToast('info', 'Красных точек без ряда нет');
+        return 0;
+      }
+      if (
+        !window.confirm(
+          'Удалить все ' +
+            targets.length +
+            ' точек без ряда (красные)?\n\nРазмеченные оранжевые не трогаем.',
+        )
+      ) {
+        showPaintToast('info', 'Удаление отменено');
+        return 0;
+      }
+      return removeCirclesFromScheme(targets, '⌫ без ряда ');
     }
 
     function collectRowCirclesForExtend() {
@@ -5816,6 +5857,7 @@
     rectSelectBtn.addEventListener('click', () => setRectSelectMode(!rectSelectMode));
     placeSeatBtn?.addEventListener('click', () => setPlaceSeatMode(!placeSeatMode));
     deleteSeatBtn?.addEventListener('click', () => void deleteSelectedSeats());
+    deleteUnlabeledBtn?.addEventListener('click', () => void deleteUnlabeledSeats());
     extendRowLeftBtn?.addEventListener('click', () => void extendSelectedRowByOne('left'));
     extendRowRightBtn?.addEventListener('click', () => void extendSelectedRowByOne('right'));
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
