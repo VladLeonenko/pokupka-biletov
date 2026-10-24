@@ -10,5 +10,5 @@ pm2 start sniper-monitor.mjs --name sniper-monitor-gamlet -- \
   --notify-email vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com \
   --bcc yaguda_io@mail.ru \
   --interval 1000 --concurrency 5 --max-tries 3 \
-  --spectacle 'Гамлет'
+  --spectacle Гамлет
 pm2 save
