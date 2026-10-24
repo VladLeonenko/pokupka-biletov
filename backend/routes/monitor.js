@@ -9,9 +9,10 @@ const require = createRequire(import.meta.url);
 const MONITORS = [
   { name: 'sniper-monitor', label: 'Кабала святош (Афиша)' },
   { name: 'sniper-monitor-cycle2', label: 'Кабала святош — цикл 2 (Афиша)' },
+  { name: 'sniper-monitor-gamlet', label: 'Гамлет (Афиша, 5 ноября)' },
   { name: 'ton-browser-monitor', label: 'Обыкновенная смерть (Театр Наций, браузер)' },
   { name: 'ton-monitor', label: 'Обыкновенная смерть (Театр Наций, HTTP-запасной)' },
-  { name: 'intickets-monitor', label: 'Опера нищих (Театр Пушкина, Intickets)' },
+  { name: 'intickets-monitor', label: 'Опера нищих (Театр Пушкина, Radario)' },
   { name: 'profticket-monitor', label: 'Новогодний лабиринт (Цирк Никулина, Profticket)' },
   { name: 'profticket-browser-monitor', label: 'Profticket browser' },
   { name: 'profticket-session-pool', label: 'Profticket session pool' },
