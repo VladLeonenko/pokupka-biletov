@@ -155,7 +155,8 @@
       <button type="button" id="rectSelectBtn" title="протянуть рамку и выделить все точки внутри">▢ область</button>
       <button type="button" id="placeSeatBtn" title="клик по схеме — новое оранжевое место (Сектор / Ряд / Место с)">＋ место</button>
       <button type="button" id="deleteSeatBtn" title="удалить выделенные места со схемы (и с сервера после ▶/💾)">⌫ место</button>
-      <button type="button" id="extendRowBtn" title="добавить +1 место в конец ряда по шагу последних двух точек">+1 в ряд</button>
+      <button type="button" id="extendRowLeftBtn" title="продолжить ряд влево (−cx) на 1 место">+1 ←</button>
+      <button type="button" id="extendRowRightBtn" title="продолжить ряд вправо (+cx) на 1 место">+1 →</button>
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
@@ -199,7 +200,7 @@
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v3</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v4</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -255,7 +256,8 @@
     const rectSelectBtn = document.getElementById('rectSelectBtn');
     const placeSeatBtn = document.getElementById('placeSeatBtn');
     const deleteSeatBtn = document.getElementById('deleteSeatBtn');
-    const extendRowBtn = document.getElementById('extendRowBtn');
+    const extendRowLeftBtn = document.getElementById('extendRowLeftBtn');
+    const extendRowRightBtn = document.getElementById('extendRowRightBtn');
     const paintApply = document.getElementById('paintApply');
     const sectorApply = document.getElementById('sectorApply');
     const fillNextRowBtn = document.getElementById('fillNextRowBtn');
@@ -2546,40 +2548,45 @@
       };
     }
 
-    async function extendSelectedRowByOne() {
+    /**
+     * @param {'left' | 'right'} side геометрически: left = меньший cx, right = больший cx
+     * Нумерация мест может быть зеркальной — шаг места берём с края, не «всегда +1».
+     */
+    async function extendSelectedRowByOne(side) {
       clearAuditMarks();
       const pack = collectRowCirclesForExtend();
       if (!pack) {
-        showPaintToast('err', 'Выдели места одного ряда или укажи Сектор+Ряд, затем +1 в ряд');
+        showPaintToast('err', 'Выдели места одного ряда или укажи Сектор+Ряд, затем +1 ← / +1 →');
         return 0;
       }
-      const sorted = pack.list
+      const byCx = pack.list
         .slice()
-        .sort((a, b) => (circleSeatNum(a) || 0) - (circleSeatNum(b) || 0));
-      const minSeat = circleSeatNum(sorted[0]);
-      const maxSeat = circleSeatNum(sorted[sorted.length - 1]);
-      let extendHigh = true;
-      if (pack.fromSelection && paintSelection.length) {
-        const selSeats = paintSelection.map(circleSeatNum).filter((n) => n != null);
-        const hasMin = selSeats.includes(minSeat);
-        const hasMax = selSeats.includes(maxSeat);
-        if (hasMin && !hasMax) extendHigh = false;
-        else extendHigh = true;
-      }
+        .sort((a, b) => +a.getAttribute('cx') - +b.getAttribute('cx'));
+      if (!byCx.length) return 0;
       /** @type {Element} */
-      let tip = extendHigh ? sorted[sorted.length - 1] : sorted[0];
+      const tip = side === 'left' ? byCx[0] : byCx[byCx.length - 1];
       /** @type {Element | null} */
-      let prev = null;
-      if (sorted.length >= 2) {
-        prev = extendHigh ? sorted[sorted.length - 2] : sorted[1];
-      }
+      const prev = byCx.length >= 2 ? (side === 'left' ? byCx[1] : byCx[byCx.length - 2]) : null;
       const tipSeat = circleSeatNum(tip);
-      const newSeat = extendHigh ? tipSeat + 1 : tipSeat - 1;
+      if (tipSeat == null) {
+        showPaintToast('err', 'У края ряда нет номера места');
+        return 0;
+      }
+      let newSeat;
+      const prevSeat = prev ? circleSeatNum(prev) : null;
+      if (prevSeat != null && prevSeat !== tipSeat) {
+        newSeat = tipSeat + (tipSeat - prevSeat);
+      } else {
+        const other = side === 'left' ? byCx[byCx.length - 1] : byCx[0];
+        const otherSeat = circleSeatNum(other);
+        newSeat =
+          otherSeat != null && tipSeat < otherSeat ? tipSeat - 1 : tipSeat + 1;
+      }
       if (!Number.isFinite(newSeat) || newSeat < 1) {
         showPaintToast('err', 'Нельзя продолжить ряд: место ' + newSeat);
         return 0;
       }
-      if (sorted.some((c) => circleSeatNum(c) === newSeat)) {
+      if (pack.list.some((c) => circleSeatNum(c) === newSeat)) {
         showPaintToast('err', 'Место ' + newSeat + ' уже есть в ряду ' + pack.row);
         return 0;
       }
@@ -2594,8 +2601,7 @@
         ny = ty + (ty - py);
       } else {
         const step = typicalSeatRadius() * 2.4;
-        const mid = vbW / 2;
-        nx = tx + (tx < mid ? -step : step);
+        nx = tx + (side === 'left' ? -step : step);
         ny = ty;
       }
       const circle = createSeatCircleAt(nx, ny, pack.sector, pack.row, String(newSeat));
@@ -2609,10 +2615,11 @@
       setPaintSelection([circle]);
       paintSector.value = normalizeSectorLabel(pack.sector) || pack.sector;
       setPaintRowFromMeta(pack.row);
-      paintStartSeat.value = String(newSeat + (extendHigh ? 1 : 0));
+      paintStartSeat.value = String(newSeat);
+      const arrow = side === 'left' ? '←' : '→';
       showPaintToast(
         'ok',
-        '+1 ' + pack.sector + ' ряд ' + pack.row + ' место ' + newSeat + ' → сервер…',
+        '+1 ' + arrow + ' ' + pack.sector + ' ряд ' + pack.row + ' место ' + newSeat + ' → сервер…',
       );
       await pushEditsToServer(normalizeSectorLabel(pack.sector));
       renderRowLabels(pack.sector);
@@ -5809,7 +5816,8 @@
     rectSelectBtn.addEventListener('click', () => setRectSelectMode(!rectSelectMode));
     placeSeatBtn?.addEventListener('click', () => setPlaceSeatMode(!placeSeatMode));
     deleteSeatBtn?.addEventListener('click', () => void deleteSelectedSeats());
-    extendRowBtn?.addEventListener('click', () => void extendSelectedRowByOne());
+    extendRowLeftBtn?.addEventListener('click', () => void extendSelectedRowByOne('left'));
+    extendRowRightBtn?.addEventListener('click', () => void extendSelectedRowByOne('right'));
     paintSelectRow.addEventListener('click', () => selectPaintRowFromFields());
     clearRowSeatBtn.addEventListener('click', () => clearRowSeatForSelection());
     paintApply.addEventListener('click', () => applyPaintToSelection());
