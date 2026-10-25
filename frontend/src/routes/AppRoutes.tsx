@@ -229,7 +229,7 @@ export function AppRoutes() {
       <Route path="/account/personal-development" element={<UserPersonalDevelopmentPage />} />
       <Route path="/account/finance-planner" element={<UserFinancePlannerPage />} />
       <Route path="/account/privacy-settings" element={<PrivacySettingsPage />} />
-      <Route path="/politic" element={<PrivacyPolicyPage />} />
+      <Route path="/politic" element={<Navigate to="/privacy" replace />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/offer" element={<PublicOfferPage />} />
       <Route path="/cookies" element={<CookiesPolicyPage />} />

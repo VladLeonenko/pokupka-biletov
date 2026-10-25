@@ -59,6 +59,32 @@ const AMBIGUOUS_TICKET_PATHS = new Set([
   '/ticket/meropriyatie',
 ]);
 
+/** Служебные URL — не индексировать (корзина, ЛК, auth). */
+const NOINDEX_PATH_PREFIXES = [
+  '/admin',
+  '/account',
+  '/cart',
+  '/wishlist',
+  '/register',
+  '/auth',
+  '/login',
+  '/orders',
+  '/commercial-proposals',
+  '/tools',
+  '/ai-chat',
+  '/404',
+];
+
+function normalizePublicPath(pathname) {
+  const n = String(pathname || '').replace(/\/+$/, '');
+  return n || '/';
+}
+
+function isNoindexPublicPath(pathname) {
+  const n = normalizePublicPath(pathname);
+  return NOINDEX_PATH_PREFIXES.some((prefix) => n === prefix || n.startsWith(`${prefix}/`));
+}
+
 function looksLikeGetbiletId(value) {
   return /^[a-f0-9]{24}$/i.test(String(value || '').trim());
 }
@@ -108,16 +134,20 @@ function sendDistFile(res, relName, contentType, cacheControl) {
 }
 
 /**
- * Убирает дефолтные title/description/canonical/OG/Twitter из шаблона index.html,
+ * Убирает дефолтные title/description/canonical/OG/Twitter/robots из шаблона index.html,
  * чтобы не было дублей при SSR (один <title>, один набор meta).
+ * Multiline-safe: в dist/index.html meta часто с переносами атрибутов.
  */
 function stripDefaultSeoFromHtml(html) {
-  let out = html.replace(/<title>[^<]*<\/title>/i, '');
-  out = out.replace(/<meta name="description" content="[^"]*"\s*\/?>/i, '');
-  out = out.replace(/<meta name="keywords" content="[^"]*"\s*\/?>/i, '');
-  out = out.replace(/<link rel="canonical" href="[^"]*"\s*\/?>/i, '');
-  out = out.replace(/<meta property="og:[^"]*"[^>]*>/gi, '');
-  out = out.replace(/<meta name="twitter:[^"]*"[^>]*>/gi, '');
+  let out = String(html || '');
+  out = out.replace(/<title>[^<]*<\/title>/i, '');
+  // <meta ...> может быть многострочным — [^>] матчит \\n, однострочный regex раньше не снимал description.
+  out = out.replace(/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/gi, '');
+  out = out.replace(/<meta\b[^>]*\bname\s*=\s*["']keywords["'][^>]*>/gi, '');
+  out = out.replace(/<meta\b[^>]*\bname\s*=\s*["']robots["'][^>]*>/gi, '');
+  out = out.replace(/<link\b[^>]*\brel\s*=\s*["']canonical["'][^>]*>/gi, '');
+  out = out.replace(/<meta\b[^>]*\bproperty\s*=\s*["']og:[^"']*["'][^>]*>/gi, '');
+  out = out.replace(/<meta\b[^>]*\bname\s*=\s*["']twitter:[^"']*["'][^>]*>/gi, '');
   // Убираем дефолтный JSON-LD из shell — SSR инжектит актуальный graph.
   out = out.replace(/<script type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, '');
   return out;
@@ -210,6 +240,14 @@ export async function seoRenderer(req, res, next) {
   // Старые неоднозначные ticket URL без ID репертуара не должны открывать пустую карточку.
   if ((req.method === 'GET' || req.method === 'HEAD') && AMBIGUOUS_TICKET_PATHS.has(req.path)) {
     return res.redirect(302, '/events');
+  }
+
+  // Дубль политики: один канон /privacy (иначе одинаковые title/description в Вебмастере).
+  if (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    (req.path === '/politic' || req.path === '/politic/')
+  ) {
+    return res.redirect(301, '/privacy');
   }
 
   // Удалённые SEO-разделы: явно сообщаем роботам, что URL больше не существует.
@@ -322,10 +360,27 @@ export async function seoRenderer(req, res, next) {
 
     // Query-параметры: canonical без query уже в meta; для индекса — noindex,follow.
     if (!allowCache) {
-      if (!/name="robots"/i.test(seoTags)) {
+      if (!/name=["']robots["']/i.test(seoTags)) {
         seoTags += `\n    <meta name="robots" content="noindex, follow" />`;
       }
       res.setHeader('X-Robots-Tag', 'noindex, follow');
+    }
+
+    // Корзина / ЛК / auth — noindex даже без query (CSR noindex бот не видит).
+    if (isNoindexPublicPath(pathOnly)) {
+      const baseUrl = siteBaseUrl();
+      const canonPath = normalizePublicPath(pathOnly);
+      const canonical = `${baseUrl}${canonPath === '/' ? '/' : canonPath}`;
+      if (!seoTags) {
+        seoTags = `
+    <title>Служебная страница</title>
+    <meta name="description" content="Служебная страница сервиса билетов. Не для индексации." />
+    <link rel="canonical" href="${canonical}" />
+    <meta name="robots" content="noindex, nofollow" />`;
+      } else if (!/name=["']robots["']/i.test(seoTags)) {
+        seoTags += `\n    <meta name="robots" content="noindex, nofollow" />`;
+      }
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     }
 
     // Всегда strip shell SEO: иначе дубли title/OG/JSON-LD с index.html.

@@ -13,6 +13,7 @@ const NOINDEX_PATHS = [
   '/wishlist',
   '/register',
   '/auth',
+  '/login',
   '/orders',
   '/commercial-proposals',
   '/tools',
