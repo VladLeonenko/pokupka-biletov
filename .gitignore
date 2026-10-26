@@ -133,3 +133,10 @@ frontend/.env.*
 frontend/public/uploads/
 .DS_Store
 backend/coordinates.json
+
+# Sniper secrets (не в git)
+backend/data/radario-passports.json
+backend/sniper-contacts.json
+backend/ton-accounts.json
+backend/sniper-contacts*.json
+backend/data/radario-hold-state.json
