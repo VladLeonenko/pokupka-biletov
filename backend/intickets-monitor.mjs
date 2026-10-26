@@ -119,9 +119,12 @@ async function tryBook(cfg, meta) {
         ok: result.ok,
         reason: result.reason || null,
         orderId: result.orderId || null,
+        orderHash: result.orderHash || null,
         redirectUrl: result.redirectUrl || null,
+        qrId: result.qrId || null,
         seats: result.seats || null,
         buyers: result.buyers || null,
+        amount: result.amount ?? null,
       },
     });
     if (result.ok) {
@@ -137,11 +140,16 @@ async function tryBook(cfg, meta) {
       });
       saveState();
       const seatLines = (result.seats || [])
-        .map((s) => `  seat#${s.seatNumber} type=${s.ticketTypeId} ${s.price}₽`)
+        .map((s) => `  seat#${s.seatNumber} ${s.row || ''} м.${s.seatName || ''} type=${s.ticketTypeId} ${s.price}₽`)
         .join('\n');
       const retryLine = attempt > 1
         ? `ПОВТОР #${attempt} (предыдущий заказ, видимо, не оплатили вовремя).`
         : 'Первая бронь. Если не успеете оплатить — после окна снова забронируем те же места.';
+      const payLine = result.redirectUrl
+        ? `ОПЛАТА (СБП): ${result.redirectUrl}`
+        : (result.qrId
+          ? `QR выписан (qrId=${result.qrId}), redirectUrl пока пустой — откройте виджет/заказ #${result.orderId}`
+          : `orderId=${result.orderId} — ссылка СБП не пришла, проверьте заказ вручную`);
       const text = [
         attempt > 1 ? '🔁 Опера нищих — ПОВТОРНАЯ бронь (с паспортами)' : '✅ Опера нищих — заказ создан в Radario (с паспортами)',
         retryLine,
@@ -149,8 +157,10 @@ async function tryBook(cfg, meta) {
         `Event ID: ${cfg.id}`,
         `attempt: ${attempt}`,
         `orderId: ${result.orderId}`,
+        `orderHash: ${result.orderHash || '—'}`,
+        `amount: ${result.amount ?? '—'}`,
         `payment: ${result.paymentType}`,
-        `redirectUrl: ${result.redirectUrl || '—'}`,
+        payLine,
         `покупатели: ${(result.buyers || []).join(', ')}`,
         'места:',
         seatLines || '  —',
@@ -158,7 +168,7 @@ async function tryBook(cfg, meta) {
         `Окно на оплату до повторной брони: ~${Math.round(REBOOK_AFTER_MS / 60000)} мин (если места снова свободны).`,
         `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
       ].join('\n');
-      console.log(`[${t}] ✅ #${attempt} orderId=${result.orderId} seats=[${seatNums.join(',')}] url=${result.redirectUrl}`);
+      console.log(`[${t}] ✅ #${attempt} orderId=${result.orderId} seats=[${seatNums.join(',')}] url=${result.redirectUrl || 'no-url'} qr=${result.qrId || '-'}`);
       await notify(
         `${attempt > 1 ? '🔁' : '✅'} Опера нищих: заказ #${attempt} ${cfg.label} #${result.orderId}`,
         text,
@@ -197,7 +207,9 @@ async function tryBook(cfg, meta) {
             `reason: ${result.reason}`,
             result.reason === 'soft_lock'
               ? 'Место в чужой корзине (soft-lock). Ретраим каждые ~1.5с пока не освободится.'
-              : '',
+              : result.reason === 'order_rejected'
+                ? 'Заказ отвергнут API (payload/валидация). Смотри error ниже — чинить radarioBooking.'
+                : '',
             `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
             '',
             JSON.stringify(result, null, 2).slice(0, 3000),

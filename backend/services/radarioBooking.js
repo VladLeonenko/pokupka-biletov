@@ -291,6 +291,19 @@ export async function bookRadarioEvent(eventId, opts = {}) {
     isAgreeNotToFillInPersonalData: false,
   };
 
+  // как в виджете: preview перед оплатой (прогрев сессии / суммы)
+  await api('POST', '/json/ticketOrder/preview', {
+    sessionId,
+    body: {
+      eventId: Number(eventId),
+      buySessionId: sessionId,
+      tickets,
+      autoPromoCodeCanceled: true,
+      distributionType,
+      paymentType,
+    },
+  }).catch(() => null);
+
   const orderUrl = buy.ticketBuyingUrl || '/json/widget/ticketOrder';
   let order;
   try {
@@ -309,19 +322,78 @@ export async function bookRadarioEvent(eventId, opts = {}) {
         ticketCount: event.ticketCount,
       };
     }
-    throw err;
+    return {
+      ok: false,
+      reason: 'order_rejected',
+      sessionId,
+      tried: locked,
+      error: msg,
+      data: err?.data || null,
+      ticketCount: event.ticketCount,
+    };
+  }
+
+  const orderId = order?.orderId ?? order?.id ?? null;
+  const orderHash = order?.orderHash ?? order?.hash ?? null;
+  const amount = order?.amount ?? null;
+  let redirectUrl = order?.redirectUrl || order?.paymentUrl || null;
+  let qrId = null;
+  let qrPngBase64 = null;
+  let sbp = null;
+
+  // AlfaSBP: заказ сам по себе часто без redirectUrl — QR отдельным API
+  if (orderId && paymentType === 'alfasbp') {
+    sbp = await fetchAlfaSbpPayment(sessionId, orderId);
+    qrId = sbp.qrId;
+    qrPngBase64 = sbp.renderedQr || null;
+    if (sbp.redirectUrl) redirectUrl = sbp.redirectUrl;
   }
 
   return {
     ok: true,
     sessionId,
-    orderId: order?.orderId ?? order?.id ?? null,
-    redirectUrl: order?.redirectUrl || order?.paymentUrl || null,
+    orderId,
+    orderHash,
+    redirectUrl,
+    qrId,
+    qrPngBase64,
     paymentType,
     seats: locked,
     buyers: people.map((p) => p.fullName),
-    amount: order?.amount ?? null,
+    amount,
     raw: order,
+    sbp,
+  };
+}
+
+/** После ticketOrder для alfasbp: POST /payments/alfasbp/qr → status → redirectUrl. */
+async function fetchAlfaSbpPayment(sessionId, orderId) {
+  const qr = await api('POST', '/payments/alfasbp/qr', {
+    sessionId,
+    body: { orderId, qrHeight: 250, qrWidth: 250 },
+  });
+  const qrId = qr?.qrId ?? qr?.qrStatus?.qrId ?? null;
+  let redirectUrl = qr?.redirectUrl || null;
+  let status = null;
+  if (qrId) {
+    // несколько попыток — redirectUrl иногда появляется не сразу
+    for (let i = 0; i < 5; i++) {
+      status = await api('POST', '/payments/alfasbp/qr/status', {
+        sessionId,
+        body: { orderId, qrId },
+      }).catch(() => null);
+      redirectUrl = status?.redirectUrl || status?.qrStatus?.redirectUrl || redirectUrl;
+      if (redirectUrl) break;
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+  return {
+    qrId,
+    renderedQr: qr?.renderedQr || null,
+    qrStatus: qr?.qrStatus || status?.qrStatus || null,
+    redirectUrl: redirectUrl || null,
+    rawQr: qr,
+    rawStatus: status,
   };
 }
 
