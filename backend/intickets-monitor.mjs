@@ -178,6 +178,7 @@ async function tryBook(cfg, meta) {
     } else {
       console.log(`[${t}] ⚠️ бронь #${attempt} не вышла: ${result.reason || JSON.stringify(result).slice(0, 200)}`);
       if (result.reason === 'soft_lock') {
+        // чужая корзина — нормальный ретрай, письма НЕ шлём (иначе спам каждые N мин)
         holds.set(cfg.id, {
           ...(prev || {}),
           orderId: prev?.orderId || null,
@@ -186,35 +187,46 @@ async function tryBook(cfg, meta) {
           bookedAt: prev?.bookedAt || 0,
           cooldownUntil: 0,
           pendingSoftLock: true,
-          sawZeroAfterBook: false,
+          sawZeroAfterBook: prev?.sawZeroAfterBook || false,
         });
         saveState();
-      }
-      // письмо только при первой неудаче / раз в 5 мин чтобы не спамить
-      const lastFailMail = prev?.lastFailMailAt || 0;
-      if (!prev?.lastFailMailAt || Date.now() - lastFailMail > 5 * 60 * 1000) {
-        if (holds.has(cfg.id)) {
-          const h = holds.get(cfg.id);
+      } else {
+        // реальные ошибки (order_rejected и т.п.) — максимум 1 письмо на «волну»
+        const lastFailMail = prev?.lastFailMailAt || 0;
+        const alreadyMailed = !!prev?.lastFailMailAt;
+        if (!alreadyMailed) {
+          holds.set(cfg.id, {
+            ...(prev || {}),
+            ...(holds.get(cfg.id) || {}),
+            pendingSoftLock: false,
+            lastFailMailAt: Date.now(),
+          });
+          saveState();
+          await notify(
+            `⚠️ Опера нищих: бронь не вышла (${cfg.label})`,
+            [
+              `Дата: ${cfg.label}`,
+              `ticketCount: ${meta.ticketCount}`,
+              `reason: ${result.reason}`,
+              result.reason === 'order_rejected'
+                ? 'Заказ отвергнут API (payload/валидация). Смотри error ниже.'
+                : '',
+              `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
+              '',
+              JSON.stringify(result, null, 2).slice(0, 3000),
+            ].join('\n'),
+          ).catch(() => {});
+        } else if (Date.now() - lastFailMail > 30 * 60 * 1000) {
+          // раз в 30 мин если всё ещё ломается
+          const h = holds.get(cfg.id) || prev || {};
           h.lastFailMailAt = Date.now();
           holds.set(cfg.id, h);
           saveState();
+          await notify(
+            `⚠️ Опера нищих: бронь всё ещё не выходит (${cfg.label})`,
+            `reason: ${result.reason}\n\n${JSON.stringify(result, null, 2).slice(0, 2000)}`,
+          ).catch(() => {});
         }
-        await notify(
-          `⚠️ Опера нищих: билеты есть, бронь не вышла (${cfg.label})`,
-          [
-            `Дата: ${cfg.label}`,
-            `ticketCount: ${meta.ticketCount}`,
-            `reason: ${result.reason}`,
-            result.reason === 'soft_lock'
-              ? 'Место в чужой корзине (soft-lock). Ретраим каждые ~1.5с пока не освободится.'
-              : result.reason === 'order_rejected'
-                ? 'Заказ отвергнут API (payload/валидация). Смотри error ниже — чинить radarioBooking.'
-                : '',
-            `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
-            '',
-            JSON.stringify(result, null, 2).slice(0, 3000),
-          ].join('\n'),
-        ).catch(() => {});
       }
     }
   } catch (err) {
@@ -279,6 +291,11 @@ while (true) {
 
       if (hold && count === 0) {
         hold.sawZeroAfterBook = true;
+        // волна закончилась — сбросить «уже слали fail-mail», чтобы при новом появлении можно было алертнуть раз
+        if (hold.pendingSoftLock || hold.lastFailMailAt) {
+          hold.pendingSoftLock = false;
+          hold.lastFailMailAt = 0;
+        }
         saveState();
       }
 
