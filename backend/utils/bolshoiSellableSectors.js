@@ -75,7 +75,7 @@ export const BOLSHOI_HALL_MAP_LABELS = [
   { text: 'АМФИТЕАТР', x: 750, y: 479, fontSize: 13, plate: true, owner: 'Амфитеатр' },
   { text: 'ЛОЖИ БЕНУАРА', x: 1027, y: 366, fontSize: 10, rotate: -90, owner: 'Бенуар' },
   { text: 'ЛОЖИ БЕНУАРА', x: 473, y: 366, fontSize: 10, rotate: 90, owner: 'Бенуар' },
-  { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 1119, y: 198, fontSize: 10, rotate: -90, owner: 'Бельэтаж' },
+  { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 1111, y: 205, fontSize: 10, rotate: -90, owner: 'Бельэтаж' },
   { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 381, y: 198, fontSize: 10, rotate: 90, owner: 'Бельэтаж' },
   { text: 'ЛОЖИ 1 ЯРУСА', x: 1204, y: 301, fontSize: 10, rotate: -90, owner: '1 ярус' },
   { text: 'ЛОЖИ 1 ЯРУСА', x: 296, y: 301, fontSize: 10, rotate: 90, owner: '1 ярус' },
@@ -83,22 +83,8 @@ export const BOLSHOI_HALL_MAP_LABELS = [
   { text: 'ЛОЖИ 2 ЯРУСА', x: 221, y: 330, fontSize: 10, rotate: 90, owner: '2 ярус' },
   { text: 'ЛОЖИ 3 ЯРУСА', x: 1361, y: 360, fontSize: 10, rotate: -90, owner: '3 ярус' },
   { text: 'ЛОЖИ 3 ЯРУСА', x: 139, y: 360, fontSize: 10, rotate: 90, owner: '3 ярус' },
-  {
-    text: 'БАЛКОН 2 ЯРУСА',
-    x: 850,
-    y: 887,
-    fontSize: 12,
-    plate: true,
-    owner: 'Балкон 2 яруса',
-  },
-  {
-    text: 'БАЛКОН 3 ЯРУСА',
-    x: 850,
-    y: 971,
-    fontSize: 12,
-    plate: true,
-    owner: 'Балкон 3 яруса',
-  },
+  { text: 'БАЛКОН 2 ЯРУСА', x: 750, y: 905, fontSize: 12, owner: 'Балкон 2 яруса' },
+  { text: 'БАЛКОН 3 ЯРУСА', x: 750, y: 996, fontSize: 12, owner: 'Балкон 3 яруса' },
   { text: 'БАЛКОН 4 ЯРУСА', x: 750, y: 1085, fontSize: 12, owner: 'Балкон 4 яруса' },
 ];
 

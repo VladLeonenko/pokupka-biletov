@@ -7,7 +7,7 @@
  * лож у сцены, у 2 яруса нет правой стороны, балконы подписаны только частично.
  * Поэтому геометрия задаётся спекой, а не правится точками.
  *
- * Схема: 1500×1190, сцена сверху (y=0), ось зала x=750.
+ * Схема: 1500×1100, сцена сверху (y=0), ось зала x=750.
  * Правая сторона зала = большие X (так стоят подписи BOLSHOI_HALL_MAP_LABELS).
  * Место 1 в центральных зонах — у правой стороны (большой X), как в референсе.
  *
@@ -29,7 +29,8 @@ const STAGE_ID =
   process.env.BOLSHOI_HISTORICAL_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-historical-stage';
 
 const HALL_W = 1500;
-const HALL_H = 1190;
+/** Высота по нижнему ряду балкона 4 яруса + поля; пустой низ уменьшал схему. */
+const HALL_H = 1100;
 const AXIS = HALL_W / 2;
 
 /** Единая линия начала всех боковых ярусов. */
@@ -275,9 +276,10 @@ function buildSideBoxes() {
 /* ─────────────────────────── Балконы ─────────────────────────── */
 
 /**
- * Балкон 2/3 яруса продолжает дугу своего яруса за последней ложей —
- * первый ряд лежит на той же эллиптической линии, что и фронт лож.
- * Балкон 4 яруса своих лож не имеет и идёт снаружи балкона 3 яруса.
+ * Балкон 2/3 яруса — это центральная часть того же яруса, что и его ложи, и
+ * занимает ту же полосу: 3 ряда на тех же глубинах, что ряды лож (`depth` в
+ * шагах `rowPitch`, минус — внутрь зала). Тогда зазор «ложи ↔ балкон» равен
+ * зазору «ложи ↔ ложи» по всему залу. Балкон 4 яруса своих лож не имеет.
  *
  * Нумерация по референсу разная: на балконе 2 яруса каждая сторона своя,
  * 1…12 от внешнего края к центру; на балконах 3 и 4 — непрерывная через весь
@@ -286,23 +288,23 @@ function buildSideBoxes() {
 const BALCONIES = [
   {
     label: 'Балкон 2 яруса',
-    cy: 520,
+    base: TIERS[3],
     spanDeg: 40,
     numbering: 'per-side-outward',
     rows: [
-      { row: '1', a: 570, b: 345, seats: 24 },
-      { row: '2', a: 600, b: 375, seats: 24 },
-      { row: '3', a: 630, b: 405, seats: 20 },
+      { row: '1', depth: -1, seats: 24 },
+      { row: '2', depth: 0, seats: 24 },
+      { row: '3', depth: 1, seats: 20 },
     ],
   },
   {
     label: 'Балкон 3 яруса',
-    cy: 560,
+    base: TIERS[4],
     spanDeg: 52,
     rows: [
-      { row: '1', a: 652, b: 400, seats: 40 },
-      { row: '2', a: 682, b: 425, seats: 40 },
-      { row: '3', a: 712, b: 450, seats: 40 },
+      { row: '1', depth: -1, seats: 40 },
+      { row: '2', depth: 0, seats: 40 },
+      { row: '3', depth: 1, seats: 40 },
     ],
   },
 ];
@@ -328,7 +330,7 @@ const BALCONY4 = {
   /** Дуга базовой подковы до оси зала, чтобы путь замкнулся по центру. */
   endDeg: 90,
   /**
-   * Участки подковы от правой стены к левой: `seats` — сколько шагов сетки
+   * Участки подковы от правой стены к левой: `slots` — сколько шагов сетки
    * занимает участок с местами, `exit` — ширина следующего за ним выхода.
    * Сетка строится по ряду 1, поэтому его числа мест здесь и стоят.
    */
@@ -341,32 +343,28 @@ const BALCONY4 = {
     { id: 'F', slots: 15, exit: 0 },
   ],
   /**
-   * На участках B…E во всех рядах мест одинаково — тогда места стоят ровными
-   * радиальными колонками. Крылья A и F есть только у рядов 1 и 2, и там числа
-   * свои: по референсу ряд 1 уходит в выход после 18 места, ряд 2 — после 16.
+   * Четыре ряда, как на референсе: ряды 1 и 2 идут от боковой стены через всю
+   * подкову, ряды 3 и 4 — только в центре. Дальше к стене их ставить некуда:
+   * полоса ряда 2 уже упирается в край схемы, у неё зазор ровно в один шаг
+   * яруса (82) от подковы 3 яруса.
    *
-   * Стоячие ряды занимают только два центральных участка: наружу от ряда 4
-   * зазор уже больше, чем от подковы 3 яруса до боковой стены, и на участках
-   * B и E такой ряд уходит за край схемы.
+   * Зазор у каждого ряда постоянный по всей подкове — иначе крылья балкона
+   * расходятся с ложами 3 яруса. Шаг между рядами тот же `rowPitch`, что в
+   * ложах, а ряд 1 отстоит от внешнего ряда лож ровно как ложи друг от друга.
    */
   rows: [
-    { row: '1', gap: 34, atCenter: 86, counts: { A: 18, B: 12, C: 11, D: 11, E: 14, F: 15 } },
-    { row: '2', gap: 53, atCenter: 105, counts: { A: 16, B: 12, C: 11, D: 11, E: 14, F: 13 } },
-    { row: '3', gap: 72, atCenter: 124, counts: { B: 12, C: 11, D: 11, E: 14 } },
-    { row: '4', gap: 91, atCenter: 143, counts: { B: 12, C: 11, D: 11, E: 14 } },
-    { row: '2А', gap: 110, atCenter: 162, standing: true, counts: { C: 11, D: 11 } },
-    { row: '3А', gap: 129, atCenter: 181, standing: true, counts: { C: 11, D: 11 } },
-    { row: '4А', gap: 148, atCenter: 200, standing: true, counts: { C: 11, D: 11 } },
+    { row: '1', gap: 65, counts: { A: 18, B: 12, C: 11, D: 11, E: 14, F: 15 } },
+    { row: '2', gap: 82, counts: { A: 16, B: 12, C: 11, D: 11, E: 14, F: 13 } },
+    { row: '3', gap: 99, counts: { C: 11, D: 11 } },
+    { row: '4', gap: 116, counts: { C: 11, D: 11 } },
   ],
 };
 
 /**
- * Эквидистанта пути яруса наружу зала. Нормаль внутрь зала — (ty, −tx), значит
- * наружу — (−ty, tx). На прямом участке у стены зазор постоянный, иначе крылья
- * балкона отходят от стены под углом; растёт он только вдоль дуги.
+ * Эквидистанта пути яруса наружу зала на постоянное расстояние `d`. Нормаль
+ * внутрь зала — (ty, −tx), значит наружу — (−ty, tx).
  */
-function outwardOffsetPath(pts, gap, atCenter, straightEnd) {
-  const arcSpan = Math.max(1, pts.length - 1 - straightEnd);
+function outwardOffsetPath(pts, d) {
   const out = [];
   for (let i = 0; i < pts.length; i += 1) {
     const p0 = pts[Math.max(0, i - 1)];
@@ -374,8 +372,6 @@ function outwardOffsetPath(pts, gap, atCenter, straightEnd) {
     const len = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
     const tx = (p1.x - p0.x) / len;
     const ty = (p1.y - p0.y) / len;
-    const t = i <= straightEnd ? 0 : (i - straightEnd) / arcSpan;
-    const d = gap + (atCenter - gap) * t;
     out.push({ x: pts[i].x - ty * d, y: pts[i].y + tx * d });
   }
   return out;
@@ -411,9 +407,8 @@ function fractionAtLength(acc, s) {
 function buildBalcony4() {
   const spec = BALCONY4;
   const steps = 1400;
-  const straightEnd = tierStraightEnd(steps);
   const left = tierPath({ ...spec.base, arc: { ...spec.base.arc, endDeg: spec.endDeg } }, steps);
-  const rings = spec.rows.map((r) => mirrorToFullRing(outwardOffsetPath(left, r.gap, r.atCenter, straightEnd)));
+  const rings = spec.rows.map((r) => mirrorToFullRing(outwardOffsetPath(left, r.gap)));
 
   /**
    * Сетку шагов размечаем по ряду 1 равномерно по его длине — у него шаг между
@@ -445,9 +440,7 @@ function buildBalcony4() {
         const p = pointAtFraction(ring, fractionAtLength(acc, s0 + ((s1 - s0) * (j + 0.5)) / n));
         seat += 1;
         out.push({
-          sector: `${spec.label} ${p.x > AXIS ? 'Правая' : 'Левая'} сторона${
-            r.standing ? ' стоячие места' : ''
-          }`,
+          sector: `${spec.label} ${p.x > AXIS ? 'Правая' : 'Левая'} сторона`,
           row: r.row,
           seat: String(seat),
           cx: p.x,
@@ -462,19 +455,25 @@ function buildBalcony4() {
 function buildBalconies() {
   const out = [];
   for (const bal of BALCONIES) {
+    const { cy: arcCy, a, b } = bal.base.arc;
     for (const r of bal.rows) {
       const span = r.spanDeg ?? bal.spanDeg;
       const perSide = bal.numbering === 'per-side-outward';
       const half = r.seats / 2;
+      const d = r.depth * bal.base.rowPitch;
       for (let i = 0; i < r.seats; i += 1) {
         /** i идёт от правой стороны (угол 90−span/2) к левой. */
         const th = (90 - span / 2 + (span * (i + 0.5)) / r.seats) * DEG;
-        const cx = AXIS + r.a * Math.cos(th);
-        const cy = bal.cy + r.b * Math.sin(th);
+        /** Нормаль эллипса наружу зала: (b·cosθ, a·sinθ). */
+        const nx = b * Math.cos(th);
+        const ny = a * Math.sin(th);
+        const nl = Math.hypot(nx, ny) || 1;
+        const cx = AXIS + a * Math.cos(th) + (d * nx) / nl;
+        const cy = arcCy + b * Math.sin(th) + (d * ny) / nl;
         const side = cx > AXIS ? 'Правая' : 'Левая';
         const seat = perSide ? (i < half ? half - i : i - half + 1) : i + 1;
         out.push({
-          sector: `${bal.label} ${side} сторона${r.standing ? ' стоячие места' : ''}`,
+          sector: `${bal.label} ${side} сторона`,
           row: r.row,
           seat: String(seat),
           cx,
