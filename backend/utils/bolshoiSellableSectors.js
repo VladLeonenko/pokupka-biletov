@@ -99,8 +99,9 @@ function viewPointForPreviewUrl(url) {
 /** @typedef {{ id: string, label: string, previewImageUrl?: string, test: (s: object) => boolean, maxQty?: number, box?: boolean }} SellableRule */
 
 /**
- * Продаваемые зоны. `maxQuantity` = число мест, попавших в зону на схеме
- * (без искусственного потолка). `box` — ложа, qty по желанию в пределах ложи.
+ * Продаваемые зоны. Границы зоны задаёт `test` — он же определяет, сколько в
+ * зоне мест; `maxQuantity` потом равен этому числу, без отдельного потолка.
+ * Менять `test` ради лимита нельзя: зона расползается по схеме.
  */
 export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
@@ -119,25 +120,43 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'beletazh_right',
     label: 'Бельэтаж правая (ложи 4–6)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    test: (s) => /Бельэтаж\s+Правая.*Ложа\s+[456]\b/.test(detail(s)),
+    /** На схеме Большого ряд 1 ложи нумеруется 1/3/5 (три места спереди). */
+    test: (s) =>
+      /Бельэтаж\s+Правая.*Ложа\s+[456]\b/.test(detail(s)) &&
+      String(s.row) === '1' &&
+      ['1', '3', '5'].includes(String(s.seat)),
   },
   {
     id: 'lozha1_right',
     label: '1 ярус правая (ложи 5–8)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    test: (s) => /1\s*ярус\s+Правая.*Ложа\s+[5678]\b/.test(detail(s)),
+    test: (s) =>
+      /1\s*ярус\s+Правая.*Ложа\s+[5678]\b/.test(detail(s)) &&
+      String(s.row) === '1' &&
+      ['1', '3', '5'].includes(String(s.seat)),
   },
   {
     id: 'balkon2_left',
     label: 'Балкон 2 яруса левая',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.amphitheater,
-    test: (s) => /Балкон\s+2\s+яруса\s+Левая/.test(detail(s)),
+    test: (s) => {
+      if (!/Балкон\s+2\s+яруса\s+Левая/.test(detail(s))) return false;
+      if (String(s.row) !== '1') return false;
+      const seat = Number(String(s.seat).replace(/\D/g, ''));
+      return Number.isFinite(seat) && seat >= 1 && seat <= 8;
+    },
   },
   {
     id: 'balkon3_left',
     label: 'Балкон 3 яруса левая',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.amphitheater,
-    test: (s) => /Балкон\s+3\s+яруса\s+Левая/.test(detail(s)),
+    test: (s) => {
+      if (!/Балкон\s+3\s+яруса\s+Левая/.test(detail(s))) return false;
+      if (String(s.row) !== '1') return false;
+      const seat = Number(String(s.seat).replace(/\D/g, ''));
+      /** Ряд 1 нумеруется не с единицы — первые 8 по порядку отбирает remap. */
+      return Number.isFinite(seat);
+    },
   },
   {
     id: 'beletazh_box',
@@ -192,6 +211,11 @@ export function remapBolshoiSeatsToSellableLabels(seats) {
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
     const hits = out.filter((s) => rule.test(s));
     let final = hits;
+    if (rule.id === 'balkon3_left') {
+      final = [...hits]
+        .sort((a, b) => Number(a.seat) - Number(b.seat) || String(a.seat).localeCompare(String(b.seat)))
+        .slice(0, 8);
+    }
     if (rule.id === 'vip_parter') {
       /** Не пересекаться с «Партер середина» — VIP только литера А. */
       final = hits.filter((s) => String(s.row) === 'А' || s._vipRowA);
@@ -204,24 +228,27 @@ export function remapBolshoiSeatsToSellableLabels(seats) {
   return out;
 }
 
+/** Разделитель «исходный сектор ↔ ряд» в ключе группы мест. */
+const GROUP_SEP = '§';
+
 /**
- * row → SeatList map per sellable label.
- * Ключ места уникален по исходной ложе/ряду/номеру: иначе три ложи с местами
- * 1/3/5 схлопываются в три слота вместо девяти, и qty зоны занижается.
+ * group → SeatList map per sellable label. Группа — исходный сектор + ряд, а не
+ * просто ряд: зона «ложи 4–6» это три ложи с местами 1/3/5, и по одному ряду
+ * они схлопнулись бы в три слота вместо девяти.
  */
 export function bolshoiSellableSeatsByRow(seats) {
   const byLabel = new Map();
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
-    const byRow = new Map();
+    const byGroup = new Map();
     for (const s of seats) {
       if (s.sector !== rule.label) continue;
-      const r = String(s.row ?? '');
-      const arr = byRow.get(r) ?? [];
       const origin = String(s.sectorDetail || s.sector || rule.label);
-      arr.push(`${origin}|${r}|${String(s.seat)}`);
-      byRow.set(r, arr);
+      const key = `${origin}${GROUP_SEP}${String(s.row ?? '')}`;
+      const arr = byGroup.get(key) ?? [];
+      arr.push(String(s.seat));
+      byGroup.set(key, arr);
     }
-    byLabel.set(rule.label, byRow);
+    byLabel.set(rule.label, byGroup);
   }
   return byLabel;
 }
@@ -248,17 +275,23 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
   const fallback = baseOffers?.[0] || null;
   const next = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
-    const byRow = byLabel.get(rule.label);
+    const byGroup = byLabel.get(rule.label);
     const proto = priceBySector.get(rule.label) || (fallback ? { ...fallback, Sector: rule.label } : null);
-    if (!byRow || !proto || byRow.size === 0) continue;
-    for (const [r, seatList] of byRow) {
+    if (!byGroup || !proto || byGroup.size === 0) continue;
+    let n = 0;
+    for (const [key, seatList] of byGroup) {
+      const [origin, row] = key.split(GROUP_SEP);
+      const seats = [...new Set(seatList)];
+      n += 1;
       next.push({
         ...proto,
-        Id: `${repertoireId}-${rule.id}-${r}`.replace(/\s+/g, '_'),
+        Id: `${repertoireId}-${rule.id}-${n}`.replace(/\s+/g, '_'),
         Sector: rule.label,
-        Row: r,
-        SeatList: [...new Set(seatList)],
-        MaxQuantity: seatList.length,
+        Row: row,
+        /** Исходная ложа/сектор — для брони, покупателю не показываем. */
+        SectorOrigin: origin,
+        SeatList: seats,
+        MaxQuantity: seats.length,
         BoxWhole: rule.box === true,
       });
     }
