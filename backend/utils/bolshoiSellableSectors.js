@@ -98,12 +98,15 @@ function viewPointForPreviewUrl(url) {
 
 /** @typedef {{ id: string, label: string, previewImageUrl?: string, test: (s: object) => boolean, maxQty?: number, box?: boolean }} SellableRule */
 
+/**
+ * Продаваемые зоны. `maxQuantity` = число мест, попавших в зону на схеме
+ * (без искусственного потолка). `box` — ложа, qty по желанию в пределах ложи.
+ */
 export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
     id: 'parter_mid',
     label: 'Партер (середина)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.parter,
-    maxQty: 8,
     test: (s) => {
       if (detail(s) !== 'Партер') return false;
       const row = String(s.row || '');
@@ -116,53 +119,30 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'beletazh_right',
     label: 'Бельэтаж правая (ложи 4–6)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    maxQty: 3,
-    /** На схеме Большого ряд 1 ложи нумеруется 1/3/5 (три места спереди). */
-    test: (s) =>
-      /Бельэтаж\s+Правая.*Ложа\s+[456]\b/.test(detail(s)) &&
-      String(s.row) === '1' &&
-      ['1', '3', '5'].includes(String(s.seat)),
+    test: (s) => /Бельэтаж\s+Правая.*Ложа\s+[456]\b/.test(detail(s)),
   },
   {
     id: 'lozha1_right',
     label: '1 ярус правая (ложи 5–8)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    maxQty: 3,
-    test: (s) =>
-      /1\s*ярус\s+Правая.*Ложа\s+[5678]\b/.test(detail(s)) &&
-      String(s.row) === '1' &&
-      ['1', '3', '5'].includes(String(s.seat)),
+    test: (s) => /1\s*ярус\s+Правая.*Ложа\s+[5678]\b/.test(detail(s)),
   },
   {
     id: 'balkon2_left',
     label: 'Балкон 2 яруса левая',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.amphitheater,
-    maxQty: 8,
-    test: (s) => {
-      if (!/Балкон\s+2\s+яруса\s+Левая/.test(detail(s))) return false;
-      if (String(s.row) !== '1') return false;
-      const seat = Number(String(s.seat).replace(/\D/g, ''));
-      return Number.isFinite(seat) && seat >= 1 && seat <= 8;
-    },
+    test: (s) => /Балкон\s+2\s+яруса\s+Левая/.test(detail(s)),
   },
   {
     id: 'balkon3_left',
     label: 'Балкон 3 яруса левая',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.amphitheater,
-    maxQty: 8,
-    test: (s) => {
-      if (!/Балкон\s+3\s+яруса\s+Левая/.test(detail(s))) return false;
-      if (String(s.row) !== '1') return false;
-      const seat = Number(String(s.seat).replace(/\D/g, ''));
-      // на схеме ряд 1 часто нумеруется с 22 — берём первые 8 по порядку мест
-      return Number.isFinite(seat);
-    },
+    test: (s) => /Балкон\s+3\s+яруса\s+Левая/.test(detail(s)),
   },
   {
     id: 'beletazh_box',
     label: 'Ложа бельэтажа (левая 4)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    maxQty: 8,
     box: true,
     test: (s) => /Бельэтаж\s+Левая.*Ложа\s+4\b/.test(detail(s)),
   },
@@ -171,7 +151,6 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     label: 'Ложа 1 яруса (левая 9)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     /** Ложа = 8 мест: ряд 1 — 1/3/5, ряд 2 — 2/4/6, ряд 3 — 7/8. */
-    maxQty: 8,
     box: true,
     test: (s) => /1\s*ярус\s+Левая.*Ложа\s+9\b/.test(detail(s)),
   },
@@ -179,8 +158,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'vip_parter',
     label: 'Партер ряд А (Вип)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.parter,
-    maxQty: 8,
-    /** Ряд А: литера из подписей ИЛИ геометрически первый ряд партера (у сцены). */
+    /** Ряд А: литера из подписей. */
     test: (s) => detail(s) === 'Партер' && (String(s.row || '') === 'А' || s._vipRowA === true),
   },
 ];
@@ -214,13 +192,8 @@ export function remapBolshoiSeatsToSellableLabels(seats) {
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
     const hits = out.filter((s) => rule.test(s));
     let final = hits;
-    if (rule.id === 'balkon3_left') {
-      final = [...hits]
-        .sort((a, b) => Number(a.seat) - Number(b.seat) || String(a.seat).localeCompare(String(b.seat)))
-        .slice(0, 8);
-    }
     if (rule.id === 'vip_parter') {
-      /** Не пересекаться с «Партер середина» — VIP только литера А / первый ряд. */
+      /** Не пересекаться с «Партер середина» — VIP только литера А. */
       final = hits.filter((s) => String(s.row) === 'А' || s._vipRowA);
     }
     for (const s of final) {
@@ -253,17 +226,26 @@ export function bolshoiSellableSeatsByRow(seats) {
  * @param {Map<string, Map<string, string[]>>} byLabel
  * @param {string} repertoireId
  */
+/** Старые лейблы лож → актуальные (после снятия «целиком»). */
+const BOLSHOI_SECTOR_LABEL_ALIASES = {
+  'Ложа бельэтажа целиком (левая 4)': 'Ложа бельэтажа (левая 4)',
+  'Ложа 1 яруса целиком (левая 9)': 'Ложа 1 яруса (левая 9)',
+};
+
 export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
   const priceBySector = new Map();
   for (const off of baseOffers || []) {
-    const lab = String(off.Sector || '');
-    if (lab && !priceBySector.has(lab)) priceBySector.set(lab, off);
+    let lab = String(off.Sector || '');
+    if (BOLSHOI_SECTOR_LABEL_ALIASES[lab]) lab = BOLSHOI_SECTOR_LABEL_ALIASES[lab];
+    if (lab && !priceBySector.has(lab)) priceBySector.set(lab, { ...off, Sector: lab });
   }
+  /** Если зоны нет в кэше (ложи пропали из-за смены лейбла) — берём любой оффер той же даты. */
+  const fallback = baseOffers?.[0] || null;
   const next = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
     const byRow = byLabel.get(rule.label);
-    const proto = priceBySector.get(rule.label);
-    if (!byRow || !proto) continue;
+    const proto = priceBySector.get(rule.label) || (fallback ? { ...fallback, Sector: rule.label } : null);
+    if (!byRow || !proto || byRow.size === 0) continue;
     for (const [r, seatList] of byRow) {
       next.push({
         ...proto,
@@ -271,7 +253,7 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
         Sector: rule.label,
         Row: r,
         SeatList: [...new Set(seatList)],
-        MaxQuantity: rule.maxQty ?? seatList.length,
+        MaxQuantity: seatList.length,
         BoxWhole: rule.box === true,
       });
     }
@@ -460,7 +442,7 @@ export function buildBolshoiSellableSectorMode(seats, hallWidth = 1500, hallHeig
       previewImageUrl: rule.previewImageUrl || null,
       previewIconX: vp?.x ?? null,
       previewIconY: vp?.y ?? null,
-      maxQuantity: rule.box ? pts.length : (rule.maxQty ?? pts.length),
+      maxQuantity: pts.length,
       boxWhole: rule.box === true,
     });
   }
