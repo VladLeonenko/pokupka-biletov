@@ -204,7 +204,11 @@ export function remapBolshoiSeatsToSellableLabels(seats) {
   return out;
 }
 
-/** row → SeatList map per sellable label */
+/**
+ * row → SeatList map per sellable label.
+ * Ключ места уникален по исходной ложе/ряду/номеру: иначе три ложи с местами
+ * 1/3/5 схлопываются в три слота вместо девяти, и qty зоны занижается.
+ */
 export function bolshoiSellableSeatsByRow(seats) {
   const byLabel = new Map();
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
@@ -213,7 +217,8 @@ export function bolshoiSellableSeatsByRow(seats) {
       if (s.sector !== rule.label) continue;
       const r = String(s.row ?? '');
       const arr = byRow.get(r) ?? [];
-      arr.push(String(s.seat));
+      const origin = String(s.sectorDetail || s.sector || rule.label);
+      arr.push(`${origin}|${r}|${String(s.seat)}`);
       byRow.set(r, arr);
     }
     byLabel.set(rule.label, byRow);
