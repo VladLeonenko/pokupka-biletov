@@ -223,9 +223,11 @@ async function main() {
   let keepParter = [];
   let layout = null;
   let mapId = null;
+  /** @type {import('pg').Pool | null} */
+  let ticketPool = null;
 
   if (WITH_DB) {
-    const ticketPool = (await import('../ticketDb.js')).default;
+    ticketPool = (await import('../ticketDb.js')).default;
     const db = await ticketPool.query(
       `SELECT id, layout_json, length(svg_markup) AS svg_len
        FROM getbilet_stage_maps WHERE stage_external_id = $1`,
@@ -236,7 +238,6 @@ async function main() {
     layout = db.rows[0].layout_json;
     const prodSeats = Array.isArray(layout.seats) ? layout.seats : [];
     keepParter = prodSeats.filter(isParter).map((s) => ({ ...s }));
-    await ticketPool.end();
   } else if (fs.existsSync(BUNDLE_OUT)) {
     const bundle = JSON.parse(fs.readFileSync(BUNDLE_OUT, 'utf8'));
     const prodSeats = Array.isArray(bundle.seats) ? bundle.seats : [];
@@ -313,12 +314,8 @@ async function main() {
   fs.writeFileSync(BUNDLE_OUT, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
 
   if (WITH_DB) {
-    const ticketPool = (await import('../ticketDb.js')).default;
-    const db = await ticketPool.query(
-      `SELECT id, layout_json FROM getbilet_stage_maps WHERE stage_external_id = $1`,
-      [STAGE_ID],
-    );
-    const prev = db.rows[0].layout_json || {};
+    if (!ticketPool) ticketPool = (await import('../ticketDb.js')).default;
+    const prev = layout || {};
     const nextLayout = {
       ...prev,
       seats: bundle.seats,
@@ -340,11 +337,12 @@ async function main() {
       `UPDATE getbilet_stage_maps
        SET svg_markup = $1, layout_json = $2::jsonb, updated_at = NOW()
        WHERE id = $3`,
-      [svgMarkup, JSON.stringify(nextLayout), db.rows[0].id],
+      [svgMarkup, JSON.stringify(nextLayout), mapId],
     );
-    console.log(JSON.stringify({ writtenDb: true, mapId: db.rows[0].id, seats: bundle.seats.length }, null, 2));
-    await ticketPool.end();
+    console.log(JSON.stringify({ writtenDb: true, mapId, seats: bundle.seats.length }, null, 2));
   }
+
+  if (ticketPool) await ticketPool.end();
 
   console.log(
     JSON.stringify(
