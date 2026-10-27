@@ -307,6 +307,8 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
         SeatList: seats,
         MaxQuantity: seats.length,
         BoxWhole: rule.box === true,
+        /** Зоны ведём сами: GetBilet этих Id не знает, цена и бронь — из кэша. */
+        LocalOffer: true,
       });
     }
   }

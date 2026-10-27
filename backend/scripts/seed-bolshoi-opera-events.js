@@ -230,6 +230,8 @@ function buildOffers(ev, sectors) {
         NominalPrice: String(price),
         AgentPrice: String(price),
         EventDateTime: sess.iso,
+        /** Зоны Большого продаём сами, без партнёрского API. */
+        LocalOffer: true,
       });
     }
   }

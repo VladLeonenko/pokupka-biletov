@@ -83,6 +83,25 @@ function isManualOfferId(offerId) {
   return String(offerId || '').startsWith('manual-');
 }
 
+/** Наш собственный оффер (зоны Большого): партнёр таких Id не знает. */
+function isLocalOfferRow(row) {
+  return row?.LocalOffer === true || row?.localOffer === true;
+}
+
+/** Цена оффера так, как её видит покупатель (с наценкой витрины). */
+async function publicUnitRubForOffer(repertoireId, offerId) {
+  try {
+    const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
+    const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+    const row = rows.find((r) => r && typeof r === 'object' && String(r.Id ?? '') === String(offerId));
+    const unit = Number(row?.AgentPrice ?? row?.NominalPrice ?? 0);
+    return Number.isFinite(unit) && unit > 0 ? unit : null;
+  } catch (e) {
+    console.warn('[ticketSeatReservation] public price:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 async function resolveOfferUnitRub({ offerId, repertoireId }) {
   if (isDemoCheckoutPayload(repertoireId, offerId) || isManualOfferId(offerId)) {
     const row = await loadCachedOfferRowById(repertoireId, offerId);
@@ -96,6 +115,21 @@ async function resolveOfferUnitRub({ offerId, repertoireId }) {
       throw new GetbiletValidationError('Некорректная цена предложения');
     }
     return { unitRub, isDemo: true, cachedRow: row, isManual: isManualOfferId(offerId) };
+  }
+
+  /**
+   * Свои офферы (зоны Большого) к GetBilet не привязаны: их Id партнёр не знает
+   * и GetOfferById отвечает 500. Цену и наличие берём из нашего кэша, заказ у
+   * партнёра не создаём — зоны продаём предзаказом.
+   */
+  const ownRow = await loadCachedOfferRowById(repertoireId, offerId);
+  if (isLocalOfferRow(ownRow)) {
+    /** Цена — из публичной выдачи: там уже наша наценка, её и видит покупатель. */
+    const unitRub = await publicUnitRubForOffer(repertoireId, offerId);
+    if (unitRub == null) {
+      throw new GetbiletValidationError('Некорректная цена предложения');
+    }
+    return { unitRub, isDemo: true, cachedRow: ownRow, isManual: false };
   }
 
   let offerPayload = await restV2GetOfferById(offerId);
