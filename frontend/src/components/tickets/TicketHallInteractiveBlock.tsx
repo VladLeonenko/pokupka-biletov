@@ -165,7 +165,14 @@ type HoverSeatInfo = {
   seat: string;
   priceKey: string;
 };
-export type HallSelectedSeat = HoverSeatInfo & { key: string };
+export type HallSelectedSeat = HoverSeatInfo & {
+  key: string;
+  /**
+   * Зальная продажа зонами: ряд и место — внутренняя бронь, покупателю их
+   * обещать нельзя. В сводке выбора показываем только зону.
+   */
+  zoneOnly?: boolean;
+};
 type Point = { x: number; y: number };
 type BBox = { minX: number; minY: number; maxX: number; maxY: number };
 type SectorMeta = {
@@ -2073,6 +2080,7 @@ export function TicketHallInteractiveBlock({
               row: rowLabel,
               seat,
               priceKey,
+              zoneOnly: hallPreviewSectorCheckout,
             });
             remaining -= 1;
           }
@@ -2081,7 +2089,7 @@ export function TicketHallInteractiveBlock({
         return next;
       });
     },
-    [getPriceKey, onSelectionChange],
+    [getPriceKey, hallPreviewSectorCheckout, onSelectionChange],
   );
 
   activatePlacementRef.current = (p: SvgNativePlacement) => {
