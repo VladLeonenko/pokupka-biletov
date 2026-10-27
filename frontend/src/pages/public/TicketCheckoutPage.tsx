@@ -847,10 +847,20 @@ export function TicketCheckoutPage() {
 
   const baseTotalRub = useMemo(() => {
     if (mapSelectedSeats.length > 0) {
-      return mapSelectedSeats.reduce((sum, seat) => {
+      /** Ложа целиком: все места в выборе, но цена зоны один раз. */
+      const pricedBoxZones = new Set<string>();
+      let sum = 0;
+      for (const seat of mapSelectedSeats) {
         const price = Number(seat.priceKey);
-        return Number.isFinite(price) ? sum + price : sum;
-      }, 0);
+        if (!Number.isFinite(price) || price <= 0) continue;
+        if (seat.boxWhole) {
+          const z = seat.sector || '';
+          if (pricedBoxZones.has(z)) continue;
+          pricedBoxZones.add(z);
+        }
+        sum += price;
+      }
+      return sum;
     }
     if (!offerId || seats.length === 0) return 0;
     const row = (offers as OfferRow[]).find((o) => String(o.Id ?? '') === offerId);
@@ -882,12 +892,17 @@ export function TicketCheckoutPage() {
     if (mapSelectedSeats.length === 0) return undefined;
     /** Зоны: ряд/место — внутренняя бронь, покупателю показываем только зону и количество. */
     if (mapSelectedSeats.every((s) => s.zoneOnly)) {
-      const byZone = new Map<string, number>();
+      const byZone = new Map<string, { qty: number; box: boolean }>();
       for (const s of mapSelectedSeats) {
         const zone = s.sector || 'Зона';
-        byZone.set(zone, (byZone.get(zone) ?? 0) + 1);
+        const cur = byZone.get(zone) ?? { qty: 0, box: false };
+        cur.qty += 1;
+        if (s.boxWhole) cur.box = true;
+        byZone.set(zone, cur);
       }
-      return [...byZone].map(([zone, qty]) => (qty > 1 ? `${zone} — ${qty} шт` : zone));
+      return [...byZone].map(([zone, { qty, box }]) =>
+        box ? zone : qty > 1 ? `${zone} — ${qty} за билет` : zone,
+      );
     }
     return mapSelectedSeats.map(
       (s) => `${s.sector ? `${s.sector}, ` : ''}${s.row ? `${s.row} ряд, ` : ''}место ${s.seat}`,

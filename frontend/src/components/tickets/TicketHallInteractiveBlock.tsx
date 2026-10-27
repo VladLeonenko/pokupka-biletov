@@ -172,6 +172,8 @@ export type HallSelectedSeat = HoverSeatInfo & {
    * обещать нельзя. В сводке выбора показываем только зону.
    */
   zoneOnly?: boolean;
+  /** VIP-ложа целиком: в заказе все места ложи, в сумме — одна цена за ложу. */
+  boxWhole?: boolean;
 };
 type Point = { x: number; y: number };
 type BBox = { minX: number; minY: number; maxX: number; maxY: number };
@@ -2058,7 +2060,9 @@ export function TicketHallInteractiveBlock({
       alignPrice: number,
       sectorLabel: string,
       maxCap?: number,
+      opts?: { boxWhole?: boolean },
     ) => {
+      const asBox = opts?.boxWhole === true;
       const priceKey = String(alignPrice);
       const sectorNorm = normalizeSectorLabel(sectorLabel);
       const sorted = [...sectorOffers]
@@ -2069,11 +2073,13 @@ export function TicketHallInteractiveBlock({
         Number.isFinite(maxCap) && (maxCap as number) > 0
           ? Math.min(totalSeats, maxCap as number)
           : totalSeats;
-      const clamped = Math.max(0, Math.min(targetQty, cap));
+      /** Ложа целиком — всегда все места, цена потом считается один раз за зону. */
+      const clamped = asBox ? cap : Math.max(0, Math.min(targetQty, cap));
       setSelectedSeatDetails((prev) => {
         const kept = prev.filter((d) => normalizeSectorLabel(d.sector) !== sectorNorm);
         const next = [...kept];
         let remaining = clamped;
+        let priced = false;
         for (const offer of sorted) {
           if (remaining <= 0) break;
           const oid = String(offer.Id ?? '');
@@ -2081,14 +2087,18 @@ export function TicketHallInteractiveBlock({
           const rowLabel = String(offer.Row ?? '');
           for (const seat of seats) {
             if (remaining <= 0) break;
+            /** В ложе целиком цена только на первом слоте — иначе 8× прайс ложи. */
+            const slotPrice = asBox ? (priced ? '0' : priceKey) : priceKey;
+            if (asBox) priced = true;
             next.push({
               key: selectionSeatKey(oid, rowLabel, seat),
               offerId: oid,
               sector: sectorLabel,
               row: rowLabel,
               seat,
-              priceKey,
+              priceKey: slotPrice,
               zoneOnly: hallPreviewSectorCheckout,
+              boxWhole: asBox,
             });
             remaining -= 1;
           }
@@ -2144,31 +2154,40 @@ export function TicketHallInteractiveBlock({
   }, [selectedSeatDetails, selectedSectorSummary]);
 
   /**
-   * VIP-ложа слева: продаётся только целиком. При открытии зоны сразу
-   * выставляем все места — без ± и без «взять часть».
+   * VIP-ложа слева: одна ложа = один заказ целиком. При открытии сразу
+   * все места зоны, без ±; в сумме — одна цена за ложу.
    */
   useEffect(() => {
     if (!selectedSectorSummary?.meta.boxWhole) return;
     if (selectedSectorSummary.maxPrice == null) return;
-    const cap =
-      selectedSectorSummary.meta.maxQuantity && selectedSectorSummary.meta.maxQuantity > 0
-        ? selectedSectorSummary.meta.maxQuantity
-        : selectedSectorSummary.seatCount;
+    const cap = Math.max(
+      selectedSectorSummary.seatCount,
+      selectedSectorSummary.meta.maxQuantity ?? 0,
+    );
     if (cap <= 0) return;
     const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
-    const current = selectedSeatDetails.filter((d) => normalizeSectorLabel(d.sector) === sectorNorm).length;
-    if (current === cap) return;
+    const inZone = selectedSeatDetails.filter((d) => normalizeSectorLabel(d.sector) === sectorNorm);
+    const complete =
+      inZone.length === cap && inZone.every((d) => d.boxWhole) && inZone.some((d) => Number(d.priceKey) > 0);
+    if (complete) return;
     setFieldZoneQty(
       selectedSectorSummary.offers,
       cap,
       selectedSectorSummary.maxPrice,
       selectedSectorSummary.meta.label,
       cap,
+      { boxWhole: true },
     );
   }, [selectedSectorSummary, selectedSeatDetails, setFieldZoneQty]);
 
   const categoryModalSelectedTotal = useMemo(() => {
     if (!selectedSectorSummary) return 0;
+    /** Ложа целиком — одна цена за ложу, даже если в выборе все 8 мест. */
+    if (selectedSectorSummary.meta.boxWhole && selectedSectorSummary.maxPrice != null) {
+      const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
+      const has = selectedSeatDetails.some((d) => normalizeSectorLabel(d.sector) === sectorNorm);
+      return has ? selectedSectorSummary.maxPrice : 0;
+    }
     const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
     return selectedSeatDetails
       .filter((d) => normalizeSectorLabel(d.sector) === sectorNorm)
@@ -3256,11 +3275,13 @@ export function TicketHallInteractiveBlock({
                       )}
                     </div>
                     <p className={styles.categoryModalHint}>
-                      {sectorQtyCheckout
-                        ? hallPreviewSectorCheckout
-                          ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне, а номера мест подтвердим при отправке билетов.'
-                          : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
-                        : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
+                      {selectedSectorSummary.meta.boxWhole
+                        ? 'Эта ложа продаётся только целиком — один заказ на всю ложу. Отдельные места в ней не продаём.'
+                        : sectorQtyCheckout
+                          ? hallPreviewSectorCheckout
+                            ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне, а номера мест подтвердим при отправке билетов.'
+                            : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
+                          : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
                   </div>
                   <div className={styles.categoryModalOffers}>
@@ -3268,11 +3289,13 @@ export function TicketHallInteractiveBlock({
                       <div className={styles.categoryModalDate}>{sessionDateLabel}</div>
                     ) : null}
                     <p className={styles.categoryModalLead}>
-                      {hallPreviewSectorCheckout
-                        ? 'Предзаказ на зону. Номера мест подтвердим при отправке билетов.'
-                        : sectorQtyCheckout
-                          ? 'Бронирование по сектору — места подберёт система.'
-                          : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
+                      {selectedSectorSummary.meta.boxWhole
+                        ? 'Предзаказ на ложу целиком. Номера мест подтвердим при отправке билетов.'
+                        : hallPreviewSectorCheckout
+                          ? 'Предзаказ на зону. Номера мест подтвердим при отправке билетов.'
+                          : sectorQtyCheckout
+                            ? 'Бронирование по сектору — места подберёт система.'
+                            : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
                     </p>
                     <div className={styles.categoryModalOfferList}>
                       {sectorQtyCheckout ? (
@@ -3280,11 +3303,11 @@ export function TicketHallInteractiveBlock({
                           <div className={styles.categoryModalOfferCard}>
                             <div className={styles.categoryModalOfferTop}>
                               <span className={styles.categoryModalOfferPrice}>
-                                {formatRub(selectedSectorSummary.maxPrice)}/за билет
+                                {selectedSectorSummary.meta.boxWhole
+                                  ? `${formatRub(selectedSectorSummary.maxPrice)} за ложу`
+                                  : `${formatRub(selectedSectorSummary.maxPrice)}/за билет`}
                               </span>
-                              {selectedSectorSummary.meta.boxWhole ? (
-                                <span className={styles.categoryQtyValue}>{sectorQtyCap}</span>
-                              ) : (
+                              {selectedSectorSummary.meta.boxWhole ? null : (
                                 <div className={styles.categoryQtyRow}>
                                   <button
                                     type="button"
@@ -3326,7 +3349,7 @@ export function TicketHallInteractiveBlock({
                             </div>
                             <div className={styles.sectorOfferAvail}>
                               {selectedSectorSummary.meta.boxWhole
-                                ? `Ложа целиком · ${sectorQtyCap} мест`
+                                ? `В ложе ${selectedSectorSummary.seatCount || sectorQtyCap} мест · только целиком`
                                 : `До ${sectorQtyCap} билетов в заказе`}
                             </div>
                           </div>
@@ -3393,8 +3416,12 @@ export function TicketHallInteractiveBlock({
                         {reservePending
                           ? 'Бронирование…'
                           : categoryModalSelectedCount > 0
-                            ? `Купить · ${formatRub(categoryModalSelectedTotal)}`
-                            : 'Купить'}
+                            ? selectedSectorSummary.meta.boxWhole
+                              ? `Купить ложу · ${formatRub(categoryModalSelectedTotal)}`
+                              : `Купить · ${formatRub(categoryModalSelectedTotal)}`
+                            : selectedSectorSummary.meta.boxWhole
+                              ? 'Купить ложу'
+                              : 'Купить'}
                       </Button>
                     ) : null}
                   </div>

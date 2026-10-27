@@ -63,6 +63,10 @@ export function TicketCartStickyBar() {
     cart.seatLabels && cart.seatLabels.length > 0 && cart.seatLabels.length <= 4
       ? cart.seatLabels.join('; ')
       : null;
+  /** Ложа целиком / зона: в labels уже человекочитаемо — не пишем «Выбрано мест: 8». */
+  const selectionTitle = seatsLine
+    ? `Выбрано: ${seatsLine}`
+    : `Выбрано мест: ${seatCount}`;
 
   return createPortal(
     <>
@@ -80,8 +84,7 @@ export function TicketCartStickyBar() {
               </IconButton>
               <div className={styles.main}>
                 <Typography variant="body2" className={styles.title}>
-                  Выбрано мест: {seatCount}
-                  {seatsLine ? ` · ${seatsLine}` : ''}
+                  {selectionTitle}
                 </Typography>
                 {isTicketHoldActive(hold) ? (
                   <TicketHoldTimer hold={hold} variant="bar" />
