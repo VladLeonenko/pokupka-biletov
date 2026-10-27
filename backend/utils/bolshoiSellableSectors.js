@@ -57,25 +57,49 @@ export const BOLSHOI_VIEW_POINTS = {
  * viewBox 1500×1190, Сцена сверху; боковые — снаружи лож, центр — по оси зала.
  */
 /**
- * Как на официальном плане, подпись стоит с дальней от сцены стороны своего
- * блока. Координаты подобраны `scripts/_solve-bolshoi-hall-labels.mjs`: рамка
- * каждого текста отстоит минимум на 12 px и от мест, и от контуров зон.
- * После любой пересборки геометрии зала скрипт надо прогнать заново.
+ * Подписи ярусов. `owner` — блок, который подпись называет: подпись обязана
+ * стоять на нём, иначе её читают как подпись соседнего блока. `plate` — белая
+ * плашка под текстом: нужна там, где свободного коридора нет и текст ложится
+ * прямо на места.
+ *
+ * Боковым ложам отведены коридоры между подковами, со стороны центра зала от
+ * своего яруса. Правая сторона схемы — высокие X.
+ *
+ * Координаты проверяет `scripts/_solve-bolshoi-hall-labels.mjs`; после любой
+ * пересборки геометрии зала его надо прогнать заново.
  */
 export const BOLSHOI_HALL_MAP_LABELS = [
   { text: 'ПРАВАЯ СТОРОНА', x: 1280, y: 26, fontSize: 12 },
   { text: 'ЛЕВАЯ СТОРОНА', x: 220, y: 26, fontSize: 12 },
-  { text: 'ПАРТЕР', x: 750, y: 440, fontSize: 13 },
-  { text: 'АМФИТЕАТР', x: 750, y: 545, fontSize: 14 },
-  /** Правая сторона схемы = высокие X. */
-  { text: 'ЛОЖИ БЕНУАРА', x: 1196, y: 356, fontSize: 11, rotate: -90 },
-  { text: 'ЛОЖИ БЕНУАРА', x: 304, y: 356, fontSize: 11, rotate: 90 },
-  { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 1361, y: 280, fontSize: 11, rotate: -90 },
-  { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 139, y: 280, fontSize: 11, rotate: 90 },
-  { text: '1 ЯРУС', x: 750, y: 660, fontSize: 15 },
-  { text: 'БАЛКОН 2 ЯРУСА', x: 750, y: 812, fontSize: 14 },
-  { text: 'БАЛКОН 3 ЯРУСА', x: 750, y: 1030, fontSize: 13 },
-  { text: 'БАЛКОН 4 ЯРУСА', x: 750, y: 1125, fontSize: 12 },
+  { text: 'ПАРТЕР', x: 750, y: 341, fontSize: 15, plate: true, owner: 'Партер' },
+  { text: 'АМФИТЕАТР', x: 750, y: 479, fontSize: 13, plate: true, owner: 'Амфитеатр' },
+  { text: 'ЛОЖИ БЕНУАРА', x: 1027, y: 366, fontSize: 10, rotate: -90, owner: 'Бенуар' },
+  { text: 'ЛОЖИ БЕНУАРА', x: 473, y: 366, fontSize: 10, rotate: 90, owner: 'Бенуар' },
+  { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 1119, y: 198, fontSize: 10, rotate: -90, owner: 'Бельэтаж' },
+  { text: 'ЛОЖИ БЕЛЬ-ЭТАЖА', x: 381, y: 198, fontSize: 10, rotate: 90, owner: 'Бельэтаж' },
+  { text: 'ЛОЖИ 1 ЯРУСА', x: 1204, y: 301, fontSize: 10, rotate: -90, owner: '1 ярус' },
+  { text: 'ЛОЖИ 1 ЯРУСА', x: 296, y: 301, fontSize: 10, rotate: 90, owner: '1 ярус' },
+  { text: 'ЛОЖИ 2 ЯРУСА', x: 1279, y: 330, fontSize: 10, rotate: -90, owner: '2 ярус' },
+  { text: 'ЛОЖИ 2 ЯРУСА', x: 221, y: 330, fontSize: 10, rotate: 90, owner: '2 ярус' },
+  { text: 'ЛОЖИ 3 ЯРУСА', x: 1361, y: 360, fontSize: 10, rotate: -90, owner: '3 ярус' },
+  { text: 'ЛОЖИ 3 ЯРУСА', x: 139, y: 360, fontSize: 10, rotate: 90, owner: '3 ярус' },
+  {
+    text: 'БАЛКОН 2 ЯРУСА',
+    x: 850,
+    y: 887,
+    fontSize: 12,
+    plate: true,
+    owner: 'Балкон 2 яруса',
+  },
+  {
+    text: 'БАЛКОН 3 ЯРУСА',
+    x: 850,
+    y: 971,
+    fontSize: 12,
+    plate: true,
+    owner: 'Балкон 3 яруса',
+  },
+  { text: 'БАЛКОН 4 ЯРУСА', x: 750, y: 1085, fontSize: 12, owner: 'Балкон 4 яруса' },
 ];
 
 function viewPointForPreviewUrl(url) {
@@ -150,7 +174,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   },
   {
     id: 'beletazh_box',
-    label: 'Ложа бельэтажа целиком (левая 4)',
+    label: 'Ложа бельэтажа (левая 4)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     maxQty: 8,
     box: true,
@@ -158,7 +182,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   },
   {
     id: 'lozha1_box',
-    label: 'Ложа 1 яруса целиком (левая 9)',
+    label: 'Ложа 1 яруса (левая 9)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     /** Ложа = 8 мест: ряд 1 — 1/3/5, ряд 2 — 2/4/6, ряд 3 — 7/8. */
     maxQty: 8,

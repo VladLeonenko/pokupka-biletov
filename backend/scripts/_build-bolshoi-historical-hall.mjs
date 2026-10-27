@@ -175,10 +175,18 @@ const BOX_ROWS = [
   { row: '3', seats: ['7', '8'] },
 ];
 
+/** Доля точек tierPath, которая приходится на прямой участок у стены. */
+const TIER_STRAIGHT_FRAC = 0.3;
+
+/** Индекс последней точки прямого участка в tierPath(spec, steps). */
+function tierStraightEnd(steps = 1400) {
+  return Math.max(2, Math.round(steps * TIER_STRAIGHT_FRAC));
+}
+
 /** Полилиния пути яруса (левая сторона), от сцены к центру-назад. */
 function tierPath(spec, steps = 1400) {
   const pts = [];
-  const straightSteps = Math.max(2, Math.round(steps * 0.3));
+  const straightSteps = tierStraightEnd(steps);
   for (let i = 0; i <= straightSteps; i += 1) {
     const t = i / straightSteps;
     pts.push({ x: spec.wallX, y: FRONT_Y + (spec.straightTo - FRONT_Y) * t });
@@ -302,133 +310,63 @@ const BALCONIES = [
 /**
  * Балкон 4 яруса — самая внешняя подкова, у неё своих лож нет.
  *
- * Строится как эквидистанта подковы 3 яруса с переменным зазором: у боковой
- * стены достаточно обойти ряд 3 лож, а в центре зала надо выйти за балкон
- * 3 яруса. Из-за разных центров эллипсов постоянный зазор здесь не годится —
- * кривые пересекаются на полпути.
+ * Строится как эквидистанта подковы 3 яруса: у боковой стены зазор постоянный
+ * (достаточно обойти ряд 3 лож), а на дуге растёт до `atCenter` — в центре зала
+ * надо выйти за балкон 3 яруса. Постоянный зазор на всю подкову не годится:
+ * у эллипсов разные центры и кривые пересекаются на полпути.
  *
- * Ряд 1 — 81 место (официальный дамп: правая 1–41, левая 42–81), крылья идут
- * по боковым стенам от FRONT_Y. Ряды 3, 4 и стоячие крыльев не имеют, поэтому
- * занимают только центральную часть подковы.
- *
- * `exits` — лестничные выходы, в них мест нет. Пять штук на ряд: по центру зала
- * и парами по сторонам. Позиции взяты из официального дампа (ряд 1: скачки X
- * после мест 18, 30, 41, 52, 66 вместо шага 20) и совпадают с занавесами на
- * референсе. `slots` — ширина выхода в шагах между местами, оттуда же:
- * центральный ~7 шагов, средние ~3, у стены ~2. Без них 81 место размазывалось
- * по всей подкове с шагом 33 вместо 28.
+ * Подкова разбита пятью лестничными выходами на шесть участков A…F. Границы
+ * участков — одни и те же доли базового пути для всех рядов, поэтому выходы и
+ * места выстраиваются радиально, а зазор между рядами постоянный. Ширина
+ * выходов и раскладка мест по участкам взяты из официального дампа (в ряду 1
+ * скачки X после мест 18, 30, 41, 52, 66) и с референса. Крылья A и F есть
+ * только у рядов 1 и 2 — ряды 3, 4 и стоячие начинаются за первым выходом.
  */
 const BALCONY4 = {
   label: 'Балкон 4 яруса',
   base: TIERS[TIERS.length - 1],
   /** Дуга базовой подковы до оси зала, чтобы путь замкнулся по центру. */
   endDeg: 90,
+  /**
+   * Участки подковы от правой стены к левой: `seats` — сколько шагов сетки
+   * занимает участок с местами, `exit` — ширина следующего за ним выхода.
+   * Сетка строится по ряду 1, поэтому его числа мест здесь и стоят.
+   */
+  segments: [
+    { id: 'A', slots: 18, exit: 2 },
+    { id: 'B', slots: 12, exit: 3 },
+    { id: 'C', slots: 11, exit: 7 },
+    { id: 'D', slots: 11, exit: 3 },
+    { id: 'E', slots: 14, exit: 2 },
+    { id: 'F', slots: 15, exit: 0 },
+  ],
+  /**
+   * На участках B…E во всех рядах мест одинаково — тогда места стоят ровными
+   * радиальными колонками. Крылья A и F есть только у рядов 1 и 2, и там числа
+   * свои: по референсу ряд 1 уходит в выход после 18 места, ряд 2 — после 16.
+   *
+   * Стоячие ряды занимают только два центральных участка: наружу от ряда 4
+   * зазор уже больше, чем от подковы 3 яруса до боковой стены, и на участках
+   * B и E такой ряд уходит за край схемы.
+   */
   rows: [
-    {
-      row: '1',
-      nearWall: 34,
-      atCenter: 86,
-      seats: 81,
-      exits: [
-        { after: 18, slots: 2 },
-        { after: 30, slots: 3 },
-        { after: 41, slots: 7 },
-        { after: 52, slots: 3 },
-        { after: 66, slots: 2 },
-      ],
-    },
-    {
-      row: '2',
-      nearWall: 53,
-      atCenter: 105,
-      seats: 81,
-      exits: [
-        { after: 16, slots: 2 },
-        { after: 28, slots: 3 },
-        { after: 41, slots: 7 },
-        { after: 53, slots: 3 },
-        { after: 68, slots: 2 },
-      ],
-    },
-    /**
-     * Ряды 3 и 4 начинаются за первым выходом, крыльев у них нет — на референсе
-     * слева они обрываются на 51 и 52 месте. Их меньше, чем в рядах 1–2, иначе
-     * на той же дуге шаг между местами падает с 28 до 19 и балкон выглядит
-     * слипшимся по сравнению с внутренними ярусами.
-     */
-    {
-      row: '3',
-      nearWall: 72,
-      atCenter: 124,
-      seats: 51,
-      spanFrac: 0.62,
-      exits: [
-        { after: 14, slots: 3 },
-        { after: 26, slots: 7 },
-        { after: 38, slots: 3 },
-      ],
-    },
-    {
-      row: '4',
-      nearWall: 91,
-      atCenter: 143,
-      seats: 52,
-      spanFrac: 0.62,
-      exits: [
-        { after: 14, slots: 3 },
-        { after: 26, slots: 7 },
-        { after: 39, slots: 3 },
-      ],
-    },
-    {
-      row: '2А',
-      nearWall: 110,
-      atCenter: 162,
-      seats: 41,
-      spanFrac: 0.47,
-      standing: true,
-      exits: [
-        { after: 7, slots: 2 },
-        { after: 21, slots: 5 },
-        { after: 35, slots: 2 },
-      ],
-    },
-    {
-      row: '3А',
-      nearWall: 129,
-      atCenter: 181,
-      seats: 41,
-      spanFrac: 0.46,
-      standing: true,
-      exits: [
-        { after: 7, slots: 2 },
-        { after: 21, slots: 5 },
-        { after: 35, slots: 2 },
-      ],
-    },
-    {
-      row: '4А',
-      nearWall: 148,
-      atCenter: 200,
-      seats: 39,
-      spanFrac: 0.44,
-      standing: true,
-      exits: [
-        { after: 7, slots: 2 },
-        { after: 20, slots: 5 },
-        { after: 33, slots: 2 },
-      ],
-    },
+    { row: '1', gap: 34, atCenter: 86, counts: { A: 18, B: 12, C: 11, D: 11, E: 14, F: 15 } },
+    { row: '2', gap: 53, atCenter: 105, counts: { A: 16, B: 12, C: 11, D: 11, E: 14, F: 13 } },
+    { row: '3', gap: 72, atCenter: 124, counts: { B: 12, C: 11, D: 11, E: 14 } },
+    { row: '4', gap: 91, atCenter: 143, counts: { B: 12, C: 11, D: 11, E: 14 } },
+    { row: '2А', gap: 110, atCenter: 162, standing: true, counts: { C: 11, D: 11 } },
+    { row: '3А', gap: 129, atCenter: 181, standing: true, counts: { C: 11, D: 11 } },
+    { row: '4А', gap: 148, atCenter: 200, standing: true, counts: { C: 11, D: 11 } },
   ],
 };
 
 /**
- * Эквидистанта пути яруса наружу зала с линейно растущим зазором.
- * Нормаль внутрь зала — (ty, −tx), значит наружу — (−ty, tx).
+ * Эквидистанта пути яруса наружу зала. Нормаль внутрь зала — (ty, −tx), значит
+ * наружу — (−ty, tx). На прямом участке у стены зазор постоянный, иначе крылья
+ * балкона отходят от стены под углом; растёт он только вдоль дуги.
  */
-function outwardOffsetPath(pts, nearWall, atCenter) {
-  const acc = cumulativeLengths(pts);
-  const total = acc[acc.length - 1] || 1;
+function outwardOffsetPath(pts, gap, atCenter, straightEnd) {
+  const arcSpan = Math.max(1, pts.length - 1 - straightEnd);
   const out = [];
   for (let i = 0; i < pts.length; i += 1) {
     const p0 = pts[Math.max(0, i - 1)];
@@ -436,45 +374,88 @@ function outwardOffsetPath(pts, nearWall, atCenter) {
     const len = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
     const tx = (p1.x - p0.x) / len;
     const ty = (p1.y - p0.y) / len;
-    const d = nearWall + (atCenter - nearWall) * (acc[i] / total);
+    const t = i <= straightEnd ? 0 : (i - straightEnd) / arcSpan;
+    const d = gap + (atCenter - gap) * t;
     out.push({ x: pts[i].x - ty * d, y: pts[i].y + tx * d });
   }
   return out;
 }
 
+/** Полная подкова из левой половины: правое крыло вниз, по дну, вверх к левому. */
+function mirrorToFullRing(half) {
+  return [...half.map((p) => ({ x: HALL_W - p.x, y: p.y })), ...[...half].reverse().slice(1)];
+}
+
+/**
+ * Точка пути по доле номера точки. Эквидистанты строятся из одной полилинии,
+ * поэтому точка с одним и тем же `u` у всех рядов лежит на общей нормали —
+ * только так места встают ровными радиальными колонками.
+ */
+function pointAtFraction(pts, u) {
+  const t = Math.min(Math.max(u, 0), 1) * (pts.length - 1);
+  const i0 = Math.floor(t);
+  const i1 = Math.min(pts.length - 1, i0 + 1);
+  const f = t - i0;
+  return { x: pts[i0].x + (pts[i1].x - pts[i0].x) * f, y: pts[i0].y + (pts[i1].y - pts[i0].y) * f };
+}
+
+/** Обратное к длине: доля номера точки, на которой пройдено `s` длины пути. */
+function fractionAtLength(acc, s) {
+  const target = Math.min(Math.max(s, 0), acc[acc.length - 1]);
+  let i = 1;
+  while (i < acc.length && acc[i] < target) i += 1;
+  const seg = acc[i] - acc[i - 1] || 1;
+  return (i - 1 + (target - acc[i - 1]) / seg) / (acc.length - 1);
+}
+
 function buildBalcony4() {
   const spec = BALCONY4;
-  const left = tierPath({ ...spec.base, arc: { ...spec.base.arc, endDeg: spec.endDeg } });
-  const out = [];
-  for (const r of spec.rows) {
-    const half = outwardOffsetPath(left, r.nearWall, r.atCenter);
-    /** Полный путь: от верха правого крыла вниз, по дну, вверх к левому. */
-    const full = [
-      ...half.map((p) => ({ x: HALL_W - p.x, y: p.y })),
-      ...[...half].reverse().slice(1),
-    ];
-    const acc = cumulativeLengths(full);
-    const total = acc[acc.length - 1];
-    const exits = r.exits ?? [];
-    const exitSlots = exits.reduce((a, e) => a + e.slots, 0);
-    const slots = r.seats + exitSlots;
-    const span = (r.spanFrac ?? 1) * total;
-    const from = (total - span) / 2;
-    const pitch = span / slots;
-    for (let n = 1; n <= r.seats; n += 1) {
-      const skipped = exits.reduce((a, e) => (n > e.after ? a + e.slots : a), 0);
-      const p = pointAt(full, acc, from + (n - 1 + skipped + 0.5) * pitch);
-      out.push({
-        sector: `${spec.label} ${p.x > AXIS ? 'Правая' : 'Левая'} сторона${
-          r.standing ? ' стоячие места' : ''
-        }`,
-        row: r.row,
-        seat: String(n),
-        cx: p.x,
-        cy: p.y,
-      });
-    }
+  const steps = 1400;
+  const straightEnd = tierStraightEnd(steps);
+  const left = tierPath({ ...spec.base, arc: { ...spec.base.arc, endDeg: spec.endDeg } }, steps);
+  const rings = spec.rows.map((r) => mirrorToFullRing(outwardOffsetPath(left, r.gap, r.atCenter, straightEnd)));
+
+  /**
+   * Сетку шагов размечаем по ряду 1 равномерно по его длине — у него шаг между
+   * местами выходит одинаковым. Каждый шаг переводим в долю номера точки `u`
+   * и по ней ставим места во всех рядах: у внешних рядов шаг чуть крупнее,
+   * ровно во столько, во сколько их дуга длиннее.
+   */
+  const acc = cumulativeLengths(rings[0]);
+  const total = acc[acc.length - 1];
+  const totalSlots = spec.segments.reduce((a, s) => a + s.slots + s.exit, 0);
+  const slotLength = total / totalSlots;
+
+  const bounds = new Map();
+  let slot = 0;
+  for (const seg of spec.segments) {
+    bounds.set(seg.id, [slot * slotLength, (slot + seg.slots) * slotLength]);
+    slot += seg.slots + seg.exit;
   }
+
+  const out = [];
+  spec.rows.forEach((r, ri) => {
+    const ring = rings[ri];
+    let seat = 0;
+    for (const seg of spec.segments) {
+      const n = r.counts[seg.id] ?? 0;
+      if (!n) continue;
+      const [s0, s1] = bounds.get(seg.id);
+      for (let j = 0; j < n; j += 1) {
+        const p = pointAtFraction(ring, fractionAtLength(acc, s0 + ((s1 - s0) * (j + 0.5)) / n));
+        seat += 1;
+        out.push({
+          sector: `${spec.label} ${p.x > AXIS ? 'Правая' : 'Левая'} сторона${
+            r.standing ? ' стоячие места' : ''
+          }`,
+          row: r.row,
+          seat: String(seat),
+          cx: p.x,
+          cy: p.y,
+        });
+      }
+    }
+  });
   return out;
 }
 

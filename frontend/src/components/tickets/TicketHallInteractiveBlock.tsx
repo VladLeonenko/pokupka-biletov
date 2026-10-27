@@ -179,6 +179,14 @@ type SectorMeta = {
   maxQuantity?: number | null;
   boxWhole?: boolean;
 };
+type HallMapLabel = {
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  rotate: number;
+  plate: boolean;
+};
 type SectorSummary = {
   meta: SectorMeta;
   offers: HallOfferRow[];
@@ -820,15 +828,20 @@ export function TicketHallInteractiveBlock({
         const x = Number(r.x);
         const y = Number(r.y);
         const fontSize = Number(r.fontSize);
+        const rotate = Number(r.rotate);
         if (!text || !Number.isFinite(x) || !Number.isFinite(y)) return null;
         return {
           text,
           x,
           y,
           fontSize: Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 180,
+          /** Подписи боковых лож идут вдоль подковы, а не горизонтально. */
+          rotate: Number.isFinite(rotate) ? rotate : 0,
+          /** Плашка нужна там, где текст лежит прямо на местах. */
+          plate: r.plate === true,
         };
       })
-      .filter((x): x is { text: string; x: number; y: number; fontSize: number } => Boolean(x));
+      .filter((x): x is HallMapLabel => Boolean(x));
   }, [layoutJson]);
   const hallMapFieldMasks = useMemo(() => parseHallMapFieldMasks(layoutJson), [layoutJson]);
   const maskFieldBackgroundDots = useMemo(
@@ -2211,33 +2224,9 @@ export function TicketHallInteractiveBlock({
     const maxQ = selectedSectorSummary.meta.maxQuantity;
     /** Большой hallPreview: лимит из sectorMode.maxQuantity (оффер SeatList может быть короче до expand). */
     if (hallPreviewSectorCheckout && maxQ != null && maxQ > 0) return maxQ;
-    if (selectedSectorSummary.meta.boxWhole) {
-      return Math.min(seats, maxQ && maxQ > 0 ? maxQ : seats);
-    }
     if (maxQ != null && maxQ > 0) return Math.min(seats, maxQ);
     return seats;
   }, [hallPreviewSectorCheckout, selectedSectorSummary]);
-
-  /** Ложа «целиком»: сразу ставим полный комплект мест. */
-  useEffect(() => {
-    if (!hallPreviewSectorCheckout || !selectedSectorSummary) return;
-    if (!selectedSectorSummary.meta.boxWhole) return;
-    if (selectedSectorSummary.maxPrice == null || sectorQtyCap <= 0) return;
-    if (categoryModalSelectedCount === sectorQtyCap) return;
-    setFieldZoneQty(
-      selectedSectorSummary.offers,
-      sectorQtyCap,
-      selectedSectorSummary.maxPrice,
-      selectedSectorSummary.meta.label,
-      sectorQtyCap,
-    );
-  }, [
-    hallPreviewSectorCheckout,
-    selectedSectorSummary,
-    sectorQtyCap,
-    categoryModalSelectedCount,
-    setFieldZoneQty,
-  ]);
 
   /**
    * На обзоре: pbilet category — только полигоны.
@@ -2858,20 +2847,43 @@ export function TicketHallInteractiveBlock({
                     style={{ pointerEvents: 'none' }}
                     fontFamily="system-ui, -apple-system, Segoe UI, sans-serif"
                   >
-                    {hallMapLabels.map((label) => (
-                      <text
-                        key={`hall-label-${label.text}-${label.x}-${label.y}`}
-                        x={label.x}
-                        y={label.y}
-                        fontSize={label.fontSize}
-                        fontWeight={700}
-                        fill="#475569"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        {label.text}
-                      </text>
-                    ))}
+                    {hallMapLabels.map((label) => {
+                      const halfW = label.text.length * label.fontSize * 0.33;
+                      const halfH = label.fontSize * 0.62;
+                      return (
+                        <g
+                          key={`hall-label-${label.text}-${label.x}-${label.y}`}
+                          transform={
+                            label.rotate
+                              ? `rotate(${label.rotate} ${label.x} ${label.y})`
+                              : undefined
+                          }
+                        >
+                          {label.plate ? (
+                            <rect
+                              x={label.x - halfW - 4}
+                              y={label.y - halfH - 3}
+                              width={(halfW + 4) * 2}
+                              height={(halfH + 3) * 2}
+                              rx={halfH + 3}
+                              fill="rgba(255, 255, 255, 0.92)"
+                              stroke="rgba(100, 116, 139, 0.25)"
+                            />
+                          ) : null}
+                          <text
+                            x={label.x}
+                            y={label.y}
+                            fontSize={label.fontSize}
+                            fontWeight={700}
+                            fill="#475569"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                          >
+                            {label.text}
+                          </text>
+                        </g>
+                      );
+                    })}
                   </g>
                 ) : null}
               </svg>
@@ -3213,11 +3225,7 @@ export function TicketHallInteractiveBlock({
                                   type="button"
                                   className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnMinus}`}
                                   aria-label="Меньше"
-                                  disabled={
-                                    categoryModalSelectedCount <= 0 ||
-                                    (hallPreviewSectorCheckout &&
-                                      selectedSectorSummary.meta.boxWhole === true)
-                                  }
+                                  disabled={categoryModalSelectedCount <= 0}
                                   onClick={() =>
                                     setFieldZoneQty(
                                       selectedSectorSummary.offers,
@@ -3235,12 +3243,7 @@ export function TicketHallInteractiveBlock({
                                   type="button"
                                   className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnPlus}`}
                                   aria-label="Больше"
-                                  disabled={
-                                    categoryModalSelectedCount >= sectorQtyCap ||
-                                    (hallPreviewSectorCheckout &&
-                                      selectedSectorSummary.meta.boxWhole === true &&
-                                      categoryModalSelectedCount >= sectorQtyCap)
-                                  }
+                                  disabled={categoryModalSelectedCount >= sectorQtyCap}
                                   onClick={() =>
                                     setFieldZoneQty(
                                       selectedSectorSummary.offers,
@@ -3257,7 +3260,7 @@ export function TicketHallInteractiveBlock({
                             </div>
                             <div className={styles.sectorOfferAvail}>
                               {selectedSectorSummary.meta.boxWhole
-                                ? `Ложа целиком · ${sectorQtyCap} мест`
+                                ? `В ложе ${sectorQtyCap} мест · можно взять часть`
                                 : `До ${sectorQtyCap} шт в заказе`}
                             </div>
                           </div>
