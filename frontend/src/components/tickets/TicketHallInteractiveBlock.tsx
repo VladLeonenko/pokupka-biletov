@@ -476,6 +476,9 @@ function theaterLevelFillGroup(label: string): { key: string; displayLabel: stri
   return { key: `other:${normalizeTheaterSectorKey(raw)}`, displayLabel: raw };
 }
 
+/** Подсказка «зал продаётся зонами» закрывается навсегда. */
+const ZONE_HINT_STORAGE_KEY = 'bvs:hall-zone-hint-dismissed';
+
 /** Макс. zoom относительно fit (2 = 200%). layout_json.maxZoomMultiplier; театры — 2× по умолчанию. */
 function parseMaxZoomMultiplier(
   layout: unknown,
@@ -491,10 +494,15 @@ function parseMaxZoomMultiplier(
     const base = Number.isFinite(n) && n >= 1 ? n : 12;
     return Math.max(24, base * 2);
   }
+  /** Тач: холст зала ужат под узкий экран, 200% мало — потолок втрое выше. */
+  if (isCoarsePointer) {
+    const base = Number.isFinite(n) && n >= 1 ? n : sectorModeEnabled ? 2 : 8;
+    return Math.max(6, base * 3);
+  }
   if (Number.isFinite(n) && n >= 1) return n;
   if (sectorModeEnabled && !stadium) return 2;
   if (sectorModeEnabled) return 12;
-  return isCoarsePointer ? 36 : 8;
+  return 8;
 }
 
 /** Zoom при клике по сектору (не zoom-to-fill bbox). */
@@ -2208,6 +2216,27 @@ export function TicketHallInteractiveBlock({
   /** Единый qty по сектору (танцпол / Большой hallPreview): без выбора ряда/места. */
   const sectorQtyCheckout = hallPreviewSectorCheckout || zoneQuantityCheckout;
   /**
+   * Продажа зонами неочевидна: человек ищет конкретное место, не находит и
+   * уходит. Подсказка висит на схеме, пока её не закроют (решение запоминаем).
+   */
+  const [zoneHintDismissed, setZoneHintDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem(ZONE_HINT_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const dismissZoneHint = useCallback(() => {
+    setZoneHintDismissed(true);
+    try {
+      window.localStorage.setItem(ZONE_HINT_STORAGE_KEY, '1');
+    } catch {
+      /* приватный режим */
+    }
+  }, []);
+  const showZoneHint = hallPreviewSectorCheckout && !zoneHintDismissed && !selectedSectorSummary;
+  /**
    * Большой театр: конкретных мест в продаже нет — только зоны и предзаказ,
    * места внутри зоны подбираем при оформлении. Всплывашка не должна намекать
    * на выбор ряда/места.
@@ -3501,6 +3530,28 @@ export function TicketHallInteractiveBlock({
             </div>
           ) : null}
         </div>
+        {showZoneHint ? (
+          <div className={styles.zoneHintLayer} data-zone-hint="true">
+            <div className={styles.zoneHintCard} role="status">
+              <span className={styles.zoneHintText}>
+                <strong>Места продаются зонами</strong>
+                <span>
+                  Нажмите на цветную зону и укажите количество билетов. Номера мест подтвердим
+                  при отправке билетов.
+                </span>
+              </span>
+              <button
+                type="button"
+                className={styles.zoneHintClose}
+                aria-label="Скрыть подсказку"
+                onClick={dismissZoneHint}
+                onPointerDown={(ev) => ev.stopPropagation()}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ) : null}
         {ownHintBanner ? (
           <div
             className={`${styles.ownHintLayer}${ownHintLeaving ? ` ${styles.ownHintLeaving}` : ''}`}

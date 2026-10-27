@@ -2407,7 +2407,21 @@ export function TicketCheckoutPage() {
                 </Typography>
               ) : null}
             </Box>
-            <IconButton aria-label="Закрыть" onClick={() => setMapDialogOpen(false)} edge="end" size="small">
+            {/* Тема приложения красит иконки в белый — на белом заголовке крестик пропадал. */}
+            <IconButton
+              aria-label="Закрыть"
+              onClick={() => setMapDialogOpen(false)}
+              edge="end"
+              sx={{
+                flexShrink: 0,
+                width: 40,
+                height: 40,
+                color: 'rgba(0,0,0,0.78)',
+                border: '1px solid rgba(0,0,0,0.14)',
+                bgcolor: '#f3f4f6',
+                '&:hover': { bgcolor: '#e8eaed', color: '#111' },
+              }}
+            >
               <CloseIcon />
             </IconButton>
           </DialogTitle>

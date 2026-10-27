@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Button, CircularProgress, IconButton, Paper, Typography } from '@mui/material';
@@ -33,6 +33,28 @@ export function TicketCartStickyBar() {
     if (ok) setPurchaseOpen(true);
   }, [cart, ensureSeatHold, setPurchaseOpen]);
 
+  /**
+   * Плашка фиксированная, поэтому на мобильном она ложится поверх контента в
+   * конце страницы. Пока она видна — резервируем под неё место внизу body.
+   */
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const shouldShowBar = Boolean(cart && cart.seats.length > 0 && !purchaseOpen);
+  useEffect(() => {
+    const node = barRef.current;
+    if (!shouldShowBar || !node) return undefined;
+    const prev = document.body.style.paddingBottom;
+    const apply = () => {
+      document.body.style.paddingBottom = `${Math.ceil(node.getBoundingClientRect().height)}px`;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(node);
+    return () => {
+      ro.disconnect();
+      document.body.style.paddingBottom = prev;
+    };
+  }, [shouldShowBar]);
+
   if (!cart || cart.seats.length === 0) return null;
   if (typeof document === 'undefined') return null;
 
@@ -45,7 +67,7 @@ export function TicketCartStickyBar() {
   return createPortal(
     <>
       {!purchaseOpen ? (
-        <div className={styles.shell}>
+        <div className={styles.shell} ref={barRef}>
           <div className={styles.inner}>
             <Paper className={styles.bar} elevation={8} component="div" role="region" aria-label="Выбранные места">
               <IconButton
