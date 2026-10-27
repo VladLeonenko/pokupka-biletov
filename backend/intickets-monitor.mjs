@@ -12,8 +12,11 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const RESULTS_FILE = path.join(__dirname, 'data', 'intickets-results.json');
 const STATE_FILE = path.join(__dirname, 'data', 'radario-hold-state.json');
-const NOTIFY_EMAIL = (process.env.INTICKETS_NOTIFY_EMAIL || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com').trim();
-const BCC = process.env.INTICKETS_BCC || 'yaguda_io@mail.ru';
+// Успешные брони со ссылкой на оплату — менеджерам.
+const NOTIFY_BOOK = (process.env.INTICKETS_NOTIFY_EMAIL || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com').trim();
+const BCC_BOOK = process.env.INTICKETS_BCC || 'yaguda_io@mail.ru';
+// Техслужебное (появление билетов / fail / soft_lock) — только сюда, админов не пугать.
+const NOTIFY_TECH = (process.env.INTICKETS_TECH_EMAIL || 'info@prime-coder.ru').trim();
 const INTERVAL_MS = Number(process.env.INTICKETS_INTERVAL_MS || 5000);
 const HOT_INTERVAL_MS = Number(process.env.RADARIO_HOT_INTERVAL_MS || 1500);
 const AUTO_BOOK = process.env.RADARIO_AUTO_BOOK !== '0';
@@ -72,12 +75,20 @@ function saveResult(rec) {
   fs.writeFileSync(RESULTS_FILE, JSON.stringify(list, null, 2));
 }
 
-async function notify(subject, text) {
+async function notifyBook(subject, text) {
   return sendTransactionalMail({
-    to: NOTIFY_EMAIL,
+    to: NOTIFY_BOOK,
     subject,
     text,
-    bcc: BCC,
+    bcc: BCC_BOOK,
+  });
+}
+
+async function notifyTech(subject, text) {
+  return sendTransactionalMail({
+    to: NOTIFY_TECH,
+    subject,
+    text,
   });
 }
 
@@ -169,7 +180,7 @@ async function tryBook(cfg, meta) {
         `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
       ].join('\n');
       console.log(`[${t}] ✅ #${attempt} orderId=${result.orderId} seats=[${seatNums.join(',')}] url=${result.redirectUrl || 'no-url'} qr=${result.qrId || '-'}`);
-      await notify(
+      await notifyBook(
         `${attempt > 1 ? '🔁' : '✅'} Опера нищих: заказ #${attempt} ${cfg.label} #${result.orderId}`,
         text,
       ).catch((e) => {
@@ -191,7 +202,7 @@ async function tryBook(cfg, meta) {
         });
         saveState();
       } else {
-        // реальные ошибки (order_rejected и т.п.) — максимум 1 письмо на «волну»
+        // реальные ошибки — только tech-ящик, максимум 1 письмо на «волну»
         const lastFailMail = prev?.lastFailMailAt || 0;
         const alreadyMailed = !!prev?.lastFailMailAt;
         if (!alreadyMailed) {
@@ -202,8 +213,8 @@ async function tryBook(cfg, meta) {
             lastFailMailAt: Date.now(),
           });
           saveState();
-          await notify(
-            `⚠️ Опера нищих: бронь не вышла (${cfg.label})`,
+          await notifyTech(
+            `[tech] Опера нищих: бронь не вышла (${cfg.label})`,
             [
               `Дата: ${cfg.label}`,
               `ticketCount: ${meta.ticketCount}`,
@@ -217,13 +228,12 @@ async function tryBook(cfg, meta) {
             ].join('\n'),
           ).catch(() => {});
         } else if (Date.now() - lastFailMail > 30 * 60 * 1000) {
-          // раз в 30 мин если всё ещё ломается
           const h = holds.get(cfg.id) || prev || {};
           h.lastFailMailAt = Date.now();
           holds.set(cfg.id, h);
           saveState();
-          await notify(
-            `⚠️ Опера нищих: бронь всё ещё не выходит (${cfg.label})`,
+          await notifyTech(
+            `[tech] Опера нищих: бронь всё ещё не выходит (${cfg.label})`,
             `reason: ${result.reason}\n\n${JSON.stringify(result, null, 2).slice(0, 2000)}`,
           ).catch(() => {});
         }
@@ -241,8 +251,8 @@ async function tryBook(cfg, meta) {
       error: err instanceof Error ? err.message : String(err),
       data: err?.data || null,
     });
-    await notify(
-      `⚠️ Опера нищих: ошибка брони ${cfg.label}`,
+    await notifyTech(
+      `[tech] Опера нищих: ошибка брони ${cfg.label}`,
       `${err instanceof Error ? err.message : err}\n\nВиджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
     ).catch(() => {});
   } finally {
@@ -252,20 +262,21 @@ async function tryBook(cfg, meta) {
 
 async function notifyOpen(ev) {
   const text = [
-    '🔥 Опера нищих — появились билеты в Radario!',
+    '[tech] Опера нищих — появились билеты (автобронь запущена).',
     `Дата: ${ev.label}`,
     `Event ID: ${ev.id}`,
     `ticketCount: ${ev.ticketCount}`,
     `цена: ${ev.minPrice}–${ev.maxPrice} ₽`,
     '',
     AUTO_BOOK ? 'Запускаю автобронь с паспортами…' : 'Автобронь выключена (RADARIO_AUTO_BOOK=0).',
+    'Менеджерам уйдёт письмо только при успешной брони со ссылкой на оплату.',
     `Виджет: https://radario.ru/customer/event/${ev.id}/info?distributionType=Widget`,
   ].join('\n');
-  return notify(`🔥 Опера нищих: билеты ${ev.label} (${ev.ticketCount} шт)`, text);
+  return notifyTech(`[tech] Опера нищих: билеты ${ev.label} (${ev.ticketCount} шт)`, text);
 }
 
 console.log(
-  `Опера нищих / Radario. Событий: ${EVENTS.length}. Интервал ${INTERVAL_MS}мс (hot ${HOT_INTERVAL_MS}). AUTO_BOOK=${AUTO_BOOK} max=${MAX_TICKETS} rebookAfter=${Math.round(REBOOK_AFTER_MS / 60000)}м holds=${holds.size}`,
+  `Опера нищих / Radario. Событий: ${EVENTS.length}. Интервал ${INTERVAL_MS}мс (hot ${HOT_INTERVAL_MS}). AUTO_BOOK=${AUTO_BOOK} max=${MAX_TICKETS} book→${NOTIFY_BOOK} tech→${NOTIFY_TECH} holds=${holds.size}`,
 );
 
 while (true) {
