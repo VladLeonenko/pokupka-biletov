@@ -225,30 +225,41 @@ export function remapBolshoiSeatsToSellableLabels(seats) {
       s.sellable = true;
     }
   }
+
+  /**
+   * Зона из нескольких лож: у всех «ряд 1 · место 1/3/5», а карта и офферы
+   * ключуются по сектор|ряд|место — девять мест схлопывались в три точки, и
+   * контур зоны висел в стороне от подсвеченных. Ряд внутри зоны = номер ложи.
+   */
+  for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
+    const zone = out.filter((s) => s.sector === rule.label);
+    const origins = [...new Set(zone.map((s) => String(s.sectorDetail)))];
+    if (origins.length < 2) continue;
+    for (const s of zone) {
+      const box = /Ложа\s+(\d+)/.exec(String(s.sectorDetail));
+      s.row = box ? box[1] : String(origins.indexOf(String(s.sectorDetail)) + 1);
+    }
+  }
   return out;
 }
 
-/** Разделитель «исходный сектор ↔ ряд» в ключе группы мест. */
-const GROUP_SEP = '§';
-
 /**
- * group → SeatList map per sellable label. Группа — исходный сектор + ряд, а не
- * просто ряд: зона «ложи 4–6» это три ложи с местами 1/3/5, и по одному ряду
- * они схлопнулись бы в три слота вместо девяти.
+ * row → { origin, seats } per sellable label. Ряды внутри зоны уже разведены
+ * remap-ом, поэтому группировки по ряду хватает: зона «ложи 4–6» даёт три ряда
+ * по три места, а не три места на всю зону.
  */
 export function bolshoiSellableSeatsByRow(seats) {
   const byLabel = new Map();
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
-    const byGroup = new Map();
+    const byRow = new Map();
     for (const s of seats) {
       if (s.sector !== rule.label) continue;
-      const origin = String(s.sectorDetail || s.sector || rule.label);
-      const key = `${origin}${GROUP_SEP}${String(s.row ?? '')}`;
-      const arr = byGroup.get(key) ?? [];
-      arr.push(String(s.seat));
-      byGroup.set(key, arr);
+      const row = String(s.row ?? '');
+      const grp = byRow.get(row) ?? { origin: String(s.sectorDetail || rule.label), seats: [] };
+      grp.seats.push(String(s.seat));
+      byRow.set(row, grp);
     }
-    byLabel.set(rule.label, byGroup);
+    byLabel.set(rule.label, byRow);
   }
   return byLabel;
 }
@@ -275,21 +286,18 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
   const fallback = baseOffers?.[0] || null;
   const next = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
-    const byGroup = byLabel.get(rule.label);
+    const byRow = byLabel.get(rule.label);
     const proto = priceBySector.get(rule.label) || (fallback ? { ...fallback, Sector: rule.label } : null);
-    if (!byGroup || !proto || byGroup.size === 0) continue;
-    let n = 0;
-    for (const [key, seatList] of byGroup) {
-      const [origin, row] = key.split(GROUP_SEP);
-      const seats = [...new Set(seatList)];
-      n += 1;
+    if (!byRow || !proto || byRow.size === 0) continue;
+    for (const [row, grp] of byRow) {
+      const seats = [...new Set(grp.seats)];
       next.push({
         ...proto,
-        Id: `${repertoireId}-${rule.id}-${n}`.replace(/\s+/g, '_'),
+        Id: `${repertoireId}-${rule.id}-${row}`.replace(/\s+/g, '_'),
         Sector: rule.label,
         Row: row,
         /** Исходная ложа/сектор — для брони, покупателю не показываем. */
-        SectorOrigin: origin,
+        SectorOrigin: grp.origin,
         SeatList: seats,
         MaxQuantity: seats.length,
         BoxWhole: rule.box === true,
@@ -416,7 +424,12 @@ function sectorZonePath(pts, pad, hallWidth, hallHeight) {
   const ax = principalAxes(pts);
 
   if (ax.extU > ax.extV * 3) {
-    const half = Math.max(pad, ax.extV + 6);
+    /**
+     * Осевая полосы идёт по самим местам, так что ширина — это только отступ:
+     * extV на дуге меряет прогиб цепочки, а не толщину, и раздувал ложи 1 яруса
+     * вдвое. 10 px — чтобы полоса не залезала в соседний ряд (шаг рядов 15).
+     */
+    const half = Math.min(pad, 10);
     const line = [...pts].sort(
       (a, b) => (a.x - ax.cx) * ax.u.x + (a.y - ax.cy) * ax.u.y
         - ((b.x - ax.cx) * ax.u.x + (b.y - ax.cy) * ax.u.y),
