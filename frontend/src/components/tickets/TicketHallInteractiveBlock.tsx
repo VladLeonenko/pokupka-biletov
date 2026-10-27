@@ -1770,6 +1770,8 @@ export function TicketHallInteractiveBlock({
         pickCtx
         && mapZoomedNow
         && (stadiumCanvasEnabled || sectorMode.enabled)
+        && !hallPreviewSectorCheckout
+        && !seatSelectionDisabled
       ) {
         const picked = findNearestSellablePlacement(e.clientX, e.clientY, pickCtx);
         if (picked) {
@@ -1784,7 +1786,15 @@ export function TicketHallInteractiveBlock({
         focusClickPoint(e.clientX, e.clientY);
       }
     }
-  }, [buildPlacementPickCtx, fitZoom, focusClickPoint, sectorMode.enabled, stadiumCanvasEnabled]);
+  }, [
+    buildPlacementPickCtx,
+    fitZoom,
+    focusClickPoint,
+    hallPreviewSectorCheckout,
+    seatSelectionDisabled,
+    sectorMode.enabled,
+    stadiumCanvasEnabled,
+  ]);
 
   useEffect(() => {
     applyFit(true);
@@ -2182,7 +2192,7 @@ export function TicketHallInteractiveBlock({
    * на выбор ряда/места.
    */
   const zonePreorderNote = hallPreviewSectorCheckout
-    ? 'Предзаказ на зону · номера мест подтвердим до оплаты'
+    ? 'Предзаказ на зону · номера мест подтвердим при отправке билетов'
     : null;
   const sectorAvailabilityLabel = useCallback(
     (sector: SectorSummary) => {
@@ -2939,7 +2949,13 @@ export function TicketHallInteractiveBlock({
                       : null;
                     const seatPos = { left: `${p.xPct}%`, top: `${p.yPct}%` };
                     const useStadiumSeatChrome = sectorMode.enabled;
-                    if (p.previewOnly) {
+                    /**
+                     * Зальная продажа зонами: конкретное место гарантировать нельзя,
+                     * поэтому точка — только индикация. Кнопки здесь быть не должно,
+                     * иначе на зуме клик по точке выбирает «ряд N, место M».
+                     * `pointer-events: none` у span пропускает клик на path зоны.
+                     */
+                    if (p.previewOnly || hallPreviewSectorCheckout || seatSelectionDisabled) {
                       return (
                         <span
                           key={p.key}
@@ -2957,7 +2973,7 @@ export function TicketHallInteractiveBlock({
                                 : null),
                             } as React.CSSProperties
                           }
-                          title={p.title}
+                          title={hallPreviewSectorCheckout ? p.sectorLabel : p.title}
                           aria-hidden
                         >
                           <span className={styles.seatDotLabel}>{p.seat}</span>
@@ -3168,7 +3184,7 @@ export function TicketHallInteractiveBlock({
                     <p className={styles.categoryModalHint}>
                       {sectorQtyCheckout
                         ? hallPreviewSectorCheckout
-                          ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне и сообщим их номера до оплаты.'
+                          ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне, а номера мест подтвердим при отправке билетов.'
                           : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
                         : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
@@ -3179,7 +3195,7 @@ export function TicketHallInteractiveBlock({
                     ) : null}
                     <p className={styles.categoryModalLead}>
                       {hallPreviewSectorCheckout
-                        ? 'Предзаказ на зону. Номера мест подтвердим до оплаты.'
+                        ? 'Предзаказ на зону. Номера мест подтвердим при отправке билетов.'
                         : sectorQtyCheckout
                           ? 'Бронирование по сектору — места подберёт система.'
                           : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}

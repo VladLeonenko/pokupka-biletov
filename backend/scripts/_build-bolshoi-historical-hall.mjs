@@ -308,9 +308,15 @@ const BALCONIES = [
  * кривые пересекаются на полпути.
  *
  * Ряд 1 — 81 место (официальный дамп: правая 1–41, левая 42–81), крылья идут
- * по боковым стенам от FRONT_Y. Между местами 18/19 и 63/64 — вход, как в
- * референсе и в дампе (там скачок X втрое больше шага). Ряды 3, 4 и стоячие
- * крыльев не имеют, поэтому занимают только центральную часть подковы.
+ * по боковым стенам от FRONT_Y. Ряды 3, 4 и стоячие крыльев не имеют, поэтому
+ * занимают только центральную часть подковы.
+ *
+ * `exits` — лестничные выходы, в них мест нет. Пять штук на ряд: по центру зала
+ * и парами по сторонам. Позиции взяты из официального дампа (ряд 1: скачки X
+ * после мест 18, 30, 41, 52, 66 вместо шага 20) и совпадают с занавесами на
+ * референсе. `slots` — ширина выхода в шагах между местами, оттуда же:
+ * центральный ~7 шагов, средние ~3, у стены ~2. Без них 81 место размазывалось
+ * по всей подкове с шагом 33 вместо 28.
  */
 const BALCONY4 = {
   label: 'Балкон 4 яруса',
@@ -318,13 +324,101 @@ const BALCONY4 = {
   /** Дуга базовой подковы до оси зала, чтобы путь замкнулся по центру. */
   endDeg: 90,
   rows: [
-    { row: '1', nearWall: 34, atCenter: 86, seats: 81, gapsAfter: [18, 63] },
-    { row: '2', nearWall: 51, atCenter: 108, seats: 81, gapsAfter: [16, 65] },
-    { row: '3', nearWall: 68, atCenter: 130, seats: 79, spanFrac: 0.62 },
-    { row: '4', nearWall: 85, atCenter: 152, seats: 77, spanFrac: 0.6 },
-    { row: '2А', nearWall: 102, atCenter: 170, seats: 41, spanFrac: 0.4, standing: true },
-    { row: '3А', nearWall: 119, atCenter: 186, seats: 41, spanFrac: 0.38, standing: true },
-    { row: '4А', nearWall: 136, atCenter: 200, seats: 39, spanFrac: 0.36, standing: true },
+    {
+      row: '1',
+      nearWall: 34,
+      atCenter: 86,
+      seats: 81,
+      exits: [
+        { after: 18, slots: 2 },
+        { after: 30, slots: 3 },
+        { after: 41, slots: 7 },
+        { after: 52, slots: 3 },
+        { after: 66, slots: 2 },
+      ],
+    },
+    {
+      row: '2',
+      nearWall: 53,
+      atCenter: 105,
+      seats: 81,
+      exits: [
+        { after: 16, slots: 2 },
+        { after: 28, slots: 3 },
+        { after: 41, slots: 7 },
+        { after: 53, slots: 3 },
+        { after: 68, slots: 2 },
+      ],
+    },
+    /**
+     * Ряды 3 и 4 начинаются за первым выходом, крыльев у них нет — на референсе
+     * слева они обрываются на 51 и 52 месте. Их меньше, чем в рядах 1–2, иначе
+     * на той же дуге шаг между местами падает с 28 до 19 и балкон выглядит
+     * слипшимся по сравнению с внутренними ярусами.
+     */
+    {
+      row: '3',
+      nearWall: 72,
+      atCenter: 124,
+      seats: 51,
+      spanFrac: 0.62,
+      exits: [
+        { after: 14, slots: 3 },
+        { after: 26, slots: 7 },
+        { after: 38, slots: 3 },
+      ],
+    },
+    {
+      row: '4',
+      nearWall: 91,
+      atCenter: 143,
+      seats: 52,
+      spanFrac: 0.62,
+      exits: [
+        { after: 14, slots: 3 },
+        { after: 26, slots: 7 },
+        { after: 39, slots: 3 },
+      ],
+    },
+    {
+      row: '2А',
+      nearWall: 110,
+      atCenter: 162,
+      seats: 41,
+      spanFrac: 0.47,
+      standing: true,
+      exits: [
+        { after: 7, slots: 2 },
+        { after: 21, slots: 5 },
+        { after: 35, slots: 2 },
+      ],
+    },
+    {
+      row: '3А',
+      nearWall: 129,
+      atCenter: 181,
+      seats: 41,
+      spanFrac: 0.46,
+      standing: true,
+      exits: [
+        { after: 7, slots: 2 },
+        { after: 21, slots: 5 },
+        { after: 35, slots: 2 },
+      ],
+    },
+    {
+      row: '4А',
+      nearWall: 148,
+      atCenter: 200,
+      seats: 39,
+      spanFrac: 0.44,
+      standing: true,
+      exits: [
+        { after: 7, slots: 2 },
+        { after: 20, slots: 5 },
+        { after: 33, slots: 2 },
+      ],
+    },
   ],
 };
 
@@ -361,14 +455,14 @@ function buildBalcony4() {
     ];
     const acc = cumulativeLengths(full);
     const total = acc[acc.length - 1];
-    const gaps = r.gapsAfter ?? [];
-    /** Вход занимает один шаг, поэтому слотов на столько же больше. */
-    const slots = r.seats + gaps.length;
+    const exits = r.exits ?? [];
+    const exitSlots = exits.reduce((a, e) => a + e.slots, 0);
+    const slots = r.seats + exitSlots;
     const span = (r.spanFrac ?? 1) * total;
     const from = (total - span) / 2;
     const pitch = span / slots;
     for (let n = 1; n <= r.seats; n += 1) {
-      const skipped = gaps.filter((g) => n > g).length;
+      const skipped = exits.reduce((a, e) => (n > e.after ? a + e.slots : a), 0);
       const p = pointAt(full, acc, from + (n - 1 + skipped + 0.5) * pitch);
       out.push({
         sector: `${spec.label} ${p.x > AXIS ? 'Правая' : 'Левая'} сторона${
