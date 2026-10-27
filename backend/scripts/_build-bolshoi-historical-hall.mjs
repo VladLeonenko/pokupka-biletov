@@ -229,9 +229,13 @@ function buildSideBoxes() {
     const pitch = total / spec.boxes;
     for (let b = 1; b <= spec.boxes; b += 1) {
       const p = pointAt(pts, acc, (b - 0.5) * pitch);
-      /** Нормаль внутрь зала: путь идёт «по часовой» вдоль левой стены. */
-      const nx = -p.ty;
-      const ny = p.tx;
+      /**
+       * Нормаль внутрь зала (путь идёт сверху вниз вдоль левой стены, значит
+       * внутрь = (ty, −tx)). Ряд 1 ложи — у барьера, ближе к залу; ряд 3
+       * с местами 7/8 — в глубине, у стены.
+       */
+      const nx = p.ty;
+      const ny = -p.tx;
       for (const br of BOX_ROWS) {
         const depth = (2 - Number(br.row)) * spec.rowPitch;
         const k = br.seats.length;
@@ -295,16 +299,16 @@ const BALCONIES = [
   },
   {
     label: 'Балкон 4 яруса',
-    cy: 580,
-    spanDeg: 115,
+    cy: 600,
+    spanDeg: 150,
     rows: [
-      { row: '1', a: 745, b: 455, seats: 80 },
-      { row: '2', a: 770, b: 475, seats: 80 },
-      { row: '3', a: 795, b: 495, seats: 80 },
-      { row: '4', a: 820, b: 515, seats: 80 },
-      { row: '2А', a: 845, b: 535, seats: 40, standing: true, spanDeg: 100 },
-      { row: '3А', a: 870, b: 555, seats: 40, standing: true, spanDeg: 100 },
-      { row: '4А', a: 892, b: 573, seats: 40, standing: true, spanDeg: 100 },
+      { row: '1', a: 745, b: 445, seats: 81 },
+      { row: '2', a: 760, b: 466, seats: 81, spanDeg: 144 },
+      { row: '3', a: 775, b: 487, seats: 79, spanDeg: 138 },
+      { row: '4', a: 790, b: 508, seats: 77, spanDeg: 132 },
+      { row: '2А', a: 805, b: 529, seats: 41, standing: true, spanDeg: 104 },
+      { row: '3А', a: 818, b: 548, seats: 41, standing: true, spanDeg: 100 },
+      { row: '4А', a: 830, b: 565, seats: 39, standing: true, spanDeg: 96 },
     ],
   },
 ];

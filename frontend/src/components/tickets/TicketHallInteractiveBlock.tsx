@@ -2176,6 +2176,24 @@ export function TicketHallInteractiveBlock({
   );
   /** Единый qty по сектору (танцпол / Большой hallPreview): без выбора ряда/места. */
   const sectorQtyCheckout = hallPreviewSectorCheckout || zoneQuantityCheckout;
+  /**
+   * Большой театр: конкретных мест в продаже нет — только зоны и предзаказ,
+   * места внутри зоны подбираем при оформлении. Всплывашка не должна намекать
+   * на выбор ряда/места.
+   */
+  const zonePreorderNote = hallPreviewSectorCheckout
+    ? 'Предзаказ по зоне — место в ней подберём при оформлении'
+    : null;
+  const sectorAvailabilityLabel = useCallback(
+    (sector: SectorSummary) => {
+      if (sector.seatCount <= 0) return 'Нет мест в наличии';
+      if (!hallPreviewSectorCheckout) return `${sector.seatCount} свободных мест`;
+      const cap = sector.meta.maxQuantity;
+      const limit = cap && cap > 0 ? Math.min(cap, sector.seatCount) : sector.seatCount;
+      return `Доступно в зоне: до ${limit} билетов`;
+    },
+    [hallPreviewSectorCheckout],
+  );
   const useCategoryQtyUi = pbiletCategoryCheckout || sectorQtyCheckout;
   const sectorQtyCap = useMemo(() => {
     if (!selectedSectorSummary) return 0;
@@ -3150,7 +3168,7 @@ export function TicketHallInteractiveBlock({
                     <p className={styles.categoryModalHint}>
                       {sectorQtyCheckout
                         ? hallPreviewSectorCheckout
-                          ? 'Выберите количество билетов в секторе. Конкретные места подберёт система.'
+                          ? 'Конкретные места в этой зоне не продаются по отдельности. Укажите количество билетов — после оформления предзаказа мы предоставим одно или несколько мест в этой зоне.'
                           : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
                         : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
@@ -3160,9 +3178,11 @@ export function TicketHallInteractiveBlock({
                       <div className={styles.categoryModalDate}>{sessionDateLabel}</div>
                     ) : null}
                     <p className={styles.categoryModalLead}>
-                      {sectorQtyCheckout
-                        ? 'Бронирование по сектору — места подберёт система.'
-                        : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
+                      {hallPreviewSectorCheckout
+                        ? 'Предзаказ по зоне: места внутри зоны подбираем мы.'
+                        : sectorQtyCheckout
+                          ? 'Бронирование по сектору — места подберёт система.'
+                          : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
                     </p>
                     <div className={styles.categoryModalOfferList}>
                       {sectorQtyCheckout ? (
@@ -3512,10 +3532,11 @@ export function TicketHallInteractiveBlock({
         </div>
       ) : isCoarsePointer && hoverSector ? (
         <div className={styles.mobileHintCard} role="status">
-          <span className={styles.mobileHintMuted}>
-            {hoverSector.seatCount > 0 ? `${hoverSector.seatCount} свободных мест` : 'Нет мест в наличии'}
-          </span>
+          <span className={styles.mobileHintMuted}>{sectorAvailabilityLabel(hoverSector)}</span>
           <strong>{hoverSector.meta.label}</strong>
+          {zonePreorderNote ? (
+            <span className={styles.mobileHintMuted}>{zonePreorderNote}</span>
+          ) : null}
           <strong>
             {hoverSector.minPrice != null
               ? `${formatRub(hoverSector.minPrice)}${
@@ -3557,12 +3578,16 @@ export function TicketHallInteractiveBlock({
           {hoverSector && (
             <Paper elevation={4} sx={{ p: 1.35, maxWidth: 260, borderRadius: 2 }}>
               <Typography variant="body2" sx={{ lineHeight: 1.45, color: 'rgba(0,0,0,0.82)' }}>
-                <span style={{ color: 'rgba(0,0,0,0.5)' }}>
-                  {hoverSector.seatCount > 0 ? `${hoverSector.seatCount} свободных мест` : 'Нет мест в наличии'}
-                </span>
+                <span style={{ color: 'rgba(0,0,0,0.5)' }}>{sectorAvailabilityLabel(hoverSector)}</span>
                 <br />
                 <strong>{hoverSector.meta.label}</strong>
                 <br />
+                {zonePreorderNote ? (
+                  <>
+                    <span style={{ color: 'rgba(0,0,0,0.5)' }}>{zonePreorderNote}</span>
+                    <br />
+                  </>
+                ) : null}
                 <strong>
                   {hoverSector.minPrice != null
                     ? `${formatRub(hoverSector.minPrice)}${

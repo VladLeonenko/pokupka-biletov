@@ -264,6 +264,151 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
 }
 
 /** Hull path for sectorMode from remapped seats (absolute coords). */
+/** Выпуклая оболочка (Andrew monotone chain), обход против часовой. */
+function convexHull(pts) {
+  const p = [...pts].sort((a, b) => (a.x - b.x) || (a.y - b.y));
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const build = (src) => {
+    const h = [];
+    for (const q of src) {
+      while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop();
+      h.push(q);
+    }
+    h.pop();
+    return h;
+  };
+  return [...build(p), ...build([...p].reverse())];
+}
+
+/** Главные оси набора точек: u — вдоль зоны, v — через ряды. */
+function principalAxes(pts) {
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  let sxx = 0;
+  let sxy = 0;
+  let syy = 0;
+  for (const p of pts) {
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    sxx += dx * dx;
+    sxy += dx * dy;
+    syy += dy * dy;
+  }
+  const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  const u = { x: Math.cos(th), y: Math.sin(th) };
+  const v = { x: -u.y, y: u.x };
+  let extU = 0;
+  let extV = 0;
+  for (const p of pts) {
+    extU = Math.max(extU, Math.abs((p.x - cx) * u.x + (p.y - cy) * u.y));
+    extV = Math.max(extV, Math.abs((p.x - cx) * v.x + (p.y - cy) * v.y));
+  }
+  return { cx, cy, u, v, extU, extV };
+}
+
+/**
+ * Сумма Минковского выпуклой оболочки с кругом радиуса pad: отрезки по рёбрам
+ * плюс дуги на вершинах. Сдвиг самих вершин по бисектрисе на узких зонах
+ * (ложа — всего 30×26 px при pad 20) даёт шипы и самопересечение.
+ */
+function inflatedHullPath(poly, pad) {
+  const n = poly.length;
+  let area = 0;
+  for (let i = 0; i < n; i += 1) {
+    const q = poly[(i + 1) % n];
+    area += poly[i].x * q.y - q.x * poly[i].y;
+  }
+  const sign = area > 0 ? 1 : -1;
+  const sweep = area > 0 ? 1 : 0;
+  const normals = poly.map((p, i) => {
+    const q = poly[(i + 1) % n];
+    const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    return { x: (sign * (q.y - p.y)) / len, y: (-sign * (q.x - p.x)) / len };
+  });
+  const f = (v) => v.toFixed(1);
+  const r = pad.toFixed(1);
+  let d = '';
+  for (let i = 0; i < n; i += 1) {
+    const p = poly[i];
+    const q = poly[(i + 1) % n];
+    const nv = normals[i];
+    const nn = normals[(i + 1) % n];
+    d += `${i === 0 ? 'M' : ' L'} ${f(p.x + nv.x * pad)} ${f(p.y + nv.y * pad)}`;
+    d += ` L ${f(q.x + nv.x * pad)} ${f(q.y + nv.y * pad)}`;
+    d += ` A ${r} ${r} 0 0 ${sweep} ${f(q.x + nn.x * pad)} ${f(q.y + nn.y * pad)}`;
+  }
+  return `${d} Z`;
+}
+
+/** Замкнутый контур с мягкими углами (радиус r, не больше трети ребра). */
+function roundedPolygonPath(poly, r) {
+  const f = (n) => n.toFixed(1);
+  const n = poly.length;
+  const toward = (from, to, dist) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const k = Math.min(dist, len / 3) / len;
+    return { x: from.x + dx * k, y: from.y + dy * k };
+  };
+  let d = '';
+  for (let i = 0; i < n; i += 1) {
+    const prev = poly[(i - 1 + n) % n];
+    const cur = poly[i];
+    const next = poly[(i + 1) % n];
+    const a = toward(cur, prev, r);
+    const b = toward(cur, next, r);
+    d += i === 0 ? `M ${f(a.x)} ${f(a.y)}` : ` L ${f(a.x)} ${f(a.y)}`;
+    d += ` Q ${f(cur.x)} ${f(cur.y)} ${f(b.x)} ${f(b.y)}`;
+  }
+  return `${d} Z`;
+}
+
+/**
+ * Контур зоны по самим местам, а не по bbox: ложи и дуги балконов лежат на
+ * эллипсе, и осевой прямоугольник захватывал соседние ярусы и пустой воздух.
+ *
+ * Вытянутая зона (ряд партера, полоса балкона, цепочка лож по дуге) — полоса
+ * по самим местам: у оболочки здесь почти нулевая толщина, а bbox накрывал бы
+ * пустоту. Компактная зона (ложа целиком, блок партера) — раздутая оболочка.
+ */
+function sectorZonePath(pts, pad, hallWidth, hallHeight) {
+  const clamp = (val, max) => Math.min(max, Math.max(0, val));
+  const fit = (p) => ({ x: clamp(p.x, hallWidth), y: clamp(p.y, hallHeight) });
+  if (pts.length < 2) return null;
+  const ax = principalAxes(pts);
+
+  if (ax.extU > ax.extV * 3) {
+    const half = Math.max(pad, ax.extV + 6);
+    const line = [...pts].sort(
+      (a, b) => (a.x - ax.cx) * ax.u.x + (a.y - ax.cy) * ax.u.y
+        - ((b.x - ax.cx) * ax.u.x + (b.y - ax.cy) * ax.u.y),
+    );
+    const last = line.length - 1;
+    const left = [];
+    const right = [];
+    for (let i = 0; i <= last; i += 1) {
+      const a = line[Math.max(0, i - 1)];
+      const b = line[Math.min(last, i + 1)];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const tx = (b.x - a.x) / len;
+      const ty = (b.y - a.y) / len;
+      /** Концы полосы отодвигаем вдоль ряда, чтобы крайние места не торчали. */
+      const out = i === 0 ? -pad : i === last ? pad : 0;
+      const x = line[i].x + tx * out;
+      const y = line[i].y + ty * out;
+      left.push(fit({ x: x - ty * half, y: y + tx * half }));
+      right.push(fit({ x: x + ty * half, y: y - tx * half }));
+    }
+    return roundedPolygonPath([...left, ...right.reverse()], half * 0.8);
+  }
+
+  const hull = convexHull(pts);
+  if (hull.length < 3) return null;
+  return inflatedHullPath(hull.map(fit), pad);
+}
+
 export function buildBolshoiSellableSectorMode(seats, hallWidth = 1500, hallHeight = 1190) {
   const sectors = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
@@ -284,16 +429,17 @@ export function buildBolshoiSellableSectorMode(seats, hallWidth = 1500, hallHeig
       x2 = Math.max(x2, p.x);
       y2 = Math.max(y2, p.y);
     }
-    const pad = rule.box ? 18 : 12;
+    const pad = rule.box ? 20 : 15;
     x1 = Math.max(0, x1 - pad);
     y1 = Math.max(0, y1 - pad);
     x2 = Math.min(hallWidth, x2 + pad);
     y2 = Math.min(hallHeight, y2 + pad);
+    const bboxPath = `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x1.toFixed(1)} ${y2.toFixed(1)} Z`;
     const vp = viewPointForPreviewUrl(rule.previewImageUrl);
     sectors.push({
       id: rule.id,
       label: rule.label,
-      path: `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x1.toFixed(1)} ${y2.toFixed(1)} Z`,
+      path: sectorZonePath(pts, pad, hallWidth, hallHeight) || bboxPath,
       totalSeats: pts.length,
       previewImageUrl: rule.previewImageUrl || null,
       previewIconX: vp?.x ?? null,
