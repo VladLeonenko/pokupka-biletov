@@ -1363,7 +1363,7 @@ export function TicketCheckoutPage() {
 
   const hallSchemeSubtitle = useMemo(() => {
     if (parseHallPreviewSectorCheckout(layoutJsonForStage)) {
-      return 'Кликните по сектору на схеме и выберите количество билетов. Конкретные места подберёт система.';
+      return 'Кликните по сектору на схеме и выберите количество билетов. Номера мест подтвердим при отправке билетов.';
     }
     if (seatSelectionDisabledUi) {
       const lj = layoutJsonForStage as Record<string, unknown> | undefined;
