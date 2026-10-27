@@ -297,21 +297,92 @@ const BALCONIES = [
       { row: '3', a: 712, b: 450, seats: 40 },
     ],
   },
-  {
-    label: 'Балкон 4 яруса',
-    cy: 600,
-    spanDeg: 150,
-    rows: [
-      { row: '1', a: 745, b: 445, seats: 81 },
-      { row: '2', a: 760, b: 466, seats: 81, spanDeg: 144 },
-      { row: '3', a: 775, b: 487, seats: 79, spanDeg: 138 },
-      { row: '4', a: 790, b: 508, seats: 77, spanDeg: 132 },
-      { row: '2А', a: 805, b: 529, seats: 41, standing: true, spanDeg: 104 },
-      { row: '3А', a: 818, b: 548, seats: 41, standing: true, spanDeg: 100 },
-      { row: '4А', a: 830, b: 565, seats: 39, standing: true, spanDeg: 96 },
-    ],
-  },
 ];
+
+/**
+ * Балкон 4 яруса — самая внешняя подкова, у неё своих лож нет.
+ *
+ * Строится как эквидистанта подковы 3 яруса с переменным зазором: у боковой
+ * стены достаточно обойти ряд 3 лож, а в центре зала надо выйти за балкон
+ * 3 яруса. Из-за разных центров эллипсов постоянный зазор здесь не годится —
+ * кривые пересекаются на полпути.
+ *
+ * Ряд 1 — 81 место (официальный дамп: правая 1–41, левая 42–81), крылья идут
+ * по боковым стенам от FRONT_Y. Между местами 18/19 и 63/64 — вход, как в
+ * референсе и в дампе (там скачок X втрое больше шага). Ряды 3, 4 и стоячие
+ * крыльев не имеют, поэтому занимают только центральную часть подковы.
+ */
+const BALCONY4 = {
+  label: 'Балкон 4 яруса',
+  base: TIERS[TIERS.length - 1],
+  /** Дуга базовой подковы до оси зала, чтобы путь замкнулся по центру. */
+  endDeg: 90,
+  rows: [
+    { row: '1', nearWall: 34, atCenter: 86, seats: 81, gapsAfter: [18, 63] },
+    { row: '2', nearWall: 51, atCenter: 108, seats: 81, gapsAfter: [16, 65] },
+    { row: '3', nearWall: 68, atCenter: 130, seats: 79, spanFrac: 0.62 },
+    { row: '4', nearWall: 85, atCenter: 152, seats: 77, spanFrac: 0.6 },
+    { row: '2А', nearWall: 102, atCenter: 170, seats: 41, spanFrac: 0.4, standing: true },
+    { row: '3А', nearWall: 119, atCenter: 186, seats: 41, spanFrac: 0.38, standing: true },
+    { row: '4А', nearWall: 136, atCenter: 200, seats: 39, spanFrac: 0.36, standing: true },
+  ],
+};
+
+/**
+ * Эквидистанта пути яруса наружу зала с линейно растущим зазором.
+ * Нормаль внутрь зала — (ty, −tx), значит наружу — (−ty, tx).
+ */
+function outwardOffsetPath(pts, nearWall, atCenter) {
+  const acc = cumulativeLengths(pts);
+  const total = acc[acc.length - 1] || 1;
+  const out = [];
+  for (let i = 0; i < pts.length; i += 1) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[Math.min(pts.length - 1, i + 1)];
+    const len = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
+    const tx = (p1.x - p0.x) / len;
+    const ty = (p1.y - p0.y) / len;
+    const d = nearWall + (atCenter - nearWall) * (acc[i] / total);
+    out.push({ x: pts[i].x - ty * d, y: pts[i].y + tx * d });
+  }
+  return out;
+}
+
+function buildBalcony4() {
+  const spec = BALCONY4;
+  const left = tierPath({ ...spec.base, arc: { ...spec.base.arc, endDeg: spec.endDeg } });
+  const out = [];
+  for (const r of spec.rows) {
+    const half = outwardOffsetPath(left, r.nearWall, r.atCenter);
+    /** Полный путь: от верха правого крыла вниз, по дну, вверх к левому. */
+    const full = [
+      ...half.map((p) => ({ x: HALL_W - p.x, y: p.y })),
+      ...[...half].reverse().slice(1),
+    ];
+    const acc = cumulativeLengths(full);
+    const total = acc[acc.length - 1];
+    const gaps = r.gapsAfter ?? [];
+    /** Вход занимает один шаг, поэтому слотов на столько же больше. */
+    const slots = r.seats + gaps.length;
+    const span = (r.spanFrac ?? 1) * total;
+    const from = (total - span) / 2;
+    const pitch = span / slots;
+    for (let n = 1; n <= r.seats; n += 1) {
+      const skipped = gaps.filter((g) => n > g).length;
+      const p = pointAt(full, acc, from + (n - 1 + skipped + 0.5) * pitch);
+      out.push({
+        sector: `${spec.label} ${p.x > AXIS ? 'Правая' : 'Левая'} сторона${
+          r.standing ? ' стоячие места' : ''
+        }`,
+        row: r.row,
+        seat: String(n),
+        cx: p.x,
+        cy: p.y,
+      });
+    }
+  }
+  return out;
+}
 
 function buildBalconies() {
   const out = [];
@@ -348,6 +419,7 @@ function buildHall() {
     ...buildAmphitheater(),
     ...buildSideBoxes(),
     ...buildBalconies(),
+    ...buildBalcony4(),
   ];
   return places.map((p, i) => ({
     id: `${p.sector}|${p.row}|${p.seat}|${i}`,
