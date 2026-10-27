@@ -189,12 +189,18 @@ function detail(s) {
 /**
  * Remap layout seats → sellable offer labels; keep original in sectorDetail.
  * Балкон 3: после фильтра по ряду оставляем 8 мест с минимальными номерами.
+ *
+ * Идемпотентна: на вход часто приходят уже размеченные места из схемы, поэтому
+ * сектор и ряд сначала возвращаются к исходным — иначе правила зон (они ждут
+ * «ряд 1») не находят мест, перенумерованных прошлым проходом.
  */
 export function remapBolshoiSeatsToSellableLabels(seats) {
   const out = (Array.isArray(seats) ? seats : []).map((s) => ({
     ...s,
     sectorDetail: s.sectorDetail || s.sector,
     sector: s.sectorDetail || s.sector,
+    rowOrigin: s.rowOrigin ?? s.row,
+    row: s.rowOrigin ?? s.row,
     sellable: false,
   }));
 
