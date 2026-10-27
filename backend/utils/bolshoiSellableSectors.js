@@ -154,7 +154,8 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'lozha1_box',
     label: 'Ложа 1 яруса целиком (левая 9)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    maxQty: 6,
+    /** Ложа = 8 мест: ряд 1 — 1/3/5, ряд 2 — 2/4/6, ряд 3 — 7/8. */
+    maxQty: 8,
     box: true,
     test: (s) => /1\s*ярус\s+Левая.*Ложа\s+9\b/.test(detail(s)),
   },

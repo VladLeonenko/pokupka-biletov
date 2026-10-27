@@ -1185,6 +1185,17 @@
       return hit || canonicalSectorLabel(trimmed);
     }
 
+    /**
+     * В поле «Сектор» только человеческую подпись: normalizeSectorLabel —
+     * ключ сравнения (латинские двойники, lower, без пробелов), и если он
+     * попадёт в поле, «Применить ряд» зашьёт «пaptep» в data-sector.
+     */
+    function setPaintSectorField(sector) {
+      const raw = String(sector ?? '').trim();
+      if (!raw) return;
+      paintSector.value = inferSectorLabelForApply(raw) || raw;
+    }
+
     function circleSector(circle) {
       return decodeAttr(circle.getAttribute('data-sector') || circle.getAttribute('place-name') || '');
     }
@@ -2543,7 +2554,7 @@
       const wanted = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
       const free = nextFreeSeatNum(sector, row, wanted);
       const canon = canonicalSectorLabel(sector) || sector;
-      paintSector.value = normalizeSectorLabel(sector) || sector;
+      setPaintSectorField(sector);
       setPaintRowFromMeta(row);
       paintStartSeat.value = String(free);
       if (free === wanted && !occupiedSeatNumsInSectorRow(sector, row).has(wanted)) {
@@ -2576,7 +2587,7 @@
         return null;
       }
       const seatNum = nextFreeSeatNum(sector, row, wanted);
-      paintSector.value = normalizeSectorLabel(sector) || sector;
+      setPaintSectorField(sector);
       return {
         sector: canonicalSectorLabel(sector) || sector,
         row: String(row).trim(),
@@ -2812,7 +2823,7 @@
       rebuildCircleCoordIndex();
       circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
       setPaintSelection([circle]);
-      paintSector.value = normalizeSectorLabel(pack.sector) || pack.sector;
+      setPaintSectorField(pack.sector);
       setPaintRowFromMeta(pack.row);
       paintStartSeat.value = String(newSeat);
       const arrow = side === 'left' ? '←' : '→';
@@ -5165,7 +5176,7 @@
           showPaintToast('err', 'Укажи сектор в поле или выдели места одного сектора');
           return 0;
         }
-        paintSector.value = normalizeSectorLabel(sector);
+        setPaintSectorField(sector);
       }
       let selection = paintSelection;
       const { list: inBbox, dropped: bboxDrop } = filterCirclesToSectorBbox(selection, sector);
