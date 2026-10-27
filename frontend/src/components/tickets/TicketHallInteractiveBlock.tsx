@@ -2142,6 +2142,31 @@ export function TicketHallInteractiveBlock({
     const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
     return selectedSeatDetails.filter((d) => normalizeSectorLabel(d.sector) === sectorNorm).length;
   }, [selectedSeatDetails, selectedSectorSummary]);
+
+  /**
+   * VIP-ложа слева: продаётся только целиком. При открытии зоны сразу
+   * выставляем все места — без ± и без «взять часть».
+   */
+  useEffect(() => {
+    if (!selectedSectorSummary?.meta.boxWhole) return;
+    if (selectedSectorSummary.maxPrice == null) return;
+    const cap =
+      selectedSectorSummary.meta.maxQuantity && selectedSectorSummary.meta.maxQuantity > 0
+        ? selectedSectorSummary.meta.maxQuantity
+        : selectedSectorSummary.seatCount;
+    if (cap <= 0) return;
+    const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
+    const current = selectedSeatDetails.filter((d) => normalizeSectorLabel(d.sector) === sectorNorm).length;
+    if (current === cap) return;
+    setFieldZoneQty(
+      selectedSectorSummary.offers,
+      cap,
+      selectedSectorSummary.maxPrice,
+      selectedSectorSummary.meta.label,
+      cap,
+    );
+  }, [selectedSectorSummary, selectedSeatDetails, setFieldZoneQty]);
+
   const categoryModalSelectedTotal = useMemo(() => {
     if (!selectedSectorSummary) return 0;
     const sectorNorm = normalizeSectorLabel(selectedSectorSummary.meta.label);
@@ -3255,50 +3280,54 @@ export function TicketHallInteractiveBlock({
                           <div className={styles.categoryModalOfferCard}>
                             <div className={styles.categoryModalOfferTop}>
                               <span className={styles.categoryModalOfferPrice}>
-                                {formatRub(selectedSectorSummary.maxPrice)}/шт
+                                {formatRub(selectedSectorSummary.maxPrice)}/за билет
                               </span>
-                              <div className={styles.categoryQtyRow}>
-                                <button
-                                  type="button"
-                                  className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnMinus}`}
-                                  aria-label="Меньше"
-                                  disabled={categoryModalSelectedCount <= 0}
-                                  onClick={() =>
-                                    setFieldZoneQty(
-                                      selectedSectorSummary.offers,
-                                      categoryModalSelectedCount - 1,
-                                      selectedSectorSummary.maxPrice!,
-                                      selectedSectorSummary.meta.label,
-                                      sectorQtyCap,
-                                    )
-                                  }
-                                >
-                                  −
-                                </button>
-                                <span className={styles.categoryQtyValue}>{categoryModalSelectedCount}</span>
-                                <button
-                                  type="button"
-                                  className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnPlus}`}
-                                  aria-label="Больше"
-                                  disabled={categoryModalSelectedCount >= sectorQtyCap}
-                                  onClick={() =>
-                                    setFieldZoneQty(
-                                      selectedSectorSummary.offers,
-                                      categoryModalSelectedCount + 1,
-                                      selectedSectorSummary.maxPrice!,
-                                      selectedSectorSummary.meta.label,
-                                      sectorQtyCap,
-                                    )
-                                  }
-                                >
-                                  +
-                                </button>
-                              </div>
+                              {selectedSectorSummary.meta.boxWhole ? (
+                                <span className={styles.categoryQtyValue}>{sectorQtyCap}</span>
+                              ) : (
+                                <div className={styles.categoryQtyRow}>
+                                  <button
+                                    type="button"
+                                    className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnMinus}`}
+                                    aria-label="Меньше"
+                                    disabled={categoryModalSelectedCount <= 0}
+                                    onClick={() =>
+                                      setFieldZoneQty(
+                                        selectedSectorSummary.offers,
+                                        categoryModalSelectedCount - 1,
+                                        selectedSectorSummary.maxPrice!,
+                                        selectedSectorSummary.meta.label,
+                                        sectorQtyCap,
+                                      )
+                                    }
+                                  >
+                                    −
+                                  </button>
+                                  <span className={styles.categoryQtyValue}>{categoryModalSelectedCount}</span>
+                                  <button
+                                    type="button"
+                                    className={`${styles.categoryQtyBtn} ${styles.categoryQtyBtnPlus}`}
+                                    aria-label="Больше"
+                                    disabled={categoryModalSelectedCount >= sectorQtyCap}
+                                    onClick={() =>
+                                      setFieldZoneQty(
+                                        selectedSectorSummary.offers,
+                                        categoryModalSelectedCount + 1,
+                                        selectedSectorSummary.maxPrice!,
+                                        selectedSectorSummary.meta.label,
+                                        sectorQtyCap,
+                                      )
+                                    }
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             <div className={styles.sectorOfferAvail}>
                               {selectedSectorSummary.meta.boxWhole
-                                ? `В ложе ${sectorQtyCap} мест · можно взять часть`
-                                : `До ${sectorQtyCap} шт в заказе`}
+                                ? `Ложа целиком · ${sectorQtyCap} мест`
+                                : `До ${sectorQtyCap} билетов в заказе`}
                             </div>
                           </div>
                         ) : (
@@ -3318,7 +3347,7 @@ export function TicketHallInteractiveBlock({
                             <div key={`${oid}-${rowLabel}-${priceKey}`} className={styles.categoryModalOfferCard}>
                               <div className={styles.categoryModalOfferTop}>
                                 <span className={styles.categoryModalOfferPrice}>
-                                  {formatRub(Number(priceKey))}/шт
+                                  {formatRub(Number(priceKey))}/за билет
                                 </span>
                                 <div className={styles.categoryQtyRow}>
                                   <button
@@ -3342,7 +3371,7 @@ export function TicketHallInteractiveBlock({
                                   </button>
                                 </div>
                               </div>
-                              <div className={styles.sectorOfferAvail}>Свободно {seats.length} шт</div>
+                              <div className={styles.sectorOfferAvail}>Свободно {seats.length}</div>
                             </div>
                           );
                         })
@@ -3418,8 +3447,8 @@ export function TicketHallInteractiveBlock({
                       return (
                         <div key={`${oid}-${rowLabel}-${priceKey}`} className={styles.sectorOfferRow}>
                           <div className={styles.sectorOfferHead}>
-                            <span>{formatRub(Number(priceKey))}/шт</span>
-                            <span className={styles.sectorOfferAvail}>Свободно {seats.length} шт</span>
+                            <span>{formatRub(Number(priceKey))}/за билет</span>
+                            <span className={styles.sectorOfferAvail}>Свободно {seats.length}</span>
                           </div>
                           <div className={styles.categoryQtyRow}>
                             <button
@@ -3621,7 +3650,7 @@ export function TicketHallInteractiveBlock({
                   hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
                     ? ` - ${formatRub(hoverSector.maxPrice)}`
                     : ''
-                }`
+                }/за билет`
               : 'Цена уточняется'}
           </strong>
         </div>
@@ -3672,7 +3701,7 @@ export function TicketHallInteractiveBlock({
                         hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
                           ? ` - ${formatRub(hoverSector.maxPrice)}`
                           : ''
-                      }`
+                      }/за билет`
                     : 'Цена уточняется'}
                 </strong>
               </Typography>

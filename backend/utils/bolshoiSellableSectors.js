@@ -2,12 +2,11 @@
  * Продаваемые зоны Исторической сцены Большого (по ТЗ заказчика).
  *
  * 1) Партер середина — ряды 1–8, центральный блок
- * 2) Бельэтаж правая, ложи 4–6, только ряд 1, места 1/3/5 (до 3 билетов)
- * 3) 1 ярус правая, ложи 5–8, только ряд 1, места 1/3/5
- * 4) Балкон 2 левая, ряд 1, до 8 мест подряд
- * 5) Балкон 3 левая, ряд 1, до 8 мест подряд
- * 6) VIP: Бельэтаж левая ложа 4 целиком (8); 1 ярус левая ложа 9 целиком (6)
- * 7) VIP-VIP: Партер ряд А
+ * 2) Бельэтаж правая: ложи 4, 5, 6 — каждая отдельной зоной на все 3 ряда
+ * 3) 1 ярус правая: ложи 5–8 — каждая отдельной зоной на все 3 ряда
+ * 4) Балкон 2 / 3 левая, ряд 1
+ * 5) Левые VIP-ложи целиком (бельэтаж 4, 1 ярус 9)
+ * 6) Партер ряд А (Вип) — без боковых 4+4
  */
 
 export const BOLSHOI_VIEW_IMAGES = {
@@ -48,7 +47,7 @@ export const BOLSHOI_VIEW_POINTS = {
     x: 385,
     y: 661,
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    primarySectorId: 'lozha1_right',
+    primarySectorId: 'lozha1_right_5',
   },
 };
 
@@ -98,10 +97,18 @@ function viewPointForPreviewUrl(url) {
 
 /** @typedef {{ id: string, label: string, previewImageUrl?: string, test: (s: object) => boolean, maxQty?: number, box?: boolean }} SellableRule */
 
+/** Одна правая ложа: все 3 ряда (8 мест). */
+function rightBoxTest(tierRe, boxNo) {
+  const re = new RegExp(`${tierRe}\\s+Правая.*Ложа\\s+${boxNo}\\b`);
+  return (s) => re.test(detail(s));
+}
+
 /**
  * Продаваемые зоны. Границы зоны задаёт `test` — он же определяет, сколько в
  * зоне мест; `maxQuantity` потом равен этому числу, без отдельного потолка.
  * Менять `test` ради лимита нельзя: зона расползается по схеме.
+ *
+ * `priceAlias` — старый лейбл для подхвата цены после переименования зон.
  */
 export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
@@ -117,23 +124,53 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     },
   },
   {
-    id: 'beletazh_right',
-    label: 'Бельэтаж правая (ложи 4–6)',
+    id: 'beletazh_right_4',
+    label: 'Бельэтаж правая ложа 4',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    /** На схеме Большого ряд 1 ложи нумеруется 1/3/5 (три места спереди). */
-    test: (s) =>
-      /Бельэтаж\s+Правая.*Ложа\s+[456]\b/.test(detail(s)) &&
-      String(s.row) === '1' &&
-      ['1', '3', '5'].includes(String(s.seat)),
+    priceAlias: 'Бельэтаж правая (ложи 4–6)',
+    test: rightBoxTest('Бельэтаж', 4),
   },
   {
-    id: 'lozha1_right',
-    label: '1 ярус правая (ложи 5–8)',
+    id: 'beletazh_right_5',
+    label: 'Бельэтаж правая ложа 5',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    test: (s) =>
-      /1\s*ярус\s+Правая.*Ложа\s+[5678]\b/.test(detail(s)) &&
-      String(s.row) === '1' &&
-      ['1', '3', '5'].includes(String(s.seat)),
+    priceAlias: 'Бельэтаж правая (ложи 4–6)',
+    test: rightBoxTest('Бельэтаж', 5),
+  },
+  {
+    id: 'beletazh_right_6',
+    label: 'Бельэтаж правая ложа 6',
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    priceAlias: 'Бельэтаж правая (ложи 4–6)',
+    test: rightBoxTest('Бельэтаж', 6),
+  },
+  {
+    id: 'lozha1_right_5',
+    label: '1 ярус правая ложа 5',
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    priceAlias: '1 ярус правая (ложи 5–8)',
+    test: rightBoxTest('1\\s*ярус', 5),
+  },
+  {
+    id: 'lozha1_right_6',
+    label: '1 ярус правая ложа 6',
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    priceAlias: '1 ярус правая (ложи 5–8)',
+    test: rightBoxTest('1\\s*ярус', 6),
+  },
+  {
+    id: 'lozha1_right_7',
+    label: '1 ярус правая ложа 7',
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    priceAlias: '1 ярус правая (ложи 5–8)',
+    test: rightBoxTest('1\\s*ярус', 7),
+  },
+  {
+    id: 'lozha1_right_8',
+    label: '1 ярус правая ложа 8',
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    priceAlias: '1 ярус правая (ложи 5–8)',
+    test: rightBoxTest('1\\s*ярус', 8),
   },
   {
     id: 'balkon2_left',
@@ -162,6 +199,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'beletazh_box',
     label: 'Ложа бельэтажа (левая 4)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    /** Левая VIP-ложа — только целиком. */
     box: true,
     test: (s) => /Бельэтаж\s+Левая.*Ложа\s+4\b/.test(detail(s)),
   },
@@ -169,7 +207,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'lozha1_box',
     label: 'Ложа 1 яруса (левая 9)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    /** Ложа = 8 мест: ряд 1 — 1/3/5, ряд 2 — 2/4/6, ряд 3 — 7/8. */
+    /** Левая VIP-ложа — только целиком. */
     box: true,
     test: (s) => /1\s*ярус\s+Левая.*Ложа\s+9\b/.test(detail(s)),
   },
@@ -177,8 +215,13 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'vip_parter',
     label: 'Партер ряд А (Вип)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.parter,
-    /** Ряд А: литера из подписей. */
-    test: (s) => detail(s) === 'Партер' && (String(s.row || '') === 'А' || s._vipRowA === true),
+    /** Без боковых 4 слева и 4 справа (места 1–4 и 25–28). */
+    test: (s) => {
+      if (detail(s) !== 'Партер') return false;
+      if (!(String(s.row || '') === 'А' || s._vipRowA === true)) return false;
+      const seat = Number(String(s.seat).replace(/\D/g, ''));
+      return Number.isFinite(seat) && seat >= 5 && seat <= 24;
+    },
   },
 ];
 
@@ -293,7 +336,10 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
   const next = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
     const byRow = byLabel.get(rule.label);
-    const proto = priceBySector.get(rule.label) || (fallback ? { ...fallback, Sector: rule.label } : null);
+    const proto =
+      priceBySector.get(rule.label) ||
+      (rule.priceAlias ? priceBySector.get(rule.priceAlias) : null) ||
+      (fallback ? { ...fallback, Sector: rule.label } : null);
     if (!byRow || !proto || byRow.size === 0) continue;
     for (const [row, grp] of byRow) {
       const seats = [...new Set(grp.seats)];
