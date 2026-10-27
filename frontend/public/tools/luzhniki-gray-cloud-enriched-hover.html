@@ -153,11 +153,11 @@
       <label title="отсечь соседние ряды по ⊥ расстоянию"><input type="checkbox" id="paintOneRow" checked /> 1 ряд</label>
       <button type="button" id="paintClearSel">✕ выделение</button>
       <button type="button" id="rectSelectBtn" title="протянуть рамку и выделить все точки внутри">▢ область</button>
-      <button type="button" id="placeSeatBtn" title="клик по схеме — новое оранжевое место (Сектор / Ряд / Место с)">＋ место</button>
+      <button type="button" id="placeSeatBtn" title="клик по схеме — новое место. Номер = «Место с», если занят — следующий свободный в Сектор+Ряд; после клика «Место с» = next+1">＋ место</button>
       <button type="button" id="deleteSeatBtn" title="удалить выделенные места со схемы (и с сервера после ▶/💾)">⌫ место</button>
       <button type="button" id="deleteUnlabeledBtn" title="удалить все красные точки без ряда (row пустой / — / data-unlabeled)">⌫ без ряда</button>
-      <button type="button" id="extendRowLeftBtn" title="продолжить ряд влево (−cx) на 1 место">+1 ←</button>
-      <button type="button" id="extendRowRightBtn" title="продолжить ряд вправо (+cx) на 1 место">+1 →</button>
+      <button type="button" id="extendRowLeftBtn" title="продолжить ряд влево (−cx): новый номер = tip±step, занятые пропускаются">+1 ←</button>
+      <button type="button" id="extendRowRightBtn" title="продолжить ряд вправо (+cx): новый номер = tip±step, занятые пропускаются (больше не падает «Место N уже есть»)">+1 →</button>
       <span class="hint" id="paintSelCount">0 точек</span>
       <span class="sep"></span>
       <label title="только при «Применить ряд», выделение не режет">Сектор <input type="text" id="paintSector" class="wide" placeholder="при ▶" /></label>
@@ -165,7 +165,8 @@
       <label>Тип <select id="paintApplyMode"><option value="row">ряд</option><option value="first-col">1-я колонка</option><option value="last-col">посл. колонка</option></select></label>
       <label id="paintRowWrap">Ряд <input type="text" id="paintRow" inputmode="numeric" value="" placeholder="№ ряда" /></label>
       <label id="paintEndRowWrap" hidden>ряд по <input type="text" id="paintEndRow" inputmode="numeric" value="" placeholder="последний" title="только для колонок: номер последнего ряда сектора" /></label>
-      <label>Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
+      <label title="стартовый номер места при ＋ место / ▶">Место с <input type="number" id="paintStartSeat" min="1" value="1" /></label>
+      <button type="button" id="bumpSeatBtn" title="Место +: выставить «Место с» = следующий свободный номер в Сектор+Ряд (пропуск занятых). Сам точку не ставит.">Место +</button>
       <label title="игнорировать старые data-seat/place из облака"><input type="checkbox" id="paintRenumber" checked /> с «Место с»</label>
       <button type="button" id="paintSelectRow" title="выделить все точки сектора+ряда">⊙ ряд</button>
       <button type="button" id="clearRowSeatBtn" title="очистить row/place у выделенных точек, сектор оставить">⌫ ряд/место</button>
@@ -199,9 +200,11 @@
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
+    <button type="button" id="reloadServerSvgBtn" title="Перезагрузить SVG с сервера (БД), правки браузера оставить">↻ с сервера</button>
+    <button type="button" id="clearBrowserEditsBtn" class="warn" title="Удалить localStorage-правки этого зала и перезагрузить SVG с сервера">Сбросить правки браузера</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v5</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v7</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -256,6 +259,7 @@
     const paintClearSel = document.getElementById('paintClearSel');
     const rectSelectBtn = document.getElementById('rectSelectBtn');
     const placeSeatBtn = document.getElementById('placeSeatBtn');
+    const bumpSeatBtn = document.getElementById('bumpSeatBtn');
     const deleteSeatBtn = document.getElementById('deleteSeatBtn');
     const deleteUnlabeledBtn = document.getElementById('deleteUnlabeledBtn');
     const extendRowLeftBtn = document.getElementById('extendRowLeftBtn');
@@ -309,6 +313,15 @@
     const svgFetchBase = (urlParams.get('svgBase') || '').replace(/\/$/, '');
     const saveAuthToken = urlParams.get('saveToken') || urlParams.get('token') || '';
 
+    /** Dev theater editor на localhost без saveApi — пишет в локальный backend без токена. */
+    function canSaveWithoutToken() {
+      return Boolean(isLocalEditor && isTheaterHallEditor && !saveApiBase);
+    }
+
+    function missingSaveToken() {
+      return !saveAuthToken && !canSaveWithoutToken();
+    }
+
     function saveApiUrl() {
       return (saveApiBase || '') + '/api/tools/' + hallApi;
     }
@@ -323,9 +336,18 @@
         saveTargetEl.textContent = '→ localhost (dev БД + git, без saveToken)';
         return;
       }
-      saveTargetEl.textContent = saveApiBase ? '→ ' + saveApiBase.replace(/^https?:\/\//, '') : '→ этот хост';
+      const host = saveApiBase ? '→ ' + saveApiBase.replace(/^https?:\/\//, '') : '→ этот хост';
+      saveTargetEl.textContent = missingSaveToken()
+        ? host + ' · ⚠ нет saveToken в URL (открой из админки «Схемы залов»)'
+        : host + (saveAuthToken ? ' · saveToken ok' : '');
     }
     updateSaveTargetHint();
+    if (missingSaveToken()) {
+      showPaintToast(
+        'err',
+        'Нет saveToken в URL — «Применить → сервер» даст 403. Открой редактор из GetBilet → Схемы залов (кнопка с токеном).',
+      );
+    }
 
     let svgRoot = null;
     let overlayG = null;
@@ -417,6 +439,33 @@
 
     function editStorageKey() {
       return 'luzhniki-gray-cloud-edits:v1:' + hallApi + ':' + getSvgFileName();
+    }
+
+    function clearEditStore() {
+      try {
+        localStorage.removeItem(editStorageKey());
+      } catch (_) {
+        /* noop */
+      }
+      lastFileSaveOk = false;
+      updateSaveStatus();
+    }
+
+    async function reloadServerSvgFresh() {
+      status.textContent = 'Загрузка SVG с сервера…';
+      try {
+        await reloadSvgFromServer('');
+        showPaintToast('ok', 'SVG с сервера · ' + allCircles.length.toLocaleString('ru') + ' точек');
+      } catch (e) {
+        showPaintToast('err', e.message || String(e));
+      }
+    }
+
+    async function clearBrowserEditsAndReload() {
+      const n = Object.keys(loadEditStore().overrides).length;
+      if (n && !confirm('Сбросить ' + n + ' правок в браузере и загрузить SVG с сервера?')) return;
+      clearEditStore();
+      await reloadServerSvgFresh();
     }
 
     function circleCoordKey(circle) {
@@ -621,8 +670,11 @@
     /** Сразу POST SVG+bundle (после ▶ Применить ряд). @param {string} [expectSectorNorm] */
     async function pushEditsToServer(expectSectorNorm) {
       clearTimeout(serverSaveTimer);
-      if (hallApi === 'luzhniki-gray-cloud-svg' && isLocalEditor && saveApiBase && !saveAuthToken) {
-        showPaintToast('err', 'Нет saveToken в URL — сохранение на biletvsem не уйдёт');
+      if (missingSaveToken()) {
+        showPaintToast(
+          'err',
+          'Нет saveToken в URL — сохранение на сервер не уйдёт. Открой редактор из админки «Схемы залов».',
+        );
         return { ok: false };
       }
       showPaintToast('info', 'POST на сервер…');
@@ -742,6 +794,13 @@
     /** @returns {Promise<{ ok: boolean, data?: Record<string, unknown> }>} */
     async function saveSvgToServer() {
       flushEditsToDomBeforeSave();
+      if (missingSaveToken()) {
+        showPaintToast(
+          'err',
+          'Нет saveToken в URL — LUZHNIKI_SVG_SAVE_TOKEN на сервере требует ?saveToken=…',
+        );
+        return { ok: false };
+      }
 
       if (isStadiumCloudEditor) {
         const storeSeats = extractLabeledSeatsFromEditStore();
@@ -2432,16 +2491,82 @@
         if (rectSelectMode) setRectSelectMode(false);
         showPaintToast(
           'info',
-          '＋ место: клик по схеме · Сектор / Ряд / «Место с» (потом авто +1) · ▶ или 💾 → сервер',
+          '＋ место: клик · Сектор/Ряд · номер = свободный от «Место с» · Место + = только сдвинуть счётчик',
         );
       }
       refreshStatusHint();
     }
 
+    /** Занятые номера мест в секторе+ряду (по всей схеме). */
+    function occupiedSeatNumsInSectorRow(sector, row) {
+      const sectorNorm = normalizeSectorLabel(sector);
+      const rowKey = normalizePaintRowNum(row);
+      const occupied = new Set();
+      if (!sectorNorm || !rowKey) return occupied;
+      for (const c of allCircles) {
+        if (normalizeSectorLabel(circleSector(c)) !== sectorNorm) continue;
+        if (normalizePaintRowNum(circleRow(c)) !== rowKey) continue;
+        const n = circleSeatNum(c);
+        if (n != null) occupied.add(n);
+      }
+      return occupied;
+    }
+
+    /** Следующий свободный номер ≥ from (включительно). */
+    function nextFreeSeatNum(sector, row, from) {
+      const occupied = occupiedSeatNumsInSectorRow(sector, row);
+      let n = Math.max(1, Number(from) || 1);
+      while (occupied.has(n)) n += 1;
+      return n;
+    }
+
+    /**
+     * Место +: только выставить «Место с» на следующий свободный в Сектор+Ряд.
+     * Точку не ставит — для этого ＋ место (клик).
+     */
+    function bumpPaintStartSeatToNextFree() {
+      const sector =
+        paintSectorForApply().trim() ||
+        inferSectorFromSelection(paintSelection) ||
+        (paintSelection[0] ? circleSector(paintSelection[0]) : '');
+      const row =
+        getEffectivePaintRow() ||
+        (paintSelection[0] ? normalizePaintRowNum(circleRow(paintSelection[0])) : '');
+      if (!sector) {
+        showPaintToast('err', 'Место +: укажи сектор (или выдели место ряда)');
+        return null;
+      }
+      if (!isValidPaintRow(row)) {
+        showPaintToast('err', 'Место +: укажи ряд');
+        return null;
+      }
+      const wanted = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      const free = nextFreeSeatNum(sector, row, wanted);
+      const canon = canonicalSectorLabel(sector) || sector;
+      paintSector.value = normalizeSectorLabel(sector) || sector;
+      setPaintRowFromMeta(row);
+      paintStartSeat.value = String(free);
+      if (free === wanted && !occupiedSeatNumsInSectorRow(sector, row).has(wanted)) {
+        showPaintToast('ok', 'Место с = ' + free + ' уже свободно · ' + canon + ' ряд ' + row);
+      } else {
+        showPaintToast(
+          'ok',
+          'Место + → «Место с»=' +
+            free +
+            (free !== wanted ? ' (было ' + wanted + ', занято)' : '') +
+            ' · ' +
+            canon +
+            ' ряд ' +
+            row,
+        );
+      }
+      return free;
+    }
+
     function resolvePlaceSeatFields() {
       const sector = paintSectorForApply().trim() || inferSectorFromSelection(paintSelection);
       const row = getEffectivePaintRow();
-      const seatNum = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
+      const wanted = Math.max(1, parseInt(paintStartSeat.value, 10) || 1);
       if (!sector) {
         showPaintToast('err', 'Укажи сектор перед ＋ место');
         return null;
@@ -2450,8 +2575,14 @@
         showPaintToast('err', 'Укажи ряд перед ＋ место');
         return null;
       }
+      const seatNum = nextFreeSeatNum(sector, row, wanted);
       paintSector.value = normalizeSectorLabel(sector) || sector;
-      return { sector: canonicalSectorLabel(sector) || sector, row: String(row).trim(), seatNum };
+      return {
+        sector: canonicalSectorLabel(sector) || sector,
+        row: String(row).trim(),
+        seatNum,
+        wanted,
+      };
     }
 
     async function placeSeatAtSvgPoint(x, y) {
@@ -2466,10 +2597,23 @@
       rebuildCircleCoordIndex();
       circleGrid = buildCircleGrid(allCircles, allCircles.length > 12000 ? 180 : 96);
       setPaintSelection([circle]);
-      paintStartSeat.value = String(fields.seatNum + 1);
+      const next = nextFreeSeatNum(fields.sector, fields.row, fields.seatNum + 1);
+      paintStartSeat.value = String(next);
+      const skipped =
+        fields.seatNum !== fields.wanted
+          ? ' (пропуск занятых от ' + fields.wanted + ')'
+          : '';
       showPaintToast(
         'ok',
-        '＋ ' + fields.sector + ' ряд ' + fields.row + ' место ' + fields.seatNum + ' → сервер…',
+        '＋ ' +
+          fields.sector +
+          ' ряд ' +
+          fields.row +
+          ' место ' +
+          fields.seatNum +
+          skipped +
+          ' → след. «Место с»=' +
+          next,
       );
       await pushEditsToServer(normalizeSectorLabel(fields.sector));
       renderRowLabels(fields.sector);
@@ -2616,22 +2760,33 @@
         showPaintToast('err', 'У края ряда нет номера места');
         return 0;
       }
-      let newSeat;
+      let step;
       const prevSeat = prev ? circleSeatNum(prev) : null;
       if (prevSeat != null && prevSeat !== tipSeat) {
-        newSeat = tipSeat + (tipSeat - prevSeat);
+        step = tipSeat - prevSeat;
       } else {
         const other = side === 'left' ? byCx[byCx.length - 1] : byCx[0];
         const otherSeat = circleSeatNum(other);
-        newSeat =
-          otherSeat != null && tipSeat < otherSeat ? tipSeat - 1 : tipSeat + 1;
+        step = otherSeat != null && tipSeat < otherSeat ? -1 : 1;
+      }
+      if (!Number.isFinite(step) || step === 0) step = side === 'left' ? -1 : 1;
+      /** Ищем свободный номер в сторону продолжения (раньше падало «Место N уже есть»). */
+      const occupied = occupiedSeatNumsInSectorRow(pack.sector, pack.row);
+      let newSeat = tipSeat + step;
+      let guard = 0;
+      while (occupied.has(newSeat) && guard < 200) {
+        newSeat += step;
+        guard += 1;
       }
       if (!Number.isFinite(newSeat) || newSeat < 1) {
-        showPaintToast('err', 'Нельзя продолжить ряд: место ' + newSeat);
+        showPaintToast(
+          'err',
+          'Нельзя продолжить ряд: нет свободного места в сторону ' + (side === 'left' ? '←' : '→'),
+        );
         return 0;
       }
-      if (pack.list.some((c) => circleSeatNum(c) === newSeat)) {
-        showPaintToast('err', 'Место ' + newSeat + ' уже есть в ряду ' + pack.row);
+      if (occupied.has(newSeat)) {
+        showPaintToast('err', 'Нет свободного номера места в ряду ' + pack.row);
         return 0;
       }
       const tx = +tip.getAttribute('cx');
@@ -5859,6 +6014,7 @@
     });
     rectSelectBtn.addEventListener('click', () => setRectSelectMode(!rectSelectMode));
     placeSeatBtn?.addEventListener('click', () => setPlaceSeatMode(!placeSeatMode));
+    bumpSeatBtn?.addEventListener('click', () => bumpPaintStartSeatToNextFree());
     deleteSeatBtn?.addEventListener('click', () => void deleteSelectedSeats());
     deleteUnlabeledBtn?.addEventListener('click', () => void deleteUnlabeledSeats());
     extendRowLeftBtn?.addEventListener('click', () => void extendSelectedRowByOne('left'));
@@ -5895,6 +6051,8 @@
     });
     undoBtn.addEventListener('click', undo);
     saveSvgBtn.addEventListener('click', downloadSvg);
+    document.getElementById('reloadServerSvgBtn')?.addEventListener('click', () => void reloadServerSvgFresh());
+    document.getElementById('clearBrowserEditsBtn')?.addEventListener('click', () => void clearBrowserEditsAndReload());
 
     fileInput.addEventListener('change', () => {
       const f = fileInput.files?.[0];
@@ -5909,6 +6067,18 @@
 
     const svgUrlParam = urlParams.get('svgUrl')?.trim();
     const initialSector = urlParams.get('sector')?.trim() || '';
+    const clearEditsParam = /^(1|true|yes)$/i.test(String(urlParams.get('clearEdits') || ''));
+    if (clearEditsParam) {
+      clearEditStore();
+      try {
+        const u = new URL(location.href);
+        u.searchParams.delete('clearEdits');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (_) {
+        /* noop */
+      }
+      showPaintToast('info', 'Правки браузера сброшены — грузим сервер');
+    }
     const svgLoadUrls = svgUrlParam ? [svgUrlParam] : editorSvgUrls(initialSector);
     status.textContent = 'Загрузка ' + svgLoadUrls[0] + (svgLoadUrls.length > 1 ? '…' : '') + '…';
     updateFillNextRowHint();
