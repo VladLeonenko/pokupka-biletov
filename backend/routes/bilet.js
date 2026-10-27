@@ -59,6 +59,7 @@ import {
   adaptLukoilArenaStageMapForLiveOffers,
   slimLukoilArenaStageMapForClient,
 } from '../services/lukoilArenaFootballStageMap.js';
+import { slimTheaterStageMapForClient } from '../utils/slimTheaterStageMap.js';
 import {
   footballStadiumStageMapKeyForRepertoire,
   isLukoilArenaStageId,
@@ -669,6 +670,9 @@ router.get('/stage/:stageId/map', async (req, res) => {
     }
     if (isLukoilMap) {
       stageRow = slimLukoilArenaStageMapForClient(stageRow);
+    }
+    if (!isLuzhnikiMap && !isSupercupNnMap && !isLukoilMap) {
+      stageRow = slimTheaterStageMapForClient(stageRow);
     }
 
     return sendPublicJson(req, res, stageRow, { cacheSeconds: 60, staleSeconds: 120 });

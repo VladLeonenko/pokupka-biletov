@@ -2182,7 +2182,7 @@ export function TicketHallInteractiveBlock({
    * на выбор ряда/места.
    */
   const zonePreorderNote = hallPreviewSectorCheckout
-    ? 'Предзаказ по зоне — место в ней подберём при оформлении'
+    ? 'Предзаказ на зону · номера мест подтвердим до оплаты'
     : null;
   const sectorAvailabilityLabel = useCallback(
     (sector: SectorSummary) => {
@@ -3168,7 +3168,7 @@ export function TicketHallInteractiveBlock({
                     <p className={styles.categoryModalHint}>
                       {sectorQtyCheckout
                         ? hallPreviewSectorCheckout
-                          ? 'Конкретные места в этой зоне не продаются по отдельности. Укажите количество билетов — после оформления предзаказа мы предоставим одно или несколько мест в этой зоне.'
+                          ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне и сообщим их номера до оплаты.'
                           : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
                         : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
@@ -3179,7 +3179,7 @@ export function TicketHallInteractiveBlock({
                     ) : null}
                     <p className={styles.categoryModalLead}>
                       {hallPreviewSectorCheckout
-                        ? 'Предзаказ по зоне: места внутри зоны подбираем мы.'
+                        ? 'Предзаказ на зону. Номера мест подтвердим до оплаты.'
                         : sectorQtyCheckout
                           ? 'Бронирование по сектору — места подберёт система.'
                           : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}

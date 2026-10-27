@@ -807,7 +807,7 @@ export function TicketCheckoutPage() {
         venue: mergedVenue,
         venueAddress: mergedVenueAddress,
         pageUrl: typeof window !== 'undefined' ? window.location.href : '',
-        source: 'ticket_empty_offers',
+        source: zonePreorderHall && offers.length > 0 ? 'ticket_zone_preorder' : 'ticket_empty_offers',
       });
       reachMetrikaGoal('no_ticket_submit', {
         repertoire_id: repertoireId || undefined,
@@ -1188,6 +1188,15 @@ export function TicketCheckoutPage() {
     if (!lj || typeof lj !== 'object') return false;
     return (lj as Record<string, unknown>).seatSelectionDisabled === true;
   }, [layoutJsonForStage]);
+
+  /**
+   * Большой театр: в продаже зоны, а не конкретные места. Нужной зоны может
+   * не быть в наличии — тогда предлагаем оформить предзаказ заявкой.
+   */
+  const zonePreorderHall = useMemo(
+    () => parseHallPreviewSectorCheckout(layoutJsonForStage),
+    [layoutJsonForStage],
+  );
 
   const hideSeatListUi = useMemo(() => {
     if (ctx?.checkoutHideSeatList === true) return true;
@@ -2132,19 +2141,22 @@ export function TicketCheckoutPage() {
             </Alert>
           )}
 
-          {!isLoading && !isError && offers.length === 0 && (
+          {!isLoading && !isError && (offers.length === 0 || zonePreorderHall) && (
             <Paper className={styles.ticketRequestCard} elevation={0}>
               <div className={styles.ticketRequestCopy}>
                 <Typography variant="h6" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
-                  Запросить билеты
+                  {offers.length > 0 && zonePreorderHall
+                    ? 'Нужной зоны нет в наличии?'
+                    : 'Запросить билеты'}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'rgba(28,27,25,0.68)', lineHeight: 1.65 }}>
-                  Сейчас на сайте нет доступных предложений по этому мероприятию. Это не всегда значит, что
-                  билетов нет: мы можем уточнить наличие и вернуться с вариантами по цене и местам.
+                  {offers.length > 0 && zonePreorderHall
+                    ? 'На схеме показаны зоны, которые открыты к предзаказу прямо сейчас. Если нужна другая зона или больше билетов — оставьте заявку: проверим наличие в кассе и вернёмся с вариантами и ценой.'
+                    : 'Сейчас на сайте нет доступных предложений по этому мероприятию. Это не всегда значит, что билетов нет: мы можем уточнить наличие и вернуться с вариантами по цене и местам.'}
                 </Typography>
               </div>
 
-              {repertoireId ? (
+              {repertoireId && offers.length === 0 ? (
                 <TicketPriceAlertForm
                   repertoireId={repertoireId}
                   eventTitle={displayTitle}
@@ -2190,7 +2202,11 @@ export function TicketCheckoutPage() {
                     fullWidth
                     multiline
                     minRows={2}
-                    placeholder="Сколько билетов нужно, желаемая зона или бюджет"
+                    placeholder={
+                      zonePreorderHall
+                        ? 'Какая зона нужна, сколько билетов и бюджет'
+                        : 'Сколько билетов нужно, желаемая зона или бюджет'
+                    }
                   />
                   {ticketRequestStatus === 'error' && ticketRequestError ? (
                     <Alert severity="error" sx={{ gridColumn: '1 / -1' }}>
@@ -2209,7 +2225,11 @@ export function TicketCheckoutPage() {
                       '&:hover': { bgcolor: '#e54414', boxShadow: 'none' },
                     }}
                   >
-                    {ticketRequestStatus === 'sending' ? 'Отправляем…' : 'Запросить билеты'}
+                    {ticketRequestStatus === 'sending'
+                      ? 'Отправляем…'
+                      : offers.length > 0 && zonePreorderHall
+                        ? 'Оформить предзаказ'
+                        : 'Запросить билеты'}
                   </Button>
                 </Box>
               )}
