@@ -321,7 +321,7 @@ async function expandHistoricalOffersFromStageMap() {
   const byLabel = bolshoiSellableSeatsByRow(remapped);
   let sellableHits = 0;
   for (const byRow of byLabel.values()) {
-    for (const list of byRow.values()) sellableHits += list.length;
+    for (const grp of byRow.values()) sellableHits += grp.seats.length;
   }
   console.log(`[seed-bolshoi] remap seats ${seats.length} → sellable seat-slots ${sellableHits}`);
   if (sellableHits < 10) {
