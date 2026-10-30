@@ -12,13 +12,11 @@ import { ArticleProgressBar } from '@/components/blog/ArticleProgressBar';
 import { InlineCarouselSlide } from '@/components/public/InlineImageCarousel';
 import { resolveImageUrl } from '@/utils/resolveImageUrl';
 import { getSiteBaseUrl } from '@/config/site';
-import { ParticleSphere } from '@/components/home/ParticleSphere';
-import { ScrollSection, useScrollReveal } from '@/components/home/ScrollAnimations';
+import { ScrollSection } from '@/components/home/ScrollAnimations';
 
 export function PublicBlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
   const mainRef = useRef<HTMLDivElement>(null);
-  useScrollReveal(mainRef);
 
   useEffect(() => {
     document.body.setAttribute('data-page', '/blog');
@@ -95,7 +93,6 @@ export function PublicBlogPostPage() {
       <ArticleProgressBar />
       <BlogPostStyles />
       <SeoMetaTags title={seoData.title} description={seoData.description} keywords={seoData.keywords} url={seoData.canonicalUrl} image={seoData.ogImage} ogTitle={seoData.ogTitle} ogDescription={seoData.ogDescription} type="article" articleSchema={{ headline: postData.title, datePublished: (post as any).created_at, dateModified: (post as any).updated_at || (post as any).created_at }} />
-      <ParticleSphere labelsFromSelector=".blog-post-content" />
       <Box ref={mainRef} component="main" sx={{ minHeight: '100vh', color: '#fff', pt: { xs: 6.25, md: 6.25 }, pb: 8 }}>
         <ScrollSection visibleOnLoad>
           <Container maxWidth="lg">

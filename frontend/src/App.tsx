@@ -24,20 +24,10 @@ import { hasAnalyticalConsent } from '@/hooks/useCookieConsent';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
-import { usePageAnimations } from '@/hooks/usePageAnimations';
 import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
 import { RouteSeoDefaults } from '@/components/common/RouteSeoDefaults';
 import { TicketCartProvider } from '@/context/TicketCartContext';
 import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
-
-/** Money / ticket public routes — skip GSAP scroll anims for CWV first paint */
-function shouldSkipPageAnimations(pathname: string): boolean {
-  const p = pathname.replace(/\/+$/, '') || '/';
-  if (p === '/' || p === '/events' || p === '/afisha') return true;
-  if (p.startsWith('/ticket') || p.startsWith('/events/') || p.startsWith('/order')) return true;
-  if (p.startsWith('/checkout') || p.startsWith('/cart')) return true;
-  return false;
-}
 
 export default function App() {
   const location = useLocation();
@@ -54,8 +44,7 @@ export default function App() {
 
   useCacheVersionWatcher();
   useCursor(normalizedPath, useTicketsChrome);
-  usePageAnimations(shouldSkipPageAnimations(normalizedPath) ? '' : normalizedPath);
-  
+
   // If user tries to access admin routes without auth, redirect to login
   // Except for the login page itself
   // ВАЖНО: Проверяем только admin роуты, публичные доступны всем

@@ -626,9 +626,8 @@ export function HeaderFooterInjector() {
       }
 
       /* Ховер для ключевых пунктов меню */
-      .menu-navigation li a[href="/catalog"]:hover,
-      .menu-navigation li a[href="/ai-team"]:hover,
-      .menu-navigation li a[href="/ai-chat"]:hover {
+      .menu-navigation li a[href="/events"]:hover,
+      .menu-navigation li a[href="/blog"]:hover {
         color: #ffbb00 !important;
       }
     `;
@@ -668,12 +667,8 @@ export function HeaderFooterInjector() {
           menuNav.insertBefore(li, firstLi);
         };
 
-        // Каталог услуг
-        ensureLink('/catalog', 'Каталог услуг');
-        // AI Boost Team
-        ensureLink('/ai-team', 'AI Boost Team');
-        // AI ассистент
-        ensureLink('/ai-chat', 'AI Ассистент');
+        ensureLink('/events', 'Афиша');
+        ensureLink('/blog', 'Блог');
       };
 
       if (primaryNavs.length > 0) {

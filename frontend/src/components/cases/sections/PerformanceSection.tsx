@@ -1,13 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { getPublicCase } from '@/services/publicApi';
 import { accentWithAlpha, pickPerformanceAccent } from '@/utils/performanceAccent';
 import styles from './PerformanceSection.module.css';
-
-gsap.registerPlugin(ScrollTrigger);
 
 const textStyles = {
   sectionTitle: {
@@ -101,30 +97,8 @@ export function PerformanceSection() {
     const el = circleRef.current;
     const scoreEl = scoreRef.current;
     if (!el || !scoreEl) return;
-
-    gsap.set(el, { '--score': 0 } as gsap.TweenTarget);
-    scoreEl.textContent = '0%';
-
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: el,
-        start: 'top 85%',
-        toggleActions: 'play none none none',
-      },
-    });
-    tl.to(el, {
-      '--score': clampedScore,
-      duration: 1.2,
-      ease: 'power2.out',
-      onUpdate: function () {
-        const v = Math.round(this.progress() * clampedScore);
-        if (scoreEl) scoreEl.textContent = `${v}%`;
-      },
-    });
-
-    return () => {
-      tl.scrollTrigger?.kill();
-    };
+    el.style.setProperty('--score', String(clampedScore));
+    scoreEl.textContent = `${clampedScore}%`;
   }, [clampedScore]);
 
   if (metrics.length === 0) {

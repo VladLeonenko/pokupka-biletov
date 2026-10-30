@@ -62,8 +62,6 @@ import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 // Lazy load публичных страниц — не загружаются при первом визите на главную
-const PublicHomePageAI = lazy(() => import('@/pages/public/PublicHomePageAI').then(m => ({ default: m.default })));
-const PublicHomePageAI_Noomo = lazy(() => import('@/pages/public/PublicHomePageAI_Noomo').then(m => ({ default: m.default })));
 const CartPage = lazy(() => import('@/pages/public/CartPage').then(m => ({ default: m.CartPage })));
 const WishlistPage = lazy(() => import('@/pages/public/WishlistPage').then(m => ({ default: m.WishlistPage })));
 const BiletVsemCasePage = lazy(() =>
@@ -71,7 +69,6 @@ const BiletVsemCasePage = lazy(() =>
 );
 const SearchPage = lazy(() => import('@/pages/public/SearchPage').then(m => ({ default: m.SearchPage })));
 const AccountPage = lazy(() => import('@/pages/public/AccountPage').then(m => ({ default: m.AccountPage })));
-const AccountAiTeamPage = lazy(() => import('@/pages/public/AccountAiTeamPage').then(m => ({ default: m.AccountAiTeamPage })));
 const AccountProjectsPage = lazy(() => import('@/pages/public/AccountProjectsPage').then(m => ({ default: m.AccountProjectsPage })));
 const UserFinancePlannerPage = lazy(() => import('@/pages/public/UserFinancePlannerPage').then(m => ({ default: m.UserFinancePlannerPage })));
 const UserPersonalDevelopmentPage = lazy(() => import('@/pages/public/UserPersonalDevelopmentPage').then(m => ({ default: m.UserPersonalDevelopmentPage })));
@@ -115,7 +112,6 @@ const AwardsManagePage = lazy(() => import('@/pages/admin/AwardsManagePage').the
 const TeamListPage = lazy(() => import('@/pages/team/TeamListPage'));
 const TeamEditorPage = lazy(() => import('@/pages/team/TeamEditorPage'));
 const AIChatPage = lazy(() => import('@/pages/admin/AIChatPage').then(m => ({ default: m.AIChatPage })));
-const AiTeamDashboardPage = lazy(() => import('@/pages/admin/AiTeamDashboardPage'));
 const ProjectsDashboardPage = lazy(() => import('@/pages/admin/ProjectsDashboardPage'));
 const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
 const OrdersAdminPage = lazy(() => import('@/pages/admin/OrdersAdminPage').then(m => ({ default: m.default })));
@@ -217,14 +213,14 @@ export function AppRoutes() {
       <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
       <Route path="/test/luzhniki-cup-final-scheme" element={<LuzhnikiCupFinalSchemeTestPage />} />
       <Route path="/test/luzhniki-seat-grid" element={<LuzhnikiSeatGridDiagnosticPage />} />
-      <Route path="/ai-team" element={<PublicHomePageAI />} />
-      <Route path="/ai-team-v2" element={<PublicHomePageAI_Noomo />} />
+      <Route path="/ai-team" element={<Navigate to="/" replace />} />
+      <Route path="/ai-team-v2" element={<Navigate to="/" replace />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/wishlist" element={<WishlistPage />} />
       <Route path="/case/bilet-vsem" element={<BiletVsemCasePage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/account" element={<AccountPage />} />
-      <Route path="/account/ai-team" element={<AccountAiTeamPage />} />
+      <Route path="/account/ai-team" element={<Navigate to="/account" replace />} />
       <Route path="/account/projects" element={<AccountProjectsPage />} />
       <Route path="/account/personal-development" element={<UserPersonalDevelopmentPage />} />
       <Route path="/account/finance-planner" element={<UserFinancePlannerPage />} />
@@ -309,7 +305,7 @@ export function AppRoutes() {
       <Route path="/admin/sites/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/exercise-images" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/ai-chat" element={<Protected><AIChatPage /></Protected>} />
-      <Route path="/admin/ai-team" element={<Protected><AiTeamDashboardPage /></Protected>} />
+      <Route path="/admin/ai-team" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/admin/projects-dashboard" element={<Protected><ProjectsDashboardPage /></Protected>} />
       <Route path="/admin/commercial-proposals/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/commercial-proposals/:id" element={<ProposalViewPage />} />

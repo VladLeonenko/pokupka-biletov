@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { EcommerceHeaderIcons } from './EcommerceHeaderIcons';
-import gsap from 'gsap';
 import './Header.css';
 
 interface MenuItem {
@@ -13,21 +12,16 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[][] = [
   [
-    { to: '/catalog', label: 'Каталог услуг', preview: 'КАТАЛОГ' },
-    { to: '/ai-team', label: 'AI Boost Team', preview: 'AI TEAM' },
-    { to: '/ai-chat', label: 'AI Ассистент', preview: 'AI CHAT' },
-    { to: '/portfolio', label: 'Кейсы', preview: 'КЕЙСЫ' },
-  ],
-  [
-    { to: '/about', label: 'О нас', preview: 'О НАС' },
-    { to: '/new-client', label: 'Стать клиентом', preview: 'КЛИЕНТ' },
-    { to: '/promotion', label: 'Акции и скидки', preview: 'АКЦИИ' },
+    { to: '/events', label: 'Афиша', preview: 'АФИША' },
     { to: '/blog', label: 'Блог', preview: 'БЛОГ' },
   ],
   [
-    { to: '/charity', label: 'Благотворительность', preview: 'CHARITY' },
-    { to: '/reviews', label: 'Отзывы', preview: 'ОТЗЫВЫ' },
+    { to: '/about', label: 'О нас', preview: 'О НАС' },
     { to: '/contacts', label: 'Контакты', preview: 'КОНТАКТЫ' },
+  ],
+  [
+    { to: '/reviews', label: 'Отзывы', preview: 'ОТЗЫВЫ' },
+    { to: '/privacy', label: 'Политика', preview: 'PRIVACY' },
   ],
 ];
 
@@ -36,19 +30,6 @@ export function Header() {
   const [hoveredItem, setHoveredItem] = useState<MenuItem | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const iconWrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!hoveredItem || !iconWrapRef.current) return;
-    const el = iconWrapRef.current;
-    gsap.killTweensOf(el);
-    gsap.set(el, { scale: 0.4, opacity: 0, rotation: -90 });
-    gsap.to(el, { scale: 1, opacity: 1, rotation: 0, duration: 0.4, ease: 'back.out(1.2)' });
-    const pulse = gsap.to(el, { scale: 1.08, duration: 0.6, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-    return () => {
-      gsap.killTweensOf(el);
-      pulse.kill();
-    };
-  }, [hoveredItem]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

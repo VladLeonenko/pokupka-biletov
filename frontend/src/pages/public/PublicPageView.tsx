@@ -130,7 +130,6 @@ ${bodyHtml}
 <script src="/legacy/js/jquery.js"></script>
 <!-- Owl Carousel удален - используем нативные карусели -->
 <script src="/legacy/js/form-handler.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="/legacy/js/privacy-consent.js"></script>
 ${conditionalScripts}
 </body>
