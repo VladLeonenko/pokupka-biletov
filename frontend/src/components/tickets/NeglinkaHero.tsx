@@ -139,6 +139,11 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
                 className={styles.visualImg}
                 loading="eager"
                 decoding="async"
+                fetchPriority="high"
+                role="cover"
+                width={480}
+                height={640}
+                alt=""
               />
             </div>
           </div>

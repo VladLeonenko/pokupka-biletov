@@ -20,6 +20,7 @@ import { useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { hitMailRuCounter, setMailRuUserId } from '@/utils/mailRuCounter';
 import { hitYandexMetrika } from '@/utils/yandexMetrika';
+import { hasAnalyticalConsent } from '@/hooks/useCookieConsent';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
@@ -28,6 +29,15 @@ import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
 import { RouteSeoDefaults } from '@/components/common/RouteSeoDefaults';
 import { TicketCartProvider } from '@/context/TicketCartContext';
 import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
+
+/** Money / ticket public routes — skip GSAP scroll anims for CWV first paint */
+function shouldSkipPageAnimations(pathname: string): boolean {
+  const p = pathname.replace(/\/+$/, '') || '/';
+  if (p === '/' || p === '/events' || p === '/afisha') return true;
+  if (p.startsWith('/ticket') || p.startsWith('/events/') || p.startsWith('/order')) return true;
+  if (p.startsWith('/checkout') || p.startsWith('/cart')) return true;
+  return false;
+}
 
 export default function App() {
   const location = useLocation();
@@ -44,8 +54,7 @@ export default function App() {
 
   useCacheVersionWatcher();
   useCursor(normalizedPath, useTicketsChrome);
-  // GSAP scroll animations for [data-anim] elements on all public pages
-  usePageAnimations(normalizedPath);
+  usePageAnimations(shouldSkipPageAnimations(normalizedPath) ? '' : normalizedPath);
   
   // If user tries to access admin routes without auth, redirect to login
   // Except for the login page itself
@@ -84,20 +93,21 @@ export default function App() {
     }
   }, [isAdminRoute, isLoginPage, useTicketsChrome]);
 
-  // Yandex.Metrika + Top.Mail.Ru: hit при смене SPA-маршрута (пропускаем первый рендер — init уже отправил)
+  // Yandex.Metrika + Top.Mail.Ru: hit only after analytical consent
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
+    if (!hasAnalyticalConsent()) return;
     const url = `${window.location.origin}${location.pathname}${location.search || ''}`;
     hitYandexMetrika(url);
     hitMailRuCounter(url, user?.id);
   }, [location.pathname, location.search, user?.id]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && hasAnalyticalConsent()) {
       setMailRuUserId(user.id);
     }
   }, [user?.id]);

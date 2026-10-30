@@ -31,13 +31,10 @@ export function CookieConsentProvider() {
       return;
     }
 
-    const timer = setTimeout(() => {
-      if (!hasStoredConsent()) {
-        setShowModal(true);
-      }
-    }, 800);
-
-    return () => clearTimeout(timer);
+    // Show immediately (no delay) to avoid late layout paint / CLS
+    if (!hasStoredConsent()) {
+      setShowModal(true);
+    }
   }, []);
 
   useEffect(() => {

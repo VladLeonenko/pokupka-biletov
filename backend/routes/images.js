@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pool from '../db.js';
 import FileSyncService from '../services/FileSyncService.js';
+import { pregenerateUploadVariants } from './imageOptimization.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,6 +110,9 @@ router.post('/', upload.single('image'), async (req, res) => {
     FileSyncService.syncFile(file.filename).catch(err => {
       console.error('[Images] FileSync error (non-critical):', err.message);
     });
+
+    // WebP (+ AVIF for covers) siblings — async, non-blocking
+    pregenerateUploadVariants(fullPath, { avif: true }).catch(() => {});
 
     res.json({ 
       url: rel, 

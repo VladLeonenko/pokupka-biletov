@@ -348,6 +348,14 @@
   width: 100%;
   height: auto;
   aspect-ratio: 2 / 3;
+  display: block;
+}
+
+.heroPosterImg img,
+img.heroPosterImg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
   object-fit: cover;
   display: block;
 }
@@ -711,9 +719,18 @@
   position: relative;
   min-width: 0;
   flex: 1 1 auto;
-  min-height: 0;
+  /* Reserved height = loading pane → no CLS when hall chunk mounts (CWV) */
+  min-height: min(56vh, 520px);
   display: flex;
   flex-direction: column;
+  contain: layout;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .hallMapStage {
+    min-height: min(52svh, 480px);
+  }
 }
 
 .ownSeatsOnMap {

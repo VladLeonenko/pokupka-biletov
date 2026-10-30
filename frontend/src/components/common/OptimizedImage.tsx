@@ -1,98 +1,77 @@
-import React, { useState, SyntheticEvent } from 'react';
-import { Box, BoxProps } from '@mui/material';
-import { resolveImageUrl, fallbackImageUrl } from '@/utils/resolveImageUrl';
+import type { ImgHTMLAttributes } from 'react';
+import { toAvifUrl, toWebpUrl, type ImageRole } from '@/utils/optimizedImage';
 
-interface OptimizedImageProps extends Omit<BoxProps, 'component'> {
-  src?: string | null;
-  alt: string;
-  loading?: 'lazy' | 'eager';
-  width?: number | string;
-  height?: number | string;
-  objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
-  onError?: (e: SyntheticEvent<HTMLImageElement, Event>) => void;
-}
+type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+  src: string;
+  role?: ImageRole;
+  /** Cover = AVIF+WebP; card = WebP only */
+  fetchPriority?: 'high' | 'low' | 'auto';
+};
 
 /**
- * Оптимизированный компонент изображения с lazy loading и WebP поддержкой
+ * <picture> wrapper: cover → avif+webp+orig; card → webp+orig.
+ * Falls back to plain <img> when src is svg/data/already optimized.
  */
 export function OptimizedImage({
   src,
-  alt,
-  loading = 'lazy',
+  role = 'card',
+  alt = '',
+  fetchPriority,
+  loading,
+  decoding = 'async',
   width,
   height,
-  objectFit = 'cover',
+  className,
+  style,
+  sizes,
+  srcSet,
   onError,
-  sx,
-  ...boxProps
-}: OptimizedImageProps) {
-  const [imageSrc, setImageSrc] = useState<string | null>(src || null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  referrerPolicy,
+  ...rest
+}: Props) {
+  const webp = toWebpUrl(src);
+  const avif = role === 'cover' ? toAvifUrl(src) : null;
 
-  const imageUrl = imageSrc ? resolveImageUrl(imageSrc) : fallbackImageUrl();
-  const fallback = fallbackImageUrl();
-
-  // Конвертируем URL в WebP если возможно
-  const getWebPUrl = (url: string): string => {
-    // Если уже WebP или data URL, возвращаем как есть
-    if (url.includes('.webp') || url.startsWith('data:')) {
-      return url;
-    }
-    // Для других форматов можно добавить конвертацию через API
-    // Пока возвращаем оригинальный URL
-    return url;
-  };
-
-  const handleError = (e: SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    
-    // Если это была попытка загрузить WebP, пробуем оригинал
-    if (target.src !== imageUrl && !hasError) {
-      setHasError(true);
-      target.src = imageUrl;
-      return;
-    }
-    
-    // Если и оригинал не загрузился, используем fallback
-    if (target.src !== fallback) {
-      target.onerror = null;
-      target.src = fallback;
-      setIsLoading(false);
-    }
-    
-    if (onError) {
-      onError(e);
-    }
-  };
-
-  const handleLoad = () => {
-    setIsLoading(false);
-  };
+  if (!webp && !avif) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={style}
+        width={width}
+        height={height}
+        loading={loading}
+        decoding={decoding}
+        fetchPriority={fetchPriority}
+        sizes={sizes}
+        srcSet={srcSet}
+        onError={onError}
+        referrerPolicy={referrerPolicy}
+        {...rest}
+      />
+    );
+  }
 
   return (
-    <Box
-      component="img"
-      src={loading === 'eager' ? getWebPUrl(imageUrl) : imageUrl}
-      alt={alt}
-      loading={loading}
-      width={width}
-      height={height}
-      onError={handleError}
-      onLoad={handleLoad}
-      sx={{
-        objectFit,
-        transition: 'opacity 0.3s ease',
-        opacity: isLoading ? 0.5 : 1,
-        ...sx,
-      }}
-      {...boxProps}
-    />
+    <picture className={className} style={style}>
+      {avif ? <source type="image/avif" srcSet={avif} sizes={sizes} /> : null}
+      {webp ? <source type="image/webp" srcSet={webp} sizes={sizes} /> : null}
+      <img
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        loading={loading}
+        decoding={decoding}
+        fetchPriority={fetchPriority}
+        sizes={sizes}
+        srcSet={srcSet}
+        onError={onError}
+        referrerPolicy={referrerPolicy}
+        style={style ? undefined : { width: '100%', height: '100%', objectFit: 'cover' }}
+        {...rest}
+      />
+    </picture>
   );
 }
-
-
-
-
-
-

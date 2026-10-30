@@ -1,11 +1,10 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Stack } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { getPublicCarousel, CarouselItem } from '@/services/carouselsApi';
 import { listProductCategories } from '@/services/ecommerceApi';
 import { VerticalCarousel } from './VerticalCarousel';
-import gsap from 'gsap';
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -39,17 +38,7 @@ export function HeroSection() {
       ? carousel.items
       : defaultCarouselItems;
 
-  useEffect(() => {
-    if (!sectionRef.current) return;
-    const ctx = gsap.context(() => {
-      gsap.from('.hero-title', { y: 50, opacity: 0, duration: 0.8, ease: 'power3.out' });
-      gsap.from('.hero-sub', { y: 30, opacity: 0, duration: 0.7, delay: 0.15, ease: 'power3.out' });
-      gsap.from('.hero-stats', { y: 20, opacity: 0, duration: 0.6, delay: 0.3, ease: 'power3.out' });
-      gsap.from('.hero-cta', { y: 20, opacity: 0, duration: 0.5, delay: 0.4, ease: 'power3.out' });
-      gsap.from('.hero-carousel', { x: 60, opacity: 0, duration: 0.9, delay: 0.2, ease: 'power3.out' });
-    }, sectionRef);
-    return () => ctx.revert();
-  }, []);
+  // GSAP entrance removed for CWV (TBT / unused JS on first paint)
 
   return (
     <Box ref={sectionRef} sx={{ py: { xs: 10, md: 14 } }}>

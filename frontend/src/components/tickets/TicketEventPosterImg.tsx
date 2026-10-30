@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
+import { toAvifUrl, toWebpUrl } from '@/utils/optimizedImage';
 
 type Props = {
   src?: string | null;
@@ -15,12 +16,17 @@ type Props = {
   srcSet?: string;
   /** Alt для SEO/доступности (по умолчанию пустой). */
   alt?: string;
+  /** LCP / hero covers — high; cards default auto */
+  fetchPriority?: 'high' | 'low' | 'auto';
+  /** cover = AVIF+WebP; card = WebP only */
+  role?: 'cover' | 'card';
+  width?: number;
+  height?: number;
 };
 
 /**
- * Постеры с внешних CDN (Яндекс и др.) часто отдают 403, если Referer — чужой сайт.
- * no-referrer снимает блок; дальше — category placeholder, затем градиент.
- * sizes/srcSet — когда CDN отдаёт несколько ширин; иначе sizes всё равно снижает decode cost.
+ * Постеры: picture AVIF/WebP через /api/images/optimize + fallback.
+ * no-referrer для внешних CDN; sizes снижает decode cost.
  */
 export function TicketEventPosterImg({
   src,
@@ -32,6 +38,10 @@ export function TicketEventPosterImg({
   sizes,
   srcSet,
   alt = '',
+  fetchPriority,
+  role = 'card',
+  width,
+  height,
 }: Props) {
   const primary = (src || '').trim();
   const fallback = (fallbackSrc || '').trim();
@@ -52,16 +62,26 @@ export function TicketEventPosterImg({
   }
 
   const useSrcSet = Boolean(srcSet && current === primary);
+  const webp = toWebpUrl(current);
+  const avif = role === 'cover' ? toAvifUrl(current) : null;
 
-  return (
+  const img = (
     <img
       src={current}
       srcSet={useSrcSet ? srcSet : undefined}
       sizes={sizes || undefined}
       alt={alt}
-      className={className}
+      className={avif || webp ? undefined : className}
+      style={
+        avif || webp
+          ? { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
+          : undefined
+      }
       loading={loading}
       decoding={decoding}
+      fetchPriority={fetchPriority}
+      width={width}
+      height={height}
       referrerPolicy="no-referrer"
       onError={() => {
         if (!triedFallback && fallback && current !== fallback) {
@@ -72,5 +92,15 @@ export function TicketEventPosterImg({
         setCurrent('');
       }}
     />
+  );
+
+  if (!webp && !avif) return img;
+
+  return (
+    <picture className={className}>
+      {avif ? <source type="image/avif" srcSet={avif} sizes={sizes} /> : null}
+      {webp ? <source type="image/webp" srcSet={webp} sizes={sizes} /> : null}
+      {img}
+    </picture>
   );
 }

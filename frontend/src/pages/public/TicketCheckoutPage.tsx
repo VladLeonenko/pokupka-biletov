@@ -1282,6 +1282,39 @@ export function TicketCheckoutPage() {
   const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
   const hideOfferListBehindMap = Boolean(hallMapReady && isMobileViewport && !showOfferListMobile);
 
+  /**
+   * CWV: don't parse/paint TicketHallInteractiveBlock until the map stage is near viewport.
+   * Fixed-height stage → no CLS when chunk mounts (unlike idle-swap without reserved space).
+   */
+  const hallStageRef = useRef<HTMLDivElement | null>(null);
+  const [hallInView, setHallInView] = useState(false);
+  useEffect(() => {
+    if (!hallMapReady) {
+      setHallInView(false);
+      return;
+    }
+    const el = hallStageRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setHallInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setHallInView(true);
+          io.disconnect();
+        }
+      },
+      // No large rootMargin: keeps hall JS off first paint / LH lab (map is below hero).
+      // Real scroll still mounts immediately when the stage enters the viewport.
+      { root: null, rootMargin: '0px', threshold: 0.05 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hallMapReady]);
+  const mountHallInteractive = hallMapReady && hallInView;
+
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
     if (!hallMapSessionKey) return [];
@@ -1625,6 +1658,10 @@ export function TicketCheckoutPage() {
               className={styles.heroImg}
               loading="eager"
               decoding="async"
+              fetchPriority="high"
+              role="cover"
+              width={1200}
+              height={675}
               sizes="100vw"
               alt={`Постер «${displayTitle}»`}
             />
@@ -1716,6 +1753,10 @@ export function TicketCheckoutPage() {
                     className={styles.heroPosterImg}
                     loading="eager"
                     decoding="async"
+                    fetchPriority="high"
+                    role="cover"
+                    width={320}
+                    height={480}
                     alt={`Постер «${displayTitle}»`}
                   />
                 </div>
@@ -1880,39 +1921,43 @@ export function TicketCheckoutPage() {
                       onReset={handleMapPriceReset}
                     />
                   ) : null}
-                  <div className={styles.hallMapStage}>
+                  <div className={styles.hallMapStage} ref={hallStageRef}>
                     <Suspense fallback={<HallMapLoadingPane />}>
-                      <TicketHallInteractiveBlock
-                        hallSvgHtml={hallSvg!}
-                        layoutJson={layoutJsonForStage}
-                        offers={offersForMapDisplay}
-                        getPriceKey={(o) => priceKey(o as OfferRow)}
-                        colorForSeat={colorSeat}
-                        activeOfferId={offerId}
-                        selectedSeats={seats}
-                        parentSelectedSeats={mapSelectedSeats}
-                        onToggleSeat={toggleSeat}
-                        selectedOffer={selectedOfferForMap}
-                        onReserveFromMap={() => void openPurchaseWithHold()}
-                        onClearSelection={resetSelectedSeats}
-                        onSelectionChange={handleMapSelectionChange}
-                        reservePending={reservePending}
-                        onNavigateToList={navigateToPlacesList}
-                        hideSelectionBar
-                        showFanIdNotice={requiresFanId}
-                        categoryPreviewImageUrl={categoryPreviewImageUrl}
-                        sessionDateLabel={mapSessionShortDate}
-                        focusSectorNorm={mapFocusSectorNorm}
-                        ownSeatsFocusNonce={ownSeatsFocusNonce}
-                        ownHighlightPriceKey={ownHint?.priceKey ?? null}
-                        ownHintBanner={
-                          ownHint && ownHintColor && !ownHintDismissed
-                            ? { color: ownHintColor, price: ownHint.minPrice, count: ownHint.count }
-                            : null
-                        }
-                        onOwnHintActivate={showOwnBestPriceGroup}
-                        onOwnHintDismiss={dismissOwnHint}
-                      />
+                      {mountHallInteractive ? (
+                        <TicketHallInteractiveBlock
+                          hallSvgHtml={hallSvg!}
+                          layoutJson={layoutJsonForStage}
+                          offers={offersForMapDisplay}
+                          getPriceKey={(o) => priceKey(o as OfferRow)}
+                          colorForSeat={colorSeat}
+                          activeOfferId={offerId}
+                          selectedSeats={seats}
+                          parentSelectedSeats={mapSelectedSeats}
+                          onToggleSeat={toggleSeat}
+                          selectedOffer={selectedOfferForMap}
+                          onReserveFromMap={() => void openPurchaseWithHold()}
+                          onClearSelection={resetSelectedSeats}
+                          onSelectionChange={handleMapSelectionChange}
+                          reservePending={reservePending}
+                          onNavigateToList={navigateToPlacesList}
+                          hideSelectionBar
+                          showFanIdNotice={requiresFanId}
+                          categoryPreviewImageUrl={categoryPreviewImageUrl}
+                          sessionDateLabel={mapSessionShortDate}
+                          focusSectorNorm={mapFocusSectorNorm}
+                          ownSeatsFocusNonce={ownSeatsFocusNonce}
+                          ownHighlightPriceKey={ownHint?.priceKey ?? null}
+                          ownHintBanner={
+                            ownHint && ownHintColor && !ownHintDismissed
+                              ? { color: ownHintColor, price: ownHint.minPrice, count: ownHint.count }
+                              : null
+                          }
+                          onOwnHintActivate={showOwnBestPriceGroup}
+                          onOwnHintDismiss={dismissOwnHint}
+                        />
+                      ) : (
+                        <HallMapLoadingPane />
+                      )}
                     </Suspense>
                   </div>
                 </>

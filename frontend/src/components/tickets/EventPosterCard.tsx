@@ -106,6 +106,9 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
             className={styles.img}
             loading="lazy"
             decoding="async"
+            role="card"
+            width={240}
+            height={360}
             sizes="(max-width: 600px) 50vw, (max-width: 1100px) 33vw, 240px"
             alt={`Постер «${event.title}»`}
           />

@@ -85,6 +85,7 @@ temp/
 
 # Cache directories
 .cache/
+backend/uploads/.cache/
 .parcel-cache/
 .vite/
 
@@ -140,3 +141,6 @@ backend/sniper-contacts.json
 backend/ton-accounts.json
 backend/sniper-contacts*.json
 backend/data/radario-hold-state.json
+
+# Vite SSR bundle (npm run build:ssr)
+frontend/dist-ssr/

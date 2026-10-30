@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { saveConsent, getConsents } from '@/services/consentsApi';
+import { saveConsent } from '@/services/consentsApi';
 import { useAuth } from '@/auth/AuthProvider';
+import { ensureMailRuCounter } from '@/utils/mailRuCounter';
+import { YANDEX_METRIKA_COUNTER_ID } from '@/utils/analyticsConstants';
 
 export interface CookiePreferences {
   necessary: boolean;
@@ -9,8 +11,22 @@ export interface CookiePreferences {
   marketing: boolean;
 }
 
+export { YANDEX_METRIKA_COUNTER_ID };
+
 const STORAGE_KEY = 'cookie_consent';
 const CONSENT_VERSION = '1.0';
+const GA_MEASUREMENT_ID = 'G-XC0BRKGDLR';
+
+export function hasAnalyticalConsent(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    return Boolean(data?.version === CONSENT_VERSION && data?.preferences?.analytical);
+  } catch {
+    return false;
+  }
+}
 
 export function useCookieConsent() {
   const { user } = useAuth();
@@ -19,7 +35,6 @@ export function useCookieConsent() {
 
   useEffect(() => {
     checkConsent();
-    // Загружаем аналитику при монтировании, если есть согласие
     const prefs = getPreferences();
     if (prefs.analytical) {
       loadAnalytics(prefs);
@@ -35,15 +50,12 @@ export function useCookieConsent() {
           setHasConsent(true);
           setPreferences(data.preferences);
           return true;
-        } else {
-          // Если версия не совпадает или нет preferences, очищаем старое согласие
-          localStorage.removeItem(STORAGE_KEY);
-          setHasConsent(false);
-          setPreferences(null);
         }
+        localStorage.removeItem(STORAGE_KEY);
+        setHasConsent(false);
+        setPreferences(null);
       } catch (e) {
         console.error('Error parsing cookie consent:', e);
-        // Очищаем поврежденные данные
         localStorage.removeItem(STORAGE_KEY);
         setHasConsent(false);
         setPreferences(null);
@@ -79,7 +91,6 @@ export function useCookieConsent() {
       });
     } catch (error) {
       console.error('Error saving consent to backend:', error);
-      // Не блокируем работу, если не удалось сохранить в БД
     }
   };
 
@@ -115,22 +126,24 @@ export function useCookieConsent() {
 
   const getPreferences = (): CookiePreferences => {
     if (preferences) return preferences;
-    
+
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const data = JSON.parse(stored);
-        return data.preferences || {
-          necessary: true,
-          functional: false,
-          analytical: false,
-          marketing: false,
-        };
+        return (
+          data.preferences || {
+            necessary: true,
+            functional: false,
+            analytical: false,
+            marketing: false,
+          }
+        );
       } catch (e) {
         console.error('Error parsing preferences:', e);
       }
     }
-    
+
     return {
       necessary: true,
       functional: false,
@@ -140,109 +153,106 @@ export function useCookieConsent() {
   };
 
   const loadAnalytics = (prefs: CookiePreferences) => {
-    // Загружаем аналитику только если есть согласие
     if (prefs.analytical && typeof window !== 'undefined') {
-      // Оптимизированная загрузка Google Analytics
-      // Используем requestIdleCallback для загрузки после основного контента
       const loadGA = () => {
         if (!window.gtag) {
-          // Создаем dataLayer заранее для предотвращения ошибок
           window.dataLayer = window.dataLayer || [];
           function gtag(...args: any[]) {
-            window.dataLayer.push(args);
+            window.dataLayer!.push(args);
           }
           window.gtag = gtag;
-          
-          // Загружаем скрипт асинхронно с defer
+
           const script = document.createElement('script');
           script.async = true;
           script.defer = true;
-          script.src = 'https://www.googletagmanager.com/gtag/js?id=G-XC0BRKGDLR';
+          script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
           script.crossOrigin = 'anonymous';
-          // Добавляем в конец head для неблокирующей загрузки
           document.head.appendChild(script);
-          
-          // Инициализируем после загрузки скрипта
+
           script.onload = () => {
             gtag('js', new Date());
-            gtag('config', 'G-XC0BRKGDLR', {
-              // Оптимизация производительности
+            gtag('config', GA_MEASUREMENT_ID, {
               send_page_view: true,
-              transport_type: 'beacon', // Используем sendBeacon для лучшей производительности
+              transport_type: 'beacon',
             });
           };
         }
       };
 
-      // Оптимизированная загрузка Яндекс.Метрики
       const loadYM = () => {
         if (!window.ym) {
-          // Используем оптимизированную версию загрузки
-          (function(m,e,t,r,i,k,a){
-            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-            m[i].l=1*new Date();
-            // Проверяем, не загружен ли уже скрипт
-            for(var j=0;j<document.scripts.length;j++){
-              if(document.scripts[j].src===r){return}
+          (function (m: any, e: Document, t: string, r: string, i: string) {
+            m[i] =
+              m[i] ||
+              function (...args: unknown[]) {
+                (m[i].a = m[i].a || []).push(args);
+              };
+            m[i].l = 1 * new Date();
+            for (let j = 0; j < e.scripts.length; j++) {
+              if (e.scripts[j].src === r) return;
             }
-            k=e.createElement(t);
-            a=e.getElementsByTagName(t)[0];
-            k.async=1;
-            k.defer=1; // Добавляем defer
-            k.src=r;
-            a.parentNode.insertBefore(k,a);
-          })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js?id=106795462", "ym");
-          
-          // Инициализируем (ecommerce: dataLayer — цели через dataLayer)
-          window.ym(106795462, "init", {
+            const k = e.createElement(t) as HTMLScriptElement;
+            const a = e.getElementsByTagName(t)[0];
+            k.async = true;
+            k.defer = true;
+            k.src = r;
+            a.parentNode?.insertBefore(k, a);
+          })(
+            window,
+            document,
+            'script',
+            `https://mc.yandex.ru/metrika/tag.js?id=${YANDEX_METRIKA_COUNTER_ID}`,
+            'ym',
+          );
+
+          window.ym!(YANDEX_METRIKA_COUNTER_ID, 'init', {
             clickmap: true,
             trackLinks: true,
             accurateTrackBounce: true,
             webvisor: true,
-            ecommerce: "dataLayer",
+            ecommerce: 'dataLayer',
             defer: true,
             trackHash: false,
           });
         }
       };
 
-      // Загружаем аналитику после загрузки страницы (неблокирующе)
-      if (document.readyState === 'complete') {
-        // Страница уже загружена, загружаем сразу
+      const loadMailRu = () => {
+        ensureMailRuCounter();
+      };
+
+      const run = () => {
         loadGA();
         loadYM();
+        loadMailRu();
+      };
+
+      if (document.readyState === 'complete') {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(run, { timeout: 2000 });
+        } else {
+          setTimeout(run, 0);
+        }
       } else {
-        // Ждем загрузки страницы
         window.addEventListener('load', () => {
-          // Используем requestIdleCallback для загрузки в свободное время
           if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-              loadGA();
-              loadYM();
-            }, { timeout: 2000 });
+            requestIdleCallback(run, { timeout: 2000 });
           } else {
-            // Fallback для браузеров без requestIdleCallback
-            setTimeout(() => {
-              loadGA();
-              loadYM();
-            }, 1000);
+            setTimeout(run, 0);
           }
         });
       }
-    } else {
-      // Отключаем аналитику если согласия нет
-      if (typeof window !== 'undefined') {
-        window.gtag = () => {};
-        window.ym = () => {};
-        // Удаляем скрипты аналитики если они уже загружены
-        const gaScript = document.querySelector('script[src*="googletagmanager"]');
-        const ymScript = document.querySelector('script[src*="yandex.ru/metrika"]');
-        if (gaScript) gaScript.remove();
-        if (ymScript) ymScript.remove();
-        // Очищаем dataLayer
-        if (window.dataLayer) {
-          window.dataLayer = [];
-        }
+    } else if (typeof window !== 'undefined') {
+      window.gtag = () => {};
+      window.ym = () => {};
+      const gaScript = document.querySelector('script[src*="googletagmanager"]');
+      const ymScript = document.querySelector('script[src*="yandex.ru/metrika"]');
+      const mailScript = document.getElementById('tmr-code');
+      if (gaScript) gaScript.remove();
+      if (ymScript) ymScript.remove();
+      if (mailScript) mailScript.remove();
+      if (window.dataLayer) {
+        window.dataLayer = [];
       }
     }
   };
@@ -258,7 +268,6 @@ export function useCookieConsent() {
   };
 }
 
-// Расширяем Window для TypeScript
 declare global {
   interface Window {
     dataLayer?: any[];
@@ -266,4 +275,3 @@ declare global {
     ym?: (id: number, action: string, params?: any) => void;
   }
 }
-

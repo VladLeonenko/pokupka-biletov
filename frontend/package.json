@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/fix-index-html.js && node scripts/verify-seo-dist.js",
+    "build:ssr": "vite build --config vite.config.ssr.ts",
     "build:check": "tsc -b && vite build && node scripts/fix-index-html.js && node scripts/verify-seo-dist.js",
     "preview": "vite preview",
     "test": "vitest run",
@@ -16,6 +17,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@emotion/react": "^11.13.3",
+    "@emotion/server": "^11.11.0",
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^6.1.6",
     "@mui/lab": "^6.0.0-beta.5",
@@ -41,6 +43,7 @@
     "react-quill": "^2.0.0",
     "react-router-dom": "^6.28.0",
     "three": "^0.182.0",
+    "through": "^2.3.8",
     "zod": "^3.23.8"
   },
   "devDependencies": {

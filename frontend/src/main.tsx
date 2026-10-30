@@ -79,24 +79,34 @@ try {
     throw new Error('Root element not found!');
   }
 
-  const root = ReactDOM.createRoot(rootElement);
+  const useTicketsHydrate =
+    rootElement.hasAttribute('data-react-ssr-home') ||
+    rootElement.hasAttribute('data-react-ssr-ticket');
 
-  root.render(
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}>
-          <ScrollToTop />
-          <AuthProvider>
-            <App />
-            <NavigationExporter />
-          </AuthProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
+  if (useTicketsHydrate) {
+    void import('@/ssr/hydrateTicketsApp').then(({ hydrateTicketsApp }) => {
+      hydrateTicketsApp(rootElement);
+    });
+  } else {
+    const root = ReactDOM.createRoot(rootElement);
+
+    root.render(
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}>
+            <ScrollToTop />
+            <AuthProvider>
+              <App />
+              <NavigationExporter />
+            </AuthProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    );
+  }
 
   // Soft-SSR зеркало вне #root: снимаем после первого кадра React (краулеры уже видели HTML).
   requestAnimationFrame(() => {

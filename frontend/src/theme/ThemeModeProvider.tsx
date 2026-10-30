@@ -94,9 +94,24 @@ function buildTheme(mode: Mode) {
   });
 }
 
+function readInitialMode(): Mode {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return 'dark';
+  try {
+    return (localStorage.getItem('admin.theme') as Mode) || 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
 export function ThemeModeProvider({ children }: PropsWithChildren) {
-  const [mode, setMode] = useState<Mode>(() => (localStorage.getItem('admin.theme') as Mode) || 'dark');
-  useEffect(() => { localStorage.setItem('admin.theme', mode); }, [mode]);
+  const [mode, setMode] = useState<Mode>(readInitialMode);
+  useEffect(() => {
+    try {
+      localStorage.setItem('admin.theme', mode);
+    } catch {
+      /* private / SSR */
+    }
+  }, [mode]);
   const toggle = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
   const theme = useMemo(() => buildTheme(mode), [mode]);
   const ctx = useMemo(() => ({ mode, toggle }), [mode]);

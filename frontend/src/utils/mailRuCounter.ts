@@ -1,9 +1,9 @@
 /**
- * Top.Mail.Ru (VK) — hit при смене SPA-маршрута и привязка user id.
- * Счётчик инициализируется в index.html (официальный сниппет).
+ * Top.Mail.Ru (VK) — init only after cookie consent; hit on SPA route change.
  */
 
 const COUNTER_ID = '3768319';
+const SCRIPT_ID = 'tmr-code';
 
 type MailRuEvent =
   | { id: string; type: 'pageView'; start: number; url?: string; pid?: string }
@@ -20,6 +20,23 @@ function pushMailRuEvent(event: MailRuEvent): void {
   if (typeof window === 'undefined') return;
   window._tmr = window._tmr || [];
   window._tmr.push(event);
+}
+
+/** Load Top.Mail.Ru script + initial pageView (call only after analytical consent). */
+export function ensureMailRuCounter(): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  window._tmr = window._tmr || [];
+  if (!document.getElementById(SCRIPT_ID)) {
+    window._tmr.push({ id: COUNTER_ID, type: 'pageView', start: Date.now() });
+    const ts = document.createElement('script');
+    ts.type = 'text/javascript';
+    ts.async = true;
+    ts.id = SCRIPT_ID;
+    ts.src = 'https://top-fwz1.mail.ru/js/code.js';
+    const s = document.getElementsByTagName('script')[0];
+    s?.parentNode?.insertBefore(ts, s);
+  }
 }
 
 function extractGoalValue(params?: Record<string, unknown>): number | undefined {
@@ -44,6 +61,8 @@ function toMailRuParams(params: Record<string, unknown>): Record<string, string>
 
 /** Отправка JS-цели в Top.Mail.Ru (Настройки -> Цели -> JavaScript-событие). */
 export function reachMailRuGoal(goal: string, params?: Record<string, unknown>): void {
+  if (typeof document !== 'undefined' && !document.getElementById(SCRIPT_ID)) return;
+
   const event: MailRuEvent = {
     id: COUNTER_ID,
     type: 'reachGoal',
@@ -67,6 +86,8 @@ export function reachMailRuGoal(goal: string, params?: Record<string, unknown>):
 
 /** Отправка pageView при смене SPA-маршрута */
 export function hitMailRuCounter(url?: string, pid?: string | number): void {
+  if (typeof document !== 'undefined' && !document.getElementById(SCRIPT_ID)) return;
+
   const event: MailRuEvent = {
     id: COUNTER_ID,
     type: 'pageView',
@@ -83,6 +104,8 @@ export function hitMailRuCounter(url?: string, pid?: string | number): void {
 
 /** Привязка id пользователя к счётчику (cross-device) */
 export function setMailRuUserId(userId: string | number): void {
+  if (typeof document !== 'undefined' && !document.getElementById(SCRIPT_ID)) return;
+
   pushMailRuEvent({
     id: COUNTER_ID,
     type: 'setUserID',

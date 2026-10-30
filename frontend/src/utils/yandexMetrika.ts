@@ -1,11 +1,12 @@
 /**
  * Yandex.Metrika — hit при смене SPA-маршрута.
- * Счётчик инициализируется в index.html (официальный сниппет).
+ * Счётчик инициализируется только после cookie consent (useCookieConsent).
  */
 
 import { reachMailRuGoal } from '@/utils/mailRuCounter';
+import { YANDEX_METRIKA_COUNTER_ID } from '@/utils/analyticsConstants';
 
-const COUNTER_ID = 109119282;
+const COUNTER_ID = YANDEX_METRIKA_COUNTER_ID;
 
 declare global {
   interface Window {

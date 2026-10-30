@@ -21,6 +21,11 @@ import {
   buildCmsPageSsrHtml,
   buildEventItemListSchema,
 } from '../lib/ticket-ssr-html.js';
+import {
+  isReactSsrTicketsPath,
+  renderReactTicketsSsr,
+  injectReactTicketsSsrIntoHtml,
+} from '../lib/ticket-react-ssr.js';
 import { getIndexNowKey, indexNowKeyBody } from '../lib/search-indexing.js';
 import {
   getRepertoirePublicContext,
@@ -389,9 +394,35 @@ export async function seoRenderer(req, res, next) {
     if (headInject) {
       html = html.replace('</head>', `${headInject}\n  </head>`);
     }
-    html = injectSsrIntoHtml(html, ssrFragment);
-    html = injectCrawlMirror(html, ssrFragment);
-    console.log('[SSR] ✓', pathOnly, ssrFragment ? '+ content' : '');
+
+    // Batch B: React SSR + hydrate for / and /ticket/* (mutual exclusion vs string #root shell).
+    let usedReactSsr = false;
+    if (isReactSsrTicketsPath(pathOnly)) {
+      try {
+        const querySeed = await buildReactTicketsQuerySeed(pathOnly, ssrMeta);
+        const kind = pathOnly === '/' || pathOnly === '' ? 'home' : 'ticket';
+        const reactResult = await renderReactTicketsSsr({
+          url: pathOnly,
+          kind,
+          querySeed,
+          baseUrl: base,
+        });
+        if (reactResult?.html) {
+          html = injectReactTicketsSsrIntoHtml(html, reactResult);
+          // Crawl mirror keeps string SEO content outside #root (createRoot wipe risk gone on hydrate paths).
+          if (ssrFragment) html = injectCrawlMirror(html, ssrFragment);
+          usedReactSsr = true;
+          console.log('[SSR] ✓ React', pathOnly);
+        }
+      } catch (e) {
+        console.error('[SSR] React path failed, fallback string:', pathOnly, e?.message || e);
+      }
+    }
+    if (!usedReactSsr) {
+      html = injectSsrIntoHtml(html, ssrFragment);
+      html = injectCrawlMirror(html, ssrFragment);
+      console.log('[SSR] ✓', pathOnly, ssrFragment ? '+ content' : '');
+    }
 
     res.status(200);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -596,6 +627,10 @@ async function generateSeoTags(url) {
           ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />
     <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`
           : '';
+        const lcpPreload = ogImage
+          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=avif&q=65" type="image/avif" fetchpriority="high" />
+    <link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=webp&q=80" type="image/webp" />`
+          : '';
         const locationJson =
           venueLabel || venueAddress
             ? {
@@ -660,6 +695,7 @@ async function generateSeoTags(url) {
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />${keywordsMeta}
     <link rel="canonical" href="${canonical}" />
+    ${lcpPreload}
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${canonical}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
@@ -903,6 +939,94 @@ async function fetchCmsPageForSsr(pathOrSlug) {
     console.warn('[SSR] cms page:', err.message);
     return null;
   }
+}
+
+/** Seed React Query for Batch B hydrate (same keys as frontend). */
+async function buildReactTicketsQuerySeed(pathOnly, ssrMeta) {
+  const seed = {};
+  const apiBase = process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000';
+  const cityId = process.env.VITE_GETBILET_CITY_ID || process.env.GETBILET_CITY_ID || '1';
+
+  if (pathOnly === '/' || pathOnly === '') {
+    try {
+      const [homeRes, vitRes] = await Promise.all([
+        fetch(`${apiBase}/api/bilet/home`, { headers: { Accept: 'application/json' } }),
+        fetch(`${apiBase}/api/public/tickets-vitrine`, { headers: { Accept: 'application/json' } }),
+      ]);
+      if (homeRes.ok) {
+        seed.home = { cityId: String(cityId), data: await homeRes.json() };
+      }
+      if (vitRes.ok) {
+        seed.vitrine = await vitRes.json();
+      }
+    } catch (e) {
+      console.warn('[SSR] react seed home:', e?.message || e);
+    }
+    return seed;
+  }
+
+  if (!pathOnly.startsWith('/ticket/')) return seed;
+
+  const m = pathOnly.match(/^\/ticket\/([^/?#]+)/);
+  const firstSeg = m ? decodeURIComponent(m[1]).trim() : '';
+  if (!firstSeg) return seed;
+
+  const ssr = ssrMeta?.ssr;
+  let repertoireId = '';
+  let slug = firstSeg;
+
+  if (looksLikeGetbiletId(firstSeg)) {
+    repertoireId = firstSeg;
+    slug = '';
+  } else {
+    try {
+      const res = await fetch(`${apiBase}/api/bilet/resolve-slug/${encodeURIComponent(firstSeg)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        seed.resolveSlug = { slug: firstSeg, data };
+        repertoireId = data?.repertoireId || '';
+      }
+    } catch (e) {
+      console.warn('[SSR] react seed resolve:', e?.message || e);
+    }
+  }
+
+  if (!repertoireId && ssr?.kind === 'ticket') {
+    // fallback from meta ctx if resolve failed
+    const ctx = await getRepertoireContext(firstSeg);
+    repertoireId = ctx?.repertoireId || '';
+    if (repertoireId && slug) {
+      seed.resolveSlug = {
+        slug,
+        data: {
+          repertoireId,
+          title: ctx?.title || ssr.title,
+          posterUrl: ctx?.posterUrl || ssr.posterUrl,
+          bannerUrl: ctx?.bannerUrl || null,
+          beginDateTime: ctx?.beginDateTime || null,
+          stageId: ctx?.stageId || null,
+        },
+      };
+    }
+  }
+
+  if (repertoireId) {
+    try {
+      const res = await fetch(
+        `${apiBase}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page`,
+        { headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } },
+      );
+      if (res.ok) {
+        seed.repertoirePage = { repertoireId, data: await res.json() };
+      }
+    } catch (e) {
+      console.warn('[SSR] react seed page:', e?.message || e);
+    }
+  }
+
+  return seed;
 }
 
 async function getRepertoireContext(ctxKey) {

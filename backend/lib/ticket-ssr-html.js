@@ -12,6 +12,21 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
+/** Cover LCP: picture AVIF→WebP→orig via /api/images/optimize (no lazy). */
+function ssrCoverPicture(posterUrl, alt) {
+  if (!posterUrl) return '';
+  const src = escapeHtml(posterUrl);
+  const altEsc = escapeHtml(alt || '');
+  const q = encodeURIComponent(posterUrl);
+  const avif = `/api/images/optimize?url=${q}&f=avif&q=65`;
+  const webp = `/api/images/optimize?url=${q}&f=webp&q=80`;
+  return `<p><picture>
+  <source type="image/avif" srcset="${escapeHtml(avif)}" />
+  <source type="image/webp" srcset="${escapeHtml(webp)}" />
+  <img src="${src}" alt="Постер «${altEsc}»" width="320" height="480" fetchpriority="high" decoding="async" />
+</picture></p>`;
+}
+
 function formatEventDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -199,7 +214,7 @@ export function buildTicketEventSsrHtml(p) {
   </nav>
   <article>
     <h1>${h1}</h1>
-    ${poster ? `<p><img src="${poster}" alt="Постер «${titleAttr}»" width="320" height="auto" loading="lazy" /></p>` : ''}
+    ${poster ? ssrCoverPicture(p.posterUrl, p.title || h1) : ''}
     ${when ? `<p><strong>Дата:</strong> ${when}</p>` : ''}
     ${venue ? `<p><strong>Площадка:</strong> ${venue}${address ? `, ${address}` : ''}</p>` : ''}
     ${price ? `<p><strong>Цена:</strong> ${escapeHtml(price)}</p>` : ''}
@@ -296,9 +311,12 @@ export function buildEventsIndexSsrHtml(opts = {}) {
  * @param {{ events?: object[] }} [opts]
  */
 export function buildHomeSsrHtml(opts = {}) {
+  // LCP cover for crawlers / first paint (matches frontend FEATURED_HERO_IMAGE_URL)
+  const homeCover = '/uploads/images/--1777394907182.jpeg';
   return `<main class="bv-ssr-home" data-ssr="home">
   <h1>Билеты на концерты, театр и спорт</h1>
   <p>Афиша мероприятий: выбор мест на схеме зала, оплата онлайн и электронный билет.</p>
+  ${ssrCoverPicture(homeCover, 'Билет Всем')}
   ${eventListHtml(opts.events, { heading: 'Ближайшие события' })}
   <p>
     <a href="/events">Открыть афишу</a> ·

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { promisify } from 'util';
+import crypto from 'crypto';
 import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -10,20 +11,28 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
+const mkdir = promisify(fs.mkdir);
 const stat = promisify(fs.stat);
-const exists = promisify(fs.exists);
 
-// Кэш для конвертированных изображений
-const conversionCache = new Map();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
+const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
+const cacheRoot = path.join(uploadsRoot, '.cache');
+const legacyImgRoot = path.resolve(__dirname, '../../frontend/dist/legacy/img');
 
-// Проверяем поддержку WebP в запросе
-function acceptsWebP(req) {
+const ALLOWED_HOST_SUFFIXES = [
+  'biletvsem.ru',
+  'biletvsem.com',
+  'www.biletvsem.ru',
+  'www.biletvsem.com',
+  'localhost',
+  '127.0.0.1',
+];
+
+function acceptsFormat(req, mime) {
   const accept = req.headers.accept || '';
-  return accept.includes('image/webp');
+  return accept.includes(mime) || accept.includes('*/*') || accept === '';
 }
 
-// Проверяем существование файла
 async function fileExists(filePath) {
   try {
     await stat(filePath);
@@ -33,212 +42,225 @@ async function fileExists(filePath) {
   }
 }
 
-// Конвертируем изображение в WebP
-async function convertToWebP(inputPath, outputPath, options = {}) {
-  const { width, height, quality = 80 } = options;
-  
+function resolveLocalPath(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+  let u = imageUrl.trim();
   try {
-    let pipeline = sharp(inputPath);
-    
-    // Ресайз если указаны размеры
-    if (width || height) {
-      pipeline = pipeline.resize(width, height, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      });
+    if (u.startsWith('http://') || u.startsWith('https://')) {
+      const parsed = new URL(u);
+      u = parsed.pathname;
     }
-    
-    // Конвертируем в WebP
-    await pipeline
-      .webp({ quality })
-      .toFile(outputPath);
-    
-    return true;
-  } catch (error) {
-    console.error('Error converting to WebP:', error);
+  } catch {
+    return null;
+  }
+  if (u.startsWith('/uploads/')) {
+    const rel = u.replace(/^\/uploads\//, '');
+    if (rel.includes('..')) return null;
+    return path.join(uploadsRoot, rel);
+  }
+  if (u.startsWith('/img/') || u.startsWith('/legacy/img/')) {
+    const filename = path.basename(u);
+    return path.join(legacyImgRoot, filename);
+  }
+  return null;
+}
+
+function isAllowedExternal(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    if (ALLOWED_HOST_SUFFIXES.some((h) => host === h || host.endsWith(`.${h}`))) return true;
+    // Same-site posters often on CDN with our uploads proxied — allow common image CDNs used by tickets
+    if (
+      host.endsWith('yandex.net') ||
+      host.endsWith('yandex.ru') ||
+      host.endsWith('ticketscloud.ru') ||
+      host.endsWith('intickets.ru') ||
+      host.endsWith('kassir.ru') ||
+      host.endsWith('profticket.ru')
+    ) {
+      return true;
+    }
+    return false;
+  } catch {
     return false;
   }
 }
 
-// Получаем путь к WebP версии
-function getWebPPath(imagePath) {
-  return imagePath.replace(/\.(jpg|jpeg|png)$/i, '.webp');
+async function ensureCacheDir() {
+  await mkdir(cacheRoot, { recursive: true });
 }
 
-// Middleware для конвертации изображений в WebP
-router.get('/img/:filename', async (req, res, next) => {
-  const filename = req.params.filename;
-  const imagePath = path.join(__dirname, '../frontend/dist/legacy/img', filename);
-  
-  try {
-    // Проверяем существование файла
-    if (!(await fileExists(imagePath))) {
-      return res.status(404).send('Image not found');
-    }
+function cacheKey(inputKey, format, width, height, quality) {
+  const h = crypto
+    .createHash('sha1')
+    .update(`${inputKey}|${format}|${width || ''}|${height || ''}|${quality}`)
+    .digest('hex');
+  return path.join(cacheRoot, `${h}.${format}`);
+}
 
-    // Если клиент поддерживает WebP и файл может быть конвертирован
-    if (acceptsWebP(req) && /\.(jpg|jpeg|png)$/i.test(filename)) {
-      const webpPath = getWebPPath(imagePath);
-      const webpExists = await fileExists(webpPath);
-      
-      if (!webpExists) {
-        // Конвертируем в WebP
-        const converted = await convertToWebP(imagePath, webpPath);
-        if (converted) {
-          // Отдаем WebP версию
-          const webpFile = await readFile(webpPath);
-          res.setHeader('Content-Type', 'image/webp');
-          res.setHeader('Cache-Control', 'public, max-age=31536000');
-          res.setHeader('Vary', 'Accept');
-          return res.send(webpFile);
-        }
-      } else {
-        // WebP версия уже существует
-        const webpFile = await readFile(webpPath);
-        res.setHeader('Content-Type', 'image/webp');
-        res.setHeader('Cache-Control', 'public, max-age=31536000');
-        res.setHeader('Vary', 'Accept');
-        return res.send(webpFile);
-      }
-    }
-
-    // Отдаем оригинальный файл
-    const file = await readFile(imagePath);
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-      '.svg': 'image/svg+xml',
-    };
-    
-    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
-    res.setHeader('Vary', 'Accept');
-    res.send(file);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      return res.status(404).send('Image not found');
-    }
-    console.error('Error serving image:', error);
-    next(error);
+async function convertBuffer(inputBuffer, format, { width, height, quality }) {
+  let pipeline = sharp(inputBuffer, { failOn: 'none' });
+  if (width || height) {
+    pipeline = pipeline.resize(width || null, height || null, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
   }
-});
+  if (format === 'avif') {
+    return pipeline.avif({ quality: quality || 65, effort: 4 }).toBuffer();
+  }
+  if (format === 'webp') {
+    return pipeline.webp({ quality: quality || 80 }).toBuffer();
+  }
+  return pipeline.toBuffer();
+}
 
-// Роут для оптимизации изображений через query параметры
+async function loadSourceBuffer(imageUrl) {
+  const local = resolveLocalPath(imageUrl);
+  if (local && (await fileExists(local))) {
+    return { buffer: await readFile(local), key: local };
+  }
+  if ((imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) && isAllowedExternal(imageUrl)) {
+    const localFromAbs = resolveLocalPath(imageUrl);
+    if (localFromAbs && (await fileExists(localFromAbs))) {
+      return { buffer: await readFile(localFromAbs), key: localFromAbs };
+    }
+    const res = await fetch(imageUrl, {
+      headers: { 'User-Agent': 'biletvsem-image-optimizer/1.0', Accept: 'image/*' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) throw new Error(`fetch ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { buffer: buf, key: imageUrl };
+  }
+  return null;
+}
+
+/**
+ * GET /api/images/optimize?url=&f=webp|avif&w=&h=&q=
+ */
 router.get('/optimize', async (req, res, next) => {
-  const imageUrl = req.query.url;
-  const width = parseInt(req.query.w) || null;
-  const height = parseInt(req.query.h) || null;
-  const quality = parseInt(req.query.q) || 80;
-  const format = req.query.f || (acceptsWebP(req) ? 'webp' : 'original');
+  const imageUrl = String(req.query.url || '').trim();
+  const width = parseInt(String(req.query.w || ''), 10) || null;
+  const height = parseInt(String(req.query.h || ''), 10) || null;
+  const quality = parseInt(String(req.query.q || ''), 10) || null;
+  let format = String(req.query.f || '').toLowerCase();
 
   if (!imageUrl) {
     return res.status(400).json({ error: 'Missing url parameter' });
   }
+  if (imageUrl.includes('..')) {
+    return res.status(400).json({ error: 'Invalid url' });
+  }
+
+  if (!format || format === 'auto') {
+    if (acceptsFormat(req, 'image/avif')) format = 'avif';
+    else if (acceptsFormat(req, 'image/webp')) format = 'webp';
+    else format = 'original';
+  }
+
+  if (!['webp', 'avif', 'original'].includes(format)) {
+    return res.status(400).json({ error: 'Invalid format' });
+  }
 
   try {
-    // Парсим URL изображения
-    let imagePath;
-    if (imageUrl.startsWith('/img/') || imageUrl.startsWith('/legacy/img/')) {
-      const filename = path.basename(imageUrl);
-      imagePath = path.join(__dirname, '../frontend/dist/legacy/img', filename);
-    } else if (imageUrl.startsWith('http')) {
-      return res.status(400).json({ error: 'External URLs not supported yet' });
-    } else {
-      return res.status(400).json({ error: 'Invalid image URL' });
-    }
-
-    if (!(await fileExists(imagePath))) {
+    await ensureCacheDir();
+    const source = await loadSourceBuffer(imageUrl);
+    if (!source) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    // Если запрашивается WebP
-    if (format === 'webp' && acceptsWebP(req)) {
-      const webpPath = getWebPPath(imagePath);
-      let webpExists = await fileExists(webpPath);
-      
-      // Если нужен ресайз, создаем уникальный путь
-      const cacheKey = `${imagePath}-${width}-${height}-${quality}`;
-      let outputPath = webpPath;
-      
-      if (width || height) {
-        const ext = path.extname(webpPath);
-        const base = path.basename(webpPath, ext);
-        const dir = path.dirname(webpPath);
-        outputPath = path.join(dir, `${base}-${width || 'auto'}x${height || 'auto'}-q${quality}${ext}`);
-        webpExists = await fileExists(outputPath);
-      }
-      
-      if (!webpExists) {
-        // Конвертируем с опциями
-        const converted = await convertToWebP(imagePath, outputPath, { width, height, quality });
-        if (converted) {
-          const webpFile = await readFile(outputPath);
-          res.setHeader('Content-Type', 'image/webp');
-          res.setHeader('Cache-Control', 'public, max-age=31536000');
-          res.setHeader('Vary', 'Accept');
-          return res.send(webpFile);
-        }
-      } else {
-        const webpFile = await readFile(outputPath);
-        res.setHeader('Content-Type', 'image/webp');
-        res.setHeader('Cache-Control', 'public, max-age=31536000');
-        res.setHeader('Vary', 'Accept');
-        return res.send(webpFile);
-      }
-    }
-
-    // Ресайз оригинального изображения если нужно
-    if (width || height) {
-      const buffer = await sharp(imagePath)
-        .resize(width, height, {
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .toBuffer();
-      
-      const ext = path.extname(imagePath).toLowerCase();
+    if (format === 'original') {
+      const ext = path.extname(imageUrl).toLowerCase();
       const mimeTypes = {
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
         '.png': 'image/png',
         '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.avif': 'image/avif',
+        '.svg': 'image/svg+xml',
       };
-      
       res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       res.setHeader('Vary', 'Accept');
-      return res.send(buffer);
+      return res.send(source.buffer);
     }
 
-    // Отдаем оригинал
-    const file = await readFile(imagePath);
-    const ext = path.extname(imagePath).toLowerCase();
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-    };
-    
-    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    const outPath = cacheKey(source.key, format, width, height, quality || (format === 'avif' ? 65 : 80));
+    if (await fileExists(outPath)) {
+      const cached = await readFile(outPath);
+      res.setHeader('Content-Type', format === 'avif' ? 'image/avif' : 'image/webp');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Vary', 'Accept');
+      return res.send(cached);
+    }
+
+    const converted = await convertBuffer(source.buffer, format, {
+      width,
+      height,
+      quality: quality || (format === 'avif' ? 65 : 80),
+    });
+    await writeFile(outPath, converted).catch(() => {});
+
+    res.setHeader('Content-Type', format === 'avif' ? 'image/avif' : 'image/webp');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Vary', 'Accept');
+    return res.send(converted);
+  } catch (error) {
+    console.error('[imageOptimization]', error.message || error);
+    next(error);
+  }
+});
+
+/** Legacy: GET /api/images/img/:filename */
+router.get('/img/:filename', async (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const imageUrl = `/legacy/img/${filename}`;
+    const source = await loadSourceBuffer(imageUrl);
+    if (!source) return res.status(404).send('Image not found');
+    await ensureCacheDir();
+    const format = acceptsFormat(req, 'image/webp') ? 'webp' : 'original';
+    if (format === 'original') {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      return res.send(source.buffer);
+    }
+    const outPath = cacheKey(source.key, 'webp', null, null, 80);
+    let out;
+    if (await fileExists(outPath)) {
+      out = await readFile(outPath);
+    } else {
+      out = await convertBuffer(source.buffer, 'webp', { quality: 80 });
+      await writeFile(outPath, out).catch(() => {});
+    }
+    res.setHeader('Content-Type', 'image/webp');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
     res.setHeader('Vary', 'Accept');
-    res.send(file);
+    return res.send(out);
   } catch (error) {
-    console.error('Error optimizing image:', error);
     next(error);
   }
 });
 
 export default router;
 
-
-
-
-
-
+/** Pre-generate webp (+ optional avif) siblings next to an uploaded file */
+export async function pregenerateUploadVariants(fullPath, { avif = true } = {}) {
+  try {
+    if (!fullPath || /\.svg$/i.test(fullPath)) return;
+    const buf = await readFile(fullPath);
+    const base = fullPath.replace(/\.(jpe?g|png|gif|webp)$/i, '');
+    const webpBuf = await convertBuffer(buf, 'webp', { quality: 80 });
+    await writeFile(`${base}.webp`, webpBuf);
+    if (avif) {
+      const avifBuf = await convertBuffer(buf, 'avif', { quality: 65 });
+      await writeFile(`${base}.avif`, avifBuf);
+    }
+  } catch (e) {
+    console.error('[imageOptimization] pregenerate:', e.message || e);
+  }
+}
