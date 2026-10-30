@@ -61,12 +61,15 @@ export function toRoleWebpUrl(
   role: ImageRole,
   widthAttr?: number,
 ): string | null {
-  const base = role === 'cover' ? IMAGE_OPT.cover : IMAGE_OPT.card;
+  // cover: always 960 — width={1200} attrs are layout hints, not pixel budget
+  if (role === 'cover') {
+    return toWebpUrl(src, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q });
+  }
   const w =
     widthAttr && widthAttr > 0
-      ? Math.min(1600, Math.max(base.w, Math.round(widthAttr * 2)))
-      : base.w;
-  return toWebpUrl(src, { w, q: base.q });
+      ? Math.min(640, Math.max(IMAGE_OPT.card.w, Math.round(widthAttr * 2)))
+      : IMAGE_OPT.card.w;
+  return toWebpUrl(src, { w, q: IMAGE_OPT.card.q });
 }
 
 export function isCoverImage(role: ImageRole): boolean {
