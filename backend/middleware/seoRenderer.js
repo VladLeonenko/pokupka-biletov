@@ -408,7 +408,7 @@ export async function seoRenderer(req, res, next) {
           baseUrl: base,
         });
         if (reactResult?.html) {
-          html = injectReactTicketsSsrIntoHtml(html, reactResult);
+          html = injectReactTicketsSsrIntoHtml(html, reactResult, { kind });
           // NO crawl mirror on React-SSR paths: #bv-ssr-crawl was visible above #root and
           // removed on rAF → CLS ~1.45 (killed Perf despite FCP/LCP wins).
           usedReactSsr = true;

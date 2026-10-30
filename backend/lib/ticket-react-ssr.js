@@ -10,6 +10,26 @@ import { siteBaseUrl } from '../siteConfig.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SSR_BUNDLE = path.join(REPO_ROOT, 'frontend/dist-ssr/renderTickets.js');
+const FRONTEND_ASSETS = path.join(REPO_ROOT, 'frontend/dist/assets');
+
+/** CSS modules arrive via JS import after hydrate — FOUC → CLS. Preload them in <head>. */
+function criticalCssHrefsForKind(kind) {
+  try {
+    const files = fs.readdirSync(FRONTEND_ASSETS).filter((f) => f.endsWith('.css'));
+    const prefixes =
+      kind === 'ticket'
+        ? ['ScrollToTop-', 'TicketCheckoutPage-', 'EventPosterCard-', 'TicketEventPosterImg-']
+        : ['ScrollToTop-', 'HomePage-', 'EventPosterCard-', 'TicketEventPosterImg-', 'Neglinka'];
+    const hrefs = [];
+    for (const prefix of prefixes) {
+      const hit = files.find((f) => f.startsWith(prefix));
+      if (hit) hrefs.push(`/assets/${hit}`);
+    }
+    return hrefs;
+  } catch {
+    return [];
+  }
+}
 
 export function isReactSsrTicketsPath(pathname) {
   const p = String(pathname || '').replace(/\/+$/, '') || '/';
@@ -72,13 +92,16 @@ export async function renderReactTicketsSsr(input) {
 }
 
 /** Inject Emotion CSS + React HTML into Vite index shell. Mutual exclusion vs string SSR in #root. */
-export function injectReactTicketsSsrIntoHtml(html, result) {
+export function injectReactTicketsSsrIntoHtml(html, result, opts = {}) {
   if (!result?.html) return html;
   let out = html;
-  if (result.css) {
-    if (out.includes('</head>')) {
-      out = out.replace('</head>', `${result.css}\n</head>`);
-    }
+  const kind = opts.kind === 'ticket' ? 'ticket' : 'home';
+  const cssLinks = criticalCssHrefsForKind(kind)
+    .map((href) => `<link rel="stylesheet" href="${href}" />`)
+    .join('\n    ');
+  const headBits = [result.css, cssLinks].filter(Boolean).join('\n    ');
+  if (headBits && out.includes('</head>')) {
+    out = out.replace('</head>', `${headBits}\n</head>`);
   }
   const rootInner = `<div id="root" ${result.rootAttr || 'data-react-ssr-home="1"'}>${result.html}</div>`;
   const withRoot = out.replace(
