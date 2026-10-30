@@ -409,8 +409,8 @@ export async function seoRenderer(req, res, next) {
         });
         if (reactResult?.html) {
           html = injectReactTicketsSsrIntoHtml(html, reactResult);
-          // Crawl mirror keeps string SEO content outside #root (createRoot wipe risk gone on hydrate paths).
-          if (ssrFragment) html = injectCrawlMirror(html, ssrFragment);
+          // NO crawl mirror on React-SSR paths: #bv-ssr-crawl was visible above #root and
+          // removed on rAF → CLS ~1.45 (killed Perf despite FCP/LCP wins).
           usedReactSsr = true;
           console.log('[SSR] ✓ React', pathOnly);
         }
