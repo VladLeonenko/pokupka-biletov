@@ -67,9 +67,9 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   };
   const img = resolveEventCoverUrl(coverInput);
   const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
-  // CSS ::before was loading full raw JPEG (~1MB) in parallel with <img> — major LCP stall.
+  // Same URL as cover <img> (w=960) so CSS ::before + img share one cache entry.
   const heroBg =
-    (img && toWebpUrl(img, { w: IMAGE_OPT.heroBg.w, q: IMAGE_OPT.heroBg.q })) || img || '';
+    (img && toWebpUrl(img, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q })) || img || '';
   const heroStyle = heroBg
     ? ({
         '--hero-image': `url("${heroBg.replace(/["\\]/g, '')}")`,

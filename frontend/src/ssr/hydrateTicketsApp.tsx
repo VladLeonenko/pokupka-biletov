@@ -2,8 +2,12 @@ import { hydrateRoot } from 'react-dom/client';
 import { QueryClient } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { createEmotionCache } from '@/ssr/createEmotionCache';
-import { PublicTicketsShell } from '@/ssr/PublicTicketsShell';
-import { PRELOADED_TICKETS_STATE_ID } from '@/ssr/reactSsrTickets';
+import {
+  PublicTicketsShell,
+  homeRoutes,
+  ticketRoutes,
+} from '@/ssr/PublicTicketsShell';
+import { PRELOADED_TICKETS_STATE_ID, REACT_SSR_TICKET_ATTR } from '@/ssr/reactSsrTickets';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ScrollToTop } from '@/components/common/ScrollToTop';
 
@@ -46,8 +50,9 @@ function seedQueryClient(qc: QueryClient, seed: Preloaded['querySeed']) {
   }
 }
 
-/** hydrateRoot path for React-SSR ticket/home — must mirror server PublicTicketsShell. */
-export function hydrateTicketsApp(rootElement: HTMLElement) {
+/** hydrateRoot — load ONLY home or ONLY ticket page module (not both). */
+export async function hydrateTicketsApp(rootElement: HTMLElement) {
+  const isTicket = rootElement.hasAttribute(REACT_SSR_TICKET_ATTR);
   const preloaded = readPreloaded();
   const cache = createEmotionCache();
   const queryClient = new QueryClient({
@@ -56,6 +61,12 @@ export function hydrateTicketsApp(rootElement: HTMLElement) {
     },
   });
   seedQueryClient(queryClient, preloaded?.querySeed);
+
+  const routes = isTicket
+    ? ticketRoutes(
+        (await import('@/pages/public/TicketCheckoutPage')).TicketCheckoutPage,
+      )
+    : homeRoutes((await import('@/pages/public/HomePage')).HomePage);
 
   hydrateRoot(
     rootElement,
@@ -67,7 +78,7 @@ export function hydrateTicketsApp(rootElement: HTMLElement) {
         }}
       >
         <ScrollToTop />
-        <PublicTicketsShell emotionCache={cache} queryClient={queryClient} />
+        <PublicTicketsShell emotionCache={cache} queryClient={queryClient} routes={routes} />
       </BrowserRouter>
     </ErrorBoundary>,
     {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import { CacheProvider, type EmotionCache } from '@emotion/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Routes, useLocation } from 'react-router-dom';
@@ -10,8 +10,6 @@ import { TicketsFooter } from '@/components/tickets/TicketsFooter';
 import { TicketCartProvider } from '@/context/TicketCartContext';
 import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
 import { ThemeModeProvider } from '@/theme/ThemeModeProvider';
-import { HomePage } from '@/pages/public/HomePage';
-import { TicketCheckoutPage } from '@/pages/public/TicketCheckoutPage';
 import { isReactSsrTicketsPath } from '@/ssr/reactSsrTickets';
 import { applyTicketsTheme } from '@/utils/ticketsTheme';
 import '@/styles/tickets-theme.css';
@@ -19,6 +17,8 @@ import '@/styles/tickets-theme.css';
 type Props = {
   emotionCache: EmotionCache;
   queryClient: QueryClient;
+  /** Only the page(s) needed for this SSR/hydrate kind — keep home free of TicketCheckout. */
+  routes: ReactNode;
 };
 
 /**
@@ -50,8 +50,8 @@ function TicketsThemeBoot() {
   return null;
 }
 
-/** Server renderToString + client hydrateRoot — must stay in sync. */
-export function PublicTicketsShell({ emotionCache, queryClient }: Props) {
+/** Shared chrome; page routes injected per kind (home vs ticket). */
+export function PublicTicketsShell({ emotionCache, queryClient, routes }: Props) {
   return (
     <CacheProvider value={emotionCache}>
       <QueryClientProvider client={queryClient}>
@@ -62,10 +62,7 @@ export function PublicTicketsShell({ emotionCache, queryClient }: Props) {
                 <TicketsThemeBoot />
                 <TicketsHeader />
                 <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/ticket/:eventSlug" element={<TicketCheckoutPage />} />
-                  <Route path="/ticket/:repertoireId/:slug" element={<TicketCheckoutPage />} />
-                  <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
+                  {routes}
                   <Route path="*" element={<LeaveReactSsrShell />} />
                 </Routes>
                 <TicketsFooter />
@@ -77,5 +74,19 @@ export function PublicTicketsShell({ emotionCache, queryClient }: Props) {
         </AuthProvider>
       </QueryClientProvider>
     </CacheProvider>
+  );
+}
+
+export function homeRoutes(HomePage: ComponentType) {
+  return <Route path="/" element={<HomePage />} />;
+}
+
+export function ticketRoutes(TicketCheckoutPage: ComponentType) {
+  return (
+    <>
+      <Route path="/ticket/:eventSlug" element={<TicketCheckoutPage />} />
+      <Route path="/ticket/:repertoireId/:slug" element={<TicketCheckoutPage />} />
+      <Route path="/ticket/:repertoireId" element={<TicketCheckoutPage />} />
+    </>
   );
 }

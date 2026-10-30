@@ -3,7 +3,13 @@ import { QueryClient } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server';
 import { createEmotionCache } from '@/ssr/createEmotionCache';
-import { PublicTicketsShell } from '@/ssr/PublicTicketsShell';
+import {
+  PublicTicketsShell,
+  homeRoutes,
+  ticketRoutes,
+} from '@/ssr/PublicTicketsShell';
+import { HomePage } from '@/pages/public/HomePage';
+import { TicketCheckoutPage } from '@/pages/public/TicketCheckoutPage';
 import {
   PRELOADED_TICKETS_STATE_ID,
   REACT_SSR_HOME_ATTR,
@@ -16,7 +22,6 @@ import {
 export type TicketsSsrInput = {
   url: string;
   kind: ReactSsrKind;
-  /** Seeded RQ payloads */
   querySeed?: {
     resolveSlug?: { slug: string; data: unknown };
     repertoirePage?: { repertoireId: string; data: unknown };
@@ -60,6 +65,7 @@ function buildQueryClient(input: TicketsSsrInput): QueryClient {
 
 /**
  * Node entry: React+MUI money pages → HTML + critical Emotion CSS.
+ * Sync imports OK here (separate SSR bundle); client hydrate loads one page only.
  */
 export function renderTicketsPage(input: TicketsSsrInput): TicketsSsrResult {
   const cache = createEmotionCache();
@@ -67,10 +73,11 @@ export function renderTicketsPage(input: TicketsSsrInput): TicketsSsrResult {
   const queryClient = buildQueryClient(input);
   const location = input.url.startsWith('/') ? input.url : `/${input.url}`;
   const kind = input.kind || reactSsrKindFromPath(location) || 'home';
+  const routes = kind === 'ticket' ? ticketRoutes(TicketCheckoutPage) : homeRoutes(HomePage);
 
   const html = renderToString(
     <StaticRouter location={location}>
-      <PublicTicketsShell emotionCache={cache} queryClient={queryClient} />
+      <PublicTicketsShell emotionCache={cache} queryClient={queryClient} routes={routes} />
     </StaticRouter>,
   );
 

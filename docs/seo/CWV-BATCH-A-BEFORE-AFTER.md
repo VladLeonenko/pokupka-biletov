@@ -49,6 +49,26 @@ Hall: IO-defer mount + reserved height — **визуал схемы тот же
 
 Vs baseline event: Perf 12→67, CLS 0.446→0, TBT ~3.6s→236ms.
 
+### LH после WebP sized + no AVIF LCP + hero CSS fix (mobile)
+
+**Дата:** 2026-10-30 ~22:30 MSK  
+**Метод:** Lighthouse 12.2.1 mobile, simulate throttling, 2 прогона → среднее  
+**Прод:** `https://biletvsem.com` (`0ee2067e`)
+
+| URL | | Perf | LCP | CLS | FCP | TBT |
+|-----|--|------|-----|-----|-----|-----|
+| `/` | r1 | 61 | 5.4 s | 0.001 | 3.3 s | 334 ms |
+| `/` | r2 | 65 | 5.1 s | 0 | 3.3 s | 350 ms |
+| `/` | **avg** | **63** | **5.2 s** | **0** | **3.3 s** | **342 ms** |
+| `/ticket/kabala-svyatosh` (схема МХТ) | r1 | 69 | 4.7 s | 0 | 3.3 s | 288 ms |
+| `/ticket/kabala-svyatosh` | r2 | 78 | 4.0 s | 0 | 3.3 s | 157 ms |
+| `/ticket/kabala-svyatosh` | **avg** | **74** | **4.3 s** | **0** | **3.3 s** | **222 ms** |
+
+Vs Batch B: home LCP 6.3→**5.2 s**; ticket Perf 67→**74**, LCP 5.3→**4.3 s**. CLS держится ~0. Top opp: unused JS (~600–750 ms).
+
+> **Как читать таблицу:** «avg» = среднее 2 lab-прогонов (r1/r2 выше). Не путать с одиночным прогоном Batch B (home Perf 69) — lab noise ±5–10 Perf.  
+> **Vs эталон PC** (`prime-coder.ru/products/seo-audit`: mobile Perf 87 / LCP 2.0s): у нас FCP залипал ~3.3s из‑за `main`→static `App` (~280KB gz, gsap/agency в graph) на money hydrate + home тянул `TicketCheckout` sync. Это не «другие цифры вранья» — просто другой потолок, пока entry не разрезан.
+
 ## Git
 
 Hot-rsync на VPS. **Коммит / `deploy-via-git` — по просьбе.**
