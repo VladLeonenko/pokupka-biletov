@@ -898,7 +898,8 @@ export async function fetchStageMap(
     const errText = await res.text().catch(() => '');
     throw new Error(errText || `HTTP ${res.status}`);
   }
-  return res.json() as Promise<StageMapRow>;
+  const body = (await res.json()) as StageMapRow | null;
+  return body ?? null;
 }
 
 /** Превью Лужники (футбол): GET /api/bilet/preview/luzhniki-football-stadium — для /test/luzhniki-cup-final-scheme */

@@ -624,7 +624,8 @@ router.get('/stage/:stageId/map', async (req, res) => {
         lookupKey,
       });
     }
-    if (!r.rows.length) return res.status(404).json({ error: 'not_found', lookupKey });
+    // 200+null instead of 404 — missing map is normal; 404 spams browser console.
+    if (!r.rows.length) return sendPublicJson(req, res, null, { cacheSeconds: 60, staleSeconds: 120 });
 
     let stageRow = r.rows[0];
     if ((isLuzhnikiMap || isSupercupNnMap || isLukoilMap) && repertoireId) {
