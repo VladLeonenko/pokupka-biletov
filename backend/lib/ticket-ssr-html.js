@@ -20,10 +20,10 @@ function ssrCoverPicture(posterUrl, alt) {
   const q = encodeURIComponent(posterUrl);
   const avif = `/api/images/optimize?url=${q}&f=avif&q=65`;
   const webp = `/api/images/optimize?url=${q}&f=webp&q=80`;
+  // img src = WebP (not raw JPEG); AVIF via <source> for supporting browsers
   return `<p><picture>
   <source type="image/avif" srcset="${escapeHtml(avif)}" />
-  <source type="image/webp" srcset="${escapeHtml(webp)}" />
-  <img src="${src}" alt="Постер «${altEsc}»" width="320" height="480" fetchpriority="high" decoding="async" />
+  <img src="${escapeHtml(webp)}" alt="Постер «${altEsc}»" width="320" height="480" fetchpriority="high" decoding="async" />
 </picture></p>`;
 }
 

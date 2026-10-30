@@ -627,9 +627,9 @@ async function generateSeoTags(url) {
           ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />
     <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`
           : '';
+        // Preload only AVIF for LCP (matches <source type=image/avif>); WebP is img fallback — dual preload caused "preloaded but not used".
         const lcpPreload = ogImage
-          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=avif&q=65" type="image/avif" fetchpriority="high" />
-    <link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=webp&q=80" type="image/webp" />`
+          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=avif&q=65" type="image/avif" fetchpriority="high" imagesizes="100vw" />`
           : '';
         const locationJson =
           venueLabel || venueAddress

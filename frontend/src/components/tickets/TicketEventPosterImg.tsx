@@ -18,15 +18,15 @@ type Props = {
   alt?: string;
   /** LCP / hero covers — high; cards default auto */
   fetchPriority?: 'high' | 'low' | 'auto';
-  /** cover = AVIF+WebP; card = WebP only */
+  /** cover = AVIF source + WebP img; card = WebP img */
   role?: 'cover' | 'card';
   width?: number;
   height?: number;
 };
 
 /**
- * Постеры: picture AVIF/WebP через /api/images/optimize + fallback.
- * no-referrer для внешних CDN; sizes снижает decode cost.
+ * Постеры: <picture> AVIF (cover) + <img src=webp>.
+ * img src is WebP (not raw JPEG) so Network/Elements show modern format.
  */
 export function TicketEventPosterImg({
   src,
@@ -48,11 +48,13 @@ export function TicketEventPosterImg({
   const initial = primary || fallback || '';
   const [current, setCurrent] = useState(initial);
   const [triedFallback, setTriedFallback] = useState(!primary && Boolean(fallback));
+  const [useRaw, setUseRaw] = useState(false);
 
   useEffect(() => {
     const next = primary || fallback || '';
     setCurrent(next);
     setTriedFallback(!primary && Boolean(fallback));
+    setUseRaw(false);
   }, [primary, fallback]);
 
   if (!current) {
@@ -61,13 +63,14 @@ export function TicketEventPosterImg({
     );
   }
 
-  const useSrcSet = Boolean(srcSet && current === primary);
-  const webp = toWebpUrl(current);
-  const avif = role === 'cover' ? toAvifUrl(current) : null;
+  const useSrcSet = Boolean(srcSet && current === primary && useRaw);
+  const webp = !useRaw ? toWebpUrl(current) : null;
+  const avif = !useRaw && role === 'cover' ? toAvifUrl(current) : null;
+  const imgSrc = webp || current;
 
   const img = (
     <img
-      src={current}
+      src={imgSrc}
       srcSet={useSrcSet ? srcSet : undefined}
       sizes={sizes || undefined}
       alt={alt}
@@ -84,8 +87,13 @@ export function TicketEventPosterImg({
       height={height}
       referrerPolicy="no-referrer"
       onError={() => {
+        if (webp && !useRaw) {
+          setUseRaw(true);
+          return;
+        }
         if (!triedFallback && fallback && current !== fallback) {
           setTriedFallback(true);
+          setUseRaw(false);
           setCurrent(fallback);
           return;
         }
@@ -94,12 +102,19 @@ export function TicketEventPosterImg({
     />
   );
 
-  if (!webp && !avif) return img;
+  if (!avif) {
+    return webp ? (
+      <picture className={className}>
+        {img}
+      </picture>
+    ) : (
+      img
+    );
+  }
 
   return (
     <picture className={className}>
-      {avif ? <source type="image/avif" srcSet={avif} sizes={sizes} /> : null}
-      {webp ? <source type="image/webp" srcSet={webp} sizes={sizes} /> : null}
+      <source type="image/avif" srcSet={avif} sizes={sizes} />
       {img}
     </picture>
   );
