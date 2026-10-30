@@ -166,6 +166,10 @@ FRONTEND_OK=1
   rm -rf dist
   npm run build
   test -x node_modules/.bin/vite || test -f node_modules/vite/bin/vite.js
+  # React SSR bundle for / and /ticket/* (seoRenderer → renderToString + hydrate)
+  echo "📦 Сборка frontend SSR (build:ssr)..."
+  npm run build:ssr
+  test -f dist-ssr/renderTickets.js
   printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
   chown -R www-data:www-data dist 2>/dev/null || true
 ) || FRONTEND_OK=0

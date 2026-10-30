@@ -175,9 +175,12 @@ app.use(helmet({
         "'self'",
         "https://api.openai.com",
         "https://mc.yandex.ru", // Яндекс.Метрика
-        "wss://mc.yandex.ru",  // Яндекс.Метрика Webvisor
+        "wss://mc.yandex.ru",
+        "https://mc.yandex.com", // Metrika CDN/beacon (CSP)
+        "wss://mc.yandex.com",
         "https://top-fwz1.mail.ru", // Top.Mail.Ru (VK)
         "https://www.google-analytics.com", // Google Analytics
+        "https://www.googletagmanager.com",
         "https://cc.calltracking.ru", // Коллтрекинг
         "http://localhost:3000",
         "http://localhost:5173",
@@ -345,6 +348,9 @@ app.use('/api/reading-books', requireAuth, readingBooksRouter);
 app.use('/api/consents', consentsRouter);
 app.use('/api/ai-team', requireAuth, aiTeamRouter);
 app.use('/api/projects', requireAuth, projectsRouter);
+
+// Public image optimize (WebP/AVIF) — must be before auth-gated /api/images
+app.use('/api/images', imageOptimizationRouter);
 
 // protected admin APIs (admin only)
 app.use('/api/pages', requireAuth, requireAdmin, pagesRouter);
@@ -684,9 +690,6 @@ function setLegacyHeaders(res, filePath) {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   }
 }
-
-// Image optimization router (должен быть перед статическими файлами)
-app.use('/api/images', imageOptimizationRouter);
 
 // Image optimization через роутер (должен быть перед статическими файлами)
 // Обрабатываем запросы к /img через роутер оптимизации

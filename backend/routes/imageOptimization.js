@@ -18,6 +18,8 @@ const stat = promisify(fs.stat);
 const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
 const cacheRoot = path.join(uploadsRoot, '.cache');
 const legacyImgRoot = path.resolve(__dirname, '../../frontend/dist/legacy/img');
+const frontendDistRoot = path.resolve(__dirname, '../../frontend/dist');
+const frontendPublicRoot = path.resolve(__dirname, '../../frontend/public');
 
 const ALLOWED_HOST_SUFFIXES = [
   'biletvsem.ru',
@@ -57,6 +59,19 @@ function resolveLocalPath(imageUrl) {
     const rel = u.replace(/^\/uploads\//, '');
     if (rel.includes('..')) return null;
     return path.join(uploadsRoot, rel);
+  }
+  if (u.startsWith('/placeholders/')) {
+    const filename = path.basename(u);
+    if (!filename || filename.includes('..')) return null;
+    // Prefer built dist (prod), fallback to public (dev / before build).
+    const inDist = path.join(frontendDistRoot, 'placeholders', filename);
+    const inPublic = path.join(frontendPublicRoot, 'placeholders', filename);
+    try {
+      if (fs.existsSync(inDist)) return inDist;
+    } catch {
+      /* ignore */
+    }
+    return inPublic;
   }
   if (u.startsWith('/img/') || u.startsWith('/legacy/img/')) {
     const filename = path.basename(u);
