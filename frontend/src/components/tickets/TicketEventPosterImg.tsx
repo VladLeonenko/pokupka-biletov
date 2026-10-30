@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { toAvifUrl, toWebpUrl } from '@/utils/optimizedImage';
+import { toRoleWebpUrl } from '@/utils/optimizedImage';
 
 type Props = {
   src?: string | null;
@@ -18,15 +18,15 @@ type Props = {
   alt?: string;
   /** LCP / hero covers — high; cards default auto */
   fetchPriority?: 'high' | 'low' | 'auto';
-  /** cover = AVIF source + WebP img; card = WebP img */
+  /** cover = LCP/hero WebP; card = list WebP (smaller w) */
   role?: 'cover' | 'card';
   width?: number;
   height?: number;
 };
 
 /**
- * Постеры: <picture> AVIF (cover) + <img src=webp>.
- * img src is WebP (not raw JPEG) so Network/Elements show modern format.
+ * Постеры через /api/images/optimize WebP + width.
+ * Без AVIF на LCP (холодный encode тормозит paint).
  */
 export function TicketEventPosterImg({
   src,
@@ -64,22 +64,16 @@ export function TicketEventPosterImg({
   }
 
   const useSrcSet = Boolean(srcSet && current === primary && useRaw);
-  const webp = !useRaw ? toWebpUrl(current) : null;
-  const avif = !useRaw && role === 'cover' ? toAvifUrl(current) : null;
+  const webp = !useRaw ? toRoleWebpUrl(current, role, width) : null;
   const imgSrc = webp || current;
 
-  const img = (
+  return (
     <img
       src={imgSrc}
       srcSet={useSrcSet ? srcSet : undefined}
       sizes={sizes || undefined}
       alt={alt}
-      className={avif || webp ? undefined : className}
-      style={
-        avif || webp
-          ? { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
-          : undefined
-      }
+      className={className}
       loading={loading}
       decoding={decoding}
       fetchPriority={fetchPriority}
@@ -100,22 +94,5 @@ export function TicketEventPosterImg({
         setCurrent('');
       }}
     />
-  );
-
-  if (!avif) {
-    return webp ? (
-      <picture className={className}>
-        {img}
-      </picture>
-    ) : (
-      img
-    );
-  }
-
-  return (
-    <picture className={className}>
-      <source type="image/avif" srcSet={avif} sizes={sizes} />
-      {img}
-    </picture>
   );
 }

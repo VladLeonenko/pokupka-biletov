@@ -1,6 +1,6 @@
 import type { ImgHTMLAttributes } from 'react';
 import { useState } from 'react';
-import { toAvifUrl, toWebpUrl, type ImageRole } from '@/utils/optimizedImage';
+import { toRoleWebpUrl, type ImageRole } from '@/utils/optimizedImage';
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   src: string;
@@ -9,8 +9,7 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
 };
 
 /**
- * cover → AVIF source + WebP img; card → WebP img.
- * img.src is never raw JPEG when optimize URL exists.
+ * WebP via optimize + width by role. img.src never raw JPEG when optimize works.
  */
 export function OptimizedImage({
   src,
@@ -29,11 +28,11 @@ export function OptimizedImage({
   ...rest
 }: Props) {
   const [useRaw, setUseRaw] = useState(false);
-  const webp = !useRaw ? toWebpUrl(src) : null;
-  const avif = !useRaw && role === 'cover' ? toAvifUrl(src) : null;
+  const wNum = typeof width === 'number' ? width : undefined;
+  const webp = !useRaw ? toRoleWebpUrl(src, role, wNum) : null;
   const imgSrc = webp || src;
 
-  const img = (
+  return (
     <img
       src={imgSrc}
       alt={alt}
@@ -43,6 +42,8 @@ export function OptimizedImage({
       decoding={decoding}
       fetchPriority={fetchPriority}
       sizes={sizes}
+      className={className}
+      style={style}
       onError={(e) => {
         if (webp && !useRaw) {
           setUseRaw(true);
@@ -51,22 +52,7 @@ export function OptimizedImage({
         onError?.(e);
       }}
       referrerPolicy={referrerPolicy}
-      style={avif || webp ? { width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style } : style}
-      className={avif || webp ? undefined : className}
       {...rest}
     />
-  );
-
-  if (!webp && !avif) return img;
-
-  if (!avif) {
-    return <picture className={className}>{img}</picture>;
-  }
-
-  return (
-    <picture className={className}>
-      <source type="image/avif" srcSet={avif} sizes={sizes} />
-      {img}
-    </picture>
   );
 }

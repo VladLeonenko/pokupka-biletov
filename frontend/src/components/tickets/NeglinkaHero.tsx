@@ -5,6 +5,7 @@ import {
   eventCategoryPlaceholderUrl,
   resolveEventCoverUrl,
 } from '@/utils/ticketsPlaceholders';
+import { IMAGE_OPT, toWebpUrl } from '@/utils/optimizedImage';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './NeglinkaHero.module.css';
 
@@ -66,9 +67,12 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   };
   const img = resolveEventCoverUrl(coverInput);
   const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
-  const heroStyle = img
+  // CSS ::before was loading full raw JPEG (~1MB) in parallel with <img> — major LCP stall.
+  const heroBg =
+    (img && toWebpUrl(img, { w: IMAGE_OPT.heroBg.w, q: IMAGE_OPT.heroBg.q })) || img || '';
+  const heroStyle = heroBg
     ? ({
-        '--hero-image': `url("${img.replace(/["\\]/g, '')}")`,
+        '--hero-image': `url("${heroBg.replace(/["\\]/g, '')}")`,
       } as CSSProperties)
     : undefined;
 

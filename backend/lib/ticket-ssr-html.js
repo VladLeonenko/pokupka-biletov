@@ -12,19 +12,13 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-/** Cover LCP: picture AVIF→WebP→orig via /api/images/optimize (no lazy). */
+/** Cover LCP: WebP + width (no AVIF — cold encode stalls first paint). */
 function ssrCoverPicture(posterUrl, alt) {
   if (!posterUrl) return '';
-  const src = escapeHtml(posterUrl);
   const altEsc = escapeHtml(alt || '');
   const q = encodeURIComponent(posterUrl);
-  const avif = `/api/images/optimize?url=${q}&f=avif&q=65`;
-  const webp = `/api/images/optimize?url=${q}&f=webp&q=80`;
-  // img src = WebP (not raw JPEG); AVIF via <source> for supporting browsers
-  return `<p><picture>
-  <source type="image/avif" srcset="${escapeHtml(avif)}" />
-  <img src="${escapeHtml(webp)}" alt="Постер «${altEsc}»" width="320" height="480" fetchpriority="high" decoding="async" />
-</picture></p>`;
+  const webp = `/api/images/optimize?url=${q}&f=webp&q=75&w=960`;
+  return `<p><img src="${escapeHtml(webp)}" alt="Постер «${altEsc}»" width="320" height="480" fetchpriority="high" decoding="async" /></p>`;
 }
 
 function formatEventDate(iso) {

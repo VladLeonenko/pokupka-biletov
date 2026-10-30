@@ -1,12 +1,19 @@
 /**
  * CWV image helpers — route rasters through /api/images/optimize.
- * Covers (hero/poster/banner/LCP): AVIF + WebP; cards: WebP.
- * SVG / data: / already-optimized left alone.
+ * Covers + cards: WebP with explicit width (full-res encode was 200KB+ / slow).
+ * AVIF skipped on LCP path — cold sharp AVIF encode ~1–2s stalls paint.
  */
 
 export type ImageRole = 'cover' | 'card';
 
 const OPTIMIZE_PATH = '/api/images/optimize';
+
+/** Display-oriented defaults (2× retina-ish). */
+export const IMAGE_OPT = {
+  cover: { w: 960, q: 75 },
+  heroBg: { w: 1280, q: 72 },
+  card: { w: 480, q: 75 },
+} as const;
 
 function isRasterUrl(src: string): boolean {
   if (!src || src.startsWith('data:') || src.startsWith('blob:')) return false;
@@ -36,7 +43,7 @@ export function toOptimizedUrl(
   if (opts?.w) params.set('w', String(opts.w));
   if (opts?.h) params.set('h', String(opts.h));
   if (opts?.q) params.set('q', String(opts.q));
-  else params.set('q', format === 'avif' ? '65' : '80');
+  else params.set('q', format === 'avif' ? 65 : 80);
   return `${OPTIMIZE_PATH}?${params.toString()}`;
 }
 
@@ -46,6 +53,20 @@ export function toWebpUrl(src: string, opts?: { w?: number; h?: number; q?: numb
 
 export function toAvifUrl(src: string, opts?: { w?: number; h?: number; q?: number }): string | null {
   return toOptimizedUrl(src, 'avif', opts);
+}
+
+/** WebP URL for role with default width/quality. */
+export function toRoleWebpUrl(
+  src: string,
+  role: ImageRole,
+  widthAttr?: number,
+): string | null {
+  const base = role === 'cover' ? IMAGE_OPT.cover : IMAGE_OPT.card;
+  const w =
+    widthAttr && widthAttr > 0
+      ? Math.min(1600, Math.max(base.w, Math.round(widthAttr * 2)))
+      : base.w;
+  return toWebpUrl(src, { w, q: base.q });
 }
 
 export function isCoverImage(role: ImageRole): boolean {

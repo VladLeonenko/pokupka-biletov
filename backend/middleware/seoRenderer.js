@@ -627,9 +627,9 @@ async function generateSeoTags(url) {
           ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />
     <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`
           : '';
-        // Preload only AVIF for LCP (matches <source type=image/avif>); WebP is img fallback — dual preload caused "preloaded but not used".
+        // WebP+w=960 — AVIF cold encode ~1–2s delayed LCP; match TicketEventPosterImg cover.
         const lcpPreload = ogImage
-          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=avif&q=65" type="image/avif" fetchpriority="high" imagesizes="100vw" />`
+          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`
           : '';
         const locationJson =
           venueLabel || venueAddress
@@ -759,6 +759,11 @@ async function generateSeoTags(url) {
           description: staticSeo.description,
           ogType: 'website',
         });
+        // Home LCP: same cover as buildHomeSsrHtml / FEATURED_HERO_IMAGE_URL
+        if (normalized === '/') {
+          const homeCover = '/uploads/images/--1777394907182.jpeg';
+          out.metaTags += `\n    <link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(homeCover)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`;
+        }
         out.metaTags += `\n    ${breadcrumb}\n    ${itemListJson}`;
         if (normalized === '/case/bilet-vsem') {
           out.metaTags += `\n    ${jsonLdScript({
