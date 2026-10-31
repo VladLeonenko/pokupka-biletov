@@ -1,28 +1,44 @@
-// Монитор «Опера нищих» (Театр Пушкина) — Radario + автобронь с паспортами.
-// Повторная бронь: если менеджер не успел оплатить и места снова свободны — бронируем ещё раз (те же места).
+// Монитор «Опера нищих» (Театр Пушкина) — Radario sniper.
+// Почта: ТОЛЬКО успех occupy+order со ссылкой на оплату. Tech/«доступно N» — выкл.
+//
+// Гонка:
+// 1) EDGE 0→N → сразу race N сессий (parallel GET+occupy), без писем.
+// 2) soft_lock часто отпускает БЕЗ ticketCount→0 → probe каждые ~15с с race.
+// 3) Пул тёплых buy-session + keep-alive в radarioBooking.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { sendTransactionalMail } from './services/mail/transporter.js';
-import { bookRadarioEvent } from './services/radarioBooking.js';
+import {
+  bookRadarioEvent,
+  warmBuySession,
+  getWarmBuySession,
+  primeSessionPool,
+} from './services/radarioBooking.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const RESULTS_FILE = path.join(__dirname, 'data', 'intickets-results.json');
 const STATE_FILE = path.join(__dirname, 'data', 'radario-hold-state.json');
-// Успешные брони со ссылкой на оплату — менеджерам.
+const LOG_FILE = path.join(__dirname, 'data', 'radario-sniper.log');
 const NOTIFY_BOOK = (process.env.INTICKETS_NOTIFY_EMAIL || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com').trim();
 const BCC_BOOK = process.env.INTICKETS_BCC || 'yaguda_io@mail.ru';
-// Техслужебное (появление билетов / fail / soft_lock) — только сюда, админов не пугать.
-const NOTIFY_TECH = (process.env.INTICKETS_TECH_EMAIL || 'info@prime-coder.ru').trim();
-const INTERVAL_MS = Number(process.env.INTICKETS_INTERVAL_MS || 5000);
-const HOT_INTERVAL_MS = Number(process.env.RADARIO_HOT_INTERVAL_MS || 1500);
+
+const INTERVAL_MS = Number(process.env.INTICKETS_INTERVAL_MS || 1500);
+const HOT_INTERVAL_MS = Number(process.env.RADARIO_HOT_INTERVAL_MS || 300);
+const EDGE_INTERVAL_MS = Number(process.env.RADARIO_EDGE_INTERVAL_MS || 80);
+const WARM_EVERY_MS = Number(process.env.RADARIO_WARM_EVERY_MS || 40_000);
 const AUTO_BOOK = process.env.RADARIO_AUTO_BOOK !== '0';
 const MAX_TICKETS = Number(process.env.RADARIO_MAX_TICKETS || 4);
-// Сколько ждать оплату до разрешения повторной брони (если места снова в продаже).
+// После soft_lock: не долбить каждые 300мс (бессмысленно). Probe — поймать expiry корзины.
+const SOFT_LOCK_BACKOFF_MS = Number(process.env.RADARIO_SOFT_LOCK_BACKOFF_MS || 15_000);
+const SOFT_LOCK_PROBE_MS = Number(process.env.RADARIO_SOFT_LOCK_PROBE_MS || 15_000);
+const RACE_SESSIONS = Number(process.env.RADARIO_RACE_SESSIONS || 4);
+const POOL_SIZE = Number(process.env.RADARIO_POOL_SIZE || 4);
 const REBOOK_AFTER_MS = Number(process.env.RADARIO_REBOOK_AFTER_MS || 20 * 60 * 1000);
+const LOG_MAX_BYTES = 2 * 1024 * 1024;
 
 const EVENTS = [
   { id: 2747582, label: '17 ноября 19:00' },
@@ -35,10 +51,24 @@ const EVENTS = [
   { id: 2871748, label: '18 декабря 19:00' },
 ];
 
-/** @type {Map<number, { orderId: any, seats: number[], attempt: number, bookedAt: number, cooldownUntil: number, sawZeroAfterBook: boolean }>} */
+/** @type {Map<number, object>} */
 const holds = new Map();
-const alerted = new Set();
-let bookingInFlight = false;
+const lastCount = new Map();
+const bookingInFlight = new Set();
+/** eventId → last soft_lock probe ts */
+const lastProbeAt = new Map();
+
+function log(line) {
+  const s = `${new Date().toISOString()} ${line}\n`;
+  try {
+    fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+    if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > LOG_MAX_BYTES) {
+      fs.renameSync(LOG_FILE, `${LOG_FILE}.1`);
+    }
+    fs.appendFileSync(LOG_FILE, s);
+  } catch { /* ignore */ }
+  console.log(`[${new Date().toISOString().slice(11, 19)}] ${line}`);
+}
 
 function loadState() {
   try {
@@ -72,6 +102,7 @@ function saveResult(rec) {
   let list = [];
   try { list = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf-8')); } catch {}
   list.push(rec);
+  if (list.length > 500) list = list.slice(-500);
   fs.writeFileSync(RESULTS_FILE, JSON.stringify(list, null, 2));
 }
 
@@ -84,60 +115,61 @@ async function notifyBook(subject, text) {
   });
 }
 
-async function notifyTech(subject, text) {
-  return sendTransactionalMail({
-    to: NOTIFY_TECH,
-    subject,
-    text,
-  });
-}
-
-/** Можно ли бронировать: нет успешного холда в cooldown; soft_lock — ретраим сразу. */
-function shouldBook(eventId, ticketCount) {
-  if (!AUTO_BOOK || bookingInFlight) return false;
+/**
+ * isEdge  — вспышка 0→N (максимальный приоритет, race).
+ * isProbe — периодический выстрел во время soft_lock (корзина могла отпустить без count→0).
+ */
+function shouldBook(eventId, ticketCount, { isEdge = false, isProbe = false } = {}) {
+  if (!AUTO_BOOK || bookingInFlight.has(eventId)) return false;
   if (ticketCount <= 0) return false;
   const h = holds.get(eventId);
   if (!h) return true;
-  if (h.pendingSoftLock) return true; // чужая корзина — долбим пока не возьмём
   const now = Date.now();
-  if (now < h.cooldownUntil) return false;
+  if (h.orderId && now < h.cooldownUntil && !isEdge) return false;
+  if (isEdge || isProbe) return true;
+  if (h.pendingSoftLock && h.softLockUntil && now < h.softLockUntil) return false;
+  return true;
+}
+
+function softLockDueForProbe(eventId) {
+  const h = holds.get(eventId);
+  if (!h?.pendingSoftLock) return false;
+  const now = Date.now();
+  const last = lastProbeAt.get(eventId) || 0;
+  if (now - last < SOFT_LOCK_PROBE_MS) return false;
+  // первый probe после backoff
+  if (h.softLockUntil && now < h.softLockUntil) return false;
   return true;
 }
 
 async function tryBook(cfg, meta) {
-  if (!shouldBook(cfg.id, meta.ticketCount)) return;
-  bookingInFlight = true;
+  const isEdge = !!meta.isEdge;
+  const isProbe = !!meta.isProbe;
+  if (!shouldBook(cfg.id, meta.ticketCount, { isEdge, isProbe })) return;
+
+  bookingInFlight.add(cfg.id);
+  if (isProbe) lastProbeAt.set(cfg.id, Date.now());
+
   const prev = holds.get(cfg.id);
   const attempt = (prev?.attempt || 0) + 1;
   const preferSeatNumbers = prev?.seats || [];
-  const t = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour12: false });
+  const maxTickets = Math.min(MAX_TICKETS, Math.max(1, Number(meta.ticketCount) || MAX_TICKETS));
+  // EDGE и probe — полный race; обычный retry после backoff — тоже race (места те же).
+  const raceSessions = (isEdge || isProbe || prev?.pendingSoftLock) ? RACE_SESSIONS : 1;
+
   try {
-    const preferNote = preferSeatNumbers.length ? ` prefer=[${preferSeatNumbers.join(',')}]` : '';
-    console.log(`[${t}] 🎯 бронь ${cfg.label} #${attempt}${preferNote} (max ${MAX_TICKETS})…`);
+    const warm = getWarmBuySession(cfg.id);
+    log(`book ${cfg.label} #${attempt} max=${maxTickets}${isEdge ? ' EDGE' : ''}${isProbe ? ' PROBE' : ''}${warm ? ' warm' : ''} race=${raceSessions}${preferSeatNumbers.length ? ` prefer=[${preferSeatNumbers.join(',')}]` : ''}`);
+
     const result = await bookRadarioEvent(cfg.id, {
-      maxTickets: MAX_TICKETS,
+      maxTickets,
       preferSeatNumbers,
+      useWarm: !isEdge && !isProbe,
+      forceFresh: true,
+      skipPreview: true,
+      raceSessions,
     });
-    saveResult({
-      platform: 'radario',
-      action: attempt > 1 ? 'rebook' : 'book',
-      attempt,
-      label: cfg.label,
-      eventId: cfg.id,
-      at: new Date().toISOString(),
-      preferSeatNumbers,
-      result: {
-        ok: result.ok,
-        reason: result.reason || null,
-        orderId: result.orderId || null,
-        orderHash: result.orderHash || null,
-        redirectUrl: result.redirectUrl || null,
-        qrId: result.qrId || null,
-        seats: result.seats || null,
-        buyers: result.buyers || null,
-        amount: result.amount ?? null,
-      },
-    });
+
     if (result.ok) {
       const seatNums = (result.seats || []).map((s) => s.seatNumber);
       holds.set(cfg.id, {
@@ -148,194 +180,174 @@ async function tryBook(cfg, meta) {
         cooldownUntil: Date.now() + REBOOK_AFTER_MS,
         sawZeroAfterBook: false,
         pendingSoftLock: false,
+        softLockUntil: 0,
       });
       saveState();
+      saveResult({
+        platform: 'radario',
+        action: attempt > 1 ? 'rebook' : 'book',
+        attempt,
+        label: cfg.label,
+        eventId: cfg.id,
+        at: new Date().toISOString(),
+        result: {
+          ok: true,
+          orderId: result.orderId,
+          orderHash: result.orderHash || null,
+          redirectUrl: result.redirectUrl || null,
+          qrId: result.qrId || null,
+          seats: result.seats || null,
+          buyers: result.buyers || null,
+          amount: result.amount ?? null,
+        },
+      });
       const seatLines = (result.seats || [])
         .map((s) => `  seat#${s.seatNumber} ${s.row || ''} м.${s.seatName || ''} type=${s.ticketTypeId} ${s.price}₽`)
         .join('\n');
-      const retryLine = attempt > 1
-        ? `ПОВТОР #${attempt} (предыдущий заказ, видимо, не оплатили вовремя).`
-        : 'Первая бронь. Если не успеете оплатить — после окна снова забронируем те же места.';
       const payLine = result.redirectUrl
         ? `ОПЛАТА (СБП): ${result.redirectUrl}`
         : (result.qrId
-          ? `QR выписан (qrId=${result.qrId}), redirectUrl пока пустой — откройте виджет/заказ #${result.orderId}`
-          : `orderId=${result.orderId} — ссылка СБП не пришла, проверьте заказ вручную`);
+          ? `QR выписан (qrId=${result.qrId}), redirectUrl пустой — заказ #${result.orderId}`
+          : `orderId=${result.orderId} — ссылка СБП не пришла`);
       const text = [
-        attempt > 1 ? '🔁 Опера нищих — ПОВТОРНАЯ бронь (с паспортами)' : '✅ Опера нищих — заказ создан в Radario (с паспортами)',
-        retryLine,
+        attempt > 1 ? '🔁 Опера нищих — ПОВТОРНАЯ бронь' : '✅ Опера нищих — заказ создан',
         `Дата: ${cfg.label}`,
         `Event ID: ${cfg.id}`,
-        `attempt: ${attempt}`,
         `orderId: ${result.orderId}`,
-        `orderHash: ${result.orderHash || '—'}`,
         `amount: ${result.amount ?? '—'}`,
-        `payment: ${result.paymentType}`,
         payLine,
         `покупатели: ${(result.buyers || []).join(', ')}`,
         'места:',
         seatLines || '  —',
-        '',
-        `Окно на оплату до повторной брони: ~${Math.round(REBOOK_AFTER_MS / 60000)} мин (если места снова свободны).`,
         `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
       ].join('\n');
-      console.log(`[${t}] ✅ #${attempt} orderId=${result.orderId} seats=[${seatNums.join(',')}] url=${result.redirectUrl || 'no-url'} qr=${result.qrId || '-'}`);
+      log(`OK ${cfg.label} orderId=${result.orderId} seats=[${seatNums.join(',')}]`);
       await notifyBook(
-        `${attempt > 1 ? '🔁' : '✅'} Опера нищих: заказ #${attempt} ${cfg.label} #${result.orderId}`,
+        `${attempt > 1 ? '🔁' : '✅'} Опера нищих: заказ ${cfg.label} #${result.orderId}`,
         text,
-      ).catch((e) => {
-        console.log(`[${t}] ⚠️ письмо: ${e.message}`);
+      ).catch((e) => log(`mail fail: ${e.message}`));
+      return;
+    }
+
+    const triedNums = (result.tried || []).map((s) => s.seatNumber ?? s).filter(Number.isFinite);
+    if (result.reason === 'soft_lock') {
+      holds.set(cfg.id, {
+        ...(prev || {}),
+        orderId: prev?.orderId || null,
+        seats: triedNums.length ? triedNums : (preferSeatNumbers.length ? preferSeatNumbers : (prev?.seats || [])),
+        attempt: prev?.attempt || 0,
+        bookedAt: prev?.bookedAt || 0,
+        cooldownUntil: 0,
+        pendingSoftLock: true,
+        softLockUntil: Date.now() + SOFT_LOCK_BACKOFF_MS,
+        sawZeroAfterBook: prev?.sawZeroAfterBook || false,
       });
-    } else {
-      console.log(`[${t}] ⚠️ бронь #${attempt} не вышла: ${result.reason || JSON.stringify(result).slice(0, 200)}`);
-      if (result.reason === 'soft_lock') {
-        // чужая корзина — нормальный ретрай, письма НЕ шлём (иначе спам каждые N мин)
-        holds.set(cfg.id, {
-          ...(prev || {}),
-          orderId: prev?.orderId || null,
-          seats: preferSeatNumbers.length ? preferSeatNumbers : (prev?.seats || []),
-          attempt: prev?.attempt || 0,
-          bookedAt: prev?.bookedAt || 0,
-          cooldownUntil: 0,
-          pendingSoftLock: true,
-          sawZeroAfterBook: prev?.sawZeroAfterBook || false,
-        });
-        saveState();
-      } else {
-        // реальные ошибки — только tech-ящик, максимум 1 письмо на «волну»
-        const lastFailMail = prev?.lastFailMailAt || 0;
-        const alreadyMailed = !!prev?.lastFailMailAt;
-        if (!alreadyMailed) {
-          holds.set(cfg.id, {
-            ...(prev || {}),
-            ...(holds.get(cfg.id) || {}),
-            pendingSoftLock: false,
-            lastFailMailAt: Date.now(),
-          });
-          saveState();
-          await notifyTech(
-            `[tech] Опера нищих: бронь не вышла (${cfg.label})`,
-            [
-              `Дата: ${cfg.label}`,
-              `ticketCount: ${meta.ticketCount}`,
-              `reason: ${result.reason}`,
-              result.reason === 'order_rejected'
-                ? 'Заказ отвергнут API (payload/валидация). Смотри error ниже.'
-                : '',
-              `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
-              '',
-              JSON.stringify(result, null, 2).slice(0, 3000),
-            ].join('\n'),
-          ).catch(() => {});
-        } else if (Date.now() - lastFailMail > 30 * 60 * 1000) {
-          const h = holds.get(cfg.id) || prev || {};
-          h.lastFailMailAt = Date.now();
-          holds.set(cfg.id, h);
-          saveState();
-          await notifyTech(
-            `[tech] Опера нищих: бронь всё ещё не выходит (${cfg.label})`,
-            `reason: ${result.reason}\n\n${JSON.stringify(result, null, 2).slice(0, 2000)}`,
-          ).catch(() => {});
-        }
-      }
+      saveState();
+      log(`soft_lock ${cfg.label} seats=[${triedNums.join(',') || '?'}] nextProbe≈${Math.round(SOFT_LOCK_PROBE_MS / 1000)}s`);
+      return;
+    }
+
+    log(`fail ${cfg.label}: ${result.reason}`);
+    if (result.reason !== 'no_tickets' && result.reason !== 'no_free_seats_in_payload') {
+      saveResult({
+        platform: 'radario',
+        action: 'book_fail',
+        label: cfg.label,
+        eventId: cfg.id,
+        at: new Date().toISOString(),
+        reason: result.reason,
+      });
     }
   } catch (err) {
-    console.log(`[${t}] ⚠️ book error: ${err instanceof Error ? err.message : err}`);
-    saveResult({
-      platform: 'radario',
-      action: 'book_error',
-      attempt,
-      label: cfg.label,
-      eventId: cfg.id,
-      at: new Date().toISOString(),
-      error: err instanceof Error ? err.message : String(err),
-      data: err?.data || null,
-    });
-    await notifyTech(
-      `[tech] Опера нищих: ошибка брони ${cfg.label}`,
-      `${err instanceof Error ? err.message : err}\n\nВиджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
-    ).catch(() => {});
+    log(`error ${cfg.label}: ${err instanceof Error ? err.message : err}`);
   } finally {
-    bookingInFlight = false;
+    bookingInFlight.delete(cfg.id);
   }
 }
 
-async function notifyOpen(ev) {
-  const text = [
-    '[tech] Опера нищих — появились билеты (автобронь запущена).',
-    `Дата: ${ev.label}`,
-    `Event ID: ${ev.id}`,
-    `ticketCount: ${ev.ticketCount}`,
-    `цена: ${ev.minPrice}–${ev.maxPrice} ₽`,
-    '',
-    AUTO_BOOK ? 'Запускаю автобронь с паспортами…' : 'Автобронь выключена (RADARIO_AUTO_BOOK=0).',
-    'Менеджерам уйдёт письмо только при успешной брони со ссылкой на оплату.',
-    `Виджет: https://radario.ru/customer/event/${ev.id}/info?distributionType=Widget`,
-  ].join('\n');
-  return notifyTech(`[tech] Опера нищих: билеты ${ev.label} (${ev.ticketCount} шт)`, text);
+async function warmLoop() {
+  while (true) {
+    for (const cfg of EVENTS) {
+      if (bookingInFlight.has(cfg.id)) continue;
+      try {
+        const hold = holds.get(cfg.id);
+        const hot = !!(hold?.pendingSoftLock || (lastCount.get(cfg.id) || 0) > 0);
+        if (hot) await primeSessionPool(cfg.id, POOL_SIZE);
+        else await warmBuySession(cfg.id);
+      } catch { /* quiet */ }
+    }
+    await new Promise((r) => setTimeout(r, WARM_EVERY_MS));
+  }
 }
 
-console.log(
-  `Опера нищих / Radario. Событий: ${EVENTS.length}. Интервал ${INTERVAL_MS}мс (hot ${HOT_INTERVAL_MS}). AUTO_BOOK=${AUTO_BOOK} max=${MAX_TICKETS} book→${NOTIFY_BOOK} tech→${NOTIFY_TECH} holds=${holds.size}`,
-);
+log(`start events=${EVENTS.length} poll=${INTERVAL_MS}/${HOT_INTERVAL_MS}/${EDGE_INTERVAL_MS} softBackoff=${SOFT_LOCK_BACKOFF_MS} probe=${SOFT_LOCK_PROBE_MS} race=${RACE_SESSIONS} pool=${POOL_SIZE} auto=${AUTO_BOOK}`);
+log('mail: only on successful occupy+order (no tech / no ticketCount alerts)');
+void warmLoop();
+void primeSessionPool(2747584, POOL_SIZE).catch(() => {});
 
 while (true) {
-  const t = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour12: false });
   let anyTickets = false;
+  let anyHotEdge = false;
+  let anySoftPending = false;
   try {
     const events = await fetchGroup();
     const byId = new Map(events.map((e) => [Number(e.id), e]));
+    const bookJobs = [];
+
     for (const cfg of EVENTS) {
       const e = byId.get(cfg.id);
-      if (!e) {
-        console.log(`[${t}] ${cfg.label}: нет в eventGroup`);
-        continue;
-      }
+      if (!e) continue;
       const count = Number(e.ticketCount || 0);
       const stopped = !!e.salesStopped;
-      if (count > 0 && !stopped) anyTickets = true;
+
+      let isEdge = false;
+      if (!lastCount.has(cfg.id)) {
+        lastCount.set(cfg.id, count);
+      } else {
+        const prevCount = lastCount.get(cfg.id) ?? 0;
+        lastCount.set(cfg.id, count);
+        isEdge = prevCount === 0 && count > 0 && !stopped;
+      }
+
       const hold = holds.get(cfg.id);
-      const holdNote = hold
-        ? ` hold#${hold.attempt} seats=[${(hold.seats || []).join(',')}] cd=${Math.max(0, Math.round((hold.cooldownUntil - Date.now()) / 1000))}s`
-        : '';
-      console.log(`[${t}] ${cfg.label}: ticketCount=${count}, salesStopped=${stopped}, price=${e.minPrice}-${e.maxPrice}${holdNote}`);
+      const inSoftBackoff = !!(hold?.pendingSoftLock && hold?.softLockUntil && Date.now() < hold.softLockUntil);
+      if (hold?.pendingSoftLock) anySoftPending = true;
+      if (count > 0 && !stopped) anyTickets = true;
+      if (isEdge) anyHotEdge = true;
 
       if (hold && count === 0) {
         hold.sawZeroAfterBook = true;
-        // волна закончилась — сбросить «уже слали fail-mail», чтобы при новом появлении можно было алертнуть раз
-        if (hold.pendingSoftLock || hold.lastFailMailAt) {
+        if (hold.pendingSoftLock) {
           hold.pendingSoftLock = false;
-          hold.lastFailMailAt = 0;
+          hold.softLockUntil = 0;
+          log(`${cfg.label}: ticketCount→0, soft_lock сброшен — ждём EDGE`);
         }
         saveState();
       }
 
       if (count > 0 && !stopped) {
-        if (!alerted.has(cfg.id)) {
-          alerted.add(cfg.id);
-          saveResult({
-            platform: 'radario',
-            label: cfg.label,
-            eventId: cfg.id,
-            ticketCount: count,
-            minPrice: e.minPrice,
-            maxPrice: e.maxPrice,
-            detectedAt: new Date().toISOString(),
-          });
-          console.log(`[${t}] 🔥 ${cfg.label}: появились билеты (${count})`);
-          await notifyOpen({ ...cfg, ticketCount: count, minPrice: e.minPrice, maxPrice: e.maxPrice }).catch((err) => {
-            console.log(`[${t}] ⚠️ письмо: ${err.message}`);
-          });
+        if (isEdge) {
+          log(`EDGE ${cfg.label} 0→${count}`);
+          bookJobs.push(tryBook(cfg, { ticketCount: count, isEdge: true }));
+        } else if (softLockDueForProbe(cfg.id)) {
+          // soft_lock часто сходит БЕЗ count→0 — ловим expiry корзины probe'ом
+          log(`PROBE ${cfg.label} count=${count} (soft_lock expiry hunt)`);
+          bookJobs.push(tryBook(cfg, { ticketCount: count, isProbe: true }));
+        } else if (!hold?.pendingSoftLock && !inSoftBackoff) {
+          // обычный захват только если нет активного soft_lock
+          bookJobs.push(tryBook(cfg, { ticketCount: count }));
         }
-        // если места снова появились после нуля — можно бронировать раньше (холд оплаты снят)
-        if (hold?.sawZeroAfterBook && Date.now() >= hold.cooldownUntil) {
-          console.log(`[${t}] 🔁 ${cfg.label}: места снова в продаже после холда — повторная бронь`);
-        }
-        await tryBook(cfg, { ticketCount: count });
       }
     }
+    if (bookJobs.length) await Promise.allSettled(bookJobs);
   } catch (err) {
-    console.log(`[${t}] ⚠️ ${err instanceof Error ? err.message : err}`);
+    log(`poll: ${err instanceof Error ? err.message : err}`);
   }
-  await new Promise((r) => setTimeout(r, anyTickets ? HOT_INTERVAL_MS : INTERVAL_MS));
+
+  const wait = anyHotEdge
+    ? EDGE_INTERVAL_MS
+    : (anySoftPending || anyTickets)
+      ? HOT_INTERVAL_MS
+      : INTERVAL_MS;
+  await new Promise((r) => setTimeout(r, wait));
 }

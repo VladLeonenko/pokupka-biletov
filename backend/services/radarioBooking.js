@@ -2,11 +2,15 @@
  * Radario (виджет teatrpushkin) — автобронь с паспортными данными (ОКО).
  *
  * Флоу: GET /buy-tickets/:id → occupy-seat(s) → POST /json/widget/ticketOrder (alfasbp).
- * Reservation в виджете выключен → заказ уходит в оплату; места держатся ~reserveDurationMinutes.
+ * reserveDurationMinutes в buy — окно ОПЛАТЫ заказа, НЕ TTL soft-occupy корзины.
+ *
+ * Гонка: keep-alive + пул сессий + parallel occupy на EDGE/probe.
+ * ticketCount врёт (включает чужой soft-lock) — успех только после occupy+order.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE = 'https://radario.ru';
@@ -14,6 +18,19 @@ const REFERER = 'https://teatrpushkin.ru/';
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
 
 const DEFAULT_PASSPORTS = path.join(__dirname, '..', 'data', 'radario-passports.json');
+
+// keep-alive (опционально): на VPS undici может быть не установлен — fetch Node и так ок.
+try {
+  const require = createRequire(import.meta.url);
+  const { Agent, setGlobalDispatcher } = require('undici');
+  setGlobalDispatcher(new Agent({
+    connect: { timeout: 8_000 },
+    keepAliveTimeout: 60_000,
+    keepAliveMaxTimeout: 120_000,
+    connections: 32,
+    pipelining: 1,
+  }));
+} catch { /* native fetch */ }
 
 function headers(extra = {}) {
   return {
@@ -98,9 +115,7 @@ export function extractFreeSeats(buy) {
     }
   }
 
-  // Без явного seats[] — иногда места только в quota / count; тогда нечего занимать по схеме.
   out.sort((a, b) => a.price - b.price || a.seatNumber - b.seatNumber);
-  // уникальные seatNumber (первый = дешевле)
   const seen = new Set();
   return out.filter((s) => (seen.has(s.seatNumber) ? false : (seen.add(s.seatNumber), true)));
 }
@@ -108,7 +123,6 @@ export function extractFreeSeats(buy) {
 function pickAdjacent(seats, need, preferSeatNumbers = []) {
   if (need <= 0 || !seats.length) return [];
   const byNum = new Map(seats.map((s) => [s.seatNumber, s]));
-  // повторная бронь: те же места, если ещё свободны
   if (preferSeatNumbers?.length) {
     const preferred = preferSeatNumbers
       .map((n) => byNum.get(Number(n)))
@@ -121,7 +135,6 @@ function pickAdjacent(seats, need, preferSeatNumbers = []) {
     }
   }
   if (need === 1) return [seats[0]];
-  // пары/группы: соседние id в одном ticketType, иначе просто первые N
   const byType = new Map();
   for (const s of seats) {
     const k = s.ticketTypeId;
@@ -170,9 +183,77 @@ function buildTicketsPayload(chosen, passports) {
   return [...groups.values()];
 }
 
+/** Кэш: eventId → { sessionId, buy, free, at } */
+const warmCache = new Map();
+/** Пул сессий: eventId → [{ sessionId, buy, at }] */
+const sessionPools = new Map();
+const WARM_TTL_MS = Number(process.env.RADARIO_WARM_TTL_MS || 90_000);
+const POOL_SIZE = Math.max(1, Math.min(Number(process.env.RADARIO_POOL_SIZE || 4), 8));
+
+function poolGet(eventId) {
+  const list = sessionPools.get(Number(eventId)) || [];
+  const fresh = list.filter((x) => x?.sessionId && Date.now() - x.at < WARM_TTL_MS);
+  if (fresh.length !== list.length) sessionPools.set(Number(eventId), fresh);
+  return fresh;
+}
+
+function poolPut(eventId, entries) {
+  const id = Number(eventId);
+  const now = Date.now();
+  const merged = [...(sessionPools.get(id) || [])];
+  for (const e of entries) {
+    if (!e?.sessionId) continue;
+    const idx = merged.findIndex((x) => x.sessionId === e.sessionId);
+    const row = { sessionId: e.sessionId, buy: e.buy || null, at: now };
+    if (idx >= 0) merged[idx] = row;
+    else merged.push(row);
+  }
+  sessionPools.set(id, merged.slice(-POOL_SIZE));
+}
+
+/** Прогрев одной сессии + запись в warm/pool. */
+export async function warmBuySession(eventId) {
+  const buy = await api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`);
+  const sessionId = buy.sessionId;
+  if (!sessionId) throw new Error('warm: no sessionId');
+  const free = extractFreeSeats(buy).filter((s) => s.occupied !== true);
+  const entry = { sessionId, buy, free, at: Date.now() };
+  warmCache.set(Number(eventId), entry);
+  poolPut(eventId, [entry]);
+  return entry;
+}
+
+/** Держать пул из N живых buy-session (без мест тоже ок — sessionId для мгновенного occupy). */
+export async function primeSessionPool(eventId, size = POOL_SIZE) {
+  const n = Math.max(1, Math.min(Number(size) || POOL_SIZE, 8));
+  const buys = await Promise.all(
+    Array.from({ length: n }, () =>
+      api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`).catch(() => null),
+    ),
+  );
+  const alive = buys.filter((b) => b?.sessionId).map((buy) => ({
+    sessionId: buy.sessionId,
+    buy,
+    free: extractFreeSeats(buy).filter((s) => s.occupied !== true),
+    at: Date.now(),
+  }));
+  if (alive.length) {
+    sessionPools.set(Number(eventId), alive.slice(0, n));
+    warmCache.set(Number(eventId), alive[0]);
+  }
+  return alive;
+}
+
+export function getWarmBuySession(eventId) {
+  const w = warmCache.get(Number(eventId));
+  if (!w) return null;
+  if (Date.now() - w.at > WARM_TTL_MS) return null;
+  return w;
+}
+
 /**
- * Надёжный occupy: сначала /occupy-seats (без ticketTypeId) — там есть failedToOccupySeatNumbers.
- * Singular /occupy-seat врёт occupied:false даже при чужом soft-lock.
+ * Bulk occupy. Singular /occupy-seat с ticketTypeId — параллельно, нужен для привязки тарифа.
+ * occupied:true в ответе bulk = места уже чужие (весь набор fail).
  */
 async function occupySeatsReliable(sessionId, { eventId, seats, distributionType = 'Widget' }) {
   const seatNumbers = seats.map((s) => s.seatNumber);
@@ -191,9 +272,8 @@ async function occupySeatsReliable(sessionId, { eventId, seats, distributionType
     return { locked: [], failed: seatNumbers, raw: bulk };
   }
   const locked = seats.filter((s) => !failed.has(Number(s.seatNumber)));
-  // тариф: singular occupy-seat с ticketTypeId (как в виджете после выбора тарифа)
-  for (const seat of locked) {
-    await api('POST', '/json/buy-tickets/occupy-seat', {
+  if (locked.length) {
+    await Promise.all(locked.map((seat) => api('POST', '/json/buy-tickets/occupy-seat', {
       sessionId,
       body: {
         buySessionId: sessionId,
@@ -203,14 +283,91 @@ async function occupySeatsReliable(sessionId, { eventId, seats, distributionType
         ticketTypeId: seat.ticketTypeId,
         distributionType,
       },
-    }).catch(() => null);
+    }).catch(() => null)));
   }
   return { locked, failed: [...failed], raw: bulk };
 }
 
 /**
+ * Параллельный occupy одних и тех же мест с нескольких сессий.
+ * Победитель = первая сессия с locked.length > 0.
+ */
+async function raceOccupy(eventId, chosen, {
+  raceSessions = 1,
+  distributionType = 'Widget',
+  seedBuy = null,
+} = {}) {
+  const raceN = Math.max(1, Math.min(Number(raceSessions) || 1, 8));
+  const pooled = poolGet(eventId);
+
+  if (raceN <= 1) {
+    let sessionId = seedBuy?.sessionId || pooled[0]?.sessionId || getWarmBuySession(eventId)?.sessionId;
+    let buy = seedBuy || pooled[0]?.buy || getWarmBuySession(eventId)?.buy;
+    if (!sessionId) {
+      buy = await api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`);
+      sessionId = buy.sessionId;
+    }
+    const r = await occupySeatsReliable(sessionId, { eventId, seats: chosen, distributionType });
+    return { ...r, buy, sessionId };
+  }
+
+  // Добиваем пул свежими GET до raceN, потом ВСЕ долбят occupy параллельно.
+  const have = [...pooled];
+  const needFresh = Math.max(0, raceN - have.length);
+  const freshBuys = needFresh
+    ? await Promise.all(
+      Array.from({ length: needFresh }, () =>
+        api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`).catch(() => null),
+      ),
+    )
+    : [];
+  const sessions = [
+    ...have.map((p) => ({ sessionId: p.sessionId, buy: p.buy })),
+    ...freshBuys.filter((b) => b?.sessionId).map((buy) => ({ sessionId: buy.sessionId, buy })),
+  ];
+  if (seedBuy?.sessionId && !sessions.some((s) => s.sessionId === seedBuy.sessionId)) {
+    sessions.unshift({ sessionId: seedBuy.sessionId, buy: seedBuy });
+  }
+  if (!sessions.length && seedBuy?.sessionId) sessions.push({ sessionId: seedBuy.sessionId, buy: seedBuy });
+  if (!sessions.length) {
+    const buy = await api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`);
+    sessions.push({ sessionId: buy.sessionId, buy });
+  }
+
+  poolPut(eventId, sessions);
+
+  const raced = await Promise.all(
+    sessions.slice(0, raceN).map(async (s) => {
+      const r = await occupySeatsReliable(s.sessionId, {
+        eventId,
+        seats: chosen,
+        distributionType: s.buy?.distributionType || distributionType,
+      });
+      return { ...s, ...r };
+    }),
+  );
+
+  const win = raced.find((r) => r.locked?.length);
+  if (win) {
+    return {
+      locked: win.locked,
+      failed: win.failed || [],
+      buy: win.buy,
+      sessionId: win.sessionId,
+      raw: win.raw,
+    };
+  }
+  return {
+    locked: [],
+    failed: [...new Set(raced.flatMap((r) => r.failed || chosen.map((s) => s.seatNumber)))],
+    buy: sessions[0]?.buy || seedBuy,
+    sessionId: sessions[0]?.sessionId || null,
+  };
+}
+
+/**
  * @param {number} eventId
- * @param {{ maxTickets?: number, passportsFile?: string, dryRun?: boolean, preferSeatNumbers?: number[], force?: boolean }} [opts]
+ * @param {{ maxTickets?: number, passportsFile?: string, dryRun?: boolean, preferSeatNumbers?: number[], force?: boolean, raceSessions?: number, useWarm?: boolean, forceFresh?: boolean, skipPreview?: boolean }} [opts]
  */
 export async function bookRadarioEvent(eventId, opts = {}) {
   const passports = loadPassports(opts.passportsFile);
@@ -219,24 +376,64 @@ export async function bookRadarioEvent(eventId, opts = {}) {
     passports.length,
     10,
   );
+  const skipPreview = opts.skipPreview !== false;
+  const raceN = Math.max(1, Math.min(Number(opts.raceSessions) || 1, 8));
+  const isRace = raceN > 1;
 
-  const buy = await api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`);
-  const sessionId = buy.sessionId;
+  let buy;
+  let sessionId;
+  let free = [];
+
+  if (isRace) {
+    // EDGE/probe: сразу N параллельных GET — без sequential warm/forceFresh перед ними.
+    const buys = await Promise.all(
+      Array.from({ length: raceN }, () =>
+        api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`).catch(() => null),
+      ),
+    );
+    const alive = buys.filter((b) => b?.sessionId);
+    if (!alive.length) {
+      return { ok: false, reason: 'no_session', ticketCount: 0 };
+    }
+    poolPut(eventId, alive.map((b) => ({ sessionId: b.sessionId, buy: b })));
+    // Берём buy с максимальным числом free (на EDGE места только что вспыхнули).
+    alive.sort((a, b) => extractFreeSeats(b).length - extractFreeSeats(a).length);
+    buy = alive[0];
+    sessionId = buy.sessionId;
+    free = extractFreeSeats(buy).filter((s) => s.occupied !== true);
+    warmCache.set(Number(eventId), { sessionId, buy, free, at: Date.now() });
+  } else {
+    const warm = opts.useWarm !== false ? getWarmBuySession(eventId) : null;
+    if (warm?.sessionId && !opts.forceFresh) {
+      buy = warm.buy;
+      sessionId = warm.sessionId;
+      free = extractFreeSeats(buy).filter((s) => s.occupied !== true);
+    }
+    if (!sessionId || !free.length || opts.forceFresh) {
+      buy = await api('GET', `/buy-tickets/${eventId}?distributionType=Widget&skipEventsInGroup=true`);
+      sessionId = buy.sessionId;
+      free = extractFreeSeats(buy).filter((s) => s.occupied !== true);
+      if (sessionId) {
+        warmCache.set(Number(eventId), { sessionId, buy, free, at: Date.now() });
+        poolPut(eventId, [{ sessionId, buy }]);
+      }
+    }
+  }
+
   if (!sessionId) throw new Error('no sessionId from buy-tickets');
 
   const event = buy.event || {};
   const distributionType = buy.distributionType || 'Widget';
   if (event.salesStopped) throw new Error('salesStopped');
-  if (Number(event.ticketCount || 0) <= 0 && !opts.force) {
+
+  if (Number(event.ticketCount || buy.event?.ticketCount || 0) <= 0 && !opts.force && !free.length) {
     return { ok: false, reason: 'no_tickets', ticketCount: 0, sessionId };
   }
-
-  const free = extractFreeSeats(buy).filter((s) => s.occupied !== true);
   if (!free.length) {
     return {
       ok: false,
       reason: 'no_free_seats_in_payload',
-      ticketCount: event.ticketCount,
+      ticketCount: buy.event?.ticketCount ?? event.ticketCount,
       sessionId,
       buyingUrl: buy.ticketBuyingUrl,
       reserveDurationMinutes: buy.reserveDurationMinutes ?? null,
@@ -244,26 +441,43 @@ export async function bookRadarioEvent(eventId, opts = {}) {
   }
 
   const prefer = (opts.preferSeatNumbers || []).map(Number).filter(Number.isFinite);
-  const chosen = pickAdjacent(free, maxTickets, prefer);
+  const need = Math.min(maxTickets, Math.max(1, free.length));
+  const chosen = pickAdjacent(free, need, prefer);
   if (opts.dryRun) {
     return { ok: true, dryRun: true, chosen, sessionId, passports: passports.slice(0, chosen.length).map((p) => p.fullName) };
   }
 
-  const { locked, failed } = await occupySeatsReliable(sessionId, {
-    eventId,
-    seats: chosen,
+  const occ = await raceOccupy(eventId, chosen, {
+    raceSessions: raceN,
     distributionType,
+    seedBuy: buy,
   });
+  const locked = occ.locked || [];
+  const failed = occ.failed || [];
+  if (occ.buy?.sessionId) {
+    buy = occ.buy;
+    sessionId = occ.sessionId;
+  }
+
   if (!locked.length) {
+    warmCache.delete(Number(eventId));
     return {
       ok: false,
-      reason: 'soft_lock', // чужая корзина / race — ретраить
+      reason: 'soft_lock',
       sessionId,
       tried: chosen,
       failed,
-      ticketCount: event.ticketCount,
+      ticketCount: buy.event?.ticketCount ?? event.ticketCount,
+      reserveDurationMinutes: buy.reserveDurationMinutes ?? null,
     };
   }
+
+  warmCache.set(Number(eventId), {
+    sessionId,
+    buy,
+    free: extractFreeSeats(buy).filter((s) => s.occupied !== true),
+    at: Date.now(),
+  });
 
   const people = passports.slice(0, locked.length);
   const buyer = people[0];
@@ -291,18 +505,19 @@ export async function bookRadarioEvent(eventId, opts = {}) {
     isAgreeNotToFillInPersonalData: false,
   };
 
-  // как в виджете: preview перед оплатой (прогрев сессии / суммы)
-  await api('POST', '/json/ticketOrder/preview', {
-    sessionId,
-    body: {
-      eventId: Number(eventId),
-      buySessionId: sessionId,
-      tickets,
-      autoPromoCodeCanceled: true,
-      distributionType,
-      paymentType,
-    },
-  }).catch(() => null);
+  if (!skipPreview) {
+    await api('POST', '/json/ticketOrder/preview', {
+      sessionId,
+      body: {
+        eventId: Number(eventId),
+        buySessionId: sessionId,
+        tickets,
+        autoPromoCodeCanceled: true,
+        distributionType,
+        paymentType,
+      },
+    }).catch(() => null);
+  }
 
   const orderUrl = buy.ticketBuyingUrl || '/json/widget/ticketOrder';
   let order;
@@ -341,7 +556,6 @@ export async function bookRadarioEvent(eventId, opts = {}) {
   let qrPngBase64 = null;
   let sbp = null;
 
-  // AlfaSBP: заказ сам по себе часто без redirectUrl — QR отдельным API
   if (orderId && paymentType === 'alfasbp') {
     sbp = await fetchAlfaSbpPayment(sessionId, orderId);
     qrId = sbp.qrId;
@@ -366,7 +580,6 @@ export async function bookRadarioEvent(eventId, opts = {}) {
   };
 }
 
-/** После ticketOrder для alfasbp: POST /payments/alfasbp/qr → status → redirectUrl. */
 async function fetchAlfaSbpPayment(sessionId, orderId) {
   const qr = await api('POST', '/payments/alfasbp/qr', {
     sessionId,
@@ -376,7 +589,6 @@ async function fetchAlfaSbpPayment(sessionId, orderId) {
   let redirectUrl = qr?.redirectUrl || null;
   let status = null;
   if (qrId) {
-    // несколько попыток — redirectUrl иногда появляется не сразу
     for (let i = 0; i < 5; i++) {
       status = await api('POST', '/payments/alfasbp/qr/status', {
         sessionId,
