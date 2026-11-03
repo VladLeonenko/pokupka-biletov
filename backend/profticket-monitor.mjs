@@ -1,5 +1,6 @@
 // Монитор Profticket (Цирк Никулина, «Новогодний лабиринт»).
-// Цели: декабрь (12,13,19,20,30,31) + январь (все даты), время 14:30/18:00 (+11:00), места до 7000₽.
+// Цели: декабрь (12,13,19,20,30,31) + январь (слоты), 11:00/14:30/18:00, пары ≤8000₽.
+// Приоритет пар: левый партер → номера мест 1..19 (центр) → дешевле → ближе ряд.
 // Флоу: схема зала → пара мест → pre-reservation → order/create → ссылка на оплату → письмо.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,10 +16,22 @@ const RESULTS_FILE = path.join(__dirname, 'data', 'profticket-results.json');
 const CONTACTS_FILE = path.join(__dirname, 'sniper-contacts.json');
 const NOTIFY_EMAIL = (process.env.PROFTICKET_NOTIFY_EMAIL || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,info@prime-coder.ru,gyrodin@mail.ru,iosif131999@gmail.com').trim();
 const BCC = process.env.PROFTICKET_BCC || 'yaguda_io@mail.ru';
-const MAX_PRICE = 7000;
+// Потолок: админ указал светло-голубую полосу 7–8к на схеме (пары там часто = 8000).
+const MAX_PRICE = Number(process.env.PROFTICKET_MAX_PRICE || 8000);
 const MAX_BOOKINGS = Number(process.env.PROFTICKET_MAX_BOOKINGS || 150); // 150 пар = 300 мест
 const MAX_SEATS_PER_ORDER = Number(process.env.PROFTICKET_MAX_SEATS_PER_ORDER || 6); // до 6 мест (3 пары) в заказ, как у остальных
 const GLOBAL_SHOW_ID = 10362;
+// Приоритет секторов (меньше = лучше). «Левый» — выход артистов / центр по нумерации мест.
+const SECTOR_RANK = [
+  [/левая.*партер/i, 0],
+  [/правая.*партер/i, 1],
+  [/партер/i, 2],
+  [/амфитеатр/i, 3],
+  [/бельэтаж/i, 4],
+  [/балкон/i, 5],
+];
+/** Места 1..CENTER_SEAT_MAX — «центр» (ближе к выходу артистов); дальше — края. */
+const CENTER_SEAT_MAX = Number(process.env.PROFTICKET_CENTER_SEAT_MAX || 19);
 
 // Декабрь: целевые числа; январь: ЛЮБЫЕ доступные даты/время (площадка выложила 1,11-24 января).
 const DEC_DAYS = ['12', '13', '19', '20', '30', '31'];
@@ -57,6 +70,20 @@ function loadContacts() {
     .filter((c) => c.name && c.email);
 }
 
+function sectorRank(name) {
+  const s = String(name || '');
+  for (const [re, rank] of SECTOR_RANK) {
+    if (re.test(s)) return rank;
+  }
+  return 9;
+}
+
+/** 0 = центральные номера мест (1..CENTER_SEAT_MAX), 1 = края (20+). */
+function edgeRank(seatNum) {
+  const n = Number(seatNum) || 99;
+  return n <= CENTER_SEAT_MAX ? 0 : 1;
+}
+
 function findPairs(seats) {
   const byRow = {};
   for (const s of seats) {
@@ -70,13 +97,29 @@ function findPairs(seats) {
       const next = list[i + 1];
       if (next && Number(next.seat) - Number(list[i].seat) === 1) {
         const price = Math.max(Number(list[i].price) || 0, Number(next.price) || 0);
-        pairs.push({ sector: list[i].name_sec, row: list[i].row, price, seats: [list[i], next] });
+        const seatA = Number(list[i].seat);
+        pairs.push({
+          sector: list[i].name_sec,
+          row: list[i].row,
+          price,
+          seats: [list[i], next],
+          sectorRank: sectorRank(list[i].name_sec),
+          edgeRank: edgeRank(seatA),
+          seatA,
+        });
         i++;
       }
     }
   }
-  // Дешёвые пары первыми (раньше брали порядок схемы → часто партер 7000).
-  pairs.sort((a, b) => a.price - b.price || Number(a.row) - Number(b.row));
+  // 1) левый партер → 2) центр по номерам мест → 3) дешевле → 4) ближе ряд
+  pairs.sort(
+    (a, b) =>
+      a.sectorRank - b.sectorRank ||
+      a.edgeRank - b.edgeRank ||
+      a.price - b.price ||
+      Number(a.row) - Number(b.row) ||
+      a.seatA - b.seatA,
+  );
   return pairs;
 }
 
