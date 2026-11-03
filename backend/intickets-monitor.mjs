@@ -31,7 +31,8 @@ const HOT_INTERVAL_MS = Number(process.env.RADARIO_HOT_INTERVAL_MS || 300);
 const EDGE_INTERVAL_MS = Number(process.env.RADARIO_EDGE_INTERVAL_MS || 80);
 const WARM_EVERY_MS = Number(process.env.RADARIO_WARM_EVERY_MS || 40_000);
 const AUTO_BOOK = process.env.RADARIO_AUTO_BOOK !== '0';
-const MAX_TICKETS = Number(process.env.RADARIO_MAX_TICKETS || 4);
+// Только пары (чётное). 4 = до 2 пар в заказ.
+const MAX_TICKETS = Math.max(2, Math.floor(Number(process.env.RADARIO_MAX_TICKETS || 4) / 2) * 2);
 // После soft_lock: не долбить каждые 300мс (бессмысленно). Probe — поймать expiry корзины.
 const SOFT_LOCK_BACKOFF_MS = Number(process.env.RADARIO_SOFT_LOCK_BACKOFF_MS || 15_000);
 const SOFT_LOCK_PROBE_MS = Number(process.env.RADARIO_SOFT_LOCK_PROBE_MS || 15_000);
@@ -152,14 +153,16 @@ async function tryBook(cfg, meta) {
 
   const prev = holds.get(cfg.id);
   const attempt = (prev?.attempt || 0) + 1;
-  const preferSeatNumbers = prev?.seats || [];
-  const maxTickets = Math.min(MAX_TICKETS, Math.max(1, Number(meta.ticketCount) || MAX_TICKETS));
+  // не тащим в prefer старые одиночки из soft_lock — только чётные id-наборы
+  const preferSeatNumbers = (prev?.seats || []).filter((_, i, arr) => arr.length >= 2);
+  const rawMax = Math.min(MAX_TICKETS, Math.max(2, Number(meta.ticketCount) || MAX_TICKETS));
+  const maxTickets = Math.floor(rawMax / 2) * 2; // 3 → 2
   // EDGE и probe — полный race; обычный retry после backoff — тоже race (места те же).
   const raceSessions = (isEdge || isProbe || prev?.pendingSoftLock) ? RACE_SESSIONS : 1;
 
   try {
     const warm = getWarmBuySession(cfg.id);
-    log(`book ${cfg.label} #${attempt} max=${maxTickets}${isEdge ? ' EDGE' : ''}${isProbe ? ' PROBE' : ''}${warm ? ' warm' : ''} race=${raceSessions}${preferSeatNumbers.length ? ` prefer=[${preferSeatNumbers.join(',')}]` : ''}`);
+    log(`book ${cfg.label} #${attempt} max=${maxTickets} (pairs-only)${isEdge ? ' EDGE' : ''}${isProbe ? ' PROBE' : ''}${warm ? ' warm' : ''} race=${raceSessions}${preferSeatNumbers.length ? ` prefer=[${preferSeatNumbers.join(',')}]` : ''}`);
 
     const result = await bookRadarioEvent(cfg.id, {
       maxTickets,
@@ -201,40 +204,51 @@ async function tryBook(cfg, meta) {
           amount: result.amount ?? null,
         },
       });
-      const seatLines = (result.seats || [])
-        .map((s) => `  seat#${s.seatNumber} ${s.row || ''} м.${s.seatName || ''} type=${s.ticketTypeId} ${s.price}₽`)
-        .join('\n');
+      const seats = result.seats || [];
+      const pairBlocks = [];
+      for (let i = 0; i + 1 < seats.length; i += 2) {
+        const a = seats[i];
+        const b = seats[i + 1];
+        pairBlocks.push(
+          `  ПАРА: ряд ${a.row ?? '—'}, места ${a.seatName ?? '?'}–${b.seatName ?? '?'} · ${a.price}₽ × 2 = ${(Number(a.price) || 0) * 2}₽`,
+        );
+      }
       const payLine = result.redirectUrl
         ? `ОПЛАТА (СБП): ${result.redirectUrl}`
         : (result.qrId
           ? `QR выписан (qrId=${result.qrId}), redirectUrl пустой — заказ #${result.orderId}`
           : `orderId=${result.orderId} — ссылка СБП не пришла`);
       const text = [
-        attempt > 1 ? '🔁 Опера нищих — ПОВТОРНАЯ бронь' : '✅ Опера нищих — заказ создан',
+        attempt > 1 ? '🔁 Опера нищих — ПОВТОРНАЯ бронь (только пары)' : '✅ Опера нищих — заказ создан (только пары)',
         `Дата: ${cfg.label}`,
-        `Event ID: ${cfg.id}`,
-        `orderId: ${result.orderId}`,
-        `amount: ${result.amount ?? '—'}`,
+        `Заказ: #${result.orderId}`,
+        `Сумма: ${result.amount ?? '—'} ₽`,
         payLine,
-        `покупатели: ${(result.buyers || []).join(', ')}`,
-        'места:',
-        seatLines || '  —',
-        `Виджет: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
+        '',
+        'Места (соседние пары):',
+        ...(pairBlocks.length ? pairBlocks : ['  —']),
+        '',
+        `Покупатели: ${(result.buyers || []).join(', ')}`,
+        `Схема: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
       ].join('\n');
       log(`OK ${cfg.label} orderId=${result.orderId} seats=[${seatNums.join(',')}]`);
       await notifyBook(
-        `${attempt > 1 ? '🔁' : '✅'} Опера нищих: заказ ${cfg.label} #${result.orderId}`,
+        `${attempt > 1 ? '🔁' : '✅'} Опера нищих: ${cfg.label} · ${pairBlocks.length} пар · #${result.orderId}`,
         text,
       ).catch((e) => log(`mail fail: ${e.message}`));
       return;
     }
 
     const triedNums = (result.tried || []).map((s) => s.seatNumber ?? s).filter(Number.isFinite);
+    if (result.reason === 'no_pairs') {
+      log(`skip ${cfg.label}: нет соседних пар (free=${result.freeCount ?? '?'}) — одиночки не берём`);
+      return;
+    }
     if (result.reason === 'soft_lock') {
       holds.set(cfg.id, {
         ...(prev || {}),
         orderId: prev?.orderId || null,
-        seats: triedNums.length ? triedNums : (preferSeatNumbers.length ? preferSeatNumbers : (prev?.seats || [])),
+        seats: triedNums.length >= 2 ? triedNums : [],
         attempt: prev?.attempt || 0,
         bookedAt: prev?.bookedAt || 0,
         cooldownUntil: 0,
@@ -248,7 +262,7 @@ async function tryBook(cfg, meta) {
     }
 
     log(`fail ${cfg.label}: ${result.reason}`);
-    if (result.reason !== 'no_tickets' && result.reason !== 'no_free_seats_in_payload') {
+    if (result.reason !== 'no_tickets' && result.reason !== 'no_free_seats_in_payload' && result.reason !== 'no_pairs') {
       saveResult({
         platform: 'radario',
         action: 'book_fail',

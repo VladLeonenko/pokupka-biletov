@@ -120,39 +120,63 @@ export function extractFreeSeats(buy) {
   return out.filter((s) => (seen.has(s.seatNumber) ? false : (seen.add(s.seatNumber), true)));
 }
 
+/**
+ * Только соседние пары (и блоки из пар). Никогда не добираем одиночку до need.
+ * need=3 при 3 свободных раньше давало пару+одиночку → жалобы «непонятные места».
+ */
+function findAdjacentPairs(seats) {
+  const byKey = new Map(); // ticketTypeId|row → seats
+  for (const s of seats) {
+    const row = s.row != null ? String(s.row) : '_';
+    const k = `${s.ticketTypeId}|${row}`;
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(s);
+  }
+  const pairs = [];
+  for (const list of byKey.values()) {
+    list.sort((a, b) => Number(a.seatNumber) - Number(b.seatNumber));
+    for (let i = 0; i < list.length - 1; i++) {
+      const a = list[i];
+      const b = list[i + 1];
+      const seatA = Number(a.seatName ?? a.seatNumber);
+      const seatB = Number(b.seatName ?? b.seatNumber);
+      const adjByName = Number.isFinite(seatA) && Number.isFinite(seatB) && seatB === seatA + 1;
+      const adjById = Number(b.seatNumber) === Number(a.seatNumber) + 1;
+      if (adjByName || adjById) {
+        pairs.push([a, b]);
+        i++; // места не пересекаются
+      }
+    }
+  }
+  // дешевле / ниже ряд / меньше номер
+  pairs.sort((p, q) => {
+    const pa = Math.max(p[0].price || 0, p[1].price || 0);
+    const qa = Math.max(q[0].price || 0, q[1].price || 0);
+    return pa - qa
+      || Number(p[0].row) - Number(q[0].row)
+      || Number(p[0].seatNumber) - Number(q[0].seatNumber);
+  });
+  return pairs;
+}
+
 function pickAdjacent(seats, need, preferSeatNumbers = []) {
   if (need <= 0 || !seats.length) return [];
+  // только чётное число мест (1+ пар)
+  const pairNeed = Math.max(1, Math.floor(Number(need) / 2));
   const byNum = new Map(seats.map((s) => [s.seatNumber, s]));
-  if (preferSeatNumbers?.length) {
-    const preferred = preferSeatNumbers
-      .map((n) => byNum.get(Number(n)))
-      .filter(Boolean);
-    if (preferred.length >= need) return preferred.slice(0, need);
-    if (preferred.length) {
-      const used = new Set(preferred.map((s) => s.seatNumber));
-      const rest = pickAdjacent(seats.filter((s) => !used.has(s.seatNumber)), need - preferred.length);
-      return [...preferred, ...rest].slice(0, need);
-    }
+  const prefer = (preferSeatNumbers || []).map(Number).filter(Number.isFinite);
+
+  let pairs = findAdjacentPairs(seats);
+  if (prefer.length) {
+    const prefSet = new Set(prefer);
+    const preferredPairs = pairs.filter((p) => prefSet.has(p[0].seatNumber) || prefSet.has(p[1].seatNumber));
+    const rest = pairs.filter((p) => !preferredPairs.includes(p));
+    pairs = [...preferredPairs, ...rest];
   }
-  if (need === 1) return [seats[0]];
-  const byType = new Map();
-  for (const s of seats) {
-    const k = s.ticketTypeId;
-    if (!byType.has(k)) byType.set(k, []);
-    byType.get(k).push(s);
-  }
-  for (const list of byType.values()) {
-    list.sort((a, b) => a.seatNumber - b.seatNumber);
-    for (let i = 0; i <= list.length - need; i++) {
-      const slice = list.slice(i, i + need);
-      let ok = true;
-      for (let j = 1; j < slice.length; j++) {
-        if (slice[j].seatNumber !== slice[j - 1].seatNumber + 1) { ok = false; break; }
-      }
-      if (ok) return slice;
-    }
-  }
-  return seats.slice(0, need);
+  if (!pairs.length) return []; // нет пар — не берём одиночки
+  const take = pairs.slice(0, pairNeed).flat();
+  // sanity: все выбранные ещё в byNum
+  return take.filter((s) => byNum.has(s.seatNumber));
 }
 
 function buildTicketsPayload(chosen, passports) {
@@ -441,8 +465,18 @@ export async function bookRadarioEvent(eventId, opts = {}) {
   }
 
   const prefer = (opts.preferSeatNumbers || []).map(Number).filter(Number.isFinite);
-  const need = Math.min(maxTickets, Math.max(1, free.length));
+  // чётный потолок: 3 свободных → max 2 (одна пара), не пара+одиночка
+  const need = Math.min(maxTickets, free.length);
   const chosen = pickAdjacent(free, need, prefer);
+  if (!chosen.length) {
+    return {
+      ok: false,
+      reason: 'no_pairs',
+      ticketCount: buy.event?.ticketCount ?? event.ticketCount,
+      freeCount: free.length,
+      sessionId,
+    };
+  }
   if (opts.dryRun) {
     return { ok: true, dryRun: true, chosen, sessionId, passports: passports.slice(0, chosen.length).map((p) => p.fullName) };
   }
