@@ -69,11 +69,14 @@ function findPairs(seats) {
     for (let i = 0; i < list.length; i++) {
       const next = list[i + 1];
       if (next && Number(next.seat) - Number(list[i].seat) === 1) {
-        pairs.push({ sector: list[i].name_sec, row: list[i].row, seats: [list[i], next] });
+        const price = Math.max(Number(list[i].price) || 0, Number(next.price) || 0);
+        pairs.push({ sector: list[i].name_sec, row: list[i].row, price, seats: [list[i], next] });
         i++;
       }
     }
   }
+  // Дешёвые пары первыми (раньше брали порядок схемы → часто партер 7000).
+  pairs.sort((a, b) => a.price - b.price || Number(a.row) - Number(b.row));
   return pairs;
 }
 
