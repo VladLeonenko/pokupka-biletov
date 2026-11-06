@@ -19,10 +19,10 @@
   -webkit-user-select: none;
 }
 
-/* Плавный переход слайда — длиннее, мягче, без резкого blur */
+/* Перелистывание ~2с */
 .slideFromRight.hero::before,
 .slideFromLeft.hero::before {
-  animation: heroPhotoIn 1.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: heroPhotoIn 2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slideStage {
@@ -34,11 +34,11 @@
 }
 
 .slideStageNext {
-  animation: heroStageInNext 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: heroStageInNext 2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slideStagePrev {
-  animation: heroStageInPrev 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: heroStageInPrev 2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slideStageNext .dateLine,
@@ -57,31 +57,31 @@
 .slideStagePrev .credits,
 .slideStagePrev .cta,
 .slideStagePrev .visualFrame {
-  animation: heroTextIn 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: heroTextIn 1.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slideStageNext .dateLine,
-.slideStagePrev .dateLine { animation-delay: 0.08s; }
+.slideStagePrev .dateLine { animation-delay: 0.12s; }
 .slideStageNext .tags,
-.slideStagePrev .tags { animation-delay: 0.14s; }
+.slideStagePrev .tags { animation-delay: 0.22s; }
 .slideStageNext .venueInHero,
-.slideStagePrev .venueInHero { animation-delay: 0.18s; }
+.slideStagePrev .venueInHero { animation-delay: 0.3s; }
 .slideStageNext .title,
-.slideStagePrev .title { animation-delay: 0.22s; }
+.slideStagePrev .title { animation-delay: 0.38s; }
 .slideStageNext .description,
-.slideStagePrev .description { animation-delay: 0.32s; }
+.slideStagePrev .description { animation-delay: 0.55s; }
 .slideStageNext .credits,
-.slideStagePrev .credits { animation-delay: 0.38s; }
+.slideStagePrev .credits { animation-delay: 0.68s; }
 .slideStageNext .cta,
-.slideStagePrev .cta { animation-delay: 0.44s; }
+.slideStagePrev .cta { animation-delay: 0.78s; }
 .slideStageNext .visualFrame,
-.slideStagePrev .visualFrame { animation-delay: 0.16s; }
+.slideStagePrev .visualFrame { animation-delay: 0.28s; }
 
 @keyframes heroPhotoIn {
   0% {
-    opacity: 0.4;
-    transform: scale(1.06);
-    filter: saturate(1.06) contrast(1.05) brightness(0.88);
+    opacity: 0.35;
+    transform: scale(1.05);
+    filter: saturate(1.05) contrast(1.04) brightness(0.9);
   }
   100% {
     opacity: 1;
@@ -93,7 +93,7 @@
 @keyframes heroStageInNext {
   0% {
     opacity: 0;
-    transform: translate3d(28px, 0, 0);
+    transform: translate3d(22px, 0, 0);
   }
   100% {
     opacity: 1;
@@ -104,7 +104,7 @@
 @keyframes heroStageInPrev {
   0% {
     opacity: 0;
-    transform: translate3d(-28px, 0, 0);
+    transform: translate3d(-22px, 0, 0);
   }
   100% {
     opacity: 1;
@@ -115,7 +115,7 @@
 @keyframes heroTextIn {
   0% {
     opacity: 0;
-    transform: translate3d(0, 12px, 0);
+    transform: translate3d(0, 10px, 0);
   }
   100% {
     opacity: 1;
@@ -325,7 +325,7 @@
   position: relative;
   z-index: 2;
   flex: 1;
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   width: 100%;
   padding: 28px 16px 40px;
@@ -627,7 +627,7 @@ img.visualImg {
 .heroFooter {
   position: relative;
   z-index: 8;
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   width: 100%;
   padding: 0 16px 24px;

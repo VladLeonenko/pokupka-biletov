@@ -50,6 +50,9 @@ function isYearMonth(s: string | null): s is string {
 export function TicketsHeader() {
   const [open, setOpen] = useState(false);
   const [calendarCollapsed, setCalendarCollapsed] = useState(false);
+  const calendarUserOverrideRef = useRef<'expand' | 'collapse' | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const calendarBodyRef = useRef<HTMLDivElement>(null);
   const loc = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -109,6 +112,69 @@ export function TicketsHeader() {
 
   const today = useMemo(() => startOfToday(), []);
   const dayStripRef = useRef<HTMLDivElement>(null);
+
+  // Авто-скрытие при скролле: прячем только когда уже «набрали» высоту дат —
+  // тогда компенсация scrollY не уводит в 0 и не дёргает hero.
+  useEffect(() => {
+    if (!homePaths) {
+      calendarUserOverrideRef.current = null;
+      setCalendarCollapsed(false);
+      return;
+    }
+    const SHOW_BEFORE = 20;
+    let raf = 0;
+    const sync = () => {
+      raf = 0;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      const override = calendarUserOverrideRef.current;
+      if (y <= SHOW_BEFORE) {
+        calendarUserOverrideRef.current = null;
+        setCalendarCollapsed(false);
+        return;
+      }
+      if (override === 'expand') return;
+      if (override === 'collapse') {
+        setCalendarCollapsed(true);
+        return;
+      }
+      const bodyH = calendarBodyRef.current?.scrollHeight ?? 130;
+      // запас: схлопываем, только если после компенсации останемся выше SHOW_BEFORE
+      if (y >= bodyH + SHOW_BEFORE + 28) {
+        setCalendarCollapsed(true);
+      }
+    };
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(sync);
+    };
+    sync();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [homePaths]);
+
+  // Компенсация изменения высоты sticky — кадр с hero остаётся на месте
+  useEffect(() => {
+    if (!homePaths) return;
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let lastH = el.getBoundingClientRect().height;
+    const ro = new ResizeObserver(() => {
+      const h = el.getBoundingClientRect().height;
+      const delta = lastH - h;
+      if (Math.abs(delta) < 0.5) return;
+      lastH = h;
+      // Компенсируем только усадку (collapse). Рост при раскрытии — без push scroll.
+      if (delta <= 0) return;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      if (y < 1) return;
+      window.scrollTo({ top: Math.max(0, y - delta), left: 0, behavior: 'auto' });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [homePaths]);
 
   /** Какой месяц показывают плитки дней (не фильтр афиши). */
   const [viewYm, setViewYm] = useState(() => format(today, 'yyyy-MM'));
@@ -330,7 +396,7 @@ export function TicketsHeader() {
   const isMonthActive = (d: Date) => format(d, 'yyyy-MM') === viewYm;
 
   return (
-    <div role="banner" className={styles.wrap} data-tickets-nav>
+    <div ref={wrapRef} role="banner" className={styles.wrap} data-tickets-nav>
       <div className={styles.inner}>
         <div
           className={`${styles.rowTop} ${logoPlacement === 'center' ? styles.rowTopLogoCenter : ''}`.trim()}
@@ -449,12 +515,19 @@ export function TicketsHeader() {
               type="button"
               className={styles.calendarToggle}
               aria-expanded={!calendarCollapsed}
-              onClick={() => setCalendarCollapsed((value) => !value)}
+              onClick={() => {
+                setCalendarCollapsed((value) => {
+                  const next = !value;
+                  calendarUserOverrideRef.current = next ? 'collapse' : 'expand';
+                  return next;
+                });
+              }}
             >
               {calendarCollapsed ? 'Показать даты' : 'Скрыть даты'}
             </button>
           </div>
           <div
+            ref={calendarBodyRef}
             className={`${styles.calendarBody} ${calendarCollapsed ? styles.calendarBodyCollapsed : ''}`}
             aria-hidden={calendarCollapsed ? 'true' : undefined}
           >
