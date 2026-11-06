@@ -235,6 +235,32 @@ export const TICKET_SEO = {
       beginDateTime: '2026-11-20T19:00:00+03:00',
     },
   },
+  'bayaderka-2026-11-13': {
+    title: 'Баядерка{{dateShort}} — Историческая сцена Большого{{price}}',
+    description:
+      'Балет Минкуса «Баядерка»{{price}} — {{when}}, {{venue}}. 13–15 ноября, 6+. ' +
+      'Предзаказ по секторам зала, оплата онлайн, электронный билет.',
+    h1: 'Билеты на балет «Баядерка»',
+    keywords:
+      'баядерка большой театр билеты, купить билеты баядерка большой, балет баядерка историческая сцена, большой театр билеты ноябрь',
+    defaults: {
+      venue: 'Большой театр — Историческая сцена, Москва',
+      beginDateTime: '2026-11-13T19:00:00+03:00',
+    },
+  },
+  'koppelia-2026-11-22': {
+    title: 'Коппелия{{dateShort}} — Новая сцена Большого{{price}}',
+    description:
+      'Балет Делиба «Коппелия»{{price}} — {{when}}, {{venue}}. 22 ноября, 12:00 и 18:00, 6+. ' +
+      'Предзаказ партер середина, оплата онлайн, электронный билет.',
+    h1: 'Билеты на балет «Коппелия» — Новая сцена',
+    keywords:
+      'коппелия большой театр билеты, купить билеты коппелия большой, балет коппелия новая сцена, большой театр билеты ноябрь',
+    defaults: {
+      venue: 'Большой театр — Новая сцена, Москва',
+      beginDateTime: '2026-11-22T12:00:00+03:00',
+    },
+  },
   'chipollino-2026-11-06': {
     title: 'Чиполлино{{dateShort}} — Новая сцена Большого{{price}}',
     description:
@@ -508,25 +534,46 @@ export function composeAutoTicketDescription(p) {
   const facts = buildTicketSeoFacts(p);
   const short = stripOuterGuillemets(shortEventTitle(p.displayTitle || '', 42) || 'событие');
   const genre = String(p.genreLabel || '').trim();
-  const bits = [];
-  if (facts.when) bits.push(facts.when);
-  if (facts.venue) bits.push(shortEventTitle(facts.venue, 40));
-  const head = genre
-    ? `${genre} «${short}»${facts.price}.`
-    : `Билеты на «${short}»${facts.price}.`;
-  const mid = bits.length ? ` ${bits.join(', ')}.` : '';
-  let lead = '';
-  if (p.lead && bits.length < 2) {
-    const raw = String(p.lead).trim();
-    // Не тащить в meta lead со старым «удобный выбор мест»
-    if (/удобный выбор мест/i.test(raw)) {
-      lead = '';
-    } else {
-      lead = raw.length > 70 ? ` ${raw.slice(0, 70).replace(/\s+\S*$/, '')}` : ` ${raw}`;
-    }
+  const when = facts.when || '';
+  const venue = facts.venue ? shortEventTitle(facts.venue, 34) : '';
+  const price = facts.price || '';
+  const hot = String(p.wsPhrase || '').trim();
+  const seed = String(p.seed || p.displayTitle || short);
+
+  /** @type {string[]} */
+  const variants = [];
+  if (hot) {
+    variants.push(
+      `«${hot}» — ${genre ? `${genre.toLowerCase()} ` : ''}«${short}»${when ? `. ${when}` : ''}${venue ? `, ${venue}` : ''}${price}. Схема зала, оплата, электронный билет.`,
+    );
+    variants.push(
+      `Ищете «${hot}»? «${short}»${when ? ` — ${when}` : ''}${venue ? `, ${venue}` : ''}. Места по схеме, оплата онлайн, билет на телефон.`,
+    );
   }
-  const body = `${head}${mid}${lead} ${MECHANICS}.`;
-  return clipMeta(body, 160);
+  if (genre) {
+    variants.push(
+      `${genre} «${short}»${when ? `. ${when}` : ''}${venue ? `, ${venue}` : ''}${price}. Выберите места онлайн — билет электронный после оплаты.`,
+    );
+  }
+  if (venue) {
+    variants.push(
+      `${venue}: «${short}»${when ? `, ${when}` : ''}${price}. Купить билеты по схеме зала — оплата на сайте, без бумаги.`,
+    );
+  }
+  variants.push(
+    `Купить билеты на «${short}»${when ? ` — ${when}` : ''}${venue ? `, ${venue}` : ''}${price}. Схема мест, оплата на сайте, электронный билет сразу.`,
+  );
+  variants.push(
+    `Билеты на «${short}»${venue ? ` — ${venue}` : ''}${when ? `. Дата: ${when}` : ''}${price}. Онлайн-выбор мест и электронный билет после оплаты.`,
+  );
+  variants.push(
+    `${genre ? `${genre} «${short}»` : `«${short}»`}${when ? `. ${when}` : ''}${venue ? `, ${venue}` : ''}${price}. ${MECHANICS}.`,
+  );
+
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const body = variants[h % variants.length] || variants[variants.length - 1];
+  return clipMeta(String(body).replace(/\s+/g, ' ').trim(), 160);
 }
 
 /**
