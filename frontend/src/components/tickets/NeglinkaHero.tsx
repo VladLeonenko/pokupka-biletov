@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
 import {
@@ -16,22 +16,39 @@ type Props = {
   vkUrl?: string | null;
 };
 
-export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }: Props) {
-  /** padSlides уже в buildHeroSlides; без props — пустой массив */
-  const slides = slideInput ?? [];
+const SWIPE_PX = 48;
+const WHEEL_COOLDOWN_MS = 520;
 
+export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }: Props) {
+  const slides = slideInput ?? [];
+  const rootRef = useRef<HTMLElement>(null);
   const [idx, setIdx] = useState(0);
+  const [animDir, setAnimDir] = useState<0 | 1 | -1>(0);
   const firstSlideId = slides[0]?.id ?? '';
   const current = slides[idx] ?? slides[0];
+  const goRef = useRef<(d: -1 | 1) => void>(() => {});
 
-  const go = useCallback((d: -1 | 1) => {
-    if (slides.length === 0) return;
-    setIdx((i) => (i + d + slides.length) % slides.length);
-  }, [slides.length]);
+  const go = useCallback(
+    (d: -1 | 1) => {
+      if (slides.length < 2) return;
+      setAnimDir(d);
+      setIdx((i) => (i + d + slides.length) % slides.length);
+    },
+    [slides.length],
+  );
+  goRef.current = go;
 
   useEffect(() => {
     setIdx(0);
+    setAnimDir(0);
   }, [firstSlideId]);
+
+  // Сброс класса анимации после кадра
+  useEffect(() => {
+    if (!animDir) return;
+    const t = window.setTimeout(() => setAnimDir(0), 420);
+    return () => window.clearTimeout(t);
+  }, [idx, animDir]);
 
   const coverInput = current
     ? { title: current.title, imageUrl: current.imageUrl }
@@ -46,7 +63,6 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
       } as CSSProperties)
     : undefined;
 
-  // LCP preload текущего + прогрев следующего слайда
   useEffect(() => {
     if (loading || !heroBg || typeof document === 'undefined') return;
     const id = 'tickets-hero-preload';
@@ -82,6 +98,97 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
     return () => window.clearTimeout(t);
   }, [loading, heroBg, idx, slides]);
 
+  /** Swipe / trackpad на герое — как у ленты дат */
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || loading || slides.length < 2) return;
+
+    let activeId: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let dragged = false;
+    let lastWheelAt = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      // не перехватываем клики по стрелкам/соцсетям
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('button, a.soc, a[href^="http"]')) return;
+      activeId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      dragged = false;
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (activeId !== e.pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!dragged && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+        dragged = true;
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (activeId !== e.pointerId) return;
+      activeId = null;
+      try {
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      if (!dragged) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) >= SWIPE_PX) {
+        goRef.current(dx < 0 ? 1 : -1);
+      }
+      // подавить клик по overlay-ссылке после свайпа
+      const suppress = (ev: Event) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        el.removeEventListener('click', suppress, true);
+      };
+      el.addEventListener('click', suppress, true);
+      dragged = false;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
+      // горизонтальный тачпад / shift+wheel
+      const horizontal = absX > absY || (e.shiftKey && absY > 0);
+      if (!horizontal) return;
+      const dx = absX > absY ? e.deltaX : e.deltaY;
+      if (Math.abs(dx) < 4) return;
+      const now = Date.now();
+      if (now - lastWheelAt < WHEEL_COOLDOWN_MS) {
+        e.preventDefault();
+        return;
+      }
+      lastWheelAt = now;
+      e.preventDefault();
+      goRef.current(dx > 0 ? 1 : -1);
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, [loading, slides.length]);
+
   if (loading) {
     return (
       <section className={styles.hero} data-tickets-hero aria-busy="true">
@@ -99,7 +206,9 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
         <div className={styles.inner}>
           <div className={styles.left}>
             <h1 className={styles.emptyTitle}>Нет событий на выбранную дату</h1>
-            <p className={styles.emptyHint}>В ответе API нет даты для фильтра — сбросьте день или выберите другой.</p>
+            <p className={styles.emptyHint}>
+              В ответе API нет даты для фильтра — сбросьте день или выберите другой.
+            </p>
             <Link to="/" className={styles.cta}>
               Сбросить календарь
             </Link>
@@ -110,10 +219,13 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   }
 
   const title = current.title;
+  const animClass =
+    animDir === 1 ? styles.slideFromRight : animDir === -1 ? styles.slideFromLeft : '';
 
   return (
     <section
-      className={styles.hero}
+      ref={rootRef}
+      className={`${styles.hero} ${animClass}`.trim()}
       style={heroStyle}
       data-tickets-hero
     >
@@ -123,6 +235,7 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
           to={current.ticketHref}
           className={styles.heroClick}
           aria-label={`${current.ctaLabel}: ${title}`}
+          draggable={false}
         />
         <div className={styles.inner}>
           <div className={styles.left}>
@@ -136,7 +249,9 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
 
             {current.venueLabel || current.venueAddress ? (
               <p className={styles.venueInHero} data-hero-venue>
-                {current.venueLabel ? <span className={styles.venueInHeroV}>{current.venueLabel}</span> : null}
+                {current.venueLabel ? (
+                  <span className={styles.venueInHeroV}>{current.venueLabel}</span>
+                ) : null}
                 {current.venueAddress ? (
                   <span className={styles.venueInHeroAddr}>{current.venueAddress}</span>
                 ) : null}
@@ -145,9 +260,7 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
 
             <h1 className={styles.title}>{title}</h1>
 
-            {current.description ? (
-              <p className={styles.description}>{current.description}</p>
-            ) : null}
+            {current.description ? <p className={styles.description}>{current.description}</p> : null}
 
             {(current.author || current.director) && (
               <div className={styles.credits}>

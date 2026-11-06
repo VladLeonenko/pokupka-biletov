@@ -117,12 +117,27 @@ export function TicketsHeader() {
       setCalendarCollapsed(false);
       return undefined;
     }
+    // iOS-паттерн: вниз — прячем, вверх — показываем; у топа всегда виден
+    const TOP_ALWAYS_SHOW = 48;
+    const DELTA = 8;
+    lastScrollYRef.current = window.scrollY || 0;
+
     const updateCalendarVisibility = () => {
       scrollRafRef.current = null;
       const y = window.scrollY || document.documentElement.scrollTop || 0;
-      // Плашка видна только у самого верха страницы.
-      const hidden = y > 8;
+      const prev = lastScrollYRef.current;
+      const dy = y - prev;
       lastScrollYRef.current = y;
+
+      let hidden = calendarAutoHiddenRef.current;
+      if (y <= TOP_ALWAYS_SHOW) {
+        hidden = false;
+      } else if (dy > DELTA) {
+        hidden = true;
+      } else if (dy < -DELTA) {
+        hidden = false;
+      }
+
       if (calendarAutoHiddenRef.current !== hidden) {
         calendarAutoHiddenRef.current = hidden;
         setCalendarAutoHidden(hidden);

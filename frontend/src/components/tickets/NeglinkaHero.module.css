@@ -14,6 +14,41 @@
   min-height: min(90vh, 940px);
   display: flex;
   flex-direction: column;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.slideFromRight .heroBody,
+.slideFromRight.hero::before {
+  animation: heroInFromRight 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.slideFromLeft .heroBody,
+.slideFromLeft.hero::before {
+  animation: heroInFromLeft 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes heroInFromRight {
+  from {
+    opacity: 0.55;
+    transform: translate3d(28px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes heroInFromLeft {
+  from {
+    opacity: 0.55;
+    transform: translate3d(-28px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .hero::before {
@@ -158,6 +193,8 @@
   inset: 0;
   z-index: 5;
   text-decoration: none;
+  /* свайп проходит через hit-area; клик остаётся */
+  touch-action: pan-y;
 }
 
 /* theme.css задаёт h1/p color: var(--text-color) (#141414 в светлой теме) — сбрасываем на hero */
@@ -491,7 +528,7 @@ img.visualImg {
 
 .heroFooter {
   position: relative;
-  z-index: 4;
+  z-index: 8;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
