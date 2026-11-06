@@ -92,12 +92,32 @@ const EVENTS = [
       { iso: '2026-10-31T16:00:00.000Z', label: 'сб 31 октября · 19:00 · 6+', prices: [90000, 80000, 70000, 60000, 45000, 650000, 500000, 180000] },
     ],
   },
+  {
+    id: 'ivan-grozny-2026-11-11',
+    title: 'Иван Грозный',
+    venue: 'Большой театр — Историческая сцена',
+    address: 'Театральная пл., 1, Москва',
+    cardSubtitle: '11 ноября · 13:00 и 19:00 · 6+',
+    genre: 'Балет',
+    age: '6+',
+    /** Розница = прайс из ТЗ, без глобальной наценки GetBilet. */
+    fixedRetail: true,
+    poster: '/uploads/images/bolshoi-ivan-grozny-1793952967696.jpg',
+    sessions: [
+      /** 11.11 13:00 МСК */
+      { iso: '2026-11-11T10:00:00.000Z', label: 'ср 11 ноября · 13:00 · 6+', prices: [70000, 65000, 60000, 50000, 40000, 450000, 300000, 120000] },
+      /** 11.11 19:00 МСК */
+      { iso: '2026-11-11T16:00:00.000Z', label: 'ср 11 ноября · 19:00 · 6+', prices: [120000, 110000, 90000, 80000, 70000, 700000, 450000, 190000] },
+    ],
+  },
 ];
 
 const NEW_STAGE_ID = process.env.BOLSHOI_NEW_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-new-stage';
 
-/** Новая сцена: 1 продаваемый сектор — Партер (ряды 1–8 блоком). */
-const NEW_SECTORS = [{ key: 'parter', label: 'Партер', seatList: ['1'], box: false }];
+/** Новая сцена: 1 продаваемый сектор — Партер середина (ряды 1–8 блоком). */
+const NEW_SECTORS = [
+  { key: 'parter_mid', label: 'Партер (середина)', seatList: ['1', '2', '3', '4', '5', '6', '7', '8'], box: false },
+];
 
 /** Кармен-сюита — одна карточка, 4 сеанса. */
 const NEW_EVENTS = [
@@ -115,8 +135,31 @@ const NEW_EVENTS = [
       { iso: '2026-10-18T11:00:00.000Z', label: 'сб 18 октября · 14:00 · 12+', prices: [65000] },
     ],
   },
+  {
+    id: 'chipollino-2026-11-06',
+    siblingIds: [
+      'chipollino-2026-11-07-12',
+      'chipollino-2026-11-07-19',
+      'chipollino-2026-11-08-12',
+      'chipollino-2026-11-08-18',
+    ],
+    title: 'Чиполлино',
+    venue: 'Большой театр — Новая сцена',
+    address: 'ул. Большая Дмитровка, 4/2, Москва',
+    cardSubtitle: '6–8 ноября · 6+',
+    genre: 'Балет',
+    age: '6+',
+    fixedRetail: true,
+    poster: '/uploads/images/bolshoi-chipollino-1793952967696.jpg',
+    sessions: [
+      { iso: '2026-11-06T16:00:00.000Z', label: 'пт 6 ноября · 19:00 · 6+', prices: [50000] },
+      { iso: '2026-11-07T09:00:00.000Z', label: 'сб 7 ноября · 12:00 · 6+', prices: [50000] },
+      { iso: '2026-11-07T16:00:00.000Z', label: 'сб 7 ноября · 19:00 · 6+', prices: [50000] },
+      { iso: '2026-11-08T09:00:00.000Z', label: 'вс 8 ноября · 12:00 · 6+', prices: [50000] },
+      { iso: '2026-11-08T15:00:00.000Z', label: 'вс 8 ноября · 18:00 · 6+', prices: [50000] },
+    ],
+  },
 ];
-
 function sessionsOf(ev) {
   if (Array.isArray(ev.sessions) && ev.sessions.length) return ev.sessions;
   return [{ iso: ev.iso, label: ev.cardSubtitle, prices: ev.prices }];
@@ -168,8 +211,29 @@ const EVENT_COPY = {
       'Сеансы 16–18 октября (включая дневные). Электронный билет на email.',
     ],
   },
+  'ivan-grozny-2026-11-11': {
+    composer: 'Сергей Прокофьев',
+    about: [
+      'Балет Юрия Григоровича на музыку Сергея Прокофьева — драма Ивана IV, царицы Анастасии и Курбского. Партитура собрана из музыки к фильму Эйзенштейна и других сочинений композитора; декорации Симона Вирсаладзе.',
+      'Спектакль Исторической сцены Большого театра. Возраст 6+. 11 ноября — дневной (13:00) и вечерний (19:00) сеансы.',
+    ],
+    how: [
+      'Предзаказ по секторам Исторической сцены: партер середина (ряды 1–8), бельэтаж и 1 ярус (1 ряд лож), балконы 2–3 яруса, ложи целиком, VIP-партер ряд 1.',
+      'Выберите дату, зону и количество мест — номера подтвердим при отправке билетов. Электронный билет на email после оплаты.',
+    ],
+  },
+  'chipollino-2026-11-06': {
+    composer: 'Карэн Хачатурян',
+    about: [
+      'Детский балет Карэна Хачатуряна в хореографии Генриха Майорова по сказке Джанни Родари — «Спартак» для детей: классика, эстрада и клоунада в постановке Большого театра на Новой сцене.',
+      'Возраст 6+. Сеансы 6–8 ноября: вечерние и дневные (включая воскресенье 18:00).',
+    ],
+    how: [
+      'Предзаказ: Партер (середина), ряды 1–8. Выберите сеанс и количество билетов — места подберёт система.',
+      'После оплаты электронный билет придёт на email.',
+    ],
+  },
 };
-
 function buildCatalogPayload(ev, stageId, stageName, genre, age) {
   const sess = sessionsOf(ev);
   const firstIso = sess[0].iso;
@@ -231,6 +295,7 @@ function buildDescriptionPack(ev, stageName, genre, age) {
 
 function buildOffers(ev, sectors) {
   const out = [];
+  const fixedRetail = Boolean(ev.fixedRetail);
   for (const sess of sessionsOf(ev)) {
     const prices = expandPrices(sess.prices || ev.prices || []);
     const day = String(sess.iso || '').slice(0, 10);
@@ -248,12 +313,13 @@ function buildOffers(ev, sectors) {
         EventDateTime: sess.iso,
         /** Зоны Большого продаём сами, без партнёрского API. */
         LocalOffer: true,
+        /** fixedRetail: витрина = цена из ТЗ (глобальная % наценка GetBilet не применяется). */
+        ...(fixedRetail ? { ManualOffer: true } : {}),
       });
     }
   }
   return out;
 }
-
 async function unpublishSiblings(siblingIds) {
   if (!siblingIds?.length) return;
   await ticketPool.query(

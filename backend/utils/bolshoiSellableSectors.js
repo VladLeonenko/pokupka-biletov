@@ -355,6 +355,7 @@ export function expandBolshoiOffersByRows(baseOffers, byLabel, repertoireId) {
         BoxWhole: rule.box === true,
         /** Зоны ведём сами: GetBilet этих Id не знает, цена и бронь — из кэша. */
         LocalOffer: true,
+        ...(proto.ManualOffer === true || proto.manualOffer === true ? { ManualOffer: true } : {}),
       });
     }
   }

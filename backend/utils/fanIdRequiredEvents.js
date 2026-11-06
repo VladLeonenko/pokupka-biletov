@@ -40,8 +40,11 @@ const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
   'karmen-syuita-2026-10-17-12': 'karmen-syuita-2026-10-16',
   'karmen-syuita-2026-10-17-19': 'karmen-syuita-2026-10-16',
   'karmen-syuita-2026-10-18': 'karmen-syuita-2026-10-16',
+  'chipollino-2026-11-07-12': 'chipollino-2026-11-06',
+  'chipollino-2026-11-07-19': 'chipollino-2026-11-06',
+  'chipollino-2026-11-08-12': 'chipollino-2026-11-06',
+  'chipollino-2026-11-08-18': 'chipollino-2026-11-06',
 });
-
 /** @param {string | null | undefined} slug */
 export function repertoireIdForTicketSlug(slug) {
   const s = String(slug || '').trim().toLowerCase();
