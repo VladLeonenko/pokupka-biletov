@@ -123,5 +123,13 @@ export function injectReactTicketsSsrIntoHtml(html, result, opts = {}) {
       out += result.stateScript;
     }
   }
+  /** Сразу Manrope/Geologica + ×1.5, без кадра Raleway до гидрации. */
+  out = out.replace(/<body([^>]*)>/i, (full, attrs) => {
+    let a = String(attrs || '');
+    if (!/\bdata-tickets\s*=/.test(a)) a += ' data-tickets="true"';
+    if (!/\bclass\s*=/.test(a)) a += ' class="tickets-theme"';
+    else if (!/\btickets-theme\b/.test(a)) a = a.replace(/\bclass\s*=\s*(["'])([^"']*)\1/i, (m, q, cls) => `class=${q}${cls} tickets-theme${q}`);
+    return `<body${a}>`;
+  });
   return out;
 }

@@ -20,13 +20,13 @@
   box-sizing: border-box;
 }
 
-/* Тот же контейнер, что у TicketsHeader.inner / hero: 1200 + padding 16.
+/* Тот же контейнер, что у TicketsHeader.inner / hero: 1440 + padding 16.
    !important: legacy bundle иногда бьёт margin shorthand на потомков. */
 .dateResults {
   box-sizing: border-box;
   display: block;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1440px;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   margin-left: auto !important;
@@ -148,7 +148,7 @@
   animation: rowShimmer 1.2s ease-in-out infinite;
 }
 .rowsSkeleton {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 8px 16px 32px;
   display: flex;
@@ -179,7 +179,7 @@
 }
 
 .hallStrip {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 12px 16px 0;
   font-size: 0.88rem;
@@ -208,7 +208,7 @@
 }
 
 .dateFilter {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 12px 16px 0;
   font-size: 0.85rem;
@@ -216,7 +216,7 @@
 }
 
 .catalogError {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 16px auto 0;
   padding: 14px 16px;
   border-radius: 2px;
@@ -246,7 +246,7 @@
 
 .recentTitle {
   margin: 0 0 14px;
-  max-width: 1200px;
+  max-width: 1440px;
   margin-left: auto;
   margin-right: auto;
   padding-left: 16px;
@@ -267,7 +267,7 @@
 
 .recentStrip {
   --recent-gap: clamp(12px, 1.4vw, 20px);
-  --recent-pad: max(16px, calc((100vw - min(100vw, 1200px)) / 2 + 16px));
+  --recent-pad: max(16px, calc((100vw - min(100vw, 1440px)) / 2 + 16px));
   display: flex;
   gap: var(--recent-gap);
   overflow-x: auto;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import { CacheProvider, type EmotionCache } from '@emotion/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Routes, useLocation } from 'react-router-dom';
@@ -74,7 +74,11 @@ function LeaveReactSsrShell() {
 }
 
 function TicketsThemeBoot() {
-  useEffect(() => {
+  /** Sync до paint — иначе Raleway из global.css переживает первый кадр. */
+  if (typeof document !== 'undefined') {
+    applyTicketsTheme();
+  }
+  useLayoutEffect(() => {
     applyTicketsTheme();
   }, []);
   return null;

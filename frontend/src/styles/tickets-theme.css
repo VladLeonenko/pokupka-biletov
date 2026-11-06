@@ -5,11 +5,16 @@
 body[data-tickets='true'] {
   --neg-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --neg-font-display: 'Geologica', 'Manrope', system-ui, sans-serif;
+  --tickets-max: 1440px; /* было 1200 ≈ +20% */
   --neg-orange: #ff4e18;
   --neg-blue: #a8c4ee;
   background-color: #ffffff !important;
   color: #111 !important;
   font-family: var(--neg-font) !important;
+  /* ×1.5 ко всему rem/em UI; рубрики в px (titleChar/recentTitle) не трогаем */
+  font-size: 150%;
+  line-height: 1.45;
+  letter-spacing: 0;
 }
 
 /* Hero (NeglinkaHero): перебить color: #111 !important у body — текст на цветном фоне */

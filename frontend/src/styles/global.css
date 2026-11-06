@@ -13,8 +13,8 @@ html {
   font-display: swap; /* Показываем текст системным шрифтом пока загружается Raleway */
 }
 
-/* Глобальные стили для темной темы */
-body {
+/* Глобальные стили для темной темы (витрина tickets — свой стек в tickets-theme.css) */
+body:not([data-tickets='true']) {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
@@ -33,6 +33,18 @@ body {
   -ms-user-select: text;
 }
 
+body[data-tickets='true'] {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 @supports not (overflow-x: clip) {
   html,
   body {
@@ -40,13 +52,18 @@ body {
   }
 }
 
-/* Единая типографика на весь сайт */
-h1, h2, h3, h4, h5, h6,
-.section-header h1,
-.section-header h2,
-.header-section h2,
-.menu-navigation a,
-.new-client-body h3 {
+/* Единая типографика agency/legacy (не трогаем tickets-витрину) */
+body:not([data-tickets='true']) h1,
+body:not([data-tickets='true']) h2,
+body:not([data-tickets='true']) h3,
+body:not([data-tickets='true']) h4,
+body:not([data-tickets='true']) h5,
+body:not([data-tickets='true']) h6,
+body:not([data-tickets='true']) .section-header h1,
+body:not([data-tickets='true']) .section-header h2,
+body:not([data-tickets='true']) .header-section h2,
+body:not([data-tickets='true']) .menu-navigation a,
+body:not([data-tickets='true']) .new-client-body h3 {
   font-family: 'Raleway', 'Play', sans-serif !important;
   letter-spacing: -0.02em;
 }
