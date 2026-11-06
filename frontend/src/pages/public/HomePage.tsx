@@ -97,11 +97,22 @@ export function HomePage() {
   }, [normalized, catalogForDate, dateFilter]);
 
   const displayEvents = useMemo((): NormalizedBiletEvent[] => {
-    const pending = dateFilter ? eventsPending && sportEventsPending : eventsPending;
+    const pending = dateFilter
+      ? eventsPending && sportEventsPending
+      : eventsPending && sportEventsPending;
     if (pending || isError) return [];
     if (dateFilter) return filtered;
-    return normalized;
-  }, [eventsPending, sportEventsPending, isError, normalized, dateFilter, filtered]);
+    // Рубрики/ленты — полный lite+home, не урезанный /home (≤120), иначе «Большой театр» = 1 карточка
+    return catalogForDate;
+  }, [
+    eventsPending,
+    sportEventsPending,
+    isError,
+    normalized,
+    catalogForDate,
+    dateFilter,
+    filtered,
+  ]);
   const recentIds = useTicketRecentRepertoires(undefined);
   const recentEvents = useMemo(() => {
     if (recentIds.length === 0) return [];
@@ -171,7 +182,7 @@ export function HomePage() {
   const heroLoading =
     vitrinePending ||
     ((vitrine.heroSlides?.length ?? 0) === 0 && (eventsPending || sportEventsPending));
-  const listLoading = eventsPending || (Boolean(dateFilter) && sportEventsPending);
+  const listLoading = eventsPending || sportEventsPending;
   const scrolledForDateRef = useRef<string | null>(null);
 
   useEffect(() => {

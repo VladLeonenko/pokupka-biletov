@@ -246,9 +246,10 @@
 
 .recentTitle {
   margin: 0 0 12px;
-  font-size: 1.15rem;
+  font-size: clamp(2.2rem, 4.2vw, 3rem);
   font-weight: 900;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
   color: #111;
 }
 
