@@ -114,7 +114,31 @@ export function TicketsHomeSections({
       </div>
 
       {!dateFilterActive && dir.length > 0 && (
-        <TicketsCategoryCarousels directions={dir} events={list} sportEvents={sportEvents ?? undefined} listLoading={listLoading} />
+        <TicketsCategoryCarousels
+          directions={dir}
+          events={list}
+          sportEvents={sportEvents ?? undefined}
+          listLoading={listLoading}
+          insertAfterLabel="Детям"
+          insertAfterSlot={
+            !listLoading && recent.length > 0 ? (
+              <section className={styles.recentSection} aria-labelledby="home-recent-title">
+                <h2 id="home-recent-title" className={styles.recentTitle}>
+                  Вы смотрели
+                </h2>
+                <div className={styles.recentStripBleed}>
+                  <div className={styles.recentStrip}>
+                    {recent.map((ev) => (
+                      <div key={ev.id} className={styles.recentCard}>
+                        <EventPosterCard event={ev} variant="compact" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            ) : null
+          }
+        />
       )}
 
       {!dateFilterActive && listLoading && rowEvents.length === 0 && (
@@ -128,21 +152,6 @@ export function TicketsHomeSections({
       {!dateFilterActive && !listLoading && rowEvents.length > 0 && <NeglinkaEventRows events={rowEvents} />}
 
       {!dateFilterActive && !listLoading && <TicketsHomeExtras events={list} />}
-
-      {!dateFilterActive && recent.length > 0 && (
-        <section className={styles.recentSection} aria-labelledby="home-recent-title">
-          <h2 id="home-recent-title" className={styles.recentTitle}>
-            Вы смотрели
-          </h2>
-          <div className={styles.recentStrip}>
-            {recent.map((ev) => (
-              <div key={ev.id} className={styles.recentCard}>
-                <EventPosterCard event={ev} variant="compact" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

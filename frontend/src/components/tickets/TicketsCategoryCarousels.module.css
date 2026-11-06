@@ -1,54 +1,96 @@
-/* Секции «Театр», «Концерты» и т.д.: заголовок + горизонтальная лента карточек */
+/* Рубрики как BlogMagazineRubricSection (primecoder-gulp): крупный assembling title + «Все»↗ */
+
+.rubricWrap {
+  width: 100%;
+}
 
 .block {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 28px 0 8px;
+  padding: 36px 0 12px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .block:first-of-type {
-  padding-top: 16px;
+  padding-top: 20px;
 }
 
 .head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px 16px;
-  margin-bottom: 14px;
+  gap: 16px 20px;
+  margin-bottom: 18px;
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
   padding-left: 16px;
   padding-right: 16px;
+  position: relative;
+  z-index: 2;
 }
 
-.title {
-  margin: 0;
-  font-size: clamp(2.2rem, 4.2vw, 3rem);
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  color: #141414;
+.titleLink {
+  display: inline-flex;
+  flex-wrap: wrap;
+  text-decoration: none;
+  color: #0a0a0a;
+  line-height: 0.95;
+  position: relative;
+  z-index: 2;
+}
+
+.titleLink:hover {
+  opacity: 0.72;
+  color: #0a0a0a;
+}
+
+.titleChar {
+  display: inline-block;
+  font-family: 'Geologica', 'Manrope', var(--neg-font, system-ui), sans-serif;
+  font-weight: 500;
+  font-size: clamp(36px, 10vw, 64px);
+  letter-spacing: 0.02em;
+  transform: translateY(0.45em);
+  opacity: 0;
+  transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.45s ease;
+}
+
+.titleOn .titleChar {
+  transform: translateY(0);
+  opacity: 1;
 }
 
 .seeAll {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--neg-orange, #ff4e18);
+  align-items: flex-end;
+  gap: 6px;
   text-decoration: none;
-  white-space: nowrap;
+  color: #0a0a0a;
+  flex-shrink: 0;
+  line-height: 1;
+  padding-bottom: 2px;
+  font-family: 'Geologica', 'Manrope', var(--neg-font, system-ui), sans-serif;
+  font-weight: 600;
+  font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+  letter-spacing: 0.04em;
   transition: opacity 0.15s ease;
 }
 
 .seeAll:hover {
-  opacity: 0.88;
-  text-decoration: underline;
+  opacity: 0.65;
+  color: #0a0a0a;
+}
+
+.cornerArrow {
+  display: block;
+  flex-shrink: 0;
+  translate: 0 1px;
 }
 
 /* Лента на всю ширину вьюпорта; заголовок остаётся в max-width */
@@ -56,6 +98,8 @@
   width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
+  position: relative;
+  z-index: 1;
 }
 
 .strip {
@@ -68,11 +112,16 @@
   padding: 4px 0 18px;
   padding-left: var(--cat-pad);
   padding-right: max(16px, env(safe-area-inset-right));
-  scroll-snap-type: x proximity;
+  scroll-snap-type: x mandatory;
   scroll-padding-inline: var(--cat-pad);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  cursor: grab;
+}
+
+.strip:active {
+  cursor: grabbing;
 }
 
 .strip::-webkit-scrollbar {
@@ -83,15 +132,22 @@
 
 .cardSlot {
   flex: 0 0 auto;
-  /* ~1.15 карточки на мобиле — виден «хвост» следующей */
-  width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 0.15) / 1.15);
+  /* peek следующей карточки, как blog slide ~92% */
+  width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 0.15) / 1.12);
   scroll-snap-align: start;
+  scroll-snap-stop: always;
+  transition:
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.25s ease;
 }
 
 @media (min-width: 640px) {
+  .titleChar {
+    font-size: clamp(48px, 7vw, 80px);
+  }
+
   .cardSlot {
-    /* планшет: ~2.5 карточки */
-    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 1.5) / 2.5);
+    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 1.5) / 2.35);
   }
 }
 
@@ -103,6 +159,10 @@
     padding-left: 0;
   }
 
+  .titleChar {
+    font-size: clamp(56px, 6.5vw, 96px);
+  }
+
   .strip {
     --cat-pad: 0px;
     --cat-pad-right: 16px;
@@ -112,8 +172,7 @@
   }
 
   .cardSlot {
-    /* десктоп: ~4.5 карточки в поле зрения, без левого отступа */
-    width: calc((100vw - var(--cat-pad-right) - var(--cat-gap) * 3.5) / 4.5);
+    width: calc((100vw - var(--cat-pad-right) - var(--cat-gap) * 3.5) / 4.35);
     max-width: none;
   }
 }
@@ -130,9 +189,9 @@
 
 .skelCard {
   flex: 0 0 auto;
-  width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 0.15) / 1.15);
+  width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 0.15) / 1.12);
   height: clamp(320px, 52vw, 420px);
-  border-radius: 12px;
+  border-radius: 4px;
   background: linear-gradient(
     90deg,
     rgba(0, 0, 0, 0.05) 0%,
@@ -145,7 +204,7 @@
 
 @media (min-width: 640px) {
   .skelCard {
-    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 1.5) / 2.5);
+    width: calc((100vw - var(--cat-pad) * 2 - var(--cat-gap) * 1.5) / 2.35);
   }
 }
 
@@ -156,7 +215,7 @@
   }
 
   .skelCard {
-    width: calc((100vw - 16px - var(--cat-gap) * 3.5) / 4.5);
+    width: calc((100vw - 16px - var(--cat-gap) * 3.5) / 4.35);
     max-width: none;
   }
 }
@@ -171,10 +230,10 @@
 }
 
 .skelTitle {
-  height: 22px;
-  width: 160px;
-  border-radius: 8px;
-  margin: 0 20px 14px;
+  height: clamp(36px, 8vw, 64px);
+  width: min(280px, 55vw);
+  border-radius: 4px;
+  margin: 0 16px 18px;
   background: linear-gradient(
     90deg,
     rgba(0, 0, 0, 0.06) 0%,

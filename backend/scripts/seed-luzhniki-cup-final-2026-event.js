@@ -141,9 +141,9 @@ async function main() {
   );
 
   await ticketPool.query(
-    `INSERT INTO getbilet_catalog_cache (repertoire_external_id, stage_id, payload_json, synced_at)
-     VALUES ($1, $2, $3::jsonb, NOW())
-     ON CONFLICT (repertoire_external_id) DO UPDATE SET
+    `INSERT INTO getbilet_catalog_cache (cache_key, repertoire_external_id, stage_id, payload_json, synced_at)
+     VALUES ($1, $1, $2, $3::jsonb, NOW())
+     ON CONFLICT (cache_key) DO UPDATE SET
        stage_id = EXCLUDED.stage_id,
        payload_json = EXCLUDED.payload_json,
        synced_at = NOW()`,

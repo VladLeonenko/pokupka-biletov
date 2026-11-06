@@ -27,27 +27,43 @@ function pinnedRepDuplicatesSeen(repId, seen) {
  * Тянем каталог из GetBilet, enrich, пишем в getbilet_catalog_cache и создаём строки getbilet_events (если ещё нет).
  * @returns {Promise<{ count: number, repertoireIds: string[] }>}
  */
+function catalogCacheKey(row, repId) {
+  const vid = String(row?.vitrineRowId ?? row?.VitrineRowId ?? '').trim();
+  if (vid) return vid;
+  const dt = String(
+    row?.EventDateTime ?? row?.eventDateTime ?? row?.beginDateTime ?? row?.BeginDateTime ?? '',
+  ).trim();
+  if (dt) return `${repId}::${dt}`;
+  return repId;
+}
+
 export async function syncGetbiletCatalogFromApi() {
   const data = await restV2BuildEventsCatalog();
   const actions = data.actions || [];
 
   const repertoireIds = [];
+  const writtenKeys = [];
+  const syncedRepIds = new Set();
   const client = await ticketPool.connect();
   try {
     await client.query('BEGIN');
     for (const row of actions) {
-      const repId = String(row.Id ?? row.id ?? '').trim();
+      const repId = String(row.RepertoireId ?? row.repertoireId ?? row.Id ?? row.id ?? '').trim();
       if (!repId) continue;
       repertoireIds.push(repId);
+      syncedRepIds.add(repId);
+      const cacheKey = catalogCacheKey(row, repId);
+      writtenKeys.push(cacheKey);
       const stageId = row.stageId != null ? String(row.stageId) : null;
       await client.query(
-        `INSERT INTO getbilet_catalog_cache (repertoire_external_id, stage_id, payload_json, synced_at)
-         VALUES ($1, $2, $3::jsonb, NOW())
-         ON CONFLICT (repertoire_external_id) DO UPDATE SET
+        `INSERT INTO getbilet_catalog_cache (cache_key, repertoire_external_id, stage_id, payload_json, synced_at)
+         VALUES ($1, $2, $3, $4::jsonb, NOW())
+         ON CONFLICT (cache_key) DO UPDATE SET
+           repertoire_external_id = EXCLUDED.repertoire_external_id,
            stage_id = EXCLUDED.stage_id,
            payload_json = EXCLUDED.payload_json,
            synced_at = NOW()`,
-        [repId, stageId, JSON.stringify(row)],
+        [cacheKey, repId, stageId, JSON.stringify(row)],
       );
       const title = typeof row.Name === 'string' ? row.Name.trim() : typeof row.name === 'string' ? row.name.trim() : '';
       await upsertGetbiletEventFromCatalogSync(client, repId, title || null);
@@ -61,6 +77,15 @@ export async function syncGetbiletCatalogFromApi() {
           [repId, derivedPage],
         );
       }
+    }
+    // Снести устаревшие сеансы тех репертуаров, что только что переписали
+    if (syncedRepIds.size && writtenKeys.length) {
+      await client.query(
+        `DELETE FROM getbilet_catalog_cache
+         WHERE repertoire_external_id = ANY($1::text[])
+           AND cache_key <> ALL($2::text[])`,
+        [[...syncedRepIds], writtenKeys],
+      );
     }
     await client.query(
       `INSERT INTO getbilet_catalog_sync_meta (singleton, last_completed_at) VALUES (1, NOW())

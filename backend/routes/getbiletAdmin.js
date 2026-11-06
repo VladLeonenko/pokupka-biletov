@@ -74,7 +74,8 @@ async function resolveTitleForPosterWebSearch(externalId, titleManual) {
   if (m) return m;
   const r = await ticketPool.query(
     `SELECT NULLIF(trim(COALESCE(payload_json->>'Name', payload_json->>'name', '')), '') AS n
-     FROM getbilet_catalog_cache WHERE repertoire_external_id = $1`,
+     FROM getbilet_catalog_cache WHERE repertoire_external_id = $1
+     ORDER BY synced_at DESC LIMIT 1`,
     [externalId],
   );
   const n = r.rows[0]?.n;

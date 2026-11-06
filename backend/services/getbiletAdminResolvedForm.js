@@ -43,7 +43,9 @@ export async function buildResolvedForForm(row) {
   if (ext) {
     try {
       const r = await ticketPool.query(
-        `SELECT payload_json FROM getbilet_catalog_cache WHERE repertoire_external_id = $1`,
+        `SELECT payload_json FROM getbilet_catalog_cache
+         WHERE repertoire_external_id = $1
+         ORDER BY synced_at DESC LIMIT 1`,
         [ext],
       );
       const raw = r.rows[0]?.payload_json;

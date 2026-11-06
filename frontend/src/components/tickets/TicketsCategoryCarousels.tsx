@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { parseISO, isValid } from 'date-fns';
 import {
@@ -18,6 +18,9 @@ type Props = {
   events: NormalizedBiletEvent[];
   sportEvents?: NormalizedBiletEvent[];
   listLoading: boolean;
+  /** Вставить блок сразу после рубрики с этим label (напр. «Детям») */
+  insertAfterLabel?: string;
+  insertAfterSlot?: ReactNode;
 };
 
 function timeMs(ev: NormalizedBiletEvent): number {
@@ -42,7 +45,73 @@ function isSportDirection(dir: CategoryDirection): boolean {
   return dir.genre?.trim().toLowerCase() === 'спорт' || dir.label.trim().toLowerCase() === 'спорт';
 }
 
-export function TicketsCategoryCarousels({ directions, events, sportEvents, listLoading }: Props) {
+function CornerArrow({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      className={styles.cornerArrow}
+      viewBox="8 8 16 16"
+      width={size}
+      height={size}
+      aria-hidden
+    >
+      <path
+        d="M10 10 L22 22 M14 22 H22 V14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+      />
+    </svg>
+  );
+}
+
+/** Как AssemblingTitle на Blog magazine — буквы собираются при появлении в viewport. */
+function AssemblingTitle({ text, to, id }: { text: string; to: string; id: string }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  const [on, setOn] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setOn(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const chars = useMemo(() => Array.from(text), [text]);
+
+  return (
+    <Link ref={ref} id={id} to={to} className={`${styles.titleLink}${on ? ` ${styles.titleOn}` : ''}`}>
+      {chars.map((ch, i) => (
+        <span
+          key={`${i}-${ch}`}
+          className={styles.titleChar}
+          style={{ transitionDelay: `${i * 28}ms` }}
+        >
+          {ch === ' ' ? '\u00A0' : ch}
+        </span>
+      ))}
+    </Link>
+  );
+}
+
+export function TicketsCategoryCarousels({
+  directions,
+  events,
+  sportEvents,
+  listLoading,
+  insertAfterLabel,
+  insertAfterSlot,
+}: Props) {
   const rows = useMemo(() => {
     return directions
       .map((d) => {
@@ -50,15 +119,14 @@ export function TicketsCategoryCarousels({ directions, events, sportEvents, list
         const q = d.q?.trim();
         if (!genre && !q) return { dir: d, items: [] as NormalizedBiletEvent[] };
         const source = isSportDirection(d) && sportEvents ? sportEvents : events;
-        const filtered = filterEventsClient(
-          source,
-          genre ? { genre } : { q: q! },
-        );
+        const filtered = filterEventsClient(source, genre ? { genre } : { q: q! });
         const sorted = sortCategoryEvents(filtered).slice(0, MAX_PER_ROW);
         return { dir: d, items: sorted };
       })
       .filter((r) => r.items.length > 0);
   }, [directions, events, sportEvents]);
+
+  const afterKey = insertAfterLabel?.trim().toLowerCase() || '';
 
   if (listLoading) {
     return (
@@ -77,38 +145,50 @@ export function TicketsCategoryCarousels({ directions, events, sportEvents, list
     );
   }
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0 && !insertAfterSlot) return null;
 
-  return (
-    <>
-      {rows.map(({ dir, items }) => (
-        <section
-          key={directionRowKey(dir)}
-          className={styles.block}
-          aria-labelledby={`cat-${encodeURIComponent(directionRowKey(dir))}`}
-        >
+  const rowByKey = new Map(rows.map((r) => [directionRowKey(r.dir), r]));
+  const order = directions.length > 0 ? directions : rows.map((r) => r.dir);
+  const nodes: ReactNode[] = [];
+  let inserted = false;
+
+  for (const dir of order) {
+    const row = rowByKey.get(directionRowKey(dir));
+    if (row) {
+      const href = buildEventsDirectionHref(dir);
+      const rowKey = directionRowKey(dir);
+      const titleId = `cat-${encodeURIComponent(rowKey)}`;
+      nodes.push(
+        <section key={rowKey} className={styles.block} aria-labelledby={titleId}>
           <div className={styles.head}>
-            <h2 id={`cat-${encodeURIComponent(directionRowKey(dir))}`} className={styles.title}>
-              {dir.label}
-            </h2>
-            <Link
-              className={styles.seeAll}
-              to={buildEventsDirectionHref(dir)}
-            >
-              Все события →
+            <AssemblingTitle text={dir.label} to={href} id={titleId} />
+            <Link className={styles.seeAll} to={href}>
+              <span>Все</span>
+              <CornerArrow />
             </Link>
           </div>
           <div className={styles.stripBleed}>
             <div className={styles.strip} role="list">
-              {items.map((ev) => (
+              {row.items.map((ev) => (
                 <div key={ev.id} className={styles.cardSlot} role="listitem">
                   <EventPosterCard event={ev} variant="compact" />
                 </div>
               ))}
             </div>
           </div>
-        </section>
-      ))}
-    </>
-  );
+        </section>,
+      );
+    }
+
+    if (!inserted && afterKey && dir.label.trim().toLowerCase() === afterKey && insertAfterSlot) {
+      nodes.push(<div key="insert-after-rubric">{insertAfterSlot}</div>);
+      inserted = true;
+    }
+  }
+
+  if (!inserted && insertAfterSlot) {
+    nodes.push(<div key="insert-after-rubric-fallback">{insertAfterSlot}</div>);
+  }
+
+  return <>{nodes}</>;
 }

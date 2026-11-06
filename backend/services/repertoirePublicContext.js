@@ -296,7 +296,10 @@ export async function loadRepertoireBase(repertoireId) {
 
   try {
     const r = await ticketPool.query(
-      `SELECT stage_id, payload_json FROM getbilet_catalog_cache WHERE repertoire_external_id = $1`,
+      `SELECT stage_id, payload_json FROM getbilet_catalog_cache
+       WHERE repertoire_external_id = $1
+       ORDER BY synced_at DESC
+       LIMIT 1`,
       [repertoireId],
     );
     const row = r.rows[0];
