@@ -7,6 +7,8 @@ import MapIcon from '@mui/icons-material/Map';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { EventsWeekMap } from '@/components/tickets/EventsWeekMap';
 import {
+  BILET_EVENTS_LITE_LIMIT,
+  biletEventsLiteQueryKey,
   fetchBiletEventsLite,
   isEventActual,
   normalizeBiletEventsPayload,
@@ -17,6 +19,7 @@ import {
   clusterPinsByVenue,
   filterEventsThisWeek,
 } from '@/utils/eventsMapWeek';
+import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 import styles from './EventsMapPage.module.css';
 
 type UserLocation = { lat: number; lng: number };
@@ -31,10 +34,11 @@ export function EventsMapPage() {
     document.body.setAttribute('data-page', '/events/map');
   }, []);
 
+  const cityId = useTicketsCityId();
   const { data: raw, isLoading, isError } = useQuery({
-    queryKey: ['bilet-events-map-week'],
-    queryFn: () => fetchBiletEventsLite(800),
-    staleTime: 60_000,
+    queryKey: biletEventsLiteQueryKey(cityId),
+    queryFn: () => fetchBiletEventsLite(BILET_EVENTS_LITE_LIMIT),
+    staleTime: 120_000,
     retry: 1,
   });
 

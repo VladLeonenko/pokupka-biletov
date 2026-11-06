@@ -15,6 +15,8 @@ import styles from './EventPosterCard.module.css';
 type Props = {
   event: NormalizedBiletEvent;
   variant?: 'poster' | 'compact';
+  /** Первые карточки каталога — eager + high fetchpriority (LCP) */
+  priority?: boolean;
 };
 
 /** Подпись API «Разное» и т.п. заменяем на эвристическую категорию */
@@ -53,7 +55,7 @@ function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
   return sched.join(' · ');
 }
 
-export function EventPosterCard({ event, variant = 'poster' }: Props) {
+export function EventPosterCard({ event, variant = 'poster', priority = false }: Props) {
   const to = ticketCheckoutHref(event);
   const { isFavorite, toggleEvent } = useTicketFavorites();
   const favId = favoriteIdFromEvent(event);
@@ -104,8 +106,9 @@ export function EventPosterCard({ event, variant = 'poster' }: Props) {
             fallbackSrc={placeholderSrc}
             gradientId={event.id}
             className={styles.img}
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
             decoding="async"
+            fetchPriority={priority ? 'high' : 'low'}
             role="card"
             width={240}
             height={360}

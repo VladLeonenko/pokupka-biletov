@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { IconButton, Tooltip } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -6,7 +6,13 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  BILET_EVENTS_LITE_LIMIT,
+  biletEventsLiteQueryKey,
+  fetchBiletEventsLite,
+} from '@/services/biletPublicApi';
+import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 import {
   addDays,
   addMonths,
@@ -53,6 +59,18 @@ export function TicketsHeader() {
   const [params, setParams] = useSearchParams();
   const selectedDate = params.get('date');
   const qFromEvents = loc.pathname === '/events' ? (params.get('q') ?? '') : '';
+  const queryClient = useQueryClient();
+  const cityId = useTicketsCityId();
+
+  const prefetchEventsCatalog = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: biletEventsLiteQueryKey(cityId),
+      queryFn: () => fetchBiletEventsLite(BILET_EVENTS_LITE_LIMIT),
+      staleTime: 120_000,
+    });
+    // Параллельно греем chunk страницы каталога
+    void import('@/pages/public/EventsSearchPage');
+  }, [queryClient, cityId]);
 
   const [searchInput, setSearchInput] = useState('');
   const [monthBlock, setMonthBlock] = useState(0);
@@ -247,7 +265,13 @@ export function TicketsHeader() {
 
           <nav className={styles.nav} aria-label="Основное меню">
             {NAV.map((item) => (
-              <Link key={item.to} to={item.to}>
+              <Link
+                key={item.to}
+                to={item.to}
+                onMouseEnter={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                onFocus={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                onTouchStart={item.to === '/events' ? prefetchEventsCatalog : undefined}
+              >
                 {item.label}
               </Link>
             ))}
@@ -261,6 +285,9 @@ export function TicketsHeader() {
                 size="medium"
                 className={styles.iconBtn}
                 sx={{ color: 'inherit' }}
+                onMouseEnter={prefetchEventsCatalog}
+                onFocus={prefetchEventsCatalog}
+                onTouchStart={prefetchEventsCatalog}
               >
                 <SearchIcon />
               </IconButton>
@@ -420,7 +447,13 @@ export function TicketsHeader() {
         {open && (
           <nav className={styles.mobileNav} aria-label="Мобильное меню">
             {NAV.map((item) => (
-              <Link key={item.to} to={item.to} onClick={() => setOpen(false)}>
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setOpen(false)}
+                onMouseEnter={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                onTouchStart={item.to === '/events' ? prefetchEventsCatalog : undefined}
+              >
                 {item.label}
               </Link>
             ))}

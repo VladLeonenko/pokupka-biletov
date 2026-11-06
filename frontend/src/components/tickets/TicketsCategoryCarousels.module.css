@@ -156,7 +156,8 @@
     max-width: none;
     margin-left: 0;
     margin-right: 0;
-    padding-left: 0;
+    /* небольшой отступ заголовка от левого края */
+    padding-left: 20px;
   }
 
   .titleChar {
@@ -164,11 +165,11 @@
   }
 
   .strip {
-    --cat-pad: 0px;
+    --cat-pad: 20px;
     --cat-pad-right: 16px;
-    padding-left: 0;
+    padding-left: var(--cat-pad);
     padding-right: var(--cat-pad-right);
-    scroll-padding-inline: 0 var(--cat-pad-right);
+    scroll-padding-inline: var(--cat-pad) var(--cat-pad-right);
   }
 
   .cardSlot {

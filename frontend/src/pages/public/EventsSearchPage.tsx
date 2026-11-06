@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   TextField,
   MenuItem,
-  Box,
   Chip,
   InputAdornment,
 } from '@mui/material';
@@ -12,6 +11,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import {
+  BILET_EVENTS_LITE_LIMIT,
+  biletEventsLiteQueryKey,
   dedupeBiletEventsByShow,
   fetchBiletEventsLite,
   fetchBiletVenues,
@@ -71,6 +72,9 @@ const LANDING_VENUE_TO_FILTER: Record<string, string> = {
   'vtb-arena': 'ВТБ Арена',
 };
 
+/** Первая порция + догрузка при скролле (не монтируем сотни карточек сразу). */
+const PAGE_SIZE = 24;
+
 export function EventsSearchPage() {
   const { citySlug, genreSlug, venueSlug } = useParams();
   const location = useLocation();
@@ -82,6 +86,8 @@ export function EventsSearchPage() {
 
   const [qInput, setQInput] = useState(qUrl);
   const [venueInput, setVenueInput] = useState(venueUrl);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setQInput(qUrl);
@@ -114,10 +120,11 @@ export function EventsSearchPage() {
 
   const cityId = useTicketsCityId();
 
-  const { data: raw, isLoading, isError } = useQuery({
-    queryKey: ['bilet-events-public', cityId],
-    queryFn: () => fetchBiletEventsLite(500),
-    staleTime: 60_000,
+  const { data: raw, isLoading, isError, isFetching } = useQuery({
+    queryKey: biletEventsLiteQueryKey(cityId),
+    queryFn: () => fetchBiletEventsLite(BILET_EVENTS_LITE_LIMIT),
+    staleTime: 120_000,
+    gcTime: 30 * 60_000,
     retry: 1,
   });
 
@@ -165,13 +172,40 @@ export function EventsSearchPage() {
   const uniqueFiltered = useMemo(() => dedupeBiletEventsByShow(filtered), [filtered]);
   const uniqueCatalogTotal = useMemo(() => dedupeBiletEventsByShow(allEvents), [allEvents]);
 
+  // Сброс окна при смене фильтра
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [qUrl, venueUrl, genreUrl, stageUrl, citySlug, genreSlug, venueSlug]);
+
+  const visibleEvents = useMemo(
+    () => uniqueFiltered.slice(0, visibleCount),
+    [uniqueFiltered, visibleCount],
+  );
+  const hasMore = visibleCount < uniqueFiltered.length;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((n) => Math.min(n + PAGE_SIZE, uniqueFiltered.length));
+  }, [uniqueFiltered.length]);
+
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) loadMore();
+      },
+      { rootMargin: '600px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loadMore, visibleEvents.length]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const p = new URLSearchParams();
     if (qInput.trim()) p.set('q', qInput.trim());
     if (venueInput.trim()) p.set('venue', venueInput.trim());
     if (genreUrl.trim()) p.set('genre', genreUrl.trim());
-    // Текстовый поиск сам матчит площадку (МХТ и т.п.) — stage-чип не держим, иначе «0 из N» при пустом зале
     if (!qInput.trim() && stageUrl.trim()) p.set('stageId', stageUrl.trim());
     setSearchParams(p, { replace: true });
   };
@@ -221,6 +255,8 @@ export function EventsSearchPage() {
       description: 'Поиск событий по названию, площадке и жанру.',
     };
   }, [citySlug, genreSlug, venueSlug]);
+
+  const showInitialSkeleton = isLoading && !raw;
 
   return (
     <>
@@ -340,7 +376,7 @@ export function EventsSearchPage() {
           ))}
         </div>
 
-        {isLoading && (
+        {showInitialSkeleton && (
           <div className={styles.grid} aria-busy="true" aria-label="Загрузка каталога">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className={styles.cardSkeleton} />
@@ -358,22 +394,32 @@ export function EventsSearchPage() {
           </p>
         )}
 
-        {!isLoading && !isError && (
+        {!showInitialSkeleton && !isError && (
           <p className={styles.count}>
             Найдено: {uniqueFiltered.length} из {uniqueCatalogTotal.length}
+            {isFetching && uniqueFiltered.length === 0 ? ' · обновляем…' : ''}
           </p>
         )}
 
-        {!isLoading && !isError && uniqueFiltered.length === 0 && (
+        {!showInitialSkeleton && !isError && uniqueFiltered.length === 0 && (
           <p className={styles.empty}>Ничего не найдено — смените запрос или сбросьте фильтры.</p>
         )}
 
-        {!isLoading && uniqueFiltered.length > 0 && (
-          <div className={styles.grid}>
-            {uniqueFiltered.map((ev) => (
-              <EventPosterCard key={ev.id} event={ev} />
-            ))}
-          </div>
+        {!showInitialSkeleton && visibleEvents.length > 0 && (
+          <>
+            <div className={styles.grid}>
+              {visibleEvents.map((ev, i) => (
+                <EventPosterCard key={ev.id} event={ev} priority={i < 4} />
+              ))}
+            </div>
+            {hasMore ? (
+              <div ref={loadMoreRef} className={styles.loadMoreSentinel} aria-hidden>
+                <div className={styles.loadMoreHint}>Загружаем ещё…</div>
+              </div>
+            ) : (
+              <p className={styles.endHint}>Показаны все {uniqueFiltered.length} событий</p>
+            )}
+          </>
         )}
 
         <section className={styles.seoLinksSection} aria-labelledby="seo-links-title">

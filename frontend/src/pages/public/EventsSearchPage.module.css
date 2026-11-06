@@ -173,6 +173,28 @@
   gap: 24px;
 }
 
+.loadMoreSentinel {
+  display: flex;
+  justify-content: center;
+  padding: 28px 0 8px;
+  min-height: 48px;
+}
+
+.loadMoreHint {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.endHint {
+  margin: 20px 0 0;
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+
 .seoLinksSection {
   margin-top: 48px;
   padding: 20px;

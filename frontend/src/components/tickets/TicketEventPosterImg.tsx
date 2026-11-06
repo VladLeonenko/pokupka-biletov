@@ -67,6 +67,43 @@ export function TicketEventPosterImg({
   const webp = !useRaw ? toRoleWebpUrl(current, role, width) : null;
   const imgSrc = webp || current;
 
+  const onImgError = () => {
+    if (webp && !useRaw) {
+      setUseRaw(true);
+      return;
+    }
+    if (!triedFallback && fallback && current !== fallback) {
+      setTriedFallback(true);
+      setUseRaw(false);
+      setCurrent(fallback);
+      return;
+    }
+    setCurrent('');
+  };
+
+  // <picture> + type=image/webp — браузер сразу берёт WebP-ветку, без sniff JPEG
+  if (webp) {
+    return (
+      <picture>
+        <source srcSet={webp} type="image/webp" sizes={sizes || undefined} />
+        <img
+          src={imgSrc}
+          srcSet={useSrcSet ? srcSet : undefined}
+          sizes={sizes || undefined}
+          alt={alt}
+          className={className}
+          loading={loading}
+          decoding={decoding}
+          fetchPriority={fetchPriority}
+          width={width}
+          height={height}
+          referrerPolicy="no-referrer"
+          onError={onImgError}
+        />
+      </picture>
+    );
+  }
+
   return (
     <img
       src={imgSrc}
@@ -80,19 +117,7 @@ export function TicketEventPosterImg({
       width={width}
       height={height}
       referrerPolicy="no-referrer"
-      onError={() => {
-        if (webp && !useRaw) {
-          setUseRaw(true);
-          return;
-        }
-        if (!triedFallback && fallback && current !== fallback) {
-          setTriedFallback(true);
-          setUseRaw(false);
-          setCurrent(fallback);
-          return;
-        }
-        setCurrent('');
-      }}
+      onError={onImgError}
     />
   );
 }

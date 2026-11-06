@@ -10,15 +10,17 @@ const OPTIMIZE_PATH = '/api/images/optimize';
 
 /** Display-oriented defaults (2× retina-ish). */
 export const IMAGE_OPT = {
-  cover: { w: 960, q: 75 },
-  heroBg: { w: 1280, q: 72 },
-  card: { w: 480, q: 75 },
+  cover: { w: 960, q: 72 },
+  heroBg: { w: 1280, q: 70 },
+  /** Карточки афиши: хватает ~360 CSS px ×2dppx → 480–560; меньше = быстрее paint */
+  card: { w: 400, q: 68 },
 } as const;
 
 function isRasterUrl(src: string): boolean {
   if (!src || src.startsWith('data:') || src.startsWith('blob:')) return false;
   if (/\.svg(\?|#|$)/i.test(src)) return false;
-  if (/\.(avif|webp)(\?|#|$)/i.test(src)) return false;
+  // Уже WebP/AVIF без resize — не гоняем через optimize повторно
+  if (/\.(avif|webp)(\?|#|$)/i.test(src) && !src.includes('/api/images/optimize')) return false;
   return true;
 }
 
@@ -65,11 +67,9 @@ export function toRoleWebpUrl(
   if (role === 'cover') {
     return toWebpUrl(src, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q });
   }
-  const w =
-    widthAttr && widthAttr > 0
-      ? Math.min(640, Math.max(IMAGE_OPT.card.w, Math.round(widthAttr * 2)))
-      : IMAGE_OPT.card.w;
-  return toWebpUrl(src, { w, q: IMAGE_OPT.card.q });
+  // card: фиксированный бюджет (~400px), иначе widthAttr×2 раздувает до 640 и тормозит paint
+  void widthAttr;
+  return toWebpUrl(src, { w: IMAGE_OPT.card.w, q: IMAGE_OPT.card.q });
 }
 
 export function isCoverImage(role: ImageRole): boolean {

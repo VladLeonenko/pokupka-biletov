@@ -15,6 +15,8 @@ import {
 import {
   dedupeBiletEventsByShow,
   fetchBiletHome,
+  BILET_EVENTS_LITE_LIMIT,
+  biletEventsLiteQueryKey,
   fetchBiletEventsLite,
   isEventActual,
   normalizeBiletEventsPayload,
@@ -49,10 +51,10 @@ export function HomePage() {
     initialDataUpdatedAt: sessionEvents?.updatedAt,
   });
 
-  /** Полный lite-каталог: фильтр по дате и спорт — не урезанный /home (≤120). */
+  /** Полный lite-каталог: фильтр по дате и спорт — не урезанный /home (≤120). Ключ общий с /events. */
   const { data: rawSportLite, isPending: sportEventsPending } = useQuery({
-    queryKey: ['bilet-events-lite-public', cityId, 'sport-home'],
-    queryFn: () => fetchBiletEventsLite(2000),
+    queryKey: biletEventsLiteQueryKey(cityId),
+    queryFn: () => fetchBiletEventsLite(BILET_EVENTS_LITE_LIMIT),
     staleTime: 120_000,
     gcTime: 30 * 60_000,
     retry: 1,

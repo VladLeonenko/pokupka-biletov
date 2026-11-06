@@ -489,11 +489,17 @@ export async function fetchBiletHome(): Promise<unknown> {
   return res.json();
 }
 
-export async function fetchBiletEventsLite(limit = 200): Promise<unknown> {
+/** Общий лимит/ключ — главная и /events шарят react-query кэш. */
+export const BILET_EVENTS_LITE_LIMIT = 2000;
+export function biletEventsLiteQueryKey(cityIdValue: string) {
+  return ['bilet-events-lite-public', cityIdValue] as const;
+}
+
+export async function fetchBiletEventsLite(limit = BILET_EVENTS_LITE_LIMIT): Promise<unknown> {
   const base = getApiBase();
   const meta = await resolveBiletMetaForFetch();
   const params = new URLSearchParams();
-  params.set('limit', String(Math.max(1, Math.min(limit, 500))));
+  params.set('limit', String(Math.max(1, Math.min(limit, 2500))));
   if (meta.cityIdRequired) {
     params.set('cityId', cityId());
   }
