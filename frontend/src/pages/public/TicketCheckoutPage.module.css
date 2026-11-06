@@ -549,19 +549,6 @@ img.heroPosterImg {
   display: block;
 }
 
-.hallPlaceholder {
-  border: 1px dashed rgba(0, 0, 0, 0.15);
-  border-radius: 12px;
-  background: #fff;
-}
-
-.hallPlaceholder code {
-  font-size: 0.82em;
-  background: rgba(0, 0, 0, 0.06);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
 .primaryHallMap {
   margin-bottom: 18px;
   border: 1px solid rgba(0, 0, 0, 0.08);

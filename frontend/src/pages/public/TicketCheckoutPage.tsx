@@ -1835,19 +1835,6 @@ export function TicketCheckoutPage() {
             </Alert>
           )}
 
-          {showHallMissingCard ? (
-            <Paper
-              className={styles.hallPlaceholder}
-              elevation={0}
-              sx={{ mb: 3, p: 2.5, bgcolor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.08)' }}
-            >
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65, m: 0 }}>
-                План зала для этого события временно недоступен в сервисе. Выберите зону и места в списке ниже. Если
-                нужна схема рассадки — уточните у организатора или{' '}
-                <Link to="/contacts">напишите нам</Link>.
-              </Typography>
-            </Paper>
-          ) : null}
         </Box>
 
         <Box
