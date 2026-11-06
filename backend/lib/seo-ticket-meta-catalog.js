@@ -186,7 +186,7 @@ export const TICKET_SEO = {
   'ivan-grozny-2026-11-11': {
     title: 'Иван Грозный{{dateShort}} — Историческая сцена Большого{{price}}',
     description:
-      'Балет Прокофьева / Григоровича «Иван Грозный»{{price}} — {{when}}, {{venue}}. 11 ноября, 13:00 и 19:00, 6+. ' +
+      'Балет Прокофьева / Григоровича «Иван Грозный»{{price}} — {{when}}, {{venue}}. 11 и 26 ноября, 6+. ' +
       'Предзаказ по секторам зала, оплата онлайн, электронный билет.',
     h1: 'Билеты на балет «Иван Грозный»',
     keywords:
@@ -194,6 +194,45 @@ export const TICKET_SEO = {
     defaults: {
       venue: 'Большой театр — Историческая сцена, Москва',
       beginDateTime: '2026-11-11T13:00:00+03:00',
+    },
+  },
+  'doch-faraona-2026-11-28': {
+    title: 'Дочь Фараона{{dateShort}} — Историческая сцена Большого{{price}}',
+    description:
+      'Балет «Дочь Фараона»{{price}} — {{when}}, {{venue}}. 28–29 ноября, 6+. ' +
+      'Предзаказ по секторам зала, оплата онлайн, электронный билет.',
+    h1: 'Билеты на балет «Дочь Фараона»',
+    keywords:
+      'дочь фараона большой театр билеты, купить билеты дочь фараона большой, балет дочь фараона историческая сцена, большой театр билеты ноябрь',
+    defaults: {
+      venue: 'Большой театр — Историческая сцена, Москва',
+      beginDateTime: '2026-11-28T12:00:00+03:00',
+    },
+  },
+  'petrushka-shekherazada-zhar-ptica-2026-11-24': {
+    title: 'Петрушка. Шехеразада. Жар-птица{{dateShort}} — Большой{{price}}',
+    description:
+      'Балеты «Петрушка», «Шехеразада», «Жар-птица»{{price}} — {{when}}, {{venue}}. 24–25 ноября, 19:00, 6+. ' +
+      'Предзаказ по секторам, оплата онлайн, электронный билет.',
+    h1: 'Билеты на «Петрушка. Шехеразада. Жар-птица»',
+    keywords:
+      'петрушка большой театр билеты, шехеразада большой театр, жар-птица балет билеты, петрушка шехеразада жар птица большой',
+    defaults: {
+      venue: 'Большой театр — Историческая сцена, Москва',
+      beginDateTime: '2026-11-24T19:00:00+03:00',
+    },
+  },
+  'turandot-2026-11-20': {
+    title: 'Турандот{{dateShort}} — Историческая сцена Большого{{price}}',
+    description:
+      'Опера Пуччини «Турандот»{{price}} — {{when}}, {{venue}}. 20–22 ноября, 12+. ' +
+      'Предзаказ по секторам зала, оплата онлайн, электронный билет.',
+    h1: 'Билеты на оперу «Турандот»',
+    keywords:
+      'турандот большой театр билеты, купить билеты турандот большой, опера турандот москва историческая сцена, большой театр билеты ноябрь',
+    defaults: {
+      venue: 'Большой театр — Историческая сцена, Москва',
+      beginDateTime: '2026-11-20T19:00:00+03:00',
     },
   },
   'chipollino-2026-11-06': {
@@ -434,14 +473,14 @@ export function applyTicketSeoPlaceholders(entry, opts = {}) {
  */
 export function composeAutoTicketTitle(p) {
   const facts = buildTicketSeoFacts(p);
-  const venueShort = shortEventTitle(facts.venue || '', 28);
+  const venueShort = facts.venue ? shortEventTitle(facts.venue, 28) : '';
   const suffixParts = [];
   if (facts.dateShort) suffixParts.push(facts.dateShort.replace(/^,\s*/, ''));
   if (venueShort) suffixParts.push(venueShort);
   if (facts.price) suffixParts.push(facts.price.trim());
   const suffix = suffixParts.length ? ` — ${suffixParts.join(', ')}` : '';
   const nameBudget = Math.max(18, 70 - suffix.length);
-  const name = shortEventTitle(p.displayTitle || 'Мероприятие', nameBudget);
+  const name = shortEventTitle(p.displayTitle || '', nameBudget) || 'Билеты';
   return clipMeta(`${name}${suffix}`, 70);
 }
 
@@ -456,9 +495,18 @@ export function composeAutoTicketTitle(p) {
  *   genreLabel?: string | null;
  * }} p
  */
+/** Убрать внешние «ёлочки», чтобы не получить ««Название»». */
+function stripOuterGuillemets(s) {
+  return String(s || '')
+    .trim()
+    .replace(/^[«"]+/g, '')
+    .replace(/[»"]+$/g, '')
+    .trim();
+}
+
 export function composeAutoTicketDescription(p) {
   const facts = buildTicketSeoFacts(p);
-  const short = shortEventTitle(p.displayTitle || 'Мероприятие', 42);
+  const short = stripOuterGuillemets(shortEventTitle(p.displayTitle || '', 42) || 'событие');
   const genre = String(p.genreLabel || '').trim();
   const bits = [];
   if (facts.when) bits.push(facts.when);
@@ -470,7 +518,12 @@ export function composeAutoTicketDescription(p) {
   let lead = '';
   if (p.lead && bits.length < 2) {
     const raw = String(p.lead).trim();
-    lead = raw.length > 70 ? ` ${raw.slice(0, 70).replace(/\s+\S*$/, '')}` : ` ${raw}`;
+    // Не тащить в meta lead со старым «удобный выбор мест»
+    if (/удобный выбор мест/i.test(raw)) {
+      lead = '';
+    } else {
+      lead = raw.length > 70 ? ` ${raw.slice(0, 70).replace(/\s+\S*$/, '')}` : ` ${raw}`;
+    }
   }
   const body = `${head}${mid}${lead} ${MECHANICS}.`;
   return clipMeta(body, 160);
