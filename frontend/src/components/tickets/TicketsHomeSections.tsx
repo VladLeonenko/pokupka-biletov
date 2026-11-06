@@ -2,7 +2,7 @@ import { NeglinkaHero } from './NeglinkaHero';
 import { NeglinkaEventRows } from './NeglinkaEventRows';
 import { TicketsCategoryCarousels } from './TicketsCategoryCarousels';
 import type { CategoryDirection } from './TicketsCategoryCarousels';
-import { TicketsTrustStrip, TicketsHomeExtras } from './TicketsHomeBlocks';
+import { TicketsHomeExtras } from './TicketsHomeBlocks';
 import { EventPosterCard } from './EventPosterCard';
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
@@ -58,8 +58,6 @@ export function TicketsHomeSections({
       <div className={styles.heroSlot}>
         <NeglinkaHero slides={hero} loading={heroLoading} telegramUrl={telegramUrl} vkUrl={vkUrl} />
       </div>
-
-      {!dateFilterActive && <TicketsTrustStrip />}
 
       {catalogError && !listLoading ? (
         <p className={styles.catalogError}>

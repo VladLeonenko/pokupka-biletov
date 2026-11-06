@@ -15,7 +15,7 @@
 }
 
 .inner {
-  max-width: 1120px;
+  max-width: var(--tickets-max, 1440px);
   margin: 0 auto;
   padding: 0 16px;
 }

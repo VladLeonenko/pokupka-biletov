@@ -1,34 +1,7 @@
 import { Link } from 'react-router-dom';
-import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
-import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
-import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { EventPosterCard } from './EventPosterCard';
 import styles from './TicketsHomeBlocks.module.css';
-
-const TRUST = [
-  {
-    icon: <CreditCardOutlinedIcon sx={{ fontSize: 28 }} />,
-    title: 'Оплата онлайн',
-    text: 'Банковские карты и популярные способы оплаты.',
-  },
-  {
-    icon: <EmailOutlinedIcon sx={{ fontSize: 28 }} />,
-    title: 'Билет на почту',
-    text: 'Электронный билет и доступ в личном кабинете.',
-  },
-  {
-    icon: <HeadsetMicOutlinedIcon sx={{ fontSize: 28 }} />,
-    title: 'Поддержка',
-    text: 'Помощь с заказом и входом на мероприятие.',
-  },
-  {
-    icon: <VerifiedUserOutlinedIcon sx={{ fontSize: 28 }} />,
-    title: 'Безопасная сделка',
-    text: 'Оформление через проверенный платёжный поток.',
-  },
-];
 
 const STEPS = [
   { n: '01', title: 'Выберите событие', text: 'Фильтры по дате, площадке и жанру в каталоге.' },
@@ -50,31 +23,6 @@ const FAQ = [
     a: 'Для оформления заказа достаточно указать контакты; личный кабинет удобен, чтобы хранить все билеты в одном месте.',
   },
 ];
-
-export function TicketsTrustStrip() {
-  return (
-    <section className={styles.trust} aria-labelledby="trust-heading">
-      <div className={styles.trustInner}>
-        <h2 id="trust-heading" className={styles.visuallyHidden}>
-          Преимущества сервиса
-        </h2>
-        <ul className={styles.trustGrid}>
-          {TRUST.map((t) => (
-            <li key={t.title} className={styles.trustCard}>
-              <div className={styles.trustIcon} aria-hidden>
-                {t.icon}
-              </div>
-              <div>
-                <h3 className={styles.trustTitle}>{t.title}</h3>
-                <p className={styles.trustText}>{t.text}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
 
 type Props = {
   events: NormalizedBiletEvent[];

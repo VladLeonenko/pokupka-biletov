@@ -27,7 +27,7 @@
 .heroInner {
   position: relative;
   z-index: 1;
-  max-width: 1180px;
+  max-width: var(--tickets-max, 1440px);
   margin: 0 auto;
   padding: clamp(32px, 6vw, 56px) clamp(20px, 5vw, 40px);
 }

@@ -8,7 +8,7 @@
 }
 
 .shell {
-  max-width: 1080px;
+  max-width: var(--tickets-max, 1440px);
   margin: 0 auto;
   padding: 0 clamp(16px, 4vw, 28px) 56px;
   box-sizing: border-box;
@@ -34,7 +34,7 @@
 .heroGrid {
   position: relative;
   z-index: 1;
-  max-width: 1180px;
+  max-width: var(--tickets-max, 1440px);
   margin: 0 auto;
   padding: clamp(36px, 7vw, 64px) clamp(20px, 5vw, 40px);
   display: grid;
