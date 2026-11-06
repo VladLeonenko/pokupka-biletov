@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { IconButton, Tooltip } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -50,8 +50,9 @@ function isYearMonth(s: string | null): s is string {
 export function TicketsHeader() {
   const [open, setOpen] = useState(false);
   const [calendarCollapsed, setCalendarCollapsed] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
   const calendarBodyRef = useRef<HTMLDivElement>(null);
+  const calendarBodyInnerRef = useRef<HTMLDivElement>(null);
+  const [calendarBodyMaxH, setCalendarBodyMaxH] = useState<number | null>(null);
   const loc = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -129,8 +130,7 @@ export function TicketsHeader() {
       setCalendarCollapsed((collapsed) => {
         if (collapsed) return collapsed;
         const bodyH = calendarBodyRef.current?.scrollHeight ?? 130;
-        // прячем, когда уже можно компенсировать высоту без рывка
-        if (y >= bodyH + 48) return true;
+        if (y >= Math.min(72, bodyH * 0.35)) return true;
         return collapsed;
       });
     };
@@ -145,29 +145,38 @@ export function TicketsHeader() {
     };
   }, [homePaths]);
 
-  // Компенсация изменения высоты sticky — кадр с hero остаётся на месте
-  useEffect(() => {
-    if (!homePaths) return;
-    const el = wrapRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    let lastH = el.getBoundingClientRect().height;
-    const ro = new ResizeObserver(() => {
-      const h = el.getBoundingClientRect().height;
-      const delta = lastH - h;
-      if (Math.abs(delta) < 0.5) return;
-      lastH = h;
-      // Компенсируем только усадку (collapse). Рост при раскрытии — без push scroll.
-      if (delta <= 0) return;
-      const y = window.scrollY || document.documentElement.scrollTop || 0;
-      if (y < 1) return;
-      window.scrollTo({ top: Math.max(0, y - delta), left: 0, behavior: 'auto' });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [homePaths]);
-
   /** Какой месяц показывают плитки дней (не фильтр афиши). */
   const [viewYm, setViewYm] = useState(() => format(today, 'yyyy-MM'));
+
+  // Плавная высота дат в px — hero поднимается вместе с transition (без scrollTo-рывков)
+  useLayoutEffect(() => {
+    if (!homePaths) return;
+    const inner = calendarBodyInnerRef.current;
+    if (!inner) return;
+    const contentH = () => Math.max(inner.scrollHeight, 1);
+    if (!calendarCollapsed) {
+      setCalendarBodyMaxH(contentH());
+      return;
+    }
+    const from = Math.max(contentH(), calendarBodyMaxH ?? 0, 1);
+    setCalendarBodyMaxH(from);
+    const id = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setCalendarBodyMaxH(0));
+    });
+    return () => window.cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- анимация только при смене collapsed
+  }, [homePaths, calendarCollapsed]);
+
+  useEffect(() => {
+    if (!homePaths || calendarCollapsed) return;
+    const inner = calendarBodyInnerRef.current;
+    if (!inner) return;
+    const syncH = () => setCalendarBodyMaxH(Math.max(inner.scrollHeight, 1));
+    syncH();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncH) : null;
+    ro?.observe(inner);
+    return () => ro?.disconnect();
+  }, [homePaths, calendarCollapsed, viewYm, monthBlock]);
 
   // Legacy ?date=yyyy-MM → только вид месяца, без фильтра «весь месяц»
   useEffect(() => {
@@ -386,7 +395,7 @@ export function TicketsHeader() {
   const isMonthActive = (d: Date) => format(d, 'yyyy-MM') === viewYm;
 
   return (
-    <div ref={wrapRef} role="banner" className={styles.wrap} data-tickets-nav>
+    <div role="banner" className={styles.wrap} data-tickets-nav>
       <div className={styles.inner}>
         <div
           className={`${styles.rowTop} ${logoPlacement === 'center' ? styles.rowTopLogoCenter : ''}`.trim()}
@@ -513,9 +522,12 @@ export function TicketsHeader() {
           <div
             ref={calendarBodyRef}
             className={`${styles.calendarBody} ${calendarCollapsed ? styles.calendarBodyCollapsed : ''}`}
+            style={{
+              maxHeight: calendarBodyMaxH == null ? undefined : calendarBodyMaxH,
+            }}
             aria-hidden={calendarCollapsed ? 'true' : undefined}
           >
-            <div className={styles.calendarBodyInner}>
+            <div ref={calendarBodyInnerRef} className={styles.calendarBodyInner}>
               <div className={styles.monthNav} aria-label="Быстрый выбор месяца">
                 <button
                   type="button"

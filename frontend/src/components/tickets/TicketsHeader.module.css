@@ -233,7 +233,7 @@
 .calendarRow {
   padding: 10px 0 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  transition: padding 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: padding 1.05s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .calendarLabel {
@@ -251,7 +251,7 @@
   gap: 10px;
   flex: 0 0 auto;
   margin-bottom: 10px;
-  transition: margin-bottom 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: margin-bottom 1.05s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .calendarRow:has(.calendarBodyCollapsed) .calendarTitleRow {
@@ -262,28 +262,28 @@
   padding-bottom: 8px;
 }
 
-/* Мягкое схлопывание дат: длинный ease + без transform на sticky */
+/*
+  Высота анимируется в px через inline maxHeight —
+  layout (и hero под sticky) едет плавно вместе с датами.
+*/
 .calendarBody {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  max-height: 280px;
+  transition: max-height 1.05s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .calendarBodyCollapsed {
-  grid-template-rows: 0fr;
   pointer-events: none;
 }
 
 .calendarBodyInner {
-  overflow: hidden;
-  min-height: 0;
   opacity: 1;
-  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.12s;
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.08s;
 }
 
 .calendarBodyCollapsed .calendarBodyInner {
   opacity: 0;
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .calendarToggle {
