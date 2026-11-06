@@ -22,25 +22,55 @@ type Props = {
 };
 
 /**
- * Soft-nav left the hydrate shell → full document load into createRoot App.
- * Never assign the exact same href (infinite reload).
+ * Soft-nav left the hydrate shell (home-only ↔ ticket-only) → full document load.
+ * `*` means this shell has no matching route — always hard-nav.
+ * Do NOT skip when `isReactSsrTicketsPath`: home shell has only `/`, so
+ * `/ticket/:slug` would otherwise render blank forever (header+footer only).
+ * Never assign the exact same href (infinite reload) — bump `_` if needed.
  */
 function LeaveReactSsrShell() {
   const location = useLocation();
   const tried = useRef(false);
   useEffect(() => {
     if (tried.current) return;
-    if (isReactSsrTicketsPath(location.pathname)) return;
     tried.current = true;
     const url = new URL(window.location.href);
-    if (!url.searchParams.has('bv_full')) {
+    const moneyPath = isReactSsrTicketsPath(location.pathname);
+    if (moneyPath) {
+      // home↔ticket: clean URL so server SSR + correct hydrate kind
+      url.searchParams.delete('bv_full');
+      url.searchParams.delete('_');
+    } else if (!url.searchParams.has('bv_full')) {
       url.searchParams.set('bv_full', '1');
     } else {
       url.searchParams.set('_', String(Date.now()));
     }
-    window.location.replace(url.pathname + url.search + url.hash);
+    const next = url.pathname + url.search + url.hash;
+    const cur = window.location.pathname + window.location.search + window.location.hash;
+    if (next === cur) {
+      url.searchParams.set('_', String(Date.now()));
+      window.location.replace(url.pathname + url.search + url.hash);
+      return;
+    }
+    window.location.replace(next);
   }, [location.pathname, location.search, location.hash]);
-  return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        minHeight: '40vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#666',
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: 14,
+      }}
+    >
+      Загрузка…
+    </div>
+  );
 }
 
 function TicketsThemeBoot() {
