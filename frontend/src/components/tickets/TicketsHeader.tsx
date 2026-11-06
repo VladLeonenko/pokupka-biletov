@@ -50,7 +50,6 @@ function isYearMonth(s: string | null): s is string {
 export function TicketsHeader() {
   const [open, setOpen] = useState(false);
   const [calendarCollapsed, setCalendarCollapsed] = useState(false);
-  const calendarUserOverrideRef = useRef<'expand' | 'collapse' | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const calendarBodyRef = useRef<HTMLDivElement>(null);
   const loc = useLocation();
@@ -113,41 +112,32 @@ export function TicketsHeader() {
   const today = useMemo(() => startOfToday(), []);
   const dayStripRef = useRef<HTMLDivElement>(null);
 
-  // Авто-скрытие при скролле: прячем только когда уже «набрали» высоту дат —
-  // тогда компенсация scrollY не уводит в 0 и не дёргает hero.
+  // Авто-скрытие только вниз по скроллу. Обратно — только «Показать даты».
   useEffect(() => {
     if (!homePaths) {
-      calendarUserOverrideRef.current = null;
       setCalendarCollapsed(false);
       return;
     }
-    const SHOW_BEFORE = 20;
     let raf = 0;
+    let lastY = window.scrollY || document.documentElement.scrollTop || 0;
     const sync = () => {
       raf = 0;
       const y = window.scrollY || document.documentElement.scrollTop || 0;
-      const override = calendarUserOverrideRef.current;
-      if (y <= SHOW_BEFORE) {
-        calendarUserOverrideRef.current = null;
-        setCalendarCollapsed(false);
-        return;
-      }
-      if (override === 'expand') return;
-      if (override === 'collapse') {
-        setCalendarCollapsed(true);
-        return;
-      }
-      const bodyH = calendarBodyRef.current?.scrollHeight ?? 130;
-      // запас: схлопываем, только если после компенсации останемся выше SHOW_BEFORE
-      if (y >= bodyH + SHOW_BEFORE + 28) {
-        setCalendarCollapsed(true);
-      }
+      const goingDown = y > lastY + 2;
+      lastY = y;
+      if (!goingDown) return;
+      setCalendarCollapsed((collapsed) => {
+        if (collapsed) return collapsed;
+        const bodyH = calendarBodyRef.current?.scrollHeight ?? 130;
+        // прячем, когда уже можно компенсировать высоту без рывка
+        if (y >= bodyH + 48) return true;
+        return collapsed;
+      });
     };
     const onScroll = () => {
       if (raf) return;
       raf = window.requestAnimationFrame(sync);
     };
-    sync();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
@@ -515,13 +505,7 @@ export function TicketsHeader() {
               type="button"
               className={styles.calendarToggle}
               aria-expanded={!calendarCollapsed}
-              onClick={() => {
-                setCalendarCollapsed((value) => {
-                  const next = !value;
-                  calendarUserOverrideRef.current = next ? 'collapse' : 'expand';
-                  return next;
-                });
-              }}
+              onClick={() => setCalendarCollapsed((value) => !value)}
             >
               {calendarCollapsed ? 'Показать даты' : 'Скрыть даты'}
             </button>
