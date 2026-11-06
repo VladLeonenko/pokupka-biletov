@@ -687,7 +687,6 @@ export function TicketCheckoutPage() {
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('md'));
-  const [showOfferListMobile, setShowOfferListMobile] = useState(false);
   useEffect(() => {
     setSelectedSessionKey(defaultSessionKey);
   }, [repertoireId, defaultSessionKey]);
@@ -1303,7 +1302,6 @@ export function TicketCheckoutPage() {
     hallMapSessionKey && hallMapSessionKey !== '_' ? hallMapSessionKey : null;
 
   const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
-  const hideOfferListBehindMap = Boolean(hallMapReady && isMobileViewport && !showOfferListMobile);
 
   /**
    * CWV: don't parse/paint TicketHallInteractiveBlock until the map stage is near viewport.
@@ -2066,20 +2064,7 @@ export function TicketCheckoutPage() {
 
 
 
-          {hallMapReady && isMobileViewport && !hideSeatListUi ? (
-            <Box sx={{ mb: 2 }}>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => setShowOfferListMobile((v) => !v)}
-                sx={{ fontWeight: 700, color: 'var(--neg-orange, #ff4e18)' }}
-              >
-                {showOfferListMobile ? 'Скрыть список мест' : 'Список мест без схемы'}
-              </Button>
-            </Box>
-          ) : null}
-
-          {!isLoading && !isError && listableOffers.length > 0 && !hideOfferListBehindMap && (
+          {!isLoading && !isError && listableOffers.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
                 Фильтр
@@ -2341,7 +2326,7 @@ export function TicketCheckoutPage() {
             </Paper>
           )}
 
-          {bySession.size > 0 && !hideSeatListUi && !hideOfferListBehindMap && (
+          {bySession.size > 0 && !hideSeatListUi && (
             seatListPrimary ? (
               <Paper
                 elevation={0}

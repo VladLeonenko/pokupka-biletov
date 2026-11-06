@@ -122,6 +122,28 @@ describe('svgNativeSeatLayout', () => {
     expect(out).not.toMatch(/id="1"/);
   });
 
+  it('empty SeatList does not paint the whole SVG row as available', () => {
+    const seats = parseLayoutSeatPositions({
+      seats: [
+        { sector: 'Партер', row: '11', seat: '1', xPct: 10, yPct: 10 },
+        { sector: 'Партер', row: '11', seat: '2', xPct: 20, yPct: 10 },
+        { sector: 'Партер', row: '11', seat: '3', xPct: 30, yPct: 10 },
+        { sector: 'Партер', row: '12', seat: '4', xPct: 10, yPct: 20 },
+        { sector: 'Партер', row: '12', seat: '5', xPct: 20, yPct: 20 },
+      ],
+    });
+    const result = buildSvgNativePlacements(
+      seats,
+      [
+        { Id: 'row-level', Sector: 'партер', Row: '11', SeatList: [], AgentPrice: '76500' },
+        { Id: 'real', Sector: 'партер', Row: '12', SeatList: ['4', '5'], AgentPrice: '55100' },
+      ],
+      (offer) => String(offer.AgentPrice ?? ''),
+    );
+    expect(result.placements.map((p) => p.seat).sort()).toEqual(['4', '5']);
+    expect(result.placements.every((p) => p.offerId === 'real')).toBe(true);
+  });
+
   it('same seat prefers OwnOffer over a cheaper competitor', () => {
     const seats = parseLayoutSeatPositions({
       seats: [{ sector: 'Партер', row: '1', seat: '2', xPct: 10, yPct: 10 }],
