@@ -1,0 +1,1119 @@
+{
+  "status": "success",
+  "result": {
+    "saleStatus": "available",
+    "hallplan": {
+      "totalSeatCount": 925,
+      "availableSeatCount": 11,
+      "seatGroups": [],
+      "categories": [
+        {
+          "id": -1210637487,
+          "name": "144810000022_800000",
+          "categoryType": "regular",
+          "priceInfos": [
+            {
+              "price": {
+                "currencyCode": "rub",
+                "value": 800000
+              },
+              "fee": {
+                "currencyCode": "rub",
+                "value": 79200
+              },
+              "total": {
+                "currencyCode": "rub",
+                "value": 879200
+              }
+            }
+          ],
+          "priceChanges": [],
+          "supplementLimits": []
+        },
+        {
+          "id": -1266048747,
+          "name": "144810000022_620000",
+          "categoryType": "regular",
+          "priceInfos": [
+            {
+              "price": {
+                "currencyCode": "rub",
+                "value": 620000
+              },
+              "fee": {
+                "currencyCode": "rub",
+                "value": 61300
+              },
+              "total": {
+                "currencyCode": "rub",
+                "value": 681300
+              }
+            }
+          ],
+          "priceChanges": [],
+          "supplementLimits": []
+        }
+      ],
+      "maxTicketsCount": 4,
+      "allowCompositeOrders": false,
+      "levels": [
+        {
+          "id": 16,
+          "name": "Ложа Б. Бельэтаж",
+          "seats": [],
+          "rows": [
+            {
+              "row": "1",
+              "seatCount": 5,
+              "xCoord": 1266,
+              "yCoord": 869
+            }
+          ],
+          "admission": false,
+          "availableSeatCount": 0,
+          "outline": " M1240.0 794.0 L1314.0 794.0 C1320.6274185180664 794.0 1326.0 799.3725829124451 1326.0 806.0 L1326.0 935.0 C1326.0 941.6274108886719 1320.6274185180664 947.0 1314.0 947.0 L1240.0 947.0 C1233.372582912445 947.0 1228.0 941.6274108886719 1228.0 935.0 L1228.0 806.0 C1228.0 799.3725829124451 1233.372582912445 794.0 1240.0 794.0 Z",
+          "sections": [],
+          "categories": [],
+          "prices": [],
+          "priority": 2147483647
+        },
+        {
+          "id": 18,
+          "name": "Ложа А. Бенуар",
+          "seats": [
+            {
+              "seat": {
+                "place": "1",
+                "row": "1",
+                "xCoord": 271,
+                "yCoord": 980,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132969",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000787_192510000207_192510000114",
+              "levelId": 18,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            }
+          ],
+          "rows": [
+            {
+              "row": "1",
+              "seatCount": 5,
+              "xCoord": 249,
+              "yCoord": 940
+            }
+          ],
+          "admission": false,
+          "availableSeatCount": 1,
+          "outline": " M180.0 918.0 L320.0 918.0 C326.6274108886719 918.0 332.0 923.3725829124451 332.0 930.0 L332.0 1006.0 C332.0 1012.6274185180664 326.6274108886719 1018.0 320.0 1018.0 L180.0 1018.0 C173.37258291244507 1018.0 168.0 1012.6274185180664 168.0 1006.0 L168.0 930.0 C168.0 923.3725829124451 173.37258291244507 918.0 180.0 918.0 Z",
+          "sections": [],
+          "categories": [
+            {
+              "id": -1210637487,
+              "name": "144810000022_800000",
+              "categoryType": "regular",
+              "priceInfos": [],
+              "priceChanges": [],
+              "availableSeatCount": 1,
+              "supplementLimits": []
+            }
+          ],
+          "prices": [
+            {
+              "currencyCode": "rub",
+              "value": 800000
+            }
+          ],
+          "priority": 2147483647
+        },
+        {
+          "id": 2,
+          "name": "Партер правая сторона",
+          "seats": [
+            {
+              "seat": {
+                "place": "6",
+                "row": "1",
+                "xCoord": 518,
+                "yCoord": 958,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132487",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "7",
+                "row": "1",
+                "xCoord": 538,
+                "yCoord": 958,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132779",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "8",
+                "row": "1",
+                "xCoord": 558,
+                "yCoord": 958,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132780",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "9",
+                "row": "1",
+                "xCoord": 578,
+                "yCoord": 958,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132526",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "10",
+                "row": "1",
+                "xCoord": 598,
+                "yCoord": 958,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132301",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "11",
+                "row": "1",
+                "xCoord": 618,
+                "yCoord": 958,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132758",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "12",
+                "row": "2",
+                "xCoord": 637,
+                "yCoord": 936,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132824",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            },
+            {
+              "seat": {
+                "place": "13",
+                "row": "2",
+                "xCoord": 657,
+                "yCoord": 936,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132783",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000785_192510000207",
+              "levelId": 2,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            }
+          ],
+          "rows": [
+            {
+              "row": "11",
+              "seatCount": 11,
+              "xCoord": 457,
+              "yCoord": 737
+            },
+            {
+              "row": "12",
+              "seatCount": 10,
+              "xCoord": 478,
+              "yCoord": 716
+            },
+            {
+              "row": "13",
+              "seatCount": 8,
+              "xCoord": 518,
+              "yCoord": 694
+            },
+            {
+              "row": "14",
+              "seatCount": 5,
+              "xCoord": 578,
+              "yCoord": 671
+            },
+            {
+              "row": "1",
+              "seatCount": 14,
+              "xCoord": 398,
+              "yCoord": 958
+            },
+            {
+              "row": "2",
+              "seatCount": 14,
+              "xCoord": 398,
+              "yCoord": 936
+            },
+            {
+              "row": "3",
+              "seatCount": 14,
+              "xCoord": 398,
+              "yCoord": 914
+            },
+            {
+              "row": "4",
+              "seatCount": 13,
+              "xCoord": 418,
+              "yCoord": 892
+            },
+            {
+              "row": "5",
+              "seatCount": 13,
+              "xCoord": 418,
+              "yCoord": 870
+            },
+            {
+              "row": "6",
+              "seatCount": 13,
+              "xCoord": 418,
+              "yCoord": 847
+            },
+            {
+              "row": "7",
+              "seatCount": 13,
+              "xCoord": 418,
+              "yCoord": 825
+            },
+            {
+              "row": "8",
+              "seatCount": 13,
+              "xCoord": 418,
+              "yCoord": 803
+            },
+            {
+              "row": "9",
+              "seatCount": 13,
+              "xCoord": 418,
+              "yCoord": 781
+            },
+            {
+              "row": "10",
+              "seatCount": 12,
+              "xCoord": 437,
+              "yCoord": 759
+            }
+          ],
+          "admission": false,
+          "availableSeatCount": 8,
+          "outline": " M407.9184265136719 710.2740020751953 L410.12475967407227 708.3370819091797 C410.12475967407227 708.3370819091797 436.75498962402344 685.1721267700195 438.23522186279297 684.1801376342773 C461.0807342529297 668.8599548339844 485.59376525878906 655.6778907775879 511.62408447265625 644.7360458374023 C558.4938812255859 625.0325164794922 608.0757751464844 613.5711567401886 659.3682556152344 610.5511635541916 C662.4699401855469 610.3679820299149 668.6342468261719 610.1627786308527 674.4470520019531 610.004621880129 C681.3244323730469 609.8174363523722 687.0 615.339910030365 687.0 622.2177267074585 L687.0 1005.7839050292969 C687.0 1012.5305786132812 681.5277404785156 1018.0 674.7775268554688 1018.0 L368.0181541442871 1018.0 C361.3811287879944 1018.0 356.0 1012.6216735839844 356.0 1005.9880981445312 L356.0 1004.1362609863281 L356.0 824.9186248779297 C356.0 786.9319763183594 379.3632926940918 735.3418502807617 407.9184265136719 710.2740020751953 Z",
+          "sections": [],
+          "categories": [
+            {
+              "id": -1210637487,
+              "name": "144810000022_800000",
+              "categoryType": "regular",
+              "priceInfos": [],
+              "priceChanges": [],
+              "availableSeatCount": 8,
+              "supplementLimits": []
+            }
+          ],
+          "prices": [
+            {
+              "currencyCode": "rub",
+              "value": 800000
+            }
+          ],
+          "priority": 2147483647
+        },
+        {
+          "id": 19,
+          "name": "Ложа Б. Бенуар",
+          "seats": [],
+          "rows": [
+            {
+              "row": "1",
+              "seatCount": 5,
+              "xCoord": 1101,
+              "yCoord": 940
+            }
+          ],
+          "admission": false,
+          "availableSeatCount": 0,
+          "outline": " M1192.0 918.0 L1052.0 918.0 C1045.372582912445 918.0 1040.0 923.3725829124451 1040.0 930.0 L1040.0 1006.0 C1040.0 1012.6274185180664 1045.372582912445 1018.0 1052.0 1018.0 L1192.0 1018.0 C1198.6274108886719 1018.0 1204.0 1012.6274185180664 1204.0 1006.0 L1204.0 930.0 C1204.0 923.3725829124451 1198.6274108886719 918.0 1192.0 918.0 Z",
+          "sections": [],
+          "categories": [],
+          "prices": [],
+          "priority": 2147483647
+        },
+        {
+          "id": 6,
+          "name": "Ложа 1. Бенуар правая сторона",
+          "seats": [
+            {
+              "seat": {
+                "place": "1",
+                "row": "1",
+                "xCoord": 229,
+                "yCoord": 888,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132257",
+              "categoryId": -1210637487,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 800000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 79200
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 879200
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000787_192510000207_192510000223",
+              "levelId": 6,
+              "admission": false,
+              "sourceCategoryId": "144810000022_800000",
+              "categories": [
+                {
+                  "id": -1210637487,
+                  "sourceCategoryId": "144810000022_800000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 800000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 79200
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 879200
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            }
+          ],
+          "rows": [
+            {
+              "row": "1",
+              "seatCount": 6,
+              "xCoord": 229,
+              "yCoord": 866
+            }
+          ],
+          "admission": false,
+          "availableSeatCount": 1,
+          "outline": " M332.0 898.340747833252 L332.0 847.8318185806274 C332.0 841.2977690696716 326.71299743652344 836.0 320.19000244140625 836.0 L179.8100004196167 836.0 C173.28700017929077 836.0 168.0 841.2977690696716 168.0 847.8318185806274 L168.0 900.3815078735352 L168.0 905.9778289794922 C168.0 912.617073059082 173.3730001449585 918.0 180.0 918.0 L320.0 918.0 C326.6269989013672 918.0 332.0 912.617073059082 332.0 905.9778289794922 L332.0 898.340747833252 Z",
+          "sections": [],
+          "categories": [
+            {
+              "id": -1210637487,
+              "name": "144810000022_800000",
+              "categoryType": "regular",
+              "priceInfos": [],
+              "priceChanges": [],
+              "availableSeatCount": 1,
+              "supplementLimits": []
+            }
+          ],
+          "prices": [
+            {
+              "currencyCode": "rub",
+              "value": 800000
+            }
+          ],
+          "priority": 2147483647
+        },
+        {
+          "id": 8,
+          "name": "Бельэтаж правая сторона",
+          "seats": [
+            {
+              "seat": {
+                "place": "10",
+                "row": "3",
+                "xCoord": 302,
+                "yCoord": 397,
+                "linkedSeats": []
+              },
+              "sourceSeatId": "144610132657",
+              "categoryId": -1266048747,
+              "priceInfo": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 620000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 61300
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 681300
+                }
+              },
+              "originalPrice": {
+                "price": {
+                  "currencyCode": "rub",
+                  "value": 620000
+                },
+                "fee": {
+                  "currencyCode": "rub",
+                  "value": 61300
+                },
+                "total": {
+                  "currencyCode": "rub",
+                  "value": 681300
+                }
+              },
+              "priceChangesInfo": [],
+              "extSessionId": 375900436,
+              "sourceLevelId": "192510000788_192510000207",
+              "levelId": 8,
+              "admission": false,
+              "sourceCategoryId": "144810000022_620000",
+              "categories": [
+                {
+                  "id": -1266048747,
+                  "sourceCategoryId": "144810000022_620000",
+                  "priceInfo": {
+                    "price": {
+                      "currencyCode": "rub",
+                      "value": 620000
+                    },
+                    "fee": {
+                      "currencyCode": "rub",
+                      "value": 61300
+                    },
+                    "total": {
+                      "currencyCode": "rub",
+                      "value": 681300
+                    }
+                  },
+                  "categoryType": "regular"
+                }
+              ],
+              "serviceId": "bolshoi-theatre-9768",
+              "gatewaySessionId": "150610044877"
+            }
+          ],
+          "rows": [
+            {
+              "row": "1",
+              "seatCount": 23,
+              "xCoord": 196,
+              "yCoord": 540
+            },
+            {
+              "row": "2",
+              "seatCount": 23,
+              "xCoord": 192,
+              "yCoord": 510
+            },
+            {
+              "row": "3",
+              "seatCount": 25,
+              "xCoord": 161,
+              "yCoord": 511
+            }
+          ],
+          "admission": false,
+          "availableSeatCount": 1,
+          "outline": " M232.5278778076172 586.6852416992188 L235.61770629882812 582.9609680175781 C236.4912109375 581.6408996582031 240.17137145996094 577.5498657226562 246.65818786621094 570.6868591308594 C256.3879089355469 560.392333984375 263.04481506347656 555.3219909667969 268.1768341064453 550.8192749023438 L270.8644104003906 548.4639587402344 C301.94268798828125 521.4505615234375 308.16534423828125 516.117431640625 320.34149169921875 507.9643249511719 C354.3764953613281 485.1598815917969 391.1200866699219 465.41119384765625 429.54669189453125 449.2709045410156 C504.8829650878906 417.6258544921875 584.7288818359375 400.4263153076172 667.1743774414062 398.05303955078125 C669.2245483398438 397.99407958984375 671.758056640625 397.94212341308594 674.7728271484375 397.8961486816406 C681.55078125 397.7942352294922 687.0 392.2782287597656 687.0 385.50914001464844 L687.0 246.3890199661255 C687.0 239.4870252609253 681.3486938476562 233.91406653821468 674.4396362304688 234.00000000000003 C670.702392578125 234.04796943813562 667.599609375 234.102929584682 665.129150390625 234.16588392853737 C561.4241943359375 236.81496286392212 460.87408447265625 258.3253650665283 365.92828369140625 298.2064437866211 C317.7949981689453 318.4247817993164 271.7049102783203 343.2038116455078 228.9547882080078 371.8490447998047 C207.83136749267578 385.99278259277344 195.6161880493164 396.61009216308594 162.96499633789062 424.9925079345703 L159.8741798400879 427.6995391845703 C139.2730712890625 445.7734375 119.66254425048828 466.43345642089844 101.53989315032959 488.99609375 L101.48686194419861 489.0620422363281 C97.47650492191315 494.0514221191406 98.42106008529663 501.3701171875 103.56608390808105 505.1813659667969 L216.22930145263672 588.65283203125 C221.32329559326172 592.4270935058594 228.48150634765625 591.5627136230469 232.5278778076172 586.6852416992188 Z",
+          "sections": [],
+          "categories": [
+            {
+              "id": -1266048747,
+              "name": "144810000022_620000",
+              "categoryType": "regular",
+              "priceInfos": [],
+              "priceChanges": [],
+              "availableSeatCount": 1,
+              "supplementLimits": []
+            }
+          ],
+          "prices": [
+            {
+              "currencyCode": "rub",
+              "value": 620000
+            }
+          ],
+          "priority": 2147483647
+        }
+      ],
+      "sessionServices": [
+        {
+          "extSessionId": 375900436,
+          "serviceName": "Большой театр",
+          "serviceId": 9768,
+          "serviceDescription": "ГАБТ России",
+          "protocolName": "BOLSHOI_THEATRE",
+          "offerUrl": "https://yandex.ru/legal/concerts_tickets_booking_conditions_offer",
+          "saleStatus": "available",
+          "cancelAllowance": "by-support",
+          "saleCanceling": "3600000",
+          "preorderAllowance": "not-allowed",
+          "serviceOrganizationInfo": "ООО «Яндекс Музыка» 115035, г. Москва, ул. Садовническая, д. 82, стр. 2, помещ. 10а05 ИНН: 9705121040 ОГРН: 1187746644920 Время работы: пн-пт 10:00–19:00",
+          "organizerInfo": "Федеральное государственное бюджетное учреждение культуры «Государственный академический Большой театр России» 125009, г. Москва, Театральная пл., д. 1 ИНН: 7707079537 ОГРН: 1027739303800",
+          "enabledSmartCaptcha": false
+        }
+      ],
+      "prices": [
+        {
+          "currencyCode": "rub",
+          "value": 800000
+        },
+        {
+          "currencyCode": "rub",
+          "value": 620000
+        }
+      ],
+      "supplements": [],
+      "settings": {
+        "hideAdmissionAvailableSeatsCount": true
+      }
+    },
+    "operationStatus": "completed",
+    "hallplanDisplayType": "with-seats",
+    "extLoyalty": []
+  }
+}

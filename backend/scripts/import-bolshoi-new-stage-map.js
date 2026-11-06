@@ -12,12 +12,11 @@
  *   STAGE_MAP_STAGE_ID=bolshoi-new-stage
  *   STAGE_MAP_TITLE=Большой театр — Новая сцена
  *   STAGE_MAP_AFISHA_JSON=backend/data/bolshoi-new/afisha-hallplan-levels.json
- *   STAGE_MAP_INCLUDE_DECOR=0  (default) — НЕ клеить afisha-xyz-hallscheme (чужой crop/coords)
- *   STAGE_MAP_DECOR_SVG=…     — только если INCLUDE_DECOR=1
  *   STAGE_MAP_SVG_PATH=frontend/public/hall-maps/bolshoi-new-stage.svg
  *   STAGE_MAP_BUNDLE_PATH=backend/data/bolshoi-geodesy/hand/bolshoi-new-stage-seats.bundle.json
  *
- * Контуры секторов в SVG = convex hull от тех же seat x/y (редактируются в hall editor mode ⬡).
+ * Места: hallplan x_coord/y_coord as-is (НЕ двигать).
+ * Серые зоны + ⬡ = level.outline (тот же path, без отдельного hull-stroke).
  */
 
 import fs from 'node:fs';
@@ -26,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 import ticketPool from '../ticketDb.js';
 import { buildBolshoiSectors } from '../utils/bolshoiHistoricalHallSvg.js';
+import { buildSectorsFromAfishaOutlines } from '../utils/bolshoiNewStageAfishaOutlines.js';
 import { collapseBolshoiNewStageToParterMid } from '../utils/bolshoiNewStageParterCheckout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,35 +63,12 @@ function esc(s) {
     .replace(/>/g, '&gt;');
 }
 
-function parseHallDimsFromSvg(markup, fallbackW, fallbackH) {
-  const vb = markup.match(/viewBox\s*=\s*["']\s*0\s+0\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/i);
-  if (vb) {
-    return { hallWidth: Math.round(Number(vb[1])), hallHeight: Math.round(Number(vb[2])) };
-  }
-  const w = markup.match(/<svg\b[^>]*\bwidth="(\d+(?:\.\d+)?)/i);
-  const h = markup.match(/<svg\b[^>]*\bheight="(\d+(?:\.\d+)?)/i);
-  return {
-    hallWidth: w ? Math.round(Number(w[1])) : fallbackW,
-    hallHeight: h ? Math.round(Number(h[1])) : fallbackH,
-  };
-}
-
-/** Decorative Afisha hallscheme (paths/labels) without nested <svg>. */
-function extractDecorInner(markup) {
-  if (!markup) return '';
-  const m = markup.match(/<svg\b[^>]*>([\s\S]*)<\/svg>/i);
-  let inner = m ? m[1] : markup;
-  // drop nested svg if any
-  inner = inner.replace(/<\/?svg\b[^>]*>/gi, '');
-  return inner.trim();
-}
-
 /**
- * @param {{ levels: Array<{ id?: number, name: string, seats: Array<{ place: string, row: string, x_coord: number, y_coord: number }> }>, stage?: object }} hallplan
- * @param {{ hallWidth: number, hallHeight: number, decorInner?: string }} opts
+ * @param {{ levels: Array<{ id?: number, name: string, outline?: string, seats: Array<{ place: string, row: string, x_coord: number, y_coord: number }> }>, stage?: object }} hallplan
+ * @param {{ hallWidth: number, hallHeight: number }} opts
  */
 export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
-  const { hallWidth, hallHeight, decorInner = '' } = opts;
+  const { hallWidth, hallHeight } = opts;
   const levels = Array.isArray(hallplan?.levels) ? hallplan.levels : [];
   if (!levels.length) throw new Error('afisha hallplan: нет levels');
 
@@ -132,12 +109,15 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
     throw new Error(`afisha hallplan: слишком мало мест (${places.length})`);
   }
 
-  const sectors = buildBolshoiSectors(places);
+  const outlineBuilt = buildSectorsFromAfishaOutlines(levels, buildBolshoiSectors);
+  const sectors = outlineBuilt.sectors;
+  if (!sectors.length) throw new Error('afisha hallplan: нет outline-секторов');
+
   const rDot = Math.max(2.4, Math.min(hallWidth, hallHeight) * 0.0026);
   const circles = places
     .map(
       (p) =>
-        `    <circle cx="${p.cx.toFixed(2)}" cy="${p.cy.toFixed(2)}" r="${rDot.toFixed(2)}" place-name="${esc(p.section)}" row="${esc(p.row)}" place="${esc(p.seat)}" fill="#c8ccd4" stroke="none"/>`,
+        `    <circle cx="${p.cx.toFixed(2)}" cy="${p.cy.toFixed(2)}" r="${rDot.toFixed(2)}" place-name="${esc(p.section)}" row="${esc(p.row)}" place="${esc(p.seat)}" fill="#f97316" stroke="none"/>`,
     )
     .join('\n');
 
@@ -149,27 +129,38 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
     ? Number(stage.y_coord) + 8
     : Math.round(hallHeight * 0.97);
 
-  const decorBlock = decorInner
-    ? `  <g id="bolshoi-new-stage-decor" opacity="0.55" pointer-events="none">\n${decorInner}\n  </g>\n`
-    : '';
-
-  const sectorOutlines = sectors
+  /**
+   * ONE path per sector: gray fill + sector-contour (same d).
+   * No separate hull stroke layer — that was the bad «линии».
+   */
+  const sectorPaths = sectors
     .map(
       (s) =>
-        `    <path class="sector-contour" d="${esc(s.path)}" fill="none" stroke="rgba(15,23,42,0.45)" stroke-width="1.6" data-sector="${esc(s.label)}" pointer-events="stroke"/>`,
+        `    <path class="sector-contour" d="${esc(s.path)}" fill="#d4d4d0" fill-opacity="0.92" stroke="none" data-sector="${esc(s.label)}" pointer-events="fill"/>`,
     )
+    .join('\n');
+
+  const sectorLabels = sectors
+    .map((s) => {
+      const fsPx = s.totalSeats <= 8 ? 9 : s.totalSeats <= 20 ? 10 : 11;
+      return `    <text x="${s.centroid.x.toFixed(1)}" y="${s.centroid.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fsPx}" fill="rgba(90,90,86,0.8)" pointer-events="none">${esc(s.label)}</text>`;
+    })
     .join('\n');
 
   const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${hallWidth} ${hallHeight}" width="${hallWidth}" height="${hallHeight}">
   <title>${esc(TITLE)}</title>
-  <desc>Yandex Afisha hallplan levels JSON — labeled seats, no NN align</desc>
-${decorBlock}  <g id="bolshoi-new-stage-scene">
-    <text x="${stageX.toFixed(1)}" y="${stageY.toFixed(1)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(15, 23, 42, 0.45)">Сцена</text>
+  <desc>Afisha seats as-is + level.outline as gray fills/contours (no hull strokes)</desc>
+  <rect width="100%" height="100%" fill="#0a0a0a"/>
+  <g id="bolshoi-new-stage-sector-outlines">
+${sectorPaths}
   </g>
-  <g id="bolshoi-new-stage-sector-outlines" fill="none">
-${sectorOutlines}
+  <g id="bolshoi-new-stage-scene">
+    <text x="${stageX.toFixed(1)}" y="${stageY.toFixed(1)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(200,200,196,0.55)">Сцена</text>
   </g>
-  <g id="bolshoi-new-stage-seats" fill="#c8ccd4" stroke="none">
+  <g id="bolshoi-new-stage-sector-labels" pointer-events="none">
+${sectorLabels}
+  </g>
+  <g id="bolshoi-new-stage-seats" fill="#f97316" stroke="none">
 ${circles}
   </g>
 </svg>
@@ -189,12 +180,13 @@ ${circles}
 
   const sectorMode = {
     enabled: true,
-    source: 'bolshoi-new-stage-afisha-levels',
+    source: 'bolshoi-new-stage-afisha-outlines',
     sectors: sectors.map((s) => ({
       id: s.id,
       label: s.label,
       path: s.path,
       maxQuantity: Math.min(8, Math.max(1, s.totalSeats || 8)),
+      totalSeats: s.totalSeats,
     })),
   };
 
@@ -203,6 +195,7 @@ ${circles}
     hallHeight,
     places,
     sectors,
+    outlineBuilt,
     sectorCounts: Object.fromEntries([...sectorCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ru'))),
     svgMarkup,
     allSeatCoordinates,
@@ -218,27 +211,20 @@ async function main() {
   const jsonAbs = path.isAbsolute(jsonRel) ? jsonRel : path.join(REPO_ROOT, jsonRel);
   if (!fs.existsSync(jsonAbs)) throw new Error(`Нет Afisha JSON: ${jsonAbs}`);
 
-  const includeDecor = truthyEnv('STAGE_MAP_INCLUDE_DECOR', false);
-  const decorRel =
-    optionalEnv('STAGE_MAP_DECOR_SVG') ||
-    'backend/data/bolshoi-new/afisha-xyz-hallscheme.svg';
-  const decorAbs = path.isAbsolute(decorRel) ? decorRel : path.join(REPO_ROOT, decorRel);
-  /** По умолчанию без xyz-декора: чужая СК → контуры «плывут» относительно кружков мест. */
-  const decorMarkup =
-    includeDecor && fs.existsSync(decorAbs) ? fs.readFileSync(decorAbs, 'utf8') : '';
-
-  const dims = decorMarkup
-    ? parseHallDimsFromSvg(decorMarkup, 1373, 1107)
-    : { hallWidth: 1373, hallHeight: 1107 };
-  const hallWidth = Number(optionalEnv('STAGE_MAP_HALL_WIDTH', String(dims.hallWidth)));
-  const hallHeight = Number(optionalEnv('STAGE_MAP_HALL_HEIGHT', String(dims.hallHeight)));
+  const hallWidth = Number(optionalEnv('STAGE_MAP_HALL_WIDTH', '1373'));
+  const hallHeight = Number(optionalEnv('STAGE_MAP_HALL_HEIGHT', '1107'));
 
   const hallplan = JSON.parse(fs.readFileSync(jsonAbs, 'utf8'));
   const built = buildTheaterLayoutFromAfishaHallplan(hallplan, {
     hallWidth,
     hallHeight,
-    decorInner: decorMarkup ? extractDecorInner(decorMarkup) : '',
   });
+  console.log(
+    `[import-bolshoi-new-stage] transform=${built.outlineBuilt.transform} containment=${built.outlineBuilt.overallPct.toFixed(1)}% (${built.outlineBuilt.insideTotal}/${built.outlineBuilt.seatTotal})`,
+  );
+  for (const m of built.outlineBuilt.metrics) {
+    console.log(`  ${m.label}: ${m.pct}% (${m.inside}/${m.seats}) ${m.source}`);
+  }
 
   const svgOutRel =
     optionalEnv('STAGE_MAP_SVG_PATH') || 'frontend/public/hall-maps/bolshoi-new-stage.svg';
@@ -255,7 +241,7 @@ async function main() {
     stageExternalId: STAGE_ID,
     hallWidth: built.hallWidth,
     hallHeight: built.hallHeight,
-    note: 'afisha hallplan levels → seats (no NN align)',
+    note: 'afisha hallplan seats as-is + level.outline gray fills (no hulls, no seat move)',
     seats: built.seats,
   };
   fs.mkdirSync(path.dirname(bundleOut), { recursive: true });
@@ -280,7 +266,7 @@ async function main() {
     maxZoomMultiplier: Number.isFinite(maxZoom) ? maxZoom : 2,
     sectorFocusZoomMultiplier: Number.isFinite(maxZoom) ? maxZoom : 2,
     hallKind: optionalEnv('STAGE_MAP_HALL_KIND', 'theater'),
-    hallViewportBackground: '#ffffff',
+    hallViewportBackground: '#0a0a0a',
     preferLayoutSeatPositions: true,
     /** Как Историческая: qty по сектору, без выбора конкретного места. */
     hallPreviewSectorCheckout: true,
@@ -293,17 +279,18 @@ async function main() {
     },
     bolshoiNewStage: {
       sourceJson: path.relative(REPO_ROOT, jsonAbs),
-      decorSvg: decorMarkup ? path.relative(REPO_ROOT, decorAbs) : null,
-      includeDecor,
       hallWidth: built.hallWidth,
       hallHeight: built.hallHeight,
       placeCount: built.places.length,
       sectorCount: built.sectorMode.sectors.length,
       sectorCounts: built.sectorCounts,
+      transform: built.outlineBuilt.transform,
+      containmentPct: built.outlineBuilt.overallPct,
+      containmentMetrics: built.outlineBuilt.metrics,
       importedAt: new Date().toISOString(),
-      pipeline: 'afisha-json-direct-hulls',
+      pipeline: 'afisha-outline-fills-no-hull-strokes',
     },
-    note: 'bolshoi-new: Afisha hallplan JSON seats + hull paths from same coords (no xyz decor)',
+    note: 'bolshoi-new: seats as-is; gray fills+⬡ = level.outline; no convex-hull strokes',
   };
 
   /** Продажа: один сектор «Партер (середина)» = лейбл ManualOffer из seed. */
@@ -334,7 +321,7 @@ async function main() {
         TITLE,
         built.svgMarkup,
         JSON.stringify(layoutJson),
-        `Bolshoi new-stage Afisha import: places=${built.places.length}; sectors=${built.sectorMode.sectors.length}; from ${path.basename(jsonAbs)}`,
+        `Bolshoi new-stage: places=${built.places.length}; outline sectors=${built.sectorMode.sectors.length}; containment=${built.outlineBuilt.overallPct.toFixed(1)}%; no hull strokes`,
         optionalEnv(
           'STAGE_MAP_EXTERNAL_PLAN_URL',
           'https://bolshoi.ru/visit/halls/new_stage/',
@@ -351,6 +338,8 @@ async function main() {
         applyDb,
         places: built.places.length,
         sectors: built.sectorMode.sectors.length,
+        transform: built.outlineBuilt.transform,
+        containmentPct: built.outlineBuilt.overallPct,
         sectorCounts: built.sectorCounts,
         hallWidth: built.hallWidth,
         hallHeight: built.hallHeight,
