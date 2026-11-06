@@ -154,19 +154,22 @@ export function TicketsHeader() {
   /** Какой месяц показывают плитки дней (не фильтр афиши). */
   const [viewYm, setViewYm] = useState(() => format(today, 'yyyy-MM'));
 
-  // Legacy ?date=yyyy-MM раньше «выбирал весь месяц» — теперь только листаем ленту дней
+  // Legacy ?date=yyyy-MM → только вид месяца, без фильтра «весь месяц»
   useEffect(() => {
     if (!homePaths || !isYearMonth(selectedDate)) return;
-    setViewYm(selectedDate);
-    const monthStart = parseISO(`${selectedDate}-01`);
+    const ym = selectedDate;
+    setViewYm(ym);
+    const monthStart = parseISO(`${ym}-01`);
     if (isValid(monthStart)) {
       const diff = differenceInCalendarMonths(startOfMonth(monthStart), startOfMonth(today));
       if (diff >= 0) setMonthBlock(Math.floor(diff / 3));
     }
     const next = new URLSearchParams(params);
+    if (!next.has('date')) return;
     next.delete('date');
     setParams(next, { replace: true });
-  }, [homePaths, selectedDate, today, params, setParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- только при legacy yyyy-MM в URL
+  }, [homePaths, selectedDate, today, setParams]);
 
   // Синхрон viewYm с выбранным днём
   useEffect(() => {
@@ -174,17 +177,10 @@ export function TicketsHeader() {
     const d = parseISO(selectedDate);
     if (!isValid(d)) return;
     const ym = format(d, 'yyyy-MM');
-    setViewYm(ym);
+    setViewYm((prev) => (prev === ym ? prev : ym));
     const diff = differenceInCalendarMonths(startOfMonth(d), startOfMonth(today));
     if (diff >= 0) setMonthBlock(Math.floor(diff / 3));
   }, [homePaths, selectedDate, today]);
-
-  // Сброс скролла дней при смене месяца
-  useEffect(() => {
-    const el = dayStripRef.current;
-    if (!el) return;
-    el.scrollLeft = 0;
-  }, [viewYm]);
 
   const days = useMemo(() => {
     if (!homePaths) {
@@ -208,7 +204,6 @@ export function TicketsHeader() {
   }, [today, monthBlock]);
 
   const setDate = (iso: string) => {
-    // Кликнули день — только конкретная дата в URL (не весь месяц)
     if (homePaths) {
       const next = new URLSearchParams(params);
       if (selectedDate === iso) {
@@ -222,10 +217,9 @@ export function TicketsHeader() {
     navigate(`/?date=${encodeURIComponent(iso)}`);
   };
 
-  /** Пилюля месяца: переключает ленту дней, не выбирает «все даты месяца». */
+  /** Пилюля месяца: только лента дней, без выбора всех дат. */
   const focusMonthYm = (ym: string) => {
     setViewYm(ym);
-    // Если в URL застрял legacy ?date=yyyy-MM — убираем, иначе афиша фильтрует весь месяц
     if (homePaths && isYearMonth(selectedDate)) {
       const next = new URLSearchParams(params);
       next.delete('date');
@@ -233,82 +227,126 @@ export function TicketsHeader() {
     }
   };
 
-  // Drag ЛКМ; тачпад/колёсико → горизонтальный скролл ленты; touch — нативный pan-x
+  // Смена месяца → в начало ленты; выбор дня → центрируем плитку
   useEffect(() => {
     const el = dayStripRef.current;
     if (!el || calendarCollapsed) return;
-    let dragging = false;
-    let startX = 0;
-    let startScroll = 0;
-    let moved = false;
+    if (selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) && selectedDate.startsWith(viewYm)) {
+      const btn = el.querySelector<HTMLElement>(`[data-day-iso="${selectedDate}"]`);
+      if (btn) {
+        btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        return;
+      }
+    }
+    el.scrollTo({ left: 0, behavior: 'smooth' });
+  }, [viewYm, calendarCollapsed]); // не на каждый selectedDate — иначе дёргает при клике
 
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') return;
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      dragging = true;
-      moved = false;
-      startX = e.clientX;
-      startScroll = el.scrollLeft;
-      el.classList.add(styles.calendarStripDragging);
-      el.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dx = e.clientX - startX;
-      if (Math.abs(dx) > 4) moved = true;
-      el.scrollLeft = startScroll - dx;
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      if (!dragging) return;
+  useEffect(() => {
+    const el = dayStripRef.current;
+    if (!el || calendarCollapsed) return;
+    if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return;
+    if (!selectedDate.startsWith(viewYm)) return;
+    const btn = el.querySelector<HTMLElement>(`[data-day-iso="${selectedDate}"]`);
+    btn?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [selectedDate, viewYm, calendarCollapsed]);
+
+  /**
+   * Лента дат — предсказуемо:
+   * - тач / горизонтальный тачпад: нативный overflow-x
+   * - ЛКМ: drag после порога 8px (клик по дню не ломается)
+   * - вертикальный тачпад: страница (не перехватываем)
+   * - shift+wheel: горизонтально по ленте
+   */
+  useEffect(() => {
+    const el = dayStripRef.current;
+    if (!el || calendarCollapsed) return;
+
+    const DRAG_THRESHOLD = 8;
+    let activeId: number | null = null;
+    let startX = 0;
+    let originScroll = 0;
+    let dragging = false;
+
+    const endDrag = (e: PointerEvent) => {
+      if (activeId !== e.pointerId) return;
+      const wasDragging = dragging;
+      activeId = null;
       dragging = false;
       el.classList.remove(styles.calendarStripDragging);
       try {
-        el.releasePointerCapture(e.pointerId);
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-      if (moved) {
-        const block = (ev: Event) => {
+      if (wasDragging) {
+        const suppress = (ev: Event) => {
           ev.preventDefault();
           ev.stopPropagation();
-          el.removeEventListener('click', block, true);
+          el.removeEventListener('click', suppress, true);
         };
-        el.addEventListener('click', block, true);
+        el.addEventListener('click', suppress, true);
       }
     };
-    const normalizeDelta = (e: WheelEvent) => {
-      // 0=px, 1=line, 2=page — Safari/тачпад часто LINE
-      const line = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1;
-      return { x: e.deltaX * line, y: e.deltaY * line };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      if (e.button !== 0) return;
+      activeId = e.pointerId;
+      startX = e.clientX;
+      originScroll = el.scrollLeft;
+      dragging = false;
     };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (activeId !== e.pointerId) return;
+      const dx = e.clientX - startX;
+      if (!dragging) {
+        if (Math.abs(dx) < DRAG_THRESHOLD) return;
+        dragging = true;
+        el.classList.add(styles.calendarStripDragging);
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      }
+      el.scrollLeft = originScroll - dx;
+    };
+
     const onWheel = (e: WheelEvent) => {
       if (el.scrollWidth <= el.clientWidth + 1) return;
-      const { x, y } = normalizeDelta(e);
-      // Двухпальцевый жест: берём доминирующую ось; вертикальный жест тоже листает даты
-      const absX = Math.abs(x);
-      const absY = Math.abs(y);
+      const line = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1;
+      const rawX = e.deltaX * line;
+      const rawY = e.deltaY * line;
+      const absX = Math.abs(rawX);
+      const absY = Math.abs(rawY);
       if (absX < 0.5 && absY < 0.5) return;
-      const dx = absX >= absY ? x : y;
-      const maxScroll = el.scrollWidth - el.clientWidth;
-      const next = Math.min(maxScroll, Math.max(0, el.scrollLeft + dx));
-      if (next === el.scrollLeft) return;
+
+      // Горизонтальный жест — нативный overflow (не дублируем scrollLeft)
+      if (absX >= absY && !e.shiftKey) return;
+
+      // Вертикальный (или shift+wheel) → листаем даты; у края отдаём скролл странице
+      const dx = e.shiftKey || absY >= absX ? rawY || rawX : rawX;
+      const max = el.scrollWidth - el.clientWidth;
+      const atStart = el.scrollLeft <= 0.5;
+      const atEnd = el.scrollLeft >= max - 0.5;
+      if (dx < 0 && atStart) return;
+      if (dx > 0 && atEnd) return;
       e.preventDefault();
-      e.stopPropagation();
-      el.scrollLeft = next;
+      el.scrollLeft = Math.min(max, Math.max(0, el.scrollLeft + dx));
     };
 
     el.addEventListener('pointerdown', onPointerDown);
-    el.addEventListener('pointermove', onPointerMove);
-    el.addEventListener('pointerup', onPointerUp);
-    el.addEventListener('pointercancel', onPointerUp);
-    // capture: wheel часто приходит на button-день, не на strip
-    el.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
-      el.removeEventListener('pointermove', onPointerMove);
-      el.removeEventListener('pointerup', onPointerUp);
-      el.removeEventListener('pointercancel', onPointerUp);
-      el.removeEventListener('wheel', onWheel, true);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+      el.removeEventListener('wheel', onWheel);
       el.classList.remove(styles.calendarStripDragging);
     };
   }, [calendarCollapsed, viewYm, days.length]);
@@ -514,6 +552,7 @@ export function TicketsHeader() {
                     key={iso}
                     type="button"
                     role="listitem"
+                    data-day-iso={iso}
                     data-tickets-day-active={active ? 'true' : undefined}
                     className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
                     onClick={() => setDate(iso)}

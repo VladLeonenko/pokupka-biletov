@@ -494,10 +494,9 @@
   gap: 8px;
   width: 100%;
   min-width: 0;
-  overflow-x: scroll;
+  overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 4px;
-  scroll-snap-type: x proximity;
+  padding: 2px 2px 6px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   cursor: grab;
@@ -515,7 +514,7 @@
 .calendarStripDragging {
   cursor: grabbing;
   user-select: none;
-  scroll-snap-type: none;
+  scroll-behavior: auto;
 }
 
 .calendarStripDragging .dayBtn {
@@ -532,7 +531,6 @@
   cursor: pointer;
   font: inherit;
   color: #111;
-  scroll-snap-align: start;
   transition:
     border-color 0.2s,
     box-shadow 0.2s,
