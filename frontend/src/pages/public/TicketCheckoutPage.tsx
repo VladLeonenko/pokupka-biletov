@@ -109,6 +109,7 @@ import {
   resolveHeroSublineForTicketPage,
 } from '@/utils/ticketHeroSubline';
 import { slugify } from '@/utils/slugify';
+import { smoothScrollToElement } from '@/utils/smoothScroll';
 import { submitForm } from '@/services/cmsApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import {
@@ -1487,19 +1488,15 @@ export function TicketCheckoutPage() {
     });
   }, []);
 
-  /** Hero CTA: схема зала, иначе список мест/цен. */
+  /** Hero CTA: схема зала, иначе список мест/цен — easeInOutCubic + offset sticky-nav. */
   const scrollToSeatPick = useCallback(() => {
+    const target =
+      (showHallMapShell
+        ? hallMapRef.current || document.getElementById('ticket-hall-map')
+        : null) || document.getElementById('ticket-places-and-prices');
+    if (!target) return;
     requestAnimationFrame(() => {
-      if (showHallMapShell) {
-        const el = hallMapRef.current || document.getElementById('ticket-hall-map');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          return;
-        }
-      }
-      document
-        .getElementById('ticket-places-and-prices')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      smoothScrollToElement(target, { offsetExtra: 16, minMs: 720, maxMs: 1500 });
     });
   }, [showHallMapShell]);
 
@@ -1831,7 +1828,11 @@ export function TicketCheckoutPage() {
           ) : null}
         </Box>
 
-        <Box id="ticket-places-and-prices" className={styles.wrap} sx={{ pb: 4 }}>
+        <Box
+          id="ticket-places-and-prices"
+          className={`${styles.wrap} ${styles.seatPickAnchor}`}
+          sx={{ pb: 4 }}
+        >
 
           {!isSupercupSportCheckout && allSessionsSorted.length > 0 && (
             <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>

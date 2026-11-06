@@ -568,6 +568,11 @@ img.heroPosterImg {
   border-radius: 16px !important;
   overflow: hidden;
   background: #fff;
+  scroll-margin-top: 110px;
+}
+
+.seatPickAnchor {
+  scroll-margin-top: 110px;
 }
 
 .hallMapLoading {
