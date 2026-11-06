@@ -72,8 +72,9 @@ export function TicketsHomeSections({
 
       <div id={AFISHA_DATE_RESULTS_ID} className={styles.dateResultsAnchor}>
         {dateFilterActive && (
-          <section className={styles.dateResults} aria-labelledby="home-date-results-title">
-            <header className={styles.dateResultsHead}>
+          /* div, не section: legacy index.css — section { margin: Xem 0 !important } убивает margin:auto */
+          <div className={styles.dateResults} aria-labelledby="home-date-results-title">
+            <div className={styles.dateResultsHead}>
               <h2 id="home-date-results-title" className={styles.dateResultsTitle}>
                 {selectedDateLabel ? `Афиша на ${selectedDateLabel}` : 'Афиша на выбранную дату'}
               </h2>
@@ -82,7 +83,7 @@ export function TicketsHomeSections({
                   {list.length > 0 ? `Найдено: ${list.length}` : 'Ничего не найдено'}
                 </p>
               )}
-            </header>
+            </div>
 
             {listLoading && (
               <div className={styles.dateGridSkeleton} aria-busy="true" aria-label="Загрузка афиши">
@@ -108,7 +109,7 @@ export function TicketsHomeSections({
                 <a href="/">сбросьте календарь</a>.
               </p>
             )}
-          </section>
+          </div>
         )}
       </div>
 

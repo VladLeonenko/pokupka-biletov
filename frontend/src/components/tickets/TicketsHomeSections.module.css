@@ -20,13 +20,17 @@
   box-sizing: border-box;
 }
 
-/* Тот же контейнер, что у TicketsHeader.inner / hero: 1200 + padding 16 */
+/* Тот же контейнер, что у TicketsHeader.inner / hero: 1200 + padding 16.
+   !important: legacy bundle иногда бьёт margin shorthand на потомков. */
 .dateResults {
   box-sizing: border-box;
   display: block;
   width: 100%;
   max-width: 1200px;
-  margin: 0 auto;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   padding: 24px 16px 56px;
 }
 
