@@ -19,10 +19,10 @@
   -webkit-user-select: none;
 }
 
-/* Современный переход слайда: фото ken-burns + контент stagger */
+/* Плавный переход слайда — длиннее, мягче, без резкого blur */
 .slideFromRight.hero::before,
 .slideFromLeft.hero::before {
-  animation: heroPhotoIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: heroPhotoIn 1.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slideStage {
@@ -34,76 +34,88 @@
 }
 
 .slideStageNext {
-  animation: heroStageInNext 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: heroStageInNext 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .slideStagePrev {
-  animation: heroStageInPrev 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: heroStageInPrev 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.slideStage .dateLine,
-.slideStage .tags,
-.slideStage .venueInHero,
-.slideStage .title,
-.slideStage .description,
-.slideStage .credits,
-.slideStage .cta,
-.slideStage .visualFrame {
-  animation: heroTextIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+.slideStageNext .dateLine,
+.slideStageNext .tags,
+.slideStageNext .venueInHero,
+.slideStageNext .title,
+.slideStageNext .description,
+.slideStageNext .credits,
+.slideStageNext .cta,
+.slideStageNext .visualFrame,
+.slideStagePrev .dateLine,
+.slideStagePrev .tags,
+.slideStagePrev .venueInHero,
+.slideStagePrev .title,
+.slideStagePrev .description,
+.slideStagePrev .credits,
+.slideStagePrev .cta,
+.slideStagePrev .visualFrame {
+  animation: heroTextIn 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.slideStage .dateLine { animation-delay: 0.04s; }
-.slideStage .tags { animation-delay: 0.08s; }
-.slideStage .venueInHero { animation-delay: 0.11s; }
-.slideStage .title { animation-delay: 0.14s; }
-.slideStage .description { animation-delay: 0.2s; }
-.slideStage .credits { animation-delay: 0.24s; }
-.slideStage .cta { animation-delay: 0.28s; }
-.slideStage .visualFrame { animation-delay: 0.1s; }
+.slideStageNext .dateLine,
+.slideStagePrev .dateLine { animation-delay: 0.08s; }
+.slideStageNext .tags,
+.slideStagePrev .tags { animation-delay: 0.14s; }
+.slideStageNext .venueInHero,
+.slideStagePrev .venueInHero { animation-delay: 0.18s; }
+.slideStageNext .title,
+.slideStagePrev .title { animation-delay: 0.22s; }
+.slideStageNext .description,
+.slideStagePrev .description { animation-delay: 0.32s; }
+.slideStageNext .credits,
+.slideStagePrev .credits { animation-delay: 0.38s; }
+.slideStageNext .cta,
+.slideStagePrev .cta { animation-delay: 0.44s; }
+.slideStageNext .visualFrame,
+.slideStagePrev .visualFrame { animation-delay: 0.16s; }
 
 @keyframes heroPhotoIn {
   0% {
-    opacity: 0.25;
-    transform: scale(1.12);
-    filter: saturate(1.05) contrast(1.05) brightness(0.75) blur(10px);
+    opacity: 0.4;
+    transform: scale(1.06);
+    filter: saturate(1.06) contrast(1.05) brightness(0.88);
   }
   100% {
     opacity: 1;
     transform: scale(1.01);
-    filter: saturate(1.08) contrast(1.08) brightness(1.04) blur(0);
+    filter: saturate(1.08) contrast(1.08) brightness(1.04);
   }
 }
 
 @keyframes heroStageInNext {
   0% {
     opacity: 0;
-    transform: translate3d(48px, 0, 0);
-    filter: blur(6px);
+    transform: translate3d(28px, 0, 0);
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    filter: blur(0);
   }
 }
 
 @keyframes heroStageInPrev {
   0% {
     opacity: 0;
-    transform: translate3d(-48px, 0, 0);
-    filter: blur(6px);
+    transform: translate3d(-28px, 0, 0);
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    filter: blur(0);
   }
 }
 
 @keyframes heroTextIn {
   0% {
     opacity: 0;
-    transform: translate3d(0, 18px, 0);
+    transform: translate3d(0, 12px, 0);
   }
   100% {
     opacity: 1;
@@ -116,14 +128,22 @@
   .slideFromLeft.hero::before,
   .slideStageNext,
   .slideStagePrev,
-  .slideStage .dateLine,
-  .slideStage .tags,
-  .slideStage .venueInHero,
-  .slideStage .title,
-  .slideStage .description,
-  .slideStage .credits,
-  .slideStage .cta,
-  .slideStage .visualFrame {
+  .slideStageNext .dateLine,
+  .slideStageNext .tags,
+  .slideStageNext .venueInHero,
+  .slideStageNext .title,
+  .slideStageNext .description,
+  .slideStageNext .credits,
+  .slideStageNext .cta,
+  .slideStageNext .visualFrame,
+  .slideStagePrev .dateLine,
+  .slideStagePrev .tags,
+  .slideStagePrev .venueInHero,
+  .slideStagePrev .title,
+  .slideStagePrev .description,
+  .slideStagePrev .credits,
+  .slideStagePrev .cta,
+  .slideStagePrev .visualFrame {
     animation: none !important;
   }
 }

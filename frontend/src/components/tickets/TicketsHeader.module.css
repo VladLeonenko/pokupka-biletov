@@ -230,61 +230,10 @@
   color: inherit !important;
 }
 
-/*
-  Схлопывание только через grid (без opacity/translate на контейнере):
-  opacity+transform на sticky-блоке давали «мигание» и скачок контента.
-*/
+/* Авто-скрытие при скролле убрано — дёргало hero. Только ручной toggle. */
 .calendarRow {
-  display: grid;
-  grid-template-rows: 1fr;
-  padding: 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  transition:
-    grid-template-rows 0.62s cubic-bezier(0.25, 1, 0.5, 1),
-    border-color 0.5s ease;
-}
-
-.calendarRowAutoHidden {
-  grid-template-rows: 0fr;
-  border-top-color: transparent;
-  pointer-events: none;
-}
-
-.calendarRowInner {
-  overflow: hidden;
-  min-height: 0;
   padding: 10px 0 12px;
-  /* лёгкий fade контента, без сдвига — меньше нагрузка на глаз */
-  opacity: 1;
-  transition:
-    opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1) 0.05s,
-    padding 0.62s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.calendarRowAutoHidden .calendarRowInner {
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  transition:
-    opacity 0.28s cubic-bezier(0.4, 0, 1, 1),
-    padding 0.62s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.calendarHead {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-@media (min-width: 720px) {
-  .calendarHead {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 12px 20px;
-  }
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .calendarLabel {
@@ -301,6 +250,34 @@
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
+  margin-bottom: 10px;
+}
+
+.calendarRow:has(.calendarBodyCollapsed) .calendarTitleRow {
+  margin-bottom: 0;
+}
+
+.calendarBody {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.calendarBodyCollapsed {
+  grid-template-rows: 0fr;
+  pointer-events: none;
+}
+
+.calendarBodyInner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 1;
+  transition: opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1) 0.08s;
+}
+
+.calendarBodyCollapsed .calendarBodyInner {
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .calendarToggle {
@@ -332,6 +309,7 @@
   min-width: 0;
   flex: 0 1 auto;
   justify-content: flex-start;
+  margin-bottom: 10px;
 }
 
 .monthArrow {

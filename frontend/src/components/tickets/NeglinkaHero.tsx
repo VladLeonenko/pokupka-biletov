@@ -17,7 +17,7 @@ type Props = {
 };
 
 const SWIPE_PX = 48;
-const WHEEL_COOLDOWN_MS = 520;
+const WHEEL_COOLDOWN_MS = 900;
 
 export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }: Props) {
   const slides = slideInput ?? [];
@@ -43,10 +43,10 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
     setAnimDir(0);
   }, [firstSlideId]);
 
-  // Класс направления держим на весь переход (~0.85s)
+  // Класс направления на всю длительность плавного перехода
   useEffect(() => {
     if (!animDir) return;
-    const t = window.setTimeout(() => setAnimDir(0), 900);
+    const t = window.setTimeout(() => setAnimDir(0), 1400);
     return () => window.clearTimeout(t);
   }, [idx, animDir]);
 

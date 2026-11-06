@@ -50,10 +50,6 @@ function isYearMonth(s: string | null): s is string {
 export function TicketsHeader() {
   const [open, setOpen] = useState(false);
   const [calendarCollapsed, setCalendarCollapsed] = useState(false);
-  const [calendarAutoHidden, setCalendarAutoHidden] = useState(false);
-  const calendarAutoHiddenRef = useRef(false);
-  const lastScrollYRef = useRef(0);
-  const scrollRafRef = useRef<number | null>(null);
   const loc = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -108,67 +104,6 @@ export function TicketsHeader() {
     setTicketsVitrineFaviconBase(faviconUrl);
     return () => setTicketsVitrineFaviconBase(null);
   }, [ticketsChrome, faviconUrl]);
-
-  useEffect(() => {
-    if (!ticketsChrome) return undefined;
-    if (window.matchMedia('(max-width: 899px)').matches) {
-      calendarAutoHiddenRef.current = false;
-      setCalendarAutoHidden(false);
-      setCalendarCollapsed(false);
-      return undefined;
-    }
-    // iOS: вниз — прячем, вверх — показываем; гистерезис против дребезга
-    const TOP_ALWAYS_SHOW = 72;
-    const DELTA_HIDE = 14;
-    const DELTA_SHOW = 18;
-    let dirBias = 0; // накопитель направления, чтобы не мигать на мелком треморе
-    lastScrollYRef.current = window.scrollY || 0;
-
-    const updateCalendarVisibility = () => {
-      scrollRafRef.current = null;
-      const y = window.scrollY || document.documentElement.scrollTop || 0;
-      const prev = lastScrollYRef.current;
-      const dy = y - prev;
-      lastScrollYRef.current = y;
-
-      if (Math.abs(dy) < 1) return;
-
-      dirBias = Math.max(-40, Math.min(40, dirBias + dy));
-
-      let hidden = calendarAutoHiddenRef.current;
-      if (y <= TOP_ALWAYS_SHOW) {
-        hidden = false;
-        dirBias = 0;
-      } else if (dirBias > DELTA_HIDE) {
-        hidden = true;
-        dirBias = 0;
-      } else if (dirBias < -DELTA_SHOW) {
-        hidden = false;
-        dirBias = 0;
-      }
-
-      if (calendarAutoHiddenRef.current !== hidden) {
-        calendarAutoHiddenRef.current = hidden;
-        setCalendarAutoHidden(hidden);
-      }
-      if (!hidden) {
-        setCalendarCollapsed(false);
-      }
-    };
-    const scheduleCalendarVisibilityUpdate = () => {
-      if (scrollRafRef.current != null) return;
-      scrollRafRef.current = window.requestAnimationFrame(updateCalendarVisibility);
-    };
-    updateCalendarVisibility();
-    window.addEventListener('scroll', scheduleCalendarVisibilityUpdate, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', scheduleCalendarVisibilityUpdate);
-      if (scrollRafRef.current != null) {
-        window.cancelAnimationFrame(scrollRafRef.current);
-        scrollRafRef.current = null;
-      }
-    };
-  }, [ticketsChrome]);
 
   const homePaths = loc.pathname === '/' || loc.pathname === '/afisha';
 
@@ -507,23 +442,23 @@ export function TicketsHeader() {
         </div>
 
         {homePaths ? (
-        <div
-          className={`${styles.calendarRow} ${calendarAutoHidden ? styles.calendarRowAutoHidden : ''}`}
-          aria-hidden={calendarAutoHidden ? 'true' : undefined}
-        >
-          <div className={styles.calendarRowInner}>
-            <div className={styles.calendarHead}>
-              <div className={styles.calendarTitleRow}>
-                <div className={styles.calendarLabel}>Календарь мероприятий</div>
-                <button
-                  type="button"
-                  className={styles.calendarToggle}
-                  onClick={() => setCalendarCollapsed((value) => !value)}
-                >
-                  {calendarCollapsed ? 'Показать даты' : 'Скрыть даты'}
-                </button>
-              </div>
-              {!calendarCollapsed ? (
+        <div className={styles.calendarRow}>
+          <div className={styles.calendarTitleRow}>
+            <div className={styles.calendarLabel}>Календарь мероприятий</div>
+            <button
+              type="button"
+              className={styles.calendarToggle}
+              aria-expanded={!calendarCollapsed}
+              onClick={() => setCalendarCollapsed((value) => !value)}
+            >
+              {calendarCollapsed ? 'Показать даты' : 'Скрыть даты'}
+            </button>
+          </div>
+          <div
+            className={`${styles.calendarBody} ${calendarCollapsed ? styles.calendarBodyCollapsed : ''}`}
+            aria-hidden={calendarCollapsed ? 'true' : undefined}
+          >
+            <div className={styles.calendarBodyInner}>
               <div className={styles.monthNav} aria-label="Быстрый выбор месяца">
                 <button
                   type="button"
@@ -558,37 +493,33 @@ export function TicketsHeader() {
                   <ChevronRightIcon sx={{ fontSize: 22 }} />
                 </button>
               </div>
-              ) : null}
+              <div
+                ref={dayStripRef}
+                className={styles.calendarStrip}
+                role="list"
+                aria-label="Даты выбранного месяца"
+              >
+                {days.map((d) => {
+                  const iso = format(d, 'yyyy-MM-dd');
+                  const active = homePaths && selectedDate === iso;
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      role="listitem"
+                      data-day-iso={iso}
+                      data-tickets-day-active={active ? 'true' : undefined}
+                      className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
+                      onClick={() => setDate(iso)}
+                      title={format(d, 'd MMMM yyyy', { locale: ru })}
+                    >
+                      <div className={styles.dayNum}>{format(d, 'd')}</div>
+                      <div className={styles.dayWeek}>{format(d, 'EEE', { locale: ru })}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-
-            {!calendarCollapsed ? (
-            <div
-              ref={dayStripRef}
-              className={styles.calendarStrip}
-              role="list"
-              aria-label="Даты выбранного месяца"
-            >
-              {days.map((d) => {
-                const iso = format(d, 'yyyy-MM-dd');
-                const active = homePaths && selectedDate === iso;
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    role="listitem"
-                    data-day-iso={iso}
-                    data-tickets-day-active={active ? 'true' : undefined}
-                    className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
-                    onClick={() => setDate(iso)}
-                    title={format(d, 'd MMMM yyyy', { locale: ru })}
-                  >
-                    <div className={styles.dayNum}>{format(d, 'd')}</div>
-                    <div className={styles.dayWeek}>{format(d, 'EEE', { locale: ru })}</div>
-                  </button>
-                );
-              })}
-            </div>
-            ) : null}
           </div>
         </div>
         ) : null}
