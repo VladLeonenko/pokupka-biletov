@@ -61,7 +61,9 @@ export function classifyEventTitle(title, ctx = {}) {
   function genreHintsConcert(genre) {
     const g = lo(norm(genre));
     if (!g) return false;
-    return /^эстрада$|эстрада\b|шансон|эстрадн\w*\s+концерт|поп\s*-?\s*рок|chanson/i.test(g);
+    return /^эстрада$|эстрада\b|шансон|эстрадн\w*\s+концерт|поп\s*-?\s*рок|chanson|концерт|музык|рэп|rap\b|хип/i.test(
+      g,
+    );
   }
 
   const t = norm(title);
@@ -130,16 +132,24 @@ export function classifyEventTitle(title, ctx = {}) {
     !circus && (musicalOrRockOpera || theaterWords || genreHintsTheater(ctx.genre));
 
   const concertCore =
-    /концерт|фестиваль|фест\b|fest\b|ту[рр]\b|live\s|шоу\b|symphony|симфон|оркестр|arena\s+тур/i.test(c) ||
-    /шуфутинск/i.test(c) ||
+    /концерт|фестиваль|фест\b|fest\b|ту[рр]\b|live\s|шоу\b|symphony|симфон|оркестр|arena\s+тур|стендап|standup|рэп\b|\brap\b|хип[\s-]?хоп/i.test(
+      c,
+    ) ||
+    /шуфутинск|пресняков|розенбаум|мацуев|кипелов|гагарин[аы]|носков|бутусов|ваенг|газманов|агутин|польна|крутой|dimash|димаш/i.test(
+      c,
+    ) ||
     (/[—\-–]/.test(t) &&
       /(basta|баста|guf|гуф|morgenshtern|морген|рэп|hip[\s-]?hop|хип[\s-]?хоп)/i.test(c));
 
+  const latinArtistTitle =
+    /^[A-Za-z][A-Za-z0-9 .'+&-]{1,48}$/.test(t) && !/match|cup|fc\b|vs\b/i.test(t);
+
   const concert =
-    (genreHintsConcert(ctx.genre) || concertCore) &&
+    (genreHintsConcert(ctx.genre) || concertCore || latinArtistTitle) &&
     !galaBalletOrTheaterGala &&
     !musicalOrRockOpera &&
-    !genreHintsTheater(ctx.genre);
+    !genreHintsTheater(ctx.genre) &&
+    !theaterWords;
 
   /** @type {'sport' | 'football' | 'concert' | 'theater' | 'kids' | 'default'} */
   let kind = 'default';
@@ -176,10 +186,36 @@ export function classifyEventTitle(title, ctx = {}) {
     categoryLabel = 'Спорт';
   }
 
+  const short = shortEventTitle(t, 52);
   const descriptionBlurb =
     categoryLabel === 'Мероприятие'
-      ? `${t}. Билеты онлайн — удобный выбор мест и оплата на сайте.`
-      : `«${t}» — ${categoryLabel.toLowerCase()}. Билеты на событие в продаже онлайн: выберите дату и места.`;
+      ? `${short}: билеты онлайн, схема зала и оплата на сайте.`
+      : `«${short}» — ${categoryLabel.toLowerCase()}. Дата, места и оплата на странице события.`;
 
   return { categoryLabel, descriptionBlurb, kind };
+}
+
+/**
+ * Короткое имя для meta/карточек: длинные title режем по смыслу, без «…».
+ * @param {string} title
+ * @param {number} [max]
+ */
+export function shortEventTitle(title, max = 48) {
+  let t = String(title || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!t) return 'Мероприятие';
+  if (t.length <= max) return t;
+  const paren = t.match(/^(.+?)\s*\([^)]{8,}\)\s*$/);
+  if (paren && paren[1].trim().length >= 8 && paren[1].trim().length <= max) {
+    t = paren[1].trim();
+    if (t.length <= max) return t;
+  }
+  for (const sep of [' — ', ' – ', ' - ', '. ', ': ']) {
+    const i = t.indexOf(sep);
+    if (i >= 10 && i <= max) return t.slice(0, i).trim();
+  }
+  const cut = t.slice(0, max);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > Math.floor(max * 0.45) ? cut.slice(0, sp) : cut).replace(/[,:;.\-–—]\s*$/g, '').trim();
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { classifyEventTitle } from '../services/eventTitleHeuristics.js';
+import { classifyEventTitle, shortEventTitle } from '../services/eventTitleHeuristics.js';
 
 test('football derby', () => {
   const r = classifyEventTitle('Спартак (Москва) — ЦСКА (Москва). Футбол');
@@ -49,6 +49,21 @@ test('эстрада в жанре API — концерт, не театр и н
   const r = classifyEventTitle('Михаил Шуфутинский', { genre: 'Эстрада' });
   assert.equal(r.kind, 'concert');
   assert.equal(r.categoryLabel, 'Концерт');
+});
+
+test('Sqwoz Bab latin artist → концерт, не Мероприятие', () => {
+  const r = classifyEventTitle('Sqwoz Bab');
+  assert.equal(r.kind, 'concert');
+  assert.equal(r.categoryLabel, 'Концерт');
+  assert.doesNotMatch(r.descriptionBlurb, /удобный выбор мест/i);
+});
+
+test('shortEventTitle режет длинные названия по — / скобкам', () => {
+  const long =
+    '«БеспринцЫпные чтения» — «Два по пятьдесят». Константин Хабенский и Александр Цыпкин';
+  const s = shortEventTitle(long, 48);
+  assert.ok(s.length <= 48);
+  assert.ok(s.includes('БеспринцЫпные') || s.includes('чтения'));
 });
 
 test('Шуфутинский: жанр «Спорт» в API не делает событие спортом', () => {

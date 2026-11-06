@@ -14,6 +14,8 @@
  * defaults.beginDateTime / defaults.venue — если API не отдал дату/площадку.
  */
 
+import { shortEventTitle } from '../services/eventTitleHeuristics.js';
+
 /** @typedef {{
  *   title: string;
  *   description: string;
@@ -22,7 +24,6 @@
  *   aliases?: string[];
  *   defaults?: { venue?: string; beginDateTime?: string };
  * }} TicketSeoEntry */
-
 const MECHANICS =
   'Схема зала, выбор мест онлайн, оплата, электронный билет';
 
@@ -421,6 +422,30 @@ export function applyTicketSeoPlaceholders(entry, opts = {}) {
 }
 
 /**
+ * Авто-title money URL без «Купить» и с обрезкой длинных названий.
+ * Бюджет: title ≤70; shortName оставляет место под dateShort/venue/price.
+ * @param {{
+ *   displayTitle: string;
+ *   minPrice?: number | null;
+ *   venueLabel?: string | null;
+ *   beginDateTime?: string | null;
+ *   genreLabel?: string | null;
+ * }} p
+ */
+export function composeAutoTicketTitle(p) {
+  const facts = buildTicketSeoFacts(p);
+  const venueShort = shortEventTitle(facts.venue || '', 28);
+  const suffixParts = [];
+  if (facts.dateShort) suffixParts.push(facts.dateShort.replace(/^,\s*/, ''));
+  if (venueShort) suffixParts.push(venueShort);
+  if (facts.price) suffixParts.push(facts.price.trim());
+  const suffix = suffixParts.length ? ` — ${suffixParts.join(', ')}` : '';
+  const nameBudget = Math.max(18, 70 - suffix.length);
+  const name = shortEventTitle(p.displayTitle || 'Мероприятие', nameBudget);
+  return clipMeta(`${name}${suffix}`, 70);
+}
+
+/**
  * Авто-description, если нет catalog.
  * @param {{
  *   displayTitle: string;
@@ -428,22 +453,26 @@ export function applyTicketSeoPlaceholders(entry, opts = {}) {
  *   venueLabel?: string | null;
  *   beginDateTime?: string | null;
  *   lead?: string | null;
+ *   genreLabel?: string | null;
  * }} p
  */
 export function composeAutoTicketDescription(p) {
   const facts = buildTicketSeoFacts(p);
+  const short = shortEventTitle(p.displayTitle || 'Мероприятие', 42);
+  const genre = String(p.genreLabel || '').trim();
   const bits = [];
   if (facts.when) bits.push(facts.when);
-  if (facts.venue) bits.push(facts.venue);
-  const head = `Купить билеты на «${p.displayTitle}».`;
+  if (facts.venue) bits.push(shortEventTitle(facts.venue, 40));
+  const head = genre
+    ? `${genre} «${short}»${facts.price}.`
+    : `Билеты на «${short}»${facts.price}.`;
   const mid = bits.length ? ` ${bits.join(', ')}.` : '';
   let lead = '';
-  if (p.lead) {
+  if (p.lead && bits.length < 2) {
     const raw = String(p.lead).trim();
-    lead = raw.length > 80 ? ` ${raw.slice(0, 80).replace(/\s+\S*$/, '')}…` : ` ${raw}`;
+    lead = raw.length > 70 ? ` ${raw.slice(0, 70).replace(/\s+\S*$/, '')}` : ` ${raw}`;
   }
-  // lead только если мало фактов
-  const body = bits.length >= 2 ? `${head}${mid} ${MECHANICS}.` : `${head}${mid}${lead} ${MECHANICS}.`;
+  const body = `${head}${mid}${lead} ${MECHANICS}.`;
   return clipMeta(body, 160);
 }
 

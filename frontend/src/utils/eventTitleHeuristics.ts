@@ -81,7 +81,31 @@ function genreHintsTheater(genre: string | undefined): boolean {
 function genreHintsConcert(genre: string | undefined): boolean {
   const g = lo(norm(genre));
   if (!g) return false;
-  return /^эстрада$|эстрада\b|шансон|эстрадн\w*\s+концерт|поп\s*-?\s*рок|chanson/i.test(g);
+  return /^эстрада$|эстрада\b|шансон|эстрадн\w*\s+концерт|поп\s*-?\s*рок|chanson|концерт|музык|рэп|rap\b|хип/i.test(
+    g,
+  );
+}
+
+/**
+ * Короткое имя для meta/карточек: длинные title (70–90) режем по смыслу, без «…».
+ * Приоритет: часть до первого —. / . / (гастроли…)
+ */
+export function shortEventTitle(title: string, max = 48): string {
+  let t = norm(title).replace(/\s+/g, ' ');
+  if (!t) return 'Мероприятие';
+  if (t.length <= max) return t;
+  const paren = t.match(/^(.+?)\s*\([^)]{8,}\)\s*$/);
+  if (paren && paren[1].trim().length >= 8 && paren[1].trim().length <= max) {
+    t = paren[1].trim();
+    if (t.length <= max) return t;
+  }
+  for (const sep of [' — ', ' – ', ' - ', '. ', ': ']) {
+    const i = t.indexOf(sep);
+    if (i >= 10 && i <= max) return t.slice(0, i).trim();
+  }
+  const cut = t.slice(0, max);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > Math.floor(max * 0.45) ? cut.slice(0, sp) : cut).replace(/[,:;.\-–—]\s*$/g, '').trim();
 }
 
 export function classifyEventTitle(
@@ -163,18 +187,26 @@ export function classifyEventTitle(
     !circus && (musicalOrRockOpera || theaterWords || genreHintsTheater(ctx?.genre));
 
   const concertCore =
-    /концерт|фестиваль|фест\b|fest\b|ту[рр]\b|live\s|шоу\b|symphony|симфон|оркестр|arena\s+тур/i.test(
+    /концерт|фестиваль|фест\b|fest\b|ту[рр]\b|live\s|шоу\b|symphony|симфон|оркестр|arena\s+тур|стендап|standup|рэп\b|\brap\b|хип[\s-]?хоп/i.test(
       c,
     ) ||
-    /шуфутинск/i.test(c) ||
+    /шуфутинск|пресняков|розенбаум|мацуев|кипелов|гагарин[аы]|носков|бутусов|ваенг|газманов|агутин|польна|крутой|dimash|димаш/i.test(
+      c,
+    ) ||
     (/[—\-–]/.test(t) &&
       /(basta|баста|guf|гуф|morgenshtern|морген|рэп|hip[\s-]?hop|хип[\s-]?хоп)/i.test(c));
 
+  /** Sqwoz Bab / Lumen / латиница-артист без театральных маркеров */
+  const latinArtistTitle =
+    /^[A-Za-z][A-Za-z0-9 .'+&-]{1,48}$/.test(t) &&
+    !/match|cup|fc\b|vs\b/i.test(t);
+
   const concert =
-    (genreHintsConcert(ctx?.genre) || concertCore) &&
+    (genreHintsConcert(ctx?.genre) || concertCore || latinArtistTitle) &&
     !galaBalletOrTheaterGala &&
     !musicalOrRockOpera &&
-    !genreHintsTheater(ctx?.genre);
+    !genreHintsTheater(ctx?.genre) &&
+    !theaterWords;
 
   let kind: EventTitleKind = 'default';
   let categoryLabel = 'Мероприятие';
@@ -210,10 +242,11 @@ export function classifyEventTitle(
     categoryLabel = 'Спорт';
   }
 
+  const short = shortEventTitle(t, 52);
   const descriptionBlurb =
     categoryLabel === 'Мероприятие'
-      ? `${t}. Билеты онлайн — удобный выбор мест и оплата на сайте.`
-      : `«${t}» — ${categoryLabel.toLowerCase()}. Билеты на событие в продаже онлайн: выберите дату и места.`;
+      ? `${short}: билеты онлайн, схема зала и оплата на сайте.`
+      : `«${short}» — ${categoryLabel.toLowerCase()}. Дата, места и оплата на странице события.`;
 
   return { categoryLabel, kind, descriptionBlurb };
 }

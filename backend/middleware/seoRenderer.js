@@ -38,6 +38,7 @@ import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.j
 import {
   resolveTicketSeo,
   composeAutoTicketDescription,
+  composeAutoTicketTitle,
 } from '../lib/seo-ticket-meta-catalog.js';
 import {
   resolveSitePageSeo,
@@ -588,6 +589,8 @@ async function generateSeoTags(url) {
           resolveTicketSeo(routeSlug || repertoireId, seoOpts) ||
           resolveTicketSeo(repertoireId, seoOpts) ||
           resolveTicketSeo(firstSeg, seoOpts);
+        /** DB seo_*_manual (прогон baseline / Wordstat) — выше static catalog. */
+        const dbSeo = repertoireId ? await loadEventSeoManual(repertoireId) : null;
         const beginDateTime = beginFromCtx || catalogSeo?.facts?.beginDateTime || null;
         const venueLabel =
           venueFromCtx || catalogSeo?.facts?.venue || null;
@@ -598,26 +601,39 @@ async function generateSeoTags(url) {
             ? `/ticket/${encodeURIComponent(repId)}`
             : '/events';
         const canonical = `${base}${canonicalPath}`;
-        const displayTitle = (ctx && ctx.title) || catalogSeo?.h1 || 'Мероприятие';
-        // Catalog override побеждает auto; иначе money-title generator
+        const displayTitle =
+          dbSeo?.h1 || (ctx && ctx.title) || catalogSeo?.h1 || 'Мероприятие';
+        const genreLabel = (ctx && (ctx.genreLabel || ctx.categoryLabel)) || null;
+        // Priority: DB manual → static TICKET_SEO → auto (shortTitle, без «Купить»)
         const title =
-          catalogSeo?.title || buildMoneyTicketTitle(displayTitle, minPrice, 70);
-        const h1 = (catalogSeo?.h1 || displayTitle).slice(0, 80);
+          dbSeo?.title ||
+          catalogSeo?.title ||
+          composeAutoTicketTitle({
+            displayTitle: (ctx && ctx.title) || displayTitle,
+            minPrice,
+            venueLabel,
+            beginDateTime,
+            genreLabel,
+          });
+        const h1 = (dbSeo?.h1 || catalogSeo?.h1 || displayTitle).slice(0, 80);
         const lead =
           (ctx && (ctx.heroLead || ctx.descriptionSnippet) && String(ctx.heroLead || ctx.descriptionSnippet).trim()) ||
           '';
         const description = (
+          dbSeo?.description ||
           catalogSeo?.description ||
           composeAutoTicketDescription({
-            displayTitle,
+            displayTitle: (ctx && ctx.title) || displayTitle,
             minPrice,
             venueLabel,
             beginDateTime,
             lead,
+            genreLabel,
           })
         ).slice(0, 160);
-        const keywordsMeta = catalogSeo?.keywords
-          ? `\n    <meta name="keywords" content="${escapeHtml(catalogSeo.keywords)}" />`
+        const keywordsSrc = dbSeo?.keywords || catalogSeo?.keywords || '';
+        const keywordsMeta = keywordsSrc
+          ? `\n    <meta name="keywords" content="${escapeHtml(keywordsSrc)}" />`
           : '';
         const ogImage = toAbsUrl(
           base,
@@ -850,27 +866,35 @@ async function generateSsrContent(url, seoCtx) {
   return '';
 }
 
-function clipSeoTitle(text, max = 70) {
-  const t = String(text || '').replace(/\s+/g, ' ').trim();
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max);
-  const sp = cut.lastIndexOf(' ');
-  return (sp > Math.floor(max * 0.55) ? cut.slice(0, sp) : cut).trim();
-}
-
-/** Title money URL: имя режется, суффикс с ценой сохраняется. */
-function buildMoneyTicketTitle(displayTitle, _minPrice, max = 70) {
-  // Деньги-ключ «купить билеты» в начале title. Цену в title не пишем —
-  // она меняется/выкупается, и сниппет будет обманывать (цена актуальна на схеме зала).
-  const prefix = 'Купить билеты на ';
-  const budget = Math.max(18, max - prefix.length);
-  let name = String(displayTitle || 'Мероприятие').replace(/\s+/g, ' ').trim();
-  if (name.length > budget) {
-    const cut = name.slice(0, budget);
-    const sp = cut.lastIndexOf(' ');
-    name = (sp > 12 ? cut.slice(0, sp) : cut).trim();
+/** @returns {Promise<{ title?: string, description?: string, keywords?: string, h1?: string, h2?: string } | null>} */
+async function loadEventSeoManual(repertoireId) {
+  const rid = String(repertoireId || '').trim();
+  if (!rid) return null;
+  try {
+    const r = await ticketPool.query(
+      `SELECT seo_title_manual, seo_description_manual, seo_keywords_manual, seo_h1_manual, seo_h2_manual
+       FROM getbilet_events WHERE getbilet_external_id = $1`,
+      [rid],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    const title = row.seo_title_manual && String(row.seo_title_manual).trim();
+    const description = row.seo_description_manual && String(row.seo_description_manual).trim();
+    const keywords = row.seo_keywords_manual && String(row.seo_keywords_manual).trim();
+    const h1 = row.seo_h1_manual && String(row.seo_h1_manual).trim();
+    const h2 = row.seo_h2_manual && String(row.seo_h2_manual).trim();
+    if (!title && !description && !h1) return null;
+    return {
+      ...(title ? { title } : {}),
+      ...(description ? { description } : {}),
+      ...(keywords ? { keywords } : {}),
+      ...(h1 ? { h1 } : {}),
+      ...(h2 ? { h2 } : {}),
+    };
+  } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === '42703') return null;
+    throw e;
   }
-  return `${prefix}${name}`;
 }
 
 /** Только DB-кэш офферов — без внешнего API в hot path SSR. Цены как на витрине (наценка + свои места). */
