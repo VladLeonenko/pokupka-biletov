@@ -622,7 +622,9 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
       ? String(base.venueAddressManual).trim()
       : null;
   let placeFromMaps = { venue: null, address: null };
-  if (!fastPath) {
+  // maps memoized; на fastPath (/page) тоже нужны — иначе Sqwoz/концерты без PlaceName в payload
+  // остаются с venueLabel=null (афиша при этом показывает «ВТБ Арена» через enrich).
+  if (!fastPath || !venueFromPayload || !addressFromPayload) {
     placeFromMaps = await resolvePlaceFromGetbiletMaps(payload, stageId);
   }
 

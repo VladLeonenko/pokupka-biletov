@@ -1487,6 +1487,22 @@ export function TicketCheckoutPage() {
     });
   }, []);
 
+  /** Hero CTA: схема зала, иначе список мест/цен. */
+  const scrollToSeatPick = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (showHallMapShell) {
+        const el = hallMapRef.current || document.getElementById('ticket-hall-map');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+      document
+        .getElementById('ticket-places-and-prices')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [showHallMapShell]);
+
   const ogImage = absoluteUrl(origin, coverUrl || posterSideUrl);
 
   const canonicalSourceTitle = useMemo(
@@ -1675,10 +1691,6 @@ export function TicketCheckoutPage() {
                   <Link to="/events" className={styles.heroCrumb}>
                     ← К афише
                   </Link>
-                  <button type="button" className={styles.shareBtn} onClick={() => void shareEvent()}>
-                    <IosShareIcon sx={{ fontSize: 16 }} />
-                    Поделиться
-                  </button>
                 </div>
                 {heroKickerDisplay ? <p className={styles.heroKicker}>{heroKickerDisplay}</p> : null}
                 {isSupercupSportCheckout ? (
@@ -1743,6 +1755,20 @@ export function TicketCheckoutPage() {
                     ) : null}
                   </div>
                 )}
+                <div className={styles.heroCtaRow}>
+                  <button type="button" className={styles.heroSelectBtn} onClick={scrollToSeatPick}>
+                    Выбрать место
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.shareBtn}
+                    onClick={() => void shareEvent()}
+                    aria-label="Поделиться"
+                  >
+                    <IosShareIcon sx={{ fontSize: 16 }} />
+                    Поделиться
+                  </button>
+                </div>
               </div>
               {showPosterAside && posterSideUrl ? (
                 <div className={styles.heroPosterWrap}>
