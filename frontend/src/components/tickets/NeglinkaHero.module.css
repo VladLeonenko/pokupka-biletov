@@ -442,11 +442,11 @@
 
 .emptyTitle {
   margin: 0 0 12px;
-  font-family: var(--neg-font, system-ui, sans-serif);
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
   font-size: clamp(1.25rem, 3vw, 2rem);
   font-weight: 800;
   line-height: 1.2;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
@@ -460,11 +460,11 @@
 
 .title {
   margin: 0 0 18px;
-  font-family: var(--neg-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
   font-size: clamp(1.5rem, 4.5vw, 3.15rem);
   font-weight: 800;
   line-height: 1.06;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
   text-wrap: balance;
   max-width: 18ch;

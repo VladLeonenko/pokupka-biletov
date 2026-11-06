@@ -1,9 +1,10 @@
-/* Витрина в духе neglinka29.ru: белый фон, жирный sans, акцентный оранжевый */
+/* Витрина: Manrope (UI) + Geologica (заголовки), оранжевый акцент */
 
-@import url('https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@500;600;700;800;900&family=Manrope:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geologica:wght@500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
 
 body[data-tickets='true'] {
-  --neg-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --neg-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --neg-font-display: 'Geologica', 'Manrope', system-ui, sans-serif;
   --neg-orange: #ff4e18;
   --neg-blue: #a8c4ee;
   background-color: #ffffff !important;
@@ -27,9 +28,18 @@ body[data-tickets='true'] [data-tickets-nav] {
 body[data-tickets='true'] h1,
 body[data-tickets='true'] h2,
 body[data-tickets='true'] h3,
-body[data-tickets='true'] .tickets-font-display {
-  font-family: var(--neg-font) !important;
-  letter-spacing: 0.02em;
+body[data-tickets='true'] .tickets-font-display,
+body[data-tickets='true'] .MuiTypography-h1,
+body[data-tickets='true'] .MuiTypography-h2,
+body[data-tickets='true'] .MuiTypography-h3 {
+  font-family: var(--neg-font-display) !important;
+  letter-spacing: -0.02em;
+}
+
+/* Money URL / hero H1 */
+body[data-tickets='true'] h1.MuiTypography-root,
+body[data-tickets='true'] [data-tickets-hero] h1 {
+  font-family: var(--neg-font-display) !important;
 }
 
 body[data-tickets='true'] a {
