@@ -45,8 +45,21 @@ async function main() {
 
   if (!opts.skipSync) {
     const sync = await syncGetbiletCatalogFromApi();
+    // In-process invalidate бесполезен из CLI (другой процесс, не pm2). Греем/сбрасываем через HTTP.
     invalidateGetbiletEventsHttpCache();
-    console.log(`[getbilet cron] catalog synced: count=${sync.count}`);
+    const port = process.env.PORT || '3000';
+    try {
+      const warm = await fetch(
+        `http://127.0.0.1:${port}/api/bilet/events?refresh=1&limit=500`,
+        { headers: { Accept: 'application/json' } },
+      );
+      console.log(`[getbilet cron] catalog synced: count=${sync.count}; warm /events → ${warm.status}`);
+    } catch (e) {
+      console.log(
+        `[getbilet cron] catalog synced: count=${sync.count}; warm failed:`,
+        e instanceof Error ? e.message : e,
+      );
+    }
   }
 
   const backfill = await backfillEventDescriptionPacks({

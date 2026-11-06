@@ -194,12 +194,14 @@ function normalizeGetbiletOfferListPayload(data) {
   };
 }
 
-/** Ключ in-memory кэша афиши (протокол + режим каталога + cityId для BIL24 + версия формы ответа). */
-function getbiletEventsCacheKey(req) {
+/** Ключ in-memory кэша афиши (протокол + режим каталога + cityId для BIL24 + limit compact + версия формы ответа). */
+function getbiletEventsCacheKey(req, opts = {}) {
   const { protocol } = getGetbiletConfig();
   const mode = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
   const cityId = req.query.cityId != null ? String(req.query.cityId) : '';
-  return `v2|${protocol}|${mode}|${cityId}`;
+  const limitPart = opts.limit != null ? `|L${opts.limit}` : '';
+  // v3: после sync CLI invalidate в другом процессе не чистит pm2 — ключ с limit + короткий TTL
+  return `v3|${protocol}|${mode}|${cityId}${limitPart}`;
 }
 
 /** Один общий loadEventsPayload на ключ: главная параллельно дергает /home и /events-lite. */
@@ -219,7 +221,8 @@ function sendJsonWithEventsCache(req, res, payload) {
   } else {
     res.setHeader('X-Getbilet-Events-Cache', 'bypass');
   }
-  return sendPublicJson(req, res, payload, { cacheSeconds: 120, staleSeconds: 600 });
+  // Афиша меняется sync'ом — короткий browser/CDN TTL, иначе «из 30» залипает после обновления каталога
+  return sendPublicJson(req, res, payload, { cacheSeconds: 30, staleSeconds: 120 });
 }
 
 function publicJsonEtag(body) {
@@ -804,7 +807,7 @@ router.get('/home', async (req, res) => {
       actions,
       total: Array.isArray(data?.actions) ? data.actions.length : actions.length,
       compact: true,
-    }, { cacheSeconds: 120, staleSeconds: 600 });
+    }, { cacheSeconds: 30, staleSeconds: 120 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({
@@ -827,7 +830,7 @@ router.get('/events-lite', async (req, res) => {
       actions,
       total: Array.isArray(data?.actions) ? data.actions.length : actions.length,
       compact: true,
-    }, { cacheSeconds: 120, staleSeconds: 600 });
+    }, { cacheSeconds: 30, staleSeconds: 120 });
   } catch (err) {
     return sendGetbiletError(err, res);
   }
@@ -864,13 +867,14 @@ router.get('/resolve-slug/:slug', async (req, res) => {
   }
 });
 
-/** Список мероприятий: compact JSON (как events-lite, до 500 строк). */
+/** Список мероприятий: compact JSON (как events-lite, до 500 строк). Только сегодня+будущее (MSK). */
 router.get('/events', async (req, res) => {
   try {
     const limit = Math.min(Math.max(parseInt(String(req.query.limit || '500'), 10) || 500, 1), 500);
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
+    const cacheKey = getbiletEventsCacheKey(req, { limit });
     if (!bypass) {
-      const hit = getGetbiletEventsHttpCache(getbiletEventsCacheKey(req));
+      const hit = getGetbiletEventsHttpCache(cacheKey);
       if (hit) {
         const etag = publicJsonEtag(hit);
         res.setHeader('X-Getbilet-Events-Cache', 'hit');
@@ -885,7 +889,13 @@ router.get('/events', async (req, res) => {
     }
     const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
     const payload = buildCompactEventsPayload(data, limit);
-    return sendJsonWithEventsCache(req, res, payload);
+    if (!bypass) {
+      setGetbiletEventsHttpCache(cacheKey, payload);
+      res.setHeader('X-Getbilet-Events-Cache', 'miss');
+    } else {
+      res.setHeader('X-Getbilet-Events-Cache', 'bypass');
+    }
+    return sendPublicJson(req, res, payload, { cacheSeconds: 30, staleSeconds: 120 });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({

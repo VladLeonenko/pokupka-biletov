@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -8,7 +8,10 @@ import {
 import { format, parseISO, isValid } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
-import { TicketsHomeSections } from '@/components/tickets/TicketsHomeSections';
+import {
+  AFISHA_DATE_RESULTS_ID,
+  TicketsHomeSections,
+} from '@/components/tickets/TicketsHomeSections';
 import {
   dedupeBiletEventsByShow,
   fetchBiletHome,
@@ -46,6 +49,7 @@ export function HomePage() {
     initialDataUpdatedAt: sessionEvents?.updatedAt,
   });
 
+  /** Полный lite-каталог: фильтр по дате и спорт — не урезанный /home (≤120). */
   const { data: rawSportLite, isPending: sportEventsPending } = useQuery({
     queryKey: ['bilet-events-lite-public', cityId, 'sport-home'],
     queryFn: () => fetchBiletEventsLite(500),
@@ -75,20 +79,29 @@ export function HomePage() {
     [rawSportLite],
   );
 
+  /** По дате — весь lite (иначе «одно событие» из урезанного home). */
+  const catalogForDate = useMemo(() => {
+    const byId = new Map<string, NormalizedBiletEvent>();
+    for (const e of [...normalizedSportLite, ...normalized]) {
+      byId.set(e.id, e);
+    }
+    return Array.from(byId.values());
+  }, [normalized, normalizedSportLite]);
+
   const filtered = useMemo(() => {
     if (!dateFilter) return normalized;
-    return normalized.filter((e) => {
+    return catalogForDate.filter((e) => {
       if (e.isoDate?.startsWith(dateFilter)) return true;
       return false;
     });
-  }, [normalized, dateFilter]);
+  }, [normalized, catalogForDate, dateFilter]);
 
   const displayEvents = useMemo((): NormalizedBiletEvent[] => {
-    if (eventsPending || isError) return [];
+    const pending = dateFilter ? eventsPending && sportEventsPending : eventsPending;
+    if (pending || isError) return [];
     if (dateFilter) return filtered;
     return normalized;
-  }, [eventsPending, isError, normalized, dateFilter, filtered]);
-
+  }, [eventsPending, sportEventsPending, isError, normalized, dateFilter, filtered]);
   const recentIds = useTicketRecentRepertoires(undefined);
   const recentEvents = useMemo(() => {
     if (recentIds.length === 0) return [];
@@ -124,13 +137,16 @@ export function HomePage() {
 
   const emptyDateFilter =
     !eventsPending &&
+    !sportEventsPending &&
     !isError &&
-    normalized.length > 0 &&
-    dateFilter &&
+    catalogForDate.length > 0 &&
+    Boolean(dateFilter) &&
     filtered.length === 0;
 
   const eventsForUi = useMemo(() => {
     if (emptyDateFilter) return [];
+    // По дате не схлопываем сеансы одного спектакля в одну карточку раньше списка —
+    // dedupe ок, но режем лимит только без фильтра даты (см. TicketsHomeSections).
     return dedupeBiletEventsByShow(displayEvents);
   }, [emptyDateFilter, displayEvents]);
 
@@ -155,7 +171,47 @@ export function HomePage() {
   const heroLoading =
     vitrinePending ||
     ((vitrine.heroSlides?.length ?? 0) === 0 && (eventsPending || sportEventsPending));
-  const listLoading = eventsPending;
+  const listLoading = eventsPending || (Boolean(dateFilter) && sportEventsPending);
+  const scrolledForDateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!dateFilter) {
+      scrolledForDateRef.current = null;
+      return;
+    }
+    if (listLoading) return;
+    if (scrolledForDateRef.current === dateFilter) return;
+    scrolledForDateRef.current = dateFilter;
+    const el = document.getElementById(AFISHA_DATE_RESULTS_ID);
+    if (!el) return;
+
+    let raf = 0;
+    const t = window.setTimeout(() => {
+      const header = document.querySelector<HTMLElement>('[data-tickets-nav]');
+      const headerH = header?.getBoundingClientRect().height ?? 120;
+      // sticky-хедер + небольшой зазор; без этого уезжаем ~100px ниже нужного
+      const offset = Math.round(headerH + 12);
+      const startY = window.scrollY;
+      const targetY = Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset);
+      const dist = targetY - startY;
+      if (Math.abs(dist) < 2) return;
+      const durationMs = Math.min(1100, Math.max(520, Math.abs(dist) * 0.55));
+      const t0 = performance.now();
+      const easeInOutCubic = (p: number) =>
+        p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / durationMs);
+        window.scrollTo(0, startY + dist * easeInOutCubic(p));
+        if (p < 1) raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    }, 80);
+
+    return () => {
+      window.clearTimeout(t);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [dateFilter, listLoading, eventsForUi.length]);
 
   return (
     <>
@@ -170,12 +226,13 @@ export function HomePage() {
         heroSlides={heroSlides}
         events={eventsForUi}
         sportEvents={sportEventsForUi}
-        recentEvents={recentEvents}
-        directions={directionsForHomeCarousels(vitrine.directions)}
+        recentEvents={dateFilter ? [] : recentEvents}
+        directions={dateFilter ? [] : directionsForHomeCarousels(vitrine.directions)}
         heroLoading={heroLoading}
         listLoading={listLoading}
         catalogError={isError}
         selectedDateLabel={dateFilter ? selectedDateLabel : null}
+        dateFilterActive={Boolean(dateFilter)}
         telegramUrl={vitrine.contacts?.telegramUrl}
         vkUrl={vitrine.contacts?.vkUrl}
       />

@@ -204,37 +204,46 @@
 @media (min-width: 900px) {
   .inner {
     grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-    padding: 28px 16px 48px;
-    align-items: start;
+    gap: 0;
+    padding: 40px 24px 56px;
+    align-items: center;
+    min-height: clamp(360px, 42vw, 520px);
   }
 
   .left {
-    padding-right: clamp(16px, 4.5vw, 56px);
-    max-width: min(760px, 58vw);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: left;
+    padding-right: 0;
+    max-width: min(560px, 48vw);
   }
 }
 
 @media (min-width: 1200px) {
   .inner {
-    gap: 24px 40px;
-    padding: 32px 16px 56px;
+    padding: 48px 16px 64px;
+  }
+
+  .left {
+    max-width: 520px;
   }
 }
 
 .dateLine {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  width: auto;
   max-width: 100%;
   min-width: 0;
   font-size: clamp(0.72rem, 1.6vw, 0.88rem);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .dateLine > span:first-child,
@@ -244,44 +253,56 @@
 }
 
 .dateLineMid {
-  flex: 1;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.55);
-  min-width: 24px;
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .dateLine {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .dateLineMid {
+    display: none;
+  }
 }
 
 .tags {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   font-size: clamp(0.68rem, 1.5vw, 0.78rem);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   opacity: 0.96;
   line-height: 1.45;
+  max-width: 42ch;
 }
 
 .venueInHero {
-  margin: -6px 0 16px;
+  margin: 0 0 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-width: min(100%, 560px);
+  align-items: flex-start;
+  gap: 4px;
+  max-width: min(100%, 520px);
 }
 
 .venueInHeroV {
-  font-size: clamp(1.2rem, 3vw, 2rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.12;
+  font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
   text-transform: uppercase;
   text-wrap: balance;
+  opacity: 0.95;
 }
 
 .venueInHeroAddr {
-  font-size: clamp(0.78rem, 1.5vw, 0.96rem);
+  font-size: clamp(0.78rem, 1.4vw, 0.9rem);
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1.4;
-  opacity: 0.88;
+  opacity: 0.82;
 }
 
 .emptyTitle {
@@ -311,7 +332,24 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   text-wrap: balance;
-  max-width: 20ch;
+  max-width: 18ch;
+  text-align: left;
+}
+
+@media (min-width: 900px) {
+  .title {
+    font-size: clamp(2rem, 3.2vw, 2.85rem);
+    max-width: 14ch;
+    margin-bottom: 22px;
+  }
+
+  .tags {
+    margin-bottom: 10px;
+  }
+
+  .cta {
+    margin-top: 4px;
+  }
 }
 
 .description {

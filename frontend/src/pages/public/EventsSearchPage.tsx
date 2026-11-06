@@ -171,7 +171,8 @@ export function EventsSearchPage() {
     if (qInput.trim()) p.set('q', qInput.trim());
     if (venueInput.trim()) p.set('venue', venueInput.trim());
     if (genreUrl.trim()) p.set('genre', genreUrl.trim());
-    if (stageUrl.trim()) p.set('stageId', stageUrl.trim());
+    // Текстовый поиск сам матчит площадку (МХТ и т.п.) — stage-чип не держим, иначе «0 из N» при пустом зале
+    if (!qInput.trim() && stageUrl.trim()) p.set('stageId', stageUrl.trim());
     setSearchParams(p, { replace: true });
   };
 

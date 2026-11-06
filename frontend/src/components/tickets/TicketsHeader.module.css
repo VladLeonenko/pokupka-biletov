@@ -524,13 +524,17 @@
   border-color: rgba(0, 0, 0, 0.35);
 }
 
-/* Выбранный день — тот же вид, что и обычный (выбор только в URL / data-атрибуте) */
 .dayBtnActive {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
-  color: #111;
-  box-shadow: none;
-  padding: 10px 8px;
+  border: 2px solid var(--neg-orange, #ff4e18);
+  background: var(--neg-orange, #ff4e18);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(255, 78, 24, 0.28);
+  padding: 9px 7px;
+}
+
+.dayBtnActive .dayWeek {
+  opacity: 0.9;
+  color: #fff;
 }
 
 .dayNum {

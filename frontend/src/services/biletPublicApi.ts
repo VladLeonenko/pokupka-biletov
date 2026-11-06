@@ -640,10 +640,10 @@ function eventDateMs(ev: NormalizedBiletEvent): number | null {
   return null;
 }
 
-/** Актуально ли событие для публичной афиши (прошедшие отправляем в архив). */
+/** Актуально ли событие для публичной афиши: сегодня + будущее. Прошлое / без даты — скрываем. */
 export function isEventActual(ev: NormalizedBiletEvent): boolean {
   const parsedMs = eventDateMs(ev);
-  if (parsedMs == null) return true;
+  if (parsedMs == null) return false;
   const todayMs = startOfTodayLocalMs();
   return parsedMs >= todayMs;
 }

@@ -8,6 +8,8 @@ import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
 import styles from './TicketsHomeSections.module.css';
 
+export const AFISHA_DATE_RESULTS_ID = 'afisha-date-results';
+
 type Props = {
   heroSlides?: HeroSlideView[] | null;
   events?: NormalizedBiletEvent[] | null;
@@ -21,6 +23,8 @@ type Props = {
   listLoading: boolean;
   catalogError?: boolean;
   selectedDateLabel?: string | null;
+  /** Выбрана дата в календаре — на мобилке сворачиваем hero, показываем полную выдачу */
+  dateFilterActive?: boolean;
   telegramUrl?: string | null;
   vkUrl?: string | null;
 };
@@ -35,6 +39,7 @@ export function TicketsHomeSections({
   listLoading,
   catalogError,
   selectedDateLabel,
+  dateFilterActive = false,
   telegramUrl,
   vkUrl,
 }: Props) {
@@ -42,14 +47,19 @@ export function TicketsHomeSections({
   const dir = directions ?? [];
   const hero = heroSlides ?? [];
   const recent = recentEvents ?? [];
-  /** На главной — не более 12 позиций в списке рядов. */
-  const rowEvents = list.slice(0, 12);
+  /** Без даты — 12 рядов; с датой — плитка всей выдачи дня. */
+  const rowEvents = dateFilterActive ? list : list.slice(0, 12);
 
   return (
-    <div className={styles.page}>
-      <NeglinkaHero slides={hero} loading={heroLoading} telegramUrl={telegramUrl} vkUrl={vkUrl} />
+    <div
+      className={`${styles.page}${dateFilterActive ? ` ${styles.pageDateFilter}` : ''}`.trim()}
+      data-date-filter={dateFilterActive ? '1' : undefined}
+    >
+      <div className={styles.heroSlot}>
+        <NeglinkaHero slides={hero} loading={heroLoading} telegramUrl={telegramUrl} vkUrl={vkUrl} />
+      </div>
 
-      <TicketsTrustStrip />
+      {!dateFilterActive && <TicketsTrustStrip />}
 
       {catalogError && !listLoading ? (
         <p className={styles.catalogError}>
@@ -60,13 +70,49 @@ export function TicketsHomeSections({
         </p>
       ) : null}
 
-      {selectedDateLabel && !listLoading && list.length > 0 && (
-        <p className={styles.dateFilter}>
-          Фильтр по дате: <strong>{selectedDateLabel}</strong>
-        </p>
-      )}
+      <div id={AFISHA_DATE_RESULTS_ID} className={styles.dateResultsAnchor}>
+        {dateFilterActive && (
+          <section className={styles.dateResults} aria-labelledby="home-date-results-title">
+            <header className={styles.dateResultsHead}>
+              <h2 id="home-date-results-title" className={styles.dateResultsTitle}>
+                {selectedDateLabel ? `Афиша на ${selectedDateLabel}` : 'Афиша на выбранную дату'}
+              </h2>
+              {!listLoading && (
+                <p className={styles.dateResultsMeta}>
+                  {list.length > 0 ? `Найдено: ${list.length}` : 'Ничего не найдено'}
+                </p>
+              )}
+            </header>
 
-      {recent.length > 0 && (
+            {listLoading && (
+              <div className={styles.dateGridSkeleton} aria-busy="true" aria-label="Загрузка афиши">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className={styles.dateGridSkeletonCard} />
+                ))}
+              </div>
+            )}
+
+            {!listLoading && list.length > 0 && (
+              <div className={styles.dateGrid}>
+                {list.map((ev) => (
+                  <div key={ev.id} className={styles.dateGridItem}>
+                    <EventPosterCard event={ev} variant="poster" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!listLoading && list.length === 0 && (
+              <p className={styles.dateResultsEmpty}>
+                На эту дату пока нет событий. Выберите другой день или{' '}
+                <a href="/">сбросьте календарь</a>.
+              </p>
+            )}
+          </section>
+        )}
+      </div>
+
+      {!dateFilterActive && recent.length > 0 && (
         <section className={styles.recentSection} aria-labelledby="home-recent-title">
           <h2 id="home-recent-title" className={styles.recentTitle}>
             Вы смотрели
@@ -81,11 +127,11 @@ export function TicketsHomeSections({
         </section>
       )}
 
-      {dir.length > 0 && (
+      {!dateFilterActive && dir.length > 0 && (
         <TicketsCategoryCarousels directions={dir} events={list} sportEvents={sportEvents ?? undefined} listLoading={listLoading} />
       )}
 
-      {listLoading && rowEvents.length === 0 && (
+      {!dateFilterActive && listLoading && rowEvents.length === 0 && (
         <section className={styles.rowsSkeleton} aria-busy="true" aria-label="Загрузка афиши">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className={styles.rowSkeleton} />
@@ -93,9 +139,9 @@ export function TicketsHomeSections({
         </section>
       )}
 
-      {!listLoading && rowEvents.length > 0 && <NeglinkaEventRows events={rowEvents} />}
+      {!dateFilterActive && !listLoading && rowEvents.length > 0 && <NeglinkaEventRows events={rowEvents} />}
 
-      {!listLoading && <TicketsHomeExtras events={list} />}
+      {!dateFilterActive && !listLoading && <TicketsHomeExtras events={list} />}
     </div>
   );
 }
