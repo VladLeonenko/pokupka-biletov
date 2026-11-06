@@ -149,40 +149,58 @@ export function TicketsHeader() {
   const homePaths = loc.pathname === '/' || loc.pathname === '/afisha';
 
   const today = useMemo(() => startOfToday(), []);
+  const dayStripRef = useRef<HTMLDivElement>(null);
 
+  /** Какой месяц показывают плитки дней (не фильтр афиши). */
+  const [viewYm, setViewYm] = useState(() => format(today, 'yyyy-MM'));
+
+  // Legacy ?date=yyyy-MM раньше «выбирал весь месяц» — теперь только листаем ленту дней
   useEffect(() => {
     if (!homePaths || !isYearMonth(selectedDate)) return;
+    setViewYm(selectedDate);
     const monthStart = parseISO(`${selectedDate}-01`);
-    if (!isValid(monthStart)) return;
-    const diff = differenceInCalendarMonths(startOfMonth(monthStart), startOfMonth(today));
-    if (diff < 0) return;
-    setMonthBlock(Math.floor(diff / 3));
+    if (isValid(monthStart)) {
+      const diff = differenceInCalendarMonths(startOfMonth(monthStart), startOfMonth(today));
+      if (diff >= 0) setMonthBlock(Math.floor(diff / 3));
+    }
+    const next = new URLSearchParams(params);
+    next.delete('date');
+    setParams(next, { replace: true });
+  }, [homePaths, selectedDate, today, params, setParams]);
+
+  // Синхрон viewYm с выбранным днём
+  useEffect(() => {
+    if (!homePaths || !selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return;
+    const d = parseISO(selectedDate);
+    if (!isValid(d)) return;
+    const ym = format(d, 'yyyy-MM');
+    setViewYm(ym);
+    const diff = differenceInCalendarMonths(startOfMonth(d), startOfMonth(today));
+    if (diff >= 0) setMonthBlock(Math.floor(diff / 3));
   }, [homePaths, selectedDate, today]);
 
+  // Сброс скролла дней при смене месяца
+  useEffect(() => {
+    const el = dayStripRef.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+  }, [viewYm]);
+
   const days = useMemo(() => {
-    if (!homePaths || !selectedDate) {
+    if (!homePaths) {
       return Array.from({ length: 14 }, (_, i) => addDays(today, i));
     }
-    if (isYearMonth(selectedDate)) {
-      const monthStart = parseISO(`${selectedDate}-01`);
-      if (!isValid(monthStart)) {
-        return Array.from({ length: 14 }, (_, i) => addDays(today, i));
-      }
-      const start = dfMax([today, monthStart]);
-      const monthEnd = endOfMonth(monthStart);
-      if (start > monthEnd) {
-        return Array.from({ length: 14 }, (_, i) => addDays(today, i));
-      }
-      return eachDayOfInterval({ start, end: monthEnd });
-    }
-    const d = parseISO(selectedDate);
-    if (!isValid(d)) {
+    const monthStart = parseISO(`${viewYm}-01`);
+    if (!isValid(monthStart)) {
       return Array.from({ length: 14 }, (_, i) => addDays(today, i));
     }
-    const start = dfMax([today, addDays(d, -3)]);
-    const end = addDays(start, 20);
-    return eachDayOfInterval({ start, end });
-  }, [homePaths, selectedDate, today]);
+    const start = dfMax([today, startOfMonth(monthStart)]);
+    const monthEnd = endOfMonth(monthStart);
+    if (start > monthEnd) {
+      return Array.from({ length: 14 }, (_, i) => addDays(today, i));
+    }
+    return eachDayOfInterval({ start, end: monthEnd });
+  }, [homePaths, viewYm, today]);
 
   const monthPills = useMemo(() => {
     const base = addMonths(startOfMonth(today), monthBlock * 3);
@@ -190,6 +208,7 @@ export function TicketsHeader() {
   }, [today, monthBlock]);
 
   const setDate = (iso: string) => {
+    // Кликнули день — только конкретная дата в URL (не весь месяц)
     if (homePaths) {
       const next = new URLSearchParams(params);
       if (selectedDate === iso) {
@@ -203,19 +222,77 @@ export function TicketsHeader() {
     navigate(`/?date=${encodeURIComponent(iso)}`);
   };
 
-  const setMonthYm = (ym: string) => {
-    if (homePaths) {
+  /** Пилюля месяца: переключает ленту дней, не выбирает «все даты месяца». */
+  const focusMonthYm = (ym: string) => {
+    setViewYm(ym);
+    // Если в URL застрял legacy ?date=yyyy-MM — убираем, иначе афиша фильтрует весь месяц
+    if (homePaths && isYearMonth(selectedDate)) {
       const next = new URLSearchParams(params);
-      if (selectedDate === ym) {
-        next.delete('date');
-      } else {
-        next.set('date', ym);
-      }
+      next.delete('date');
       setParams(next, { replace: true });
-      return;
     }
-    navigate(`/?date=${encodeURIComponent(ym)}`);
   };
+
+  const scrollDayStrip = (dir: -1 | 1) => {
+    const el = dayStripRef.current;
+    if (!el) return;
+    const step = Math.max(160, Math.floor(el.clientWidth * 0.7));
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
+  // Drag-to-scroll ленты дат (колёсико мыши на десктопе крутит страницу, а не дни)
+  useEffect(() => {
+    const el = dayStripRef.current;
+    if (!el || calendarCollapsed) return;
+    let dragging = false;
+    let startX = 0;
+    let startScroll = 0;
+    let moved = false;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return; // native touch scroll
+      dragging = true;
+      moved = false;
+      startX = e.clientX;
+      startScroll = el.scrollLeft;
+      el.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) moved = true;
+      el.scrollLeft = startScroll - dx;
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      try {
+        el.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      if (moved) {
+        // подавить клик по дню после драга
+        const block = (ev: Event) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          el.removeEventListener('click', block, true);
+        };
+        el.addEventListener('click', block, true);
+      }
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [calendarCollapsed, viewYm, days.length]);
 
   const onSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,19 +311,7 @@ export function TicketsHeader() {
 
   const monthPillKey = (d: Date) => format(d, 'yyyy-MM');
 
-  const isMonthActive = (d: Date) => {
-    const ym = format(d, 'yyyy-MM');
-    if (selectedDate === ym) return true;
-    if (selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
-      try {
-        const parsed = parseISO(selectedDate);
-        if (isValid(parsed) && format(parsed, 'yyyy-MM') === ym) return true;
-      } catch {
-        /* ignore */
-      }
-    }
-    return false;
-  };
+  const isMonthActive = (d: Date) => format(d, 'yyyy-MM') === viewYm;
 
   return (
     <div role="banner" className={styles.wrap} data-tickets-nav>
@@ -396,7 +461,7 @@ export function TicketsHeader() {
                         key={ym}
                         type="button"
                         className={`${styles.monthPill} ${isMonthActive(d) ? styles.monthPillActive : ''}`}
-                        onClick={() => setMonthYm(ym)}
+                        onClick={() => focusMonthYm(ym)}
                       >
                         {monthPillLabel(d)}
                       </button>
@@ -416,28 +481,43 @@ export function TicketsHeader() {
             </div>
 
             {!calendarCollapsed ? (
-            <div className={styles.calendarStrip} role="list">
-              {days.map((d) => {
-                const iso = format(d, 'yyyy-MM-dd');
-                const active =
-                  homePaths &&
-                  (selectedDate === iso ||
-                    (isYearMonth(selectedDate) && iso.startsWith(selectedDate)));
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    role="listitem"
-                    data-tickets-day-active={active ? 'true' : undefined}
-                    className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
-                    onClick={() => setDate(iso)}
-                    title={format(d, 'd MMMM yyyy', { locale: ru })}
-                  >
-                    <div className={styles.dayNum}>{format(d, 'd')}</div>
-                    <div className={styles.dayWeek}>{format(d, 'EEE', { locale: ru })}</div>
-                  </button>
-                );
-              })}
+            <div className={styles.dayNav} aria-label="Даты выбранного месяца">
+              <button
+                type="button"
+                className={styles.dayArrow}
+                aria-label="Прокрутить даты влево"
+                onClick={() => scrollDayStrip(-1)}
+              >
+                <ChevronLeftIcon sx={{ fontSize: 22 }} />
+              </button>
+              <div ref={dayStripRef} className={styles.calendarStrip} role="list">
+                {days.map((d) => {
+                  const iso = format(d, 'yyyy-MM-dd');
+                  const active = homePaths && selectedDate === iso;
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      role="listitem"
+                      data-tickets-day-active={active ? 'true' : undefined}
+                      className={`${styles.dayBtn} ${active ? styles.dayBtnActive : ''}`}
+                      onClick={() => setDate(iso)}
+                      title={format(d, 'd MMMM yyyy', { locale: ru })}
+                    >
+                      <div className={styles.dayNum}>{format(d, 'd')}</div>
+                      <div className={styles.dayWeek}>{format(d, 'EEE', { locale: ru })}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className={styles.dayArrow}
+                aria-label="Прокрутить даты вправо"
+                onClick={() => scrollDayStrip(1)}
+              >
+                <ChevronRightIcon sx={{ fontSize: 22 }} />
+              </button>
             </div>
             ) : null}
           </div>

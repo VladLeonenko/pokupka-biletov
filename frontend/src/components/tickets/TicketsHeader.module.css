@@ -488,20 +488,66 @@
   filter: brightness(0.96);
 }
 
+.dayNav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.dayArrow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.dayArrow:hover {
+  border-color: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.03);
+}
+
 .calendarStrip {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  /* видимый тонкий скролл — иначе на десктопе неочевидно, что ленту можно тянуть */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
 }
 
 .calendarStrip::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  height: 6px;
+}
+
+.calendarStrip::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 999px;
+}
+
+.calendarStrip::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .dayBtn {
@@ -514,6 +560,7 @@
   cursor: pointer;
   font: inherit;
   color: #111;
+  scroll-snap-align: start;
   transition:
     border-color 0.2s,
     box-shadow 0.2s,
