@@ -43,10 +43,10 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
     setAnimDir(0);
   }, [firstSlideId]);
 
-  // Сброс класса анимации после кадра
+  // Класс направления держим на весь переход (~0.85s)
   useEffect(() => {
     if (!animDir) return;
-    const t = window.setTimeout(() => setAnimDir(0), 420);
+    const t = window.setTimeout(() => setAnimDir(0), 900);
     return () => window.clearTimeout(t);
   }, [idx, animDir]);
 
@@ -221,6 +221,8 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   const title = current.title;
   const animClass =
     animDir === 1 ? styles.slideFromRight : animDir === -1 ? styles.slideFromLeft : '';
+  const stageClass =
+    animDir === 1 ? styles.slideStageNext : animDir === -1 ? styles.slideStagePrev : '';
 
   return (
     <section
@@ -237,66 +239,73 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
           aria-label={`${current.ctaLabel}: ${title}`}
           draggable={false}
         />
-        <div className={styles.inner}>
-          <div className={styles.left}>
-            <div className={styles.dateLine}>
-              <span>{current.lineLeft}</span>
-              <span className={styles.dateLineMid} />
-              <span>{current.lineRight}</span>
+        <div
+          key={current.id}
+          className={`${styles.slideStage} ${stageClass}`.trim()}
+        >
+          <div className={styles.inner}>
+            <div className={styles.left}>
+              <div className={styles.dateLine}>
+                <span>{current.lineLeft}</span>
+                <span className={styles.dateLineMid} />
+                <span>{current.lineRight}</span>
+              </div>
+
+              <p className={styles.tags}>{current.tags}</p>
+
+              {current.venueLabel || current.venueAddress ? (
+                <p className={styles.venueInHero} data-hero-venue>
+                  {current.venueLabel ? (
+                    <span className={styles.venueInHeroV}>{current.venueLabel}</span>
+                  ) : null}
+                  {current.venueAddress ? (
+                    <span className={styles.venueInHeroAddr}>{current.venueAddress}</span>
+                  ) : null}
+                </p>
+              ) : null}
+
+              <h1 className={styles.title}>{title}</h1>
+
+              {current.description ? (
+                <p className={styles.description}>{current.description}</p>
+              ) : null}
+
+              {(current.author || current.director) && (
+                <div className={styles.credits}>
+                  {current.author && (
+                    <div className={styles.creditBlock}>
+                      <span className={styles.creditLabel}>Автор</span>
+                      <span className={styles.creditVal}>{current.author}</span>
+                    </div>
+                  )}
+                  {current.director && (
+                    <div className={styles.creditBlock}>
+                      <span className={styles.creditLabel}>Режиссёр</span>
+                      <span className={styles.creditVal}>{current.director}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <span className={styles.cta}>{current.ctaLabel}</span>
             </div>
 
-            <p className={styles.tags}>{current.tags}</p>
-
-            {current.venueLabel || current.venueAddress ? (
-              <p className={styles.venueInHero} data-hero-venue>
-                {current.venueLabel ? (
-                  <span className={styles.venueInHeroV}>{current.venueLabel}</span>
-                ) : null}
-                {current.venueAddress ? (
-                  <span className={styles.venueInHeroAddr}>{current.venueAddress}</span>
-                ) : null}
-              </p>
-            ) : null}
-
-            <h1 className={styles.title}>{title}</h1>
-
-            {current.description ? <p className={styles.description}>{current.description}</p> : null}
-
-            {(current.author || current.director) && (
-              <div className={styles.credits}>
-                {current.author && (
-                  <div className={styles.creditBlock}>
-                    <span className={styles.creditLabel}>Автор</span>
-                    <span className={styles.creditVal}>{current.author}</span>
-                  </div>
-                )}
-                {current.director && (
-                  <div className={styles.creditBlock}>
-                    <span className={styles.creditLabel}>Режиссёр</span>
-                    <span className={styles.creditVal}>{current.director}</span>
-                  </div>
-                )}
+            <div className={styles.right}>
+              <div className={styles.visualFrame}>
+                <TicketEventPosterImg
+                  src={img}
+                  fallbackSrc={placeholderSrc}
+                  gradientId={current.id}
+                  className={styles.visualImg}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  role="cover"
+                  width={480}
+                  height={640}
+                  alt=""
+                />
               </div>
-            )}
-
-            <span className={styles.cta}>{current.ctaLabel}</span>
-          </div>
-
-          <div className={styles.right}>
-            <div className={styles.visualFrame}>
-              <TicketEventPosterImg
-                src={img}
-                fallbackSrc={placeholderSrc}
-                gradientId={current.id}
-                className={styles.visualImg}
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-                role="cover"
-                width={480}
-                height={640}
-                alt=""
-              />
             </div>
           </div>
         </div>

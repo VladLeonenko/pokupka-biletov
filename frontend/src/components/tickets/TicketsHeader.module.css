@@ -230,22 +230,22 @@
   color: inherit !important;
 }
 
-/* iOS-like collapse: grid 1fr → 0fr + spring easing */
+/*
+  Схлопывание только через grid (без opacity/translate на контейнере):
+  opacity+transform на sticky-блоке давали «мигание» и скачок контента.
+*/
 .calendarRow {
   display: grid;
   grid-template-rows: 1fr;
   padding: 0;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  opacity: 1;
   transition:
-    grid-template-rows 0.48s cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.36s ease;
+    grid-template-rows 0.62s cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 0.5s ease;
 }
 
 .calendarRowAutoHidden {
   grid-template-rows: 0fr;
-  opacity: 0;
   border-top-color: transparent;
   pointer-events: none;
 }
@@ -254,20 +254,20 @@
   overflow: hidden;
   min-height: 0;
   padding: 10px 0 12px;
+  /* лёгкий fade контента, без сдвига — меньше нагрузка на глаз */
   opacity: 1;
-  transform: translate3d(0, 0, 0);
   transition:
-    opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.48s cubic-bezier(0.32, 0.72, 0, 1),
-    padding 0.48s cubic-bezier(0.32, 0.72, 0, 1);
-  will-change: opacity, transform;
+    opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1) 0.05s,
+    padding 0.62s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .calendarRowAutoHidden .calendarRowInner {
   opacity: 0;
-  transform: translate3d(0, -12px, 0);
   padding-top: 0;
   padding-bottom: 0;
+  transition:
+    opacity 0.28s cubic-bezier(0.4, 0, 1, 1),
+    padding 0.62s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .calendarHead {

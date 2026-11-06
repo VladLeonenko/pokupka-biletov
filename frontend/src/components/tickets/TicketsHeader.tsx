@@ -117,9 +117,11 @@ export function TicketsHeader() {
       setCalendarCollapsed(false);
       return undefined;
     }
-    // iOS-паттерн: вниз — прячем, вверх — показываем; у топа всегда виден
-    const TOP_ALWAYS_SHOW = 48;
-    const DELTA = 8;
+    // iOS: вниз — прячем, вверх — показываем; гистерезис против дребезга
+    const TOP_ALWAYS_SHOW = 72;
+    const DELTA_HIDE = 14;
+    const DELTA_SHOW = 18;
+    let dirBias = 0; // накопитель направления, чтобы не мигать на мелком треморе
     lastScrollYRef.current = window.scrollY || 0;
 
     const updateCalendarVisibility = () => {
@@ -129,13 +131,20 @@ export function TicketsHeader() {
       const dy = y - prev;
       lastScrollYRef.current = y;
 
+      if (Math.abs(dy) < 1) return;
+
+      dirBias = Math.max(-40, Math.min(40, dirBias + dy));
+
       let hidden = calendarAutoHiddenRef.current;
       if (y <= TOP_ALWAYS_SHOW) {
         hidden = false;
-      } else if (dy > DELTA) {
+        dirBias = 0;
+      } else if (dirBias > DELTA_HIDE) {
         hidden = true;
-      } else if (dy < -DELTA) {
+        dirBias = 0;
+      } else if (dirBias < -DELTA_SHOW) {
         hidden = false;
+        dirBias = 0;
       }
 
       if (calendarAutoHiddenRef.current !== hidden) {

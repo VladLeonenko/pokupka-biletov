@@ -19,35 +19,112 @@
   -webkit-user-select: none;
 }
 
-.slideFromRight .heroBody,
-.slideFromRight.hero::before {
-  animation: heroInFromRight 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.slideFromLeft .heroBody,
+/* Современный переход слайда: фото ken-burns + контент stagger */
+.slideFromRight.hero::before,
 .slideFromLeft.hero::before {
-  animation: heroInFromLeft 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: heroPhotoIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes heroInFromRight {
-  from {
-    opacity: 0.55;
-    transform: translate3d(28px, 0, 0);
+.slideStage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.slideStageNext {
+  animation: heroStageInNext 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.slideStagePrev {
+  animation: heroStageInPrev 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.slideStage .dateLine,
+.slideStage .tags,
+.slideStage .venueInHero,
+.slideStage .title,
+.slideStage .description,
+.slideStage .credits,
+.slideStage .cta,
+.slideStage .visualFrame {
+  animation: heroTextIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.slideStage .dateLine { animation-delay: 0.04s; }
+.slideStage .tags { animation-delay: 0.08s; }
+.slideStage .venueInHero { animation-delay: 0.11s; }
+.slideStage .title { animation-delay: 0.14s; }
+.slideStage .description { animation-delay: 0.2s; }
+.slideStage .credits { animation-delay: 0.24s; }
+.slideStage .cta { animation-delay: 0.28s; }
+.slideStage .visualFrame { animation-delay: 0.1s; }
+
+@keyframes heroPhotoIn {
+  0% {
+    opacity: 0.25;
+    transform: scale(1.12);
+    filter: saturate(1.05) contrast(1.05) brightness(0.75) blur(10px);
   }
-  to {
+  100% {
+    opacity: 1;
+    transform: scale(1.01);
+    filter: saturate(1.08) contrast(1.08) brightness(1.04) blur(0);
+  }
+}
+
+@keyframes heroStageInNext {
+  0% {
+    opacity: 0;
+    transform: translate3d(48px, 0, 0);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes heroStageInPrev {
+  0% {
+    opacity: 0;
+    transform: translate3d(-48px, 0, 0);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes heroTextIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  100% {
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
 }
 
-@keyframes heroInFromLeft {
-  from {
-    opacity: 0.55;
-    transform: translate3d(-28px, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
+@media (prefers-reduced-motion: reduce) {
+  .slideFromRight.hero::before,
+  .slideFromLeft.hero::before,
+  .slideStageNext,
+  .slideStagePrev,
+  .slideStage .dateLine,
+  .slideStage .tags,
+  .slideStage .venueInHero,
+  .slideStage .title,
+  .slideStage .description,
+  .slideStage .credits,
+  .slideStage .cta,
+  .slideStage .visualFrame {
+    animation: none !important;
   }
 }
 
@@ -67,6 +144,7 @@
   transform: scale(1.01);
   transform-origin: right center;
   pointer-events: none;
+  will-change: transform, opacity, filter;
   -webkit-mask-image: linear-gradient(
     to right,
     transparent 0%,
