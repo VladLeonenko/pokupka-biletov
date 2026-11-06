@@ -162,8 +162,10 @@ FRONTEND_OK=1
   command -v npx >/dev/null
   : "${NODE_OPTIONS:=--max-old-space-size=4096}"
   export NODE_OPTIONS
-  # Старый dist не должен маскировать провал сборки
-  rm -rf dist
+  # Не rm -rf dist до успеха: при падении сборки прод оставался без /assets/*.js (404 → пустая страница).
+  rm -rf dist.prev dist-ssr.prev
+  if [ -d dist ]; then mv dist dist.prev; fi
+  if [ -d dist-ssr ]; then mv dist-ssr dist-ssr.prev; fi
   npm run build
   test -x node_modules/.bin/vite || test -f node_modules/vite/bin/vite.js
   # React SSR bundle for / and /ticket/* (seoRenderer → renderToString + hydrate)
@@ -171,7 +173,8 @@ FRONTEND_OK=1
   npm run build:ssr
   test -f dist-ssr/renderTickets.js
   printf '%s\n' 'google-site-verification: google878cb9d84aaaf0e5.html' > "$PROJECT_ROOT/frontend/dist/google878cb9d84aaaf0e5.html"
-  chown -R www-data:www-data dist 2>/dev/null || true
+  chown -R www-data:www-data dist dist-ssr 2>/dev/null || true
+  rm -rf dist.prev dist-ssr.prev
 ) || FRONTEND_OK=0
 
 DIST_INDEX="$PROJECT_ROOT/frontend/dist/index.html"
@@ -186,6 +189,22 @@ elif ! grep -qE '/assets/[^"]+\.js' "$DIST_INDEX" 2>/dev/null; then
   FRONTEND_OK=0
 fi
 
+if [ "$FRONTEND_OK" != 1 ]; then
+  echo "⚠️ Откат frontend/dist из dist.prev (если был)…"
+  (
+    cd "$PROJECT_ROOT/frontend"
+    if [ -d dist.prev ]; then
+      rm -rf dist
+      mv dist.prev dist
+    fi
+    if [ -d dist-ssr.prev ]; then
+      rm -rf dist-ssr
+      mv dist-ssr.prev dist-ssr
+    fi
+    chown -R www-data:www-data dist dist-ssr 2>/dev/null || true
+  ) || true
+fi
+
 if [ "$FRONTEND_OK" = 1 ]; then
   echo "✅ Frontend собран"
   if [ -f "$PROJECT_ROOT/luzhniki.txt" ] && [ -f "$PROJECT_ROOT/tickets.json" ]; then
@@ -197,7 +216,7 @@ if [ "$FRONTEND_OK" = 1 ]; then
     chown -R www-data:www-data "$PROJECT_ROOT/frontend/dist/tools" 2>/dev/null || true
   fi
 else
-  echo "❌ Frontend/dist сломан или не собран"
+  echo "❌ Frontend/dist сломан или не собран (предыдущий dist восстановлен, если был)"
   echo "   swap: sudo bash scripts/setup-vps-swap.sh"
   echo "   или с Mac: ./scripts/rsync-spa-hotfix.sh root@91.229.9.229"
   exit 1
