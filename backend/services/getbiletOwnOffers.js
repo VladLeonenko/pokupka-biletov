@@ -128,10 +128,15 @@ export function sanitizePublicOffersPayload(data) {
 export function sanitizePublicOfferRow(row) {
   if (!row || typeof row !== 'object') return row;
   const o = /** @type {Record<string, unknown>} */ ({ .../** @type {object} */ (row) });
-  const own = isOwnOfferRow(o);
+  /** LocalOffer+ManualOffer = наш прайс «как в ТЗ» без %; на схеме это обычные места, не «выгода». */
+  const localFixedRetail =
+    (o.LocalOffer === true || o.localOffer === true) && isManualOfferRowLite(o);
+  const own = isOwnOfferRow(o) && !localFixedRetail;
   delete o.AgentId;
   delete o.agentId;
   delete o.UndercutToBeatRival;
+  delete o.ManualOffer;
+  delete o.manualOffer;
   if (own) o.OwnOffer = true;
   else delete o.OwnOffer;
   delete o.ownOffer;
