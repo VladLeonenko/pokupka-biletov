@@ -122,6 +122,8 @@ const MIGRATION_FILES = [
   '081_getbilet_events_manual_offers_json.sql',
   '082_getbilet_competitor_prices.sql',
   '083_getbilet_external_competitor_prices.sql',
+  '084_getbilet_events_seo_manual.sql',
+  '085_getbilet_catalog_cache_session_key.sql',
 ];
 
 async function applyMigration(filename) {
