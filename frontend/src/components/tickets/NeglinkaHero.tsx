@@ -33,6 +33,55 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
     setIdx(0);
   }, [firstSlideId]);
 
+  const coverInput = current
+    ? { title: current.title, imageUrl: current.imageUrl }
+    : null;
+  const img = coverInput ? resolveEventCoverUrl(coverInput) : '';
+  const placeholderSrc = coverInput ? eventCategoryPlaceholderUrl(coverInput) : '';
+  const heroBg =
+    (img && toWebpUrl(img, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q })) || img || '';
+  const heroStyle = heroBg
+    ? ({
+        '--hero-image': `url("${heroBg.replace(/["\\]/g, '')}")`,
+      } as CSSProperties)
+    : undefined;
+
+  // LCP preload текущего + прогрев следующего слайда
+  useEffect(() => {
+    if (loading || !heroBg || typeof document === 'undefined') return;
+    const id = 'tickets-hero-preload';
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link');
+      link.id = id;
+      link.rel = 'preload';
+      link.as = 'image';
+      link.type = 'image/webp';
+      document.head.appendChild(link);
+    }
+    try {
+      const abs = new URL(heroBg, window.location.origin).href;
+      if (link.href !== abs) link.href = heroBg;
+    } catch {
+      link.href = heroBg;
+    }
+
+    if (slides.length < 2) return;
+    const next = slides[(idx + 1) % slides.length];
+    if (!next) return;
+    const nextCover = resolveEventCoverUrl({ title: next.title, imageUrl: next.imageUrl });
+    const nextWebp = nextCover
+      ? toWebpUrl(nextCover, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q })
+      : null;
+    if (!nextWebp) return;
+    const t = window.setTimeout(() => {
+      const imgEl = new Image();
+      imgEl.decoding = 'async';
+      imgEl.src = nextWebp;
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [loading, heroBg, idx, slides]);
+
   if (loading) {
     return (
       <section className={styles.hero} data-tickets-hero aria-busy="true">
@@ -44,7 +93,7 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
     );
   }
 
-  if (slides.length === 0) {
+  if (slides.length === 0 || !current) {
     return (
       <section className={styles.hero} data-tickets-hero>
         <div className={styles.inner}>
@@ -61,20 +110,6 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
   }
 
   const title = current.title;
-  const coverInput = {
-    title: current.title,
-    imageUrl: current.imageUrl,
-  };
-  const img = resolveEventCoverUrl(coverInput);
-  const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
-  // Same URL as cover <img> (w=960) so CSS ::before + img share one cache entry.
-  const heroBg =
-    (img && toWebpUrl(img, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q })) || img || '';
-  const heroStyle = heroBg
-    ? ({
-        '--hero-image': `url("${heroBg.replace(/["\\]/g, '')}")`,
-      } as CSSProperties)
-    : undefined;
 
   return (
     <section

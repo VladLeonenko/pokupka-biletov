@@ -233,7 +233,7 @@ export function TicketsHeader() {
     }
   };
 
-  // Drag ЛКМ + shift/колёсико → горизонтальный скролл; touch — нативный
+  // Drag ЛКМ; тачпад/колёсико → горизонтальный скролл ленты; touch — нативный pan-x
   useEffect(() => {
     const el = dayStripRef.current;
     if (!el || calendarCollapsed) return;
@@ -276,26 +276,39 @@ export function TicketsHeader() {
         el.addEventListener('click', block, true);
       }
     };
+    const normalizeDelta = (e: WheelEvent) => {
+      // 0=px, 1=line, 2=page — Safari/тачпад часто LINE
+      const line = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1;
+      return { x: e.deltaX * line, y: e.deltaY * line };
+    };
     const onWheel = (e: WheelEvent) => {
-      // тачпад/колёсико: горизонтальный deltaX или вертикальный → влево/вправо по датам
-      const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      if (dx === 0) return;
-      if (el.scrollWidth <= el.clientWidth) return;
+      if (el.scrollWidth <= el.clientWidth + 1) return;
+      const { x, y } = normalizeDelta(e);
+      // Двухпальцевый жест: берём доминирующую ось; вертикальный жест тоже листает даты
+      const absX = Math.abs(x);
+      const absY = Math.abs(y);
+      if (absX < 0.5 && absY < 0.5) return;
+      const dx = absX >= absY ? x : y;
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      const next = Math.min(maxScroll, Math.max(0, el.scrollLeft + dx));
+      if (next === el.scrollLeft) return;
       e.preventDefault();
-      el.scrollLeft += dx;
+      e.stopPropagation();
+      el.scrollLeft = next;
     };
 
     el.addEventListener('pointerdown', onPointerDown);
     el.addEventListener('pointermove', onPointerMove);
     el.addEventListener('pointerup', onPointerUp);
     el.addEventListener('pointercancel', onPointerUp);
-    el.addEventListener('wheel', onWheel, { passive: false });
+    // capture: wheel часто приходит на button-день, не на strip
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true });
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerUp);
-      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('wheel', onWheel, true);
       el.classList.remove(styles.calendarStripDragging);
     };
   }, [calendarCollapsed, viewYm, days.length]);

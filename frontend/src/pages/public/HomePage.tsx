@@ -170,9 +170,10 @@ export function HomePage() {
     return dedupeBiletEventsByShow(source);
   }, [dateFilter, normalizedSportLite]);
 
+  /** Hero только из /home — не ждём events-lite (750KB), иначе скелетон висит на парсе полного каталога. */
   const eventsForHero = useMemo(
-    () => dedupeBiletEventsByShow([...eventsForUi, ...sportEventsForUi]),
-    [eventsForUi, sportEventsForUi],
+    () => dedupeBiletEventsByShow(normalized),
+    [normalized],
   );
 
   const heroSlides = useMemo(
@@ -180,10 +181,9 @@ export function HomePage() {
     [vitrine.heroSlides, eventsForHero],
   );
 
-  /** Пока грузится витрина — не решаем, есть ли CMS hero; затем hero либо из CMS, либо ждём афишу (+ lite для спорта). */
+  /** CMS hero — сразу после vitrine; иначе — сразу после /home. Lite не блокирует. */
   const heroLoading =
-    vitrinePending ||
-    ((vitrine.heroSlides?.length ?? 0) === 0 && (eventsPending || sportEventsPending));
+    vitrinePending || ((vitrine.heroSlides?.length ?? 0) === 0 && eventsPending);
   const listLoading = eventsPending || sportEventsPending;
   const scrolledForDateRef = useRef<string | null>(null);
 
