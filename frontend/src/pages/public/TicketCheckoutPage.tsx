@@ -622,8 +622,14 @@ export function TicketCheckoutPage() {
         (o) => normalizeSectorLabel(o.Sector) === stadiumSectorFilter,
       );
     }
-    return filterOffers(listableOffers as OfferRowLike[], filterState) as OfferRow[];
-  }, [isFootballStadiumStage, listableOffers, filterState, stadiumSectorFilter]);
+    // Старт [0,1] до useEffect — иначе SSR/первый кадр режет все офферы (11 900+) → пустой список.
+    const [lo, hi] = filterState.priceRange;
+    const priceUninitialized = lo === 0 && hi <= 1 && pb.max > 1;
+    const state: OfferFilterState = priceUninitialized
+      ? { ...filterState, priceRange: [pb.min, pb.max] }
+      : filterState;
+    return filterOffers(listableOffers as OfferRowLike[], state) as OfferRow[];
+  }, [isFootballStadiumStage, listableOffers, filterState, stadiumSectorFilter, pb.min, pb.max]);
 
   const priceColorMap = useMemo(() => {
     const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
@@ -1232,12 +1238,21 @@ export function TicketCheckoutPage() {
     return false;
   }, [ctx?.checkoutHideSeatList, layoutJsonForStage, repertoireId]);
 
+  /** Контекст /page уже без карты (не deferred) — не ждём вторичный fetch, чтобы не рисовать 56vh «Загрузка». */
+  const contextSaysNoHallMap =
+    Boolean(ctx) &&
+    !ctxLoading &&
+    ctx?.stageMap == null &&
+    !svgDeferred &&
+    !isFootballStadiumStageEarly;
+
   /** Не показывать «план недоступен», пока ждём контекст или fetch карты по stageId (избегаем ложной заглушки). */
   const hallMapLoadSettled = useMemo(() => {
     if (ctxLoading) return false;
     if (isFootballStadiumStageEarly && repertoireId.trim()) return stageMapFetched;
     if (!stageIdEff) return true;
     if (hasUsableHallSvgFromContext) return true;
+    if (contextSaysNoHallMap) return true;
     return stageMapFetched;
   }, [
     ctxLoading,
@@ -1246,6 +1261,7 @@ export function TicketCheckoutPage() {
     stageMapFetched,
     isFootballStadiumStageEarly,
     repertoireId,
+    contextSaysNoHallMap,
   ]);
 
   const showHallMissingCard = Boolean(!hallSvg && hallMapLoadSettled);
@@ -1254,6 +1270,8 @@ export function TicketCheckoutPage() {
   const showHallMapShell = useMemo(() => {
     if (showHallMissingCard) return false;
     if (!stageIdEff && !isFootballStadiumStageEarly) return false;
+    // Нет карты в page-context — не оставляем белую «Загрузка схемы» на полэкрана.
+    if (contextSaysNoHallMap && !hallSvg) return false;
     return Boolean(hallSvg) || !hallMapLoadSettled || svgDeferred || isFootballStadiumStage;
   }, [
     showHallMissingCard,
@@ -1263,7 +1281,11 @@ export function TicketCheckoutPage() {
     hallSvg,
     svgDeferred,
     isFootballStadiumStage,
+    contextSaysNoHallMap,
   ]);
+
+  /** Без схемы список мест — основной UI (не хоронить под расписанием/accordion). */
+  const seatListPrimary = Boolean(!hallSvg && !showHallMapShell);
 
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
   const noOffersAfterFetch = !isLoading && (isSuccess || isError) && offers.length === 0;
@@ -1834,7 +1856,8 @@ export function TicketCheckoutPage() {
           sx={{ pb: 4 }}
         >
 
-          {!isSupercupSportCheckout && allSessionsSorted.length > 0 && (
+          {/* Со схемой — расписание сверху; без схемы — сначала места (см. блок ниже). */}
+          {!seatListPrimary && !isSupercupSportCheckout && allSessionsSorted.length > 0 && (
             <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
               <div className={styles.scheduleHeader}>
                 <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
@@ -2332,22 +2355,19 @@ export function TicketCheckoutPage() {
           )}
 
           {bySession.size > 0 && !hideSeatListUi && !hideOfferListBehindMap && (
-            <Accordion
-              defaultExpanded={!hallSvg}
-              sx={{
-                mb: 2,
-                boxShadow: 'none',
-                border: '1px solid rgba(0,0,0,0.08)',
-                borderRadius: 2,
-                '&:before': { display: 'none' },
-              }}
-            >
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  {hallSvg ? 'Список мест (дополнительно)' : 'Список мест'}
+            seatListPrimary ? (
+              <Paper
+                elevation={0}
+                sx={{
+                  mb: 2,
+                  p: 2,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 2,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
+                  Список мест
                 </Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ pt: 0 }}>
                 {groupedOfferRowsForList.map(([dt, rows]) => (
                   <Paper key={dt} className={styles.session} elevation={0} sx={{ mb: 1.5 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
@@ -2378,20 +2398,6 @@ export function TicketCheckoutPage() {
                                   {namedTicket
                                     ? 'Именной билет: в каталоге нет номеров мест — выберите соседние места на схеме зала.'
                                     : 'Номера мест в выгрузке нет — выберите место на схеме зала или укажите ряд в комментарии при оплате.'}
-                                  {hallSvg ? (
-                                    <>
-                                      {' '}
-                                      <Button
-                                        type="button"
-                                        size="small"
-                                        variant="text"
-                                        sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline' }}
-                                        onClick={() => setMapDialogOpen(true)}
-                                      >
-                                        Открыть схему
-                                      </Button>
-                                    </>
-                                  ) : null}
                                 </Typography>
                               ) : (
                                 seatList.map((seat) => {
@@ -2432,8 +2438,171 @@ export function TicketCheckoutPage() {
                     </Button>
                   </Box>
                 ) : null}
-              </AccordionDetails>
-            </Accordion>
+              </Paper>
+            ) : (
+              <Accordion
+                defaultExpanded={!hallSvg}
+                sx={{
+                  mb: 2,
+                  boxShadow: 'none',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 2,
+                  '&:before': { display: 'none' },
+                }}
+              >
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {hallSvg ? 'Список мест (дополнительно)' : 'Список мест'}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                  {groupedOfferRowsForList.map(([dt, rows]) => (
+                    <Paper key={dt} className={styles.session} elevation={0} sx={{ mb: 1.5 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+                        {dt === '_' ? 'Дата уточняется' : new Date(dt).toLocaleString('ru-RU')}
+                      </Typography>
+                      <div className={styles.mapGrid}>
+                        {rows.map((row) => {
+                          const oid = String(row.Id ?? '');
+                          const pk = priceKey(row);
+                          const bg = priceColorMap.get(pk) ?? colorForPriceIndex(0);
+                          const seatList = getOfferSeatList(row);
+                          const seatless = isSeatlessOfferRow(row);
+                          const namedTicket = namedTicketUxEnabled && isNamedTicketOfferRow(row);
+                          const active = offerId === oid;
+                          return (
+                            <div key={oid} className={styles.offerBlock}>
+                              <div className={styles.offerHead}>
+                                <span>
+                                  <strong>{row.Sector ?? '—'}</strong> · ряд {row.Row ?? '—'}
+                                </span>
+                                <span className={styles.priceTag} style={{ backgroundColor: bg }}>
+                                  {Number(pk).toLocaleString('ru-RU')} ₽
+                                </span>
+                              </div>
+                              <div className={styles.seatRow}>
+                                {seatless ? (
+                                  <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>
+                                    {namedTicket
+                                      ? 'Именной билет: в каталоге нет номеров мест — выберите соседние места на схеме зала.'
+                                      : 'Номера мест в выгрузке нет — выберите место на схеме зала или укажите ряд в комментарии при оплате.'}
+                                    {hallSvg ? (
+                                      <>
+                                        {' '}
+                                        <Button
+                                          type="button"
+                                          size="small"
+                                          variant="text"
+                                          sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline' }}
+                                          onClick={() => setMapDialogOpen(true)}
+                                        >
+                                          Открыть схему
+                                        </Button>
+                                      </>
+                                    ) : null}
+                                  </Typography>
+                                ) : (
+                                  seatList.map((seat) => {
+                                    const selected = active && seats.includes(seat);
+                                    return (
+                                      <button
+                                        key={seat}
+                                        type="button"
+                                        className={`${styles.seatBtn} ${selected ? styles.seatBtnOn : ''}`}
+                                        style={{
+                                          borderColor: bg,
+                                          backgroundColor: selected ? bg : 'rgba(255,255,255,0.9)',
+                                          color: selected ? '#fff' : '#111',
+                                        }}
+                                        onClick={() => toggleSeat(oid, seat, seatList)}
+                                      >
+                                        {seat}
+                                      </button>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Paper>
+                  ))}
+                  {flatSessionRows.length > offerRowsPreviewLimit ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 0.5 }}>
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        size="medium"
+                        onClick={() => setShowAllOfferRows((v) => !v)}
+                      >
+                        {showAllOfferRows ? 'Свернуть' : 'Смотреть все билеты'}
+                      </Button>
+                    </Box>
+                  ) : null}
+                </AccordionDetails>
+              </Accordion>
+            )
+          )}
+
+          {seatListPrimary && !isSupercupSportCheckout && allSessionsSorted.length > 0 && (
+            <Box component="section" className={styles.scheduleSection} sx={{ mb: 3, mt: 1 }}>
+              <div className={styles.scheduleHeader}>
+                <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                  Расписание
+                </Typography>
+                <button
+                  type="button"
+                  className={styles.scheduleToggle}
+                  onClick={() => setScheduleCollapsed((v) => !v)}
+                  aria-expanded={!scheduleCollapsed}
+                >
+                  {scheduleCollapsed ? 'Показать календарь' : 'Скрыть календарь'}
+                </button>
+              </div>
+              {!scheduleCollapsed ? (
+                <>
+                  {mergedVenue || mergedVenueAddress ? (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                        Площадка проведения
+                      </Typography>
+                      {mergedVenue ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                          {mergedVenue}
+                        </Typography>
+                      ) : null}
+                      {mergedVenueAddress ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {mergedVenueAddress}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  ) : null}
+                  <div className={styles.scheduleStrip}>
+                    {allSessionsSorted.map(([dt, rows]) => {
+                      const minP = minPriceForOffers(rows);
+                      const { time, dateLine } = formatSessionCard(dt);
+                      const selected = selectedSessionKey === dt;
+                      return (
+                        <button
+                          key={dt}
+                          type="button"
+                          className={`${styles.scheduleCard} ${selected ? styles.scheduleCardSelected : ''}`}
+                          onClick={() => setSelectedSessionKey(dt)}
+                        >
+                          <div className={styles.scheduleCardDate}>{dateLine}</div>
+                          <div className={styles.scheduleCardTime}>{time}</div>
+                          {minP != null ? (
+                            <div className={styles.scheduleCardPrice}>от {minP.toLocaleString('ru-RU')} ₽</div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+            </Box>
           )}
 
           <Suspense fallback={null}>
