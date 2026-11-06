@@ -52,7 +52,7 @@ export function HomePage() {
   /** Полный lite-каталог: фильтр по дате и спорт — не урезанный /home (≤120). */
   const { data: rawSportLite, isPending: sportEventsPending } = useQuery({
     queryKey: ['bilet-events-lite-public', cityId, 'sport-home'],
-    queryFn: () => fetchBiletEventsLite(500),
+    queryFn: () => fetchBiletEventsLite(2000),
     staleTime: 120_000,
     gcTime: 30 * 60_000,
     retry: 1,

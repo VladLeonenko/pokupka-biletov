@@ -314,7 +314,7 @@ function compactGetbiletAction(row) {
 function compactActions(actions, limit = 120) {
   if (!Array.isArray(actions)) return [];
   const seen = new Set();
-  const out = [];
+  const items = [];
   for (const action of actions) {
     const item = compactGetbiletAction(action);
     if (!item) continue;
@@ -324,10 +324,17 @@ function compactActions(actions, limit = 120) {
       item.title;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(item);
-    if (out.length >= limit) break;
+    items.push(item);
   }
-  return out;
+  // Ближайшие сеансы первыми — иначе при expand (~1000+ строк) limit=500
+  // отрезал даты вроде 13.11 и площадки из хвоста кэша.
+  items.sort((a, b) => {
+    const da = eventStartMsFromCompact(a) || Number.MAX_SAFE_INTEGER;
+    const db = eventStartMsFromCompact(b) || Number.MAX_SAFE_INTEGER;
+    if (da !== db) return da - db;
+    return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
+  });
+  return items.slice(0, Math.max(1, limit));
 }
 
 /** @param {unknown} data */
@@ -822,7 +829,7 @@ router.get('/home', async (req, res) => {
 /** Лёгкий список для перелинковки/SEO-блоков и будущих виджетов. */
 router.get('/events-lite', async (req, res) => {
   try {
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 2500);
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
     const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
     const actions = compactActions(data?.actions, limit);
@@ -870,9 +877,8 @@ router.get('/resolve-slug/:slug', async (req, res) => {
 /** Список мероприятий: compact JSON (как events-lite, до 500 строк). Только сегодня+будущее (MSK). */
 router.get('/events', async (req, res) => {
   try {
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '500'), 10) || 500, 1), 500);
-    const bypass = req.query.refresh === '1' || req.query.fresh === '1';
-    const cacheKey = getbiletEventsCacheKey(req, { limit });
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '500'), 10) || 500, 1), 2500);
+    const bypass = req.query.refresh === '1' || req.query.fresh === '1';    const cacheKey = getbiletEventsCacheKey(req, { limit });
     if (!bypass) {
       const hit = getGetbiletEventsHttpCache(cacheKey);
       if (hit) {
