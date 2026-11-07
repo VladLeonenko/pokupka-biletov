@@ -2543,7 +2543,8 @@ export function TicketHallInteractiveBlock({
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#fff';
+      /** Иначе вокруг SVG-подложки остаётся белая рамка поверх hallViewportBackground. */
+      ctx.fillStyle = hallViewportBackground || '#fff';
       ctx.fillRect(0, 0, width, height);
 
       const x = box.left;
@@ -2717,6 +2718,7 @@ export function TicketHallInteractiveBlock({
     canvasImageVersion,
     colorForSeat,
     fieldDotExcludePctBoxes,
+    hallViewportBackground,
     isCoarsePointer,
     fitZoom,
     getLayerScreenBox,
@@ -2738,8 +2740,13 @@ export function TicketHallInteractiveBlock({
     useCanvasCompositing,
   ]);
 
-  const rootClass =
-    variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
+  const rootClass = [
+    styles.root,
+    variant === 'dialog' ? styles.rootInDialog : '',
+    hallViewportBackground ? styles.rootCustomViewportBg : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   const mobileHintSeat = hoverSeat || selectedSeatDetails[selectedSeatDetails.length - 1] || null;
   const hallViewportStyle = useMemo<React.CSSProperties | undefined>(() => {
     if (!hallViewportBackground) return undefined;
@@ -2774,7 +2781,7 @@ export function TicketHallInteractiveBlock({
 
       <div
         ref={viewportRef}
-        className={styles.viewport}
+        className={`${styles.viewport}${hallViewportBackground ? ` ${styles.viewportCustomBg}` : ''}`}
         style={hallViewportStyle}
         onPointerDown={onPointerDownPan}
         onPointerMove={onPointerMovePan}

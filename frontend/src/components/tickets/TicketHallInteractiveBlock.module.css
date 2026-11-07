@@ -115,6 +115,22 @@
   user-select: none;
 }
 
+/** hallViewportBackground: серый edge-to-edge, без белой «рамки» вокруг SVG. */
+.rootCustomViewportBg {
+  background: var(--hall-viewport-bg, #f5f5f5);
+}
+
+.viewportCustomBg {
+  padding: 0;
+  background: var(--hall-viewport-bg, #f5f5f5);
+}
+
+.rootCustomViewportBg .svgLayer :global(svg) {
+  border-radius: 0;
+  box-shadow: none;
+  background-color: var(--hall-viewport-bg, #f5f5f5);
+}
+
 .viewport:active {
   cursor: default;
 }
