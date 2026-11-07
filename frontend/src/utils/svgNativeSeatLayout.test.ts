@@ -9,6 +9,7 @@ import {
   sectorMatchScore,
   stripNumericSvgSeatLabels,
   stripSvgSeatCirclesForBackdrop,
+  stripSvgSectorLabelsForBackdrop,
 } from './svgNativeSeatLayout';
 
 describe('svgNativeSeatLayout', () => {
@@ -108,6 +109,19 @@ describe('svgNativeSeatLayout', () => {
     expect(out).not.toMatch(/#636466/i);
     expect(out).not.toMatch(/place-name/);
     expect(out).toMatch(/#FFFFFF/i);
+  });
+
+  it('strips sector-labels group so hallMapLabels can paint above seats', () => {
+    const src =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<g id="bolshoi-new-stage-sector-outlines"><path d="M0,0h10v10h-10z" fill="#fff"/></g>' +
+      '<g id="bolshoi-new-stage-seats"><circle cx="5" cy="5" r="2" place-name="Партер"/></g>' +
+      '<g id="bolshoi-new-stage-sector-labels"><text x="5" y="5">Партер правая сторона</text></g>' +
+      '</svg>';
+    const out = stripSvgSectorLabelsForBackdrop(src);
+    expect(out).not.toMatch(/sector-labels/);
+    expect(out).not.toMatch(/Партер правая сторона/);
+    expect(out).toMatch(/sector-outlines/);
   });
 
   it('strips numeric seat labels and keeps sector names', () => {

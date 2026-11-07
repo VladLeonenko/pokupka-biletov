@@ -312,6 +312,35 @@ function stripGetbiletRowGlyphPathsHtml(html: string): string {
     .replace(/<path\b[^>]*\bfill=(["'])#?636466\1[^>]*\/?>/gi, '');
 }
 
+/**
+ * Убрать группу названий секторов из SVG-подложки.
+ * Нужно когда подписи рисует sectorLayer (hallMapLabels) поверх canvas-точек —
+ * иначе текст остаётся под кружками мест.
+ */
+export function stripSvgSectorLabelsForBackdrop(html: string): string {
+  const trimmed = html?.trim();
+  if (!trimmed || !trimmed.includes('<svg')) return html;
+  if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
+    return trimmed
+      .replace(/<g\b[^>]*\bid=(["'])[^"']*sector-labels[^"']*\1[^>]*>[\s\S]*?<\/g>/gi, '')
+      .replace(/<g\b[^>]*\bid=(["'])[^"']*sector_labels[^"']*\1[^>]*>[\s\S]*?<\/g>/gi, '');
+  }
+  try {
+    let doc = new DOMParser().parseFromString(trimmed, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) {
+      doc = new DOMParser().parseFromString(trimmed, 'text/html');
+    }
+    const svg = doc.querySelector('svg');
+    if (!svg) return trimmed;
+    svg.querySelectorAll('g[id*="sector-labels"], g[id*="sector_labels"]').forEach((g) => g.remove());
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    return trimmed
+      .replace(/<g\b[^>]*\bid=(["'])[^"']*sector-labels[^"']*\1[^>]*>[\s\S]*?<\/g>/gi, '')
+      .replace(/<g\b[^>]*\bid=(["'])[^"']*sector_labels[^"']*\1[^>]*>[\s\S]*?<\/g>/gi, '');
+  }
+}
+
 export function stripSvgSeatCirclesForBackdrop(html: string): string {
   const trimmed = html?.trim();
   if (!trimmed || !trimmed.includes('<svg')) return html;

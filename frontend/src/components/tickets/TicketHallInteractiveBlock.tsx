@@ -10,6 +10,7 @@ import {
   seatMapKey,
   sectorMatchScore,
   stripSvgSeatCirclesForBackdrop,
+  stripSvgSectorLabelsForBackdrop,
   stripNumericSvgSeatLabels,
   capSvgIntrinsicRasterSize,
   STADIUM_LAYER_CSS_MAX_PX,
@@ -187,6 +188,8 @@ type SectorMeta = {
   previewImageUrl?: string | null;
   maxQuantity?: number | null;
   boxWhole?: boolean;
+  /** Fixed wash (e.g. Bolshoi new-stage parter peach) — overrides price accent. */
+  fill?: string | null;
 };
 type HallMapLabel = {
   text: string;
@@ -544,6 +547,8 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
           const maxPrice = Number(s.maxPrice);
           const maxQuantityRaw = Number(s.maxQuantity);
           const previewImageUrl = String(s.previewImageUrl ?? '').trim() || null;
+          const fillRaw = String(s.fill ?? s.accent ?? '').trim();
+          const fill = /^#[0-9a-fA-F]{3,8}$/.test(fillRaw) ? fillRaw : null;
           return {
             id,
             label,
@@ -554,6 +559,7 @@ function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMe
             previewImageUrl,
             maxQuantity: Number.isFinite(maxQuantityRaw) && maxQuantityRaw > 0 ? maxQuantityRaw : null,
             boxWhole: s.boxWhole === true,
+            fill,
           };
         })
         .filter(Boolean) as SectorMeta[]
@@ -859,6 +865,11 @@ export function TicketHallInteractiveBlock({
         };
       })
       .filter((x): x is HallMapLabel => Boolean(x));
+  }, [layoutJson]);
+  const hallViewportBackground = useMemo(() => {
+    if (!layoutJson || typeof layoutJson !== 'object') return null;
+    const raw = String((layoutJson as Record<string, unknown>).hallViewportBackground ?? '').trim();
+    return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(raw) ? raw : null;
   }, [layoutJson]);
   const hallMapFieldMasks = useMemo(() => parseHallMapFieldMasks(layoutJson), [layoutJson]);
   const maskFieldBackgroundDots = useMemo(
@@ -1505,7 +1516,12 @@ export function TicketHallInteractiveBlock({
     canvasImageRef.current = null;
 
     /** Без circle-мест: иначе SVG-точки + canvas sellable = ареолы. */
-    const backdropSvg = capSvgIntrinsicRasterSize(stripSvgSeatCirclesForBackdrop(svgHtmlSafe));
+    let backdropSvg = stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
+    /** hallMapLabels в sectorLayer поверх точек — не оставлять те же тексты под кружками. */
+    if (hallMapLabels.length > 0) {
+      backdropSvg = stripSvgSectorLabelsForBackdrop(backdropSvg);
+    }
+    backdropSvg = capSvgIntrinsicRasterSize(backdropSvg);
     const blob = new Blob([backdropSvg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
@@ -1543,7 +1559,7 @@ export function TicketHallInteractiveBlock({
       if (canvasImageRef.current === img) canvasImageRef.current = null;
       setCanvasBackdropReady(false);
     };
-  }, [stadiumCanvasEnabled, svgHtmlSafe]);
+  }, [hallMapLabels.length, stadiumCanvasEnabled, svgHtmlSafe]);
 
   useEffect(() => {
     if (!useHallBackgroundRaster || !hallBackgroundRasterUrl) {
@@ -2725,9 +2741,16 @@ export function TicketHallInteractiveBlock({
   const rootClass =
     variant === 'dialog' ? `${styles.root} ${styles.rootInDialog}` : styles.root;
   const mobileHintSeat = hoverSeat || selectedSeatDetails[selectedSeatDetails.length - 1] || null;
+  const hallViewportStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (!hallViewportBackground) return undefined;
+    return {
+      background: hallViewportBackground,
+      ['--hall-viewport-bg' as string]: hallViewportBackground,
+    };
+  }, [hallViewportBackground]);
 
   return (
-    <div className={rootClass}>
+    <div className={rootClass} style={hallViewportStyle}>
       <div className={styles.toolbar}>
         <div className={styles.zoomBtns}>
           <button type="button" className={styles.zoomBtn} onClick={() => stepZoom(-1)} aria-label="Уменьшить">
@@ -2752,6 +2775,7 @@ export function TicketHallInteractiveBlock({
       <div
         ref={viewportRef}
         className={styles.viewport}
+        style={hallViewportStyle}
         onPointerDown={onPointerDownPan}
         onPointerMove={onPointerMovePan}
         onPointerUp={endPan}
@@ -2797,6 +2821,8 @@ export function TicketHallInteractiveBlock({
               <svg
                 className={`${styles.sectorLayer} ${
                   pbiletCategoryCheckout ? styles.sectorLayerCategoryCheckout : ''
+                } ${
+                  hallPreviewSectorCheckout ? styles.sectorLayerHallPreview : ''
                 } ${
                   theaterSectorCheckout && !useNativeTheaterSectorPaths ? styles.sectorLayerTheater : ''
                 } ${
@@ -2850,7 +2876,9 @@ export function TicketHallInteractiveBlock({
                       : '0';
                   const fieldZone = isLuzhnikiConcertFieldZoneLabel(sector.meta.label);
                   const zoneOnly = isZoneOnlySector(sector.meta.label);
-                  const sectorAccent = available ? colorForSeat(priceForColor) : '#9ca3af';
+                  const sectorAccent = !available
+                    ? '#9ca3af'
+                    : sector.meta.fill || colorForSeat(priceForColor);
                   return (
                     <path
                       key={sector.meta.id}

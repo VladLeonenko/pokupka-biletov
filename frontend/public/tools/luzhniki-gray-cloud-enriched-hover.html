@@ -121,6 +121,29 @@
     #paintTargetSector { width: 92px; }
     .viewport.mode-labels { cursor: default; }
     .viewport.mode-labels .stage svg circle { pointer-events: none; }
+    .viewport.mode-contours { cursor: default; }
+    .viewport.mode-contours .stage svg circle:not(.contour-handle) { pointer-events: none; }
+    .viewport.mode-contours .stage svg path.sector-contour,
+    .viewport.mode-contours .stage svg g[id$="-sector-outlines"] > path {
+      pointer-events: stroke;
+      cursor: pointer;
+      stroke: #38bdf8 !important;
+      stroke-width: 2.4px !important;
+      stroke-opacity: 0.95 !important;
+      fill: rgba(56, 189, 248, 0.06) !important;
+    }
+    .viewport.mode-contours .stage svg path.sector-contour.contour-sel,
+    .viewport.mode-contours .stage svg g[id$="-sector-outlines"] > path.contour-sel {
+      stroke: #fbbf24 !important;
+      stroke-width: 3px !important;
+      fill: rgba(251, 191, 36, 0.1) !important;
+    }
+    .stage svg circle.contour-handle {
+      fill: #fbbf24; stroke: #0f172a; stroke-width: 1.5px;
+      cursor: grab; pointer-events: all;
+    }
+    .stage svg circle.contour-handle:active { cursor: grabbing; }
+    .stage svg path.contour-hidden { display: none; }
     #editor-hall-labels text { cursor: grab; user-select: none; }
     #editor-hall-labels text.lab-sel {
       fill: #fbbf24 !important;
@@ -147,6 +170,7 @@
       <button type="button" id="modeEdit" title="Правка точки в карточке">✎</button>
       <button type="button" id="modePaint" title="Протянуть линию вдоль ряда">〰</button>
       <button type="button" id="modeLabels" title="Надписи секторов на схеме (drag + текст)">Aa</button>
+      <button type="button" id="modeContours" title="Контуры секторов: вершины / reshape path">⬡</button>
     </div>
     <div class="group" id="paintBar" hidden>
       <label title="макс. захват вокруг линии">Коридор <input type="number" id="paintCorridor" min="8" max="60" value="20" /></label>
@@ -197,6 +221,15 @@
       <button type="button" id="saveLabelsBtn" class="warn" title="POST hallMapLabels на сервер">💾 надписи</button>
       <span class="hint" id="labelsHint">drag · Shift+колёсико/тачпад — угол · размер на экране держится при зуме</span>
     </div>
+    <div class="group" id="contoursBar" hidden>
+      <span class="hint" id="contoursHint">клик path → ручки · drag вершина · Alt+drag — весь контур · 💾 Сохранить</span>
+      <button type="button" id="contoursRegenBtn" class="warn" title="Пересобрать convex hull из кружков мест (тот же x/y)">↻ hull из мест</button>
+      <button type="button" id="contoursAddVertexBtn" title="Вставить вершину в середину ближайшего ребра">＋ вершина</button>
+      <button type="button" id="contoursDelVertexBtn" title="Удалить выбранную вершину (клик по ручке)">⌫ вершина</button>
+      <button type="button" id="contoursHideBtn" title="Скрыть/показать выбранный контур">👁 сектор</button>
+      <button type="button" id="contoursHelpBtn" title="Краткая справка">?</button>
+      <span class="hint" id="contoursSelLabel">контур не выбран</span>
+    </div>
     <span class="sep"></span>
     <button type="button" id="undoBtn" title="Ctrl+Z" disabled>↶</button>
     <button type="button" id="saveSvg" title="Записать SVG на диск (backend) + скачать">💾 Сохранить</button>
@@ -204,7 +237,7 @@
     <button type="button" id="clearBrowserEditsBtn" class="warn" title="Удалить localStorage-правки этого зала и перезагрузить SVG с сервера">Сбросить правки браузера</button>
     <span class="hint" id="saveTarget"></span>
     <span class="hint" id="saveStatus"></span>
-    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v7</span>
+    <span class="hint" id="editorBuild" title="версия редактора">ed-seats-v8-contours</span>
     <label><input type="checkbox" id="markUnlabeled" checked /> без ряда — красные</label>
     <span class="hint" id="modeHint">〰 рисуй линию (прямая/дуга) · Shift — доп. выделение · 🟡=правка</span>
     <span id="status">Загрузка…</span>
@@ -233,8 +266,11 @@
     const modeEditBtn = document.getElementById('modeEdit');
     const modePaintBtn = document.getElementById('modePaint');
     const modeLabelsBtn = document.getElementById('modeLabels');
+    const modeContoursBtn = document.getElementById('modeContours');
     const paintBar = document.getElementById('paintBar');
     const labelsBar = document.getElementById('labelsBar');
+    const contoursBar = document.getElementById('contoursBar');
+    const contoursSelLabel = document.getElementById('contoursSelLabel');
     const renameFromInput = document.getElementById('renameFrom');
     const renameToInput = document.getElementById('renameTo');
     const renameSectorBtn = document.getElementById('renameSectorBtn');
@@ -295,6 +331,15 @@
     const isSupercupStadiumEditor = hallApi === 'supercup-nn-football-seats';
     const isStadiumCloudEditor =
       isSupercupStadiumEditor || hallApi === 'lukoil-arena-seats';
+    /** Театры (Большой и т.п.) — светлый viewport; стадионы остаются чёрными. */
+    const lightHallViewport =
+      /bolshoi|vakhtangov|ramt|mht|kremlin|maly|chekhov/i.test(hallApi) &&
+      !isStadiumCloudEditor;
+    if (lightHallViewport) {
+      const vp = document.querySelector('.viewport');
+      /** Большой Новая сцена — серый viewport как Яндекс Афиша; остальные театры светлый тёплый. */
+      if (vp) vp.style.background = /bolshoi-new-stage/i.test(hallApi) ? '#e8e8e8' : '#f4f4f0';
+    }
     if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isStadiumCloudEditor;
     const pageTitle = urlParams.get('title')?.trim();
     if (pageTitle) document.title = pageTitle;
@@ -370,7 +415,7 @@
     let panStartY = 0;
     let vbW = 11413;
     let vbH = 9676;
-    /** @type {'view'|'edit'|'paint'|'labels'} */
+    /** @type {'view'|'edit'|'paint'|'labels'|'contours'} */
     let appMode = 'view';
     /** @type {{ text: string, x: number, y: number, fontSize?: number, rotate?: number }[]} */
     let hallMapLabels = [];
@@ -379,6 +424,14 @@
     /** @type {{ idx: number, ox: number, oy: number, sx: number, sy: number } | null} */
     let labelDrag = null;
     let labelsDirty = false;
+    /** @type {SVGPathElement | null} */
+    let selectedContour = null;
+    /** @type {{ x: number, y: number }[]} */
+    let contourPts = [];
+    let selectedContourVertex = -1;
+    /** @type {{ kind: 'vertex'|'move', idx: number, ox: number, oy: number, sx: number, sy: number, svgSx: number, svgSy: number, pts0: {x:number,y:number}[] } | null} */
+    let contourDrag = null;
+    let contourHandlesG = null;
     let paintDrag = false;
     /** @type {{ clientX: number, clientY: number, additive: boolean } | null} */
     let paintPending = null;
@@ -746,6 +799,13 @@
       if (ov) ov.remove();
       const labs = clone.querySelector('#editor-hall-labels');
       if (labs) labs.remove();
+      const ch = clone.querySelector('#editor-contour-handles');
+      if (ch) ch.remove();
+      clone.querySelectorAll('path.contour-sel').forEach((p) => p.classList.remove('contour-sel'));
+      clone.querySelectorAll('path.contour-hidden').forEach((p) => {
+        p.classList.remove('contour-hidden');
+        p.removeAttribute('display');
+      });
       clone.querySelectorAll(
         'circle.hl, circle.paint-preview, circle.paint-selected, circle.persist-flash, circle.seat-edited-in-editor, circle.audit-issue, circle.audit-warn, circle.audit-proposed',
       ).forEach((c) => {
@@ -909,13 +969,17 @@
       modeEditBtn.classList.toggle('active', mode === 'edit');
       modePaintBtn.classList.toggle('active', mode === 'paint');
       modeLabelsBtn?.classList.toggle('active', mode === 'labels');
+      modeContoursBtn?.classList.toggle('active', mode === 'contours');
       paintBar.hidden = mode !== 'paint';
       if (labelsBar) labelsBar.hidden = mode !== 'labels';
+      if (contoursBar) contoursBar.hidden = mode !== 'contours';
       viewport.classList.toggle('mode-paint', mode === 'paint');
       viewport.classList.toggle('mode-edit', mode === 'edit');
       viewport.classList.toggle('mode-labels', mode === 'labels');
+      viewport.classList.toggle('mode-contours', mode === 'contours');
       cancelPaintDrag();
       labelDrag = null;
+      contourDrag = null;
       if (mode !== 'paint') {
         rectSelectMode = false;
         placeSeatMode = false;
@@ -923,7 +987,7 @@
         rectSelectBtn?.classList.remove('active');
         clearPaintSelection();
       }
-      if (mode === 'paint' || mode === 'labels') {
+      if (mode === 'paint' || mode === 'labels' || mode === 'contours') {
         panMode = false;
         dragPan = false;
         panModeBtn.classList.remove('active');
@@ -942,6 +1006,23 @@
         syncLabelFieldsFromSelection();
       } else {
         renderLabelsLayer();
+      }
+      if (mode === 'contours') {
+        ensureContourGroup();
+        ensureContourHandlesLayer();
+        if (!selectedContour) {
+          const first = listContourPaths()[0] || null;
+          if (first) selectContour(first);
+          else renderContourHandles();
+        } else {
+          selectContour(selectedContour);
+        }
+        showPaintToast(
+          'info',
+          '⬡ контуры: клик path → ручки · drag · Alt+drag весь · ↻ hull из мест · 💾',
+        );
+      } else {
+        clearContourSelectionUi(false);
       }
       refreshStatusHint();
     }
@@ -1066,6 +1147,20 @@
           hallMapLabels.length +
           ' шт' +
           (labelsDirty ? ' · не сохранено' : '');
+      } else if (appMode === 'contours') {
+        const n = listContourPaths().length;
+        const lab = selectedContour
+          ? decodeAttr(selectedContour.getAttribute('data-sector') || '') || 'path'
+          : '—';
+        status.textContent =
+          base +
+          ' · ⬡ контуры ' +
+          n +
+          ' · выбрано: ' +
+          lab +
+          ' · вершин ' +
+          contourPts.length +
+          ' · 💾 Сохранить';
       } else {
         status.textContent = base + ' · клик — карточка · Space+drag — pan';
       }
@@ -1862,6 +1957,297 @@
         labelsG.appendChild(t);
       });
       refreshStatusHint();
+    }
+
+    function listContourPaths() {
+      if (!svgRoot) return [];
+      const g =
+        svgRoot.querySelector('[id$="-sector-outlines"]') ||
+        svgRoot.querySelector('#bolshoi-new-stage-sector-outlines');
+      const scope = g || svgRoot;
+      return Array.from(scope.querySelectorAll('path[data-sector], path.sector-contour')).filter(
+        (p) => p.closest('#editor-overlay') == null && p.closest('#editor-contour-handles') == null,
+      );
+    }
+
+    function ensureContourGroup() {
+      if (!svgRoot) return null;
+      let g = svgRoot.querySelector('[id$="-sector-outlines"]');
+      if (g) return g;
+      const ns = 'http://www.w3.org/2000/svg';
+      g = document.createElementNS(ns, 'g');
+      g.setAttribute('id', 'bolshoi-new-stage-sector-outlines');
+      g.setAttribute('fill', 'none');
+      const seats = svgRoot.querySelector('[id$="-seats"]');
+      if (seats) svgRoot.insertBefore(g, seats);
+      else svgRoot.appendChild(g);
+      return g;
+    }
+
+    function ensureContourHandlesLayer() {
+      if (!svgRoot) return;
+      if (contourHandlesG && contourHandlesG.parentNode === svgRoot) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      contourHandlesG = document.createElementNS(ns, 'g');
+      contourHandlesG.setAttribute('id', 'editor-contour-handles');
+      contourHandlesG.setAttribute('pointer-events', 'auto');
+      svgRoot.appendChild(contourHandlesG);
+    }
+
+    function parseContourPathD(d) {
+      const nums = String(d || '')
+        .replace(/,/g, ' ')
+        .match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+      if (!nums || nums.length < 2) return [];
+      const pts = [];
+      for (let i = 0; i + 1 < nums.length; i += 2) {
+        const x = Number(nums[i]);
+        const y = Number(nums[i + 1]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        if (pts.length) {
+          const prev = pts[pts.length - 1];
+          if (Math.hypot(prev.x - x, prev.y - y) < 0.05) continue;
+        }
+        pts.push({ x, y });
+      }
+      if (pts.length >= 2) {
+        const a = pts[0];
+        const b = pts[pts.length - 1];
+        if (Math.hypot(a.x - b.x, a.y - b.y) < 0.05) pts.pop();
+      }
+      return pts;
+    }
+
+    function contourPtsToD(pts) {
+      if (!pts.length) return '';
+      return (
+        'M ' +
+        pts.map((p) => p.x.toFixed(2) + ' ' + p.y.toFixed(2)).join(' L ') +
+        ' Z'
+      );
+    }
+
+    function applyContourPtsToSelected() {
+      if (!selectedContour || !contourPts.length) return;
+      selectedContour.setAttribute('d', contourPtsToD(contourPts));
+      selectedContour.classList.add('sector-contour');
+      renderContourHandles();
+      refreshStatusHint();
+    }
+
+    function clearContourSelectionUi(keepPath) {
+      if (!keepPath) {
+        listContourPaths().forEach((p) => p.classList.remove('contour-sel'));
+        selectedContour = null;
+        contourPts = [];
+        selectedContourVertex = -1;
+      }
+      if (contourHandlesG) contourHandlesG.innerHTML = '';
+      if (contoursSelLabel) contoursSelLabel.textContent = 'контур не выбран';
+    }
+
+    function selectContour(pathEl) {
+      listContourPaths().forEach((p) => p.classList.remove('contour-sel'));
+      selectedContour = pathEl || null;
+      selectedContourVertex = -1;
+      if (!selectedContour) {
+        clearContourSelectionUi(false);
+        return;
+      }
+      selectedContour.classList.add('contour-sel');
+      selectedContour.classList.add('sector-contour');
+      contourPts = parseContourPathD(selectedContour.getAttribute('d') || '');
+      const lab = decodeAttr(selectedContour.getAttribute('data-sector') || '') || 'path';
+      if (contoursSelLabel) {
+        contoursSelLabel.textContent = lab + ' · ' + contourPts.length + ' вершин';
+      }
+      ensureContourHandlesLayer();
+      renderContourHandles();
+      refreshStatusHint();
+    }
+
+    function renderContourHandles() {
+      ensureContourHandlesLayer();
+      if (!contourHandlesG) return;
+      contourHandlesG.innerHTML = '';
+      if (appMode !== 'contours' || !selectedContour || !contourPts.length) return;
+      const ns = 'http://www.w3.org/2000/svg';
+      const r = Math.max(3.5, Math.min(vbW, vbH) * 0.0045);
+      contourPts.forEach((p, idx) => {
+        const c = document.createElementNS(ns, 'circle');
+        c.setAttribute('class', 'contour-handle');
+        c.setAttribute('cx', String(p.x));
+        c.setAttribute('cy', String(p.y));
+        c.setAttribute('r', String(r));
+        c.setAttribute('data-contour-vertex', String(idx));
+        if (idx === selectedContourVertex) {
+          c.setAttribute('stroke', '#fff');
+          c.setAttribute('stroke-width', '2.5');
+        }
+        contourHandlesG.appendChild(c);
+      });
+    }
+
+    function convexHullPts(points) {
+      const pts = points
+        .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+        .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+        .sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
+      if (pts.length <= 1) return pts;
+      const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+      const lower = [];
+      for (const p of pts) {
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+          lower.pop();
+        }
+        lower.push(p);
+      }
+      const upper = [];
+      for (let i = pts.length - 1; i >= 0; i -= 1) {
+        const p = pts[i];
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+          upper.pop();
+        }
+        upper.push(p);
+      }
+      upper.pop();
+      lower.pop();
+      return lower.concat(upper);
+    }
+
+    function expandHull(pts, pad) {
+      if (pts.length < 3) {
+        if (!pts.length) return [];
+        const xs = pts.map((p) => p.x);
+        const ys = pts.map((p) => p.y);
+        return [
+          { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad },
+          { x: Math.max(...xs) + pad, y: Math.min(...ys) - pad },
+          { x: Math.max(...xs) + pad, y: Math.max(...ys) + pad },
+          { x: Math.min(...xs) - pad, y: Math.max(...ys) + pad },
+        ];
+      }
+      return pts.map((p, i) => {
+        const prev = pts[(i + pts.length - 1) % pts.length];
+        const next = pts[(i + 1) % pts.length];
+        const dx1 = p.x - prev.x;
+        const dy1 = p.y - prev.y;
+        const dx2 = next.x - p.x;
+        const dy2 = next.y - p.y;
+        const len1 = Math.hypot(dx1, dy1) || 1;
+        const len2 = Math.hypot(dx2, dy2) || 1;
+        const nx = -(dy1 / len1 + dy2 / len2);
+        const ny = dx1 / len1 + dx2 / len2;
+        const nlen = Math.hypot(nx, ny) || 1;
+        return { x: p.x + (nx / nlen) * pad, y: p.y + (ny / nlen) * pad };
+      });
+    }
+
+    function regenerateContoursFromSeats() {
+      if (!svgRoot) return;
+      const g = ensureContourGroup();
+      if (!g) return;
+      /** @type {Map<string, {x:number,y:number}[]>} */
+      const bySector = new Map();
+      for (const c of allCircles) {
+        const sector = decodeAttr(c.getAttribute('data-sector') || c.getAttribute('place-name') || '').trim();
+        if (!sector) continue;
+        const x = Number(c.getAttribute('cx'));
+        const y = Number(c.getAttribute('cy'));
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        if (!bySector.has(sector)) bySector.set(sector, []);
+        bySector.get(sector).push({ x, y });
+      }
+      const ns = 'http://www.w3.org/2000/svg';
+      const keepSel = selectedContour
+        ? decodeAttr(selectedContour.getAttribute('data-sector') || '')
+        : '';
+      g.innerHTML = '';
+      const labels = [...bySector.keys()].sort((a, b) => a.localeCompare(b, 'ru'));
+      let first = null;
+      let restore = null;
+      for (const label of labels) {
+        const pts = bySector.get(label) || [];
+        const pad = pts.length <= 6 ? 22 : 14;
+        const hull = expandHull(convexHullPts(pts), pad);
+        if (!hull.length) continue;
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('class', 'sector-contour');
+        path.setAttribute('d', contourPtsToD(hull));
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'rgba(15,23,42,0.45)');
+        path.setAttribute('stroke-width', '1.6');
+        path.setAttribute('data-sector', label);
+        path.setAttribute('pointer-events', 'stroke');
+        g.appendChild(path);
+        if (!first) first = path;
+        if (label === keepSel) restore = path;
+      }
+      selectContour(restore || first);
+      showPaintToast('ok', 'Hull из мест: ' + labels.length + ' секторов · подправь ручками → 💾');
+    }
+
+    function addContourVertexMidEdge() {
+      if (!selectedContour || contourPts.length < 2) {
+        showPaintToast('err', 'Сначала выбери контур');
+        return;
+      }
+      let bestI = 0;
+      let bestLen = -1;
+      for (let i = 0; i < contourPts.length; i += 1) {
+        const a = contourPts[i];
+        const b = contourPts[(i + 1) % contourPts.length];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (len > bestLen) {
+          bestLen = len;
+          bestI = i;
+        }
+      }
+      const a = contourPts[bestI];
+      const b = contourPts[(bestI + 1) % contourPts.length];
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      contourPts.splice(bestI + 1, 0, mid);
+      selectedContourVertex = bestI + 1;
+      applyContourPtsToSelected();
+    }
+
+    function deleteSelectedContourVertex() {
+      if (!selectedContour) {
+        showPaintToast('err', 'Сначала выбери контур');
+        return;
+      }
+      if (selectedContourVertex < 0 || selectedContourVertex >= contourPts.length) {
+        showPaintToast('err', 'Кликни ручку вершины, потом ⌫');
+        return;
+      }
+      if (contourPts.length <= 3) {
+        showPaintToast('err', 'Нужно ≥3 вершины');
+        return;
+      }
+      contourPts.splice(selectedContourVertex, 1);
+      selectedContourVertex = Math.min(selectedContourVertex, contourPts.length - 1);
+      applyContourPtsToSelected();
+    }
+
+    function toggleSelectedContourHidden() {
+      if (!selectedContour) {
+        showPaintToast('err', 'Сначала выбери контур');
+        return;
+      }
+      selectedContour.classList.toggle('contour-hidden');
+      const hidden = selectedContour.classList.contains('contour-hidden');
+      showPaintToast('info', (hidden ? 'Скрыт: ' : 'Показан: ') + (decodeAttr(selectedContour.getAttribute('data-sector') || '') || 'path'));
+      renderContourHandles();
+    }
+
+    function pathElAtClient(clientX, clientY) {
+      const el = document.elementFromPoint(clientX, clientY);
+      if (!el) return null;
+      if (el.classList && el.classList.contains('contour-handle')) return null;
+      const path = el.closest ? el.closest('path[data-sector], path.sector-contour') : null;
+      if (!path || !svgRoot || !svgRoot.contains(path)) return null;
+      if (path.closest('#editor-overlay') || path.closest('#editor-contour-handles')) return null;
+      return path;
     }
 
     async function loadHallMapLabelsFromServer() {
@@ -5454,6 +5840,11 @@
       svgRoot = svg;
       overlayG = null;
       labelsG = null;
+      contourHandlesG = null;
+      selectedContour = null;
+      contourPts = [];
+      selectedContourVertex = -1;
+      contourDrag = null;
       previewLine = null;
       rectSelectEl = null;
       previewPolyline = null;
@@ -5523,7 +5914,7 @@
           paintSuppressClick = false;
           return;
         }
-        if (appMode === 'labels') return;
+        if (appMode === 'labels' || appMode === 'contours') return;
         const t = circleAtClient(e.clientX, e.clientY);
         if (!t) return;
         e.stopPropagation();
@@ -5542,6 +5933,7 @@
           syncLabelFieldsFromSelection();
           return;
         }
+        if (appMode === 'contours') return;
         if (e.target === viewport || e.target === stage || e.target === svgRoot) clearSelection();
       });
     }
@@ -5621,6 +6013,85 @@
         selectedLabelIdx = -1;
         syncLabelFieldsFromSelection();
         renderLabelsLayer();
+        e.preventDefault();
+        return;
+      }
+
+      if (appMode === 'contours' && svgRoot) {
+        if (spacePan) {
+          dragPan = true;
+          didDrag = false;
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          panStartX = panX;
+          panStartY = panY;
+          viewport.classList.add('dragging');
+          e.preventDefault();
+          return;
+        }
+        const t = e.target;
+        const vAttr = t && t.getAttribute ? t.getAttribute('data-contour-vertex') : null;
+        const sp = clientToSvg(e.clientX, e.clientY);
+        if (vAttr != null && selectedContour) {
+          const idx = Number(vAttr);
+          selectedContourVertex = idx;
+          const pt = contourPts[idx];
+          if (pt) {
+            contourDrag = {
+              kind: 'vertex',
+              idx,
+              ox: pt.x,
+              oy: pt.y,
+              sx: e.clientX,
+              sy: e.clientY,
+              svgSx: sp ? sp.x : pt.x,
+              svgSy: sp ? sp.y : pt.y,
+              pts0: contourPts.map((p) => ({ x: p.x, y: p.y })),
+            };
+            didDrag = false;
+            renderContourHandles();
+            if (viewport.setPointerCapture) {
+              try {
+                viewport.setPointerCapture(e.pointerId);
+                paintCaptureId = e.pointerId;
+              } catch (_) {
+                /* noop */
+              }
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
+        const pathEl = pathElAtClient(e.clientX, e.clientY);
+        if (pathEl) {
+          selectContour(pathEl);
+          if (e.altKey && sp) {
+            contourDrag = {
+              kind: 'move',
+              idx: -1,
+              ox: sp.x,
+              oy: sp.y,
+              sx: e.clientX,
+              sy: e.clientY,
+              svgSx: sp.x,
+              svgSy: sp.y,
+              pts0: contourPts.map((p) => ({ x: p.x, y: p.y })),
+            };
+            didDrag = false;
+            if (viewport.setPointerCapture) {
+              try {
+                viewport.setPointerCapture(e.pointerId);
+                paintCaptureId = e.pointerId;
+              } catch (_) {
+                /* noop */
+              }
+            }
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         e.preventDefault();
         return;
       }
@@ -5788,7 +6259,28 @@
         }
         return;
       }
-      if (appMode === 'paint' || appMode === 'labels') return;
+      if (contourDrag) {
+        e.preventDefault();
+        const p = clientToSvg(e.clientX, e.clientY);
+        if (p) {
+          if (Math.abs(e.clientX - contourDrag.sx) > 2 || Math.abs(e.clientY - contourDrag.sy) > 2) {
+            didDrag = true;
+          }
+          const dx = p.x - contourDrag.svgSx;
+          const dy = p.y - contourDrag.svgSy;
+          if (contourDrag.kind === 'vertex' && contourDrag.idx >= 0) {
+            contourPts[contourDrag.idx] = {
+              x: contourDrag.ox + dx,
+              y: contourDrag.oy + dy,
+            };
+          } else if (contourDrag.kind === 'move') {
+            contourPts = contourDrag.pts0.map((pt) => ({ x: pt.x + dx, y: pt.y + dy }));
+          }
+          applyContourPtsToSelected();
+        }
+        return;
+      }
+      if (appMode === 'paint' || appMode === 'labels' || appMode === 'contours') return;
       if (!dragPan) return;
       if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
       panX = panStartX + (e.clientX - dragStartX);
@@ -5854,6 +6346,16 @@
         paintCaptureId = -1;
         return;
       }
+      if (contourDrag) {
+        contourDrag = null;
+        try {
+          if (paintCaptureId >= 0) viewport.releasePointerCapture(paintCaptureId);
+        } catch (_) {
+          /* noop */
+        }
+        paintCaptureId = -1;
+        return;
+      }
       if (!dragPan) return;
       dragPan = false;
       viewport.classList.remove('dragging');
@@ -5863,12 +6365,14 @@
       releaseTrackedPointer(e);
       if (paintPending) endPaintPointer(e);
       if (labelDrag) labelDrag = null;
+      if (contourDrag) contourDrag = null;
     });
 
     viewport.addEventListener('pointercancel', (e) => {
       releaseTrackedPointer(e);
       if (paintPending) cancelPaintDrag();
       labelDrag = null;
+      contourDrag = null;
       dragPan = false;
       viewport.classList.remove('dragging');
     });
@@ -5967,6 +6471,17 @@
     modeEditBtn.addEventListener('click', () => setAppMode('edit'));
     modePaintBtn.addEventListener('click', () => setAppMode('paint'));
     modeLabelsBtn?.addEventListener('click', () => setAppMode('labels'));
+    modeContoursBtn?.addEventListener('click', () => setAppMode('contours'));
+    document.getElementById('contoursRegenBtn')?.addEventListener('click', () => regenerateContoursFromSeats());
+    document.getElementById('contoursAddVertexBtn')?.addEventListener('click', () => addContourVertexMidEdge());
+    document.getElementById('contoursDelVertexBtn')?.addEventListener('click', () => deleteSelectedContourVertex());
+    document.getElementById('contoursHideBtn')?.addEventListener('click', () => toggleSelectedContourHidden());
+    document.getElementById('contoursHelpBtn')?.addEventListener('click', () => {
+      showPaintToast(
+        'info',
+        '⬡: клик контур → жёлтые ручки · drag ручку · Alt+drag сдвиг всего · ↻ hull из мест · ＋/⌫ вершина · 💾 на сервер',
+      );
+    });
     renameSectorBtn?.addEventListener('click', () => void renameSectorFlow());
     addLabelBtn?.addEventListener('click', () => addHallMapLabel());
     delLabelBtn?.addEventListener('click', () => deleteSelectedLabel());

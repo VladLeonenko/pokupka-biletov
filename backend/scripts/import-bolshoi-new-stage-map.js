@@ -26,13 +26,20 @@ import { fileURLToPath } from 'node:url';
 import ticketPool from '../ticketDb.js';
 import { buildBolshoiSectors } from '../utils/bolshoiHistoricalHallSvg.js';
 import { buildSectorsFromAfishaOutlines } from '../utils/bolshoiNewStageAfishaOutlines.js';
-import { collapseBolshoiNewStageToParterMid } from '../utils/bolshoiNewStageParterCheckout.js';
+import {
+  BOLSHOI_NEW_STAGE_PARTER_FILL,
+  collapseBolshoiNewStageToParterMid,
+} from '../utils/bolshoiNewStageParterCheckout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
 const STAGE_ID = process.env.STAGE_MAP_STAGE_ID?.trim() || 'bolshoi-new-stage';
 const TITLE = process.env.STAGE_MAP_TITLE?.trim() || 'Большой театр — Новая сцена';
+/** Все сектора — белые «карточки» на сером viewport (как Яндекс Афиша). */
+const SECTOR_FILL = '#ffffff';
+const HALL_VIEWPORT_BG = '#e8e8e8';
+const SECTOR_STROKE = 'rgba(0,0,0,0.06)';
 
 function optionalEnv(name, fallback = null) {
   return process.env[name]?.trim() || fallback;
@@ -130,14 +137,17 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
     : Math.round(hallHeight * 0.97);
 
   /**
-   * ONE path per sector: gray fill + sector-contour (same d).
+   * ONE path per sector: white fill + sector-contour (same d).
+   * Labels group AFTER seats so names paint above dots (SVG paint order).
    * No separate hull stroke layer — that was the bad «линии».
    */
   const sectorPaths = sectors
-    .map(
-      (s) =>
-        `    <path class="sector-contour" d="${esc(s.path)}" fill="#d4d4d0" fill-opacity="0.92" stroke="none" data-sector="${esc(s.label)}" pointer-events="fill"/>`,
-    )
+    .map((s) => {
+      const fill = /^партер/i.test(String(s.label || ''))
+        ? BOLSHOI_NEW_STAGE_PARTER_FILL
+        : SECTOR_FILL;
+      return `    <path class="sector-contour" d="${esc(s.path)}" fill="${fill}" fill-opacity="1" stroke="${SECTOR_STROKE}" stroke-width="1" data-sector="${esc(s.label)}" pointer-events="fill"/>`;
+    })
     .join('\n');
 
   const sectorLabels = sectors
@@ -147,21 +157,21 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
     })
     .join('\n');
 
-  const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${hallWidth} ${hallHeight}" width="${hallWidth}" height="${hallHeight}">
+  const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${hallWidth} ${hallHeight}" width="${hallWidth}" height="${hallHeight}" style="background:${HALL_VIEWPORT_BG}">
   <title>${esc(TITLE)}</title>
-  <desc>Afisha seats as-is + level.outline as gray fills/contours (no hull strokes)</desc>
-  <rect width="100%" height="100%" fill="#0a0a0a"/>
+  <desc>Afisha seats as-is + white sector fills on gray viewport (Yandex-like); labels above seats</desc>
+  <rect width="100%" height="100%" fill="${HALL_VIEWPORT_BG}" pointer-events="none"/>
   <g id="bolshoi-new-stage-sector-outlines">
 ${sectorPaths}
   </g>
   <g id="bolshoi-new-stage-scene">
-    <text x="${stageX.toFixed(1)}" y="${stageY.toFixed(1)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(200,200,196,0.55)">Сцена</text>
-  </g>
-  <g id="bolshoi-new-stage-sector-labels" pointer-events="none">
-${sectorLabels}
+    <text x="${stageX.toFixed(1)}" y="${stageY.toFixed(1)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(90,90,86,0.55)">Сцена</text>
   </g>
   <g id="bolshoi-new-stage-seats" fill="#f97316" stroke="none">
 ${circles}
+  </g>
+  <g id="bolshoi-new-stage-sector-labels" pointer-events="none">
+${sectorLabels}
   </g>
 </svg>
 `;
@@ -266,12 +276,22 @@ async function main() {
     maxZoomMultiplier: Number.isFinite(maxZoom) ? maxZoom : 2,
     sectorFocusZoomMultiplier: Number.isFinite(maxZoom) ? maxZoom : 2,
     hallKind: optionalEnv('STAGE_MAP_HALL_KIND', 'theater'),
-    hallViewportBackground: '#0a0a0a',
+    hallViewportBackground: HALL_VIEWPORT_BG,
     preferLayoutSeatPositions: true,
     /** Как Историческая: qty по сектору, без выбора конкретного места. */
     hallPreviewSectorCheckout: true,
     seatSelectionDisabled: true,
     hideSeatList: true,
+    /** Надписи поверх canvas-точек (sectorLayer hallMapLabels, z > seats). */
+    hallMapLabels: (built.sectors || [])
+      .map((s) => {
+        const fsPx = (s.totalSeats || 0) <= 8 ? 9 : (s.totalSeats || 0) <= 20 ? 10 : 11;
+        const cx = s.centroid?.x;
+        const cy = s.centroid?.y;
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+        return { text: s.label, x: cx, y: cy, fontSize: fsPx, plate: false };
+      })
+      .filter(Boolean),
     sectorMode: built.sectorMode,
     pbilet: {
       hallWidth: built.hallWidth,

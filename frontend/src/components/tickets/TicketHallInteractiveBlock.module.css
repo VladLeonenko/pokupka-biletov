@@ -350,7 +350,7 @@
   max-width: 100%;
   display: block;
   vertical-align: top;
-  background-color: #fff;
+  background-color: var(--hall-viewport-bg, #ffffff);
   border-radius: 4px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
 }
@@ -627,6 +627,31 @@
   stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 65%, #fff);
   stroke-width: 1.5px;
   opacity: 1;
+}
+
+/**
+ * Большой hallPreview: визуальная заливка — в SVG-подложке (белые сектора).
+ * sectorLayer почти прозрачный hit-path, иначе opaque fill накроет canvas-точки.
+ * hallMapLabels в этом же SVG — поверх мест.
+ */
+.sectorLayerHallPreview.sectorLayerFitOverview .sectorPathAvailable {
+  fill: var(--sector-accent, #ffffff);
+  fill-opacity: 0.02;
+  stroke: rgba(0, 0, 0, 0.1);
+  stroke-opacity: 1;
+}
+
+.sectorLayerHallPreview.sectorLayerFitOverview .sectorPathInteractive:hover,
+.sectorLayerHallPreview.sectorLayerFitOverview .sectorPathInteractive:focus {
+  fill: var(--sector-accent, #ffffff);
+  fill-opacity: 0.14;
+  stroke: rgba(47, 128, 237, 0.45);
+}
+
+.sectorLayerHallPreview.sectorLayerFitOverview .sectorPathActive {
+  fill: var(--sector-accent, #ffffff);
+  fill-opacity: 0.2;
+  stroke: rgba(47, 128, 237, 0.65);
 }
 
 /** Portalbilet-style: насыщенные цветовые зоны по категориям. */
