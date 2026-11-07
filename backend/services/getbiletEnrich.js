@@ -260,7 +260,10 @@ export async function enrichRestV2CatalogActions(actions) {
       const { categoryLabel } = classifyEventTitle(titleForHeur);
       out.Category = categoryLabel;
     }
-    const rating = ratingByRep.get(repId);
+    const ratingRepKey =
+      String(out.RepertoireId ?? out.repertoireId ?? '').trim() ||
+      (repId.includes('::') ? repId.split('::')[0] : repId);
+    const rating = ratingByRep.get(ratingRepKey) || ratingByRep.get(repId);
     if (rating && Number.isFinite(rating.score) && rating.count > 0) {
       out.RatingScore = rating.score;
       out.RatingCount = rating.count;

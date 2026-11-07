@@ -200,8 +200,8 @@ function getbiletEventsCacheKey(req, opts = {}) {
   const mode = (process.env.GETBILET_CATALOG_SOURCE || 'live').trim().toLowerCase();
   const cityId = req.query.cityId != null ? String(req.query.cityId) : '';
   const limitPart = opts.limit != null ? `|L${opts.limit}` : '';
-  // v3: после sync CLI invalidate в другом процессе не чистит pm2 — ключ с limit + короткий TTL
-  return `v3|${protocol}|${mode}|${cityId}${limitPart}`;
+  // v4: + RatingScore/RatingCount в compact афише
+  return `v4|${protocol}|${mode}|${cityId}${limitPart}`;
 }
 
 /** Один общий loadEventsPayload на ключ: главная параллельно дергает /home и /events-lite. */
@@ -308,6 +308,12 @@ function compactGetbiletAction(row) {
     authorName: pickPublicString(row, ['authorName', 'Author', 'author', 'AuthorName']),
     directorName: pickPublicString(row, ['directorName', 'director', 'Director', 'DirectorName']),
     isPremiere: row.isPremiere ?? row.premiere ?? row.IsPremiere,
+    ...(Number.isFinite(Number(row.RatingScore ?? row.ratingScore))
+      ? {
+          RatingScore: Number(row.RatingScore ?? row.ratingScore),
+          RatingCount: Number(row.RatingCount ?? row.ratingCount) || 0,
+        }
+      : {}),
   };
 }
 
