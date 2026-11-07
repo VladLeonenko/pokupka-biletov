@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
@@ -9,6 +9,8 @@ import {
   dedupeBiletEventsByShow,
   fetchBiletEventsLite,
   fetchBiletVenues,
+  fetchMinPrices,
+  fetchVenueReviews,
   filterEventsClient,
   isEventActual,
   normalizeBiletEventsPayload,
@@ -20,11 +22,22 @@ import {
   canonicalizeVenueSlug,
   resolveVenueNameFromSlug,
   VENUE_SLUG_LABELS,
+  buildVenueLandingList,
 } from '@/utils/venueSlug';
 import { buildVenueLandingCopy } from '@/utils/venueLandingCopy';
+import { ratingZone } from '@/utils/eventRating';
+import { OPERATOR } from '@/utils/operatorLegalInfo';
+import { submitForm } from '@/services/cmsApi';
 import styles from './VenueLandingPage.module.css';
 
 const PAGE_SIZE = 24;
+
+function formatReviewDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export function VenueLandingPage() {
   const { venueSlug = '' } = useParams();
@@ -32,6 +45,10 @@ export function VenueLandingPage() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [cbName, setCbName] = useState('');
+  const [cbPhone, setCbPhone] = useState('');
+  const [cbBusy, setCbBusy] = useState(false);
+  const [cbMsg, setCbMsg] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.setAttribute('data-page', '/events/venue');
@@ -40,6 +57,7 @@ export function VenueLandingPage() {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+    setCbMsg(null);
   }, [venueSlug]);
 
   const { data: raw, isLoading, isError, isFetching } = useQuery({
@@ -101,6 +119,60 @@ export function VenueLandingPage() {
   );
   const hasMore = visibleCount < uniqueEvents.length;
 
+  const repertoireIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const ev of uniqueEvents.slice(0, 12)) {
+      const id = String(ev.repertoireId || ev.id || '').trim();
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }, [uniqueEvents]);
+
+  const { data: minPricesRes } = useQuery({
+    queryKey: ['venue-min-prices', venueSlug, repertoireIds.join(',')],
+    queryFn: () => fetchMinPrices(repertoireIds),
+    enabled: repertoireIds.length > 0,
+    staleTime: 180_000,
+    retry: 1,
+  });
+
+  const { data: reviewsRes } = useQuery({
+    queryKey: ['venue-reviews', venueSlug, venueName],
+    queryFn: () =>
+      fetchVenueReviews({
+        venue: venueName || undefined,
+        slug: canonicalizeVenueSlug(venueSlug) || venueSlug,
+        limit: 8,
+      }),
+    enabled: Boolean(venueName || venueSlug),
+    staleTime: 180_000,
+    retry: 1,
+  });
+
+  const topShows = useMemo(
+    () => uniqueEvents.slice(0, 3).map((e) => e.title).filter(Boolean),
+    [uniqueEvents],
+  );
+
+  const ogImage = useMemo(() => {
+    const hit = uniqueEvents.find((e) => e.imageUrl || e.bannerUrl);
+    return hit?.imageUrl || hit?.bannerUrl || undefined;
+  }, [uniqueEvents]);
+
+  const similarVenues = useMemo(() => {
+    const cityHint = (venueAddress || '').includes('Санкт-Петербург')
+      ? 'Санкт-Петербург'
+      : 'Москва';
+    const list = buildVenueLandingList(venueNames).filter((v) => {
+      if (canonicalizeVenueSlug(v.slug) === canonicalizeVenueSlug(venueSlug)) return false;
+      const sample = allEvents.find((e) => e.venue === v.label);
+      const addr = sample?.venueAddress || '';
+      if (cityHint === 'Санкт-Петербург') return addr.includes('Санкт-Петербург');
+      return !addr.includes('Санкт-Петербург');
+    });
+    return list.slice(0, 6);
+  }, [venueNames, venueSlug, allEvents, venueAddress]);
+
   const loadMore = useCallback(() => {
     setVisibleCount((n) => Math.min(n + PAGE_SIZE, uniqueEvents.length));
   }, [uniqueEvents.length]);
@@ -123,13 +195,39 @@ export function VenueLandingPage() {
       buildVenueLandingCopy(venueName || 'Площадка', {
         slug: canonicalizeVenueSlug(venueSlug) || venueSlug,
         address: venueAddress,
+        minPrice: minPricesRes?.minPrice ?? null,
+        eventCount: uniqueEvents.length,
+        topShows,
       }),
-    [venueName, venueSlug, venueAddress],
+    [venueName, venueSlug, venueAddress, minPricesRes?.minPrice, uniqueEvents.length, topShows],
   );
 
   const path = `/events/venue/${venueSlug}`;
   const jsonLd = useMemo(() => {
     const placeName = venueName || copy.h1;
+    const place: Record<string, unknown> = {
+      '@type': 'Place',
+      name: placeName,
+      ...(venueAddress || copy.address ? { address: venueAddress || copy.address } : {}),
+      url: `${origin}${path}`,
+    };
+    if (reviewsRes?.score != null && reviewsRes.count > 0) {
+      place.aggregateRating = {
+        '@type': 'AggregateRating',
+        ratingValue: reviewsRes.score,
+        bestRating: 10,
+        worstRating: 0,
+        ratingCount: reviewsRes.count,
+      };
+      if (reviewsRes.reviews?.length) {
+        place.review = reviewsRes.reviews.slice(0, 5).map((rev) => ({
+          '@type': 'Review',
+          reviewRating: { '@type': 'Rating', ratingValue: rev.stars, bestRating: 5 },
+          author: { '@type': 'Person', name: rev.author },
+          reviewBody: rev.body,
+        }));
+      }
+    }
     return {
       '@context': 'https://schema.org',
       '@graph': [
@@ -141,12 +239,7 @@ export function VenueLandingPage() {
             { '@type': 'ListItem', position: 3, name: placeName, item: `${origin}${path}` },
           ],
         },
-        {
-          '@type': 'Place',
-          name: placeName,
-          ...(venueAddress ? { address: venueAddress } : {}),
-          url: `${origin}${path}`,
-        },
+        place,
         {
           '@type': 'CollectionPage',
           name: copy.title,
@@ -156,9 +249,42 @@ export function VenueLandingPage() {
         },
       ],
     };
-  }, [origin, path, venueName, venueAddress, copy]);
+  }, [origin, path, venueName, venueAddress, copy, reviewsRes]);
 
   const showSkeleton = isLoading && !raw;
+
+  const onCallback = async (e: FormEvent) => {
+    e.preventDefault();
+    if (cbBusy) return;
+    const phone = cbPhone.trim();
+    if (phone.replace(/\D/g, '').length < 10) {
+      setCbMsg('Укажите телефон');
+      return;
+    }
+    setCbBusy(true);
+    setCbMsg(null);
+    try {
+      await submitForm('venue-callback', {
+        name: cbName.trim() || 'Зритель',
+        phone,
+        tel: phone,
+        venue: venueName || venueSlug,
+        page_path: path,
+      });
+      setCbMsg('Заявка принята — перезвоним в рабочие часы.');
+      setCbName('');
+      setCbPhone('');
+    } catch {
+      setCbMsg('Не удалось отправить. Позвоните нам напрямую.');
+    } finally {
+      setCbBusy(false);
+    }
+  };
+
+  const firstTicketHref =
+    uniqueEvents[0] && venueName
+      ? `/ticket/${encodeURIComponent(String(uniqueEvents[0].repertoireId || uniqueEvents[0].id))}`
+      : '/events';
 
   return (
     <>
@@ -167,6 +293,7 @@ export function VenueLandingPage() {
         description={copy.description}
         keywords={copy.keywords}
         url={`${origin}${path}`}
+        image={ogImage}
       />
       <script
         type="application/ld+json"
@@ -194,6 +321,45 @@ export function VenueLandingPage() {
             <p className={styles.address}>{venueAddress || copy.address}</p>
           )}
           <p className={styles.lead}>{copy.about}</p>
+
+          <p className={styles.trustRow} aria-label="Преимущества">
+            Электронный билет · Схема зала · Поддержка
+          </p>
+
+          <div className={styles.heroCta}>
+            <a className={styles.phoneBtn} href={`tel:${OPERATOR.phoneTel}`}>
+              {OPERATOR.phone}
+            </a>
+            <span className={styles.hours}>{OPERATOR.hours}</span>
+          </div>
+
+          <form className={styles.callback} onSubmit={onCallback}>
+            <p className={styles.callbackTitle}>Перезвоните мне</p>
+            <div className={styles.callbackRow}>
+              <input
+                className={styles.input}
+                name="name"
+                placeholder="Имя"
+                value={cbName}
+                onChange={(ev) => setCbName(ev.target.value)}
+                autoComplete="name"
+              />
+              <input
+                className={styles.input}
+                name="phone"
+                placeholder="Телефон"
+                value={cbPhone}
+                onChange={(ev) => setCbPhone(ev.target.value)}
+                autoComplete="tel"
+                required
+              />
+              <button type="submit" className={styles.callbackBtn} disabled={cbBusy}>
+                {cbBusy ? '…' : 'Жду звонка'}
+              </button>
+            </div>
+            {cbMsg ? <p className={styles.callbackMsg}>{cbMsg}</p> : null}
+          </form>
+
           <div className={styles.heroLinks}>
             <Link to="/events/venues" className={styles.link}>
               Все площадки →
@@ -263,6 +429,92 @@ export function VenueLandingPage() {
           )}
         </section>
 
+        <section className={styles.reviews} aria-labelledby="venue-reviews-title">
+          <h2 id="venue-reviews-title" className={styles.h2}>
+            Отзывы о событиях на площадке
+          </h2>
+          <div className={styles.reviewsLayout}>
+            <div className={styles.reviewsAside}>
+              {reviewsRes?.scoreLabel && reviewsRes.zone ? (
+                <div className={styles.reviewsScoreRow}>
+                  <span className={`${styles.reviewsScoreBadge} ${styles[`zone_${reviewsRes.zone}`]}`}>
+                    ★ {reviewsRes.scoreLabel}
+                  </span>
+                  <span className={styles.reviewsScoreMeta}>
+                    {reviewsRes.count}{' '}
+                    {reviewsRes.count === 1 ? 'отзыв' : reviewsRes.count < 5 ? 'отзыва' : 'отзывов'}
+                  </span>
+                </div>
+              ) : null}
+              <p className={styles.reviewsHint}>
+                Публикуем только проверенные отзывы зрителей (со сканом билета) и редакционные
+                материалы. Оставить отзыв можно на странице конкретного события.
+              </p>
+              {uniqueEvents[0] ? (
+                <Link to={firstTicketHref} className={styles.link}>
+                  Оставить отзыв к событию →
+                </Link>
+              ) : null}
+            </div>
+            <div className={styles.reviewsList}>
+              {reviewsRes?.reviews?.length ? (
+                reviewsRes.reviews.map((rev) => (
+                  <article key={rev.id} className={styles.reviewCard}>
+                    <div
+                      className={styles.reviewStars}
+                      aria-label={`${rev.stars} из 5`}
+                      style={
+                        {
+                          '--star-color':
+                            ratingZone(rev.stars * 2) === 'green'
+                              ? '#2fbf5a'
+                              : ratingZone(rev.stars * 2) === 'yellow'
+                                ? '#e6b800'
+                                : ratingZone(rev.stars * 2) === 'orange'
+                                  ? '#f09020'
+                                  : '#e23b2f',
+                        } as CSSProperties
+                      }
+                    >
+                      {'★★★★★'.slice(0, rev.stars)}
+                      <span className={styles.reviewStarsEmpty}>{'★★★★★'.slice(rev.stars)}</span>
+                    </div>
+                    {rev.ticketVerified ? (
+                      <span className={styles.verifiedBadge}>Билет проверен</span>
+                    ) : null}
+                    {rev.eventTitle ? <p className={styles.reviewEvent}>{rev.eventTitle}</p> : null}
+                    <p className={styles.reviewBody}>{rev.body}</p>
+                    <div className={styles.reviewMeta}>
+                      <span>{rev.author}</span>
+                      <span>{formatReviewDate(rev.reviewedOn || rev.createdAt)}</span>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <p className={styles.emptyReviews}>
+                  Пока нет опубликованных отзывов по этой площадке. Станьте первым — откройте
+                  событие и приложите билет к отзыву.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {similarVenues.length > 0 && (
+          <section className={styles.similar} aria-labelledby="venue-similar-title">
+            <h2 id="venue-similar-title" className={styles.h2}>
+              Похожие площадки
+            </h2>
+            <ul className={styles.similarList}>
+              {similarVenues.map((v) => (
+                <li key={v.slug}>
+                  <Link to={`/events/venue/${v.slug}`}>{v.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className={styles.seoBlock} aria-labelledby="venue-how-title">
           <h2 id="venue-how-title" className={styles.h2}>
             Как купить билет в {copy.h1}
@@ -273,8 +525,9 @@ export function VenueLandingPage() {
             <li>Оплатите онлайн — электронный билет придёт на e-mail.</li>
           </ol>
           <p className={styles.seoNote}>
-            Это неофициальная витрина продажи билетов. Возврат и обмен — по правилам организатора; детали на странице{' '}
-            <Link to="/returns">«Возврат и обмен»</Link>.
+            Это неофициальная витрина продажи билетов. Возврат и обмен — по правилам организатора;
+            детали на странице <Link to="/returns">«Возврат и обмен»</Link>. Тел.{' '}
+            <a href={`tel:${OPERATOR.phoneTel}`}>{OPERATOR.phone}</a>.
           </p>
         </section>
 

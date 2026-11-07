@@ -5,7 +5,7 @@
 
 import { VENUE_LABELS } from './venue-labels.js';
 import { canonicalizeVenueSlug } from '../utils/venueSlug.js';
-import { resolveVenueLandingSeo } from './venue-landing-seo.js';
+import { resolveVenueLandingSeo, buildVenueAboutFromFacts } from './venue-landing-seo.js';
 
 export { VENUE_LABELS };
 
@@ -204,7 +204,9 @@ export function resolveEventsFilterSeo(kind, rawSlug) {
       description: `Купить билеты в «${label}»: афиша и цены. ${MECHANICS}.`.slice(0, 160),
       h1: label,
       keywords: `${label.toLowerCase()} билеты, афиша ${label.toLowerCase()}, купить билет`,
-      about: `Купить билеты в «${label}» онлайн: актуальная афиша, выбор мест на схеме зала, безопасная оплата и электронный билет на e-mail.`,
+      about: buildVenueAboutFromFacts({ name: label, city: 'Москва' }),
+      faq: resolveVenueLandingSeo(canon || key, { label })?.faq,
+      city: 'Москва',
     };
   }
   return null;

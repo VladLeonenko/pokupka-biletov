@@ -915,6 +915,54 @@ export async function fetchRepertoireReviews(repertoireId: string): Promise<Even
   return res.json() as Promise<EventReviewsPayload>;
 }
 
+export type VenueReviewsPayload = {
+  venue: string;
+  slug?: string | null;
+  score: number | null;
+  scoreLabel: string | null;
+  zone: 'green' | 'yellow' | 'orange' | 'red' | null;
+  count: number;
+  reviews: (EventReviewRow & { repertoireId?: string; eventTitle?: string })[];
+};
+
+export async function fetchVenueReviews(opts: {
+  venue?: string;
+  slug?: string;
+  limit?: number;
+}): Promise<VenueReviewsPayload> {
+  const base = getApiBase();
+  const qs = new URLSearchParams();
+  if (opts.venue) qs.set('venue', opts.venue);
+  if (opts.slug) qs.set('slug', opts.slug);
+  if (opts.limit) qs.set('limit', String(opts.limit));
+  const res = await fetch(`${base}/api/bilet/venue-reviews?${qs}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<VenueReviewsPayload>;
+}
+
+export async function fetchMinPrices(repertoireIds: string[]): Promise<{
+  prices: Record<string, number>;
+  minPrice: number | null;
+}> {
+  const ids = repertoireIds.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 12);
+  if (!ids.length) return { prices: {}, minPrice: null };
+  const base = getApiBase();
+  const res = await fetch(
+    `${base}/api/bilet/min-prices?ids=${ids.map(encodeURIComponent).join(',')}`,
+    { headers: { Accept: 'application/json' } },
+  );
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<{ prices: Record<string, number>; minPrice: number | null }>;
+}
+
 export type SubmitEventReviewInput = {
   author: string;
   email: string;

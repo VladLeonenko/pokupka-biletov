@@ -167,7 +167,7 @@ function stripDefaultSeoFromHtml(html) {
  */
 function metaBlockForPage(p) {
   const { base, brand, canonical, title, description, ogType } = p;
-  const ogImage = `${base}/favicon.svg`;
+  const ogImage = toAbsUrl(base, p.ogImage) || `${base}/favicon.svg`;
   return `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
@@ -538,9 +538,10 @@ async function generateSeoTags(url) {
       const slug = normalizeSlugText(rawSlug);
       let filterSeo = resolveEventsFilterSeo(kind, rawSlug);
 
-      // Venue: min price из кэша офферов + события для SSR-списка.
+      // Venue: min price + события + отзывы + og:image для SSR.
       let venueEvents = [];
-      let venueMinPrice = null;
+      let venueOgImage = null;
+      let venueReviewsLd = null;
       if (kind === 'venue' && filterSeo) {
         const canon = canonicalizeVenueSlug(rawSlug);
         const venueLabel =
@@ -548,17 +549,25 @@ async function generateSeoTags(url) {
         try {
           const enriched = await enrichVenueLandingSsr(venueLabel);
           venueEvents = enriched.events || [];
-          venueMinPrice = enriched.minPrice;
-          if (venueMinPrice != null) {
-            filterSeo = resolveVenueLandingSeo(rawSlug, { minPrice: venueMinPrice }) || filterSeo;
-          }
+          venueOgImage = enriched.posterUrl || null;
+          venueReviewsLd = enriched.reviewsSchema || null;
+          filterSeo =
+            resolveVenueLandingSeo(rawSlug, {
+              minPrice: enriched.minPrice,
+              eventCount: enriched.eventCount,
+              topShows: enriched.topShows,
+              label: venueLabel,
+              address: enriched.address || filterSeo.address,
+            }) || filterSeo;
         } catch (err) {
           console.warn('[SSR] venue enrich:', err?.message || err);
         }
       }
 
       if (slug && filterSeo) {
-        const path = `${prefix}${encodeURIComponent(slug).replace(/%20/g, '-')}`;
+        const path = `${prefix}${encodeURIComponent(
+          kind === 'venue' ? canonicalizeVenueSlug(rawSlug) || slug : slug,
+        ).replace(/%20/g, '-')}`;
         const canonical = `${base}${path}`;
         const { title, description, h1 } = filterSeo;
         const crumbName = h1 || title;
@@ -590,6 +599,19 @@ async function generateSeoTags(url) {
         const keywordsMeta = filterSeo.keywords
           ? `\n    <meta name="keywords" content="${escapeHtml(filterSeo.keywords)}" />`
           : '';
+        const placeLd =
+          kind === 'venue'
+            ? jsonLdScript({
+                '@context': 'https://schema.org',
+                '@type': 'Place',
+                name: h1,
+                ...(filterSeo.address
+                  ? { address: { '@type': 'PostalAddress', streetAddress: filterSeo.address } }
+                  : {}),
+                url: canonical,
+                ...(venueReviewsLd || {}),
+              })
+            : '';
         out.metaTags = `${metaBlockForPage({
           base,
           brand,
@@ -597,9 +619,11 @@ async function generateSeoTags(url) {
           title,
           description,
           ogType: 'website',
+          ogImage: venueOgImage,
         })}${keywordsMeta}
     ${breadcrumbJsonLd(base, crumbs)}
-    ${faqPageJsonLd(faqItems)}`;
+    ${faqPageJsonLd(faqItems)}
+    ${placeLd}`;
         out.ssr = {
           kind: 'landing',
           title,
@@ -959,33 +983,65 @@ async function getCachedMinPrice(repertoireId) {
 }
 
 /**
- * События площадки + мин. цена из кэша офферов (для meta «от N ₽» и SSR-списка).
+ * События площадки + мин. цена + отзывы + постер (SSR meta/JSON-LD).
  * @param {string} venueLabel
  */
 async function enrichVenueLandingSsr(venueLabel) {
   const label = String(venueLabel || '').trim();
-  if (!label) return { events: [], minPrice: null };
+  const empty = {
+    events: [],
+    minPrice: null,
+    eventCount: 0,
+    topShows: [],
+    posterUrl: '',
+    address: '',
+    reviewScore: null,
+    reviewCount: 0,
+    reviewSamples: [],
+  };
+  if (!label) return empty;
+  const venueLike = `%${label.replace(/[%_]/g, '')}%`;
   let rows = [];
   try {
     const r = await ticketPool.query(
       `SELECT getbilet_external_id::text AS id,
               COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
-              NULLIF(TRIM(venue_manual), '') AS venue_label
+              NULLIF(TRIM(venue_manual), '') AS venue_label,
+              NULLIF(TRIM(venue_address_manual), '') AS venue_address,
+              COALESCE(
+                NULLIF(TRIM(poster_url_manual), ''),
+                NULLIF(TRIM(poster_url_web), '')
+              ) AS poster_url
        FROM getbilet_events
        WHERE is_published = TRUE
          AND (
            venue_manual ILIKE $1
            OR venue_manual ILIKE $2
-           OR title_manual ILIKE $2
          )
        ORDER BY updated_at DESC
        LIMIT 12`,
-      [label, `%${label.replace(/[%_]/g, '')}%`],
+      [label, venueLike],
     );
     rows = r.rows || [];
   } catch (err) {
-    console.warn('[SSR] venue events:', err.message);
-    return { events: [], minPrice: null };
+    // poster_url_manual / venue_address_manual могут отсутствовать на старых схемах
+    try {
+      const r2 = await ticketPool.query(
+        `SELECT getbilet_external_id::text AS id,
+                COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
+                NULLIF(TRIM(venue_manual), '') AS venue_label
+         FROM getbilet_events
+         WHERE is_published = TRUE
+           AND (venue_manual ILIKE $1 OR venue_manual ILIKE $2)
+         ORDER BY updated_at DESC
+         LIMIT 12`,
+        [label, venueLike],
+      );
+      rows = r2.rows || [];
+    } catch (err2) {
+      console.warn('[SSR] venue events:', err2.message);
+      return empty;
+    }
   }
 
   const events = rows.map((row) => ({
@@ -996,7 +1052,7 @@ async function enrichVenueLandingSsr(venueLabel) {
   }));
 
   let minPrice = null;
-  const sampleIds = rows.slice(0, 6).map((row) => row.id);
+  const sampleIds = rows.slice(0, 8).map((row) => row.id);
   for (const id of sampleIds) {
     const p = await getCachedMinPrice(id);
     if (p != null && Number.isFinite(Number(p)) && Number(p) > 0) {
@@ -1004,7 +1060,82 @@ async function enrichVenueLandingSsr(venueLabel) {
       if (minPrice == null || n < minPrice) minPrice = n;
     }
   }
-  return { events, minPrice };
+
+  let reviewScore = null;
+  let reviewCount = 0;
+  let reviewSamples = [];
+  try {
+    const agg = await ticketPool.query(
+      `SELECT COUNT(*)::int AS n, AVG(r.stars * 2.0)::numeric(3,1) AS score
+       FROM event_reviews r
+       INNER JOIN getbilet_events e ON e.getbilet_external_id = r.repertoire_external_id
+       WHERE r.is_published = TRUE
+         AND (e.venue_manual ILIKE $1 OR e.venue_manual ILIKE $2)`,
+      [label, venueLike],
+    );
+    reviewCount = Number(agg.rows[0]?.n) || 0;
+    if (reviewCount > 0 && agg.rows[0]?.score != null) reviewScore = Number(agg.rows[0].score);
+    const rr = await ticketPool.query(
+      `SELECT r.author, r.stars, r.body
+       FROM event_reviews r
+       INNER JOIN getbilet_events e ON e.getbilet_external_id = r.repertoire_external_id
+       WHERE r.is_published = TRUE
+         AND (e.venue_manual ILIKE $1 OR e.venue_manual ILIKE $2)
+       ORDER BY r.reviewed_on DESC NULLS LAST, r.created_at DESC
+       LIMIT 5`,
+      [label, venueLike],
+    );
+    reviewSamples = (rr.rows || []).map((row) => ({
+      author: row.author,
+      stars: row.stars,
+      body: String(row.body || '').slice(0, 280),
+    }));
+  } catch {
+    /* no reviews table */
+  }
+
+  const topShows = [];
+  const seenTitles = new Set();
+  for (const row of rows) {
+    const t = String(row.title || '').trim();
+    if (!t || seenTitles.has(t)) continue;
+    seenTitles.add(t);
+    topShows.push(t);
+    if (topShows.length >= 3) break;
+  }
+
+  /** Поля для spread в Place JSON-LD (не полный документ). */
+  let reviewsSchema = null;
+  if (reviewScore != null && reviewCount > 0) {
+    reviewsSchema = {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: reviewScore,
+        bestRating: 10,
+        worstRating: 0,
+        ratingCount: reviewCount,
+      },
+      review: reviewSamples.map((rv) => ({
+        '@type': 'Review',
+        reviewRating: { '@type': 'Rating', ratingValue: rv.stars, bestRating: 5 },
+        author: { '@type': 'Person', name: rv.author },
+        reviewBody: rv.body,
+      })),
+    };
+  }
+
+  return {
+    events,
+    minPrice,
+    eventCount: rows.length,
+    topShows,
+    posterUrl: rows.find((row) => row.poster_url)?.poster_url || '',
+    address: rows.find((row) => row.venue_address)?.venue_address || '',
+    reviewScore,
+    reviewCount,
+    reviewSamples,
+    reviewsSchema,
+  };
 }
 
 async function fetchPublishedEventsForSsr(limit = 20) {

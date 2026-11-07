@@ -261,3 +261,261 @@
   line-height: 1.5;
   color: rgba(0, 0, 0, 0.62);
 }
+
+.trustRow {
+  margin: 16px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.42);
+}
+
+.heroCta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 16px;
+  margin-top: 16px;
+}
+
+.phoneBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #0a0a0a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.phoneBtn:hover {
+  background: var(--neg-orange, #ff4e18);
+}
+
+.hours {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.callback {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fafafa;
+  max-width: 560px;
+}
+
+.callbackTitle {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.callbackRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.input {
+  flex: 1 1 140px;
+  min-width: 120px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.callbackBtn {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--neg-orange, #ff4e18);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.callbackBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.callbackMsg {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.reviews {
+  max-width: 1100px;
+  margin: 48px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.reviewsLayout {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+@media (max-width: 800px) {
+  .reviewsLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reviewsAside {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewsScoreRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reviewsScoreBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 800;
+  color: #fff;
+  background: #2fbf5a;
+}
+
+.zone_green {
+  background: #2fbf5a;
+}
+.zone_yellow {
+  background: #e6b800;
+}
+.zone_orange {
+  background: #f09020;
+}
+.zone_red {
+  background: #e23b2f;
+}
+
+.reviewsScoreMeta {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.reviewsHint {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.reviewsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewCard {
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.reviewStars {
+  color: var(--star-color, #2fbf5a);
+  letter-spacing: 0.05em;
+  font-size: 0.95rem;
+}
+
+.reviewStarsEmpty {
+  color: rgba(0, 0, 0, 0.15);
+}
+
+.verifiedBadge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2fbf5a;
+}
+
+.reviewEvent {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.reviewBody {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.reviewMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.emptyReviews {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.similar {
+  max-width: 820px;
+  margin: 40px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.similarList {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.similarList a {
+  font-weight: 700;
+  color: #0a0a0a;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.similarList a:hover {
+  color: var(--neg-orange, #ff4e18);
+  border-color: var(--neg-orange, #ff4e18);
+}

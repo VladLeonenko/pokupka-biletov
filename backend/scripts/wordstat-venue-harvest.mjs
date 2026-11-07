@@ -35,6 +35,14 @@ const QUERIES = [
   { q: 'маяковского театр билеты', seed: 'маяковск', slug: 'teatr-im-mayakovskogo' },
   { q: 'пушкина театр билеты', seed: 'пушкин', slug: 'teatr-im-pushkina' },
   { q: 'ермоловой билеты', seed: 'ермолов', slug: 'teatr-im-ermolovoy' },
+  { q: 'мдм билеты', seed: 'мдм', slug: 'moskovskiy-dvorets-molodyozhi-mdm' },
+  { q: 'моссовета билеты', seed: 'моссовет', slug: 'teatr-im-mossoveta' },
+  { q: 'оперетта билеты москва', seed: 'оперетт', slug: 'moskovskiy-teatr-operetty' },
+  { q: 'зарядье билеты', seed: 'зарядье', slug: 'kz-zaryade' },
+  { q: 'новая опера билеты', seed: 'новая опера', slug: 'teatr-novaya-opera' },
+  { q: 'театр сатиры билеты', seed: 'сатир', slug: 'teatr-satiry' },
+  { q: 'геликон опера билеты', seed: 'геликон', slug: 'gelikon-opera' },
+  { q: 'образцова билеты', seed: 'образцов', slug: 'teatr-kukol-obraztsova' },
 ];
 
 function writeSubmitJs(query) {

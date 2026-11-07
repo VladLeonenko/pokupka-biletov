@@ -320,17 +320,212 @@ export const VENUE_LANDING_SEO = {
       '«Мегаспорт» — арена для концертов и спорта. Смотрите афишу, цены и покупайте билеты онлайн. Электронный билет после оплаты на e-mail.',
     keywordsExtra: 'мегаспорт билеты',
   },
+  'moskovskiy-dvorets-molodyozhi-mdm': {
+    city: 'Москва',
+    metro: 'Фрунзенская',
+    address: 'Москва',
+    about:
+      'Московский дворец молодёжи (МДМ) — мюзиклы, концерты и крупные постановки. Афиша, даты и цены: купите билеты онлайн со схемой зала и получите электронный билет после оплаты. Удобно для запросов «мдм билеты» и «дворец молодёжи афиша».',
+    keywordsExtra: 'мдм билеты, дворец молодёжи билеты, мдм афиша',
+  },
+  'teatr-im-mossoveta': {
+    city: 'Москва',
+    metro: 'Маяковская',
+    address: 'Москва',
+    about:
+      'Театр им. Моссовета — драматический репертуар в Москве. Смотрите афишу спектаклей, сравнивайте даты и цены, покупайте билеты онлайн. Электронный билет приходит на e-mail после оплаты.',
+    keywordsExtra: 'театр моссовета билеты, моссовет купить билеты',
+  },
+  'teatr-novaya-opera': {
+    city: 'Москва',
+    metro: 'Маяковская',
+    address: 'Москва',
+    about:
+      'Театр «Новая Опера» — оперные и музыкальные постановки. Афиша, цены и покупка билетов онлайн со схемой зала. Электронный билет после оплаты на e-mail.',
+    keywordsExtra: 'новая опера билеты, новая опера купить билеты',
+  },
+  'muzykalnyy-teatr-im-stanislavskogo-i-nemirovicha-danchenko': {
+    city: 'Москва',
+    metro: 'Чеховская / Пушкинская',
+    address: 'Москва, ул. Большая Дмитровка, 17',
+    about:
+      'Музыкальный театр им. Станиславского и Немировича-Данченко — опера и балет на Большой Дмитровке. Афиша, даты, цены и покупка билетов онлайн. Электронный билет после оплаты.',
+    keywordsExtra: 'станиславский немерович билеты, музыкальный театр билеты',
+  },
+  'teatr-satiry': {
+    city: 'Москва',
+    metro: 'Маяковская',
+    address: 'Москва',
+    about:
+      'Театр Сатиры — комедия и сатира в центре Москвы. Афиша спектаклей, цены и покупка билетов онлайн со схемой зала. Электронный билет на e-mail после оплаты.',
+    keywordsExtra: 'театр сатиры билеты, сатира купить билеты',
+  },
+  'teatr-rossiyskoy-armii': {
+    city: 'Москва',
+    metro: 'Достоевская',
+    address: 'Москва',
+    about:
+      'Театр Российской Армии — крупная сцена и репертуарная драма. Смотрите афишу, даты и цены, покупайте билеты онлайн. Электронный билет после оплаты.',
+    keywordsExtra: 'театр армии билеты, цатр билеты',
+  },
+  'kz-moskva': {
+    city: 'Москва',
+    metro: 'Технопарк',
+    address: 'Москва, просп. Андропова, 1',
+    about:
+      'Концертный зал «Москва» — концерты и шоу. Афиша, цены и покупка билетов онлайн с выбором мест. Электронный билет после оплаты на e-mail.',
+    keywordsExtra: 'кз москва билеты, концертный зал москва купить билеты',
+  },
+  'teatr-kukol-obraztsova': {
+    city: 'Москва',
+    metro: 'Цветной бульвар',
+    address: 'Москва, Садовая-Самотечная ул., 3',
+    about:
+      'Театр кукол им. Образцова — семейные спектакли в центре Москвы. Афиша, цены и покупка билетов онлайн. Электронный билет после оплаты — удобно планировать поход с детьми.',
+    keywordsExtra: 'театр кукол образцова билеты, образцова купить билеты',
+  },
+  'shkola-studiya-mhat': {
+    city: 'Москва',
+    metro: 'Чеховская',
+    address: 'Москва',
+    about:
+      'Школа-студия МХАТ — учебная сцена и спектакли молодых актёров. Афиша, даты и покупка билетов онлайн. Электронный билет после оплаты на e-mail.',
+    keywordsExtra: 'школа студия мхат билеты',
+  },
+  'moskovskiy-gubernskiy-teatr': {
+    city: 'Москва',
+    metro: '',
+    address: 'Москва, Волгоградский просп., 121',
+    about:
+      'Московский Губернский театр — репертуарные спектакли. Смотрите афишу, цены и покупайте билеты онлайн со схемой зала. Электронный билет после оплаты.',
+    keywordsExtra: 'губернский театр билеты',
+  },
+  'teatr-estrady': {
+    city: 'Москва',
+    metro: 'Китай-город',
+    address: 'Москва',
+    about:
+      'Театр Эстрады — концерты, юмор и эстрадные программы. Смотрите афишу, даты и цены, покупайте билеты онлайн и получайте электронный билет после оплаты.',
+    keywordsExtra: 'театр эстрады билеты, эстрада билеты москва',
+  },
+  'dom-muzyki': {
+    city: 'Москва',
+    metro: 'Павелецкая',
+    address: 'Москва',
+    about:
+      'Московский международный Дом музыки — концерты классики и кроссовера. Смотрите афишу, даты и цены, покупайте билеты онлайн и выбирайте места. После оплаты — электронный билет.',
+    keywordsExtra: 'дом музыки билеты, ммдм купить билеты',
+  },
+  'kz-zaryade': {
+    city: 'Москва',
+    metro: 'Китай-город',
+    address: 'Москва',
+    about:
+      'Концертный зал «Зарядье» — академическая и современная музыка в парке Зарядье. Афиша концертов, цены и покупка билетов онлайн с выбором мест. Электронный билет приходит на e-mail после оплаты.',
+    keywordsExtra: 'зарядье билеты, концертный зал зарядье купить билеты',
+  },
+  'moskovskiy-teatr-operetty': {
+    city: 'Москва',
+    metro: 'Новокузнецкая / Третьяковская',
+    address: 'Москва',
+    about:
+      'Московский театр оперетты — лёгкий музыкальный жанр и зрелищные постановки. Афиша, цены и покупка билетов онлайн со схемой зала. Электронный билет после оплаты — удобно планировать вечер заранее.',
+    keywordsExtra: 'театр оперетты билеты, оперетта москва купить билеты',
+  },
+  gelikon: {
+    city: 'Москва',
+    metro: 'Арбатская',
+    address: 'Москва',
+    about:
+      'Геликон-опера — оперные постановки и музыкальный репертуар в Москве. Афиша, даты и цены: купите билеты онлайн, выберите места на схеме зала и получите электронный билет на e-mail.',
+    keywordsExtra: 'геликон опера билеты, геликон купить билеты',
+  },
+  'gelikon-opera': {
+    city: 'Москва',
+    metro: 'Арбатская',
+    address: 'Москва',
+    about:
+      'Геликон-опера — оперные постановки и музыкальный репертуар в Москве. Афиша, даты и цены: купите билеты онлайн, выберите места на схеме зала и получите электронный билет на e-mail.',
+    keywordsExtra: 'геликон опера билеты, геликон купить билеты',
+  },
+  mtyuz: {
+    city: 'Москва',
+    address: 'Москва',
+    about:
+      'МТЮЗ — Московский театр юного зрителя: спектакли для детей, подростков и взрослых. Афиша, даты, цены и покупка билетов онлайн. Электронный билет после оплаты.',
+    keywordsExtra: 'мтюз билеты, мтюз купить билеты',
+  },
 };
 
 /**
+ * Генератор about 400–700 символов из фактов (без копипасты Вики).
+ * @param {{
+ *   name: string;
+ *   city?: string;
+ *   address?: string;
+ *   metro?: string;
+ *   eventCount?: number | null;
+ *   topShows?: string[];
+ * }} facts
+ */
+export function buildVenueAboutFromFacts(facts) {
+  const name = String(facts.name || 'Площадка').trim();
+  const city = String(facts.city || 'Москва').trim();
+  const address = String(facts.address || '').trim();
+  const metro = String(facts.metro || '').trim();
+  const count = Number(facts.eventCount);
+  const shows = Array.isArray(facts.topShows)
+    ? facts.topShows.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 3)
+    : [];
+
+  const whereBits = [
+    address || city,
+    metro ? `ориентир по метро: ${metro}` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const countBit =
+    Number.isFinite(count) && count > 0
+      ? count === 1
+        ? 'Сейчас в продаже 1 событие'
+        : `Сейчас в продаже ${count} ${count < 5 ? 'события' : 'событий'}`
+      : 'Актуальная афиша обновляется по мере поступления дат';
+
+  const showsBit = shows.length
+    ? ` Среди ближайших: ${shows.map((s) => `«${s}»`).join(', ')}.`
+    : '';
+
+  let about =
+    `«${name}» — площадка в ${city}${whereBits && whereBits !== city ? ` (${whereBits})` : ''}. ` +
+    `${countBit}: даты, цены и покупка билетов онлайн со схемой зала.${showsBit} ` +
+    `После оплаты электронный билет приходит на e-mail — удобно, если ищете «${name.toLowerCase()} билеты» или афишу без очереди в кассу. ` +
+    `Выберите событие, места и оплатите картой на сайте.`;
+
+  if (about.length < 400) {
+    about +=
+      ` Возврат и обмен — по правилам организатора; поддержка поможет по телефону или через форму на странице.`;
+  }
+  if (about.length > 720) about = `${about.slice(0, 717).trim()}…`;
+  return about;
+}
+
+/**
  * @param {string} rawSlug
- * @param {{ minPrice?: number | null; eventCount?: number | null }} [opts]
+ * @param {{
+ *   minPrice?: number | null;
+ *   eventCount?: number | null;
+ *   topShows?: string[];
+ *   label?: string | null;
+ *   address?: string | null;
+ * }} [opts]
  */
 export function resolveVenueLandingSeo(rawSlug, opts = {}) {
   const key = String(rawSlug || '').trim();
   const canon = canonicalizeVenueSlug(key);
   const rich = VENUE_LANDING_SEO[canon] || VENUE_LANDING_SEO[key] || null;
   const label =
+    (opts.label && String(opts.label).trim()) ||
     (rich && rich.label) ||
     VENUE_LABELS[canon] ||
     VENUE_LABELS[key] ||
@@ -338,11 +533,11 @@ export function resolveVenueLandingSeo(rawSlug, opts = {}) {
   if (!label && !rich) return null;
 
   const name = label || key;
-  const city = (rich && rich.city) || 'Москва';
+  const city = (rich && rich.city) || (String(opts.address || '').includes('Санкт-Петербург') ? 'Санкт-Петербург' : 'Москва');
   const cityPrep =
     city === 'Москва' ? 'Москве' : city === 'Санкт-Петербург' ? 'Санкт-Петербурге' : city;
   const metro = (rich && rich.metro) || '';
-  const address = (rich && rich.address) || '';
+  const address = String(opts.address || (rich && rich.address) || '').trim();
   const minPrice =
     opts.minPrice != null && Number.isFinite(Number(opts.minPrice)) && Number(opts.minPrice) > 0
       ? Math.round(Number(opts.minPrice))
@@ -369,9 +564,14 @@ export function resolveVenueLandingSeo(rawSlug, opts = {}) {
 
   const about =
     (rich && rich.about) ||
-    (address
-      ? `Купить билеты в «${name}» онлайн: ближайшие события, выбор мест на схеме зала и электронный билет на e-mail. Адрес: ${address}. ${city ? `Город: ${city}.` : ''}`.trim()
-      : `Купить билеты в «${name}» онлайн: актуальная афиша, выбор мест на схеме зала, безопасная оплата и электронный билет на e-mail.`);
+    buildVenueAboutFromFacts({
+      name,
+      city,
+      address,
+      metro,
+      eventCount: opts.eventCount,
+      topShows: opts.topShows,
+    });
 
   const keywords = [
     `${name.toLowerCase()} билеты`,
@@ -387,7 +587,7 @@ export function resolveVenueLandingSeo(rawSlug, opts = {}) {
   const faq = [
     {
       q: `Как купить билеты в ${name}?`,
-      a: 'Откройте событие в афише площадки, выберите места на схеме зала и оплатите заказ онлайн — электронный билет придёт на e-mail после оплаты.',
+      a: 'Откройте событие в афише площадки, выберите места на схеме зала и оплатите заказ онлайн — электронный билет придёт на e-mail после оплаты. Можно позвонить или оставить заявку «перезвоните мне» на этой странице.',
     },
     {
       q: `Где смотреть афишу и цены ${name}?`,
@@ -398,6 +598,10 @@ export function resolveVenueLandingSeo(rawSlug, opts = {}) {
       a: metro
         ? `Адрес: ${address || city}. Ориентир по метро: ${metro}. Точное время и вход — в карточке выбранного события.`
         : `Адрес: ${address || city}. Уточняйте вход и время в карточке события.`,
+    },
+    {
+      q: 'Можно ли вернуть билет?',
+      a: 'Да, по правилам организатора и закону. Оформите заявку на странице возврата — /returns.',
     },
   ];
 

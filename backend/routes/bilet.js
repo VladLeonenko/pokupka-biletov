@@ -817,6 +817,148 @@ router.get('/repertoire/:repertoireId/description-sections', async (req, res) =>
   }
 });
 
+/**
+ * Отзывы по площадке: все published event_reviews событий с этим venue_manual.
+ * Query: venue=PlaceName | slug=mht-im-chehova
+ */
+router.get('/venue-reviews', async (req, res) => {
+  try {
+    const { canonicalizeVenueSlug } = await import('../utils/venueSlug.js');
+    const { VENUE_LABELS } = await import('../lib/venue-labels.js');
+    const slugRaw = String(req.query.slug || '').trim();
+    const venueQ = String(req.query.venue || '').trim();
+    const canon = slugRaw ? canonicalizeVenueSlug(slugRaw) : '';
+    const venueLabel =
+      venueQ ||
+      (canon && VENUE_LABELS[canon]) ||
+      (slugRaw && VENUE_LABELS[slugRaw]) ||
+      '';
+    if (!venueLabel) {
+      return res.status(400).json({ error: 'venue_required', message: 'Укажите venue или slug' });
+    }
+    const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 30);
+    const venueLike = `%${venueLabel.replace(/[%_]/g, '')}%`;
+    let reviews = [];
+    let score = null;
+    let count = 0;
+    try {
+      const agg = await ticketPool.query(
+        `SELECT COUNT(*)::int AS n,
+                AVG(r.stars * 2.0)::numeric(3,1) AS score
+         FROM event_reviews r
+         INNER JOIN getbilet_events e
+           ON e.getbilet_external_id = r.repertoire_external_id
+         WHERE r.is_published = TRUE
+           AND NULLIF(TRIM(e.venue_manual), '') IS NOT NULL
+           AND (
+             e.venue_manual ILIKE $1
+             OR e.venue_manual ILIKE $2
+           )`,
+        [venueLabel, venueLike],
+      );
+      count = Number(agg.rows[0]?.n) || 0;
+      if (count > 0 && agg.rows[0]?.score != null) score = Number(agg.rows[0].score);
+
+      const rr = await ticketPool.query(
+        `SELECT r.id, r.author, r.stars, r.body, r.source_label, r.reviewed_on, r.created_at,
+                e.getbilet_external_id::text AS repertoire_id,
+                COALESCE(NULLIF(TRIM(e.title_manual), ''), e.getbilet_external_id::text) AS event_title
+         FROM event_reviews r
+         INNER JOIN getbilet_events e
+           ON e.getbilet_external_id = r.repertoire_external_id
+         WHERE r.is_published = TRUE
+           AND NULLIF(TRIM(e.venue_manual), '') IS NOT NULL
+           AND (
+             e.venue_manual ILIKE $1
+             OR e.venue_manual ILIKE $2
+           )
+         ORDER BY r.reviewed_on DESC NULLS LAST, r.created_at DESC
+         LIMIT $3`,
+        [venueLabel, venueLike, limit],
+      );
+      reviews = rr.rows.map((row) => ({
+        id: row.id,
+        author: row.author,
+        stars: row.stars,
+        body: row.body,
+        sourceLabel: row.source_label,
+        ticketVerified: row.source_label === 'visitor',
+        reviewedOn: row.reviewed_on,
+        createdAt: row.created_at,
+        repertoireId: row.repertoire_id,
+        eventTitle: row.event_title,
+      }));
+      if (!count) count = reviews.length;
+      if (score == null && reviews.length) {
+        score = Math.round((reviews.reduce((s, x) => s + x.stars * 2, 0) / reviews.length) * 10) / 10;
+      }
+    } catch (e) {
+      if (!(e && typeof e === 'object' && e.code === '42P01')) throw e;
+    }
+    const { ratingZone, formatRatingScore } = await import('../utils/eventRatingZones.js');
+    return sendPublicJson(
+      req,
+      res,
+      {
+        venue: venueLabel,
+        slug: canon || slugRaw || null,
+        score,
+        scoreLabel: formatRatingScore(score),
+        zone: ratingZone(score),
+        count,
+        reviews,
+      },
+      { cacheSeconds: 120, staleSeconds: 600 },
+    );
+  } catch (err) {
+    return sendGetbiletError(err, res);
+  }
+});
+
+/**
+ * Мин. цены из кэша офферов (без upstream GetBilet).
+ * Query: ids=repId1,repId2,... (до 12)
+ */
+router.get('/min-prices', async (req, res) => {
+  try {
+    const raw = String(req.query.ids || '').trim();
+    const ids = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    if (!ids.length) {
+      return res.status(400).json({ error: 'ids_required' });
+    }
+    const { getPublicOffersForRepertoire } = await import('../services/getbiletOffersPublic.js');
+    const { computeOffersSnapshot } = await import('../services/ticketPriceAlerts.js');
+    const prices = {};
+    let venueMin = null;
+    for (const id of ids) {
+      try {
+        const { payload } = await getPublicOffersForRepertoire(id, { cacheOnly: true });
+        const snap = computeOffersSnapshot(payload);
+        const p = snap?.minPrice;
+        if (p != null && Number.isFinite(Number(p)) && Number(p) > 0) {
+          const n = Math.round(Number(p));
+          prices[id] = n;
+          if (venueMin == null || n < venueMin) venueMin = n;
+        }
+      } catch {
+        /* skip */
+      }
+    }
+    return sendPublicJson(
+      req,
+      res,
+      { prices, minPrice: venueMin },
+      { cacheSeconds: 120, staleSeconds: 300 },
+    );
+  } catch (err) {
+    return sendGetbiletError(err, res);
+  }
+});
+
 /** Отзывы по репертуару + агрегат 0–10 для бейджа. */
 router.get('/repertoire/:repertoireId/reviews', async (req, res) => {
   try {

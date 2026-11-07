@@ -15,6 +15,7 @@ const KNOWN_FORMS = [
   { form_id: 'submit', form_name: 'Форма в футере', page_path: '/' },
   { form_id: 'case-cost-form', form_name: 'Расчёт стоимости по кейсу', page_path: '/cases' },
   { form_id: 'ticket-request', form_name: 'Запрос билетов у партнёров', page_path: '/ticket' },
+  { form_id: 'venue-callback', form_name: 'Перезвоните мне (посадочная площадки)', page_path: '/events/venue' },
 ];
 
 async function ensureFormExists(pool, formId, formName, pagePath) {

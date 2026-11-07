@@ -244,12 +244,53 @@ const RICH_BY_SLUG: Record<string, VenueRich> = {
   },
 };
 
+export function buildVenueAboutFromFacts(facts: {
+  name: string;
+  city?: string;
+  address?: string;
+  metro?: string;
+  eventCount?: number | null;
+  topShows?: string[];
+}): string {
+  const name = String(facts.name || 'Площадка').trim();
+  const city = String(facts.city || 'Москва').trim();
+  const address = String(facts.address || '').trim();
+  const metro = String(facts.metro || '').trim();
+  const count = Number(facts.eventCount);
+  const shows = (facts.topShows || []).map((s) => String(s || '').trim()).filter(Boolean).slice(0, 3);
+  const whereBits = [address || city, metro ? `ориентир по метро: ${metro}` : '']
+    .filter(Boolean)
+    .join(', ');
+  const countBit =
+    Number.isFinite(count) && count > 0
+      ? count === 1
+        ? 'Сейчас в продаже 1 событие'
+        : `Сейчас в продаже ${count} ${count < 5 ? 'события' : 'событий'}`
+      : 'Актуальная афиша обновляется по мере поступления дат';
+  const showsBit = shows.length
+    ? ` Среди ближайших: ${shows.map((s) => `«${s}»`).join(', ')}.`
+    : '';
+  let about =
+    `«${name}» — площадка в ${city}${whereBits && whereBits !== city ? ` (${whereBits})` : ''}. ` +
+    `${countBit}: даты, цены и покупка билетов онлайн со схемой зала.${showsBit} ` +
+    `После оплаты электронный билет приходит на e-mail — удобно, если ищете «${name.toLowerCase()} билеты» или афишу без очереди в кассу. ` +
+    `Выберите событие, места и оплатите картой на сайте.`;
+  if (about.length < 400) {
+    about +=
+      ' Возврат и обмен — по правилам организатора; поддержка поможет по телефону или через форму на странице.';
+  }
+  if (about.length > 720) about = `${about.slice(0, 717).trim()}…`;
+  return about;
+}
+
 export function buildVenueLandingCopy(
   venueName: string,
   opts?: {
     slug?: string;
     address?: string | null;
     minPrice?: number | null;
+    eventCount?: number | null;
+    topShows?: string[];
   },
 ): VenueLandingCopy {
   const name = String(venueName || '').trim() || 'Площадка';
@@ -279,9 +320,14 @@ export function buildVenueLandingCopy(
 
   const about =
     rich?.about ||
-    (address
-      ? `Купить билеты в «${name}» онлайн: ближайшие события, выбор мест на схеме зала и электронный билет на e-mail. Адрес: ${address}.`
-      : `Купить билеты в «${name}» онлайн: актуальная афиша, выбор мест на схеме зала, безопасная оплата и электронный билет на e-mail.`);
+    buildVenueAboutFromFacts({
+      name,
+      city,
+      address,
+      metro,
+      eventCount: opts?.eventCount,
+      topShows: opts?.topShows,
+    });
 
   const keywords = [
     `${name.toLowerCase()} билеты`,
@@ -296,7 +342,7 @@ export function buildVenueLandingCopy(
   const faq = [
     {
       q: `Как купить билеты в ${name}?`,
-      a: 'Откройте событие в афише площадки, выберите места на схеме зала и оплатите заказ онлайн — электронный билет придёт на e-mail после оплаты.',
+      a: 'Откройте событие в афише площадки, выберите места на схеме зала и оплатите заказ онлайн — электронный билет придёт на e-mail после оплаты. Можно позвонить или оставить заявку «перезвоните мне» на этой странице.',
     },
     {
       q: `Где смотреть афишу и цены ${name}?`,
@@ -307,6 +353,10 @@ export function buildVenueLandingCopy(
       a: metro
         ? `Адрес: ${address || city}. Ориентир по метро: ${metro}. Точное время и вход — в карточке выбранного события.`
         : `Адрес: ${address || city}. Уточняйте вход и время в карточке события.`,
+    },
+    {
+      q: 'Можно ли вернуть билет?',
+      a: 'Да, по правилам организатора и закону. Оформите заявку на странице возврата — /returns.',
     },
   ];
 
