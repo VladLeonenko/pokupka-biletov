@@ -5,6 +5,7 @@
 
 import { VENUE_LABELS } from './venue-labels.js';
 import { canonicalizeVenueSlug } from '../utils/venueSlug.js';
+import { resolveVenueLandingSeo } from './venue-landing-seo.js';
 
 export { VENUE_LABELS };
 
@@ -180,14 +181,30 @@ export function resolveEventsFilterSeo(kind, rawSlug) {
     };
   }
   if (kind === 'venue') {
+    const rich = resolveVenueLandingSeo(key);
+    if (rich) {
+      return {
+        title: rich.title,
+        description: rich.description,
+        h1: rich.h1,
+        keywords: rich.keywords,
+        about: rich.about,
+        faq: rich.faq,
+        address: rich.address,
+        city: rich.city,
+        metro: rich.metro,
+        minPrice: rich.minPrice,
+      };
+    }
     const canon = canonicalizeVenueSlug(key);
     const label = VENUE_LABELS[canon] || VENUE_LABELS[key] || titleCaseRuLike(slug);
-    const title = `${label} — афиша и билеты онлайн`;
+    const title = `${label} — билеты, афиша в Москве`;
     return {
-      title: title.length > 70 ? `${label} — билеты, афиша онлайн` : title,
-      description: `Билеты в «${label}»: афиша, расписание и цены. ${MECHANICS}.`.slice(0, 160),
+      title: title.length > 70 ? `${label} — билеты и афиша` : title,
+      description: `Купить билеты в «${label}»: афиша и цены. ${MECHANICS}.`.slice(0, 160),
       h1: label,
       keywords: `${label.toLowerCase()} билеты, афиша ${label.toLowerCase()}, купить билет`,
+      about: `Купить билеты в «${label}» онлайн: актуальная афиша, выбор мест на схеме зала, безопасная оплата и электронный билет на e-mail.`,
     };
   }
   return null;

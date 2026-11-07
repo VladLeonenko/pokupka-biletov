@@ -45,6 +45,9 @@ import {
   resolveEventsFilterSeo,
   lookupStaticLandingSeo,
 } from '../lib/seo-site-meta-catalog.js';
+import { resolveVenueLandingSeo } from '../lib/venue-landing-seo.js';
+import { VENUE_LABELS } from '../lib/venue-labels.js';
+import { canonicalizeVenueSlug } from '../utils/venueSlug.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -533,12 +536,60 @@ async function generateSeoTags(url) {
       const prefix = `/events/${kind}/`;
       const rawSlug = url.replace(prefix, '').replace(/\/$/, '').split('?')[0];
       const slug = normalizeSlugText(rawSlug);
-      const filterSeo = resolveEventsFilterSeo(kind, rawSlug);
+      let filterSeo = resolveEventsFilterSeo(kind, rawSlug);
+
+      // Venue: min price из кэша офферов + события для SSR-списка.
+      let venueEvents = [];
+      let venueMinPrice = null;
+      if (kind === 'venue' && filterSeo) {
+        const canon = canonicalizeVenueSlug(rawSlug);
+        const venueLabel =
+          filterSeo.h1 || VENUE_LABELS[canon] || VENUE_LABELS[rawSlug] || filterSeo.h1;
+        try {
+          const enriched = await enrichVenueLandingSsr(venueLabel);
+          venueEvents = enriched.events || [];
+          venueMinPrice = enriched.minPrice;
+          if (venueMinPrice != null) {
+            filterSeo = resolveVenueLandingSeo(rawSlug, { minPrice: venueMinPrice }) || filterSeo;
+          }
+        } catch (err) {
+          console.warn('[SSR] venue enrich:', err?.message || err);
+        }
+      }
+
       if (slug && filterSeo) {
         const path = `${prefix}${encodeURIComponent(slug).replace(/%20/g, '-')}`;
         const canonical = `${base}${path}`;
         const { title, description, h1 } = filterSeo;
         const crumbName = h1 || title;
+        const faqItems =
+          Array.isArray(filterSeo.faq) && filterSeo.faq.length
+            ? filterSeo.faq
+            : [
+                {
+                  q: 'Как купить билет на событие из подборки?',
+                  a: 'Откройте карточку мероприятия, выберите места на схеме зала и оплатите онлайн — электронный билет придёт после оплаты.',
+                },
+                {
+                  q: 'Где смотреть дату, площадку и цены?',
+                  a: 'Дата, площадка и цены указаны в карточке события; места выбираются на интерактивной схеме зала.',
+                },
+              ];
+        const crumbs =
+          kind === 'venue'
+            ? [
+                { name: 'Главная', path: '/' },
+                { name: 'Площадки', path: '/events/venues' },
+                { name: crumbName, path },
+              ]
+            : [
+                { name: 'Главная', path: '/' },
+                { name: 'Афиша', path: '/events' },
+                { name: crumbName, path },
+              ];
+        const keywordsMeta = filterSeo.keywords
+          ? `\n    <meta name="keywords" content="${escapeHtml(filterSeo.keywords)}" />`
+          : '';
         out.metaTags = `${metaBlockForPage({
           base,
           brand,
@@ -546,23 +597,22 @@ async function generateSeoTags(url) {
           title,
           description,
           ogType: 'website',
-        })}
-    ${breadcrumbJsonLd(base, [
-      { name: 'Главная', path: '/' },
-      { name: 'Афиша', path: '/events' },
-      { name: crumbName, path },
-    ])}
-    ${faqPageJsonLd([
-      {
-        q: 'Как купить билет на событие из подборки?',
-        a: 'Откройте карточку мероприятия, выберите места на схеме зала и оплатите онлайн — электронный билет придёт после оплаты.',
-      },
-      {
-        q: 'Где смотреть дату, площадку и цены?',
-        a: 'Дата, площадка и цены указаны в карточке события; места выбираются на интерактивной схеме зала.',
-      },
-    ])}`;
-        out.ssr = { kind: 'landing', title, description, path, h1 };
+        })}${keywordsMeta}
+    ${breadcrumbJsonLd(base, crumbs)}
+    ${faqPageJsonLd(faqItems)}`;
+        out.ssr = {
+          kind: 'landing',
+          title,
+          description,
+          path,
+          h1,
+          about: filterSeo.about || '',
+          address: filterSeo.address || '',
+          city: filterSeo.city || '',
+          metro: filterSeo.metro || '',
+          faq: faqItems,
+          events: kind === 'venue' ? venueEvents : undefined,
+        };
       }
     }
 
@@ -906,6 +956,55 @@ async function getCachedMinPrice(repertoireId) {
   } catch {
     return null;
   }
+}
+
+/**
+ * События площадки + мин. цена из кэша офферов (для meta «от N ₽» и SSR-списка).
+ * @param {string} venueLabel
+ */
+async function enrichVenueLandingSsr(venueLabel) {
+  const label = String(venueLabel || '').trim();
+  if (!label) return { events: [], minPrice: null };
+  let rows = [];
+  try {
+    const r = await ticketPool.query(
+      `SELECT getbilet_external_id::text AS id,
+              COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
+              NULLIF(TRIM(venue_manual), '') AS venue_label
+       FROM getbilet_events
+       WHERE is_published = TRUE
+         AND (
+           venue_manual ILIKE $1
+           OR venue_manual ILIKE $2
+           OR title_manual ILIKE $2
+         )
+       ORDER BY updated_at DESC
+       LIMIT 12`,
+      [label, `%${label.replace(/[%_]/g, '')}%`],
+    );
+    rows = r.rows || [];
+  } catch (err) {
+    console.warn('[SSR] venue events:', err.message);
+    return { events: [], minPrice: null };
+  }
+
+  const events = rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    venueLabel: row.venue_label || label,
+    path: `/ticket/${encodeURIComponent(row.id)}`,
+  }));
+
+  let minPrice = null;
+  const sampleIds = rows.slice(0, 6).map((row) => row.id);
+  for (const id of sampleIds) {
+    const p = await getCachedMinPrice(id);
+    if (p != null && Number.isFinite(Number(p)) && Number(p) > 0) {
+      const n = Math.round(Number(p));
+      if (minPrice == null || n < minPrice) minPrice = n;
+    }
+  }
+  return { events, minPrice };
 }
 
 async function fetchPublishedEventsForSsr(limit = 20) {

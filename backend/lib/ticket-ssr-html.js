@@ -231,12 +231,40 @@ export function buildTicketEventSsrHtml(p) {
 }
 
 /**
- * @param {{ title: string; description: string; path: string; h1?: string; events?: object[]; faq?: {q:string;a:string}[] }} p
+ * @param {{
+ *   title: string;
+ *   description: string;
+ *   path: string;
+ *   h1?: string;
+ *   about?: string;
+ *   address?: string;
+ *   city?: string;
+ *   metro?: string;
+ *   events?: object[];
+ *   faq?: {q:string;a:string}[];
+ * }} p
  */
 export function buildStaticLandingSsrHtml(p) {
   const h1 = escapeHtml(p.h1 || p.title);
   const desc = escapeHtml(p.description || '');
   const path = escapeHtml(p.path || '/events');
+  const aboutRaw = String(p.about || '').trim();
+  const aboutHtml = aboutRaw
+    ? aboutRaw
+        .split(/\n+/)
+        .map((para) => para.trim())
+        .filter(Boolean)
+        .map((para) => `<p>${escapeHtml(para)}</p>`)
+        .join('\n  ')
+    : desc
+      ? `<p>${desc}</p>`
+      : '';
+  const geoBits = [p.address, p.metro ? `м. ${p.metro}` : '', p.city && !String(p.address || '').includes(String(p.city)) ? p.city : '']
+    .filter(Boolean)
+    .map((x) => escapeHtml(String(x)));
+  const geoHtml = geoBits.length
+    ? `<p class="bv-ssr-venue-geo">${geoBits.join(' · ')}</p>`
+    : '';
   if (p.path === '/case/bilet-vsem') {
     return `<main class="bv-ssr-landing" data-ssr="case-bilet-vsem">
   <nav aria-label="Хлебные крошки">
@@ -257,15 +285,20 @@ export function buildStaticLandingSsrHtml(p) {
   <p><a href="/">Открыть афишу Билет Всем</a> · <a href="/events">Мероприятия</a></p>
 </main>`;
   }
-  return `<main class="bv-ssr-landing" data-ssr="landing">
+  const isVenue = String(p.path || '').includes('/events/venue/');
+  const crumbs = isVenue
+    ? `<a href="/">Главная</a> → <a href="/events/venues">Площадки</a> → <span>${h1}</span>`
+    : `<a href="/">Главная</a> → <a href="/events">Афиша</a> → <span>${h1}</span>`;
+  return `<main class="bv-ssr-landing" data-ssr="${isVenue ? 'venue' : 'landing'}">
   <nav aria-label="Хлебные крошки">
-    <a href="/">Главная</a> → <a href="/events">Афиша</a> → <span>${h1}</span>
+    ${crumbs}
   </nav>
   <h1>${h1}</h1>
-  ${desc ? `<p>${desc}</p>` : ''}
-  ${eventListHtml(p.events, { heading: 'События в подборке' })}
+  ${geoHtml}
+  ${aboutHtml}
+  ${eventListHtml(p.events, { heading: isVenue ? 'Афиша площадки' : 'События в подборке' })}
   ${faqHtml(p.faq)}
-  <p><a href="${path}">Смотреть мероприятия</a> · <a href="/faq">FAQ</a> · <a href="/contacts">Контакты</a></p>
+  <p><a href="${path}">Смотреть мероприятия</a> · <a href="/events/venues">Все площадки</a> · <a href="/faq">FAQ</a> · <a href="/contacts">Контакты</a></p>
 </main>`;
 }
 

@@ -184,9 +184,15 @@ export function VenueLandingPage() {
         </nav>
 
         <header className={styles.hero}>
-          <p className={styles.overline}>Площадка · билеты онлайн</p>
+          <p className={styles.overline}>
+            {copy.city || 'Москва'}
+            {copy.metro ? ` · м. ${copy.metro}` : ''} · билеты онлайн
+            {copy.minPrice != null ? ` · от ${copy.minPrice.toLocaleString('ru-RU')} ₽` : ''}
+          </p>
           <h1 className={styles.h1}>{copy.h1}</h1>
-          {venueAddress ? <p className={styles.address}>{venueAddress}</p> : null}
+          {(venueAddress || copy.address) && (
+            <p className={styles.address}>{venueAddress || copy.address}</p>
+          )}
           <p className={styles.lead}>{copy.about}</p>
           <div className={styles.heroLinks}>
             <Link to="/events/venues" className={styles.link}>
@@ -271,6 +277,22 @@ export function VenueLandingPage() {
             <Link to="/returns">«Возврат и обмен»</Link>.
           </p>
         </section>
+
+        {copy.faq?.length > 0 && (
+          <section className={styles.faq} aria-labelledby="venue-faq-title">
+            <h2 id="venue-faq-title" className={styles.h2}>
+              Частые вопросы
+            </h2>
+            <div className={styles.faqList}>
+              {copy.faq.map((item) => (
+                <details key={item.q} className={styles.faqItem}>
+                  <summary>{item.q}</summary>
+                  <p>{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </>
   );
