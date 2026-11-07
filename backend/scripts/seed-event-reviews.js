@@ -303,6 +303,27 @@ const ALIASES = {
   '686cd69c58f79d0030278b9d': 'kabala-svyatosh',
 };
 
+/**
+ * Целевой бейдж 8.0–9.7 (зелёная зона, но не все «9.3»).
+ * AVG(stars×2) на 2–4 отзывах даёт только 8/8.5/9/9.3/10 — поэтому score пишем явно.
+ */
+const TARGET_SCORE = {
+  'bayaderka-2026-11-13': 9.7,
+  'kabala-svyatosh': 9.6,
+  '686cd69c58f79d0030278b9d': 9.6,
+  'chaika-2026-11-18': 9.5,
+  'petrushka-shekherazada-zhar-ptica-2026-11-24': 9.4,
+  'evgeniy-onegin-2026-11-26': 9.2,
+  'turandot-2026-11-20': 9.0,
+  '6a572bce46a4d000309ed0d0': 8.9,
+  'ivan-grozny-2026-11-11': 8.8,
+  'karmen-syuita-2026-10-16': 8.7,
+  'chipollino-2026-11-06': 8.6,
+  '6acb3dc6e7a769003011e9b8': 8.5,
+  'koppelia-2026-11-22': 8.3,
+  'doch-faraona-2026-11-28': 8.1,
+};
+
 async function seedOne(repertoireId, rows) {
   await ticketPool.query(`DELETE FROM event_reviews WHERE repertoire_external_id = $1 AND source_label = 'editorial'`, [
     repertoireId,
@@ -316,6 +337,19 @@ async function seedOne(repertoireId, rows) {
     );
   }
   const agg = await recomputeEventRating(ticketPool, repertoireId);
+  const target = TARGET_SCORE[repertoireId];
+  if (target != null && Number.isFinite(target)) {
+    await ticketPool.query(
+      `UPDATE getbilet_events
+       SET rating_score = $2, updated_at = NOW()
+       WHERE getbilet_external_id = $1`,
+      [repertoireId, target],
+    );
+    console.log(
+      `[seed-reviews] ${repertoireId} · n=${rows.length} · score=${target} (target) · zone=green`,
+    );
+    return;
+  }
   console.log(`[seed-reviews] ${repertoireId} · n=${rows.length} · score=${agg?.score ?? '—'} · zone=${agg?.zone ?? '—'}`);
 }
 
