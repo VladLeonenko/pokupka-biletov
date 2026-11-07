@@ -1,5 +1,9 @@
 import express from 'express';
 import crypto from 'crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import multer from 'multer';
 import {
   bil24JsonCommand,
   getGetbiletConfig,
@@ -91,6 +95,32 @@ import {
 } from '../utils/luzhnikiGrayCloudLabeledIndex.js';
 
 const router = express.Router();
+const __biletDir = path.dirname(fileURLToPath(import.meta.url));
+const reviewProofsDir = path.resolve(__biletDir, '..', 'uploads', 'review-proofs');
+const reviewProofUpload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      try {
+        await fs.mkdir(reviewProofsDir, { recursive: true });
+      } catch {
+        /* ignore */
+      }
+      cb(null, reviewProofsDir);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+      const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.heic'].includes(ext) ? ext : '.jpg';
+      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExt}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    const ok =
+      /^(image\/(jpeg|png|webp|heic)|application\/pdf)$/i.test(String(file.mimetype || '')) ||
+      /\.(jpe?g|png|webp|pdf|heic)$/i.test(String(file.originalname || ''));
+    cb(ok ? null : new Error('Нужен фото/скан билета: JPG, PNG, WebP или PDF'), ok);
+  },
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
 const luzhnikiStageMapResponseCache = new Map();
 const LUZHNIKI_STAGE_MAP_CACHE_TTL_MS = Math.max(
   15_000,
@@ -818,6 +848,7 @@ router.get('/repertoire/:repertoireId/reviews', async (req, res) => {
         stars: row.stars,
         body: row.body,
         sourceLabel: row.source_label,
+        ticketVerified: row.source_label === 'visitor',
         reviewedOn: row.reviewed_on,
         createdAt: row.created_at,
       }));
@@ -839,6 +870,8 @@ router.get('/repertoire/:repertoireId/reviews', async (req, res) => {
         zone: ratingZone(score),
         count,
         reviews,
+        submitHint:
+          'Приложите фото или PDF билета — мы лично сверим покупку и опубликуем отзыв только после проверки.',
       },
       { cacheSeconds: 120, staleSeconds: 600 },
     );
@@ -846,6 +879,76 @@ router.get('/repertoire/:repertoireId/reviews', async (req, res) => {
     return sendGetbiletError(err, res);
   }
 });
+
+/**
+ * Заявка на отзыв от зрителя: текст + скан билета.
+ * Публикуется только после ручной проверки (is_published=false, moderation_status=pending).
+ */
+router.post(
+  '/repertoire/:repertoireId/reviews',
+  (req, res, next) => {
+    reviewProofUpload.single('ticket')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({
+          error: 'upload_failed',
+          message: err instanceof Error ? err.message : 'Не удалось загрузить билет',
+        });
+      }
+      return next();
+    });
+  },
+  async (req, res) => {
+    try {
+      const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
+      const author = String(req.body?.author || '').trim().slice(0, 80) || 'Зритель';
+      const email = String(req.body?.email || '').trim().slice(0, 160);
+      const orderRef = String(req.body?.orderRef || req.body?.order_ref || '').trim().slice(0, 80);
+      const body = String(req.body?.body || '').trim().slice(0, 4000);
+      const stars = Math.min(5, Math.max(1, Number(req.body?.stars) || 0));
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: 'bad_email', message: 'Укажите email для связи при проверке' });
+      }
+      if (!body || body.length < 20) {
+        return res.status(400).json({ error: 'bad_body', message: 'Напишите отзыв — хотя бы пару предложений' });
+      }
+      if (!Number.isFinite(stars) || stars < 1) {
+        return res.status(400).json({ error: 'bad_stars', message: 'Оценка от 1 до 5' });
+      }
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'ticket_required',
+          message: 'Приложите фото или PDF билета — так мы подтверждаем, что вы были на спектакле',
+        });
+      }
+      const proofUrl = `/uploads/review-proofs/${req.file.filename}`;
+      await ticketPool.query(`
+        ALTER TABLE event_reviews
+          ADD COLUMN IF NOT EXISTS ticket_proof_url TEXT,
+          ADD COLUMN IF NOT EXISTS contact_email TEXT,
+          ADD COLUMN IF NOT EXISTS order_ref TEXT,
+          ADD COLUMN IF NOT EXISTS moderation_status TEXT NOT NULL DEFAULT 'published'
+      `);
+      const ins = await ticketPool.query(
+        `INSERT INTO event_reviews (
+           repertoire_external_id, author, stars, body, source_label,
+           is_published, reviewed_on, ticket_proof_url, contact_email, order_ref, moderation_status
+         ) VALUES ($1,$2,$3,$4,'visitor',FALSE,CURRENT_DATE,$5,$6,$7,'pending')
+         RETURNING id`,
+        [repertoireId, author, stars, body, proofUrl, email, orderRef || null],
+      );
+      return res.status(201).json({
+        ok: true,
+        id: ins.rows[0]?.id,
+        status: 'pending',
+        message:
+          'Спасибо! Отзыв принят на проверку. Мы сверим билет вручную и опубликуем его, если всё в порядке.',
+      });
+    } catch (err) {
+      console.error('[bilet] review submit', err instanceof Error ? err.message : err);
+      return res.status(500).json({ error: 'review_submit_failed', message: 'Не удалось сохранить отзыв' });
+    }
+  },
+);
 
 /** Офферы по репертуару (дата/сектор/ряд/места/цены) — для страницы бронирования; кэш PostgreSQL + SWR */
 router.get('/repertoire/:repertoireId/offers', async (req, res) => {

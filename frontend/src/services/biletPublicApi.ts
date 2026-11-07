@@ -887,6 +887,7 @@ export type EventReviewRow = {
   stars: number;
   body: string;
   sourceLabel?: string;
+  ticketVerified?: boolean;
   reviewedOn?: string | null;
   createdAt?: string;
 };
@@ -898,6 +899,7 @@ export type EventReviewsPayload = {
   zone: 'green' | 'yellow' | 'orange' | 'red' | null;
   count: number;
   reviews: EventReviewRow[];
+  submitHint?: string;
 };
 
 export async function fetchRepertoireReviews(repertoireId: string): Promise<EventReviewsPayload> {
@@ -911,6 +913,47 @@ export async function fetchRepertoireReviews(repertoireId: string): Promise<Even
     throw new Error(errText || `HTTP ${res.status}`);
   }
   return res.json() as Promise<EventReviewsPayload>;
+}
+
+export type SubmitEventReviewInput = {
+  author: string;
+  email: string;
+  stars: number;
+  body: string;
+  orderRef?: string;
+  ticket: File;
+};
+
+export async function submitRepertoireReview(
+  repertoireId: string,
+  input: SubmitEventReviewInput,
+): Promise<{ ok: boolean; status: string; message: string }> {
+  const base = getApiBase();
+  const fd = new FormData();
+  fd.set('author', input.author);
+  fd.set('email', input.email);
+  fd.set('stars', String(input.stars));
+  fd.set('body', input.body);
+  if (input.orderRef?.trim()) fd.set('orderRef', input.orderRef.trim());
+  fd.set('ticket', input.ticket);
+  const res = await fetch(
+    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/reviews`,
+    { method: 'POST', body: fd },
+  );
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    status?: string;
+    message?: string;
+    error?: string;
+  };
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
+  return {
+    ok: Boolean(data.ok),
+    status: data.status || 'pending',
+    message: data.message || 'Отзыв отправлен на проверку',
+  };
 }
 
 export async function fetchRepertoirePageBundle(repertoireId: string): Promise<RepertoirePageBundle> {

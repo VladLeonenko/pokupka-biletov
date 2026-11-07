@@ -104,7 +104,7 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
         </button>
       ) : null}
       <div className={styles.imageWrap}>
-        <Link to={toHall} className={styles.posterLink} aria-label={`Купить билет: ${event.title}`}>
+        <Link to={toPage} className={styles.posterLink} aria-label={`Открыть «${event.title}»`}>
           <TicketEventPosterImg
             src={posterSrc}
             fallbackSrc={placeholderSrc}
@@ -130,9 +130,14 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
             {event.age && <span className={styles.badgeAge}>{event.age}</span>}
           </div>
           {event.isPremiere && <span className={styles.ribbon}>Премьера</span>}
-          <div className={styles.hoverPanel}>
-            <span className={styles.buy}>Купить билет</span>
-          </div>
+        </Link>
+        <Link
+          to={toHall}
+          className={styles.buyLink}
+          aria-label={`Купить билет: ${event.title}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Купить билет
         </Link>
       </div>
       <Link to={toPage} className={styles.bodyLink}>

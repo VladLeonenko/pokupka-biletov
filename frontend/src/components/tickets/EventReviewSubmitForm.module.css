@@ -1,0 +1,163 @@
+.teaser {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0, 0, 0, 0.14);
+  background: linear-gradient(180deg, #fffaf6 0%, #fff 100%);
+}
+
+.teaserText {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(17, 17, 17, 0.72);
+}
+
+.openBtn,
+.submitBtn {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  background: #ff4e18;
+  cursor: pointer;
+}
+
+.openBtn:hover,
+.submitBtn:hover {
+  background: #e54414;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+}
+
+.formLead {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(17, 17, 17, 0.62);
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(17, 17, 17, 0.55);
+}
+
+.req {
+  color: #ff4e18;
+}
+
+.input,
+.textarea {
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 400;
+  color: #111;
+  background: #fff;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.file {
+  font-size: 0.85rem;
+}
+
+.fileHint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.starsRow {
+  display: flex;
+  gap: 4px;
+}
+
+.starBtn {
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.starOn {
+  color: #2fbf5a;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.cancelBtn {
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  background: #fff;
+  color: rgba(17, 17, 17, 0.7);
+  cursor: pointer;
+}
+
+.submitBtn:disabled,
+.cancelBtn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.err {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #c62828;
+}
+
+.done {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(47, 191, 90, 0.35);
+  background: rgba(47, 191, 90, 0.08);
+}
+
+.doneTitle {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1b5e20;
+}
+
+.doneText {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: rgba(17, 17, 17, 0.7);
+}
