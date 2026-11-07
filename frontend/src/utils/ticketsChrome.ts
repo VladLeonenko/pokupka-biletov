@@ -31,6 +31,8 @@ export function matchesTicketsChromePath(pathname: string): boolean {
   if (p.startsWith('/orders/')) return true;
   if (p.startsWith('/ticket')) return true;
   if (p.startsWith('/case/')) return true;
+  // /events, /events/map, /events/venues, /events/venue/:slug, /events/city|genre/:slug
+  if (p === '/events' || p.startsWith('/events/')) return true;
   return false;
 }
 

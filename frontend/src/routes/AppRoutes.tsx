@@ -43,6 +43,9 @@ const EventsMapPage = lazy(() =>
 const VenuesHubPage = lazy(() =>
   import('@/pages/public/VenuesHubPage').then((m) => ({ default: m.VenuesHubPage }))
 );
+const VenueLandingPage = lazy(() =>
+  import('@/pages/public/VenueLandingPage').then((m) => ({ default: m.VenueLandingPage }))
+);
 const TicketCheckoutPage = lazy(() =>
   import('@/pages/public/TicketCheckoutPage').then((m) => ({ default: m.TicketCheckoutPage }))
 );
@@ -209,7 +212,7 @@ export function AppRoutes() {
       <Route path="/events/venues" element={<VenuesHubPage />} />
       <Route path="/events/city/:citySlug" element={<EventsSearchPage />} />
       <Route path="/events/genre/:genreSlug" element={<EventsSearchPage />} />
-      <Route path="/events/venue/:venueSlug" element={<EventsSearchPage />} />
+      <Route path="/events/venue/:venueSlug" element={<VenueLandingPage />} />
       <Route path="/events/:eventSlug" element={<EventsIdToTicketRedirect />} />
       <Route path="/ticket/:eventSlug" element={<TicketCheckoutPage />} />
       <Route path="/ticket/:repertoireId/:slug/:sessionCompact" element={<TicketCheckoutPage />} />

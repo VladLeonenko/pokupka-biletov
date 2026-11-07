@@ -174,11 +174,12 @@ export function resolveEventsFilterSeo(
   if (kind === 'venue') {
     const canon = canonicalizeVenueSlug(key);
     const label = VENUE_LABELS[canon] || VENUE_LABELS[key] || titleCaseRuLike(slug);
+    const title = `${label} — афиша и билеты онлайн`;
     return {
-      title: `${label} — афиша площадки, билеты онлайн`,
-      description: `События на площадке «${label}»: расписание и цены. ${MECHANICS}.`,
+      title: title.length > 70 ? `${label} — билеты, афиша онлайн` : title,
+      description: `Билеты в «${label}»: афиша, расписание и цены. ${MECHANICS}.`.slice(0, 160),
       h1: label,
-      keywords: `${label.toLowerCase()} билеты, афиша ${label.toLowerCase()}`,
+      keywords: `${label.toLowerCase()} билеты, афиша ${label.toLowerCase()}, купить билет`,
     };
   }
   return null;
