@@ -3,6 +3,11 @@
  * Meta V3 для всех публичных URL кроме /ticket/* (тикеты — ticketSeoCatalog.ts).
  */
 
+import { VENUE_LABELS } from '@/seo/venueLabels';
+import { canonicalizeVenueSlug } from '@/utils/venueSlug';
+
+export { VENUE_LABELS } from '@/seo/venueLabels';
+
 const MECHANICS =
   'Схема зала, выбор мест онлайн, оплата, электронный билет';
 
@@ -25,6 +30,12 @@ export const SITE_PAGE_SEO: Record<string, SiteSeoEntry> = {
     description: `Актуальные концерты, театр и спорт: фильтры по городу, жанру и площадке. ${MECHANICS}.`,
     h1: 'Афиша мероприятий — билеты онлайн',
     keywords: 'афиша мероприятий, билеты онлайн, афиша концертов',
+  },
+  '/events/venues': {
+    title: 'Театры и площадки — афиша и билеты онлайн',
+    description: `Все театры, концертные залы и стадионы в афише. Откройте площадку, выберите событие и места. ${MECHANICS}.`,
+    h1: 'Театры и площадки',
+    keywords: 'театры москвы билеты, площадки афиша, купить билеты в театр',
   },
   '/afisha': {
     title: 'Афиша — билеты на концерты, театр и спорт',
@@ -120,15 +131,6 @@ export const GENRE_LABELS: Record<string, string> = {
   sport: 'Спорт',
 };
 
-export const VENUE_LABELS: Record<string, string> = {
-  'teatr-na-taganke': 'Театр на Таганке',
-  'mht-chehova': 'МХТ Чехова',
-  'krokus-siti-holl': 'Крокус Сити Холл',
-  'vtb-arena': 'ВТБ Арена',
-  luzhniki: 'Лужники',
-  'bsa-luzhniki': 'БСА «Лужники»',
-};
-
 export function resolveSitePageSeo(path: string): SiteSeoEntry | null {
   const p = String(path || '').replace(/\/+$/, '') || '/';
   return SITE_PAGE_SEO[p] || null;
@@ -170,7 +172,8 @@ export function resolveEventsFilterSeo(
     };
   }
   if (kind === 'venue') {
-    const label = VENUE_LABELS[key] || titleCaseRuLike(slug);
+    const canon = canonicalizeVenueSlug(key);
+    const label = VENUE_LABELS[canon] || VENUE_LABELS[key] || titleCaseRuLike(slug);
     return {
       title: `${label} — афиша площадки, билеты онлайн`,
       description: `События на площадке «${label}»: расписание и цены. ${MECHANICS}.`,

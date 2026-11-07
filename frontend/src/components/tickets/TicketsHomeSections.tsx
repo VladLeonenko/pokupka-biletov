@@ -3,6 +3,7 @@ import { NeglinkaEventRows } from './NeglinkaEventRows';
 import { TicketsCategoryCarousels } from './TicketsCategoryCarousels';
 import type { CategoryDirection } from './TicketsCategoryCarousels';
 import { TicketsHomeExtras } from './TicketsHomeBlocks';
+import { HomeVenuesBlock } from './HomeVenuesBlock';
 import { EventPosterCard } from './EventPosterCard';
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import type { HeroSlideView } from '@/types/ticketsVitrine';
@@ -137,6 +138,10 @@ export function TicketsHomeSections({
             ) : null
           }
         />
+      )}
+
+      {!dateFilterActive && !listLoading && (
+        <HomeVenuesBlock events={[...list, ...(sportEvents ?? [])]} />
       )}
 
       {!dateFilterActive && listLoading && rowEvents.length === 0 && (

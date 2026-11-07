@@ -21,12 +21,12 @@
 
 .h2 {
   margin: 0;
-  font-family: var(--neg-font, system-ui, sans-serif);
-  font-size: clamp(1.25rem, 2.5vw, 1.65rem);
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #111;
+  font-family: var(--neg-font-display, 'Geologica', 'Manrope', system-ui, sans-serif);
+  font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #0a0a0a;
 }
 
 .sectionHead {
@@ -153,167 +153,208 @@
 
 /* --- FAQ --- */
 .faq {
-  padding: 44px 0 48px;
-  background: #fff;
+  padding: 52px 0 72px;
+  background: linear-gradient(180deg, #fff 0%, #f7f7f5 48%, #fff 100%);
+  font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
 }
 
 .faqWrap {
-  max-width: 1440px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 0 16px;
   width: 100%;
   box-sizing: border-box;
 }
 
-.faq .sectionHead {
-  max-width: none;
-  margin-left: 0;
-  margin-right: 0;
-  padding: 0;
+.faqHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 0 0 28px;
+}
+
+.faqOverline {
+  margin: 0 0 10px;
+  font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.faqTitle {
+  margin: 0;
+  font-family: var(--neg-font-display, 'Geologica', 'Manrope', system-ui, sans-serif) !important;
+  font-size: clamp(2rem, 5.5vw, 3.25rem);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+  text-transform: none;
+  color: #0a0a0a !important;
+}
+
+.faqAllLink {
+  font-family: var(--neg-font-display, 'Geologica', 'Manrope', system-ui, sans-serif);
+  font-size: clamp(0.95rem, 1.4vw, 1.05rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #0a0a0a;
+  text-decoration: none;
+  white-space: nowrap;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--neg-orange, #ff4e18);
+  transition: opacity 0.15s ease;
+}
+
+.faqAllLink:hover {
+  opacity: 0.7;
+  text-decoration: none;
 }
 
 .faqList {
   width: 100%;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .details {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 14px 0;
+  margin: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .details:first-of-type {
   border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+.details[open] {
+  border-color: rgba(255, 78, 24, 0.35);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+}
+
 .summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px 16px;
   cursor: pointer;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #111;
   list-style: none;
-  padding-right: 8px;
+  padding: 16px 18px;
+  font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
+  color: #0a0a0a;
+  line-height: 1.3;
 }
 
 .summary::-webkit-details-marker {
   display: none;
 }
 
-.summary::after {
-  content: '+';
-  float: right;
-  font-weight: 800;
+.faqIndex {
+  font-family: var(--neg-font-display, 'Geologica', 'Manrope', system-ui, sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--neg-orange, #ff4e18);
-  transition: transform 0.2s;
+  min-width: 1.6em;
 }
 
-.details[open] .summary::after {
-  transform: rotate(45deg);
+.faqQuestion {
+  font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
+  font-size: clamp(0.95rem, 1.6vw, 1.05rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-.answer {
-  margin: 12px 0 0;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: rgba(0, 0, 0, 0.58);
+.faqToggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 78, 24, 0.45);
+  background: rgba(255, 78, 24, 0.06);
+  position: relative;
+  flex-shrink: 0;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
-/* --- CTA --- */
-.cta {
-  padding: 0 0 64px;
+.faqToggle::before,
+.faqToggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: var(--neg-orange, #ff4e18);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+.faqToggle::before {
+  width: 12px;
+  height: 2px;
+}
+
+.faqToggle::after {
+  width: 2px;
+  height: 12px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.details[open] .faqToggle {
+  background: var(--neg-orange, #ff4e18);
+  border-color: var(--neg-orange, #ff4e18);
+}
+
+.details[open] .faqToggle::before,
+.details[open] .faqToggle::after {
   background: #fff;
 }
 
-.ctaWrap {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 0 16px;
-  box-sizing: border-box;
+.details[open] .faqToggle::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+  opacity: 0;
 }
 
-.ctaInner {
-  max-width: none;
+.answer {
   margin: 0;
-  padding: 32px 24px;
-  border-radius: 16px;
-  background: linear-gradient(120deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
-  color: #fff;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  padding: 0 18px 18px calc(18px + 1.6em + 16px);
+  font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: rgba(0, 0, 0, 0.62);
 }
 
-/* theme.css задаёт h2 { color: var(--text-color) } — без !important заголовок чёрный на тёмном фоне */
-.ctaTitle {
-  margin: 0 0 10px;
-  font-family: var(--neg-font, system-ui, sans-serif);
-  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #fff !important;
-}
-
-.ctaText {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.72);
-  max-width: 420px;
-}
-
-.ctaBtns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.ctaPrimary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 24px;
-  background: var(--neg-orange, #ff4e18);
-  color: #fff !important;
+.answer a {
+  color: var(--neg-orange, #ff4e18);
+  font-weight: 700;
   text-decoration: none;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  border-radius: 8px;
-  transition:
-    filter 0.2s,
-    transform 0.2s;
 }
 
-.ctaPrimary:hover {
-  filter: brightness(1.05);
-  transform: translateY(-2px);
+.answer a:hover {
+  text-decoration: underline;
 }
 
-.ctaGhost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 24px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  color: #fff !important;
-  text-decoration: none;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  border-radius: 8px;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-}
+@media (max-width: 599px) {
+  .summary {
+    gap: 10px 12px;
+    padding: 14px 14px;
+  }
 
-.ctaGhost:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.55);
+  .answer {
+    padding: 0 14px 16px 14px;
+  }
 }

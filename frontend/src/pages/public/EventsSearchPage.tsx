@@ -28,6 +28,13 @@ import {
   MHT_CHEKHOV_MAIN_STAGE_ID_ALIASES,
 } from '@/constants/getbiletStages';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
+import {
+  buildVenueLandingList,
+  canonicalizeVenueSlug,
+  resolveVenueNameFromSlug,
+  venueSlugFromName,
+  VENUE_SLUG_LABELS,
+} from '@/utils/venueSlug';
 
 const GENRE_CHIPS = ['Театр', 'Концерт', 'Драма', 'Комедия', 'Детям', 'Спорт'];
 const LANDING_CITIES = [
@@ -44,12 +51,6 @@ const LANDING_GENRES = [
   { slug: 'detyam', label: 'Детям' },
   { slug: 'sport', label: 'Спорт' },
 ];
-const LANDING_VENUES = [
-  { slug: 'teatr-na-taganke', label: 'Театр на Таганке' },
-  { slug: 'mht-chehova', label: 'МХТ Чехова' },
-  { slug: 'krokus-siti-holl', label: 'Крокус Сити Холл' },
-  { slug: 'vtb-arena', label: 'ВТБ Арена' },
-];
 
 const LANDING_CITY_TO_Q: Record<string, string> = {
   moskva: 'Москва',
@@ -64,12 +65,6 @@ const LANDING_GENRE_TO_FILTER: Record<string, string> = {
   komediya: 'Комедия',
   detyam: 'Детям',
   sport: 'Спорт',
-};
-const LANDING_VENUE_TO_FILTER: Record<string, string> = {
-  'teatr-na-taganke': 'Театр на Таганке',
-  'mht-chehova': 'МХТ Чехова',
-  'krokus-siti-holl': 'Крокус Сити Холл',
-  'vtb-arena': 'ВТБ Арена',
 };
 
 /** Первая порция + догрузка при скролле (не монтируем сотни карточек сразу). */
@@ -109,14 +104,11 @@ export function EventsSearchPage() {
       const genreFilter = LANDING_GENRE_TO_FILTER[genreSlug] || '';
       if (genreFilter) next.set('genre', genreFilter);
     }
-    if (venueSlug) {
-      const venueFilter = LANDING_VENUE_TO_FILTER[venueSlug] || '';
-      if (venueFilter) next.set('venue', venueFilter);
-    }
+    // venueSlug → venue filter выставляем после резолва имени (см. эффект ниже)
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [citySlug, genreSlug, venueSlug, searchParams, setSearchParams]);
+  }, [citySlug, genreSlug, searchParams, setSearchParams]);
 
   const cityId = useTicketsCityId();
 
@@ -157,6 +149,40 @@ export function EventsSearchPage() {
       a.localeCompare(b, 'ru'),
     );
   }, [allEvents, apiVenues]);
+
+  const resolvedVenueName = useMemo(() => {
+    if (!venueSlug) return null;
+    return (
+      resolveVenueNameFromSlug(venueSlug, venueOptions) ||
+      VENUE_SLUG_LABELS[canonicalizeVenueSlug(venueSlug)] ||
+      VENUE_SLUG_LABELS[venueSlug] ||
+      null
+    );
+  }, [venueSlug, venueOptions]);
+
+  const landingVenues = useMemo(() => {
+    const all = buildVenueLandingList(venueOptions);
+    // В футере страницы — топ по числу событий, иначе первые 24
+    const counts = new Map<string, number>();
+    for (const ev of allEvents) {
+      const name = ev.venue?.trim();
+      if (!name) continue;
+      const slug = venueSlugFromName(name);
+      if (!slug) continue;
+      counts.set(slug, (counts.get(slug) || 0) + 1);
+    }
+    return [...all]
+      .sort((a, b) => (counts.get(b.slug) || 0) - (counts.get(a.slug) || 0) || a.label.localeCompare(b.label, 'ru'))
+      .slice(0, 24);
+  }, [venueOptions, allEvents]);
+
+  useEffect(() => {
+    if (!venueSlug || !resolvedVenueName) return;
+    const next = new URLSearchParams(searchParams);
+    if (next.get('venue') === resolvedVenueName) return;
+    next.set('venue', resolvedVenueName);
+    setSearchParams(next, { replace: true });
+  }, [venueSlug, resolvedVenueName, searchParams, setSearchParams]);
 
   const filtered = useMemo(
     () =>
@@ -234,6 +260,8 @@ export function EventsSearchPage() {
       return {
         title: `Афиша ${city} — билеты на мероприятия`,
         description: `События в ${city}: театр, концерты и шоу с онлайн-покупкой билетов.`,
+        h1: `Афиша — ${city}`,
+        intro: `События в ${city}: театр, концерты и спорт. Выберите мероприятие, места на схеме и оплатите онлайн.`,
       };
     }
     if (genreSlug && LANDING_GENRE_TO_FILTER[genreSlug]) {
@@ -241,22 +269,37 @@ export function EventsSearchPage() {
       return {
         title: `${genre} — афиша и билеты`,
         description: `Подборка событий в жанре «${genre}»: актуальные мероприятия и покупка билетов онлайн.`,
+        h1: genre,
+        intro: `Подборка «${genre}»: даты, площадки и покупка билетов онлайн со схемой зала.`,
       };
     }
-    if (venueSlug && LANDING_VENUE_TO_FILTER[venueSlug]) {
-      const venue = LANDING_VENUE_TO_FILTER[venueSlug];
+    if (venueSlug && resolvedVenueName) {
       return {
-        title: `${venue} — афиша площадки и билеты`,
-        description: `Расписание событий на площадке «${venue}», выбор мест и покупка билетов онлайн.`,
+        title: `${resolvedVenueName} — афиша площадки, билеты онлайн`,
+        description: `События на площадке «${resolvedVenueName}»: расписание и цены. Схема зала, выбор мест онлайн, оплата, электронный билет.`,
+        h1: resolvedVenueName,
+        intro: `Афиша «${resolvedVenueName}»: ближайшие спектакли и концерты, выбор мест на схеме и электронный билет после оплаты.`,
+      };
+    }
+    if (venueSlug) {
+      return {
+        title: 'Афиша площадки — билеты онлайн',
+        description: 'Расписание событий на площадке, схема зала и покупка билетов онлайн.',
+        h1: 'Афиша площадки',
+        intro: 'Подборка событий площадки. Если список пуст — площадка временно без дат в каталоге.',
       };
     }
     return {
       title: 'Поиск мероприятий',
       description: 'Поиск событий по названию, площадке и жанру.',
+      h1: 'Мероприятия',
+      intro:
+        'Поиск по названию, площадке и жанру. Фильтр «Спорт» включает футбол, хоккей, матчи и турниры — в том числе когда в категории из API указано «Футбол».',
     };
-  }, [citySlug, genreSlug, venueSlug]);
+  }, [citySlug, genreSlug, venueSlug, resolvedVenueName]);
 
   const showInitialSkeleton = isLoading && !raw;
+  const isVenueLanding = Boolean(venueSlug);
 
   return (
     <>
@@ -268,16 +311,17 @@ export function EventsSearchPage() {
 
       <main className={styles.main}>
         <header className={styles.header}>
-          <p className={styles.overline}>Каталог событий</p>
-          <h1 className={styles.h1}>Мероприятия</h1>
-          <p className={styles.intro}>
-            Поиск по названию, площадке и жанру. Быстрые направления в шапке ведут сюда; фильтр
-            «Спорт» включает футбол, хоккей, матчи и турниры — в том числе когда в категории из API
-            указано «Футбол», а в названии нет слова «спорт».
-          </p>
-          <Link to="/events/map" className={styles.mapLink}>
-            На карте — что рядом на этой неделе →
-          </Link>
+          <p className={styles.overline}>{isVenueLanding ? 'Площадка' : 'Каталог событий'}</p>
+          <h1 className={styles.h1}>{seo.h1}</h1>
+          <p className={styles.intro}>{seo.intro}</p>
+          <div className={styles.headerLinks}>
+            <Link to="/events/map" className={styles.mapLink}>
+              На карте — что рядом на этой неделе →
+            </Link>
+            <Link to="/events/venues" className={styles.mapLink}>
+              Все площадки и театры →
+            </Link>
+          </div>
         </header>
 
         <form className={styles.filters} onSubmit={handleSubmit}>
@@ -453,11 +497,14 @@ export function EventsSearchPage() {
             <div>
               <p className={styles.seoLinksLabel}>Площадки</p>
               <div className={styles.seoLinksList}>
-                {LANDING_VENUES.map((item) => (
+                {landingVenues.map((item) => (
                   <Link key={item.slug} className={styles.seoLink} to={`/events/venue/${item.slug}`}>
                     {item.label}
                   </Link>
                 ))}
+                <Link className={styles.seoLink} to="/events/venues">
+                  Все площадки →
+                </Link>
               </div>
             </div>
           </div>

@@ -3,6 +3,9 @@ import pool from '../db.js';
 import ticketPool from '../ticketDb.js';
 import { siteBaseUrl, siteBrand } from '../siteConfig.js';
 import { getIndexNowKey, indexNowKeyBody } from '../lib/search-indexing.js';
+import { buildVenueLandingList, venueSlugFromName } from '../utils/venueSlug.js';
+import { VENUE_LABELS } from '../lib/venue-labels.js';
+import { restV2GetPlaceList } from '../services/getbiletRestV2.js';
 
 const router = express.Router();
 
@@ -143,6 +146,7 @@ export async function handleSitemapXml(req, res) {
     ];
 
     const landingPages = [
+      '/events/venues',
       '/events/city/moskva',
       '/events/city/sankt-peterburg',
       '/events/city/kazan',
@@ -153,11 +157,50 @@ export async function handleSitemapXml(req, res) {
       '/events/genre/komediya',
       '/events/genre/detyam',
       '/events/genre/sport',
-      '/events/venue/teatr-na-taganke',
+      // legacy aliases — оставляем в индексе
       '/events/venue/mht-chehova',
       '/events/venue/krokus-siti-holl',
-      '/events/venue/vtb-arena',
+      '/events/venue/luzhniki',
     ];
+
+    const venueNames = new Set();
+    for (const label of Object.values(VENUE_LABELS)) {
+      if (label) venueNames.add(String(label));
+    }
+    try {
+      const placesPayload = await restV2GetPlaceList();
+      const rows = placesPayload?.ResultData || placesPayload?.resultData || [];
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const name = row?.Name || row?.name;
+          if (name) venueNames.add(String(name).trim());
+        }
+      }
+    } catch (e) {
+      console.warn('[sitemap] GetPlaceList:', e?.message || e);
+    }
+    const manualVenues = await ticketRows(
+      'sitemap venues',
+      `SELECT DISTINCT NULLIF(TRIM(venue_manual), '') AS venue
+       FROM getbilet_events
+       WHERE is_published = TRUE
+         AND COALESCE(storefront_hidden, FALSE) = FALSE
+         AND NULLIF(TRIM(venue_manual), '') IS NOT NULL
+       LIMIT 500`,
+    );
+    for (const row of manualVenues) {
+      if (row?.venue) venueNames.add(String(row.venue).trim());
+    }
+    const venueLandings = buildVenueLandingList(venueNames);
+    for (const v of venueLandings) {
+      landingPages.push(`/events/venue/${v.slug}`);
+    }
+    // дубликаты slug из alias-ключей VENUE_LABELS
+    for (const slug of Object.keys(VENUE_LABELS)) {
+      if (slug && venueSlugFromName(VENUE_LABELS[slug]) !== slug) {
+        landingPages.push(`/events/venue/${slug}`);
+      }
+    }
 
     for (const staticPage of staticPages) {
       if (!urls.find((u) => u.loc === BASE_URL + staticPage.path)) {

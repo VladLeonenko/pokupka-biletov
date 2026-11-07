@@ -1066,6 +1066,25 @@ function searchTokens(q: string): string[] {
   return norm.split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 0);
 }
 
+/** «МХТ Чехова» ↔ «МХТ им. Чехова», короткие/полные названия площадок. */
+function softenVenueNorm(s: string): string {
+  return s
+    .replace(/(^|\s)им\.?(?=\s|$)/gi, ' ')
+    .replace(/(^|\s)имени(?=\s|$)/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function venuesLooselyMatch(eventVenue: string, filterVenueNormOrRaw: string): boolean {
+  const a = normalizeSearchText(eventVenue);
+  const b = normalizeSearchText(filterVenueNormOrRaw);
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  const sa = softenVenueNorm(a);
+  const sb = softenVenueNorm(b);
+  return Boolean(sa && sb && (sa === sb || sa.includes(sb) || sb.includes(sa)));
+}
+
 export function filterEventsClient(
   events: NormalizedBiletEvent[],
   opts: { q?: string; venue?: string; genre?: string; stageId?: string },
@@ -1098,7 +1117,7 @@ export function filterEventsClient(
   }
   if (opts.venue?.trim()) {
     const v = normalizeSearchText(opts.venue);
-    out = out.filter((e) => e.venue && normalizeSearchText(e.venue).includes(v));
+    out = out.filter((e) => e.venue && venuesLooselyMatch(e.venue, v));
   }
   if (opts.genre?.trim()) {
     const g = normalizeSearchText(opts.genre);
