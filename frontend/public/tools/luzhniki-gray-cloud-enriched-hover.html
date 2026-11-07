@@ -338,7 +338,7 @@
     if (lightHallViewport) {
       const vp = document.querySelector('.viewport');
       /** Большой Новая сцена — серый viewport как Яндекс Афиша; остальные театры светлый тёплый. */
-      if (vp) vp.style.background = /bolshoi-new-stage/i.test(hallApi) ? '#e8e8e8' : '#f4f4f0';
+      if (vp) vp.style.background = /bolshoi-new-stage/i.test(hallApi) ? '#f5f5f5' : '#f4f4f0';
     }
     if (loadSectorDotsBtn) loadSectorDotsBtn.hidden = !isStadiumCloudEditor;
     const pageTitle = urlParams.get('title')?.trim();

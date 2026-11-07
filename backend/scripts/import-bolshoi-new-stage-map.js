@@ -36,9 +36,9 @@ const REPO_ROOT = path.resolve(__dirname, '../..');
 
 const STAGE_ID = process.env.STAGE_MAP_STAGE_ID?.trim() || 'bolshoi-new-stage';
 const TITLE = process.env.STAGE_MAP_TITLE?.trim() || 'Большой театр — Новая сцена';
-/** Все сектора — белые «карточки» на сером viewport (как Яндекс Афиша). */
+/** Non-parter — white cards; Партер — soft rose bookable wash on light gray viewport. */
 const SECTOR_FILL = '#ffffff';
-const HALL_VIEWPORT_BG = '#e8e8e8';
+const HALL_VIEWPORT_BG = '#f5f5f5';
 const SECTOR_STROKE = 'rgba(0,0,0,0.06)';
 
 function optionalEnv(name, fallback = null) {
@@ -159,7 +159,7 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
 
   const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${hallWidth} ${hallHeight}" width="${hallWidth}" height="${hallHeight}" style="background:${HALL_VIEWPORT_BG}">
   <title>${esc(TITLE)}</title>
-  <desc>Afisha seats as-is + white sector fills on gray viewport (Yandex-like); labels above seats</desc>
+  <desc>Afisha seats as-is; white sectors + rose Партер on #f5f5f5; labels above seats</desc>
   <rect width="100%" height="100%" fill="${HALL_VIEWPORT_BG}" pointer-events="none"/>
   <g id="bolshoi-new-stage-sector-outlines">
 ${sectorPaths}
@@ -191,13 +191,19 @@ ${sectorLabels}
   const sectorMode = {
     enabled: true,
     source: 'bolshoi-new-stage-afisha-outlines',
-    sectors: sectors.map((s) => ({
-      id: s.id,
-      label: s.label,
-      path: s.path,
-      maxQuantity: Math.min(8, Math.max(1, s.totalSeats || 8)),
-      totalSeats: s.totalSeats,
-    })),
+    sectors: sectors.map((s) => {
+      const isParter = /^партер/i.test(String(s.label || ''));
+      const fill = isParter ? BOLSHOI_NEW_STAGE_PARTER_FILL : SECTOR_FILL;
+      return {
+        id: s.id,
+        label: s.label,
+        path: s.path,
+        maxQuantity: Math.min(8, Math.max(1, s.totalSeats || 8)),
+        totalSeats: s.totalSeats,
+        fill,
+        accent: fill,
+      };
+    }),
   };
 
   return {

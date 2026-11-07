@@ -6,8 +6,8 @@
 
 export const BOLSHOI_NEW_STAGE_PARTER_LABEL = 'Партер (середина)';
 export const BOLSHOI_NEW_STAGE_PARTER_ID = 'parter_mid';
-/** Hall preview / SVG sale fill — Yandex Afisha: белые сектора на сером viewport. */
-export const BOLSHOI_NEW_STAGE_PARTER_FILL = '#ffffff';
+/** Hall preview / SVG sale fill — soft rose for bookable Партер (non-parter stays white). */
+export const BOLSHOI_NEW_STAGE_PARTER_FILL = '#e0c9bb';
 
 function pathBBox(pathStr) {
   const nums = String(pathStr || '')
@@ -130,9 +130,11 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
     String(secs[0]?.id || '') === BOLSHOI_NEW_STAGE_PARTER_ID &&
     String(secs[0]?.path || '').trim() === unionPath &&
     !isAxisAlignedRectPath(String(secs[0]?.path || '')) &&
+    String(secs[0]?.fill || '').toLowerCase() === BOLSHOI_NEW_STAGE_PARTER_FILL &&
     lj.hallPreviewSectorCheckout === true &&
     lj.seatSelectionDisabled === true &&
-    lj.hideSeatList === true;
+    lj.hideSeatList === true &&
+    String(lj.hallViewportBackground || '').toLowerCase() === '#f5f5f5';
 
   lj.sectorMode = {
     enabled: true,
@@ -155,6 +157,7 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
   lj.hallPreviewSectorCheckout = true;
   lj.seatSelectionDisabled = true;
   lj.hideSeatList = true;
+  lj.hallViewportBackground = '#f5f5f5';
   if (curved?.saved?.length) {
     lj.bolshoiNewStage = { ...prevMeta, parterOutlinePaths: curved.saved };
   }
