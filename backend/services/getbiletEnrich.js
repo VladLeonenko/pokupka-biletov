@@ -128,6 +128,24 @@ export async function enrichRestV2CatalogActions(actions) {
   }
   const overrides = await loadStorefrontOverrides();
 
+  /** Рейтинги 0–10 с карточек (event_reviews → getbilet_events.rating_score). */
+  const ratingByRep = new Map();
+  try {
+    const rr = await ticketPool.query(
+      `SELECT getbilet_external_id, rating_score, rating_count
+       FROM getbilet_events
+       WHERE rating_score IS NOT NULL AND COALESCE(rating_count, 0) > 0`,
+    );
+    for (const row of rr.rows) {
+      ratingByRep.set(String(row.getbilet_external_id), {
+        score: Number(row.rating_score),
+        count: Number(row.rating_count) || 0,
+      });
+    }
+  } catch {
+    /* колонок ещё нет / ticket DB */
+  }
+
   const posterTpl = process.env.GETBILET_POSTER_URL_TEMPLATE?.trim();
   const bannerTpl = process.env.GETBILET_BANNER_URL_TEMPLATE?.trim();
 
@@ -241,6 +259,11 @@ export async function enrichRestV2CatalogActions(actions) {
     if (titleForHeur && catBad) {
       const { categoryLabel } = classifyEventTitle(titleForHeur);
       out.Category = categoryLabel;
+    }
+    const rating = ratingByRep.get(repId);
+    if (rating && Number.isFinite(rating.score) && rating.count > 0) {
+      out.RatingScore = rating.score;
+      out.RatingCount = rating.count;
     }
     return out;
   });

@@ -114,9 +114,23 @@ export type NormalizedBiletEvent = {
   weekday?: string;
   /** Время начала «19:00», если известно */
   timeLabel?: string;
+  /** Средний рейтинг 0–10 (бейдж на карточке). */
+  ratingScore?: number;
+  ratingCount?: number;
 };
 
-/** Публичная ссылка на страницу выбора мест: ID репертуара + человекочитаемый slug, чтобы однотипные названия не склеивались. */
+function looksLikeTicketRouteKey(s: string): boolean {
+  const t = s.trim();
+  if (!t) return false;
+  if (/^[a-f0-9]{24}$/i.test(t)) return true;
+  if (t.length < 8 || t.length > 130) return false;
+  return /^[a-z0-9][a-z0-9-]*$/i.test(t) && t.includes('-');
+}
+
+/**
+ * Публичная ссылка на оформление.
+ * @param focusHall — сразу к схеме / выбору мест (`#hall`).
+ */
 export function ticketCheckoutHref(
   ev: Pick<NormalizedBiletEvent, 'id' | 'title' | 'stageId'> & {
     imageUrl?: string;
@@ -124,9 +138,15 @@ export function ticketCheckoutHref(
     repertoireId?: string;
     isoDate?: string;
   },
+  opts?: { focusHall?: boolean },
 ): string {
-  const pathSlug = slugify(ev.title) || 'event';
-  return `/ticket/${pathSlug}`;
+  const rep =
+    ev.repertoireId?.trim() ||
+    (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() || '' : ev.id.trim());
+  const path = looksLikeTicketRouteKey(rep)
+    ? `/ticket/${encodeURIComponent(rep)}`
+    : `/ticket/${slugify(ev.title) || 'event'}`;
+  return opts?.focusHall ? `${path}#hall` : path;
 }
 
 export type NormalizedVenue = {
@@ -376,6 +396,11 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
         genre,
       });
     const subtitleEff = biletEventCardSubtitle(subtitle, descriptionBlurb);
+    const ratingRaw = pickString(row, ['RatingScore', 'ratingScore', 'rating_score']);
+    const ratingScoreNum = ratingRaw != null ? Number(ratingRaw) : Number(row.RatingScore ?? row.ratingScore);
+    const ratingCountRaw = pickString(row, ['RatingCount', 'ratingCount', 'rating_count']);
+    const ratingCountNum =
+      ratingCountRaw != null ? Number(ratingCountRaw) : Number(row.RatingCount ?? row.ratingCount);
 
     out.push({
       id: id || `anon-${out.length}`,
@@ -400,6 +425,8 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
       author,
       director,
       isPremiere: isPremiere || undefined,
+      ratingScore: Number.isFinite(ratingScoreNum) ? ratingScoreNum : undefined,
+      ratingCount: Number.isFinite(ratingCountNum) && ratingCountNum > 0 ? ratingCountNum : undefined,
     });
   }
 
@@ -852,6 +879,38 @@ export async function fetchRepertoireDescriptionSections(
     throw new Error(errText || `HTTP ${res.status}`);
   }
   return res.json() as Promise<{ sections: RepertoireDescriptionSection[]; totalChars: number }>;
+}
+
+export type EventReviewRow = {
+  id: number;
+  author: string;
+  stars: number;
+  body: string;
+  sourceLabel?: string;
+  reviewedOn?: string | null;
+  createdAt?: string;
+};
+
+export type EventReviewsPayload = {
+  repertoireId: string;
+  score: number | null;
+  scoreLabel: string | null;
+  zone: 'green' | 'yellow' | 'orange' | 'red' | null;
+  count: number;
+  reviews: EventReviewRow[];
+};
+
+export async function fetchRepertoireReviews(repertoireId: string): Promise<EventReviewsPayload> {
+  const base = getApiBase();
+  const res = await fetch(
+    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/reviews`,
+    { headers: { Accept: 'application/json' } },
+  );
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<EventReviewsPayload>;
 }
 
 export async function fetchRepertoirePageBundle(repertoireId: string): Promise<RepertoirePageBundle> {

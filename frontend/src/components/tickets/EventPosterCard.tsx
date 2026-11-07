@@ -9,6 +9,7 @@ import {
 } from '@/utils/ticketsPlaceholders';
 import { venueFromApiOnly } from '@/utils/venueHint';
 import { favoriteIdFromEvent, useTicketFavorites } from '@/hooks/useTicketFavorites';
+import { formatRatingScore, ratingZone } from '@/utils/eventRating';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './EventPosterCard.module.css';
 
@@ -56,7 +57,8 @@ function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
 }
 
 export function EventPosterCard({ event, variant = 'poster', priority = false }: Props) {
-  const to = ticketCheckoutHref(event);
+  const toPage = ticketCheckoutHref(event);
+  const toHall = ticketCheckoutHref(event, { focusHall: true });
   const { isFavorite, toggleEvent } = useTicketFavorites();
   const favId = favoriteIdFromEvent(event);
   const liked = favId ? isFavorite(favId) : false;
@@ -81,6 +83,8 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
   const scheduleLine = buildScheduleLine(event);
 
   const genreLine = displayGenreLine(event);
+  const scoreLabel = formatRatingScore(event.ratingScore);
+  const zone = ratingZone(event.ratingScore);
 
   return (
     <div className={`${styles.wrap} ${variant === 'compact' ? styles.compact : ''}`}>
@@ -99,8 +103,8 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
           {liked ? <FavoriteIcon sx={{ fontSize: 18 }} /> : <FavoriteBorderIcon sx={{ fontSize: 18 }} />}
         </button>
       ) : null}
-      <Link to={to} className={styles.cardLink}>
-        <div className={styles.imageWrap}>
+      <div className={styles.imageWrap}>
+        <Link to={toHall} className={styles.posterLink} aria-label={`Купить билет: ${event.title}`}>
           <TicketEventPosterImg
             src={posterSrc}
             fallbackSrc={placeholderSrc}
@@ -116,6 +120,11 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
             alt={`Постер «${event.title}»`}
           />
           <div className={styles.shade} />
+          {scoreLabel && zone ? (
+            <span className={`${styles.ratingBadge} ${styles[`zone_${zone}`]}`} title="Рейтинг зрителей">
+              ★ {scoreLabel}
+            </span>
+          ) : null}
           <div className={styles.badges}>
             {posterBadge && <span className={styles.badgeDate}>{posterBadge}</span>}
             {event.age && <span className={styles.badgeAge}>{event.age}</span>}
@@ -124,7 +133,9 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
           <div className={styles.hoverPanel}>
             <span className={styles.buy}>Купить билет</span>
           </div>
-        </div>
+        </Link>
+      </div>
+      <Link to={toPage} className={styles.bodyLink}>
         <div className={styles.body}>
           {genreLine && <span className={styles.genre}>{genreLine}</span>}
           <h3 className={styles.title}>{event.title}</h3>

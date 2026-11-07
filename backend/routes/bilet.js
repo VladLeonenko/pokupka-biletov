@@ -781,6 +781,66 @@ router.get('/repertoire/:repertoireId/description-sections', async (req, res) =>
   }
 });
 
+/** Отзывы по репертуару + агрегат 0–10 для бейджа. */
+router.get('/repertoire/:repertoireId/reviews', async (req, res) => {
+  try {
+    const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    let reviews = [];
+    let score = null;
+    let count = 0;
+    try {
+      const er = await ticketPool.query(
+        `SELECT rating_score, rating_count FROM getbilet_events WHERE getbilet_external_id = $1`,
+        [repertoireId],
+      );
+      if (er.rows[0]?.rating_score != null) {
+        score = Number(er.rows[0].rating_score);
+        count = Number(er.rows[0].rating_count) || 0;
+      }
+      const rr = await ticketPool.query(
+        `SELECT id, author, stars, body, source_label, reviewed_on, created_at
+         FROM event_reviews
+         WHERE repertoire_external_id = $1 AND is_published = TRUE
+         ORDER BY reviewed_on DESC NULLS LAST, created_at DESC
+         LIMIT $2`,
+        [repertoireId, limit],
+      );
+      reviews = rr.rows.map((row) => ({
+        id: row.id,
+        author: row.author,
+        stars: row.stars,
+        body: row.body,
+        sourceLabel: row.source_label,
+        reviewedOn: row.reviewed_on,
+        createdAt: row.created_at,
+      }));
+      if (!count) count = reviews.length;
+      if (score == null && reviews.length) {
+        score = Math.round((reviews.reduce((s, x) => s + x.stars * 2, 0) / reviews.length) * 10) / 10;
+      }
+    } catch (e) {
+      if (!(e && typeof e === 'object' && e.code === '42P01')) throw e;
+    }
+    const { ratingZone, formatRatingScore } = await import('../utils/eventRatingZones.js');
+    return sendPublicJson(
+      req,
+      res,
+      {
+        repertoireId,
+        score,
+        scoreLabel: formatRatingScore(score),
+        zone: ratingZone(score),
+        count,
+        reviews,
+      },
+      { cacheSeconds: 120, staleSeconds: 600 },
+    );
+  } catch (err) {
+    return sendGetbiletError(err, res);
+  }
+});
+
 /** Офферы по репертуару (дата/сектор/ряд/места/цены) — для страницы бронирования; кэш PostgreSQL + SWR */
 router.get('/repertoire/:repertoireId/offers', async (req, res) => {
   try {

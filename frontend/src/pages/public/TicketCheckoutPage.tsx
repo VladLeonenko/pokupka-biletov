@@ -1520,6 +1520,13 @@ export function TicketCheckoutPage() {
     });
   }, [showHallMapShell]);
 
+  /** Карточка «Купить билет» → `/ticket/…#hall` */
+  useEffect(() => {
+    if (location.hash !== '#hall') return;
+    const t = window.setTimeout(() => scrollToSeatPick(), 280);
+    return () => window.clearTimeout(t);
+  }, [location.hash, location.pathname, scrollToSeatPick, showHallMapShell, repertoireId]);
+
   const ogImage = absoluteUrl(origin, coverUrl || posterSideUrl);
 
   const canonicalSourceTitle = useMemo(
@@ -1613,8 +1620,9 @@ export function TicketCheckoutPage() {
     if (!routeKeyIsId && !resolvedEventFromSlug && !repertoireId) return;
     if (routeKeyIsId && !ctx?.title?.trim()) return;
     const wantSlug = canonicalSlug;
-    const target = `/ticket/${wantSlug}`;
-    const cur = `${window.location.pathname}${window.location.search}`;
+    const hash = window.location.hash || '';
+    const target = `/ticket/${wantSlug}${hash}`;
+    const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (cur !== target) {
       navigate(target, { replace: true });
     }

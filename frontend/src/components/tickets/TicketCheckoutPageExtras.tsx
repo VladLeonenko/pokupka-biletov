@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Paper, Typography } from '@mui/material';
@@ -7,6 +7,7 @@ import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import {
   fetchBiletEventsLite,
   fetchRepertoireDescriptionSections,
+  fetchRepertoireReviews,
   isEventActual,
   normalizeBiletEventsPayload,
   dedupeBiletEventsByShow,
@@ -17,7 +18,15 @@ import { useTicketRecentRepertoires } from '@/hooks/useTicketRecentRepertoires';
 import { slugify } from '@/utils/slugify';
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 import { LEGACY_FEATURED_HERO_REPERTOIRE_ID } from '@/utils/heroFeaturedEvent';
+import { ratingZone } from '@/utils/eventRating';
 import styles from './TicketCheckoutPageExtras.module.css';
+
+function formatReviewDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 type Props = {
   repertoireId: string;
@@ -76,6 +85,13 @@ export function TicketCheckoutPageExtras({
     queryKey: ['bilet-description-sections', repertoireId],
     queryFn: () => fetchRepertoireDescriptionSections(repertoireId),
     staleTime: 300_000,
+    enabled: deferCatalog && Boolean(repertoireId),
+  });
+
+  const { data: reviewsRes } = useQuery({
+    queryKey: ['bilet-event-reviews', repertoireId],
+    queryFn: () => fetchRepertoireReviews(repertoireId),
+    staleTime: 180_000,
     enabled: deferCatalog && Boolean(repertoireId),
   });
 
@@ -144,13 +160,68 @@ export function TicketCheckoutPageExtras({
       <section className={styles.block} aria-labelledby="ticket-reviews">
         <h2 id="ticket-reviews" className={styles.h2}>
           <StarOutlineIcon className={styles.h2Icon} sx={{ fontSize: 22 }} aria-hidden />
-          Отзывы и оценки
+          Отзывы
         </h2>
-        <Paper variant="outlined" className={styles.stubCard} elevation={0}>
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55 }}>
-            После посещения вы сможете оценить событие. Мы собираем обратную связь, чтобы афиша и сервис были удобнее.
-          </Typography>
-        </Paper>
+        {reviewsRes?.reviews?.length ? (
+          <div className={styles.reviewsLayout}>
+            <div className={styles.reviewsAside}>
+              {reviewsRes.scoreLabel && reviewsRes.zone ? (
+                <div className={styles.reviewsScoreRow}>
+                  <span
+                    className={`${styles.reviewsScoreBadge} ${styles[`zone_${reviewsRes.zone}`]}`}
+                  >
+                    ★ {reviewsRes.scoreLabel}
+                  </span>
+                  <span className={styles.reviewsScoreMeta}>
+                    {reviewsRes.count}{' '}
+                    {reviewsRes.count === 1 ? 'отзыв' : reviewsRes.count < 5 ? 'отзыва' : 'отзывов'}
+                  </span>
+                </div>
+              ) : null}
+              <p className={styles.reviewsHint}>
+                Тексты собраны по публичным отзывам о постановке и переписаны своими словами — не
+                дословные цитаты сторонних площадок.
+              </p>
+            </div>
+            <div className={styles.reviewsList}>
+              {reviewsRes.reviews.map((rev) => (
+                <article key={rev.id} className={styles.reviewCard}>
+                  <div
+                    className={styles.reviewStars}
+                    aria-label={`${rev.stars} из 5`}
+                    style={
+                      {
+                        '--star-color':
+                          ratingZone(rev.stars * 2) === 'green'
+                            ? '#2fbf5a'
+                            : ratingZone(rev.stars * 2) === 'yellow'
+                              ? '#e6b800'
+                              : ratingZone(rev.stars * 2) === 'orange'
+                                ? '#f09020'
+                                : '#e23b2f',
+                      } as CSSProperties
+                    }
+                  >
+                    {'★★★★★'.slice(0, rev.stars)}
+                    <span className={styles.reviewStarsEmpty}>{'★★★★★'.slice(rev.stars)}</span>
+                  </div>
+                  <p className={styles.reviewBody}>{rev.body}</p>
+                  <div className={styles.reviewMeta}>
+                    <span>{rev.author}</span>
+                    <span>{formatReviewDate(rev.reviewedOn || rev.createdAt)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Paper variant="outlined" className={styles.stubCard} elevation={0}>
+            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55 }}>
+              Пока нет отзывов по этому событию. После посещения вы сможете оценить спектакль — мы
+              собираем обратную связь, чтобы афиша была полезнее.
+            </Typography>
+          </Paper>
+        )}
       </section>
 
       <section className={styles.block} aria-labelledby="ticket-venue">
