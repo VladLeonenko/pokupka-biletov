@@ -30,8 +30,8 @@ const SECTORS = [
   { key: 'lozha1_right_8',    label: '1 ярус правая ложа 8',         seatList: ['1','3','5'], box: false },
   { key: 'balkon2_left',      label: 'Балкон 2 яруса левая',         seatList: ['1','2','3','4','5','6','7','8'], box: false },
   { key: 'balkon3_left',      label: 'Балкон 3 яруса левая',         seatList: ['1','2','3','4','5','6','7','8'], box: false },
-  { key: 'beletazh_box',      label: 'Ложа бельэтажа (левая 4)',     seatList: ['1','2','3','4','5','6','7','8'], box: true },
-  { key: 'lozha1_box',        label: 'Ложа 1 яруса (левая 9)',       seatList: ['1','2','3','4','5','6','7','8'], box: true },
+  { key: 'beletazh_box',      label: 'Ложа бельэтажа (левая 4)',     seatList: ['1','3','5'], box: true },
+  { key: 'lozha1_box',        label: 'Ложа 1 яруса (левая 9)',       seatList: ['1','3','5'], box: true },
   { key: 'vip_parter',        label: 'Партер ряд А (Вип)',           seatList: ['5','6','7','8','9','10','11','12'], box: false },
 ];
 
