@@ -235,7 +235,8 @@ const EVENTS = [
     genre: 'Балет',
     age: '6+',
     fixedRetail: true,
-    poster: '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo.jpg',
+    poster: '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo-v2.jpg',
+    banner: '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo-banner-v2.jpg',
     sessions: [
       ...rangeSessions(2026, 12, [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30], 19, NY_BALLET_PRICES.decEve),
       ...rangeSessions(2026, 12, [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31], 12, NY_BALLET_PRICES.decDay),
@@ -484,17 +485,17 @@ const EVENT_COPY = {
   'novogodniy-balet-chaykovskogo-2026-12': {
     composer: 'Пётр Чайковский',
     about: [
-      'Праздничный балет на музыку Чайковского — на Исторической сцене Большого театра. Оркестр, кордебалет, классическая хореография: вечер, который собирают специально к зимним каникулам.',
-      'Подходит семьям (6+): понятный праздничный формат, большой зал, живая музыка. Это Историческая сцена на Театральной площади — не Новая сцена и не концертный прокат.',
-      'Играют с 18 декабря по 10 января: дневные сеансы в 12:00 и вечерние в 19:00 (31 декабря вечер начинается в 18:00). Партер от 180 000 ₽ днём в январе и от 250 000 ₽ вечером в декабре; есть амфитеатр, ложи, балконы и VIP-ряд. Цена на сайте — финальная.',
+      'Когда за окном короткие дни и длинные праздники, Большой театр собирает зимнюю программу так, как умеет только он: на Исторической сцене звучит Чайковский, зал полон огней, а оркестр и кордебалет держат ту самую плотность, ради которой едут в Москву именно сюда. «Новогодний балет Чайковского» — это праздничный вечер в классическом ключе: музыка, которую узнаёшь с первых тактов, хореография без суеты «сборного концерта» и ощущение большого театрального дома на Театральной площади.',
+      'Спектакль рассчитан на семью — возраст 6+ — и при этом не превращается в упрощённую «ёлочку». Здесь важны и детский восторг от зала и декораций, и взрослый слух: живая партитура, дыхание кордебалета, ракурс партера или ложи, который вы сами выбираете на схеме. Это не Новая сцена и не гастрольный прокат: билет ведёт на Историческую сцену Большого, туда, куда обычно ищут «большой» новогодний вечер.',
+      'Играют с восемнадцатого декабря по десятое января. Днём — в двенадцать, вечером — в семь (тридцать первого декабря вечер начинается в шесть). Можно взять партер середины, амфитеатр, места в первом ряду лож и балконов, ложу целиком или VIP-ряд у сцены: цены зависят от даты и времени, на сайте они финальные, без скрытых доплат у кассы.',
     ],
     forWhom: [
-      'Семьям и гостям Москвы на каникулы — когда хочется именно Большой театр и праздничный вечер, а не камерную площадку.',
-      'Тем, кто выбирает билеты заранее: даты, зоны зала и цены видны сразу, без звонков в кассу.',
+      'Тем, кто хочет подарить себе или близким настоящий большой вечер на каникулах — с оркестром, залом и атмосферой, которую не заменить записью.',
+      'Семьям с детьми от шести лет и гостям Москвы: даты и зоны видны сразу, а электронный билет приходит на почту после оплаты.',
     ],
     how: [
-      'Выберите дату и время → зону на схеме зала → количество мест → оплата онлайн. Номера мест придут вместе с электронным билетом на email.',
-      'В продаже: партер (ряды 1–8), амфитеатр, ложа 1 яруса, балконы 2 и 3 яруса, ложа бельэтажа целиком, ложа 1 яруса целиком, VIP-партер ряд 1.',
+      'Откройте нужную дату, отметьте зону на схеме Исторической сцены и укажите, сколько мест нужно. После оплаты на email придёт электронный билет — номера мест мы подтвердим в том же письме.',
+      'В продаже партер (ряды 1–8), амфитеатр, ложа первого яруса, балконы второго и третьего ярусов, ложа бельэтажа целиком, ложа первого яруса целиком и VIP-партер первого ряда.',
     ],
   },
   'koppelia-2026-11-22': {
@@ -568,6 +569,8 @@ function buildCatalogPayload(ev, stageId, stageName, genre, age) {
   const copy = EVENT_COPY[ev.id];
   const lead = copy?.about?.[0]
     || `${genre} «${ev.title}» в ${stageName}. Предзаказ билетов по секторам (${ev.cardSubtitle}).`;
+  const poster = String(ev.poster || '').trim() || undefined;
+  const banner = String(ev.banner || ev.poster || '').trim() || undefined;
   return {
     Id: ev.id,
     RepertoireId: ev.id,
@@ -582,6 +585,8 @@ function buildCatalogPayload(ev, stageId, stageName, genre, age) {
     PlaceAddress: ev.address,
     EventDateTime: firstIso,
     beginDateTime: firstIso,
+    ...(poster ? { ImageUrl: poster, PosterUrl: poster } : {}),
+    ...(banner ? { BannerUrl: banner } : {}),
   };
 }
 
@@ -677,13 +682,14 @@ async function seedOne(ev, stageId, stageName, genre, age, sectors) {
   };
 
   const poster = String(ev.poster || '').trim() || null;
+  const banner = String(ev.banner || ev.poster || '').trim() || null;
   await ticketPool.query(
     `INSERT INTO getbilet_events (
        getbilet_external_id, title_manual, description_manual, description_pack_json,
        venue_manual, venue_address_manual, card_subtitle_manual, notes_internal,
        poster_url_manual, banner_url_manual,
        is_published, sort_order, updated_at
-     ) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$9,TRUE,$10,NOW())
+     ) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,TRUE,$11,NOW())
      ON CONFLICT (getbilet_external_id) DO UPDATE SET
        title_manual=EXCLUDED.title_manual, description_manual=EXCLUDED.description_manual,
        description_pack_json=EXCLUDED.description_pack_json, venue_manual=EXCLUDED.venue_manual,
@@ -702,6 +708,7 @@ async function seedOne(ev, stageId, stageName, genre, age, sectors) {
       ev.cardSubtitle,
       'OFFERS_CACHE_ONLY · ручное событие Большого (предзаказ по секторам, без GetBilet).',
       poster,
+      banner,
       -400,
     ],
   );
