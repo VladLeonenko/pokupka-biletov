@@ -92,7 +92,8 @@ function genreHintsConcert(genre: string | undefined): boolean {
  */
 export function shortEventTitle(title: string, max = 48): string {
   let t = norm(title).replace(/\s+/g, ' ');
-  if (!t) return 'Мероприятие';
+  // Empty → '' (not «Мероприятие»), иначе пустой venue утекает в meta.
+  if (!t) return '';
   if (t.length <= max) return t;
   const paren = t.match(/^(.+?)\s*\([^)]{8,}\)\s*$/);
   if (paren && paren[1].trim().length >= 8 && paren[1].trim().length <= max) {
@@ -172,12 +173,18 @@ export function classifyEventTitle(
       (genreHintsSport(ctx?.genre) || /матч|match|турнир|tournament|vs\.| vs |против/i.test(c))) ||
     genreHintsSport(ctx?.genre);
 
+  const classicPlayTitle =
+    /^(«)?(вий|дон\s*кихот|васса|дядя\s*ваня|три\s*сестры|ревизор|гроза|поминальная\s*молитва|собачье\s*сердце|пигмалион|гамлет|король\s*лир|чайка|вишн[её]вый\s*сад|маскарад|горе\s*от\s*ума|иванов|платонов|на\s*дне|мещане|враги|дети\s*солнца|фро|защита\s*лужина|господа\s*головлевы|день\s*закрытых\s*дверей|8\s*разгневанных\s*женщин|чуковский|кролик\s*эдвард|я\s*хочу\s*в\s*школу|как\s*я\s*стал\s*художником|ветер\s*шумит\s*в\s*тополях|король-олень|питер\s*пэн|ласточка\s*моя)(»)?(\s|\.|$)/i.test(
+      t,
+    );
+
   const theaterWords =
     /спектакль|театр|опера\b|балет|мюзикл|премьер|мхат|сцена|постановк|режисс|режис|балетмейст|choreograph|dramatic|performance|playbill/i.test(
       c,
     ) ||
     /(драма|комедия|трагедия)\b/i.test(c) ||
-    galaBalletOrTheaterGala;
+    galaBalletOrTheaterGala ||
+    classicPlayTitle;
 
   const circus =
     /\bцирк\w*\b|\bcircus\b|на\s+манеже|дрессиров|канатоход|трапеци|клоун/i.test(c) &&

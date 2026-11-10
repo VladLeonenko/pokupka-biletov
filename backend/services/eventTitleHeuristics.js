@@ -117,12 +117,19 @@ export function classifyEventTitle(title, ctx = {}) {
       (genreHintsSport(ctx.genre) || /матч|match|турнир|tournament|vs\.| vs |против/i.test(c))) ||
     genreHintsSport(ctx.genre);
 
+  // Короткие названия классики без слова «спектакль» в title
+  const classicPlayTitle =
+    /^(«)?(вий|дон\s*кихот|васса|дядя\s*ваня|три\s*сестры|ревизор|гроза|поминальная\s*молитва|собачье\s*сердце|пигмалион|гамлет|король\s*лир|чайка|вишн[её]вый\s*сад|маскарад|горе\s*от\s*ума|иванов|платонов|на\s*дне|мещане|враги|дети\s*солнца|живый\s*труп|живые\s*и\s*мёртвые|фро|защита\s*лужина|господа\s*головлевы|день\s*закрытых\s*дверей|8\s*разгневанных\s*женщин|чуковский|кролик\s*эдвард|я\s*хочу\s*в\s*школу|как\s*я\s*стал\s*художником|ветер\s*шумит\s*в\s*тополях|король-олень|питер\s*пэн|ласточка\s*моя)(»)?(\s|\.|$)/i.test(
+      t,
+    );
+
   const theaterWords =
     /спектакль|театр|опера\b|балет|мюзикл|премьер|мхат|сцена|постановк|режисс|режис|балетмейст|choreograph|dramatic|performance|playbill/i.test(
       c,
     ) ||
     /(драма|комедия|трагедия)\b/i.test(c) ||
-    galaBalletOrTheaterGala;
+    galaBalletOrTheaterGala ||
+    classicPlayTitle;
 
   const circus =
     /\bцирк\w*\b|\bcircus\b|на\s+манеже|дрессиров|канатоход|трапеци|клоун/i.test(c) &&
@@ -135,14 +142,14 @@ export function classifyEventTitle(title, ctx = {}) {
     /концерт|фестиваль|фест\b|fest\b|ту[рр]\b|live\s|шоу\b|symphony|симфон|оркестр|arena\s+тур|стендап|standup|рэп\b|\brap\b|хип[\s-]?хоп/i.test(
       c,
     ) ||
-    /шуфутинск|пресняков|розенбаум|мацуев|кипелов|гагарин[аы]|носков|бутусов|ваенг|газманов|агутин|польна|крутой|dimash|димаш/i.test(
+    /шуфутинск|пресняков|розенбаум|мацуев|кипелов|гагарин[аы]|носков|бутусов|ваенг|газманов|агутин|польна|крутой|dimash|димаш|серябкин|seryabkina|руки\s*вверх|ленинград|звери|sqwoz|flo\s*rida|баста\b|basta\b|guf\b|гуф\b/i.test(
       c,
     ) ||
     (/[—\-–]/.test(t) &&
       /(basta|баста|guf|гуф|morgenshtern|морген|рэп|hip[\s-]?hop|хип[\s-]?хоп)/i.test(c));
 
   const latinArtistTitle =
-    /^[A-Za-z][A-Za-z0-9 .'+&-]{1,48}$/.test(t) && !/match|cup|fc\b|vs\b/i.test(t);
+    /^[A-Za-z][A-Za-z0-9 .'+&-]{1,48}$/.test(t) && !/match|cup|fc\b|vs\b|театр|theater/i.test(t);
 
   const concert =
     (genreHintsConcert(ctx.genre) || concertCore || latinArtistTitle) &&
@@ -204,7 +211,9 @@ export function shortEventTitle(title, max = 48) {
   let t = String(title || '')
     .trim()
     .replace(/\s+/g, ' ');
-  if (!t) return 'Мероприятие';
+  // Пустая строка — пустой результат (не «Мероприятие»), иначе venue/suffix
+  // в meta превращаются в мусор «—, Мероприятие».
+  if (!t) return '';
   if (t.length <= max) return t;
   const paren = t.match(/^(.+?)\s*\([^)]{8,}\)\s*$/);
   if (paren && paren[1].trim().length >= 8 && paren[1].trim().length <= max) {

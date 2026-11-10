@@ -12,6 +12,63 @@ import {
   extractLabeledSeatsFromSvgMarkup,
 } from './luzhnikiExtractSeatsFromEnrichedSvg.js';
 
+function attrFromTag(attrs, name) {
+  const re = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i');
+  const m = String(attrs || '').match(re);
+  return m ? m[2] : '';
+}
+
+/** Контуры секторов из SVG (`data-sector` + `d`) → layout.sectorMode.sectors[].path */
+export function extractSectorContourPathsFromSvgMarkup(xml) {
+  /** @type {{ label: string, path: string }[]} */
+  const out = [];
+  const re = /<path\b([^>]*)>/gi;
+  let m;
+  while ((m = re.exec(String(xml || '')))) {
+    const attrs = m[1] || '';
+    const label = String(attrFromTag(attrs, 'data-sector') || '').trim();
+    const d = String(attrFromTag(attrs, 'd') || '').trim();
+    if (!label || !d) continue;
+    out.push({ label, path: d });
+  }
+  return out;
+}
+
+function mergeSectorModePaths(layout, contourPaths) {
+  if (!Array.isArray(contourPaths) || !contourPaths.length) return layout.sectorMode;
+  const prev =
+    layout.sectorMode && typeof layout.sectorMode === 'object' ? { ...layout.sectorMode } : { enabled: true };
+  const prevSectors = Array.isArray(prev.sectors) ? prev.sectors : [];
+  const byLabel = new Map(
+    prevSectors.map((s) => [String(s?.label || '').trim().toLowerCase(), { ...s }]),
+  );
+  for (const c of contourPaths) {
+    const key = String(c.label || '').trim().toLowerCase();
+    if (!key) continue;
+    const existing = byLabel.get(key);
+    if (existing) {
+      existing.path = c.path;
+      byLabel.set(key, existing);
+    } else {
+      const id = key
+        .replace(/[^a-zа-яё0-9]+/gi, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 64) || 'sector';
+      byLabel.set(key, {
+        id,
+        label: c.label,
+        path: c.path,
+        maxQuantity: 8,
+      });
+    }
+  }
+  return {
+    ...prev,
+    enabled: true,
+    sectors: [...byLabel.values()],
+  };
+}
+
 /**
  * @param {{
  *   repoRoot: string;
@@ -19,6 +76,7 @@ import {
  *   stageIdAliases?: string[];
  *   bundlePath: string;
  *   enrichedPublicRel: string;
+ *   svgPublicRel?: string;
  *   loadStageMapRow: () => Promise<{ svg_markup?: string; layout_json?: object } | null>;
  *   readBundleFile: () => { exists?: boolean; seats?: object[] };
  *   mergeSeatsOntoBackground: (layout: object, manualSeats: object[]) => { seats: object[]; hallW: number; hallH: number };
@@ -30,6 +88,9 @@ import {
  */
 export function createHallSvgEditorHandlers(cfg) {
   const enrichedPublicAbs = path.join(cfg.repoRoot, 'frontend/public/tools', path.basename(cfg.enrichedPublicRel));
+  const svgPublicAbs = cfg.svgPublicRel
+    ? path.join(cfg.repoRoot, 'frontend/public', cfg.svgPublicRel.replace(/^\//, ''))
+    : null;
   const stageIds = [...new Set([cfg.stageId, ...(cfg.stageIdAliases || [])].filter(Boolean))];
 
   async function buildEnrichedSvgMarkup(overrides = {}) {
@@ -98,6 +159,8 @@ export function createHallSvgEditorHandlers(cfg) {
     const hallKind =
       layout.hallKind ||
       ('defaultHallKind' in cfg ? cfg.defaultHallKind : 'theater');
+    const contourPaths = extractSectorContourPathsFromSvgMarkup(xml);
+    const nextSectorMode = mergeSectorModePaths(layout, contourPaths);
     const nextLayout = {
       ...layout,
       layoutMode: 'svgNative',
@@ -108,6 +171,7 @@ export function createHallSvgEditorHandlers(cfg) {
       ...(syncCloud && Array.isArray(cloudFromSvg) && cloudFromSvg.length >= 1
         ? { allSeatCoordinates: cloudFromSvg }
         : {}),
+      ...(nextSectorMode ? { sectorMode: nextSectorMode } : {}),
       seats,
     };
 
@@ -115,9 +179,14 @@ export function createHallSvgEditorHandlers(cfg) {
     fs.mkdirSync(path.dirname(enrichedPublicAbs), { recursive: true });
     const backup = cfg.backupExistingFile(cfg.bundlePath);
     const enrichedBackup = cfg.backupExistingFile(enrichedPublicAbs);
+    if (svgPublicAbs) cfg.backupExistingFile(svgPublicAbs);
 
     fs.writeFileSync(enrichedPublicAbs, xml, 'utf8');
     fs.writeFileSync(`${enrichedPublicAbs}.gz`, zlib.gzipSync(xml, { level: 9 }));
+    if (svgPublicAbs) {
+      fs.mkdirSync(path.dirname(svgPublicAbs), { recursive: true });
+      fs.writeFileSync(svgPublicAbs, xml, 'utf8');
+    }
 
     const bundlePayload = {
       builtAt: new Date().toISOString(),
@@ -133,14 +202,17 @@ export function createHallSvgEditorHandlers(cfg) {
 
     await ticketPool.query(
       `UPDATE getbilet_stage_maps
-       SET layout_json = $2::jsonb,
-           notes_internal = COALESCE(notes_internal, '') || $3,
+       SET svg_markup = $2,
+           layout_json = $3::jsonb,
+           notes_internal = COALESCE(notes_internal, '') || $4,
            updated_at = NOW()
        WHERE stage_external_id = ANY($1::text[])`,
       [
         stageIds,
+        xml,
         JSON.stringify(nextLayout),
-        `\n[${bundlePayload.builtAt}] editor SVG save: ${seats.length} seats`,
+        `\n[${bundlePayload.builtAt}] editor SVG save: ${seats.length} seats` +
+          (contourPaths.length ? `; contours=${contourPaths.length}` : ''),
       ],
     );
 

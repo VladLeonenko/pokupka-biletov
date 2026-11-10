@@ -107,6 +107,85 @@ function pathCentroid(pts) {
   return { x: sx / pts.length, y: sy / pts.length };
 }
 
+function bboxOfPoints(pts) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of pts) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  if (!Number.isFinite(minX)) return null;
+  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Legacy: сжимал outline к seat bbox (ломал Ложа А/Б Амфитеатр и др.).
+ * Оставлен для тестов/ручного вызова — buildSectorsFromAfishaOutlines больше НЕ рефитит.
+ * @param {string} path
+ * @param {Array<{x_coord?:number,y_coord?:number}>} seats
+ * @param {{ pad?: number, emptyFrac?: number }} [opts]
+ */
+export function refitOutlineToSeatExtent(path, seats, opts = {}) {
+  const pad = Number.isFinite(opts.pad) ? Number(opts.pad) : 16;
+  const emptyFrac = Number.isFinite(opts.emptyFrac) ? Number(opts.emptyFrac) : 0.32;
+  const seatPts = (seats || [])
+    .map((s) => [Number(s.x_coord), Number(s.y_coord)])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (seatPts.length < 2 || !path) return { path, refit: false };
+
+  let outlinePts;
+  try {
+    outlinePts = sampleSvgPath(path);
+  } catch {
+    return { path, refit: false };
+  }
+  const o = bboxOfPoints(outlinePts);
+  const s = bboxOfPoints(seatPts);
+  if (!o || !s || o.w < 1 || o.h < 1) return { path, refit: false };
+
+  const emptyTop = (s.minY - o.minY) / o.h;
+  const emptyBot = (o.maxY - s.maxY) / o.h;
+  const emptyLeft = (s.minX - o.minX) / o.w;
+  const emptyRight = (o.maxX - s.maxX) / o.w;
+  if (Math.max(emptyTop, emptyBot, emptyLeft, emptyRight) < emptyFrac) {
+    return { path, refit: false, emptyTop, emptyBot };
+  }
+
+  const tMinX = s.minX - pad;
+  const tMinY = s.minY - pad;
+  const tMaxX = s.maxX + pad;
+  const tMaxY = s.maxY + pad;
+  const tw = Math.max(8, tMaxX - tMinX);
+  const th = Math.max(8, tMaxY - tMinY);
+  const sx = tw / o.w;
+  const sy = th / o.h;
+
+  try {
+    const fitted = new SvgPath(path)
+      .abs()
+      .unshort()
+      .translate(-o.minX, -o.minY)
+      .scale(sx, sy)
+      .translate(tMinX, tMinY)
+      .toString();
+    return {
+      path: fitted,
+      refit: true,
+      emptyTop,
+      emptyBot,
+      emptyLeft,
+      emptyRight,
+    };
+  } catch {
+    return { path, refit: false };
+  }
+}
+
 /**
  * Секторы из level.outline (+ fallback hull builder если outline битый).
  * @param {Array<{ name?: string, seats?: Array<{x_coord:number,y_coord:number,place?:string,row?:string}>, outline?: string }>} levels
@@ -125,6 +204,7 @@ export function buildSectorsFromAfishaOutlines(levels, hullFallback) {
     let path = outline;
     let pts = [];
     let inside = 0;
+    let source = 'outline';
 
     if (outline) {
       try {
@@ -160,6 +240,7 @@ export function buildSectorsFromAfishaOutlines(levels, hullFallback) {
         const h = hulls[0];
         if (h?.path) {
           path = h.path;
+          source = 'hull-fallback';
           try {
             pts = sampleSvgPath(path);
           } catch {
@@ -171,6 +252,9 @@ export function buildSectorsFromAfishaOutlines(levels, hullFallback) {
     }
 
     if (!path) continue;
+
+    // Не рефитить к seat extent: пустой padding сверху у лож/амфитеатра — часть Afisha outline.
+    // Партер left/right остаются исходными кривыми (union на sale — в collapseBolshoiNewStageToParterMid).
 
     const sector = {
       id: sectionIdFromLabel(label),
@@ -187,7 +271,8 @@ export function buildSectorsFromAfishaOutlines(levels, hullFallback) {
       seats: seats.length,
       inside: sector.inside,
       pct: Number(sector.containmentPct.toFixed(1)),
-      source: outline && sector.containmentPct >= 90 ? 'outline' : 'hull-fallback',
+      source,
+      refit: false,
     });
   }
 
