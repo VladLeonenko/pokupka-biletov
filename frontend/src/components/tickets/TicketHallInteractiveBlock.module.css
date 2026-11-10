@@ -935,19 +935,20 @@
 }
 
 .seatDotOn {
-  z-index: 4;
-  transform: translate(-50%, -50%) scale(0.68);
+  z-index: 8;
+  /* Яндекс-like: крупнее + кольцо сверху; лёгкий overlap OK */
+  transform: translate(-50%, -50%) scale(1.22);
   border-width: 1px;
   background-color: var(--seat-accent, #555);
   color: #fff;
   box-shadow:
-    0 0 0 1px #fff,
-    0 0 0 3px var(--seat-accent, #555),
+    0 0 0 2px #fff,
+    0 0 0 4px var(--seat-accent, #555),
     0 2px 7px rgba(0, 0, 0, 0.3);
 }
 
 .seatDotOn:hover {
-  transform: translate(-50%, -50%) scale(0.68);
+  transform: translate(-50%, -50%) scale(1.22);
 }
 
 .seatDotCheck {

@@ -19,6 +19,10 @@ import {
   type SvgNativeSeat,
 } from '../../utils/svgNativeSeatLayout';
 import { isOwnOfferLike, shouldReplaceMappedOffer } from '../../utils/ownOfferPrefer';
+import {
+  hallBackgroundSeatRadiusPx,
+  stadiumSeatCanvasRadiusPx,
+} from '../../utils/hallSeatRadiusPx';
 import styles from './TicketHallInteractiveBlock.module.css';
 
 /** Совпадает с фоновой заливкой точек чаши на canvas (dense hall). */
@@ -29,25 +33,6 @@ const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
 /** Акцент «выгодное предложение» (наши места с лучшей ценой; совпадает с CSS var(--own-best-color) fallback). */
 const OWN_BEST_ACCENT = '#ff4e18';
-
-/** Радиус sellable-точки на canvas (px viewport), как Лужники: w = layerWidth * zoom. */
-function stadiumSeatCanvasRadiusPx(
-  zoom: number,
-  layerWidth: number,
-  svgViewBoxWidth: number,
-  active: boolean,
-  mapZoomed: boolean,
-): number {
-  const w = layerWidth * zoom;
-  const baseR = Math.max(2.6, Math.min(6, (w / Math.max(1, svgViewBoxWidth)) * 10));
-  let r = active ? baseR * 0.68 : baseR;
-  /** На обзоре 100% — в 2× меньше (эталон стадиона). */
-  if (!mapZoomed) {
-    r *= 0.5;
-    r = Math.max(active ? 1.2 : 1.3, r);
-  }
-  return r;
-}
 
 /** Рамка «выгодное предложение»: точка того же размера, но с заметной обводкой по контуру. */
 function strokeOwnBestRing(
@@ -210,15 +195,6 @@ type BackgroundSeatCoordinate = {
   xPct: number;
   yPct: number;
 };
-
-function hallBackgroundSeatRadiusPx(scalePx: number, dense: boolean, mapZoomed = false): number {
-  if (mapZoomed) {
-    return Math.max(1.7, Math.min(3.4, scalePx * 9));
-  }
-  return dense
-    ? Math.max(0.5, Math.min(1.75, scalePx * 3.6))
-    : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
-}
 
 /** Серые точки театра (МХТ/Вахтангов): плотные мелкие, не «blobs» как stadium bowl. */
 function theaterBackgroundSeatRadiusPx(scalePx: number, seatCount: number): number {
@@ -1450,6 +1426,8 @@ export function TicketHallInteractiveBlock({
     startPan: Point;
     startMiddle: Point;
   } | null>(null);
+  /** Был пинч в жесте — на отпускании снеп к дискретному % (не «рандомный» зум). */
+  const pinchActiveRef = useRef(false);
   const dragRef = useRef<{ active: boolean; moved: boolean; id: number; sx: number; sy: number; ox: number; oy: number } | null>(
     null,
   );
@@ -1746,8 +1724,47 @@ export function TicketHallInteractiveBlock({
       startPan: panRef.current,
       startMiddle: pointMiddle(a, b),
     };
+    pinchActiveRef.current = true;
     dragRef.current = null;
   }, []);
+
+  /** После пинча — ближайший уровень из +/- кнопок, центр viewport сохраняем. */
+  const snapZoomToNearestLevel = useCallback(() => {
+    const levels = discreteZoomLevels;
+    if (!levels.length) return;
+    const z = zoomRef.current;
+    let best = levels[0];
+    let bestD = Math.abs(best - z);
+    for (let i = 1; i < levels.length; i += 1) {
+      const level = levels[i];
+      const d = Math.abs(level - z);
+      if (d < bestD) {
+        best = level;
+        bestD = d;
+      }
+    }
+    if (bestD < 0.0005) return;
+    const vp = viewportRef.current;
+    const base = getLayerBase();
+    if (!vp || !base) {
+      applyCamera(best, panRef.current);
+      return;
+    }
+    const currentZoom = Math.max(0.001, z);
+    const focusX = vp.clientWidth / 2;
+    const focusY = vp.clientHeight / 2;
+    const layerX = (focusX - base.x - panRef.current.x) / currentZoom;
+    const layerY = (focusY - base.y - panRef.current.y) / currentZoom;
+    if (best <= fitZoom + 0.01) {
+      setSelectedSector(null);
+      applyCamera(best, getCenteredPan(best));
+      return;
+    }
+    applyCamera(best, {
+      x: focusX - base.x - layerX * best,
+      y: focusY - base.y - layerY * best,
+    });
+  }, [applyCamera, discreteZoomLevels, fitZoom, getCenteredPan, getLayerBase]);
 
   const applyPinchGesture = useCallback(() => {
     const pinch = pinchRef.current;
@@ -1888,7 +1905,13 @@ export function TicketHallInteractiveBlock({
         suppressMapClickRef.current = false;
       }, 0);
     }
-    if (pointersRef.current.size === 0) setIsMapDragging(false);
+    if (pointersRef.current.size === 0) {
+      setIsMapDragging(false);
+      if (pinchActiveRef.current) {
+        pinchActiveRef.current = false;
+        snapZoomToNearestLevel();
+      }
+    }
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
@@ -1924,6 +1947,7 @@ export function TicketHallInteractiveBlock({
     hallPreviewSectorCheckout,
     seatSelectionDisabled,
     sectorMode.enabled,
+    snapZoomToNearestLevel,
     stadiumCanvasEnabled,
   ]);
 
@@ -2736,18 +2760,26 @@ export function TicketHallInteractiveBlock({
             strokeOwnBestRing(ctx, sx, sy, r);
           }
           if (active) {
-            ctx.lineWidth = 2;
+            ctx.lineWidth = Math.max(2, r * 0.32);
             ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            ctx.lineWidth = Math.max(1.2, r * 0.18);
+            ctx.strokeStyle = fill;
             ctx.stroke();
           }
           ctx.restore();
         };
+        /** Idle → own → selected сверху (Яндекс: enlarged не прячется под соседей). */
         for (const seat of visibleNativePlacements) {
-          if (seat.ownOffer) continue;
+          if (seat.ownOffer || activeKeys.has(seat.key)) continue;
           drawTheaterSellable(seat);
         }
         for (const seat of visibleNativePlacements) {
-          if (!seat.ownOffer) continue;
+          if (!seat.ownOffer || activeKeys.has(seat.key)) continue;
+          drawTheaterSellable(seat);
+        }
+        for (const seat of visibleNativePlacements) {
+          if (!activeKeys.has(seat.key)) continue;
           drawTheaterSellable(seat);
         }
       } else if (visibleNativePlacements.length > 0) {
@@ -2779,18 +2811,25 @@ export function TicketHallInteractiveBlock({
             strokeOwnBestRing(ctx, sx, sy, r);
           }
           if (active && !seat.previewOnly) {
-            ctx.lineWidth = 2;
+            ctx.lineWidth = Math.max(2, r * 0.32);
             ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            ctx.lineWidth = Math.max(1.2, r * 0.18);
+            ctx.strokeStyle = fill;
             ctx.stroke();
           }
           ctx.restore();
         };
         for (const seat of visibleNativePlacements) {
-          if (seat.ownOffer) continue;
+          if (seat.ownOffer || activeKeys.has(seat.key)) continue;
           drawStadiumSellable(seat);
         }
         for (const seat of visibleNativePlacements) {
-          if (!seat.ownOffer) continue;
+          if (!seat.ownOffer || activeKeys.has(seat.key)) continue;
+          drawStadiumSellable(seat);
+        }
+        for (const seat of visibleNativePlacements) {
+          if (!activeKeys.has(seat.key)) continue;
           drawStadiumSellable(seat);
         }
       }
