@@ -120,32 +120,54 @@ export function extractFreeSeats(buy) {
   return out.filter((s) => (seen.has(s.seatNumber) ? false : (seen.add(s.seatNumber), true)));
 }
 
+function seatCol(s) {
+  const n = Number(s?.seatName);
+  return Number.isFinite(n) ? n : Number(s?.seatNumber);
+}
+
+function areAdjacentSeats(a, b) {
+  if (!a || !b) return false;
+  const colA = seatCol(a);
+  const colB = seatCol(b);
+  const adjByName = Number.isFinite(colA) && Number.isFinite(colB) && Math.abs(colB - colA) === 1;
+  const adjById = Math.abs(Number(b.seatNumber) - Number(a.seatNumber)) === 1;
+  // один ряд (или оба без ряда), одна зона если зона известна
+  const rowA = a.row != null ? String(a.row) : null;
+  const rowB = b.row != null ? String(b.row) : null;
+  const sameRow = rowA == null || rowB == null || rowA === rowB;
+  const zoneA = a.zoneId != null ? String(a.zoneId) : null;
+  const zoneB = b.zoneId != null ? String(b.zoneId) : null;
+  const sameZone = zoneA == null || zoneB == null || zoneA === zoneB;
+  return sameRow && sameZone && (adjByName || adjById);
+}
+
 /**
  * Только соседние пары (и блоки из пар). Никогда не добираем одиночку до need.
- * need=3 при 3 свободных раньше давало пару+одиночку → жалобы «непонятные места».
+ * Группируем по ряду+зоне, НЕ только ticketTypeId — иначе соседние места
+ * с разными тарифами/типами билета «не пара», а руками их берут.
  */
 function findAdjacentPairs(seats) {
-  const byKey = new Map(); // ticketTypeId|row → seats
+  const byKey = new Map(); // zone|row → seats
   for (const s of seats) {
     const row = s.row != null ? String(s.row) : '_';
-    const k = `${s.ticketTypeId}|${row}`;
+    const zone = s.zoneId != null ? String(s.zoneId) : `tt${s.ticketTypeId}`;
+    const k = `${zone}|${row}`;
     if (!byKey.has(k)) byKey.set(k, []);
     byKey.get(k).push(s);
   }
   const pairs = [];
+  const used = new Set();
   for (const list of byKey.values()) {
-    list.sort((a, b) => Number(a.seatNumber) - Number(b.seatNumber));
+    list.sort((a, b) => seatCol(a) - seatCol(b) || Number(a.seatNumber) - Number(b.seatNumber));
     for (let i = 0; i < list.length - 1; i++) {
       const a = list[i];
       const b = list[i + 1];
-      const seatA = Number(a.seatName ?? a.seatNumber);
-      const seatB = Number(b.seatName ?? b.seatNumber);
-      const adjByName = Number.isFinite(seatA) && Number.isFinite(seatB) && seatB === seatA + 1;
-      const adjById = Number(b.seatNumber) === Number(a.seatNumber) + 1;
-      if (adjByName || adjById) {
-        pairs.push([a, b]);
-        i++; // места не пересекаются
-      }
+      if (used.has(a.seatNumber) || used.has(b.seatNumber)) continue;
+      if (!areAdjacentSeats(a, b)) continue;
+      pairs.push([a, b]);
+      used.add(a.seatNumber);
+      used.add(b.seatNumber);
+      i++; // места не пересекаются
     }
   }
   // дешевле / ниже ряд / меньше номер
@@ -371,10 +393,14 @@ async function raceOccupy(eventId, chosen, {
     }),
   );
 
-  const win = raced.find((r) => r.locked?.length);
+  // Победитель = полный набор (вся пара), не «1 из 2» — иначе ловим одиночки при живой паре.
+  const need = chosen.length;
+  const win =
+    raced.find((r) => (r.locked?.length || 0) >= need) ||
+    raced.find((r) => (r.locked?.length || 0) >= 2 && (r.locked.length % 2) === 0);
   if (win) {
     return {
-      locked: win.locked,
+      locked: win.locked.slice(0, need - (need % 2)), // только чётный хвост
       failed: win.failed || [],
       buy: win.buy,
       sessionId: win.sessionId,
@@ -474,6 +500,14 @@ export async function bookRadarioEvent(eventId, opts = {}) {
       reason: 'no_pairs',
       ticketCount: buy.event?.ticketCount ?? event.ticketCount,
       freeCount: free.length,
+      freeSample: free.slice(0, 12).map((s) => ({
+        n: s.seatNumber,
+        row: s.row,
+        col: s.seatName,
+        tt: s.ticketTypeId,
+        zone: s.zoneId,
+        price: s.price,
+      })),
       sessionId,
     };
   }
@@ -493,19 +527,21 @@ export async function bookRadarioEvent(eventId, opts = {}) {
     sessionId = occ.sessionId;
   }
 
-  if (!locked.length) {
+  // Пары-only: 0 мест или нечётный/неполный lock → не оформляем одиночку.
+  const lockedEven = locked.length >= 2 ? locked.slice(0, locked.length - (locked.length % 2)) : [];
+  if (!lockedEven.length || lockedEven.length < Math.min(2, chosen.length)) {
     warmCache.delete(Number(eventId));
     return {
       ok: false,
-      reason: 'soft_lock',
+      reason: locked.length ? 'partial_pair_lock' : 'soft_lock',
       sessionId,
       tried: chosen,
+      lockedPartial: locked,
       failed,
       ticketCount: buy.event?.ticketCount ?? event.ticketCount,
       reserveDurationMinutes: buy.reserveDurationMinutes ?? null,
     };
   }
-
   warmCache.set(Number(eventId), {
     sessionId,
     buy,
@@ -513,9 +549,9 @@ export async function bookRadarioEvent(eventId, opts = {}) {
     at: Date.now(),
   });
 
-  const people = passports.slice(0, locked.length);
+  const people = passports.slice(0, lockedEven.length);
   const buyer = people[0];
-  const tickets = buildTicketsPayload(locked, people);
+  const tickets = buildTicketsPayload(lockedEven, people);
   const paymentType = (() => {
     const allowed = buy.allowedPaymentTypes || {};
     const def = Object.entries(allowed).find(([, v]) => v && v.default);
@@ -565,7 +601,7 @@ export async function bookRadarioEvent(eventId, opts = {}) {
         ok: false,
         reason: 'soft_lock',
         sessionId,
-        tried: locked,
+        tried: lockedEven,
         failed,
         error: msg,
         ticketCount: event.ticketCount,
@@ -575,7 +611,7 @@ export async function bookRadarioEvent(eventId, opts = {}) {
       ok: false,
       reason: 'order_rejected',
       sessionId,
-      tried: locked,
+      tried: lockedEven,
       error: msg,
       data: err?.data || null,
       ticketCount: event.ticketCount,
@@ -606,7 +642,7 @@ export async function bookRadarioEvent(eventId, opts = {}) {
     qrId,
     qrPngBase64,
     paymentType,
-    seats: locked,
+    seats: lockedEven,
     buyers: people.map((p) => p.fullName),
     amount,
     raw: order,

@@ -241,7 +241,19 @@ async function tryBook(cfg, meta) {
 
     const triedNums = (result.tried || []).map((s) => s.seatNumber ?? s).filter(Number.isFinite);
     if (result.reason === 'no_pairs') {
-      log(`skip ${cfg.label}: нет соседних пар (free=${result.freeCount ?? '?'}) — одиночки не берём`);
+      const sample = (result.freeSample || [])
+        .map((s) => `${s.row ?? '?'}-${s.col ?? s.n}#${s.n}/tt${s.tt}`)
+        .join(', ');
+      log(
+        `skip ${cfg.label}: нет соседних пар (free=${result.freeCount ?? '?'}) — одиночки не берём` +
+          (sample ? ` sample=[${sample}]` : ''),
+      );
+      return;
+    }
+    if (result.reason === 'partial_pair_lock') {
+      log(
+        `skip ${cfg.label}: occupy неполный (пара развалилась) locked=${(result.lockedPartial || []).map((s) => s.seatNumber).join(',') || '—'} tried=${(result.tried || []).map((s) => s.seatNumber).join(',')}`,
+      );
       return;
     }
     if (result.reason === 'soft_lock') {

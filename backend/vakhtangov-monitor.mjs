@@ -126,7 +126,7 @@ function shouldBook(key) {
   if (!AUTO_BOOK || bookingInFlight.has(key)) return false;
   const h = holds.get(key);
   if (!h) return true;
-  if (h.orderOk && Date.now() < (h.cooldownUntil || 0)) return false;
+  if (Date.now() < (h.cooldownUntil || 0)) return false;
   return true;
 }
 
@@ -146,13 +146,14 @@ async function tryBook(ev) {
       { maxPairs: MAX_PAIRS },
     );
 
-    if (result.ok) {
+    if (result.ok && result.paymentUrl) {
       holds.set(key, {
         orderOk: true,
         bookedAt: Date.now(),
         cooldownUntil: Date.now() + REBOOK_AFTER_MS,
         seats: (result.seats || []).map((s) => `${s.row}-${s.place}`),
-        paymentUrl: result.paymentUrl || null,
+        paymentUrl: result.paymentUrl,
+        orderId: result.orderId || null,
       });
       saveState();
       saveResult({
@@ -172,18 +173,37 @@ async function tryBook(ev) {
         `Спектакль: ${ev.label}`,
         `Title: ${result.label || ev.title}`,
         `amount: ${result.amount ?? '—'}`,
-        result.paymentUrl ? `ОПЛАТА: ${result.paymentUrl}` : `shopcart: ${result.shopcartUrl || '—'} (ссылка оплаты уточните)`,
+        result.orderId ? `orderId: ${result.orderId}` : null,
+        `ОПЛАТА: ${result.paymentUrl}`,
+        result.payPage ? `страница заказа: ${result.payPage}` : null,
         `покупатель: ${result.buyer?.name} <${result.buyer?.email}> ${result.buyer?.phone}`,
         'места:',
         seatLines || '  —',
         `страница: https://vakhtangov.ru/show/${ev.show}/`,
-      ].join('\n');
-      log(`OK ${ev.label} seats=${(result.seats || []).map((s) => `${s.row}-${s.place}`).join(',')} pay=${result.paymentUrl || '—'}`);
+      ]
+        .filter(Boolean)
+        .join('\n');
+      log(
+        `OK ${ev.label} seats=${(result.seats || []).map((s) => `${s.row}-${s.place}`).join(',')} order=${result.orderId || '—'} pay=${result.paymentUrl}`,
+      );
       await notifyBook(`✅ Вахтангов: ${ev.label}`, text).catch((e) => log(`mail fail: ${e.message}`));
       return;
     }
 
     log(`fail ${ev.label}: ${result.reason}`);
+    const failCooldown =
+      result.reason === 'no_parter_pairs' || result.reason === 'sold_out'
+        ? 20_000
+        : result.reason === 'order_create_failed' || result.reason === 'no_payment_url'
+          ? 45_000
+          : 15_000;
+    holds.set(key, {
+      orderOk: false,
+      lastFailReason: result.reason,
+      emptyStreak: (holds.get(key)?.emptyStreak || 0) + 1,
+      cooldownUntil: Date.now() + failCooldown,
+    });
+    saveState();
     saveResult({
       platform: 'vakhtangov-ticketland',
       action: 'book_fail',
@@ -195,6 +215,12 @@ async function tryBook(ev) {
     });
   } catch (err) {
     log(`error ${ev.label}: ${err instanceof Error ? err.message : err}`);
+    holds.set(key, {
+      orderOk: false,
+      lastFailReason: 'exception',
+      cooldownUntil: Date.now() + 30_000,
+    });
+    saveState();
   } finally {
     bookingInFlight.delete(key);
   }

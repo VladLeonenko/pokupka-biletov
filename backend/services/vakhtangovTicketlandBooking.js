@@ -5,9 +5,46 @@
  *  1) open performance (?lite-layout&iframe-hash) — ServicePipe проходит в Chromium
  *  2) GET /api/show/performance + /api/v2/hallview/map/{id}
  *  3) filter section=Партер, adjacent pair
- *  4) POST /hallPlace/select/ (cypher=abcde+base64) ×2
- *  5) /shopcart → ФИО/email/phone → Оплата СБП → payment URL
+ *  4) POST /hallPlace/select/ (cypher=abcde+base64) ×N
+ *  5) API: paymentMethodChange(SBP) → /api/order/create/ → /api/payment/instructions/{orderId}/
+ *     (UI-кнопка на VPS часто стопорится VPN-check Ticketland — поэтому только API)
  */
+
+/** Реальная ссылка на оплату (не shopcart: там substring "pay" ложно матчится). */
+export function isRealPaymentUrl(u) {
+  if (!u || typeof u !== 'string' || !/^https?:\/\//i.test(u)) return false;
+  const s = u.trim();
+  if (/ticketland\.ru\/shopcart/i.test(s)) return false;
+  if (/qr\.nspk\.ru/i.test(s)) return true;
+  if (/sbp\.|nspk\.ru|yookassa|yoomoney|pay\.|cloudpayments|tinkoff|sberbank|alfabank|unitpay|robokassa|securepay/i.test(s)) {
+    return true;
+  }
+  if (/ticketland\.ru\/shopcart\/pay\//i.test(s)) return true;
+  if (/ticketland\.ru\/.*\/(pay|payment)\b/i.test(s) && !/shopcart\/?$/i.test(s)) return true;
+  return false;
+}
+
+function digPaymentUrl(node, depth = 0) {
+  if (!node || depth > 8) return null;
+  if (typeof node === 'string') return isRealPaymentUrl(node) ? node : null;
+  if (Array.isArray(node)) {
+    for (const x of node) {
+      const f = digPaymentUrl(x, depth + 1);
+      if (f) return f;
+    }
+    return null;
+  }
+  if (typeof node === 'object') {
+    for (const k of ['paymentUrl', 'redirectUrl', 'url', 'payUrl', 'qrUrl', 'link']) {
+      if (typeof node[k] === 'string' && isRealPaymentUrl(node[k])) return node[k];
+    }
+    for (const v of Object.values(node)) {
+      const f = digPaymentUrl(v, depth + 1);
+      if (f) return f;
+    }
+  }
+  return null;
+}
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -126,18 +163,18 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
     let paymentUrl = null;
     page.on('response', async (res) => {
       const u = res.url();
-      if (/payment|pay|sbp|redirect/i.test(u)) {
-        try {
-          const j = await res.json();
-          const cand =
-            j?.redirectUrl ||
-            j?.paymentUrl ||
-            j?.url ||
-            j?.data?.redirectUrl ||
-            j?.data?.paymentUrl ||
-            null;
-          if (cand && /^https?:/i.test(cand)) paymentUrl = cand;
-        } catch { /* ignore */ }
+      if (/shopcart\/?$/i.test(u) || /\/api\/shopcart\/?$/i.test(u)) return;
+      if (!/payment|instructions|nspk|sbp|redirect|order\/create/i.test(u)) return;
+      try {
+        if (isRealPaymentUrl(u)) {
+          paymentUrl = u;
+          return;
+        }
+        const j = await res.json();
+        const dug = digPaymentUrl(j);
+        if (dug) paymentUrl = dug;
+      } catch {
+        /* ignore */
       }
     });
 
@@ -214,90 +251,192 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
       }
     }
 
-    await page.goto('https://www.ticketland.ru/shopcart/', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60_000,
-    });
-    await page.waitForTimeout(2500);
-
-    const fillByPlaceholder = async (placeholder, value) => {
-      const loc = page.locator(`input[placeholder="${placeholder}"]`).first();
-      if (await loc.count()) {
-        await loc.click({ timeout: 3000 });
-        await loc.fill('');
-        await loc.type(value, { delay: 20 });
-        return true;
-      }
-      return false;
-    };
-
-    await fillByPlaceholder('Имя', first);
-    await fillByPlaceholder('Фамилия', last);
-    await fillByPlaceholder('Email', contact.email);
-    // телефон: вводим 10 цифр после +7 (mask)
-    const phone10 = contact.phone.replace(/^7/, '').replace(/^8/, '').slice(0, 10);
-    const tel = page.locator('input[type=tel]').first();
-    if (await tel.count()) {
-      await tel.click({ timeout: 3000 });
-      await tel.fill('');
-      await tel.type(phone10, { delay: 25 });
-    }
-
-    const checks = page.locator('input[type=checkbox]');
-    const n = await checks.count();
-    for (let i = 0; i < Math.min(n, 2); i++) {
-      const c = checks.nth(i);
-      if (!(await c.isChecked().catch(() => true))) {
-        await c.check({ force: true }).catch(() => {});
-      }
-    }
-
-    // СБП: сначала выбрать метод, потом кнопку оплаты
-    await page.getByText('Оплата СБП', { exact: false }).first().click({ timeout: 4000 }).catch(() => {});
-    await page.waitForTimeout(800);
-
-    const confirmSelectors = [
-      page.getByRole('button', { name: /оплатить|перейти к оплате|оформить заказ|оплата заказа/i }),
-      page.locator('button.q-btn:has-text("Оплат")'),
-      page.locator('[class*="pay"] button'),
-      page.locator('button:has-text("Оплатить")'),
-    ];
-    let clickedPay = false;
-    for (const loc of confirmSelectors) {
-      const btn = loc.first();
-      if (!(await btn.count())) continue;
-      try {
-        await Promise.all([
-          page.waitForURL(/payment|pay|sbp|bank|qr|checkout/i, { timeout: 25000 }).catch(() => null),
-          btn.click({ timeout: 5000 }),
-        ]);
-        clickedPay = true;
-        await page.waitForTimeout(6000);
-        break;
-      } catch { /* try next */ }
-    }
-    if (!clickedPay) await page.waitForTimeout(4000);
-
-    if (!paymentUrl) {
-      paymentUrl = page.url();
-      if (!/payment|pay|sbp|qr|bank/i.test(paymentUrl)) {
-        // иногда ссылка в iframe / новой вкладке
-        const pages = ctx.pages();
-        for (const p of pages) {
-          const u = p.url();
-          if (/payment|pay|sbp|qr|bank/i.test(u)) {
-            paymentUrl = u;
-            break;
-          }
-        }
-      }
-    }
-
-    const cart = await page
+    // Корзина в той же cookie-сессии (select уже сделал hold).
+    const cartBefore = await page
       .evaluate(async () =>
         (await fetch('/api/shopcart/', { credentials: 'include' })).json().catch(() => null),
       )
       .catch(() => null);
+    if (!(cartBefore?.items || []).length) {
+      return {
+        ok: false,
+        reason: 'empty_cart_after_select',
+        performanceId: perf.id,
+        locked,
+      };
+    }
+
+    // Ticketland: ровно 11 цифр, без «+» (иначе 400 «Длинна номера… должна быть 11»)
+    let phoneFmt = String(contact.phone || '').replace(/\D/g, '');
+    if (phoneFmt.startsWith('8') && phoneFmt.length === 11) phoneFmt = `7${phoneFmt.slice(1)}`;
+    if (!phoneFmt.startsWith('7') && phoneFmt.length === 10) phoneFmt = `7${phoneFmt}`;
+    if (phoneFmt.length !== 11 || !phoneFmt.startsWith('7')) {
+      return {
+        ok: false,
+        reason: 'bad_phone',
+        performanceId: perf.id,
+        phone: contact.phone,
+        seats: locked.map((s) => ({
+          id: s.id,
+          row: s.row,
+          place: s.place,
+          price: s.price,
+          section: s.section?.name,
+        })),
+      };
+    }
+
+    // API-оплата: UI на VPS режет VPN-check до createOrder.
+    const checkout = await page.evaluate(
+      async ({ firstName, lastName, email, phone }) => {
+        const jfetch = async (url, init) => {
+          const res = await fetch(url, {
+            credentials: 'include',
+            headers: {
+              Accept: 'application/json, text/plain, */*',
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              ...(init?.headers || {}),
+            },
+            ...init,
+          });
+          const text = await res.text();
+          let json = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { raw: text.slice(0, 500) };
+          }
+          return { status: res.status, json, ok: res.ok };
+        };
+
+        const dig = (node, depth = 0) => {
+          if (!node || depth > 8) return null;
+          if (typeof node === 'string') {
+            return /^https?:\/\//i.test(node) && /nspk|sbp|pay|yookassa|tinkoff|sber/i.test(node) && !/shopcart\/?$/i.test(node)
+              ? node
+              : null;
+          }
+          if (Array.isArray(node)) {
+            for (const x of node) {
+              const f = dig(x, depth + 1);
+              if (f) return f;
+            }
+            return null;
+          }
+          if (typeof node === 'object') {
+            for (const k of ['paymentUrl', 'redirectUrl', 'url', 'payUrl', 'qrUrl', 'link']) {
+              if (typeof node[k] === 'string') {
+                const f = dig(node[k], depth + 1);
+                if (f) return f;
+              }
+            }
+            for (const v of Object.values(node)) {
+              const f = dig(v, depth + 1);
+              if (f) return f;
+            }
+          }
+          return null;
+        };
+
+        const method = await jfetch('/api/shopcart/paymentMethodChange/', {
+          method: 'POST',
+          body: JSON.stringify({ paymentMethodType: 'SBP' }),
+        });
+
+        const orderPayload = {
+          user: {
+            firstName,
+            lastName,
+            middleName: '',
+            email,
+            phone,
+            consents: { marketing: false },
+          },
+        };
+        const created = await jfetch('/api/order/create/', {
+          method: 'POST',
+          body: JSON.stringify(orderPayload),
+        });
+        const orderId =
+          created.json?.orderId ||
+          created.json?.id ||
+          created.json?.data?.orderId ||
+          null;
+        if (!orderId) {
+          return {
+            ok: false,
+            reason: 'order_create_failed',
+            methodStatus: method.status,
+            createStatus: created.status,
+            createBody: created.json,
+          };
+        }
+
+        const instr = await jfetch(`/api/payment/instructions/${encodeURIComponent(orderId)}/?repeated=false`);
+        let pay = dig(instr.json);
+        if (!pay && instr.json?.details?.qrCode?.paymentUrl) {
+          pay = instr.json.details.qrCode.paymentUrl;
+        }
+        // fallback: страница оплаты заказа (сессионная, но лучше чем shopcart)
+        const payPage = `https://www.ticketland.ru/shopcart/pay/${orderId}`;
+        return {
+          ok: !!pay,
+          orderId,
+          paymentUrl: pay || null,
+          payPage,
+          instructionsStatus: instr.status,
+          instructions: instr.json,
+          methodStatus: method.status,
+          createStatus: created.status,
+        };
+      },
+      { firstName: first, lastName: last, email: contact.email, phone: phoneFmt },
+    );
+
+    if (checkout?.paymentUrl && isRealPaymentUrl(checkout.paymentUrl)) {
+      paymentUrl = checkout.paymentUrl;
+    } else if (checkout?.paymentUrl) {
+      paymentUrl = digPaymentUrl(checkout.paymentUrl) || digPaymentUrl(checkout.instructions);
+    } else {
+      paymentUrl = digPaymentUrl(checkout?.instructions);
+    }
+
+    // Доп. попытка: открыть /shopcart/pay/{orderId} и вытащить nspk из сети/DOM
+    if (!isRealPaymentUrl(paymentUrl) && checkout?.orderId) {
+      const payPageUrl = `https://www.ticketland.ru/shopcart/pay/${checkout.orderId}`;
+      page.on('response', async (res) => {
+        try {
+          const u = res.url();
+          if (isRealPaymentUrl(u)) paymentUrl = u;
+          if (/payment|instructions|nspk|sbp/i.test(u)) {
+            const j = await res.json().catch(() => null);
+            const dug = digPaymentUrl(j);
+            if (dug) paymentUrl = dug;
+          }
+        } catch {
+          /* */
+        }
+      });
+      await page.goto(payPageUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      await page.waitForTimeout(5000);
+      if (!isRealPaymentUrl(paymentUrl)) {
+        const fromDom = await page
+          .evaluate(() => {
+            const hrefs = [...document.querySelectorAll('a[href]')]
+              .map((a) => a.href)
+              .filter(Boolean);
+            const text = document.body?.innerText || '';
+            const m = text.match(/https?:\/\/qr\.nspk\.ru\/[A-Z0-9]+/i);
+            return m?.[0] || hrefs.find((h) => /nspk|sbp/i.test(h)) || null;
+          })
+          .catch(() => null);
+        if (fromDom) paymentUrl = fromDom;
+      }
+      if (!isRealPaymentUrl(paymentUrl) && isRealPaymentUrl(page.url())) {
+        paymentUrl = page.url();
+      }
+    }
 
     const seatsOut = locked.map((s) => ({
       id: s.id,
@@ -308,23 +447,32 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
       description: s.description,
     }));
 
-    const okPay =
-      paymentUrl &&
-      paymentUrl !== 'https://www.ticketland.ru/shopcart/' &&
-      /payment|pay|sbp|qr|bank|checkout/i.test(paymentUrl);
+    const okPay = isRealPaymentUrl(paymentUrl);
 
     return {
-      ok: !!okPay || (cart?.items || []).length >= 2,
-      reason: okPay ? undefined : 'no_payment_url',
+      ok: okPay,
+      reason: okPay
+        ? undefined
+        : checkout?.reason || (checkout?.orderId ? 'no_payment_url' : 'order_create_failed'),
       performanceId: perf.id,
       basisId: perf.basisId,
       label: performance.label || perf.name,
       seats: seatsOut,
-      amount: cart?.totalPrice ?? seatsOut.reduce((s, x) => s + Number(x.price || 0), 0),
-      paymentUrl: okPay ? paymentUrl : paymentUrl || null,
+      amount: cartBefore?.totalPrice ?? seatsOut.reduce((s, x) => s + Number(x.price || 0), 0),
+      orderId: checkout?.orderId || null,
+      paymentUrl: okPay ? paymentUrl : null,
+      payPage: checkout?.orderId ? `https://www.ticketland.ru/shopcart/pay/${checkout.orderId}` : null,
       shopcartUrl: 'https://www.ticketland.ru/shopcart/',
       buyer: { name: contact.name, email: contact.email, phone: contact.phone },
       pageUrl: page.url(),
+      checkoutDetail: okPay
+        ? undefined
+        : {
+            methodStatus: checkout?.methodStatus,
+            createStatus: checkout?.createStatus,
+            createBody: checkout?.createBody,
+            instructionsStatus: checkout?.instructionsStatus,
+          },
     };
   } finally {
     await browser.close().catch(() => {});
