@@ -1084,12 +1084,23 @@ export function TicketCheckoutPage() {
     return ctx?.posterUrl || posterQ || ctx?.bannerUrl || bannerQ || coverPlaceholder;
   }, [ctx?.posterUrl, ctx?.bannerUrl, posterQ, bannerQ, coverPlaceholder]);
 
-  /** Отдельный «билетный» постер справа — только если отличается от фона баннера (как на афишных лендингах). */
+  /**
+   * Постер справа — только если это другой арт, не кроп/баннер той же обложки.
+   * `foo.jpg` + `foo-banner-v2.jpg` считаем одним и тем же → aside не дублируем.
+   */
   const showPosterAside = useMemo(() => {
-    if (!posterSideUrl) return false;
+    if (!posterSideUrl || !coverUrl) return false;
     const norm = (s: string) => s.trim().replace(/\?[^#]*$/, '').replace(/\/$/, '');
-    if (!coverUrl) return true;
-    return norm(posterSideUrl) !== norm(coverUrl);
+    if (norm(posterSideUrl) === norm(coverUrl)) return false;
+    const stem = (s: string) => {
+      const base = norm(s).split('/').pop() || '';
+      return base
+        .replace(/\.(jpe?g|png|webp|avif)$/i, '')
+        .replace(/-banner(-v?\d+)?$/i, '')
+        .replace(/-v\d+$/i, '')
+        .toLowerCase();
+    };
+    return stem(posterSideUrl) !== stem(coverUrl);
   }, [posterSideUrl, coverUrl]);
 
   const sessionChipLabel = useMemo(() => {
