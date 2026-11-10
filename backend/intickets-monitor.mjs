@@ -153,8 +153,18 @@ async function tryBook(cfg, meta) {
 
   const prev = holds.get(cfg.id);
   const attempt = (prev?.attempt || 0) + 1;
-  // не тащим в prefer старые одиночки из soft_lock — только чётные id-наборы
-  const preferSeatNumbers = (prev?.seats || []).filter((_, i, arr) => arr.length >= 2);
+  // prefer — только соседние id (n, n+1). Одиночки и «разрозненные» free=2 не тащим.
+  const preferSeatNumbers = (() => {
+    const nums = [...new Set((prev?.seats || []).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < nums.length - 1; i++) {
+      if (nums[i + 1] === nums[i] + 1) {
+        out.push(nums[i], nums[i + 1]);
+        i++;
+      }
+    }
+    return out;
+  })();
   const rawMax = Math.min(MAX_TICKETS, Math.max(2, Number(meta.ticketCount) || MAX_TICKETS));
   const maxTickets = Math.floor(rawMax / 2) * 2; // 3 → 2
   // EDGE и probe — полный race; обычный retry после backoff — тоже race (места те же).
@@ -172,6 +182,22 @@ async function tryBook(cfg, meta) {
       skipPreview: true,
       raceSessions,
     });
+
+    // Жёстко: успех только если в заказе ≥1 полная соседняя пара (чётное ≥2).
+    const seatCount = (result.seats || []).length;
+    if (result.ok && (seatCount < 2 || seatCount % 2 !== 0)) {
+      log(`reject ${cfg.label}: ok но не пара (seats=${seatCount}) — письмо не шлём`);
+      saveResult({
+        platform: 'radario',
+        action: 'book_fail',
+        label: cfg.label,
+        eventId: cfg.id,
+        at: new Date().toISOString(),
+        reason: 'not_pair_order',
+        detail: { seatCount, seats: result.seats, orderId: result.orderId },
+      });
+      return;
+    }
 
     if (result.ok) {
       const seatNums = (result.seats || []).map((s) => s.seatNumber);
@@ -274,7 +300,12 @@ async function tryBook(cfg, meta) {
     }
 
     log(`fail ${cfg.label}: ${result.reason}`);
-    if (result.reason !== 'no_tickets' && result.reason !== 'no_free_seats_in_payload' && result.reason !== 'no_pairs') {
+    if (
+      result.reason !== 'no_tickets'
+      && result.reason !== 'no_free_seats_in_payload'
+      && result.reason !== 'no_pairs'
+      && result.reason !== 'partial_pair_lock'
+    ) {
       saveResult({
         platform: 'radario',
         action: 'book_fail',

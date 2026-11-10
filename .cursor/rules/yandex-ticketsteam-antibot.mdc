@@ -1,0 +1,24 @@
+# Яндекс Билеты / TICKETSTEAM — антибан
+
+Урок 2026-03-05 (WOW CUP): IP улетел в 403/SmartCaptcha после пачки Playwright-броней + пустых retry.
+
+## Тяжёлый vs лёгкий путь
+
+| Лёгкий (можно часто) | Тяжёлый (редко) |
+|---|---|
+| `GET …/sessions/:key` (`getWidgetSession`) | Playwright → antibot JWT |
+| resolve ticketUrl с лендинга | hallplan CDN |
+| | session-order-preview + poll |
+| | orders/create |
+
+## Обязательные правила ботов
+
+1. **Poll сессии ≠ book.** Открытие браузера только когда реально бронируем.
+2. **После «нет пар на схеме»** — не ретраить Playwright на том же `availableSeatCount`. Cooldown (экспонента) **или** ждать рост `available`.
+3. **`available < 2`** — пары нет, book не вызывать.
+4. **403 / 429 / SmartCaptcha / antibot** — длинный cooldown (минуты), не крутить book с того же IP.
+5. **Мёртвый sessionKey (404)** — resolve + backoff, не долбить API каждые 1с часами (это тоже бан).
+6. **Не параллелить** локальный book + VPS book на один IP/сессию без нужды.
+7. RuCaptcha ≠ Yandex SmartCaptcha; не путать скиллы.
+
+Референс: `backend/wowcup-monitor.mjs` (`EMPTY_BOOK_COOLDOWN_*`, `RATE_LIMIT_COOLDOWN_MS`).
