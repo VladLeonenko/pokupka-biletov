@@ -62,60 +62,70 @@ export function NeglinkaEventRows({ events }: Props) {
             '--hover-bg': tone.bg,
             '--hover-glow': tone.glow,
           } as CSSProperties;
+          const metaBits = [ev.genre, ev.age].filter(Boolean);
 
           return (
             <Link key={ev.id} to={to} className={styles.row} style={rowStyle}>
               <div className={styles.rowInner}>
-              <div className={styles.colDate}>
-                <span className={styles.dateBig}>{dateStr}</span>
-                {wd ? <span className={styles.dateWd}>{wd}</span> : null}
-              </div>
-
-              <div className={styles.colVisual}>
-                <div className={styles.circle}>
-                  <TicketEventPosterImg
-                    src={posterSrc}
-                    fallbackSrc={placeholderSrc}
-                    gradientId={ev.id}
-                    className={styles.img}
-                    loading="lazy"
-                  />
+                <div className={styles.colDate}>
+                  <span className={styles.dateBig}>{dateStr}</span>
+                  {wd ? <span className={styles.dateWd}>{wd}</span> : null}
                 </div>
-              </div>
 
-              <div className={styles.colInfo}>
-                <div className={styles.metaTop}>
-                  {ev.age && <span className={styles.age}>{ev.age}</span>}
-                  {ev.genre && <span>{ev.genre}</span>}
-                </div>
-                {ev.isPremiere && <span className={styles.premiereTag}>Премьера</span>}
-                <h3 className={styles.title}>{ev.title}</h3>
-                {ev.subtitle?.trim() ? <p className={styles.subtitle}>{ev.subtitle.trim()}</p> : null}
-                {(ev.author || ev.director) && (
-                  <div className={styles.creditsGrid}>
-                    {ev.author && (
-                      <div className={styles.creditCell}>
-                        <span className={styles.creditLabel}>Автор</span>
-                        <span className={styles.creditName}>{ev.author}</span>
-                      </div>
-                    )}
-                    {ev.director && (
-                      <div className={styles.creditCell}>
-                        <span className={styles.creditLabel}>Режиссёр</span>
-                        <span className={styles.creditName}>{ev.director}</span>
-                      </div>
-                    )}
+                <div className={styles.colVisual}>
+                  <div className={styles.poster}>
+                    <TicketEventPosterImg
+                      src={posterSrc}
+                      fallbackSrc={placeholderSrc}
+                      gradientId={ev.id}
+                      className={styles.img}
+                      loading="lazy"
+                    />
                   </div>
-                )}
-                <div className={styles.timeVenueRow}>
-                  {timeStr && <span className={styles.timeBig}>{timeStr}</span>}
-                  {ev.venue && <span className={styles.venueName}>{ev.venue}</span>}
                 </div>
-              </div>
 
-              <div className={styles.colCta}>
-                <span className={styles.btn}>КУПИТЬ БИЛЕТ</span>
-              </div>
+                <div className={styles.colInfo}>
+                  <div className={styles.mobileDate}>
+                    <span className={styles.dateBig}>{dateStr}</span>
+                    {wd ? <span className={styles.dateWd}>{wd}</span> : null}
+                  </div>
+                  {metaBits.length > 0 ? (
+                    <div className={styles.metaTop}>
+                      {metaBits.map((bit) => (
+                        <span key={bit}>{bit}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {ev.isPremiere && <span className={styles.premiereTag}>Премьера</span>}
+                  <h3 className={styles.title}>{ev.title}</h3>
+                  {ev.subtitle?.trim() ? (
+                    <p className={styles.subtitle}>{ev.subtitle.trim()}</p>
+                  ) : null}
+                  {(ev.author || ev.director) && (
+                    <div className={styles.creditsGrid}>
+                      {ev.author && (
+                        <div className={styles.creditCell}>
+                          <span className={styles.creditLabel}>Автор</span>
+                          <span className={styles.creditName}>{ev.author}</span>
+                        </div>
+                      )}
+                      {ev.director && (
+                        <div className={styles.creditCell}>
+                          <span className={styles.creditLabel}>Режиссёр</span>
+                          <span className={styles.creditName}>{ev.director}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className={styles.timeVenueRow}>
+                    {timeStr && <span className={styles.timeBig}>{timeStr}</span>}
+                    {ev.venue && <span className={styles.venueName}>{ev.venue}</span>}
+                  </div>
+                </div>
+
+                <div className={styles.colCta}>
+                  <span className={styles.btn}>КУПИТЬ БИЛЕТ</span>
+                </div>
               </div>
             </Link>
           );

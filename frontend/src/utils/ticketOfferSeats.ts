@@ -30,15 +30,19 @@ export function isNamedTicketOfferRow(row: { Extra?: string[] }): boolean {
   return offerExtraLabels(row).some((e) => /именной/i.test(e));
 }
 
-/** Оффер без SeatList нельзя положить в корзину — скрываем, если именные билеты на событии не продаём. */
+/**
+ * Оффер без SeatList нельзя положить в корзину (GetBilet MakeOrder требует SeatList).
+ * Раньше «именные» строки без номеров показывали в списке с подсказкой «выберите на схеме» —
+ * это выглядело как билеты в продаже, но купить из строки нельзя. Не листим seatless никогда.
+ * `namedTicketUxEnabled` оставлен в сигнатуре для совместимости вызовов.
+ */
 export function isOfferListedOnCheckout(
   row: {
     SeatList?: string[] | string;
     seatList?: string[] | string;
     Extra?: string[];
   },
-  namedTicketUxEnabled: boolean,
+  _namedTicketUxEnabled?: boolean,
 ): boolean {
-  if (!isSeatlessOfferRow(row)) return true;
-  return namedTicketUxEnabled;
+  return !isSeatlessOfferRow(row);
 }
