@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 /**
- * Историческая сцена: ложи бельэтажа/1 яруса правые — только ряд 1;
- * preview бельэтажа → view-beletazh.jpg; пересборка seats + sectorMode + офферов.
+ * Историческая сцена: ложи бельэтажа/1 яруса — sellable только ряд 1;
+ * preview бельэтажа → view-beletazh.jpg.
+ *
+ * ВАЖНО: sectorMode.path строится через outlineTest (полная ложа 3×3),
+ * НЕ из отфильтрованных lit-мест. Нельзя кормить builder только рядом 1.
  *
  *   node scripts/patch-bolshoi-historical-row1-boxes.js           # dry-run
  *   APPLY=1 node scripts/patch-bolshoi-historical-row1-boxes.js  # запись
  */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import ticketPool from '../ticketDb.js';
 import {
   remapBolshoiSeatsToSellableLabels,
@@ -17,6 +23,7 @@ import {
 
 const APPLY = process.env.APPLY === '1' || process.env.APPLY === 'true';
 const STAGE_ID = process.env.BOLSHOI_HISTORICAL_STAGE_EXTERNAL_ID?.trim() || 'bolshoi-historical-stage';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function countByLabel(seats) {
   const m = new Map();
@@ -39,6 +46,7 @@ async function main() {
   const hallW = Number(lj.hallWidth) || 1500;
   const hallH = Number(lj.hallHeight) || 1190;
   const remapped = remapBolshoiSeatsToSellableLabels(lj.seats);
+  /** Paths = full-box outlineTest; qty/color = row-1 sellable only. */
   const sectorMode = buildBolshoiSellableSectorMode(remapped, hallW, hallH);
   const before = countByLabel(
     (lj.seats || []).map((s) => ({ ...s, sellable: s.sellable !== false && Boolean(s.sector) })),
@@ -47,11 +55,20 @@ async function main() {
 
   const previewSample = (sectorMode.sectors || [])
     .filter((s) => /бель|1 ярус/i.test(s.label || ''))
-    .map((s) => `${s.id}: n=${s.totalSeats} img=${s.previewImageUrl}`);
+    .map((s) => `${s.id}: n=${s.totalSeats} outlinePts≈pathLen=${(s.path || '').length} img=${s.previewImageUrl}`);
 
   console.log(JSON.stringify({ dryRun: !APPLY, beforeSellableApprox: before, afterSellable: after, previewSample }, null, 2));
 
   if (APPLY) {
+    const bakDir = path.join(__dirname, '../data/bolshoi-geodesy/hand');
+    fs.mkdirSync(bakDir, { recursive: true });
+    const bakPath = path.join(
+      bakDir,
+      `bolshoi-historical-layout_json.${new Date().toISOString().replace(/[:.]/g, '-')}.bak.json`,
+    );
+    fs.writeFileSync(bakPath, JSON.stringify(lj));
+    console.log(JSON.stringify({ layoutBak: bakPath }));
+
     const next = {
       ...lj,
       seats: remapped,

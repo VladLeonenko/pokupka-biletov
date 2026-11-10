@@ -106,18 +106,45 @@ function viewPointForPreviewUrl(url) {
   return null;
 }
 
-/** @typedef {{ id: string, label: string, previewImageUrl?: string, test: (s: object) => boolean, maxQty?: number, box?: boolean }} SellableRule */
+/**
+ * @typedef {{
+ *   id: string,
+ *   label: string,
+ *   previewImageUrl?: string,
+ *   test: (s: object) => boolean,
+ *   outlineTest?: (s: object) => boolean,
+ *   maxQty?: number,
+ *   box?: boolean,
+ *   priceAlias?: string,
+ * }} SellableRule
+ */
 
-/** Одна правая ложа: только ряд 1 (геометрия 3×3 остаётся, ряды 2–3 серые). */
-function rightBoxTest(tierRe, boxNo) {
+/** Полная ложа (все ряды) — только для SVG-контура, не для подсветки/офферов. */
+function rightBoxOutlineTest(tierRe, boxNo) {
   const re = new RegExp(`${tierRe}\\s+Правая.*Ложа\\s+${boxNo}\\b`);
-  return (s) => re.test(detail(s)) && String(s.rowOrigin ?? s.row) === '1';
+  return (s) => re.test(detail(s));
+}
+
+/** Одна правая ложа: sellable только ряд 1 (геометрия 3×3 остаётся, ряды 2–3 серые). */
+function rightBoxTest(tierRe, boxNo) {
+  const outline = rightBoxOutlineTest(tierRe, boxNo);
+  return (s) => outline(s) && String(s.rowOrigin ?? s.row) === '1';
+}
+
+function leftBoxOutlineTest(tierRe, boxNo) {
+  const re = new RegExp(`${tierRe}\\s+Левая.*Ложа\\s+${boxNo}\\b`);
+  return (s) => re.test(detail(s));
+}
+
+function leftBoxRow1Test(tierRe, boxNo) {
+  const outline = leftBoxOutlineTest(tierRe, boxNo);
+  return (s) => outline(s) && String(s.rowOrigin ?? s.row) === '1';
 }
 
 /**
- * Продаваемые зоны. Границы зоны задаёт `test` — он же определяет, сколько в
- * зоне мест; `maxQuantity` потом равен этому числу, без отдельного потолка.
- * Менять `test` ради лимита нельзя: зона расползается по схеме.
+ * Продаваемые зоны. Подсветка/офферы — `test`; SVG-контур — `outlineTest`
+ * (если задан), иначе те же места. Нельзя строить path только по lit-местам
+ * ряда 1: получится узкая полоска вместо полной ложи.
  *
  * `priceAlias` — старый лейбл для подхвата цены после переименования зон.
  */
@@ -140,6 +167,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 4),
+    outlineTest: rightBoxOutlineTest('Бельэтаж', 4),
   },
   {
     id: 'beletazh_right_5',
@@ -147,6 +175,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 5),
+    outlineTest: rightBoxOutlineTest('Бельэтаж', 5),
   },
   {
     id: 'beletazh_right_6',
@@ -154,6 +183,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 6),
+    outlineTest: rightBoxOutlineTest('Бельэтаж', 6),
   },
   {
     id: 'lozha1_right_5',
@@ -161,6 +191,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 5),
+    outlineTest: rightBoxOutlineTest('1\\s*ярус', 5),
   },
   {
     id: 'lozha1_right_6',
@@ -168,6 +199,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 6),
+    outlineTest: rightBoxOutlineTest('1\\s*ярус', 6),
   },
   {
     id: 'lozha1_right_7',
@@ -175,6 +207,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 7),
+    outlineTest: rightBoxOutlineTest('1\\s*ярус', 7),
   },
   {
     id: 'lozha1_right_8',
@@ -182,6 +215,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 8),
+    outlineTest: rightBoxOutlineTest('1\\s*ярус', 8),
   },
   {
     id: 'balkon2_left',
@@ -212,9 +246,8 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     /** Целиком в чекауте, на схеме светятся только места ряда 1. */
     box: true,
-    test: (s) =>
-      /Бельэтаж\s+Левая.*Ложа\s+4\b/.test(detail(s)) &&
-      String(s.rowOrigin ?? s.row) === '1',
+    test: leftBoxRow1Test('Бельэтаж', 4),
+    outlineTest: leftBoxOutlineTest('Бельэтаж', 4),
   },
   {
     id: 'lozha1_box',
@@ -222,9 +255,8 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     /** Целиком в чекауте, на схеме светятся только места ряда 1. */
     box: true,
-    test: (s) =>
-      /1\s*ярус\s+Левая.*Ложа\s+9\b/.test(detail(s)) &&
-      String(s.rowOrigin ?? s.row) === '1',
+    test: leftBoxRow1Test('1\\s*ярус', 9),
+    outlineTest: leftBoxOutlineTest('1\\s*ярус', 9),
   },
   {
     id: 'vip_parter',
@@ -531,12 +563,20 @@ function sectorZonePath(pts, pad, hallWidth, hallHeight) {
 export function buildBolshoiSellableSectorMode(seats, hallWidth = 1500, hallHeight = 1190) {
   const sectors = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
-    const pts = seats
-      .filter((s) => s.sector === rule.label)
-      .map((s) => ({
-        x: (Number(s.xPct) / 100) * hallWidth,
-        y: (Number(s.yPct) / 100) * hallHeight,
-      }));
+    /** После remap sellable-места несут label; до remap — rule.test. */
+    const labeled = seats.filter((s) => s.sector === rule.label);
+    const qtySeats = labeled.length ? labeled : seats.filter((s) => rule.test(s));
+    /**
+     * Контур — по полной ложе (outlineTest), не по lit ряда 1.
+     * Иначе path схлопывается в полоску из 3 точек и «уезжает» от точек.
+     */
+    const outlineSeats = rule.outlineTest
+      ? seats.filter((s) => rule.outlineTest(s))
+      : qtySeats;
+    const pts = outlineSeats.map((s) => ({
+      x: (Number(s.xPct) / 100) * hallWidth,
+      y: (Number(s.yPct) / 100) * hallHeight,
+    }));
     if (pts.length < 1) continue;
     let x1 = Infinity;
     let y1 = Infinity;
@@ -555,15 +595,16 @@ export function buildBolshoiSellableSectorMode(seats, hallWidth = 1500, hallHeig
     y2 = Math.min(hallHeight, y2 + pad);
     const bboxPath = `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x1.toFixed(1)} ${y2.toFixed(1)} Z`;
     const vp = viewPointForPreviewUrl(rule.previewImageUrl);
+    const qty = qtySeats.length || pts.length;
     sectors.push({
       id: rule.id,
       label: rule.label,
       path: sectorZonePath(pts, pad, hallWidth, hallHeight) || bboxPath,
-      totalSeats: pts.length,
+      totalSeats: qty,
       previewImageUrl: rule.previewImageUrl || null,
       previewIconX: vp?.x ?? null,
       previewIconY: vp?.y ?? null,
-      maxQuantity: pts.length,
+      maxQuantity: qty,
       boxWhole: rule.box === true,
     });
   }
