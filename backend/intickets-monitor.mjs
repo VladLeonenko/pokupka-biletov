@@ -16,6 +16,7 @@ import {
   getWarmBuySession,
   primeSessionPool,
 } from './services/radarioBooking.js';
+import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -268,6 +269,24 @@ async function tryBook(cfg, meta) {
         `Схема: https://radario.ru/customer/event/${cfg.id}/info?distributionType=Widget`,
       ].join('\n');
       log(`OK ${cfg.label} orderId=${result.orderId} seats=[${seatNums.join(',')}]`);
+      try {
+        registerPendingPayment({
+          platform: 'radario',
+          orderId: result.orderId,
+          qrId: result.qrId || null,
+          paymentUrl: result.redirectUrl || null,
+          orderHash: result.orderHash || null,
+          label: cfg.label,
+          eventId: cfg.id,
+          amount: result.amount ?? null,
+          tickets: seats.length,
+          seats: pairBlocks.map((x) => x.replace(/^\s*ПАРА:\s*/, '')).join(' | ') || seatNums.join(','),
+          buyers: result.buyers || null,
+          trackUntilMs: Date.now() + 45 * 60_000,
+        });
+      } catch (e) {
+        log(`pay-track register fail: ${e.message}`);
+      }
       await notifyBook(
         `${attempt > 1 ? '🔁' : '✅'} Опера нищих: ${cfg.label} · ${pairBlocks.length} пар · #${result.orderId}`,
         text,

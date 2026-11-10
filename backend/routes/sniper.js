@@ -5,6 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 import { bookSeatsViaApi, resolveEventSessions, getSessionAvailability, MXAT_APP_KEY } from '../services/afishaApiBooking.js';
 import { sendTransactionalMail } from '../services/mail/transporter.js';
+import {
+  listPayments,
+  markPayment,
+  paymentSummary,
+  registerPendingPayment,
+} from '../services/sniperPaymentTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RESULTS_FILE = path.join(__dirname, '..', 'data', 'sniper-results.json');
@@ -136,12 +142,36 @@ sniperRouter.get('/check-payments', requireAuth, requireAdminOrSalesManager, asy
 
 // Ручная отметка «оплачено» по заказу.
 sniperRouter.post('/mark-paid', requireAuth, requireAdminOrSalesManager, (req, res) => {
-  const { orderId } = req.body || {};
+  const { orderId, platform } = req.body || {};
   if (!orderId) return res.status(400).json({ error: 'orderId обязателен' });
+  // legacy afisha file
   const st = readPayStatus();
   st.orders[orderId] = { ...(st.orders[orderId] || {}), status: 'success', manual: true, checkedAt: new Date().toISOString() };
   writePayStatus(st);
-  res.json({ success: true, orderId });
+  // unified ledger (Opera/Vakhtangov/…)
+  if (platform) {
+    registerPendingPayment({ platform, orderId, tickets: req.body?.tickets, amount: req.body?.amount, label: req.body?.label });
+    markPayment({ platform, orderId }, {
+      status: 'paid',
+      manual: true,
+      paidAt: new Date().toISOString(),
+      lastCheckDetail: 'manual mark-paid',
+      tickets: req.body?.tickets,
+      amount: req.body?.amount,
+      seats: req.body?.seats,
+    });
+  }
+  res.json({ success: true, orderId, platform: platform || null });
+});
+
+/** Ledger оплат всех снайперов (live-tracker). */
+sniperRouter.get('/payments', requireAuth, requireAdminOrSalesManager, (req, res) => {
+  const fee = Number(process.env.SNIPER_FEE_PER_TICKET || 0);
+  const { orders, updatedAt } = listPayments({
+    status: req.query.status || undefined,
+    platform: req.query.platform || undefined,
+  });
+  res.json({ success: true, updatedAt, summary: paymentSummary(fee), data: orders });
 });
 
 /** Боевой статус: сессии, прогресс, контакты, доступность, ссылки на оплату. */

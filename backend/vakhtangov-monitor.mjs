@@ -14,6 +14,7 @@ import {
   bookVakhtangovParterPairs,
   parseTlScript,
 } from './services/vakhtangovTicketlandBooking.js';
+import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -201,6 +202,24 @@ async function tryBook(ev) {
       log(
         `OK ${ev.label} seats=${seats.map((s) => `${s.row}-${s.place}`).join(',')} order=${result.orderId || '—'} pay=${result.paymentUrl}`,
       );
+      if (result.orderId) {
+        try {
+          registerPendingPayment({
+            platform: 'vakhtangov-ticketland',
+            orderId: result.orderId,
+            paymentUrl: result.paymentUrl || null,
+            label: ev.label,
+            amount: result.amount ?? null,
+            tickets: seats.length,
+            seats: pairLines.map((x) => x.replace(/^МЕСТА:\s*/, '')).join(' | ')
+              || seats.map((s) => `р${s.row}м${s.place}`).join('+'),
+            buyers: result.buyer || null,
+            trackUntilMs: Date.now() + 45 * 60_000,
+          });
+        } catch (e) {
+          log(`pay-track register fail: ${e.message}`);
+        }
+      }
       await notifyBook(`✅ Вахтангов: ${ev.label} · ${seatShort}`, text).catch((e) => log(`mail fail: ${e.message}`));
       return;
     }

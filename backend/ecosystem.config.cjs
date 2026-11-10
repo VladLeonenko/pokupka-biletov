@@ -154,5 +154,26 @@ module.exports = {
       merge_logs: true,
       time: true,
     },
+    {
+      name: 'sniper-payment-tracker',
+      script: 'sniper-payment-tracker.mjs',
+      args: '',
+      autorestart: true,
+      max_restarts: 100,
+      restart_delay: 3000,
+      env: {
+        NODE_ENV: 'production',
+        SNIPER_PAY_POLL_MS: '15000',
+        // выставь фикс ₽/билет когда договоритесь: SNIPER_FEE_PER_TICKET=500
+        SNIPER_FEE_PER_TICKET: '0',
+        SNIPER_PAY_NOTIFY_EMAIL:
+          'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com',
+        SNIPER_PAY_BCC: 'yaguda_io@mail.ru',
+      },
+      out_file: './data/sniper-payment-tracker.log',
+      error_file: './data/sniper-payment-tracker-error.log',
+      merge_logs: true,
+      time: true,
+    },
   ],
 };
