@@ -15,7 +15,7 @@ export default createTheaterHallSeatEditorRouter({
   svgPublicPath: '/hall-maps/bolshoi-historical-stage.svg',
   enrichedPublicFileName: 'bolshoi-historical-stage-enriched.svg',
   defaultHallW: 1500,
-  defaultHallH: 1190,
+  defaultHallH: 1100,
   editorMode: 'bolshoi-historical-stage-editor',
   seedHint: 'npm run seed:bolshoi-historical-stage-map',
   defaultHallKind: 'theater',

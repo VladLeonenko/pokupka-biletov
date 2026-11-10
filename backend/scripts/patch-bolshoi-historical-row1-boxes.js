@@ -18,6 +18,7 @@ import {
   bolshoiSellableSeatsByRow,
   expandBolshoiOffersByRows,
   buildBolshoiSellableSectorMode,
+  resolveBolshoiHistoricalHallSize,
   BOLSHOI_HALL_MAP_LABELS,
 } from '../utils/bolshoiSellableSectors.js';
 
@@ -43,10 +44,10 @@ async function main() {
   const lj = map.rows[0]?.layout_json;
   if (!lj || !Array.isArray(lj.seats)) throw new Error('нет layout seats');
 
-  const hallW = Number(lj.hallWidth) || 1500;
-  const hallH = Number(lj.hallHeight) || 1190;
+  /** SVG/места = 1500×1100; НЕ дефолт 1190 — иначе path уезжает от точек. */
+  const { hallWidth: hallW, hallHeight: hallH } = resolveBolshoiHistoricalHallSize(lj);
   const remapped = remapBolshoiSeatsToSellableLabels(lj.seats);
-  /** Paths = full-box outlineTest; qty/color = row-1 sellable only. */
+  /** Paths = full-box outlineTest (все ряды); qty/color = row-1 sellable only. */
   const sectorMode = buildBolshoiSellableSectorMode(remapped, hallW, hallH);
   const before = countByLabel(
     (lj.seats || []).map((s) => ({ ...s, sellable: s.sellable !== false && Boolean(s.sector) })),
@@ -71,6 +72,8 @@ async function main() {
 
     const next = {
       ...lj,
+      hallWidth: hallW,
+      hallHeight: hallH,
       seats: remapped,
       sectorMode,
       hallMapLabels: Array.isArray(lj.hallMapLabels) && lj.hallMapLabels.length

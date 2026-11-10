@@ -18,13 +18,19 @@ export const BOLSHOI_VIEW_IMAGES = {
 };
 
 /**
- * Точки съёмки «вид из зала» (coords схемы 1500×1190, сцена снизу).
- * Иконка глаза ставится сюда, не в центр продаваемого сектора.
- */
-/**
- * Точки съёмки (viewBox 1500×1190, Сцена сверху).
+ * Точки съёмки (viewBox 1500×1100, Сцена сверху).
  * Балкон-2: центр 1 ряда балкона 2; ложа 1 яруса — зеркально на левую сторону схемы.
  */
+/** Историческая сцена: SVG/места в 1500×1100 (не 1190). */
+export const BOLSHOI_HISTORICAL_HALL_WIDTH = 1500;
+export const BOLSHOI_HISTORICAL_HALL_HEIGHT = 1100;
+
+export function resolveBolshoiHistoricalHallSize(layout) {
+  const meta = layout?.bolshoiHistorical || layout?.pbilet || {};
+  const w = Number(layout?.hallWidth ?? meta.hallWidth) || BOLSHOI_HISTORICAL_HALL_WIDTH;
+  const h = Number(layout?.hallHeight ?? meta.hallHeight) || BOLSHOI_HISTORICAL_HALL_HEIGHT;
+  return { hallWidth: w, hallHeight: h };
+}
 export const BOLSHOI_VIEW_POINTS = {
   parter: {
     id: 'view-parter',
@@ -63,20 +69,9 @@ export const BOLSHOI_VIEW_POINTS = {
 };
 
 /**
- * Подписи у своих уровней (как на плане Большого).
- * viewBox 1500×1190, Сцена сверху; боковые — снаружи лож, центр — по оси зала.
- */
-/**
- * Подписи ярусов. `owner` — блок, который подпись называет: подпись обязана
- * стоять на нём, иначе её читают как подпись соседнего блока. `plate` — белая
- * плашка под текстом: нужна там, где свободного коридора нет и текст ложится
- * прямо на места.
- *
- * Боковым ложам отведены коридоры между подковами, со стороны центра зала от
- * своего яруса. Правая сторона схемы — высокие X.
- *
- * Координаты проверяет `scripts/_solve-bolshoi-hall-labels.mjs`; после любой
- * пересборки геометрии зала его надо прогнать заново.
+ * Подписи ярусов (viewBox 1500×1100). `owner` — блок, который подпись называет.
+ * `plate` — белая плашка под текстом. Координаты:
+ * `scripts/_solve-bolshoi-hall-labels.mjs`.
  */
 export const BOLSHOI_HALL_MAP_LABELS = [
   { text: 'ПРАВАЯ СТОРОНА', x: 1280, y: 26, fontSize: 12 },
@@ -560,15 +555,20 @@ function sectorZonePath(pts, pad, hallWidth, hallHeight) {
   return inflatedHullPath(hull.map(fit), pad);
 }
 
-export function buildBolshoiSellableSectorMode(seats, hallWidth = 1500, hallHeight = 1190) {
+export function buildBolshoiSellableSectorMode(
+  seats,
+  hallWidth = BOLSHOI_HISTORICAL_HALL_WIDTH,
+  hallHeight = BOLSHOI_HISTORICAL_HALL_HEIGHT,
+) {
   const sectors = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
     /** После remap sellable-места несут label; до remap — rule.test. */
     const labeled = seats.filter((s) => s.sector === rule.label);
     const qtySeats = labeled.length ? labeled : seats.filter((s) => rule.test(s));
     /**
-     * Контур — по полной ложе (outlineTest), не по lit ряда 1.
-     * Иначе path схлопывается в полоску из 3 точек и «уезжает» от точек.
+     * Контур — ВСЕГДА по полной ложе (outlineTest / все места сектора).
+     * НИКОГДА не строить path только из lit ряда 1: получится полоска не на группе.
+     * Sellable-цвет/qty — отдельно из qtySeats (ряд 1).
      */
     const outlineSeats = rule.outlineTest
       ? seats.filter((s) => rule.outlineTest(s))
