@@ -341,20 +341,19 @@ export function stripSvgSectorLabelsForBackdrop(html: string): string {
   }
 }
 
+/** Финальный nuke: любой <circle> (self-close / paired) — DOMParser иногда оставлял места в raster. */
+function nukeAllSvgCirclesHtml(html: string): string {
+  return html
+    .replace(/<circle\b[^>]*\/>/gi, '')
+    .replace(/<circle\b[^>]*>[\s\S]*?<\/circle>/gi, '')
+    .replace(/<circle\b[^>]*>/gi, '');
+}
+
 export function stripSvgSeatCirclesForBackdrop(html: string): string {
   const trimmed = html?.trim();
   if (!trimmed || !trimmed.includes('<svg')) return html;
   const stripSeatCirclesRegex = (src: string) =>
-    stripGetbiletRowGlyphPathsHtml(
-      src
-        .replace(/<circle\b[^>]*\bplace-name=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
-        .replace(/<circle\b[^>]*\bdata-replaced=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
-        .replace(/<circle\b[^>]*\br=(["']?)([0-9.]+)\1[^>]*\/?>/gi, (tag, _q, rRaw) => {
-          const r = Number.parseFloat(rRaw);
-          if (Number.isFinite(r) && r > 0 && r <= 16) return '';
-          return tag;
-        }),
-    );
+    stripGetbiletRowGlyphPathsHtml(nukeAllSvgCirclesHtml(src));
   if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
     return stripSeatCirclesRegex(trimmed);
   }
@@ -364,28 +363,11 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
       doc = new DOMParser().parseFromString(trimmed, 'text/html');
     }
     const svg = doc.querySelector('svg');
-    if (!svg) return trimmed;
-    /** Все кружки мест — иначе DOM/raster SVG даёт «бублики» при зуме поверх canvas. */
-    svg.querySelectorAll('circle').forEach((c) => {
-      const hasSeatAttr =
-        c.hasAttribute('place-name')
-        || c.hasAttribute('data-replaced')
-        || c.hasAttribute('row')
-        || c.hasAttribute('place');
-      const r = Number.parseFloat(c.getAttribute('r') || '');
-      const seatSized = Number.isFinite(r) && r > 0 && r <= 16;
-      if (hasSeatAttr || seatSized) {
-        c.remove();
-        return;
-      }
-      const fill = String(c.getAttribute('fill') || '').toLowerCase();
-      if (fill && fill !== 'none' && fill !== '#fff' && fill !== '#ffffff' && fill !== 'white') {
-        c.setAttribute('fill', 'none');
-        c.setAttribute('stroke', 'none');
-      }
-    });
+    if (!svg) return stripSeatCirclesRegex(trimmed);
+    /** Все circle — сцена/декор без мест. Иначе raster SVG = бублики под canvas. */
+    svg.querySelectorAll('circle').forEach((c) => c.remove());
     stripGetbiletRowGlyphPathsFromSvg(svg);
-    return new XMLSerializer().serializeToString(svg);
+    return nukeAllSvgCirclesHtml(new XMLSerializer().serializeToString(svg));
   } catch {
     return stripSeatCirclesRegex(trimmed);
   }
@@ -479,15 +461,11 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
    * Иначе DOM/raster SVG даёт «бублики» при зуме, а canvas-точки — мелкие в центре.
    * Координаты уже в seats[]; визуал мест — только canvas/DOM-оверлей.
    */
-  svg.querySelectorAll('circle[place-name], circle[data-replaced]').forEach((c) => c.remove());
-  svg.querySelectorAll('circle').forEach((c) => {
-    const r = Number.parseFloat(c.getAttribute('r') || '');
-    if (Number.isFinite(r) && r > 0 && r <= 16) c.remove();
-  });
+  svg.querySelectorAll('circle').forEach((c) => c.remove());
 
   stripGetbiletRowGlyphPathsFromSvg(svg);
 
-  const ser = new XMLSerializer().serializeToString(svg);
+  const ser = nukeAllSvgCirclesHtml(new XMLSerializer().serializeToString(svg));
   return { seats, svgHtml: ser };
 }
 

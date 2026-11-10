@@ -26,10 +26,10 @@ import {
 } from '../../utils/hallSeatRadiusPx';
 import styles from './TicketHallInteractiveBlock.module.css';
 
-/** Совпадает с фоновой заливкой точек чаши на canvas (dense hall). */
-const CANVAS_HALL_SEAT_DOT_FILL = 'rgba(148, 163, 184, 0.72)';
-/** Маркер без оффера / превью схемы в DOM (slate ≈ rgb(148,163,184)); офферы — colorForSeat. */
-const DOM_UNIFORM_SEAT_ACCENT = '#94a3b8';
+/** Серые места театра/чаши: светлый solid как старый SVG #d0d0d0 (не тёмный slate). */
+const CANVAS_HALL_SEAT_DOT_FILL = '#d0d0d0';
+/** Маркер без оффера / превью схемы в DOM; офферы — colorForSeat. */
+const DOM_UNIFORM_SEAT_ACCENT = '#d0d0d0';
 /** Подложка при zoom — без grayscale, поле остаётся зелёным. */
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
 /** Акцент «выгодное предложение» (наши места с лучшей ценой; совпадает с CSS var(--own-best-color) fallback). */
@@ -1551,11 +1551,23 @@ export function TicketHallInteractiveBlock({
     return svgHtmlSafe;
   }, [stadiumCanvasEnabled, theaterSvgSeatCanvas, svgHtmlSafe]);
 
-  /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
+  /** Растр SVG подложки на canvas готов. */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
   const [hallRasterReady, setHallRasterReady] = useState(false);
+  /**
+   * Театр: canvas-места рисуем сразу (не ждать backdrop).
+   * Иначе до onload DOM-SVG с кружками остаётся видимым → бублики + мелкие точки.
+   * Стадион: по-прежнему ждём растр чаши.
+   */
   const useCanvasCompositing =
-    stadiumCanvasEnabled && (canvasBackdropReady || (useHallBackgroundRaster && hallRasterReady));
+    stadiumCanvasEnabled
+    && (
+      theaterSvgSeatCanvas
+      || canvasBackdropReady
+      || (useHallBackgroundRaster && hallRasterReady)
+    );
+  /** Прячем DOM-SVG как только включён canvas-зал — не ждать raster onload. */
+  const hideDomSvgForCanvas = stadiumCanvasEnabled;
 
   useEffect(() => {
     if (!useCanvasCompositing) return;
@@ -2928,7 +2940,7 @@ export function TicketHallInteractiveBlock({
             style={layersStyle}
           >
             <div
-              className={`${styles.svgLayer} ${useCanvasCompositing ? styles.svgLayerCanvasBacked : ''} ${
+              className={`${styles.svgLayer} ${hideDomSvgForCanvas ? styles.svgLayerCanvasBacked : ''} ${
                 stadiumCanvasEnabled || theaterSvgSeatCanvas ? styles.svgLayerHideSeatCircles : ''
               } ${
                 !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''

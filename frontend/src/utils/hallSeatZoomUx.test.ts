@@ -29,6 +29,15 @@ describe('hall seat uniform theater dots', () => {
     expect(next).toBeGreaterThan(oldSvgScreenR * 0.35);
   });
 
+  it('pinch zoom does not cap theater dots to 3px crumbs', () => {
+    const scalePx = 4;
+    const oldSvgScreenR = 2.86 * scalePx;
+    const next = theaterSeatRadiusPx(scalePx, false);
+    expect(next).toBeGreaterThan(3);
+    expect(next).toBeLessThan(oldSvgScreenR * 0.6);
+    expect(next).toBeGreaterThan(oldSvgScreenR * 0.35);
+  });
+
   it('strips Bolshoi-like seat circles from backdrop SVG', () => {
     const src =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
