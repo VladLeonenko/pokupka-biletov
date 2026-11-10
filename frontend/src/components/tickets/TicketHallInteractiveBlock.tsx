@@ -959,8 +959,8 @@ export function TicketHallInteractiveBlock({
     return hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl);
   }, [disableHallBackgroundDots, hallBackgroundRasterUrl]);
   const nativeProcessed = useMemo(
-    () => processHallSvgForNative(hallSvgHtml, { stripSeatCircles: isMhtChekhovHall }),
-    [hallSvgHtml, isMhtChekhovHall],
+    () => processHallSvgForNative(hallSvgHtml, { stripSeatCircles: true }),
+    [hallSvgHtml],
   );
   /**
    * Театр из layout_json ИЛИ fallback по SVG-местам (если seed затёр hallKind —
@@ -1509,7 +1509,10 @@ export function TicketHallInteractiveBlock({
     };
   }, []);
 
+  const [mobileHintDismissed, setMobileHintDismissed] = useState(false);
+
   const showSeatInfo = useCallback((anchor: HTMLElement, info: HoverSeatInfo) => {
+    setMobileHintDismissed(false);
     setHoverAnchor(anchor);
     setHoverSeat(info);
   }, []);
@@ -1518,6 +1521,11 @@ export function TicketHallInteractiveBlock({
     setHoverAnchor(null);
     setHoverSeat(null);
   }, []);
+
+  const dismissMobileHint = useCallback(() => {
+    setMobileHintDismissed(true);
+    hideSeatInfo();
+  }, [hideSeatInfo]);
 
   const showSectorInfo = useCallback((anchor: SVGPathElement, sector: SectorSummary) => {
     setHoverSectorAnchor(anchor);
@@ -1555,20 +1563,19 @@ export function TicketHallInteractiveBlock({
    * (скрин 600%), а canvas-saleable упирается в cap — визуальный рассинхрон.
    */
   const svgHtmlForLayer = useMemo(() => {
-    /** Strip SVG-мест только МХТ — на Большом серые кружки SVG = эталон размера. */
-    if (isMhtChekhovHall && (stadiumCanvasEnabled || theaterSvgSeatCanvas)) {
+    /** Театр: места только на canvas — SVG-кружки иначе дают бублики / пропажу grey. */
+    if (stadiumCanvasEnabled || theaterSvgSeatCanvas) {
       return stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
     }
     return svgHtmlSafe;
-  }, [isMhtChekhovHall, stadiumCanvasEnabled, theaterSvgSeatCanvas, svgHtmlSafe]);
+  }, [stadiumCanvasEnabled, theaterSvgSeatCanvas, svgHtmlSafe]);
 
   /** Растр SVG подложки на canvas готов. */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
   const [hallRasterReady, setHallRasterReady] = useState(false);
   /**
-   * Театр: canvas-места рисуем сразу (не ждать backdrop).
-   * Иначе до onload DOM-SVG с кружками остаётся видимым → бублики + мелкие точки.
-   * Стадион: по-прежнему ждём растр чаши.
+   * Театр: compositing сразу (места рисует canvas, в т.ч. grey).
+   * Стадион: ждём растр чаши.
    */
   const useCanvasCompositing =
     stadiumCanvasEnabled
@@ -1577,8 +1584,9 @@ export function TicketHallInteractiveBlock({
       || canvasBackdropReady
       || (useHallBackgroundRaster && hallRasterReady)
     );
-  /** Прячем DOM-SVG как только включён canvas-зал — не ждать raster onload. */
-  const hideDomSvgForCanvas = stadiumCanvasEnabled;
+  /** Театр: DOM-SVG можно гасить сразу (места на canvas). Стадион — после backdrop. */
+  const hideDomSvgForCanvas =
+    stadiumCanvasEnabled && (theaterSvgSeatCanvas || canvasBackdropReady || hallRasterReady);
 
   useEffect(() => {
     if (!useCanvasCompositing) return;
@@ -1604,10 +1612,8 @@ export function TicketHallInteractiveBlock({
     setCanvasBackdropReady(false);
     canvasImageRef.current = null;
 
-    /** МХТ: без circle-мест. Большой: кружки остаются в raster (эталон grey). */
-    let backdropSvg = isMhtChekhovHall
-      ? stripSvgSeatCirclesForBackdrop(svgHtmlSafe)
-      : svgHtmlSafe;
+    /** Театр/стадион canvas: без circle-мест в raster (места рисует canvas). */
+    let backdropSvg = stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
     /** hallMapLabels в sectorLayer поверх точек — не оставлять те же тексты под кружками. */
     if (hallMapLabels.length > 0) {
       backdropSvg = stripSvgSectorLabelsForBackdrop(backdropSvg);
@@ -1650,7 +1656,7 @@ export function TicketHallInteractiveBlock({
       if (canvasImageRef.current === img) canvasImageRef.current = null;
       setCanvasBackdropReady(false);
     };
-  }, [hallMapLabels.length, isMhtChekhovHall, stadiumCanvasEnabled, svgHtmlSafe]);
+  }, [hallMapLabels.length, stadiumCanvasEnabled, svgHtmlSafe]);
 
   useEffect(() => {
     if (!useHallBackgroundRaster || !hallBackgroundRasterUrl) {
@@ -2742,9 +2748,8 @@ export function TicketHallInteractiveBlock({
       }
 
       /**
-       * Театр canvas-места.
-       * МХТ: серые+saleable на canvas (одинаковый r), SVG-кружки сняты.
-       * Большой/прочие: серые из SVG-raster; saleable canvas ≈ r SVG (2.86*scale).
+       * Театр: grey+saleable только canvas, один rIdle.
+       * МХТ — мелкий радиус; Большой — ≈ SVG r=2.86*scale.
        */
       if (theaterSvgSeatCanvas && nativeSeats.length > 0) {
         const sellableKeys = new Set(
@@ -2754,20 +2759,18 @@ export function TicketHallInteractiveBlock({
         const radiusOpts = { mhtChekhov: isMhtChekhovHall };
         const rIdle = theaterSeatRadiusPx(scalePx, false, radiusOpts);
         const rActive = theaterSeatRadiusPx(scalePx, true, radiusOpts);
-        if (isMhtChekhovHall) {
-          ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
-          ctx.beginPath();
-          for (const seat of nativeSeats) {
-            const key = seatMapKey(seat.sector, seat.row, seat.seat);
-            if (sellableKeys.has(key)) continue;
-            const sx = x + (seat.xPct / 100) * w;
-            const sy = y + (seat.yPct / 100) * h;
-            if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
-            ctx.moveTo(sx + rIdle, sy);
-            ctx.arc(sx, sy, rIdle, 0, Math.PI * 2);
-          }
-          ctx.fill();
+        ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
+        ctx.beginPath();
+        for (const seat of nativeSeats) {
+          const key = seatMapKey(seat.sector, seat.row, seat.seat);
+          if (sellableKeys.has(key)) continue;
+          const sx = x + (seat.xPct / 100) * w;
+          const sy = y + (seat.yPct / 100) * h;
+          if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
+          ctx.moveTo(sx + rIdle, sy);
+          ctx.arc(sx, sy, rIdle, 0, Math.PI * 2);
         }
+        ctx.fill();
 
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         const drawTheaterSellable = (seat: (typeof visibleNativePlacements)[number]) => {
@@ -2906,7 +2909,9 @@ export function TicketHallInteractiveBlock({
   ]
     .filter(Boolean)
     .join(' ');
-  const mobileHintSeat = hoverSeat || selectedSeatDetails[selectedSeatDetails.length - 1] || null;
+  const mobileHintSeat = mobileHintDismissed
+    ? null
+    : hoverSeat || selectedSeatDetails[selectedSeatDetails.length - 1] || null;
   const hallViewportStyle = useMemo<React.CSSProperties | undefined>(() => {
     if (!hallViewportBackground) return undefined;
     return {
@@ -2967,9 +2972,7 @@ export function TicketHallInteractiveBlock({
           >
             <div
               className={`${styles.svgLayer} ${hideDomSvgForCanvas ? styles.svgLayerCanvasBacked : ''} ${
-                isMhtChekhovHall && (stadiumCanvasEnabled || theaterSvgSeatCanvas)
-                  ? styles.svgLayerHideSeatCircles
-                  : ''
+                stadiumCanvasEnabled || theaterSvgSeatCanvas ? styles.svgLayerHideSeatCircles : ''
               } ${
                 !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
               }`}
@@ -3860,26 +3863,48 @@ export function TicketHallInteractiveBlock({
 
       {isCoarsePointer && mobileHintSeat ? (
         <div className={styles.mobileHintCard} role="status">
-          <strong>{mobileHintSeat.sector || 'Сектор'}</strong>
-          {`, ${mobileHintSeat.row || '—'} ряд, место ${mobileHintSeat.seat}, `}
-          <strong>{formatRub(Number(mobileHintSeat.priceKey))}</strong>
+          <button
+            type="button"
+            className={styles.mobileHintClose}
+            aria-label="Закрыть"
+            onClick={dismissMobileHint}
+          >
+            ×
+          </button>
+          <div className={styles.mobileHintBody}>
+            <div className={styles.mobileHintSector}>{mobileHintSeat.sector || 'Сектор'}</div>
+            <div className={styles.mobileHintMeta}>
+              {mobileHintSeat.row || '—'} ряд · место {mobileHintSeat.seat}
+            </div>
+            <div className={styles.mobileHintPrice}>{formatRub(Number(mobileHintSeat.priceKey))}</div>
+          </div>
         </div>
-      ) : isCoarsePointer && hoverSector ? (
+      ) : isCoarsePointer && hoverSector && !mobileHintDismissed ? (
         <div className={styles.mobileHintCard} role="status">
-          <span className={styles.mobileHintMuted}>{sectorAvailabilityLabel(hoverSector)}</span>
-          <strong>{hoverSector.meta.label}</strong>
-          {zonePreorderNote ? (
-            <span className={styles.mobileHintMuted}>{zonePreorderNote}</span>
-          ) : null}
-          <strong>
-            {hoverSector.minPrice != null
-              ? `${formatRub(hoverSector.minPrice)}${
-                  hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
-                    ? ` - ${formatRub(hoverSector.maxPrice)}`
-                    : ''
-                }/за билет`
-              : 'Цена уточняется'}
-          </strong>
+          <button
+            type="button"
+            className={styles.mobileHintClose}
+            aria-label="Закрыть"
+            onClick={dismissMobileHint}
+          >
+            ×
+          </button>
+          <div className={styles.mobileHintBody}>
+            <div className={styles.mobileHintMuted}>{sectorAvailabilityLabel(hoverSector)}</div>
+            <div className={styles.mobileHintSector}>{hoverSector.meta.label}</div>
+            {zonePreorderNote ? (
+              <div className={styles.mobileHintMuted}>{zonePreorderNote}</div>
+            ) : null}
+            <div className={styles.mobileHintPrice}>
+              {hoverSector.minPrice != null
+                ? `${formatRub(hoverSector.minPrice)}${
+                    hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
+                      ? ` – ${formatRub(hoverSector.maxPrice)}`
+                      : ''
+                  } / билет`
+                : 'Цена уточняется'}
+            </div>
+          </div>
         </div>
       ) : !isCoarsePointer ? (
         <Popper
