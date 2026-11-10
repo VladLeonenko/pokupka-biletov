@@ -5,37 +5,43 @@ import {
   theaterSeatRadiusPx,
 } from './hallSeatRadiusPx';
 import { stripSvgSeatCirclesForBackdrop } from './svgNativeSeatLayout';
+import { isMhtChekhovMainStageId } from '../constants/getbiletStages';
 
-describe('hall seat uniform theater dots', () => {
-  it('grey and saleable idle share the same radius', () => {
+describe('hall seat radii by venue', () => {
+  it('MHT grey and saleable idle share the same radius', () => {
     const scalePx = 2.0;
-    const grey = theaterSeatRadiusPx(scalePx, false);
-    const sell = stadiumSeatCanvasRadiusPx(1, 1000, 500, false, true, { theater: true });
-    // scalePx for sell = 1000*1/500 = 2
+    const grey = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true });
+    const sell = stadiumSeatCanvasRadiusPx(1, 1000, 500, false, true, {
+      theater: true,
+      mhtChekhov: true,
+    });
     expect(sell).toBeCloseTo(grey, 5);
   });
 
-  it('selected is larger than idle', () => {
-    const idle = theaterSeatRadiusPx(1.5, false);
-    const active = theaterSeatRadiusPx(1.5, true);
+  it('selected is larger than idle (MHT)', () => {
+    const idle = theaterSeatRadiusPx(1.5, false, { mhtChekhov: true });
+    const active = theaterSeatRadiusPx(1.5, true, { mhtChekhov: true });
     expect(active / idle).toBeCloseTo(1.22, 5);
   });
 
-  it('target size ~1/4 of old SVG seat (r=2.86 * scale)', () => {
+  it('Bolshoi/default matches SVG seat r≈2.86*scale', () => {
+    const scalePx = 2;
+    const next = theaterSeatRadiusPx(scalePx, false);
+    expect(next).toBeCloseTo(2.86 * scalePx, 5);
+  });
+
+  it('MHT is ~half of previous canvas / ~1/4 SVG', () => {
     const scalePx = 2;
     const oldSvgScreenR = 2.86 * scalePx;
-    const next = theaterSeatRadiusPx(scalePx, false);
+    const next = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true });
     expect(next).toBeLessThan(oldSvgScreenR * 0.35);
     expect(next).toBeGreaterThan(oldSvgScreenR * 0.18);
   });
 
-  it('pinch zoom keeps grey/saleable scale without 3px crumb cap', () => {
-    const scalePx = 4;
-    const oldSvgScreenR = 2.86 * scalePx;
-    const next = theaterSeatRadiusPx(scalePx, false);
-    expect(next).toBeGreaterThan(2);
-    expect(next).toBeLessThan(oldSvgScreenR * 0.35);
-    expect(next).toBeGreaterThan(oldSvgScreenR * 0.18);
+  it('detects MHT stage ids', () => {
+    expect(isMhtChekhovMainStageId('603ad33813cd03003015d811')).toBe(true);
+    expect(isMhtChekhovMainStageId('639c4a4cd6cfc5004d20dcfb')).toBe(true);
+    expect(isMhtChekhovMainStageId('bolshoi-historical-stage')).toBe(false);
   });
 
   it('strips Bolshoi-like seat circles from backdrop SVG', () => {

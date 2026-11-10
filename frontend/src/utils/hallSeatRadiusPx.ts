@@ -1,18 +1,29 @@
 /**
  * Радиусы точек схемы (canvas). Геометрию (x/y) не трогаем — только диаметр.
  *
- * Театр: серые и saleable — ОДИН размер (solid).
- * ~¼ старого SVG circle (r≈2.86*scale) / половина прежнего canvas 1.45 → coeff 0.72.
+ * МХТ: мелкие solid grey+saleable (canvas-only, без SVG-кружков).
+ * Большой / прочие: saleable ≈ нативный SVG seat r≈2.86 (серые рисует SVG).
  * Выбранное: ×1.22 сверху.
  */
 
 export type SeatRadiusOpts = {
   theater?: boolean;
+  /** Только МХТ им. Чехова — урезанный единый размер. */
+  mhtChekhov?: boolean;
 };
 
-/** Единый радиус театра (grey + saleable). */
-export function theaterSeatRadiusPx(scalePx: number, active = false): number {
-  let r = Math.max(0.55, Math.min(6, scalePx * 0.72));
+/** GetBilet/наши схемы Большого: типичный r кружка места в SVG. */
+const SVG_SEAT_R_MATCH = 2.86;
+
+/** Единый радиус театра. */
+export function theaterSeatRadiusPx(
+  scalePx: number,
+  active = false,
+  opts?: Pick<SeatRadiusOpts, 'mhtChekhov'>,
+): number {
+  let r = opts?.mhtChekhov
+    ? Math.max(0.55, Math.min(6, scalePx * 0.72))
+    : Math.max(0.85, Math.min(10, scalePx * SVG_SEAT_R_MATCH));
   if (active) r *= 1.22;
   return r;
 }
@@ -26,8 +37,8 @@ export function stadiumSeatCanvasRadiusPx(
   opts?: SeatRadiusOpts,
 ): number {
   const scalePx = (layerWidth * zoom) / Math.max(1, svgViewBoxWidth);
-  if (opts?.theater) {
-    return theaterSeatRadiusPx(scalePx, active);
+  if (opts?.theater || opts?.mhtChekhov) {
+    return theaterSeatRadiusPx(scalePx, active, { mhtChekhov: opts?.mhtChekhov });
   }
   let r = Math.max(1.0, Math.min(3.2, scalePx * 4));
   if (active) r *= 1.22;
@@ -45,7 +56,7 @@ export function hallBackgroundSeatRadiusPx(
     : Math.max(0.85, Math.min(2.6, scalePx * 5.5));
 }
 
-/** @deprecated use theaterSeatRadiusPx — оставлен для call-sites серого фона. */
+/** @deprecated use theaterSeatRadiusPx */
 export function theaterBackgroundSeatRadiusPx(scalePx: number, _seatCount?: number): number {
   return theaterSeatRadiusPx(scalePx, false);
 }

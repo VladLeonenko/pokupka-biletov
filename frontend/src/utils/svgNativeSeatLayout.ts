@@ -373,10 +373,22 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
   }
 }
 
-export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[]; svgHtml: string } | null {
+export type ProcessHallSvgOpts = {
+  /**
+   * МХТ: убрать circle-места из svgHtml (рисует canvas).
+   * Большой/прочие: оставить кружки, перекрасить в #d0d0d0 — как было «идеально».
+   */
+  stripSeatCircles?: boolean;
+};
+
+export function processHallSvgForNative(
+  html: string,
+  opts?: ProcessHallSvgOpts,
+): { seats: SvgNativeSeat[]; svgHtml: string } | null {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') return null;
   const trimmed = html?.trim();
   if (!trimmed || !trimmed.includes('<svg')) return null;
+  const stripSeatCircles = opts?.stripSeatCircles === true;
 
   let doc: Document;
   try {
@@ -419,6 +431,19 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
 
   if (raw.length < 2) return null;
 
+  /** Плотность — для uniform r на Большом (не раздувать до перекрытий). */
+  let minCenterDist = Infinity;
+  for (let i = 0; i < raw.length; i++) {
+    for (let j = i + 1; j < raw.length; j++) {
+      const dx = raw[i].x - raw[j].x;
+      const dy = raw[i].y - raw[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1e-4) minCenterDist = Math.min(minCenterDist, d);
+    }
+  }
+  const densityRadiusCap =
+    Number.isFinite(minCenterDist) && minCenterDist < Infinity ? minCenterDist * 0.46 : null;
+
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -456,17 +481,36 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
   svg.setAttribute('height', String(vbH));
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-  /**
-   * Кружки мест УДАЛЯЕМ из svgHtml (не перекрашиваем в серый).
-   * Иначе DOM/raster SVG даёт «бублики» при зуме, а canvas-точки — мелкие в центре.
-   * Координаты уже в seats[]; визуал мест — только canvas/DOM-оверлей.
-   */
-  svg.querySelectorAll('circle').forEach((c) => c.remove());
+  if (stripSeatCircles) {
+    /** МХТ: кружки мест убираем — визуал только canvas. */
+    svg.querySelectorAll('circle').forEach((c) => c.remove());
+    stripGetbiletRowGlyphPathsFromSvg(svg);
+    return { seats, svgHtml: nukeAllSvgCirclesHtml(new XMLSerializer().serializeToString(svg)) };
+  }
+
+  /** Большой/прочие: серые SVG-места как раньше (идеальный размер сетки). */
+  const seatCircles = Array.from(svg.querySelectorAll('circle[place-name], circle[data-replaced]'));
+  const radii = seatCircles
+    .map((c) => Number.parseFloat(c.getAttribute('r') || ''))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const medianR =
+    radii.length > 0 ? [...radii].sort((a, b) => a - b)[Math.floor(radii.length / 2)] : 3.5;
+  const medianClamped = Math.min(4.2, Math.max(1.35, medianR));
+  let rUniform =
+    densityRadiusCap != null ? Math.min(medianClamped, densityRadiusCap) : medianClamped;
+  rUniform = Math.max(0.26, Math.min(rUniform, 4.2));
+
+  for (const c of seatCircles) {
+    c.setAttribute('r', String(rUniform));
+    c.setAttribute('fill', '#d0d0d0');
+    c.removeAttribute('stroke');
+    c.removeAttribute('stroke-width');
+    c.setAttribute('stroke', 'none');
+  }
 
   stripGetbiletRowGlyphPathsFromSvg(svg);
 
-  const ser = nukeAllSvgCirclesHtml(new XMLSerializer().serializeToString(svg));
-  return { seats, svgHtml: ser };
+  return { seats, svgHtml: new XMLSerializer().serializeToString(svg) };
 }
 
 export function buildOfferSeatIndex(offers: OfferLike[]): Map<string, { offer: OfferLike; seat: string }[]> {

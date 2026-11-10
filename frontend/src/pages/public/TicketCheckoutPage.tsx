@@ -1943,6 +1943,7 @@ export function TicketCheckoutPage() {
                         <TicketHallInteractiveBlock
                           hallSvgHtml={hallSvg!}
                           layoutJson={layoutJsonForStage}
+                          stageExternalId={stageIdEff}
                           offers={offersForMapDisplay}
                           getPriceKey={(o) => priceKey(o as OfferRow)}
                           colorForSeat={colorSeat}
@@ -2689,6 +2690,7 @@ export function TicketCheckoutPage() {
                           variant="dialog"
                           hallSvgHtml={hallSvg!}
                           layoutJson={layoutJsonForStage}
+                          stageExternalId={stageIdEff}
                           offers={offersForMapDisplay}
                           getPriceKey={(o) => priceKey(o as OfferRow)}
                           colorForSeat={colorSeat}

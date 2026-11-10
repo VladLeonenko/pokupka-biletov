@@ -24,9 +24,10 @@ import {
   stadiumSeatCanvasRadiusPx,
   theaterSeatRadiusPx,
 } from '../../utils/hallSeatRadiusPx';
+import { isMhtChekhovMainStageId } from '../../constants/getbiletStages';
 import styles from './TicketHallInteractiveBlock.module.css';
 
-/** Серые места театра/чаши: светлый solid как старый SVG #d0d0d0 (не тёмный slate). */
+/** Серые места: #d0d0d0 как GetBilet SVG. */
 const CANVAS_HALL_SEAT_DOT_FILL = '#d0d0d0';
 /** Маркер без оффера / превью схемы в DOM; офферы — colorForSeat. */
 const DOM_UNIFORM_SEAT_ACCENT = '#d0d0d0';
@@ -807,6 +808,8 @@ type Props = {
   ownHintBanner?: { color: string; price: number; count: number } | null;
   onOwnHintActivate?: () => void;
   onOwnHintDismiss?: () => void;
+  /** GetBilet stage_external_id — для точечных правок (МХТ vs Большой). */
+  stageExternalId?: string | null;
 };
 
 /**
@@ -842,6 +845,7 @@ export function TicketHallInteractiveBlock({
   ownHintBanner = null,
   onOwnHintActivate,
   onOwnHintDismiss,
+  stageExternalId = null,
 }: Props) {
   const overlay = useMemo(() => parseOverlayRect(layoutJson), [layoutJson]);
   const sorted = useMemo(() => sortOffersForGrid(offers), [offers]);
@@ -850,6 +854,9 @@ export function TicketHallInteractiveBlock({
     [sorted],
   );
   const numRows = Math.max(1, sorted.length);
+
+  /** Размер/strip SVG-мест — только МХТ; Большой и остальные как раньше. */
+  const isMhtChekhovHall = isMhtChekhovMainStageId(stageExternalId);
 
   const layoutMode = useMemo(() => parseLayoutMode(layoutJson), [layoutJson]);
   const showUnavailableSeats = useMemo(() => shouldShowUnavailableSeats(layoutJson), [layoutJson]);
@@ -951,7 +958,10 @@ export function TicketHallInteractiveBlock({
     if (disableHallBackgroundDots) return null;
     return hallBackgroundDotsUrlFromRaster(hallBackgroundRasterUrl);
   }, [disableHallBackgroundDots, hallBackgroundRasterUrl]);
-  const nativeProcessed = useMemo(() => processHallSvgForNative(hallSvgHtml), [hallSvgHtml]);
+  const nativeProcessed = useMemo(
+    () => processHallSvgForNative(hallSvgHtml, { stripSeatCircles: isMhtChekhovHall }),
+    [hallSvgHtml, isMhtChekhovHall],
+  );
   /**
    * Театр из layout_json ИЛИ fallback по SVG-местам (если seed затёр hallKind —
    * всё равно canvas + заливка уровней, как эталон МХТ).
@@ -1545,11 +1555,12 @@ export function TicketHallInteractiveBlock({
    * (скрин 600%), а canvas-saleable упирается в cap — визуальный рассинхрон.
    */
   const svgHtmlForLayer = useMemo(() => {
-    if (stadiumCanvasEnabled || theaterSvgSeatCanvas) {
+    /** Strip SVG-мест только МХТ — на Большом серые кружки SVG = эталон размера. */
+    if (isMhtChekhovHall && (stadiumCanvasEnabled || theaterSvgSeatCanvas)) {
       return stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
     }
     return svgHtmlSafe;
-  }, [stadiumCanvasEnabled, theaterSvgSeatCanvas, svgHtmlSafe]);
+  }, [isMhtChekhovHall, stadiumCanvasEnabled, theaterSvgSeatCanvas, svgHtmlSafe]);
 
   /** Растр SVG подложки на canvas готов. */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
@@ -1593,8 +1604,10 @@ export function TicketHallInteractiveBlock({
     setCanvasBackdropReady(false);
     canvasImageRef.current = null;
 
-    /** Без circle-мест: иначе SVG-точки + canvas sellable = ареолы. */
-    let backdropSvg = stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
+    /** МХТ: без circle-мест. Большой: кружки остаются в raster (эталон grey). */
+    let backdropSvg = isMhtChekhovHall
+      ? stripSvgSeatCirclesForBackdrop(svgHtmlSafe)
+      : svgHtmlSafe;
     /** hallMapLabels в sectorLayer поверх точек — не оставлять те же тексты под кружками. */
     if (hallMapLabels.length > 0) {
       backdropSvg = stripSvgSectorLabelsForBackdrop(backdropSvg);
@@ -1637,7 +1650,7 @@ export function TicketHallInteractiveBlock({
       if (canvasImageRef.current === img) canvasImageRef.current = null;
       setCanvasBackdropReady(false);
     };
-  }, [hallMapLabels.length, stadiumCanvasEnabled, svgHtmlSafe]);
+  }, [hallMapLabels.length, isMhtChekhovHall, stadiumCanvasEnabled, svgHtmlSafe]);
 
   useEffect(() => {
     if (!useHallBackgroundRaster || !hallBackgroundRasterUrl) {
@@ -2729,28 +2742,32 @@ export function TicketHallInteractiveBlock({
       }
 
       /**
-       * Театр: серые = только НЕ-sellable; saleable тем же rIdle (active ×1.22).
-       * Один scalePx от screenW — иначе на pinch grey/saleable разъезжаются.
+       * Театр canvas-места.
+       * МХТ: серые+saleable на canvas (одинаковый r), SVG-кружки сняты.
+       * Большой/прочие: серые из SVG-raster; saleable canvas ≈ r SVG (2.86*scale).
        */
       if (theaterSvgSeatCanvas && nativeSeats.length > 0) {
         const sellableKeys = new Set(
           visibleNativePlacements.filter((s) => !s.previewOnly).map((s) => s.key),
         );
         const scalePx = w / Math.max(1, svgViewBox.width);
-        const rIdle = theaterSeatRadiusPx(scalePx, false);
-        const rActive = theaterSeatRadiusPx(scalePx, true);
-        ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
-        ctx.beginPath();
-        for (const seat of nativeSeats) {
-          const key = seatMapKey(seat.sector, seat.row, seat.seat);
-          if (sellableKeys.has(key)) continue;
-          const sx = x + (seat.xPct / 100) * w;
-          const sy = y + (seat.yPct / 100) * h;
-          if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
-          ctx.moveTo(sx + rIdle, sy);
-          ctx.arc(sx, sy, rIdle, 0, Math.PI * 2);
+        const radiusOpts = { mhtChekhov: isMhtChekhovHall };
+        const rIdle = theaterSeatRadiusPx(scalePx, false, radiusOpts);
+        const rActive = theaterSeatRadiusPx(scalePx, true, radiusOpts);
+        if (isMhtChekhovHall) {
+          ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
+          ctx.beginPath();
+          for (const seat of nativeSeats) {
+            const key = seatMapKey(seat.sector, seat.row, seat.seat);
+            if (sellableKeys.has(key)) continue;
+            const sx = x + (seat.xPct / 100) * w;
+            const sy = y + (seat.yPct / 100) * h;
+            if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
+            ctx.moveTo(sx + rIdle, sy);
+            ctx.arc(sx, sy, rIdle, 0, Math.PI * 2);
+          }
+          ctx.fill();
         }
-        ctx.fill();
 
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
         const drawTheaterSellable = (seat: (typeof visibleNativePlacements)[number]) => {
@@ -2760,7 +2777,6 @@ export function TicketHallInteractiveBlock({
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
-          /** Тот же базовый радиус, что у серых — без второго scale/formula. */
           const r = active ? rActive : rIdle;
           const fill = colorForSeat(seat.priceKey);
           ctx.save();
@@ -2812,7 +2828,11 @@ export function TicketHallInteractiveBlock({
             svgViewBox.width,
             active,
             mapZoomedNow,
-            theaterSectorCheckout || preferLayoutSeatPositions ? { theater: true } : undefined,
+            isMhtChekhovHall
+              ? { theater: true, mhtChekhov: true }
+              : theaterSectorCheckout || preferLayoutSeatPositions
+                ? { theater: true }
+                : undefined,
           );
           const fill = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.save();
@@ -2863,6 +2883,7 @@ export function TicketHallInteractiveBlock({
     isMapDragging,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
+    isMhtChekhovHall,
     preferLayoutSeatPositions,
     theaterSvgSeatCanvas,
     theaterSectorCheckout,
@@ -2946,7 +2967,9 @@ export function TicketHallInteractiveBlock({
           >
             <div
               className={`${styles.svgLayer} ${hideDomSvgForCanvas ? styles.svgLayerCanvasBacked : ''} ${
-                stadiumCanvasEnabled || theaterSvgSeatCanvas ? styles.svgLayerHideSeatCircles : ''
+                isMhtChekhovHall && (stadiumCanvasEnabled || theaterSvgSeatCanvas)
+                  ? styles.svgLayerHideSeatCircles
+                  : ''
               } ${
                 !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
               }`}
