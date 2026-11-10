@@ -659,16 +659,39 @@ function mergeGrayHallUnmatchedPlacements(
   return next;
 }
 
+/** New Stage Партер: colored sellable dots only on rows 1–8. */
+const BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX = 8;
+
+function normalizeHallPreviewParterRow(row: unknown): number | null {
+  const n = Number.parseInt(String(row ?? '').trim().replace(/[^\d].*$/, ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function isBolshoiNewStageParterSellableRow(row: unknown): boolean {
+  const n = normalizeHallPreviewParterRow(row);
+  return n != null && n >= 1 && n <= BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX;
+}
+
 /**
  * Hall-preview sale sector ↔ layout seat labels.
- * New Stage: offers «Партер (середина)» cover layout «Партер левая/правая сторона».
+ * New Stage: offers «Партер (середина)» cover layout «Партер левая/правая сторона» rows 1–8.
  */
-function hallPreviewSeatBelongsToSaleSector(seatSector: unknown, saleLabel: unknown): boolean {
-  if (sectorNormsMatch(seatSector, saleLabel)) return true;
+function hallPreviewSeatBelongsToSaleSector(
+  seatSector: unknown,
+  saleLabel: unknown,
+  seatRow?: unknown,
+): boolean {
+  if (sectorNormsMatch(seatSector, saleLabel)) {
+    if (/^партер\s*\(середина\)$/i.test(String(saleLabel ?? '').trim())) {
+      return isBolshoiNewStageParterSellableRow(seatRow);
+    }
+    return true;
+  }
   const sale = String(saleLabel ?? '').trim();
   const seat = String(seatSector ?? '').trim();
   if (!sale || !seat) return false;
   if (/^партер\s*\(середина\)$/i.test(sale)) {
+    if (!isBolshoiNewStageParterSellableRow(seatRow)) return false;
     return (
       /^партер\s+(левая|правая)\s+сторона$/i.test(seat) ||
       /^партер$/i.test(seat) ||
@@ -676,6 +699,11 @@ function hallPreviewSeatBelongsToSaleSector(seatSector: unknown, saleLabel: unkn
     );
   }
   return false;
+}
+
+function isNearWhiteSectorFill(fill: unknown): boolean {
+  const f = String(fill ?? '').trim().toLowerCase();
+  return !f || f === '#fff' || f === '#ffffff' || f === 'white' || f === 'rgb(255,255,255)';
 }
 
 function parseSvgViewBox(svg: string): {
@@ -1225,7 +1253,7 @@ export function TicketHallInteractiveBlock({
           if (!oid) continue;
           const list = Array.isArray(proto.SeatList) ? proto.SeatList.map(String) : [];
           for (const hit of nativeSeats) {
-            if (!hallPreviewSeatBelongsToSaleSector(hit.sector, meta.label)) continue;
+            if (!hallPreviewSeatBelongsToSaleSector(hit.sector, meta.label, hit.row)) continue;
             pushPlacement(hit, proto, String(hit.seat ?? ''), list);
           }
         }
@@ -2940,9 +2968,13 @@ export function TicketHallInteractiveBlock({
                       : '0';
                   const fieldZone = isLuzhnikiConcertFieldZoneLabel(sector.meta.label);
                   const zoneOnly = isZoneOnlySector(sector.meta.label);
+                  const priceAccent = colorForSeat(priceForColor);
+                  /** White wash (New Stage): perimeter stroke uses offer hue = sellable dots. */
                   const sectorAccent = !available
                     ? '#9ca3af'
-                    : sector.meta.fill || colorForSeat(priceForColor);
+                    : isNearWhiteSectorFill(sector.meta.fill)
+                      ? priceAccent
+                      : sector.meta.fill || priceAccent;
                   return (
                     <path
                       key={sector.meta.id}

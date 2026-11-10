@@ -648,26 +648,30 @@
 /**
  * Большой hallPreview: визуальная заливка — в SVG-подложке (белые сектора).
  * sectorLayer почти прозрачный hit-path, иначе opaque fill накроет canvas-точки.
+ * Периметр (--sector-accent) = цвет sellable-точек (New Stage Партер / Historical outline).
  * hallMapLabels в этом же SVG — поверх мест.
  */
 .sectorLayerHallPreview.sectorLayerFitOverview .sectorPathAvailable {
-  fill: var(--sector-accent, #ffffff);
-  fill-opacity: 0.02;
-  stroke: rgba(0, 0, 0, 0.1);
-  stroke-opacity: 1;
+  fill: transparent;
+  fill-opacity: 0;
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 78%, #64748b);
+  stroke-opacity: 0.92;
+  stroke-width: 1.35px;
 }
 
 .sectorLayerHallPreview.sectorLayerFitOverview .sectorPathInteractive:hover,
 .sectorLayerHallPreview.sectorLayerFitOverview .sectorPathInteractive:focus {
-  fill: var(--sector-accent, #ffffff);
-  fill-opacity: 0.14;
-  stroke: rgba(47, 128, 237, 0.45);
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 14%, transparent);
+  fill-opacity: 1;
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 88%, #fff);
+  stroke-width: 1.55px;
 }
 
 .sectorLayerHallPreview.sectorLayerFitOverview .sectorPathActive {
-  fill: var(--sector-accent, #ffffff);
-  fill-opacity: 0.2;
-  stroke: rgba(47, 128, 237, 0.65);
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 18%, transparent);
+  fill-opacity: 1;
+  stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 92%, #fff);
+  stroke-width: 1.7px;
 }
 
 /** Portalbilet-style: насыщенные цветовые зоны по категориям. */

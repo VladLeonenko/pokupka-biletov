@@ -13,6 +13,20 @@ export const BOLSHOI_NEW_STAGE_PARTER_ID = 'parter_mid';
 export const BOLSHOI_NEW_STAGE_PARTER_FILL = '#e0c9bb';
 /** Public / checkout sector fill — white like other zones (Historical sellable style). */
 export const BOLSHOI_NEW_STAGE_SECTOR_FILL = '#ffffff';
+/** Colored sellable dots + mid remap: Партер rows 1–8 only (9+ stay gray). */
+export const BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX = 8;
+
+/** @param {unknown} row */
+export function normalizeBolshoiNewStageParterRow(row) {
+  const n = Number.parseInt(String(row ?? '').trim().replace(/[^\d].*$/, ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** @param {unknown} row */
+export function isBolshoiNewStageParterSellableRow(row) {
+  const n = normalizeBolshoiNewStageParterRow(row);
+  return n != null && n >= 1 && n <= BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX;
+}
 
 function pathBBox(pathStr) {
   const nums = String(pathStr || '')
@@ -112,7 +126,8 @@ function publicSectorFill(fill) {
 }
 
 /**
- * Layout seats «Партер левая/правая» → sale label (geometry unchanged).
+ * Layout seats «Партер левая/правая» rows 1–8 → sale label (geometry unchanged).
+ * Rows 9+ stay original left/right (or restore sectorDetail if previously collapsed to mid).
  * @param {unknown} seats
  */
 export function remapBolshoiNewStageParterSeatsToMid(seats) {
@@ -121,12 +136,28 @@ export function remapBolshoiNewStageParterSeatsToMid(seats) {
     if (!s || typeof s !== 'object') return s;
     const sector = String(s.sector || '').trim();
     if (!/^партер/i.test(sector)) return s;
-    if (sector === BOLSHOI_NEW_STAGE_PARTER_LABEL) return s;
-    return {
-      ...s,
-      sectorDetail: s.sectorDetail || sector,
-      sector: BOLSHOI_NEW_STAGE_PARTER_LABEL,
-    };
+    const sellableRow = isBolshoiNewStageParterSellableRow(s.row);
+    if (sellableRow) {
+      if (sector === BOLSHOI_NEW_STAGE_PARTER_LABEL) return s;
+      return {
+        ...s,
+        sectorDetail: s.sectorDetail || sector,
+        sector: BOLSHOI_NEW_STAGE_PARTER_LABEL,
+      };
+    }
+    /** Rows 9+: undo prior mid collapse if we still know left/right. */
+    if (sector === BOLSHOI_NEW_STAGE_PARTER_LABEL) {
+      const detail = String(s.sectorDetail || '').trim();
+      if (
+        detail &&
+        detail !== BOLSHOI_NEW_STAGE_PARTER_LABEL &&
+        /^партер/i.test(detail)
+      ) {
+        const { sectorDetail: _drop, ...rest } = s;
+        return { ...rest, sector: detail };
+      }
+    }
+    return s;
   });
 }
 
@@ -138,6 +169,37 @@ export function isBolshoiNewStageParterSaleSeatSector(seatSector) {
   if (!s) return false;
   if (s === BOLSHOI_NEW_STAGE_PARTER_LABEL) return true;
   return /^партер\s+(левая|правая)\s+сторона$/i.test(s) || /^партер$/i.test(s);
+}
+
+/**
+ * True when rows 1–8 are mid and rows 9+ are not mid (or mid without restoreable detail).
+ * @param {unknown} seats
+ */
+export function bolshoiNewStageParterSeatRemapLooksDone(seats) {
+  if (!Array.isArray(seats) || !seats.length) return true;
+  let midSellable = 0;
+  for (const s of seats) {
+    if (!s || typeof s !== 'object') continue;
+    const sector = String(s.sector || '').trim();
+    if (!/^партер/i.test(sector)) continue;
+    const sellableRow = isBolshoiNewStageParterSellableRow(s.row);
+    if (sellableRow) {
+      if (sector !== BOLSHOI_NEW_STAGE_PARTER_LABEL) return false;
+      midSellable += 1;
+      continue;
+    }
+    if (sector === BOLSHOI_NEW_STAGE_PARTER_LABEL) {
+      const detail = String(s.sectorDetail || '').trim();
+      if (
+        detail &&
+        detail !== BOLSHOI_NEW_STAGE_PARTER_LABEL &&
+        /^партер/i.test(detail)
+      ) {
+        return false;
+      }
+    }
+  }
+  return midSellable > 0;
 }
 
 /**
@@ -165,6 +227,9 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
   }
 
   const fill0 = publicSectorFill(secs[0]?.fill);
+  const seatsOk = bolshoiNewStageParterSeatRemapLooksDone(lj.seats);
+  const metaOk =
+    Number(prevMeta.parterSellableRowMax) === BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX;
   const already =
     secs.length === 1 &&
     String(secs[0]?.label || '') === BOLSHOI_NEW_STAGE_PARTER_LABEL &&
@@ -176,7 +241,9 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
     lj.hallPreviewSectorCheckout === true &&
     lj.seatSelectionDisabled === true &&
     lj.hideSeatList === true &&
-    String(lj.hallViewportBackground || '').toLowerCase() === '#f5f5f5';
+    String(lj.hallViewportBackground || '').toLowerCase() === '#f5f5f5' &&
+    seatsOk &&
+    metaOk;
 
   lj.sectorMode = {
     enabled: true,
@@ -204,14 +271,25 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
   if (Array.isArray(lj.seats)) {
     lj.seats = remapBolshoiNewStageParterSeatsToMid(lj.seats);
   }
-  if (curved?.saved?.length) {
-    lj.bolshoiNewStage = { ...prevMeta, parterOutlinePaths: curved.saved };
-  }
+  lj.bolshoiNewStage = {
+    ...prevMeta,
+    parterSellableRowMax: BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX,
+    ...(curved?.saved?.length ? { parterOutlinePaths: curved.saved } : null),
+  };
   if (!lj.categoryCheckoutDefaults || typeof lj.categoryCheckoutDefaults !== 'object') {
     lj.categoryCheckoutDefaults = {
       previewImageUrl: '/hall-maps/bolshoi-views/view-parter-a.jpg',
     };
   }
+
+  const midCount = Array.isArray(lj.seats)
+    ? lj.seats.filter(
+        (s) =>
+          s &&
+          String(s.sector || '').trim() === BOLSHOI_NEW_STAGE_PARTER_LABEL &&
+          isBolshoiNewStageParterSellableRow(s.row),
+      ).length
+    : 0;
 
   return {
     layout: lj,
@@ -219,7 +297,8 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
     reason: already
       ? 'already'
       : curved
-        ? 'collapsed-curved'
+        ? `collapsed-curved-rows1-${BOLSHOI_NEW_STAGE_PARTER_SELLABLE_ROW_MAX}`
         : 'collapsed-bbox-fallback',
+    midSellableSeats: midCount,
   };
 }
