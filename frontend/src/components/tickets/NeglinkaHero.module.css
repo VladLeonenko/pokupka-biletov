@@ -253,27 +253,37 @@
 }
 
 @media (max-width: 899px) {
-  /* Высота = контент, без 88vh-пустоты под CTA */
+  /*
+   * Фото на всю высоту героя (не узкая «полоска сверху»).
+   * Высота = контент + небольшой запас под стрелки, без старых 88vh.
+   */
   .hero {
     min-height: 0;
   }
 
   .hero::before {
-    bottom: 28%;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    transform: scale(1.04);
+    transform-origin: center top;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
   .heroPhotoOverlay {
     background: linear-gradient(
       180deg,
-      rgba(255, 106, 33, 0.08) 0%,
-      rgba(255, 100, 28, 0.28) 32%,
-      rgba(255, 94, 25, 0.72) 68%,
+      rgba(20, 12, 8, 0.18) 0%,
+      rgba(255, 94, 25, 0.22) 38%,
+      rgba(255, 94, 25, 0.78) 72%,
       var(--hero-orange) 100%
     );
   }
 
   .hero::after {
-    background: radial-gradient(ellipse 88% 32% at 50% 10%, rgba(255, 255, 255, 0.07) 0%, transparent 72%);
+    background: radial-gradient(ellipse 90% 40% at 50% 8%, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
   }
 
   .heroBody {
@@ -286,21 +296,36 @@
 
   .inner {
     flex: 0 0 auto;
-    padding: 18px 16px 12px;
-    gap: 14px;
+    padding: 28px 16px 8px;
+    gap: 12px;
     align-items: flex-start;
+    /* верхний «воздух» под фото: дата/титул не лезут в край */
+    padding-top: max(28px, 12vw);
+  }
+
+  .dateLine {
+    margin-bottom: 10px;
+  }
+
+  .tags {
+    margin-bottom: 8px;
+  }
+
+  .venueInHero {
+    margin-bottom: 10px;
   }
 
   .title {
-    margin-bottom: 10px;
-    font-size: clamp(1.35rem, 7vw, 1.85rem);
-    max-width: 16ch;
+    margin-bottom: 12px;
+    font-size: clamp(1.55rem, 7.2vw, 2.05rem);
+    max-width: 14ch;
+    line-height: 1.05;
   }
 
   .description {
-    margin: -2px 0 14px;
-    font-size: 0.84rem;
-    line-height: 1.45;
+    margin: 0 0 16px;
+    font-size: 0.88rem;
+    line-height: 1.5;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
@@ -308,17 +333,17 @@
   }
 
   .credits {
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     gap: 10px 20px;
   }
 
   .cta {
-    padding: 13px 24px;
+    padding: 14px 28px;
   }
 
   .heroFooter {
-    margin-top: 0;
-    padding: 4px 16px 16px;
+    margin-top: 8px;
+    padding: 8px 16px 20px;
   }
 }
 

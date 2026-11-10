@@ -9,7 +9,7 @@ import {
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './NeglinkaEventRows.module.css';
 
-/** Смена заливки при hover — разные акценты по строкам. */
+/** Hover-акценты только для desktop (fine pointer). */
 const HOVER_PALETTE: { bg: string; glow: string }[] = [
   { bg: '#ff4e18', glow: 'rgba(255, 78, 24, 0.4)' },
   { bg: '#0d9488', glow: 'rgba(13, 148, 136, 0.38)' },
@@ -85,18 +85,20 @@ export function NeglinkaEventRows({ events }: Props) {
                 </div>
 
                 <div className={styles.colInfo}>
-                  <div className={styles.mobileDate}>
-                    <span className={styles.dateBig}>{dateStr}</span>
-                    {wd ? <span className={styles.dateWd}>{wd}</span> : null}
+                  <div className={styles.mobileMeta}>
+                    <span className={styles.mobileDate}>
+                      {dateStr}
+                      {wd ? ` · ${wd}` : ''}
+                    </span>
+                    {metaBits.length > 0 ? (
+                      <span className={styles.mobileGenre}>{metaBits.join(' · ')}</span>
+                    ) : null}
                   </div>
-                  {metaBits.length > 0 ? (
-                    <div className={styles.metaTop}>
-                      {metaBits.map((bit) => (
-                        <span key={bit}>{bit}</span>
-                      ))}
-                    </div>
-                  ) : null}
                   {ev.isPremiere && <span className={styles.premiereTag}>Премьера</span>}
+                  <div className={styles.metaTop}>
+                    {ev.age && <span className={styles.age}>{ev.age}</span>}
+                    {ev.genre && <span>{ev.genre}</span>}
+                  </div>
                   <h3 className={styles.title}>{ev.title}</h3>
                   {ev.subtitle?.trim() ? (
                     <p className={styles.subtitle}>{ev.subtitle.trim()}</p>
@@ -121,6 +123,7 @@ export function NeglinkaEventRows({ events }: Props) {
                     {timeStr && <span className={styles.timeBig}>{timeStr}</span>}
                     {ev.venue && <span className={styles.venueName}>{ev.venue}</span>}
                   </div>
+                  <span className={styles.mobileCta}>Купить билет</span>
                 </div>
 
                 <div className={styles.colCta}>

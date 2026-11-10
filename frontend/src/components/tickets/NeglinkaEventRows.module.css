@@ -14,6 +14,7 @@
   margin-right: calc(50% - 50vw);
   overflow-x: clip;
   box-sizing: border-box;
+  background: #f6f5f3;
 }
 
 .visuallyHidden {
@@ -32,81 +33,77 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  gap: 12px;
+  padding: 12px 12px 28px;
+  box-sizing: border-box;
 }
 
 .row {
   display: block;
   padding: 0;
-  align-items: stretch;
-  font-family: var(--neg-font, 'Inter', system-ui, -apple-system, sans-serif);
+  font-family: var(--neg-font, 'Manrope', system-ui, -apple-system, sans-serif);
   text-decoration: none;
   color: inherit;
   background: #fff;
   border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 10px 28px rgba(20, 16, 12, 0.06);
   transition:
     background var(--afisha-t-bg) var(--afisha-ease-out),
     box-shadow var(--afisha-t-bg) var(--afisha-ease-out),
-    transform 0.42s var(--afisha-ease),
-    border-bottom-color var(--afisha-t) var(--afisha-ease);
-  min-height: 0;
+    transform 0.42s var(--afisha-ease);
 }
 
-/* ——— Mobile: горизонтальная карточка, без гигантского круга и пустот ——— */
+/* ——— Mobile: editorial card — постер сверху, текст снизу ——— */
 .rowInner {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 1fr;
   grid-template-areas:
-    'visual info'
-    'cta cta';
-  gap: 12px 14px;
+    'visual'
+    'info';
+  gap: 0;
   max-width: 1440px;
   margin: 0 auto;
   width: 100%;
-  padding: 14px 16px 16px;
+  padding: 0;
   box-sizing: border-box;
-  align-items: start;
 }
 
 .colDate {
   display: none;
 }
 
-.mobileDate {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
-  margin-bottom: 4px;
+.colCta {
+  display: none;
 }
 
-.mobileDate .dateBig {
-  font-size: 0.92rem;
+.metaTop {
+  display: none;
+}
+
+.subtitle {
+  display: none;
+}
+
+.creditsGrid {
+  display: none;
 }
 
 .colVisual {
   grid-area: visual;
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
   min-width: 0;
 }
 
 .poster {
   position: relative;
   box-sizing: border-box;
-  width: 92px;
-  aspect-ratio: 3 / 4;
+  width: 100%;
+  aspect-ratio: 16 / 10;
   height: auto;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
-  flex-shrink: 0;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-  outline: 1px solid rgba(0, 0, 0, 0.06);
-  outline-offset: 0;
-  transition:
-    box-shadow var(--afisha-t-bg) var(--afisha-ease-out),
-    outline-color var(--afisha-t-bg) var(--afisha-ease-out);
+  background: #1c1917;
 }
 
 .img {
@@ -128,16 +125,29 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  padding: 14px 16px 16px;
 }
 
-.metaTop {
+.mobileMeta {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: 6px 10px;
-  margin-bottom: 4px;
-  font-size: 0.62rem;
+  margin-bottom: 8px;
+}
+
+.mobileDate {
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--afisha-text);
+}
+
+.mobileGenre {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--afisha-muted);
 }
@@ -145,40 +155,31 @@
 .premiereTag {
   display: inline-block;
   align-self: flex-start;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 3px 7px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 2px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 78, 24, 0.35);
+  border-radius: 999px;
   color: var(--afisha-accent);
-  transition:
-    border-color var(--afisha-t-bg) var(--afisha-ease-out),
-    background var(--afisha-t-bg) var(--afisha-ease-out);
+  background: rgba(255, 78, 24, 0.06);
 }
 
 .title {
-  margin: 0 0 4px;
-  font-size: 1.02rem;
-  font-weight: 800;
-  line-height: 1.18;
-  letter-spacing: 0.02em;
+  margin: 0 0 8px;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: 1.28rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   color: var(--afisha-text);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.subtitle {
-  display: none;
-}
-
-.creditsGrid {
-  display: none;
 }
 
 .timeVenueRow {
@@ -190,52 +191,45 @@
 }
 
 .timeBig {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--afisha-text);
 }
 
 .venueName {
-  font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--afisha-muted);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.colCta {
-  grid-area: cta;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-}
-
-.btn {
+.mobileCta {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid var(--afisha-text);
-  text-decoration: none;
-  font-size: 0.62rem;
+  gap: 6px;
+  margin-top: 14px;
+  align-self: flex-start;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--afisha-accent);
+  color: #fff !important;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--afisha-text) !important;
-  transition:
-    background var(--afisha-t-cta) var(--afisha-ease),
-    border-color var(--afisha-t-cta) var(--afisha-ease),
-    transform 0.4s var(--afisha-ease),
-    box-shadow 0.4s var(--afisha-ease);
+}
+
+.mobileCta::after {
+  content: '→';
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .dateBig {
@@ -289,8 +283,53 @@
   color: var(--afisha-text);
 }
 
-/* ——— Desktop: прежняя широкая раскладка ——— */
+.btn {
+  display: inline-flex;
+  padding: 14px 26px;
+  border: 2px solid var(--afisha-text);
+  text-decoration: none;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--afisha-text) !important;
+  transition:
+    background var(--afisha-t-cta) var(--afisha-ease),
+    border-color var(--afisha-t-cta) var(--afisha-ease),
+    transform 0.4s var(--afisha-ease),
+    box-shadow 0.4s var(--afisha-ease);
+}
+
+/* touch: без заливания всей карточки бирюзой/оранжем */
+@media (hover: none), (pointer: coarse) {
+  .row:active {
+    transform: scale(0.992);
+  }
+
+  .row:active .mobileCta {
+    background: var(--afisha-accent-dark);
+  }
+}
+
+/* ——— Desktop: прежняя широкая раскладка с кругом ——— */
 @media (min-width: 768px) {
+  .section {
+    background: #fff;
+  }
+
+  .wrap {
+    gap: 0;
+    padding: 0;
+  }
+
+  .row {
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    overflow: visible;
+  }
+
   .rowInner {
     grid-template-columns: minmax(0, 104px) minmax(148px, 204px) minmax(0, 1fr) auto;
     grid-template-areas: 'date visual info cta';
@@ -300,7 +339,8 @@
     min-height: 260px;
   }
 
-  .mobileDate {
+  .mobileMeta,
+  .mobileCta {
     display: none;
   }
 
@@ -319,6 +359,7 @@
     justify-content: center;
     align-items: center;
     align-self: center;
+    display: flex;
   }
 
   .poster {
@@ -332,20 +373,29 @@
 
   .colInfo {
     display: block;
+    padding: 0;
   }
 
   .metaTop {
+    display: flex;
+    flex-wrap: wrap;
     gap: 12px 16px;
     margin-bottom: 10px;
     font-size: 0.7rem;
+    font-weight: 800;
     letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--afisha-muted);
   }
 
   .premiereTag {
     margin-bottom: 8px;
+    border-radius: 2px;
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 5px 10px;
     font-size: 0.65rem;
     letter-spacing: 0.18em;
-    padding: 5px 10px;
   }
 
   .title {
@@ -388,22 +438,21 @@
 
   .venueName {
     font-size: 0.95rem;
+    font-weight: 650;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
     display: inline;
     -webkit-line-clamp: unset;
     overflow: visible;
   }
 
   .colCta {
+    grid-area: cta;
+    display: flex;
+    flex-direction: column;
     align-items: flex-end;
     align-self: center;
-  }
-
-  .btn {
-    width: auto;
-    padding: 14px 26px;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
+    justify-content: center;
   }
 }
 
@@ -418,7 +467,8 @@
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
+/* Цветной hover только на широкой раскладке — на мобилке карточки остаются белыми */
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
   .row:hover {
     background: var(--hover-bg, var(--afisha-accent));
     color: #fff;
@@ -431,14 +481,16 @@
   .row:hover .dateBig,
   .row:hover .title,
   .row:hover .timeBig,
-  .row:hover .creditName {
+  .row:hover .creditName,
+  .row:hover .mobileDate {
     color: #fff;
   }
 
   .row:hover .dateWd,
   .row:hover .metaTop,
   .row:hover .creditLabel,
-  .row:hover .venueName {
+  .row:hover .venueName,
+  .row:hover .mobileGenre {
     color: rgba(255, 255, 255, 0.82);
   }
 
@@ -453,7 +505,7 @@
   }
 
   .row:hover .img {
-    transform: scale(1.12);
+    transform: scale(1.06);
     will-change: transform;
   }
 
@@ -467,6 +519,11 @@
     color: #fff !important;
   }
 
+  .row:hover .mobileCta {
+    background: #fff;
+    color: var(--hover-bg, var(--afisha-accent)) !important;
+  }
+
   .row:hover .btn:hover {
     background: #fff;
     color: var(--hover-bg, var(--afisha-accent)) !important;
@@ -475,30 +532,6 @@
   .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .row:active {
-    background: var(--hover-bg, var(--afisha-accent-dark));
-    color: #fff;
-  }
-
-  .row:active .dateBig,
-  .row:active .title,
-  .row:active .timeBig,
-  .row:active .btn {
-    color: #fff !important;
-  }
-
-  .row:active .dateWd,
-  .row:active .metaTop,
-  .row:active .venueName {
-    color: rgba(255, 255, 255, 0.82);
-  }
-
-  .row:active .btn {
-    border-color: #fff;
   }
 }
 
