@@ -71,6 +71,25 @@ describe('hall seat radii by venue', () => {
     expect(out).toMatch(/<rect/i);
   });
 
+  it('strips MHT data-replaced circles (elem=true r=4)', () => {
+    const src =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">' +
+      '<circle elem="true" cx="214.495" cy="414.557" r="4" fill="#ccc" data-replaced="Партер откидное А , ряд 18, место A"/>' +
+      '<path d="M0 0 L10 10" fill="#000"/>' +
+      '</svg>';
+    const out = stripSvgSeatCirclesForBackdrop(src);
+    expect(out).not.toMatch(/<circle/i);
+    expect(out).toMatch(/<path/i);
+  });
+
+  it('pinch zoom keeps proportional theater radius (no hard 3.2 cliff)', () => {
+    const spacingSvg = 10;
+    const a = theaterSeatRadiusPx(1, false, { mhtChekhov: true, spacingSvg });
+    const b = theaterSeatRadiusPx(3, false, { mhtChekhov: true, spacingSvg });
+    expect(b / a).toBeCloseTo(3, 5);
+    expect(b).toBeCloseTo(3 * 1.05, 5);
+  });
+
   it('stadium background stable vs mapZoomed flag', () => {
     expect(hallBackgroundSeatRadiusPx(0.5, true, false)).toBe(
       hallBackgroundSeatRadiusPx(0.5, true, true),

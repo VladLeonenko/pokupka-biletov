@@ -341,12 +341,15 @@ export function stripSvgSectorLabelsForBackdrop(html: string): string {
   }
 }
 
-/** Финальный nuke: любой <circle> (self-close / paired) — DOMParser иногда оставлял места в raster. */
+/** Финальный nuke: circle + ellipse (МХТ/GetBilet места). */
 function nukeAllSvgCirclesHtml(html: string): string {
   return html
     .replace(/<circle\b[^>]*\/>/gi, '')
     .replace(/<circle\b[^>]*>[\s\S]*?<\/circle>/gi, '')
-    .replace(/<circle\b[^>]*>/gi, '');
+    .replace(/<circle\b[^>]*>/gi, '')
+    .replace(/<ellipse\b[^>]*\/>/gi, '')
+    .replace(/<ellipse\b[^>]*>[\s\S]*?<\/ellipse>/gi, '')
+    .replace(/<ellipse\b[^>]*>/gi, '');
 }
 
 export function stripSvgSeatCirclesForBackdrop(html: string): string {
@@ -364,10 +367,13 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
     }
     const svg = doc.querySelector('svg');
     if (!svg) return stripSeatCirclesRegex(trimmed);
-    /** Все circle — сцена/декор без мест. Иначе raster SVG = бублики под canvas. */
-    svg.querySelectorAll('circle').forEach((c) => c.remove());
+    /** Все circle/ellipse мест — иначе Image() raster раздувает их на pinch без canvas-cap. */
+    svg.querySelectorAll('circle, ellipse').forEach((c) => c.remove());
     stripGetbiletRowGlyphPathsFromSvg(svg);
-    return nukeAllSvgCirclesHtml(new XMLSerializer().serializeToString(svg));
+    let out = nukeAllSvgCirclesHtml(new XMLSerializer().serializeToString(svg));
+    /** Страховка: если парсер оставил мусор — второй regex-pass. */
+    if (/<circle\b|<ellipse\b/i.test(out)) out = nukeAllSvgCirclesHtml(out);
+    return out;
   } catch {
     return stripSeatCirclesRegex(trimmed);
   }

@@ -47,9 +47,14 @@ export function theaterSeatRadiusPx(
   /** Диаметр ≤ ~70% шага — на 100% точки не слипаются в «кашу». */
   const densCap =
     spacing != null && spacing > 0 ? Math.max(0.45, spacing * scalePx * 0.34) : Infinity;
+  /**
+   * Без жёсткого cap вроде 3.2px: на pinch canvas упирался в потолок,
+   * а SVG r=4 в raster продолжал расти → grey ≫ saleable.
+   * Только densCap (шаг сетки) + мягкий потолок.
+   */
   let r = opts?.mhtChekhov
-    ? Math.max(0.55, Math.min(3.2, scalePx * 1.05, densCap))
-    : Math.max(0.75, Math.min(5.5, scalePx * SVG_SEAT_R_MATCH, densCap));
+    ? Math.max(0.55, Math.min(densCap, scalePx * 1.05, 14))
+    : Math.max(0.75, Math.min(densCap, scalePx * SVG_SEAT_R_MATCH, 16));
   if (active) r *= 1.22;
   return r;
 }

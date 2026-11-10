@@ -2494,7 +2494,9 @@ export function TicketHallInteractiveBlock({
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
   /** Canvas рисует точки — DOM только hitbox, иначе двойные «ареолы» (театр + стадион). */
-  const uniformDomOverlayGhost = useCanvasCompositing && useSvgNative;
+  /** Театр-canvas: DOM-точки всегда прозрачные (иначе на pinch мелкие цветные поверх крупных grey). */
+  const uniformDomOverlayGhost =
+    (useCanvasCompositing && useSvgNative) || theaterSvgSeatCanvas;
   /**
    * Стадион: на zoom убираем заливку path (остаются sellable точки).
    * Большой hallPreview: цветные зоны остаются на любом зуме — иначе «пропали сектора».
@@ -2774,6 +2776,12 @@ export function TicketHallInteractiveBlock({
             .map((s) => s.svgKey)
             .filter(Boolean),
         );
+        /** Fallback: если svgKey не совпал — не двоим grey под цветной точкой. */
+        const sellablePosKeys = new Set(
+          visibleNativePlacements
+            .filter((s) => !s.previewOnly)
+            .map((s) => `${s.xPct.toFixed(2)}|${s.yPct.toFixed(2)}`),
+        );
         const scalePx = w / Math.max(1, svgViewBox.width);
         const spacingSvg = estimateMinSeatSpacingSvg(
           nativeSeats,
@@ -2787,7 +2795,8 @@ export function TicketHallInteractiveBlock({
         ctx.beginPath();
         for (const seat of nativeSeats) {
           const key = seatMapKey(seat.sector, seat.row, seat.seat);
-          if (sellableSvgKeys.has(key)) continue;
+          const posKey = `${seat.xPct.toFixed(2)}|${seat.yPct.toFixed(2)}`;
+          if (sellableSvgKeys.has(key) || sellablePosKeys.has(posKey)) continue;
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
@@ -3894,52 +3903,8 @@ export function TicketHallInteractiveBlock({
         </div>
       ) : null}
 
-      {isCoarsePointer && mobileHintSeat ? (
-        <div className={styles.mobileHintCard} role="status">
-          <button
-            type="button"
-            className={styles.mobileHintClose}
-            aria-label="Закрыть"
-            onClick={dismissMobileHint}
-          >
-            ×
-          </button>
-          <div className={styles.mobileHintBody}>
-            <div className={styles.mobileHintSector}>{mobileHintSeat.sector || 'Сектор'}</div>
-            <div className={styles.mobileHintMeta}>
-              {mobileHintSeat.row || '—'} ряд · место {mobileHintSeat.seat}
-            </div>
-            <div className={styles.mobileHintPrice}>{formatRub(Number(mobileHintSeat.priceKey))}</div>
-          </div>
-        </div>
-      ) : isCoarsePointer && hoverSector && !mobileHintDismissed ? (
-        <div className={styles.mobileHintCard} role="status">
-          <button
-            type="button"
-            className={styles.mobileHintClose}
-            aria-label="Закрыть"
-            onClick={dismissMobileHint}
-          >
-            ×
-          </button>
-          <div className={styles.mobileHintBody}>
-            <div className={styles.mobileHintMuted}>{sectorAvailabilityLabel(hoverSector)}</div>
-            <div className={styles.mobileHintSector}>{hoverSector.meta.label}</div>
-            {zonePreorderNote ? (
-              <div className={styles.mobileHintMuted}>{zonePreorderNote}</div>
-            ) : null}
-            <div className={styles.mobileHintPrice}>
-              {hoverSector.minPrice != null
-                ? `${formatRub(hoverSector.minPrice)}${
-                    hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
-                      ? ` – ${formatRub(hoverSector.maxPrice)}`
-                      : ''
-                  } / билет`
-                : 'Цена уточняется'}
-            </div>
-          </div>
-        </div>
-      ) : !isCoarsePointer ? (
+      {/* Mobile: hover-плашка бессмысленна (только tap). Выбор — в нижней корзине. */}
+      {!isCoarsePointer ? (
         <Popper
           open={Boolean(hoverAnchor && hoverSeat)}
           anchorEl={hoverAnchor}
