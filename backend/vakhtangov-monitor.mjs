@@ -165,28 +165,43 @@ async function tryBook(ev) {
         at: new Date().toISOString(),
         result,
       });
-      const seatLines = (result.seats || [])
-        .map((s) => `  ${s.section} ряд ${s.row} место ${s.place} — ${s.price}₽`)
-        .join('\n');
+      const seats = result.seats || [];
+      // Пары в начало письма — до длинных URL, иначе в Gmail mobile их не видно.
+      const pairLines = [];
+      for (let i = 0; i + 1 < seats.length; i += 2) {
+        const a = seats[i];
+        const b = seats[i + 1];
+        const sect = a.section || b.section || 'Партер';
+        const price = Number(a.price) || Number(b.price) || 0;
+        pairLines.push(
+          `МЕСТА: ${sect}, ряд ${a.row}, места ${a.place}–${b.place} · ${price}₽ × 2 = ${price * 2}₽`,
+        );
+      }
+      if (!pairLines.length && seats.length) {
+        for (const s of seats) {
+          pairLines.push(`МЕСТО: ${s.section || 'Партер'}, ряд ${s.row}, место ${s.place} — ${s.price}₽`);
+        }
+      }
+      const seatShort = seats.length
+        ? seats.map((s) => `р${s.row}м${s.place}`).join('+')
+        : 'места?';
       const text = [
         '✅ Вахтангов — бронь (партер, пара)',
         `Спектакль: ${ev.label}`,
-        `Title: ${result.label || ev.title}`,
-        `amount: ${result.amount ?? '—'}`,
+        ...pairLines,
+        `сумма: ${result.amount ?? '—'}₽`,
         result.orderId ? `orderId: ${result.orderId}` : null,
         `ОПЛАТА: ${result.paymentUrl}`,
         result.payPage ? `страница заказа: ${result.payPage}` : null,
         `покупатель: ${result.buyer?.name} <${result.buyer?.email}> ${result.buyer?.phone}`,
-        'места:',
-        seatLines || '  —',
         `страница: https://vakhtangov.ru/show/${ev.show}/`,
       ]
         .filter(Boolean)
         .join('\n');
       log(
-        `OK ${ev.label} seats=${(result.seats || []).map((s) => `${s.row}-${s.place}`).join(',')} order=${result.orderId || '—'} pay=${result.paymentUrl}`,
+        `OK ${ev.label} seats=${seats.map((s) => `${s.row}-${s.place}`).join(',')} order=${result.orderId || '—'} pay=${result.paymentUrl}`,
       );
-      await notifyBook(`✅ Вахтангов: ${ev.label}`, text).catch((e) => log(`mail fail: ${e.message}`));
+      await notifyBook(`✅ Вахтангов: ${ev.label} · ${seatShort}`, text).catch((e) => log(`mail fail: ${e.message}`));
       return;
     }
 
