@@ -23,8 +23,18 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const RESULTS_FILE = path.join(__dirname, 'data', 'intickets-results.json');
 const STATE_FILE = path.join(__dirname, 'data', 'radario-hold-state.json');
 const LOG_FILE = path.join(__dirname, 'data', 'radario-sniper.log');
-const NOTIFY_BOOK = (process.env.INTICKETS_NOTIFY_EMAIL || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com').trim();
-const BCC_BOOK = process.env.INTICKETS_BCC || 'yaguda_io@mail.ru';
+const OPERA_MAIL_BLOCK = new Set(['anastasia.iosi@yandex.ru']);
+function mailListWithoutBlocked(raw) {
+  return String(raw || '')
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s && !OPERA_MAIL_BLOCK.has(s.toLowerCase()))
+    .join(',');
+}
+const NOTIFY_BOOK = mailListWithoutBlocked(
+  process.env.INTICKETS_NOTIFY_EMAIL || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com',
+);
+const BCC_BOOK = mailListWithoutBlocked(process.env.INTICKETS_BCC || 'yaguda_io@mail.ru');
 
 const INTERVAL_MS = Number(process.env.INTICKETS_INTERVAL_MS || 1500);
 const HOT_INTERVAL_MS = Number(process.env.RADARIO_HOT_INTERVAL_MS || 300);

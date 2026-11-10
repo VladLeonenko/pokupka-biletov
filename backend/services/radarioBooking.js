@@ -58,7 +58,9 @@ function loadPassports(filePath = process.env.RADARIO_PASSPORTS_FILE || DEFAULT_
     documentNumber: String(p.documentNumber || '').replace(/\s+/g, ''),
     email: String(p.email || '').trim(),
     phone: digits(p.phone),
-  })).filter((p) => p.fullName && p.documentNumber && p.email && p.phone);
+  })).filter((p) => p.fullName && p.documentNumber && p.email && p.phone)
+    // Opera: не бронировать на Anastasia.iosi@yandex.ru
+    .filter((p) => p.email.toLowerCase() !== 'anastasia.iosi@yandex.ru');
 }
 
 async function api(method, urlPath, { body, sessionId } = {}) {
