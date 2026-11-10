@@ -1073,7 +1073,7 @@ export function TicketCheckoutPage() {
     [displayTitle],
   );
 
-  /** Широкий hero — всегда баннер (landscape); портретный постер только в aside/карточках. */
+  /** Широкий hero — баннер (landscape), иначе постер. */
   const coverUrl = useMemo(() => {
     const poster = ctx?.posterUrl || posterQ || null;
     const banner = ctx?.bannerUrl || bannerQ || null;
@@ -1083,25 +1083,6 @@ export function TicketCheckoutPage() {
   const posterSideUrl = useMemo(() => {
     return ctx?.posterUrl || posterQ || ctx?.bannerUrl || bannerQ || coverPlaceholder;
   }, [ctx?.posterUrl, ctx?.bannerUrl, posterQ, bannerQ, coverPlaceholder]);
-
-  /**
-   * Постер справа — только если это другой арт, не кроп/баннер той же обложки.
-   * `foo.jpg` + `foo-banner-v2.jpg` считаем одним и тем же → aside не дублируем.
-   */
-  const showPosterAside = useMemo(() => {
-    if (!posterSideUrl || !coverUrl) return false;
-    const norm = (s: string) => s.trim().replace(/\?[^#]*$/, '').replace(/\/$/, '');
-    if (norm(posterSideUrl) === norm(coverUrl)) return false;
-    const stem = (s: string) => {
-      const base = norm(s).split('/').pop() || '';
-      return base
-        .replace(/\.(jpe?g|png|webp|avif)$/i, '')
-        .replace(/-banner(-v?\d+)?$/i, '')
-        .replace(/-v\d+$/i, '')
-        .toLowerCase();
-    };
-    return stem(posterSideUrl) !== stem(coverUrl);
-  }, [posterSideUrl, coverUrl]);
 
   const sessionChipLabel = useMemo(() => {
     const n = allSessionsSorted.length;
@@ -1804,23 +1785,6 @@ export function TicketCheckoutPage() {
                   </button>
                 </div>
               </div>
-              {showPosterAside && posterSideUrl ? (
-                <div className={styles.heroPosterWrap}>
-                  <TicketEventPosterImg
-                    src={posterSideUrl}
-                    fallbackSrc={coverPlaceholder}
-                    gradientId={repertoireId || 'x'}
-                    className={styles.heroPosterImg}
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority="high"
-                    role="cover"
-                    width={320}
-                    height={480}
-                    alt={`Постер «${displayTitle}»`}
-                  />
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
