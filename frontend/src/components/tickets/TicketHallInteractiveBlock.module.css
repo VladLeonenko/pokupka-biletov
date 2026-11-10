@@ -375,23 +375,6 @@
   opacity: 0;
 }
 
-/** Театр/sectorMode: кружки мест только на canvas — SVG-circle прячем полностью (иначе зум CSS раздувает). */
-.svgLayerHideSeatCircles :global(circle[place-name]),
-.svgLayerHideSeatCircles :global(circle[data-replaced]),
-.svgLayerHideSeatCircles :global(circle) {
-  fill: none !important;
-  stroke: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-/** МХТ: path-глифы рядов GetBilet (#636466) — «1»…«6» в проходе партера. */
-.svgLayerHideSeatCircles :global(path[fill='#636466']) {
-  fill: none !important;
-  stroke: none !important;
-  opacity: 0 !important;
-}
-
 .svgLayerFocused :global(svg) {
   opacity: 1;
   filter: saturate(1.08) contrast(1.03) brightness(1.02);
@@ -408,12 +391,31 @@
   stroke: none !important;
 }
 
-/* Дубль: только заливка — обводка «доступности» только у кнопок-оверлея */
-.svgLayer :global(circle[place-name]),
-.svgLayer :global(circle[data-replaced]) {
+/* Серые SVG-места только если НЕ canvas-режим (иначе перебивали hide и давали бублики). */
+.svgLayer:not(.svgLayerHideSeatCircles) :global(circle[place-name]),
+.svgLayer:not(.svgLayerHideSeatCircles) :global(circle[data-replaced]) {
   fill: #d0d0d0 !important;
   stroke: none !important;
   stroke-width: 0 !important;
+}
+
+/** Canvas-режим: SVG-circle мест не должно быть видно вообще. */
+.svgLayerHideSeatCircles :global(circle[place-name]),
+.svgLayerHideSeatCircles :global(circle[data-replaced]),
+.svgLayerHideSeatCircles :global(circle) {
+  fill: none !important;
+  stroke: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/** МХТ: path-глифы рядов GetBilet (#636466) — «1»…«6» в проходе партера. */
+.svgLayerHideSeatCircles :global(path[fill='#636466']) {
+  fill: none !important;
+  stroke: none !important;
+  opacity: 0 !important;
 }
 
 .seatLayer {

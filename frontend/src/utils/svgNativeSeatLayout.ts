@@ -437,19 +437,6 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
 
   if (raw.length < 2) return null;
 
-  /** Минимальное расстояние между центрами разных мест — чтобы r не раздувался до перекрытий (театры с плотной сеткой). */
-  let minCenterDist = Infinity;
-  for (let i = 0; i < raw.length; i++) {
-    for (let j = i + 1; j < raw.length; j++) {
-      const dx = raw[i].x - raw[j].x;
-      const dy = raw[i].y - raw[j].y;
-      const d = Math.hypot(dx, dy);
-      if (d > 1e-4) minCenterDist = Math.min(minCenterDist, d);
-    }
-  }
-  const densityRadiusCap =
-    Number.isFinite(minCenterDist) && minCenterDist < Infinity ? minCenterDist * 0.46 : null;
-
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -487,25 +474,16 @@ export function processHallSvgForNative(html: string): { seats: SvgNativeSeat[];
   svg.setAttribute('height', String(vbH));
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-  /** Цвета «доступности» в исходном SVG не совпадают с GetBilet — все места-серые, цена только в оверлее. */
-  const seatCircles = Array.from(svg.querySelectorAll('circle[place-name], circle[data-replaced]'));
-  const radii = seatCircles
-    .map((c) => Number.parseFloat(c.getAttribute('r') || ''))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  const medianR =
-    radii.length > 0 ? [...radii].sort((a, b) => a - b)[Math.floor(radii.length / 2)] : 3.5;
-  const medianClamped = Math.min(4.2, Math.max(1.35, medianR));
-  let rUniform =
-    densityRadiusCap != null ? Math.min(medianClamped, densityRadiusCap) : medianClamped;
-  rUniform = Math.max(0.26, Math.min(rUniform, 4.2));
-
-  for (const c of seatCircles) {
-    c.setAttribute('r', String(rUniform));
-    c.setAttribute('fill', '#d0d0d0');
-    c.removeAttribute('stroke');
-    c.removeAttribute('stroke-width');
-    c.setAttribute('stroke', 'none');
-  }
+  /**
+   * Кружки мест УДАЛЯЕМ из svgHtml (не перекрашиваем в серый).
+   * Иначе DOM/raster SVG даёт «бублики» при зуме, а canvas-точки — мелкие в центре.
+   * Координаты уже в seats[]; визуал мест — только canvas/DOM-оверлей.
+   */
+  svg.querySelectorAll('circle[place-name], circle[data-replaced]').forEach((c) => c.remove());
+  svg.querySelectorAll('circle').forEach((c) => {
+    const r = Number.parseFloat(c.getAttribute('r') || '');
+    if (Number.isFinite(r) && r > 0 && r <= 16) c.remove();
+  });
 
   stripGetbiletRowGlyphPathsFromSvg(svg);
 
