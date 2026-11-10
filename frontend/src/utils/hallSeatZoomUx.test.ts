@@ -30,12 +30,11 @@ describe('hall seat radii by venue', () => {
     expect(next).toBeCloseTo(2.86 * scalePx, 5);
   });
 
-  it('MHT is ~half of previous canvas / ~1/4 SVG', () => {
+  it('MHT ~half of native SVG seat r=4', () => {
     const scalePx = 2;
-    const oldSvgScreenR = 2.86 * scalePx;
+    const mhtSvgScreenR = 4 * scalePx;
     const next = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true });
-    expect(next).toBeLessThan(oldSvgScreenR * 0.35);
-    expect(next).toBeGreaterThan(oldSvgScreenR * 0.18);
+    expect(next).toBeCloseTo(mhtSvgScreenR * 0.5, 5);
   });
 
   it('detects MHT stage ids', () => {

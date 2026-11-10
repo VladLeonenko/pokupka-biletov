@@ -15,14 +15,17 @@ export type SeatRadiusOpts = {
 /** GetBilet/наши схемы Большого: типичный r кружка места в SVG. */
 const SVG_SEAT_R_MATCH = 2.86;
 
-/** Единый радиус театра. */
+/**
+ * Единый радиус театра (grey == saleable).
+ * МХТ SVG seat r≈4 → половина визуала = scale*2; не 0.72 (крошки на фоне SVG r=4).
+ */
 export function theaterSeatRadiusPx(
   scalePx: number,
   active = false,
   opts?: Pick<SeatRadiusOpts, 'mhtChekhov'>,
 ): number {
   let r = opts?.mhtChekhov
-    ? Math.max(0.55, Math.min(6, scalePx * 0.72))
+    ? Math.max(0.7, Math.min(8, scalePx * 2.0))
     : Math.max(0.85, Math.min(10, scalePx * SVG_SEAT_R_MATCH));
   if (active) r *= 1.22;
   return r;

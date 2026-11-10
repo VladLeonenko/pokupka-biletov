@@ -988,8 +988,11 @@ export function TicketHallInteractiveBlock({
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],
   );
-  /** Все театры (МХТ + Вахтангов): места/sellable одним canvas-стилем как на МХТ. */
-  const theaterSvgSeatCanvas = theaterSectorCheckout;
+  /**
+   * Театр-canvas: sectorMode/hallKind ИЛИ МХТ по stage id
+   * (у МХТ в layout часто нет hallKind/sectorMode — только svgNative).
+   */
+  const theaterSvgSeatCanvas = theaterSectorCheckout || isMhtChekhovHall;
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     if (sectorMode.enabled && layoutSeats.length < 2 && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
@@ -1526,6 +1529,11 @@ export function TicketHallInteractiveBlock({
     setMobileHintDismissed(true);
     hideSeatInfo();
   }, [hideSeatInfo]);
+
+  const lastSelectedSeatKey = selectedSeatDetails[selectedSeatDetails.length - 1]?.key ?? '';
+  useEffect(() => {
+    if (lastSelectedSeatKey) setMobileHintDismissed(false);
+  }, [lastSelectedSeatKey]);
 
   const showSectorInfo = useCallback((anchor: SVGPathElement, sector: SectorSummary) => {
     setHoverSectorAnchor(anchor);
@@ -2752,8 +2760,15 @@ export function TicketHallInteractiveBlock({
        * МХТ — мелкий радиус; Большой — ≈ SVG r=2.86*scale.
        */
       if (theaterSvgSeatCanvas && nativeSeats.length > 0) {
-        const sellableKeys = new Set(
-          visibleNativePlacements.filter((s) => !s.previewOnly).map((s) => s.key),
+        /**
+         * Важно: placement.key = `offerId-seat-x-y`, а nativeSeat key = seatMapKey(sector,row,seat).
+         * Сравнивать только по svgKey — иначе grey рисуется ПОД каждым sellable → «бублик».
+         */
+        const sellableSvgKeys = new Set(
+          visibleNativePlacements
+            .filter((s) => !s.previewOnly)
+            .map((s) => s.svgKey)
+            .filter(Boolean),
         );
         const scalePx = w / Math.max(1, svgViewBox.width);
         const radiusOpts = { mhtChekhov: isMhtChekhovHall };
@@ -2763,7 +2778,7 @@ export function TicketHallInteractiveBlock({
         ctx.beginPath();
         for (const seat of nativeSeats) {
           const key = seatMapKey(seat.sector, seat.row, seat.seat);
-          if (sellableKeys.has(key)) continue;
+          if (sellableSvgKeys.has(key)) continue;
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
@@ -2791,10 +2806,13 @@ export function TicketHallInteractiveBlock({
             strokeOwnBestRing(ctx, sx, sy, r);
           }
           if (active) {
-            ctx.lineWidth = Math.max(1.5, r * 0.28);
+            /** Обводка снаружи точки, не съедает fill (иначе «уменьшается» при выборе). */
+            ctx.lineWidth = Math.max(1.2, r * 0.22);
             ctx.strokeStyle = '#fff';
             ctx.stroke();
-            ctx.lineWidth = Math.max(1, r * 0.16);
+            ctx.beginPath();
+            ctx.arc(sx, sy, r + ctx.lineWidth * 0.55, 0, Math.PI * 2);
+            ctx.lineWidth = Math.max(1, r * 0.14);
             ctx.strokeStyle = fill;
             ctx.stroke();
           }
@@ -2909,9 +2927,15 @@ export function TicketHallInteractiveBlock({
   ]
     .filter(Boolean)
     .join(' ');
-  const mobileHintSeat = mobileHintDismissed
-    ? null
-    : hoverSeat || selectedSeatDetails[selectedSeatDetails.length - 1] || null;
+  /**
+   * Одна плашка: при hideSelectionBar нижняя корзина уже показывает «Выбрано» —
+   * не дублируем mobileHint (иначе две карточки и разные места).
+   */
+  const mobileHintSeat =
+    mobileHintDismissed || (hideSelectionBar && selectedSeatDetails.length > 0)
+      ? null
+      : hoverSeat ||
+        (!hideSelectionBar ? selectedSeatDetails[selectedSeatDetails.length - 1] || null : null);
   const hallViewportStyle = useMemo<React.CSSProperties | undefined>(() => {
     if (!hallViewportBackground) return undefined;
     return {
