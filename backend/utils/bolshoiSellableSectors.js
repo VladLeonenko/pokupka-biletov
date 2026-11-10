@@ -2,8 +2,8 @@
  * Продаваемые зоны Исторической сцены Большого (по ТЗ заказчика).
  *
  * 1) Партер середина — ряды 1–8, центральный блок
- * 2) Бельэтаж правая: ложи 4, 5, 6 — каждая отдельной зоной на все 3 ряда
- * 3) 1 ярус правая: ложи 5–8 — каждая отдельной зоной на все 3 ряда
+ * 2) Бельэтаж правая: ложи 4, 5, 6 — каждая отдельной зоной, только ряд 1
+ * 3) 1 ярус правая: ложи 5–8 — каждая отдельной зоной, только ряд 1
  * 4) Балкон 2 / 3 левая, ряд 1
  * 5) Левые VIP-ложи целиком (бельэтаж 4, 1 ярус 9)
  * 6) Партер ряд А (Вип) — без боковых 4+4
@@ -13,6 +13,8 @@ export const BOLSHOI_VIEW_IMAGES = {
   parter: '/hall-maps/bolshoi-views/view-parter-a.jpg',
   amphitheater: '/hall-maps/bolshoi-views/view-amphitheater.jpg',
   tier1: '/hall-maps/bolshoi-views/view-tier1.jpg',
+  /** Вид из ложи бельэтажа (бинокль на перилах). */
+  beletazh: '/hall-maps/bolshoi-views/view-beletazh.jpg',
 };
 
 /**
@@ -48,6 +50,15 @@ export const BOLSHOI_VIEW_POINTS = {
     y: 661,
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     primarySectorId: 'lozha1_right_5',
+  },
+  beletazh: {
+    id: 'view-beletazh',
+    label: 'Вид из ложи бельэтажа',
+    /** Левая ложа бельэтажа 4 — точка съёмки у боковой ложи. */
+    x: 420,
+    y: 220,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
+    primarySectorId: 'beletazh_box',
   },
 };
 
@@ -97,10 +108,10 @@ function viewPointForPreviewUrl(url) {
 
 /** @typedef {{ id: string, label: string, previewImageUrl?: string, test: (s: object) => boolean, maxQty?: number, box?: boolean }} SellableRule */
 
-/** Одна правая ложа: все 3 ряда (8 мест). */
+/** Одна правая ложа: только ряд 1 (геометрия 3×3 остаётся, ряды 2–3 серые). */
 function rightBoxTest(tierRe, boxNo) {
   const re = new RegExp(`${tierRe}\\s+Правая.*Ложа\\s+${boxNo}\\b`);
-  return (s) => re.test(detail(s));
+  return (s) => re.test(detail(s)) && String(s.rowOrigin ?? s.row) === '1';
 }
 
 /**
@@ -126,21 +137,21 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
     id: 'beletazh_right_4',
     label: 'Бельэтаж правая ложа 4',
-    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 4),
   },
   {
     id: 'beletazh_right_5',
     label: 'Бельэтаж правая ложа 5',
-    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 5),
   },
   {
     id: 'beletazh_right_6',
     label: 'Бельэтаж правая ложа 6',
-    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 6),
   },
@@ -198,7 +209,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
     id: 'beletazh_box',
     label: 'Ложа бельэтажа (левая 4)',
-    previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     /** Левая VIP-ложа — только целиком. */
     box: true,
     test: (s) => /Бельэтаж\s+Левая.*Ложа\s+4\b/.test(detail(s)),
