@@ -1,9 +1,8 @@
 /**
  * Радиусы точек схемы (canvas). Геометрию (x/y) не трогаем — только диаметр.
  *
- * Театр: серые и saleable — ОДИН размер (solid), без SVG-бубликов под ними.
- * ~половина старых SVG circle (r≈2.86 → screen 2.86*scale) ⇒ coeff ≈1.45.
- * Cap высокий: на pinch 300% старый min(3) оставлял canvas-крошки на фоне SVG.
+ * Театр: серые и saleable — ОДИН размер (solid).
+ * ~¼ старого SVG circle (r≈2.86*scale) / половина прежнего canvas 1.45 → coeff 0.72.
  * Выбранное: ×1.22 сверху.
  */
 
@@ -13,7 +12,7 @@ export type SeatRadiusOpts = {
 
 /** Единый радиус театра (grey + saleable). */
 export function theaterSeatRadiusPx(scalePx: number, active = false): number {
-  let r = Math.max(0.85, Math.min(12, scalePx * 1.45));
+  let r = Math.max(0.55, Math.min(6, scalePx * 0.72));
   if (active) r *= 1.22;
   return r;
 }

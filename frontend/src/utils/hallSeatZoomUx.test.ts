@@ -21,21 +21,21 @@ describe('hall seat uniform theater dots', () => {
     expect(active / idle).toBeCloseTo(1.22, 5);
   });
 
-  it('target size ~half of old SVG seat (r=2.86 * scale)', () => {
+  it('target size ~1/4 of old SVG seat (r=2.86 * scale)', () => {
     const scalePx = 2;
     const oldSvgScreenR = 2.86 * scalePx;
     const next = theaterSeatRadiusPx(scalePx, false);
-    expect(next).toBeLessThan(oldSvgScreenR * 0.6);
-    expect(next).toBeGreaterThan(oldSvgScreenR * 0.35);
+    expect(next).toBeLessThan(oldSvgScreenR * 0.35);
+    expect(next).toBeGreaterThan(oldSvgScreenR * 0.18);
   });
 
-  it('pinch zoom does not cap theater dots to 3px crumbs', () => {
+  it('pinch zoom keeps grey/saleable scale without 3px crumb cap', () => {
     const scalePx = 4;
     const oldSvgScreenR = 2.86 * scalePx;
     const next = theaterSeatRadiusPx(scalePx, false);
-    expect(next).toBeGreaterThan(3);
-    expect(next).toBeLessThan(oldSvgScreenR * 0.6);
-    expect(next).toBeGreaterThan(oldSvgScreenR * 0.35);
+    expect(next).toBeGreaterThan(2);
+    expect(next).toBeLessThan(oldSvgScreenR * 0.35);
+    expect(next).toBeGreaterThan(oldSvgScreenR * 0.18);
   });
 
   it('strips Bolshoi-like seat circles from backdrop SVG', () => {

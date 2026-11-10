@@ -35,7 +35,7 @@ const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1
 /** Акцент «выгодное предложение» (наши места с лучшей ценой; совпадает с CSS var(--own-best-color) fallback). */
 const OWN_BEST_ACCENT = '#ff4e18';
 
-/** Рамка «выгодное предложение»: точка того же размера, но с заметной обводкой по контуру. */
+/** Рамка «выгодное предложение»: тонкий контур, без min 1.8px (на мелких точках давал бублик). */
 function strokeOwnBestRing(
   ctx: CanvasRenderingContext2D,
   sx: number,
@@ -44,10 +44,10 @@ function strokeOwnBestRing(
 ) {
   ctx.beginPath();
   ctx.arc(sx, sy, r, 0, Math.PI * 2);
-  ctx.lineWidth = Math.max(1.8, r * 0.5);
+  ctx.lineWidth = Math.max(0.6, Math.min(1.4, r * 0.28));
   ctx.strokeStyle = '#fff';
   ctx.stroke();
-  ctx.lineWidth = Math.max(1.2, r * 0.32);
+  ctx.lineWidth = Math.max(0.5, Math.min(1.1, r * 0.2));
   ctx.strokeStyle = OWN_BEST_ACCENT;
   ctx.stroke();
 }
@@ -2687,7 +2687,9 @@ export function TicketHallInteractiveBlock({
       const hallRaster = hallRasterImageRef.current;
       const mapZoomedNow = zoom > fitZoom + 0.01;
       /** МХТ svg-места: не двоить с allSeatCoordinates. Вахтангов — свой bowl. */
-      const skipStadiumBowlDots = theaterSvgSeatCanvas;
+      /** Театр / layout-seats: чашу dots.bin/allSeatCoordinates не мешаем с canvas-местами. */
+      const skipStadiumBowlDots =
+        theaterSvgSeatCanvas || preferLayoutSeatPositions || theaterSectorCheckout;
       const bowlLayout = { left: x, top: y, screenW: w, screenH: h };
       const jsonBowl =
         !useHallBackgroundRaster
@@ -2727,16 +2729,16 @@ export function TicketHallInteractiveBlock({
       }
 
       /**
-       * Театр: фон зала — серые точки только для НЕ-sellable.
-       * Sellable — тот же radius/алгоритм, что стадион (stadiumSeatCanvasRadiusPx), без серой подложки = без ареол.
+       * Театр: серые = только НЕ-sellable; saleable тем же rIdle (active ×1.22).
+       * Один scalePx от screenW — иначе на pinch grey/saleable разъезжаются.
        */
       if (theaterSvgSeatCanvas && nativeSeats.length > 0) {
         const sellableKeys = new Set(
           visibleNativePlacements.filter((s) => !s.previewOnly).map((s) => s.key),
         );
-        /** Один scale для grey/saleable — без «бублик SVG + точка canvas». */
         const scalePx = w / Math.max(1, svgViewBox.width);
         const rIdle = theaterSeatRadiusPx(scalePx, false);
+        const rActive = theaterSeatRadiusPx(scalePx, true);
         ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
         ctx.beginPath();
         for (const seat of nativeSeats) {
@@ -2758,7 +2760,8 @@ export function TicketHallInteractiveBlock({
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
-          const r = theaterSeatRadiusPx(scalePx, active);
+          /** Тот же базовый радиус, что у серых — без второго scale/formula. */
+          const r = active ? rActive : rIdle;
           const fill = colorForSeat(seat.priceKey);
           ctx.save();
           ctx.beginPath();
@@ -2769,10 +2772,10 @@ export function TicketHallInteractiveBlock({
             strokeOwnBestRing(ctx, sx, sy, r);
           }
           if (active) {
-            ctx.lineWidth = Math.max(2, r * 0.32);
+            ctx.lineWidth = Math.max(1.5, r * 0.28);
             ctx.strokeStyle = '#fff';
             ctx.stroke();
-            ctx.lineWidth = Math.max(1.2, r * 0.18);
+            ctx.lineWidth = Math.max(1, r * 0.16);
             ctx.strokeStyle = fill;
             ctx.stroke();
           }
@@ -2809,6 +2812,7 @@ export function TicketHallInteractiveBlock({
             svgViewBox.width,
             active,
             mapZoomedNow,
+            theaterSectorCheckout || preferLayoutSeatPositions ? { theater: true } : undefined,
           );
           const fill = seat.previewOnly ? CANVAS_HALL_SEAT_DOT_FILL : colorForSeat(seat.priceKey);
           ctx.save();
@@ -2859,6 +2863,7 @@ export function TicketHallInteractiveBlock({
     isMapDragging,
     selectedSeatDetails,
     skipDuplicateInteractiveDotsOnCanvas,
+    preferLayoutSeatPositions,
     theaterSvgSeatCanvas,
     theaterSectorCheckout,
     nativeSeats,
