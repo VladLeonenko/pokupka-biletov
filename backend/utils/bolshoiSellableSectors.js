@@ -5,7 +5,7 @@
  * 2) Бельэтаж правая: ложи 4, 5, 6 — каждая отдельной зоной, только ряд 1
  * 3) 1 ярус правая: ложи 5–8 — каждая отдельной зоной, только ряд 1
  * 4) Балкон 2 / 3 левая, ряд 1
- * 5) Левые VIP-ложи целиком (бельэтаж 4, 1 ярус 9) — визуал/sellable только ряд 1
+ * 5) Левые VIP-ложи целиком (бельэтаж 4, 1 ярус 9) — все ряды lit/sellable (boxWhole)
  * 6) Партер ряд А (Вип) — без боковых 4+4
  */
 
@@ -131,11 +131,6 @@ function leftBoxOutlineTest(tierRe, boxNo) {
   return (s) => re.test(detail(s));
 }
 
-function leftBoxRow1Test(tierRe, boxNo) {
-  const outline = leftBoxOutlineTest(tierRe, boxNo);
-  return (s) => outline(s) && String(s.rowOrigin ?? s.row) === '1';
-}
-
 /**
  * Продаваемые зоны. Подсветка/офферы — `test`; SVG-контур — `outlineTest`
  * (если задан), иначе те же места. Нельзя строить path только по lit-местам
@@ -239,18 +234,18 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     id: 'beletazh_box',
     label: 'Ложа бельэтажа (левая 4)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
-    /** Целиком в чекауте, на схеме светятся только места ряда 1. */
+    /** Целиком в чекауте; все ряды lit/sellable (ложа продаётся целиком). */
     box: true,
-    test: leftBoxRow1Test('Бельэтаж', 4),
+    test: leftBoxOutlineTest('Бельэтаж', 4),
     outlineTest: leftBoxOutlineTest('Бельэтаж', 4),
   },
   {
     id: 'lozha1_box',
     label: 'Ложа 1 яруса (левая 9)',
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
-    /** Целиком в чекауте, на схеме светятся только места ряда 1. */
+    /** Целиком в чекауте; все ряды lit/sellable (ложа продаётся целиком). */
     box: true,
-    test: leftBoxRow1Test('1\\s*ярус', 9),
+    test: leftBoxOutlineTest('1\\s*ярус', 9),
     outlineTest: leftBoxOutlineTest('1\\s*ярус', 9),
   },
   {
@@ -555,12 +550,49 @@ function sectorZonePath(pts, pad, hallWidth, hallHeight) {
   return inflatedHullPath(hull.map(fit), pad);
 }
 
+/**
+ * Pad для inflated hull: соседние правые ложи (бельэтаж gap≈18, 1 ярус≈14)
+ * при pad 15 пересекаются. Сжимаем pad до половины edge-gap минус зазор.
+ */
+function nonOverlappingPad(rule, bbox, neighbors, preferred) {
+  let pad = preferred;
+  for (const other of neighbors) {
+    if (other.id === rule.id) continue;
+    const dx =
+      bbox.x2 < other.x1 ? other.x1 - bbox.x2
+        : other.x2 < bbox.x1 ? bbox.x1 - other.x2
+          : 0;
+    const dy =
+      bbox.y2 < other.y1 ? other.y1 - bbox.y2
+        : other.y2 < bbox.y1 ? bbox.y1 - other.y2
+          : 0;
+    /**
+     * Левая↔правая ложа на одной высоте даёт dy≈0 при dx сотни px —
+     * это не сосед, не режем pad. Соседи в колонке/по дуге: max(dx,dy)≲80.
+     */
+    if (Math.max(dx, dy) > 80) continue;
+    /**
+     * Expanded AABB overlap iff dx < 2pad AND dy < 2pad.
+     * Колонка (dx=0): pad < dy/2; диагональ (ложи 1 яруса): pad < min(dx,dy)/2.
+     */
+    let maxPad;
+    if (dx === 0 && dy === 0) maxPad = 0;
+    else if (dx === 0) maxPad = dy / 2;
+    else if (dy === 0) maxPad = dx / 2;
+    else maxPad = Math.min(dx, dy) / 2;
+    /** −1 px запас на дуги Minkowski. */
+    pad = Math.min(pad, Math.max(3, maxPad - 1));
+  }
+  return pad;
+}
+
 export function buildBolshoiSellableSectorMode(
   seats,
   hallWidth = BOLSHOI_HISTORICAL_HALL_WIDTH,
   hallHeight = BOLSHOI_HISTORICAL_HALL_HEIGHT,
 ) {
-  const sectors = [];
+  /** Сначала собираем outline-точки всех зон — для pad без перекрытий. */
+  const prepared = [];
   for (const rule of BOLSHOI_SELLABLE_SECTOR_RULES) {
     /** После remap sellable-места несут label; до remap — rule.test. */
     const labeled = seats.filter((s) => s.sector === rule.label);
@@ -568,7 +600,7 @@ export function buildBolshoiSellableSectorMode(
     /**
      * Контур — ВСЕГДА по полной ложе (outlineTest / все места сектора).
      * НИКОГДА не строить path только из lit ряда 1: получится полоска не на группе.
-     * Sellable-цвет/qty — отдельно из qtySeats (ряд 1).
+     * Sellable-цвет/qty — отдельно из qtySeats (ряд 1 справа / все ряды слева).
      */
     const outlineSeats = rule.outlineTest
       ? seats.filter((s) => rule.outlineTest(s))
@@ -588,11 +620,28 @@ export function buildBolshoiSellableSectorMode(
       x2 = Math.max(x2, p.x);
       y2 = Math.max(y2, p.y);
     }
-    const pad = rule.box ? 20 : 15;
-    x1 = Math.max(0, x1 - pad);
-    y1 = Math.max(0, y1 - pad);
-    x2 = Math.min(hallWidth, x2 + pad);
-    y2 = Math.min(hallHeight, y2 + pad);
+    prepared.push({
+      rule,
+      qtySeats,
+      pts,
+      bbox: { id: rule.id, x1, y1, x2, y2 },
+    });
+  }
+
+  const neighbors = prepared
+    .filter((p) => p.rule.outlineTest)
+    .map((p) => p.bbox);
+
+  const sectors = [];
+  for (const { rule, qtySeats, pts, bbox } of prepared) {
+    const preferred = rule.box ? 14 : rule.outlineTest ? 8 : 15;
+    const pad = rule.outlineTest
+      ? nonOverlappingPad(rule, bbox, neighbors, preferred)
+      : preferred;
+    const x1 = Math.max(0, bbox.x1 - pad);
+    const y1 = Math.max(0, bbox.y1 - pad);
+    const x2 = Math.min(hallWidth, bbox.x2 + pad);
+    const y2 = Math.min(hallHeight, bbox.y2 + pad);
     const bboxPath = `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x1.toFixed(1)} ${y2.toFixed(1)} Z`;
     const vp = viewPointForPreviewUrl(rule.previewImageUrl);
     const qty = qtySeats.length || pts.length;
