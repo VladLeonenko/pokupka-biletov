@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  estimateMinSeatSpacingSvg,
   hallBackgroundSeatRadiusPx,
   stadiumSeatCanvasRadiusPx,
   theaterSeatRadiusPx,
@@ -10,31 +11,46 @@ import { isMhtChekhovMainStageId } from '../constants/getbiletStages';
 describe('hall seat radii by venue', () => {
   it('MHT grey and saleable idle share the same radius', () => {
     const scalePx = 2.0;
-    const grey = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true });
+    const spacingSvg = 10;
+    const grey = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true, spacingSvg });
     const sell = stadiumSeatCanvasRadiusPx(1, 1000, 500, false, true, {
       theater: true,
       mhtChekhov: true,
+      spacingSvg,
     });
     expect(sell).toBeCloseTo(grey, 5);
   });
 
   it('selected is larger than idle (MHT)', () => {
-    const idle = theaterSeatRadiusPx(1.5, false, { mhtChekhov: true });
-    const active = theaterSeatRadiusPx(1.5, true, { mhtChekhov: true });
+    const idle = theaterSeatRadiusPx(1.5, false, { mhtChekhov: true, spacingSvg: 12 });
+    const active = theaterSeatRadiusPx(1.5, true, { mhtChekhov: true, spacingSvg: 12 });
     expect(active / idle).toBeCloseTo(1.22, 5);
   });
 
-  it('Bolshoi/default matches SVG seat r≈2.86*scale', () => {
-    const scalePx = 2;
-    const next = theaterSeatRadiusPx(scalePx, false);
-    expect(next).toBeCloseTo(2.86 * scalePx, 5);
+  it('density cap prevents merge on overview', () => {
+    const scalePx = 0.45;
+    const spacingSvg = 9;
+    const next = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true, spacingSvg });
+    expect(next).toBeLessThanOrEqual(spacingSvg * scalePx * 0.34 + 1e-6);
+    expect(next * 2).toBeLessThan(spacingSvg * scalePx);
   });
 
-  it('MHT ~half of native SVG seat r=4', () => {
+  it('Bolshoi/default respects density cap vs raw SVG r', () => {
     const scalePx = 2;
-    const mhtSvgScreenR = 4 * scalePx;
-    const next = theaterSeatRadiusPx(scalePx, false, { mhtChekhov: true });
-    expect(next).toBeCloseTo(mhtSvgScreenR * 0.5, 5);
+    const spacingSvg = 6;
+    const next = theaterSeatRadiusPx(scalePx, false, { spacingSvg });
+    expect(next).toBeLessThan(2.86 * scalePx);
+    expect(next).toBeLessThanOrEqual(spacingSvg * scalePx * 0.34 + 1e-6);
+  });
+
+  it('estimateMinSeatSpacingSvg finds grid step', () => {
+    const seats = [
+      { xPct: 10, yPct: 10 },
+      { xPct: 20, yPct: 10 },
+      { xPct: 10, yPct: 20 },
+    ];
+    // vb 100×100 → 10pct = 10 units
+    expect(estimateMinSeatSpacingSvg(seats, 100, 100)).toBeCloseTo(10, 5);
   });
 
   it('detects MHT stage ids', () => {

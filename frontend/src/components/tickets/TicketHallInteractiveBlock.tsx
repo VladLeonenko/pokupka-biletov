@@ -20,6 +20,7 @@ import {
 } from '../../utils/svgNativeSeatLayout';
 import { isOwnOfferLike, shouldReplaceMappedOffer } from '../../utils/ownOfferPrefer';
 import {
+  estimateMinSeatSpacingSvg,
   hallBackgroundSeatRadiusPx,
   stadiumSeatCanvasRadiusPx,
   theaterSeatRadiusPx,
@@ -988,11 +989,6 @@ export function TicketHallInteractiveBlock({
     () => parsePreferLayoutSeatPositions(layoutJson),
     [layoutJson],
   );
-  /**
-   * Театр-canvas: sectorMode/hallKind ИЛИ МХТ по stage id
-   * (у МХТ в layout часто нет hallKind/sectorMode — только svgNative).
-   */
-  const theaterSvgSeatCanvas = theaterSectorCheckout || isMhtChekhovHall;
   const nativeSeats = useMemo<SvgNativeSeat[]>(() => {
     if (preferLayoutSeatPositions && layoutSeats.length >= 2) return layoutSeats;
     if (sectorMode.enabled && layoutSeats.length < 2 && sellableSeatsFromLayout.length >= 2) return sellableSeatsFromLayout;
@@ -1001,6 +997,14 @@ export function TicketHallInteractiveBlock({
     if (layoutSeats.length >= 2) return layoutSeats;
     return [];
   }, [preferLayoutSeatPositions, layoutSeats, sectorMode.enabled, sellableSeatsFromLayout, nativeProcessed]);
+  /**
+   * Театр-canvas обязательно, иначе DOM-SVG r=4 + мелкие seatDot → каша на 100% / рассинхрон на 800%.
+   * МХТ layout часто только `{ layoutMode: svgNative }` без hallKind/sectorMode.
+   */
+  const theaterSvgSeatCanvas =
+    theaterSectorCheckout
+    || isMhtChekhovHall
+    || (layoutMode === 'svgNative' && nativeSeats.length >= 80);
   /**
    * Всегда брать подрезанный SVG из processHallSvgForNative, если круги есть.
    * Иначе при preferLayoutSeatPositions отдавался сырой SVG со style 1200×218 → «тонкая полоска».
@@ -2771,7 +2775,12 @@ export function TicketHallInteractiveBlock({
             .filter(Boolean),
         );
         const scalePx = w / Math.max(1, svgViewBox.width);
-        const radiusOpts = { mhtChekhov: isMhtChekhovHall };
+        const spacingSvg = estimateMinSeatSpacingSvg(
+          nativeSeats,
+          svgViewBox.width,
+          svgViewBox.height,
+        );
+        const radiusOpts = { mhtChekhov: isMhtChekhovHall || layoutMode === 'svgNative', spacingSvg };
         const rIdle = theaterSeatRadiusPx(scalePx, false, radiusOpts);
         const rActive = theaterSeatRadiusPx(scalePx, true, radiusOpts);
         ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
