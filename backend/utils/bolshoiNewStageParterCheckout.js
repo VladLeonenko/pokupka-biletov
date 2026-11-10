@@ -2,12 +2,17 @@
  * Новая сцена: один продаваемый сектор под офферы seed (Партер середина).
  * Импорт Afisha/редактор часто снова раскладывает левую/правую — схлопываем обратно.
  * Highlight path = кривые level.outline левой+правой (union), НЕ AABB-прямоугольник.
+ *
+ * Storefront visual (как Историческая): белые сектора + цветные sellable-точки,
+ * без solid rose path fill. Editor может подсвечивать иначе.
  */
 
 export const BOLSHOI_NEW_STAGE_PARTER_LABEL = 'Партер (середина)';
 export const BOLSHOI_NEW_STAGE_PARTER_ID = 'parter_mid';
-/** Hall preview / SVG sale fill — soft rose for bookable Партер (non-parter stays white). */
+/** @deprecated Public map no longer uses solid rose wash; kept for legacy SVG/DB cleanup. */
 export const BOLSHOI_NEW_STAGE_PARTER_FILL = '#e0c9bb';
+/** Public / checkout sector fill — white like other zones (Historical sellable style). */
+export const BOLSHOI_NEW_STAGE_SECTOR_FILL = '#ffffff';
 
 function pathBBox(pathStr) {
   const nums = String(pathStr || '')
@@ -100,6 +105,41 @@ function bboxFallbackPath(sectors) {
   return `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x1.toFixed(1)} ${y2.toFixed(1)} Z`;
 }
 
+function publicSectorFill(fill) {
+  const f = String(fill || '').trim().toLowerCase();
+  if (!f || f === BOLSHOI_NEW_STAGE_PARTER_FILL) return BOLSHOI_NEW_STAGE_SECTOR_FILL;
+  return f;
+}
+
+/**
+ * Layout seats «Партер левая/правая» → sale label (geometry unchanged).
+ * @param {unknown} seats
+ */
+export function remapBolshoiNewStageParterSeatsToMid(seats) {
+  if (!Array.isArray(seats)) return seats;
+  return seats.map((s) => {
+    if (!s || typeof s !== 'object') return s;
+    const sector = String(s.sector || '').trim();
+    if (!/^партер/i.test(sector)) return s;
+    if (sector === BOLSHOI_NEW_STAGE_PARTER_LABEL) return s;
+    return {
+      ...s,
+      sectorDetail: s.sectorDetail || sector,
+      sector: BOLSHOI_NEW_STAGE_PARTER_LABEL,
+    };
+  });
+}
+
+/**
+ * Seat label belongs to New Stage sale «Партер (середина)» (left/right / mid).
+ */
+export function isBolshoiNewStageParterSaleSeatSector(seatSector) {
+  const s = String(seatSector || '').trim();
+  if (!s) return false;
+  if (s === BOLSHOI_NEW_STAGE_PARTER_LABEL) return true;
+  return /^партер\s+(левая|правая)\s+сторона$/i.test(s) || /^партер$/i.test(s);
+}
+
 /**
  * @param {Record<string, unknown>} layoutJson
  * @returns {{ layout: Record<string, unknown>, changed: boolean, reason?: string }}
@@ -124,13 +164,15 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
     return { layout: lj, changed: false, reason: 'parter-bbox-empty' };
   }
 
+  const fill0 = publicSectorFill(secs[0]?.fill);
   const already =
     secs.length === 1 &&
     String(secs[0]?.label || '') === BOLSHOI_NEW_STAGE_PARTER_LABEL &&
     String(secs[0]?.id || '') === BOLSHOI_NEW_STAGE_PARTER_ID &&
     String(secs[0]?.path || '').trim() === unionPath &&
     !isAxisAlignedRectPath(String(secs[0]?.path || '')) &&
-    String(secs[0]?.fill || '').toLowerCase() === BOLSHOI_NEW_STAGE_PARTER_FILL &&
+    fill0 === BOLSHOI_NEW_STAGE_SECTOR_FILL &&
+    String(secs[0]?.fill || '').toLowerCase() !== BOLSHOI_NEW_STAGE_PARTER_FILL &&
     lj.hallPreviewSectorCheckout === true &&
     lj.seatSelectionDisabled === true &&
     lj.hideSeatList === true &&
@@ -146,8 +188,9 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
         path: unionPath,
         maxQuantity: 8,
         totalSeats: 8,
-        fill: BOLSHOI_NEW_STAGE_PARTER_FILL,
-        accent: BOLSHOI_NEW_STAGE_PARTER_FILL,
+        /** White like Historical — availability = colored seat dots, not solid wash. */
+        fill: BOLSHOI_NEW_STAGE_SECTOR_FILL,
+        accent: BOLSHOI_NEW_STAGE_SECTOR_FILL,
         previewImageUrl:
           String(secs[0]?.previewImageUrl || '').trim() ||
           '/hall-maps/bolshoi-views/view-parter-a.jpg',
@@ -158,6 +201,9 @@ export function collapseBolshoiNewStageToParterMid(layoutJson) {
   lj.seatSelectionDisabled = true;
   lj.hideSeatList = true;
   lj.hallViewportBackground = '#f5f5f5';
+  if (Array.isArray(lj.seats)) {
+    lj.seats = remapBolshoiNewStageParterSeatsToMid(lj.seats);
+  }
   if (curved?.saved?.length) {
     lj.bolshoiNewStage = { ...prevMeta, parterOutlinePaths: curved.saved };
   }

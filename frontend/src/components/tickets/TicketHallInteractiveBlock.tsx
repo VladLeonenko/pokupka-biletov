@@ -188,7 +188,7 @@ type SectorMeta = {
   previewImageUrl?: string | null;
   maxQuantity?: number | null;
   boxWhole?: boolean;
-  /** Fixed wash (e.g. Bolshoi new-stage parter peach) — overrides price accent. */
+  /** Optional sector wash; public Bolshoi New Stage keeps white (sellable = seat dots). */
   fill?: string | null;
 };
 type HallMapLabel = {
@@ -657,6 +657,25 @@ function mergeGrayHallUnmatchedPlacements(
     }
   }
   return next;
+}
+
+/**
+ * Hall-preview sale sector ↔ layout seat labels.
+ * New Stage: offers «Партер (середина)» cover layout «Партер левая/правая сторона».
+ */
+function hallPreviewSeatBelongsToSaleSector(seatSector: unknown, saleLabel: unknown): boolean {
+  if (sectorNormsMatch(seatSector, saleLabel)) return true;
+  const sale = String(saleLabel ?? '').trim();
+  const seat = String(seatSector ?? '').trim();
+  if (!sale || !seat) return false;
+  if (/^партер\s*\(середина\)$/i.test(sale)) {
+    return (
+      /^партер\s+(левая|правая)\s+сторона$/i.test(seat) ||
+      /^партер$/i.test(seat) ||
+      /^партер\s*\(середина\)$/i.test(seat)
+    );
+  }
+  return false;
 }
 
 function parseSvgViewBox(svg: string): {
@@ -1176,6 +1195,42 @@ export function TicketHallInteractiveBlock({
         }
       }
 
+      /**
+       * Bolshoi hallPreview / zone preorder: SeatList often doesn't match layout keys
+       * (New Stage mid offer vs left/right seats). Color existing sector seats by offer price —
+       * no invented geometry; click stays sector qty (seatSelectionDisabled).
+       */
+      const sectorSource =
+        layoutRecord?.sectorMode && typeof layoutRecord.sectorMode === 'object'
+          ? String((layoutRecord.sectorMode as Record<string, unknown>).source || '')
+          : '';
+      const paintHallPreviewSectorSeats =
+        hallPreviewSectorCheckout &&
+        (sectorSource === 'bolshoi-new-stage-parter-mid' || placements.length < 8);
+      if (paintHallPreviewSectorSeats) {
+        for (const meta of sectorMode.sectors) {
+          let proto: OfferLike | null = null;
+          for (const offer of offers) {
+            if (sectorNormsMatch(offer.Sector, meta.label)) {
+              proto = offer;
+              break;
+            }
+            if (sectorMatchScore(String(offer.Sector ?? ''), meta.label) >= 55) {
+              proto = offer;
+              break;
+            }
+          }
+          if (!proto) continue;
+          const oid = String(proto.Id ?? '');
+          if (!oid) continue;
+          const list = Array.isArray(proto.SeatList) ? proto.SeatList.map(String) : [];
+          for (const hit of nativeSeats) {
+            if (!hallPreviewSeatBelongsToSaleSector(hit.sector, meta.label)) continue;
+            pushPlacement(hit, proto, String(hit.seat ?? ''), list);
+          }
+        }
+      }
+
       const merged =
         grayHallWhenNoOffers && nativeSeats.length >= 2
           ? mergeGrayHallUnmatchedPlacements(placements, nativeSeats)
@@ -1198,8 +1253,10 @@ export function TicketHallInteractiveBlock({
     colorForSeat,
     getPriceKey,
     grayHallWhenNoOffers,
+    hallPreviewSectorCheckout,
     offers,
     sectorMode.enabled,
+    sectorMode.sectors,
     seatSelectionDisabled,
     layoutJson,
     useSvgNative,

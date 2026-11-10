@@ -27,7 +27,7 @@ import ticketPool from '../ticketDb.js';
 import { buildBolshoiSectors } from '../utils/bolshoiHistoricalHallSvg.js';
 import { buildSectorsFromAfishaOutlines } from '../utils/bolshoiNewStageAfishaOutlines.js';
 import {
-  BOLSHOI_NEW_STAGE_PARTER_FILL,
+  BOLSHOI_NEW_STAGE_SECTOR_FILL,
   collapseBolshoiNewStageToParterMid,
 } from '../utils/bolshoiNewStageParterCheckout.js';
 
@@ -36,8 +36,8 @@ const REPO_ROOT = path.resolve(__dirname, '../..');
 
 const STAGE_ID = process.env.STAGE_MAP_STAGE_ID?.trim() || 'bolshoi-new-stage';
 const TITLE = process.env.STAGE_MAP_TITLE?.trim() || 'Большой театр — Новая сцена';
-/** Non-parter — white cards; Партер — soft rose bookable wash on light gray viewport. */
-const SECTOR_FILL = '#ffffff';
+/** All sectors white — bookable Партер shown via colored sellable seat dots (Historical style). */
+const SECTOR_FILL = BOLSHOI_NEW_STAGE_SECTOR_FILL;
 const HALL_VIEWPORT_BG = '#f5f5f5';
 const SECTOR_STROKE = 'rgba(0,0,0,0.06)';
 
@@ -140,13 +140,11 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
    * ONE path per sector: white fill + sector-contour (same d).
    * Labels group AFTER seats so names paint above dots (SVG paint order).
    * No separate hull stroke layer — that was the bad «линии».
+   * Bookable look = canvas sellable dots (not rose path wash).
    */
   const sectorPaths = sectors
     .map((s) => {
-      const fill = /^партер/i.test(String(s.label || ''))
-        ? BOLSHOI_NEW_STAGE_PARTER_FILL
-        : SECTOR_FILL;
-      return `    <path class="sector-contour" d="${esc(s.path)}" fill="${fill}" fill-opacity="1" stroke="${SECTOR_STROKE}" stroke-width="1" data-sector="${esc(s.label)}" pointer-events="fill"/>`;
+      return `    <path class="sector-contour" d="${esc(s.path)}" fill="${SECTOR_FILL}" fill-opacity="1" stroke="${SECTOR_STROKE}" stroke-width="1" data-sector="${esc(s.label)}" pointer-events="fill"/>`;
     })
     .join('\n');
 
@@ -159,7 +157,7 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
 
   const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${hallWidth} ${hallHeight}" width="${hallWidth}" height="${hallHeight}" style="background:${HALL_VIEWPORT_BG}">
   <title>${esc(TITLE)}</title>
-  <desc>Afisha seats as-is; white sectors + rose Партер on #f5f5f5; labels above seats</desc>
+  <desc>Afisha seats as-is; white sectors on #f5f5f5; sellable = colored dots; labels above seats</desc>
   <rect width="100%" height="100%" fill="${HALL_VIEWPORT_BG}" pointer-events="none"/>
   <g id="bolshoi-new-stage-sector-outlines">
 ${sectorPaths}
@@ -192,16 +190,14 @@ ${sectorLabels}
     enabled: true,
     source: 'bolshoi-new-stage-afisha-outlines',
     sectors: sectors.map((s) => {
-      const isParter = /^партер/i.test(String(s.label || ''));
-      const fill = isParter ? BOLSHOI_NEW_STAGE_PARTER_FILL : SECTOR_FILL;
       return {
         id: s.id,
         label: s.label,
         path: s.path,
         maxQuantity: Math.min(8, Math.max(1, s.totalSeats || 8)),
         totalSeats: s.totalSeats,
-        fill,
-        accent: fill,
+        fill: SECTOR_FILL,
+        accent: SECTOR_FILL,
       };
     }),
   };
