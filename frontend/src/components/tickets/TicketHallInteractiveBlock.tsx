@@ -22,7 +22,7 @@ import { isOwnOfferLike, shouldReplaceMappedOffer } from '../../utils/ownOfferPr
 import {
   hallBackgroundSeatRadiusPx,
   stadiumSeatCanvasRadiusPx,
-  theaterBackgroundSeatRadiusPx,
+  theaterSeatRadiusPx,
 } from '../../utils/hallSeatRadiusPx';
 import styles from './TicketHallInteractiveBlock.module.css';
 
@@ -2722,8 +2722,9 @@ export function TicketHallInteractiveBlock({
         const sellableKeys = new Set(
           visibleNativePlacements.filter((s) => !s.previewOnly).map((s) => s.key),
         );
+        /** Один scale для grey/saleable — без «бублик SVG + точка canvas». */
         const scalePx = w / Math.max(1, svgViewBox.width);
-        const rBg = theaterBackgroundSeatRadiusPx(scalePx, nativeSeats.length);
+        const rIdle = theaterSeatRadiusPx(scalePx, false);
         ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
         ctx.beginPath();
         for (const seat of nativeSeats) {
@@ -2732,13 +2733,12 @@ export function TicketHallInteractiveBlock({
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -8 || sy < -8 || sx > width + 8 || sy > height + 8) continue;
-          ctx.moveTo(sx + rBg, sy);
-          ctx.arc(sx, sy, rBg, 0, Math.PI * 2);
+          ctx.moveTo(sx + rIdle, sy);
+          ctx.arc(sx, sy, rIdle, 0, Math.PI * 2);
         }
         ctx.fill();
 
         const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
-        const mapZoomedNowTheater = zoom > fitZoom + 0.01;
         const drawTheaterSellable = (seat: (typeof visibleNativePlacements)[number]) => {
           if (seat.previewOnly) return;
           const active = activeKeys.has(seat.key);
@@ -2746,14 +2746,7 @@ export function TicketHallInteractiveBlock({
           const sy = y + (seat.yPct / 100) * h;
           if (sx < -16 || sy < -16 || sx > width + 16 || sy > height + 16) return;
           const highlight = isOwnHighlightSeat(seat, ownHighlightPriceKey);
-          const r = stadiumSeatCanvasRadiusPx(
-            zoom,
-            box.width,
-            svgViewBox.width,
-            active,
-            mapZoomedNowTheater,
-            { theater: true },
-          );
+          const r = theaterSeatRadiusPx(scalePx, active);
           const fill = colorForSeat(seat.priceKey);
           ctx.save();
           ctx.beginPath();

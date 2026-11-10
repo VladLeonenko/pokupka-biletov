@@ -344,12 +344,19 @@ export function stripSvgSectorLabelsForBackdrop(html: string): string {
 export function stripSvgSeatCirclesForBackdrop(html: string): string {
   const trimmed = html?.trim();
   if (!trimmed || !trimmed.includes('<svg')) return html;
-  if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
-    return stripGetbiletRowGlyphPathsHtml(
-      trimmed
+  const stripSeatCirclesRegex = (src: string) =>
+    stripGetbiletRowGlyphPathsHtml(
+      src
         .replace(/<circle\b[^>]*\bplace-name=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
-        .replace(/<circle\b[^>]*\bdata-replaced=(["'])[\s\S]*?\1[^>]*\/?>/gi, ''),
+        .replace(/<circle\b[^>]*\bdata-replaced=(["'])[\s\S]*?\1[^>]*\/?>/gi, '')
+        .replace(/<circle\b[^>]*\br=(["']?)([0-9.]+)\1[^>]*\/?>/gi, (tag, _q, rRaw) => {
+          const r = Number.parseFloat(rRaw);
+          if (Number.isFinite(r) && r > 0 && r <= 16) return '';
+          return tag;
+        }),
     );
+  if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
+    return stripSeatCirclesRegex(trimmed);
   }
   try {
     let doc = new DOMParser().parseFromString(trimmed, 'image/svg+xml');
@@ -358,13 +365,21 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
     }
     const svg = doc.querySelector('svg');
     if (!svg) return trimmed;
-    svg.querySelectorAll('circle[place-name], circle[data-replaced]').forEach((c) => c.remove());
-    /** Вахтангов/театр: любые circle мест в подложке дают «серые плитки» под canvas-точками. */
+    /** Все кружки мест — иначе DOM/raster SVG даёт «бублики» при зуме поверх canvas. */
     svg.querySelectorAll('circle').forEach((c) => {
-      const fill = String(c.getAttribute('fill') || '').toLowerCase();
+      const hasSeatAttr =
+        c.hasAttribute('place-name')
+        || c.hasAttribute('data-replaced')
+        || c.hasAttribute('row')
+        || c.hasAttribute('place');
       const r = Number.parseFloat(c.getAttribute('r') || '');
-      if (Number.isFinite(r) && r > 0 && r < 12) c.remove();
-      else if (fill && fill !== 'none' && fill !== '#fff' && fill !== '#ffffff' && fill !== 'white') {
+      const seatSized = Number.isFinite(r) && r > 0 && r <= 16;
+      if (hasSeatAttr || seatSized) {
+        c.remove();
+        return;
+      }
+      const fill = String(c.getAttribute('fill') || '').toLowerCase();
+      if (fill && fill !== 'none' && fill !== '#fff' && fill !== '#ffffff' && fill !== 'white') {
         c.setAttribute('fill', 'none');
         c.setAttribute('stroke', 'none');
       }
@@ -372,7 +387,7 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
     stripGetbiletRowGlyphPathsFromSvg(svg);
     return new XMLSerializer().serializeToString(svg);
   } catch {
-    return stripGetbiletRowGlyphPathsHtml(trimmed);
+    return stripSeatCirclesRegex(trimmed);
   }
 }
 
