@@ -144,7 +144,11 @@ export function TicketsHomeSections({
         <HomeVenuesBlock events={[...list, ...(sportEvents ?? [])]} />
       )}
 
-      {!dateFilterActive && listLoading && rowEvents.length === 0 && (
+      {/*
+        Список NeglinkaEventRows дублирует карусели «Театр / …» выше.
+        Показываем только если направлений нет (fallback-выдача).
+      */}
+      {!dateFilterActive && dir.length === 0 && listLoading && rowEvents.length === 0 && (
         <section className={styles.rowsSkeleton} aria-busy="true" aria-label="Загрузка афиши">
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className={styles.rowSkeleton} />
@@ -152,7 +156,9 @@ export function TicketsHomeSections({
         </section>
       )}
 
-      {!dateFilterActive && !listLoading && rowEvents.length > 0 && <NeglinkaEventRows events={rowEvents} />}
+      {!dateFilterActive && dir.length === 0 && !listLoading && rowEvents.length > 0 && (
+        <NeglinkaEventRows events={rowEvents} />
+      )}
 
       {!dateFilterActive && !listLoading && <TicketsHomeExtras events={list} />}
     </div>

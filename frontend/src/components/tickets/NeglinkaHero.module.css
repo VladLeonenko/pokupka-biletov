@@ -254,77 +254,61 @@
 
 @media (max-width: 899px) {
   /*
-   * Фото на всю высоту героя (не узкая «полоска сверху»).
-   * Высота = контент + небольшой запас под стрелки, без старых 88vh.
+   * Как было: фото сверху → mask → сплошной оранж снизу.
+   * Уменьшаем только высоту оранжевой зоны (было 88vh / bottom:44%).
    */
   .hero {
-    min-height: 0;
+    min-height: min(72vh, 640px);
   }
 
   .hero::before {
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    transform: scale(1.04);
+    bottom: 34%;
+    transform: scale(1.02);
     transform-origin: center top;
-    -webkit-mask-image: none;
-    mask-image: none;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 58%,
+      rgba(0, 0, 0, 0.55) 78%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 58%,
+      rgba(0, 0, 0, 0.55) 78%,
+      transparent 100%
+    );
   }
 
   .heroPhotoOverlay {
     background: linear-gradient(
       180deg,
-      rgba(20, 12, 8, 0.18) 0%,
-      rgba(255, 94, 25, 0.22) 38%,
-      rgba(255, 94, 25, 0.78) 72%,
+      rgba(255, 106, 33, 0.04) 0%,
+      rgba(255, 100, 28, 0.18) 24%,
+      rgba(255, 94, 25, 0.42) 50%,
+      rgba(255, 94, 25, 0.78) 78%,
       var(--hero-orange) 100%
     );
   }
 
   .hero::after {
-    background: radial-gradient(ellipse 90% 40% at 50% 8%, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
-  }
-
-  .heroBody {
-    flex: 0 0 auto;
-  }
-
-  .slideStage {
-    flex: 0 0 auto;
+    background: radial-gradient(ellipse 88% 32% at 50% 10%, rgba(255, 255, 255, 0.07) 0%, transparent 72%);
   }
 
   .inner {
-    flex: 0 0 auto;
-    padding: 28px 16px 8px;
-    gap: 12px;
-    align-items: flex-start;
-    /* верхний «воздух» под фото: дата/титул не лезут в край */
-    padding-top: max(28px, 12vw);
-  }
-
-  .dateLine {
-    margin-bottom: 10px;
-  }
-
-  .tags {
-    margin-bottom: 8px;
-  }
-
-  .venueInHero {
-    margin-bottom: 10px;
+    padding: 24px 16px 12px;
+    gap: 14px;
   }
 
   .title {
-    margin-bottom: 12px;
-    font-size: clamp(1.55rem, 7.2vw, 2.05rem);
-    max-width: 14ch;
-    line-height: 1.05;
+    margin-bottom: 14px;
+    font-size: clamp(1.5rem, 6.5vw, 2rem);
   }
 
   .description {
-    margin: 0 0 16px;
-    font-size: 0.88rem;
+    margin: -4px 0 16px;
+    font-size: 0.86rem;
     line-height: 1.5;
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -334,16 +318,11 @@
 
   .credits {
     margin-bottom: 16px;
-    gap: 10px 20px;
-  }
-
-  .cta {
-    padding: 14px 28px;
   }
 
   .heroFooter {
-    margin-top: 8px;
-    padding: 8px 16px 20px;
+    margin-top: auto;
+    padding: 0 16px 18px;
   }
 }
 
