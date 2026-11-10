@@ -1073,13 +1073,11 @@ export function TicketCheckoutPage() {
     [displayTitle],
   );
 
+  /** Широкий hero — всегда баннер (landscape); портретный постер только в aside/карточках. */
   const coverUrl = useMemo(() => {
     const poster = ctx?.posterUrl || posterQ || null;
     const banner = ctx?.bannerUrl || bannerQ || null;
-    if (poster && !banner) return poster;
-    if (banner && !poster) return banner;
-    if (poster && banner && poster === banner) return poster;
-    return poster || banner || resolveEventCoverUrl({ title: displayTitle });
+    return banner || poster || resolveEventCoverUrl({ title: displayTitle });
   }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ, displayTitle]);
 
   const posterSideUrl = useMemo(() => {
