@@ -25,6 +25,7 @@ import {
   buildVenueLandingList,
 } from '@/utils/venueSlug';
 import { buildVenueLandingCopy } from '@/utils/venueLandingCopy';
+import { resolveVenueCoverUrl, VENUE_COVER_FALLBACK } from '@/data/venueBuildingCovers';
 import { ratingZone } from '@/utils/eventRating';
 import { OPERATOR } from '@/utils/operatorLegalInfo';
 import { submitForm } from '@/services/cmsApi';
@@ -154,10 +155,13 @@ export function VenueLandingPage() {
     [uniqueEvents],
   );
 
-  const ogImage = useMemo(() => {
-    const hit = uniqueEvents.find((e) => e.imageUrl || e.bannerUrl);
-    return hit?.imageUrl || hit?.bannerUrl || undefined;
-  }, [uniqueEvents]);
+  const venueCoverUrl = useMemo(
+    () => resolveVenueCoverUrl(canonicalizeVenueSlug(venueSlug) || venueSlug),
+    [venueSlug],
+  );
+
+  /** OG / hero: здание площадки, не афиша случайного спектакля. */
+  const ogImage = venueCoverUrl;
 
   const similarVenues = useMemo(() => {
     const cityHint = (venueAddress || '').includes('Санкт-Петербург')
@@ -311,6 +315,20 @@ export function VenueLandingPage() {
         </nav>
 
         <header className={styles.hero}>
+          <div className={styles.heroVisual}>
+            <img
+              src={venueCoverUrl}
+              alt=""
+              className={styles.heroImg}
+              loading="eager"
+              decoding="async"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.src !== VENUE_COVER_FALLBACK) el.src = VENUE_COVER_FALLBACK;
+              }}
+            />
+          </div>
+          <div className={styles.heroCopy}>
           <p className={styles.overline}>
             {copy.city || 'Москва'}
             {copy.metro ? ` · м. ${copy.metro}` : ''} · билеты онлайн
@@ -367,6 +385,7 @@ export function VenueLandingPage() {
             <Link to="/events" className={styles.link}>
               Общая афиша →
             </Link>
+          </div>
           </div>
         </header>
 

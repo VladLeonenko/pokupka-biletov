@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { buildVenueCardsFromEvents } from '@/utils/venueCoverFromEvents';
-import { eventPlaceholderUrl } from '@/utils/ticketsPlaceholders';
+import { VENUE_COVER_FALLBACK } from '@/data/venueBuildingCovers';
 import styles from './HomeVenuesBlock.module.css';
 
 const TOP_N = 12;
@@ -38,15 +38,14 @@ export function HomeVenuesBlock({ events }: Props) {
             <Link className={styles.card} to={`/events/venue/${v.slug}`}>
               <div className={styles.media}>
                 <img
-                  src={v.coverUrl || eventPlaceholderUrl('theater')}
+                  src={v.coverUrl || VENUE_COVER_FALLBACK}
                   alt=""
                   loading="lazy"
                   decoding="async"
                   className={styles.img}
                   onError={(e) => {
                     const el = e.currentTarget;
-                    const fallback = eventPlaceholderUrl('theater');
-                    if (el.src !== fallback) el.src = fallback;
+                    if (!el.src.endsWith(VENUE_COVER_FALLBACK)) el.src = VENUE_COVER_FALLBACK;
                   }}
                 />
               </div>

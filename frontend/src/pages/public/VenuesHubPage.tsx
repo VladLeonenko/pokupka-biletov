@@ -15,7 +15,7 @@ import {
 import { useTicketsCityId } from '@/hooks/useTicketsCityId';
 import { buildVenueLandingList } from '@/utils/venueSlug';
 import { buildVenueCardsFromEvents } from '@/utils/venueCoverFromEvents';
-import { eventPlaceholderUrl } from '@/utils/ticketsPlaceholders';
+import { resolveVenueCoverUrl, VENUE_COVER_FALLBACK } from '@/data/venueBuildingCovers';
 import { SITE_PAGE_SEO } from '@/seo/siteSeoCatalog';
 import styles from './VenuesHubPage.module.css';
 
@@ -64,7 +64,7 @@ export function VenuesHubPage() {
         slug: item.slug,
         label: item.label,
         count: 0,
-        coverUrl: eventPlaceholderUrl('theater'),
+        coverUrl: resolveVenueCoverUrl(item.slug),
         address: null,
       });
     }
@@ -125,8 +125,7 @@ export function VenuesHubPage() {
                       className={styles.img}
                       onError={(e) => {
                         const el = e.currentTarget;
-                        const fallback = eventPlaceholderUrl('theater');
-                        if (el.src !== fallback) el.src = fallback;
+                        if (!el.src.endsWith(VENUE_COVER_FALLBACK)) el.src = VENUE_COVER_FALLBACK;
                       }}
                     />
                   </div>
