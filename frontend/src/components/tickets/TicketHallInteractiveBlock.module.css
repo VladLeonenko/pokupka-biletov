@@ -375,9 +375,10 @@
   opacity: 0;
 }
 
-/** Театр/sectorMode: кружки мест только на canvas/DOM-оверлее — не двоить с SVG. */
+/** Театр/sectorMode: кружки мест только на canvas — SVG-circle прячем полностью (иначе зум CSS раздувает). */
 .svgLayerHideSeatCircles :global(circle[place-name]),
-.svgLayerHideSeatCircles :global(circle[data-replaced]) {
+.svgLayerHideSeatCircles :global(circle[data-replaced]),
+.svgLayerHideSeatCircles :global(circle) {
   fill: none !important;
   stroke: none !important;
   opacity: 0 !important;

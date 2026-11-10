@@ -22,6 +22,7 @@ import { isOwnOfferLike, shouldReplaceMappedOffer } from '../../utils/ownOfferPr
 import {
   hallBackgroundSeatRadiusPx,
   stadiumSeatCanvasRadiusPx,
+  theaterBackgroundSeatRadiusPx,
 } from '../../utils/hallSeatRadiusPx';
 import styles from './TicketHallInteractiveBlock.module.css';
 
@@ -195,15 +196,6 @@ type BackgroundSeatCoordinate = {
   xPct: number;
   yPct: number;
 };
-
-/** Серые точки театра (МХТ/Вахтангов): плотные мелкие, не «blobs» как stadium bowl. */
-function theaterBackgroundSeatRadiusPx(scalePx: number, seatCount: number): number {
-  const dense = seatCount >= 600;
-  const r = dense
-    ? Math.max(0.55, Math.min(1.35, scalePx * 2.8))
-    : Math.max(0.7, Math.min(1.65, scalePx * 3.4));
-  return r;
-}
 
 type BackgroundArcLayout = {
   left: number;
@@ -1548,6 +1540,17 @@ export function TicketHallInteractiveBlock({
     && svgViewBox.width > 100
     && svgViewBox.height > 100;
 
+  /**
+   * DOM-SVG без circle-мест: иначе при зуме CSS-transform раздувает родные SVG-круги
+   * (скрин 600%), а canvas-saleable упирается в cap — визуальный рассинхрон.
+   */
+  const svgHtmlForLayer = useMemo(() => {
+    if (stadiumCanvasEnabled || theaterSvgSeatCanvas) {
+      return stripSvgSeatCirclesForBackdrop(svgHtmlSafe);
+    }
+    return svgHtmlSafe;
+  }, [stadiumCanvasEnabled, theaterSvgSeatCanvas, svgHtmlSafe]);
+
   /** Растр SVG подложки на canvas готов — только тогда скрываем DOM-SVG (иначе подложка «пропадает», остаются точки). */
   const [canvasBackdropReady, setCanvasBackdropReady] = useState(false);
   const [hallRasterReady, setHallRasterReady] = useState(false);
@@ -2749,6 +2752,7 @@ export function TicketHallInteractiveBlock({
             svgViewBox.width,
             active,
             mapZoomedNowTheater,
+            { theater: true },
           );
           const fill = colorForSeat(seat.priceKey);
           ctx.save();
@@ -2937,7 +2941,7 @@ export function TicketHallInteractiveBlock({
                 !stadiumCanvasEnabled && visibleBackgroundSeatCoordinates.length > 0 ? styles.svgLayerFocused : ''
               }`}
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: svgHtmlSafe }}
+              dangerouslySetInnerHTML={{ __html: svgHtmlForLayer }}
             />
             {useHallBackgroundRaster && !stadiumCanvasEnabled && hallBackgroundRasterUrl ? (
               <img
