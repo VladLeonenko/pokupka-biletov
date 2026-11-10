@@ -1,0 +1,133 @@
+{
+  "at": "2026-11-10T07:49:42.084Z",
+  "region": "213",
+  "queries": [
+    {
+      "q": "новогодний балет большой театр",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%BD%D0%BE%D0%B2%D0%BE%D0%B3%D0%BE%D0%B4%D0%BD%D0%B8%D0%B9%20%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "новогодний балет билеты",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%BD%D0%BE%D0%B2%D0%BE%D0%B3%D0%BE%D0%B4%D0%BD%D0%B8%D0%B9%20%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "новогодний балет чайковского",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%BD%D0%BE%D0%B2%D0%BE%D0%B3%D0%BE%D0%B4%D0%BD%D0%B8%D0%B9%20%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D1%87%D0%B0%D0%B9%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "балет чайковского билеты",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D1%87%D0%B0%D0%B9%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B",
+      "rows": [
+        {
+          "phrase": "балет моисеева купить билет в зал чайковского",
+          "count": 9
+        }
+      ],
+      "topPhrases": [
+        "балет моисеева купить билет в зал чайковского"
+      ],
+      "err": null
+    },
+    {
+      "q": "балет чайковского большой театр",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D1%87%D0%B0%D0%B9%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE%20%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80",
+      "rows": [
+        {
+          "phrase": "спящая красавица балет чайковского большой театр",
+          "count": 2
+        }
+      ],
+      "topPhrases": [
+        "спящая красавица балет чайковского большой театр"
+      ],
+      "err": null
+    },
+    {
+      "q": "рождественский балет большой",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D1%80%D0%BE%D0%B6%D0%B4%D0%B5%D1%81%D1%82%D0%B2%D0%B5%D0%BD%D1%81%D0%BA%D0%B8%D0%B9%20%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "большой театр декабрь билеты",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80%20%D0%B4%D0%B5%D0%BA%D0%B0%D0%B1%D1%80%D1%8C%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B",
+      "rows": [
+        {
+          "phrase": "билеты в большой театр на декабрь",
+          "count": 103
+        },
+        {
+          "phrase": "щелкунчик большой театр билеты 2026 декабрь",
+          "count": 27
+        }
+      ],
+      "topPhrases": [
+        "билеты в большой театр на декабрь",
+        "щелкунчик большой театр билеты 2026 декабрь"
+      ],
+      "err": null
+    },
+    {
+      "q": "большой театр новый год билеты",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80%20%D0%BD%D0%BE%D0%B2%D1%8B%D0%B9%20%D0%B3%D0%BE%D0%B4%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "историческая сцена большого театра билеты",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B0%D1%8F%20%D1%81%D1%86%D0%B5%D0%BD%D0%B0%20%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B3%D0%BE%20%D1%82%D0%B5%D0%B0%D1%82%D1%80%D0%B0%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B",
+      "rows": [
+        {
+          "phrase": "большой театр историческая сцена билеты",
+          "count": 441
+        },
+        {
+          "phrase": "большой театр историческая сцена купить билеты",
+          "count": 217
+        },
+        {
+          "phrase": "билеты в большой театр москва историческая сцена",
+          "count": 35
+        }
+      ],
+      "topPhrases": [
+        "большой театр историческая сцена билеты",
+        "большой театр историческая сцена купить билеты",
+        "билеты в большой театр москва историческая сцена"
+      ],
+      "err": null
+    },
+    {
+      "q": "купить билеты большой театр декабрь",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%BA%D1%83%D0%BF%D0%B8%D1%82%D1%8C%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B%20%D0%B1%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80%20%D0%B4%D0%B5%D0%BA%D0%B0%D0%B1%D1%80%D1%8C",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "балет на новый год москва",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%20%D0%BD%D0%B0%20%D0%BD%D0%BE%D0%B2%D1%8B%D0%B9%20%D0%B3%D0%BE%D0%B4%20%D0%BC%D0%BE%D1%81%D0%BA%D0%B2%D0%B0",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    },
+    {
+      "q": "новогодние балеты москва билеты",
+      "href": "https://wordstat.yandex.ru/?region=213&view=table&words=%D0%BD%D0%BE%D0%B2%D0%BE%D0%B3%D0%BE%D0%B4%D0%BD%D0%B8%D0%B5%20%D0%B1%D0%B0%D0%BB%D0%B5%D1%82%D1%8B%20%D0%BC%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%20%D0%B1%D0%B8%D0%BB%D0%B5%D1%82%D1%8B",
+      "rows": [],
+      "topPhrases": [],
+      "err": null
+    }
+  ]
+}
