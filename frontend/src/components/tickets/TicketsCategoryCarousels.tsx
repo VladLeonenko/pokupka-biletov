@@ -7,7 +7,20 @@ import {
 } from '@/services/biletPublicApi';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
+import { pinVenueAfishaEvents } from '@/utils/venueAfishaPin';
 import styles from './TicketsCategoryCarousels.module.css';
+
+function venueCanonForDirection(dir: CategoryDirection): string | null {
+  const label = dir.label.trim().toLowerCase();
+  const q = (dir.q || '').trim().toLowerCase();
+  if (label === 'большой театр' || q.includes('большой театр') || q.includes('bolshoy-teatr')) {
+    return 'bolshoy-teatr';
+  }
+  if (label.includes('мхт') || q.includes('мхт') || q.includes('mht-im-chehova')) {
+    return 'mht-im-chehova';
+  }
+  return null;
+}
 
 const MAX_PER_ROW = 10;
 
@@ -120,7 +133,11 @@ export function TicketsCategoryCarousels({
         if (!genre && !q) return { dir: d, items: [] as NormalizedBiletEvent[] };
         const source = isSportDirection(d) && sportEvents ? sportEvents : events;
         const filtered = filterEventsClient(source, genre ? { genre } : { q: q! });
-        const sorted = sortCategoryEvents(filtered).slice(0, MAX_PER_ROW);
+        const venueCanon = venueCanonForDirection(d);
+        const ordered = venueCanon
+          ? pinVenueAfishaEvents(venueCanon, sortCategoryEvents(filtered))
+          : sortCategoryEvents(filtered);
+        const sorted = ordered.slice(0, MAX_PER_ROW);
         return { dir: d, items: sorted };
       })
       .filter((r) => r.items.length > 0);

@@ -663,8 +663,10 @@ async function generateSeoTags(url) {
           resolveTicketSeo(routeSlug || repertoireId, seoOpts) ||
           resolveTicketSeo(repertoireId, seoOpts) ||
           resolveTicketSeo(firstSeg, seoOpts);
-        /** DB seo_*_manual (прогон baseline / Wordstat) — выше static catalog. */
+        /** DB seo_*_manual (прогон baseline / Wordstat) — выше static catalog,
+         *  кроме ads HOT LP с preferOverDb (иначе stale даты в description). */
         const dbSeo = repertoireId ? await loadEventSeoManual(repertoireId) : null;
+        const catalogWins = Boolean(catalogSeo?.preferOverDb);
         const beginDateTime = beginFromCtx || catalogSeo?.facts?.beginDateTime || null;
         const venueLabel =
           venueFromCtx || catalogSeo?.facts?.venue || null;
@@ -676,10 +678,11 @@ async function generateSeoTags(url) {
             : '/events';
         const canonical = `${base}${canonicalPath}`;
         const displayTitle =
-          dbSeo?.h1 || (ctx && ctx.title) || catalogSeo?.h1 || 'Мероприятие';
+          (ctx && ctx.title) || catalogSeo?.h1 || dbSeo?.h1 || 'Мероприятие';
         const genreLabel = (ctx && (ctx.genreLabel || ctx.categoryLabel)) || null;
-        // Priority: DB manual → static TICKET_SEO → auto (shortTitle, без «Купить»)
+        // Priority: ads catalog (preferOverDb) → DB manual → static TICKET_SEO → auto
         const title =
+          (catalogWins ? catalogSeo?.title : null) ||
           dbSeo?.title ||
           catalogSeo?.title ||
           composeAutoTicketTitle({
@@ -689,11 +692,17 @@ async function generateSeoTags(url) {
             beginDateTime,
             genreLabel,
           });
-        const h1 = (dbSeo?.h1 || catalogSeo?.h1 || displayTitle).slice(0, 80);
+        const h1 = (
+          (catalogWins ? catalogSeo?.h1 : null) ||
+          dbSeo?.h1 ||
+          catalogSeo?.h1 ||
+          displayTitle
+        ).slice(0, 80);
         const lead =
           (ctx && (ctx.heroLead || ctx.descriptionSnippet) && String(ctx.heroLead || ctx.descriptionSnippet).trim()) ||
           '';
         const description = (
+          (catalogWins ? catalogSeo?.description : null) ||
           dbSeo?.description ||
           catalogSeo?.description ||
           composeAutoTicketDescription({
@@ -705,7 +714,11 @@ async function generateSeoTags(url) {
             genreLabel,
           })
         ).slice(0, 160);
-        const keywordsSrc = dbSeo?.keywords || catalogSeo?.keywords || '';
+        const keywordsSrc =
+          (catalogWins ? catalogSeo?.keywords : null) ||
+          dbSeo?.keywords ||
+          catalogSeo?.keywords ||
+          '';
         const keywordsMeta = keywordsSrc
           ? `\n    <meta name="keywords" content="${escapeHtml(keywordsSrc)}" />`
           : '';
@@ -851,7 +864,7 @@ async function generateSeoTags(url) {
         });
         // Home LCP: same cover as buildHomeSsrHtml / FEATURED_HERO_IMAGE_URL
         if (normalized === '/') {
-          const homeCover = '/uploads/images/--1777394907182.jpeg';
+          const homeCover = '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo-banner-v2.jpg';
           out.metaTags += `\n    <link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(homeCover)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`;
         }
         out.metaTags += `\n    ${breadcrumb}\n    ${itemListJson}`;

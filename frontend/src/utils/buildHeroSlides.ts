@@ -158,20 +158,20 @@ function isDuplicateFeatured(slide: HeroSlideView): boolean {
 function featuredFallbackSlide(): HeroSlideView {
   return {
     id: FEATURED_HERO_SLUG,
-    title: 'КАБАЛА СВЯТОШ',
+    title: 'НОВОГОДНИЙ БАЛЕТ ЧАЙКОВСКОГО',
     imageUrl: featuredHeroImageUrl(null),
-    tags: 'ПТ · 18.09.2026 · 19:00 · ДРАМА · 16+',
-    venueLabel: 'МХТ ИМ. А. П. ЧЕХОВА',
-    venueAddress: 'Москва',
+    tags: '18.12.2026 — 10.01.2027 · БАЛЕТ · 6+',
+    venueLabel: 'БОЛЬШОЙ ТЕАТР — ИСТОРИЧЕСКАЯ СЦЕНА',
+    venueAddress: 'Театральная пл., 1, Москва',
     lineLeft: '18',
-    lineRight: '09.2026',
+    lineRight: '12.2026',
     visualShape: 'shard',
     ticketHref: FEATURED_HERO_HREF,
     ctaLabel: 'КУПИТЬ БИЛЕТ',
   };
 }
 
-/** Первый слайд hero всегда «Кабала святош». */
+/** Первый слайд hero всегда «Новогодний балет Чайковского». */
 function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent[]): HeroSlideView[] {
   if (!isFeaturedHeroActive()) return slides;
 
@@ -180,7 +180,7 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
     ? {
         ...eventToSlide(featuredEv, 0),
         id: FEATURED_HERO_SLUG,
-        title: 'КАБАЛА СВЯТОШ',
+        title: 'НОВОГОДНИЙ БАЛЕТ ЧАЙКОВСКОГО',
         imageUrl: featuredHeroImageUrl(featuredEv),
         ticketHref: FEATURED_HERO_HREF,
       }

@@ -131,7 +131,16 @@ const SECTOR_ALIASES: Record<string, string> = {
 };
 
 function normSector(s: string): string {
-  const t = normToken(s);
+  let t = normToken(s);
+  /**
+   * GetBilet: «ложа бельэтажа №1» / «ложа бельэтажа №4».
+   * SVG: «Ложа Бельэтажа, Левая сторона». Номер ложи ломал score → фильтр 29 000 = пустой зал.
+   */
+  t = t
+    .replace(/№\s*\d+/g, ' ')
+    .replace(/#\s*\d+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   return SECTOR_ALIASES[t] ?? t;
 }
 

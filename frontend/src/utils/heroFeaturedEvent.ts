@@ -1,16 +1,14 @@
 /** Приоритетный hero на главной (маркетинг / прод). */
-export const FEATURED_HERO_SLUG = 'kabala-svyatosh';
-export const FEATURED_HERO_REPERTOIRE_ID = '686cd69c58f79d0030278b9d';
+export const FEATURED_HERO_SLUG = 'novogodniy-balet-chaykovskogo-2026-12';
+export const FEATURED_HERO_REPERTOIRE_ID = 'novogodniy-balet-chaykovskogo-2026-12';
 export const FEATURED_HERO_HREF = `/ticket/${FEATURED_HERO_SLUG}`;
 
 /** Снятый с витрины суперфинал (май 2026) — убираем из слайдера при дедупе. */
 export const LEGACY_FEATURED_HERO_SLUG = 'superfinal-fonbet-kubka-rossii-spartak-krasnodar';
 export const LEGACY_FEATURED_HERO_REPERTOIRE_ID = '6a05d17b46a4d000309ecf4e';
 
-/** Пока закрепляем Кабалу — не завязываем на локальные часы браузера. Снимаем, сменив slug/id. */
-
 /** Баннер события с витрины (fallback, если в каталоге ещё нет bannerUrl). */
-export const FEATURED_HERO_IMAGE_URL = '/uploads/images/--1777394907182.jpeg';
+export const FEATURED_HERO_IMAGE_URL = '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo-banner-v2.jpg';
 export const FEATURED_HERO_BANNER_URL = FEATURED_HERO_IMAGE_URL;
 
 export function featuredHeroImageUrl(
@@ -47,7 +45,7 @@ export function isFeaturedHeroActive(): boolean {
 export function isFeaturedHeroEventTitle(title: string | undefined): boolean {
   const t = String(title || '').trim();
   if (!t) return false;
-  return /кабала\s+святош/i.test(t);
+  return /новогодн\w*\s+балет\s+чайковского/i.test(t);
 }
 
 function matchesSlugOrRep(id: string, slug: string, rep: string): boolean {

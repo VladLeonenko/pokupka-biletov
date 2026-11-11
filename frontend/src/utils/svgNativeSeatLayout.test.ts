@@ -19,6 +19,17 @@ describe('svgNativeSeatLayout', () => {
     expect(sectorMatchScore('Партер центральный', 'Партер центральный')).toBe(100);
   });
 
+  it('strips GetBilet lozha №N so МХТ 29000 boxes match SVG', () => {
+    expect(sectorMatchScore('ложа бельэтажа №1', 'Ложа Бельэтажа, Левая сторона')).toBeGreaterThanOrEqual(55);
+    expect(sectorMatchScore('ложа бельэтажа №4', 'Ложа Бельэтажа, Правая сторона')).toBeGreaterThanOrEqual(55);
+    const hit = matchSvgSeatToOffer(
+      { sector: 'Ложа Бельэтажа, Левая сторона', row: '1', seat: '2', xPct: 10, yPct: 20 },
+      [{ Id: 'box', Sector: 'ложа бельэтажа №1', Row: '1', SeatList: ['2', '3'], AgentPrice: '29000', OwnOffer: true }],
+    );
+    expect(hit?.offer.Id).toBe('box');
+    expect(hit?.seat).toBe('2');
+  });
+
   it('extractSectorCode and sector c140 vs svg c140', () => {
     expect(extractSectorCode('сектор c140')).toBe('c140');
     expect(extractSectorCode('C140')).toBe('c140');

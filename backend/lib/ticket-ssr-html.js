@@ -339,7 +339,7 @@ export function buildEventsIndexSsrHtml(opts = {}) {
  */
 export function buildHomeSsrHtml(opts = {}) {
   // LCP cover for crawlers / first paint (matches frontend FEATURED_HERO_IMAGE_URL)
-  const homeCover = '/uploads/images/--1777394907182.jpeg';
+  const homeCover = '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo-banner-v2.jpg';
   return `<main class="bv-ssr-home" data-ssr="home">
   <h1>Билеты на концерты, театр и спорт</h1>
   <p>Афиша мероприятий: выбор мест на схеме зала, оплата онлайн и электронный билет.</p>
