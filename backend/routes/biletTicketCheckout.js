@@ -98,7 +98,14 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
     try {
       const code = req.body?.code ?? req.body?.promoCode ?? '';
       const amountRub = Number(req.body?.amountRub);
-      const v = await validateGetbiletPromoForAmount(String(code), amountRub);
+      const repertoireId =
+        typeof req.body?.repertoireId === 'string' ? req.body.repertoireId.trim() : '';
+      const venueLabel =
+        typeof req.body?.venueLabel === 'string' ? req.body.venueLabel.trim() : '';
+      const v = await validateGetbiletPromoForAmount(String(code), amountRub, {
+        repertoireId: repertoireId || undefined,
+        venueLabel: venueLabel || undefined,
+      });
       if (!v.ok) {
         return res.status(400).json({ ok: false, error: v.error || 'Промокод недоступен' });
       }
@@ -181,7 +188,12 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       let finalRub = baseRub;
       let promoId = null;
       if (promoCode) {
-        const pv = await validateGetbiletPromoForAmount(promoCode, baseRub);
+        const venueLabel =
+          typeof req.body?.venueLabel === 'string' ? req.body.venueLabel.trim() : '';
+        const pv = await validateGetbiletPromoForAmount(promoCode, baseRub, {
+          repertoireId,
+          venueLabel: venueLabel || undefined,
+        });
         if (!pv.ok) {
           throw new GetbiletValidationError(pv.error || 'Промокод недоступен');
         }

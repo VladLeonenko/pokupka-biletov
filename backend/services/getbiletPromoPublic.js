@@ -1,12 +1,14 @@
 import ticketPool from '../ticketDb.js';
+import { resolveEventVenueLabel, venueMatchesIlike } from './promoPopup.js';
 
 /**
  * Публичная проверка промокода getbilet_promo_codes (ticket DB).
  * @param {string} codeRaw
  * @param {number} amountRub — сумма до скидки (руб, decimal)
+ * @param {{ repertoireId?: string, venueLabel?: string }} [ctx]
  * @returns {Promise<{ ok: boolean, error?: string, promo?: object, discountRub?: number, finalRub?: number }>}
  */
-export async function validateGetbiletPromoForAmount(codeRaw, amountRub) {
+export async function validateGetbiletPromoForAmount(codeRaw, amountRub, ctx = {}) {
   const code = typeof codeRaw === 'string' ? codeRaw.trim() : '';
   if (!code) {
     return { ok: false, error: 'Введите промокод' };
@@ -17,7 +19,7 @@ export async function validateGetbiletPromoForAmount(codeRaw, amountRub) {
 
   const r = await ticketPool.query(
     `SELECT id, code, discount_kind, discount_value, max_uses_total, uses_count,
-            valid_from, valid_until, min_order_amount, is_active
+            valid_from, valid_until, min_order_amount, is_active, venue_ilike
      FROM getbilet_promo_codes
      WHERE lower(trim(code)) = lower(trim($1))`,
     [code]
@@ -38,6 +40,16 @@ export async function validateGetbiletPromoForAmount(codeRaw, amountRub) {
   }
   if (row.max_uses_total != null && row.uses_count >= row.max_uses_total) {
     return { ok: false, error: 'Лимит использований промокода исчерпан' };
+  }
+  const venuePattern = row.venue_ilike != null ? String(row.venue_ilike).trim() : '';
+  if (venuePattern) {
+    let venue = typeof ctx.venueLabel === 'string' ? ctx.venueLabel.trim() : '';
+    if (!venue && ctx.repertoireId) {
+      venue = await resolveEventVenueLabel(String(ctx.repertoireId));
+    }
+    if (!venueMatchesIlike(venue, venuePattern)) {
+      return { ok: false, error: 'Промокод действует только на события Большого театра' };
+    }
   }
   const minAmt = row.min_order_amount != null ? Number(row.min_order_amount) : null;
   if (minAmt != null && Number.isFinite(minAmt) && amountRub + 1e-9 < minAmt) {

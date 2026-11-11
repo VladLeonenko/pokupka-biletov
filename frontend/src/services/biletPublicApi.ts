@@ -1342,13 +1342,19 @@ export async function ensurePublicSessionForCheckout(): Promise<void> {
 export async function validateBiletTicketPromo(
   code: string,
   amountRub: number,
+  opts?: { repertoireId?: string; venueLabel?: string },
 ): Promise<
   { ok: true; finalRub: number; discountRub: number } | { ok: false; error?: string }
 > {
   const res = await sessionFetch(`${getApiBase()}/api/bilet/validate-promo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, amountRub }),
+    body: JSON.stringify({
+      code,
+      amountRub,
+      repertoireId: opts?.repertoireId,
+      venueLabel: opts?.venueLabel,
+    }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
@@ -1366,6 +1372,69 @@ export async function validateBiletTicketPromo(
   };
 }
 
+export type PromoPopupPreview = {
+  eligible: boolean;
+  reason?: string;
+  venue?: string;
+  campaign?: {
+    slug: string;
+    headline: string;
+    bodyText: string;
+    ctaLabel: string;
+    discountKind: string;
+    discountValue: number;
+    ttlMinutes: number;
+    delayMs: number;
+  };
+};
+
+export async function fetchPromoPopupPreview(params: {
+  repertoireId?: string;
+  venue?: string;
+  slug?: string;
+}): Promise<PromoPopupPreview> {
+  const qs = new URLSearchParams();
+  if (params.slug) qs.set('slug', params.slug);
+  if (params.repertoireId) qs.set('repertoireId', params.repertoireId);
+  if (params.venue) qs.set('venue', params.venue);
+  const res = await sessionFetch(`${getApiBase()}/api/bilet/promo-popup/preview?${qs}`);
+  const data = (await res.json().catch(() => ({}))) as PromoPopupPreview;
+  if (!res.ok) return { eligible: false, reason: 'error' };
+  return data;
+}
+
+export type PromoPopupClaim = {
+  ok: boolean;
+  error?: string;
+  reused?: boolean;
+  code?: string;
+  expiresAt?: string;
+  discountKind?: string;
+  discountValue?: number;
+  ttlMinutes?: number;
+  headline?: string;
+  bodyText?: string;
+  ctaLabel?: string;
+};
+
+export async function claimPromoPopup(body: {
+  visitorKey: string;
+  repertoireId?: string;
+  venue?: string;
+  slug?: string;
+}): Promise<PromoPopupClaim> {
+  const res = await sessionFetch(`${getApiBase()}/api/bilet/promo-popup/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as PromoPopupClaim;
+  if (!res.ok || !data.ok) {
+    return { ok: false, error: data.error || 'Не удалось получить промокод' };
+  }
+  return data;
+}
+
 export type BiletCheckoutPayload = {
   offerId: string;
   seats: string[];
@@ -1376,6 +1445,7 @@ export type BiletCheckoutPayload = {
   customerPhone: string;
   customerEmail: string;
   promoCode?: string;
+  venueLabel?: string;
   fanId?: string;
   heldGetbiletOrderIds?: string[];
   heldMakeData?: unknown;

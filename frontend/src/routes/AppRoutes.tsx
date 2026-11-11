@@ -135,6 +135,9 @@ const GetbiletMarkupPage = lazy(() =>
 const GetbiletPromosPage = lazy(() =>
   import('@/pages/getbilet/GetbiletPromosPage').then(m => ({ default: m.GetbiletPromosPage }))
 );
+const GetbiletPromoPopupPage = lazy(() =>
+  import('@/pages/getbilet/GetbiletPromoPopupPage').then(m => ({ default: m.GetbiletPromoPopupPage }))
+);
 const GetbiletCompetitorPricesPage = lazy(() =>
   import('@/pages/getbilet/GetbiletCompetitorPricesPage').then(m => ({ default: m.GetbiletCompetitorPricesPage }))
 );
@@ -326,6 +329,7 @@ export function AppRoutes() {
       <Route path="/admin/getbilet/markup" element={<Protected><GetbiletMarkupPage /></Protected>} />
       <Route path="/admin/getbilet/competitor-prices" element={<Protected><GetbiletCompetitorPricesPage /></Protected>} />
       <Route path="/admin/getbilet/promos" element={<Protected><GetbiletPromosPage /></Protected>} />
+      <Route path="/admin/getbilet/promo-popup" element={<Protected><GetbiletPromoPopupPage /></Protected>} />
       <Route path="/admin/tickets-vitrine" element={<Protected><TicketsVitrinePage /></Protected>} />
       <Route path="/admin/ads-mediaplan" element={<Protected><AdsMediaplanPage /></Protected>} />
       <Route path="/admin/sniper" element={<ProtectedAdmin><Suspense fallback={<LoadingFallback />}><CheckoutLoadTestPage /></Suspense></ProtectedAdmin>} />

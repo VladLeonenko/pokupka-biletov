@@ -1232,6 +1232,67 @@ router.delete('/promos/:id', async (req, res) => {
   }
 });
 
+// --- Promo popup campaigns ---
+
+router.get('/promo-popup-campaigns', async (req, res) => {
+  try {
+    const { listPromoPopupCampaigns } = await import('../services/promoPopup.js');
+    const rows = await listPromoPopupCampaigns();
+    res.json(rows);
+  } catch (e) {
+    if (e && e.code === '42P01') {
+      return res.status(503).json({ error: 'Примените ticket-миграцию 011_promo_popup.sql' });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.put('/promo-popup-campaigns/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  try {
+    const { updatePromoPopupCampaign } = await import('../services/promoPopup.js');
+    const out = await updatePromoPopupCampaign(id, req.body || {});
+    if (out.error === 'not_found') return res.status(404).json({ error: 'Не найдено' });
+    if (out.error) return res.status(400).json({ error: out.error });
+    res.json(out.row);
+  } catch (e) {
+    if (e && e.code === '42P01') {
+      return res.status(503).json({ error: 'Примените ticket-миграцию 011_promo_popup.sql' });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/promo-popup-campaigns/:id/stats', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Некорректный id' });
+  try {
+    const r = await ticketPool.query(
+      `SELECT
+         COUNT(*)::int AS grants_total,
+         COUNT(*) FILTER (WHERE expires_at > NOW())::int AS grants_active,
+         COUNT(*) FILTER (WHERE expires_at <= NOW())::int AS grants_expired
+       FROM promo_popup_grants
+       WHERE campaign_id = $1`,
+      [id],
+    );
+    const used = await ticketPool.query(
+      `SELECT COUNT(*)::int AS used
+       FROM promo_popup_grants g
+       JOIN getbilet_promo_codes p ON p.id = g.promo_code_id
+       WHERE g.campaign_id = $1 AND p.uses_count > 0`,
+      [id],
+    );
+    res.json({ ...(r.rows[0] || {}), used: used.rows[0]?.used ?? 0 });
+  } catch (e) {
+    if (e && e.code === '42P01') {
+      return res.status(503).json({ error: 'Примените ticket-миграцию 011_promo_popup.sql' });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /** existing — строка из БД при PATCH; null — только создание */
 function parsePromoPayload(body, existing) {
   const isCreate = !existing;

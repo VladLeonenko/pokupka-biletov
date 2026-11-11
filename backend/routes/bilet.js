@@ -854,6 +854,46 @@ router.get('/repertoire/:repertoireId/description-sections', async (req, res) =>
   }
 });
 
+/** Промо-попап: подходит ли событие под кампанию (без выдачи кода). */
+router.get('/promo-popup/preview', async (req, res) => {
+  try {
+    const { previewPromoPopup } = await import('../services/promoPopup.js');
+    const slug = String(req.query.slug || 'bolshoi-10').trim() || 'bolshoi-10';
+    const repertoireId = String(req.query.repertoireId || '').trim();
+    const venueHint = String(req.query.venue || '').trim();
+    const out = await previewPromoPopup({ slug, repertoireId, venueHint });
+    return res.json(out);
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({ eligible: false, reason: 'schema' });
+    }
+    console.error('[bilet/promo-popup/preview]', err);
+    return res.status(500).json({ eligible: false, reason: 'error' });
+  }
+});
+
+/** Промо-попап: выдать персональный код на TTL (по умолчанию 60 мин). */
+router.post('/promo-popup/claim', async (req, res) => {
+  try {
+    const { claimPromoPopup } = await import('../services/promoPopup.js');
+    const slug = String(req.body?.slug || 'bolshoi-10').trim() || 'bolshoi-10';
+    const visitorKey = String(req.body?.visitorKey || '').trim();
+    const repertoireId = String(req.body?.repertoireId || '').trim();
+    const venueHint = String(req.body?.venue || req.body?.venueLabel || '').trim();
+    const out = await claimPromoPopup({ slug, visitorKey, repertoireId, venueHint });
+    if (!out.ok) {
+      return res.status(400).json(out);
+    }
+    return res.json(out);
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({ ok: false, error: 'schema' });
+    }
+    console.error('[bilet/promo-popup/claim]', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'claim_failed' });
+  }
+});
+
 /**
  * Отзывы по площадке: все published event_reviews событий с этим venue_manual.
  * Query: venue=PlaceName | slug=mht-im-chehova

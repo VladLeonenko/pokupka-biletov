@@ -104,6 +104,11 @@ const TicketCheckoutPageExtras = lazy(() =>
     default: m.TicketCheckoutPageExtras,
   })),
 );
+const BolshoiPromoPopupLazy = lazy(() =>
+  import('@/components/tickets/BolshoiPromoPopup').then((m) => ({
+    default: m.BolshoiPromoPopup,
+  })),
+);
 import {
   heroSublineWithoutDuplicateVenue,
   resolveHeroSublineForTicketPage,
@@ -1015,6 +1020,7 @@ export function TicketCheckoutPage() {
         (mergedVenue
           ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
           : null),
+      venueLabel: mergedVenue || null,
       ticketHref,
       requiresFanId,
       requiresPassportManager:
@@ -1092,6 +1098,7 @@ export function TicketCheckoutPage() {
         (mergedVenue
           ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
           : null),
+      venueLabel: mergedVenue || null,
       ticketHref,
       requiresFanId,
       requiresPassportManager:
@@ -2859,6 +2866,11 @@ export function TicketCheckoutPage() {
           </DialogContent>
         </Dialog>
       </Box>
+      {repertoireId ? (
+        <Suspense fallback={null}>
+          <BolshoiPromoPopupLazy repertoireId={repertoireId} venueLabel={mergedVenue} />
+        </Suspense>
+      ) : null}
     </>
   );
 }
