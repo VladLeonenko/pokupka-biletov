@@ -1322,6 +1322,7 @@ async function sessionFetch(input: string, init?: RequestInit): Promise<Response
   const sid = getSessionId();
   const res = await fetch(input, {
     ...init,
+    credentials: init?.credentials ?? 'include',
     headers: {
       Accept: 'application/json',
       ...(sid ? { 'x-session-id': sid } : {}),
