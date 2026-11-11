@@ -290,6 +290,36 @@ async function main() {
   const hallKind = optionalEnv('STAGE_MAP_HALL_KIND');
   const preferLayoutSeats = truthyEnv('STAGE_MAP_PREFER_LAYOUT_SEATS');
   const showSeatsAtOverview = truthyEnv('STAGE_MAP_SHOW_SEATS_AT_OVERVIEW');
+  const hallViewportBackground = optionalEnv('STAGE_MAP_HALL_VIEWPORT_BACKGROUND');
+  const sectorFill = optionalEnv('STAGE_MAP_SECTOR_FILL');
+  if (sectorFill && sectorMode?.sectors?.length) {
+    sectorMode = {
+      ...sectorMode,
+      sectors: sectorMode.sectors.map((sec) =>
+        sec && typeof sec === 'object' ? { ...sec, fill: sectorFill, accent: sectorFill } : sec,
+      ),
+    };
+  }
+  if (hallViewportBackground && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hallViewportBackground)) {
+    svgMarkup = String(svgMarkup || '');
+    if (!/background\s*:\s*#f5f5f5/i.test(svgMarkup) && hallViewportBackground.toLowerCase() === '#f5f5f5') {
+      svgMarkup = svgMarkup.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
+        if (/\bstyle\s*=/i.test(attrs)) {
+          return `<svg${attrs.replace(
+            /\bstyle\s*=\s*(["'])([\s\S]*?)\1/i,
+            (_, q, style) => ` style=${q}${String(style).replace(/;?\s*$/, '')};background:#f5f5f5${q}`,
+          )}>`;
+        }
+        return `<svg${attrs} style="background:#f5f5f5">`;
+      });
+      if (!/fill\s*=\s*["']#f5f5f5["']/i.test(svgMarkup)) {
+        svgMarkup = svgMarkup.replace(
+          /(<svg\b[^>]*>)/i,
+          '$1\n  <rect width="100%" height="100%" x="0" y="0" fill="#f5f5f5" pointer-events="none"/>',
+        );
+      }
+    }
+  }
 
   const layoutJson = {
     layoutMode: 'svgNative',
@@ -303,6 +333,9 @@ async function main() {
     ...(hallKind ? { hallKind } : {}),
     ...(preferLayoutSeats ? { preferLayoutSeatPositions: true } : {}),
     ...(showSeatsAtOverview ? { showSeatsAtOverview: true } : {}),
+    ...(hallViewportBackground && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hallViewportBackground)
+      ? { hallViewportBackground }
+      : {}),
     sectorMode,
     pbilet: {
       layoutId,

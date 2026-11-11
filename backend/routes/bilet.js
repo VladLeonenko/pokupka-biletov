@@ -50,6 +50,11 @@ import {
   resolveStageMapLookupExternalId,
 } from '../services/stageMapLookup.js';
 import {
+  decorateVakhtangovStageMapRow,
+  isVakhtangovMainStageId,
+  VAKHTANGOV_MAIN_STAGE_MAP_KEY,
+} from '../services/vakhtangovMainStageMap.js';
+import {
   adaptLuzhnikiStageMapForLiveOffers,
   LUZHNIKI_FOOTBALL_STAGE_MAP_KEY,
   slimLuzhnikiStageMapForClient,
@@ -674,6 +679,13 @@ router.get('/stage/:stageId/map', async (req, res) => {
     if (!r.rows.length) return sendPublicJson(req, res, null, { cacheSeconds: 60, staleSeconds: 120 });
 
     let stageRow = r.rows[0];
+    if (
+      isVakhtangovMainStageId(lookupKey) ||
+      isVakhtangovMainStageId(stageId) ||
+      stageRow?.stage_external_id === VAKHTANGOV_MAIN_STAGE_MAP_KEY
+    ) {
+      stageRow = decorateVakhtangovStageMapRow(stageRow);
+    }
     if ((isLuzhnikiMap || isSupercupNnMap || isLukoilMap) && repertoireId) {
       try {
         const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });

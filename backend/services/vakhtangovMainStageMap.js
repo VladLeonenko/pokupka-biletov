@@ -84,11 +84,73 @@ export function shouldUseVakhtangovMainStageCanonicalMap(ctx, placeFromMapsVenue
   return looksLikeVakhtangovMainStageHall(venue, hallText, ctx?.title);
 }
 
+/** Как Новая сцена Большого: белые сектора на сером фоне, без смены path. */
+export const VAKHTANGOV_HALL_VIEWPORT_BG = '#f5f5f5';
+export const VAKHTANGOV_SECTOR_FILL = '#ffffff';
+
+/**
+ * Подложка SVG: серый фон схемы (геометрию path не трогаем).
+ * @param {string | null | undefined} svgMarkup
+ */
+export function ensureVakhtangovHallSvgGrayBackground(svgMarkup) {
+  const raw = String(svgMarkup || '');
+  if (!raw.includes('<svg')) return raw;
+  let out = raw;
+  if (!/style\s*=\s*["'][^"']*background\s*:\s*#f5f5f5/i.test(out)) {
+    out = out.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
+      if (/\bstyle\s*=/i.test(attrs)) {
+        return `<svg${attrs.replace(
+          /\bstyle\s*=\s*(["'])([\s\S]*?)\1/i,
+          (_, q, style) => ` style=${q}${String(style).replace(/;?\s*$/, '')};background:#f5f5f5${q}`,
+        )}>`;
+      }
+      return `<svg${attrs} style="background:#f5f5f5">`;
+    });
+  }
+  if (!/fill\s*=\s*["']#f5f5f5["']/i.test(out)) {
+    out = out.replace(
+      /(<svg\b[^>]*>)/i,
+      '$1\n  <rect width="100%" height="100%" x="0" y="0" fill="#f5f5f5" pointer-events="none"/>',
+    );
+  }
+  return out;
+}
+
+/**
+ * layout_json: белые заливки секторов + серый viewport (эталон — Новая сцена Большого).
+ * @param {unknown} layoutJson
+ */
+export function applyVakhtangovWhiteSectorScheme(layoutJson) {
+  if (!layoutJson || typeof layoutJson !== 'object') return layoutJson;
+  const lj = { ...layoutJson };
+  lj.hallViewportBackground = VAKHTANGOV_HALL_VIEWPORT_BG;
+  const sm = lj.sectorMode && typeof lj.sectorMode === 'object' ? { ...lj.sectorMode } : null;
+  if (sm && Array.isArray(sm.sectors)) {
+    sm.sectors = sm.sectors.map((sec) => {
+      if (!sec || typeof sec !== 'object') return sec;
+      return { ...sec, fill: VAKHTANGOV_SECTOR_FILL, accent: VAKHTANGOV_SECTOR_FILL };
+    });
+    lj.sectorMode = sm;
+  }
+  return lj;
+}
+
+/** Декор строки схемы перед отдачей клиенту / записью в БД. */
+export function decorateVakhtangovStageMapRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  return {
+    ...row,
+    svg_markup: ensureVakhtangovHallSvgGrayBackground(row.svg_markup),
+    layout_json: applyVakhtangovWhiteSectorScheme(row.layout_json),
+  };
+}
+
 export async function loadVakhtangovMainStageMapRow() {
   const r = await ticketPool.query(
     `SELECT stage_external_id, place_external_id, title, svg_markup, layout_json, external_plan_url
      FROM getbilet_stage_maps WHERE stage_external_id = $1`,
     [VAKHTANGOV_MAIN_STAGE_MAP_KEY],
   );
-  return r.rows[0] || null;
+  const row = r.rows[0] || null;
+  return row ? decorateVakhtangovStageMapRow(row) : null;
 }

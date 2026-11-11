@@ -936,6 +936,17 @@ export function TicketHallInteractiveBlock({
     () => parseHallPreviewSectorCheckout(layoutJson),
     [layoutJson],
   );
+  /**
+   * Белые сектора на сером фоне (Новая сцена Большого / Вахтангов):
+   * sectorLayer не красит path цветом цены — только белая заливка + контур.
+   */
+  const whiteSectorWash = useMemo(() => {
+    if (!sectorMode.enabled || hallPreviewSectorCheckout || pbiletCategoryCheckout) return false;
+    const secs = sectorMode.sectors.filter((s) => String(s.path || '').trim());
+    if (secs.length < 1) return false;
+    const whiteN = secs.filter((s) => isNearWhiteSectorFill(s.fill)).length;
+    return whiteN >= Math.ceil(secs.length * 0.5);
+  }, [sectorMode.enabled, sectorMode.sectors, hallPreviewSectorCheckout, pbiletCategoryCheckout]);
   const showSeatsAtOverview = useMemo(() => parseShowSeatsAtOverview(layoutJson), [layoutJson]);
   /**
    * Только полигоны/qty: pbilet category ИЛИ Большой hallPreview (без клика по местам).
@@ -3037,6 +3048,8 @@ export function TicketHallInteractiveBlock({
                   pbiletCategoryCheckout ? styles.sectorLayerCategoryCheckout : ''
                 } ${
                   hallPreviewSectorCheckout ? styles.sectorLayerHallPreview : ''
+                } ${
+                  whiteSectorWash ? styles.sectorLayerWhiteWash : ''
                 } ${
                   theaterSectorCheckout && !useNativeTheaterSectorPaths ? styles.sectorLayerTheater : ''
                 } ${

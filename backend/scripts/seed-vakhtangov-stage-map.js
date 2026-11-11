@@ -33,6 +33,9 @@ const DEFAULTS = {
   STAGE_MAP_PREFER_LAYOUT_SEATS: '1',
   /** Места видны на обзоре (scale≈1), не только после zoom в сектор. */
   STAGE_MAP_SHOW_SEATS_AT_OVERVIEW: '1',
+  /** Белые сектора на #f5f5f5 — как Новая сцена Большого (геометрию не меняем). */
+  STAGE_MAP_HALL_VIEWPORT_BACKGROUND: '#f5f5f5',
+  STAGE_MAP_SECTOR_FILL: '#ffffff',
 };
 
 async function fetchText(url) {
