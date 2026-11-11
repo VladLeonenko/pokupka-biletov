@@ -203,7 +203,7 @@ const SEED = [
     status: 'planned',
     priority: 100,
     sort_order: 10,
-    daily_budget_rub: 450,
+    daily_budget_rub: 850,
     total_budget_rub: 12000,
     campaign_name: 'POISK_KABALA_SVYATOSH',
     campaign_id: 709742229,
@@ -235,7 +235,8 @@ const SEED = [
     forecast_clicks: 45,
     forecast_cpc_rub: 80,
     forecast_conversions: 2.5,
-    forecast_notes: 'День-1 на низком бюджете; после минусов — поднять daily. Speculative.',
+    forecast_notes:
+      'Высший near-term daily (Wordstat ~1470 core). День-1 дисциплина: минуса сразу, purchase only. Speculative.',
     campaign_negatives: [
       ...CAMPAIGN_NEG_DEFAULT,
       'либретто',
@@ -336,7 +337,7 @@ const SEED = [
     status: 'planned',
     priority: 90,
     sort_order: 20,
-    daily_budget_rub: 350,
+    daily_budget_rub: 250,
     total_budget_rub: 8000,
     campaign_name: 'POISK_GAMLET_MHT_HOT',
     campaign_id: 716098596,
@@ -457,7 +458,7 @@ const SEED = [
     status: 'planned',
     priority: 85,
     sort_order: 30,
-    daily_budget_rub: 250,
+    daily_budget_rub: 200,
     total_budget_rub: 1500,
     campaign_name: 'POISK_BAYADERKA_HOT',
     campaign_id: 716098615,
@@ -581,7 +582,7 @@ const SEED = [
     status: 'planned',
     priority: 95,
     sort_order: 40,
-    daily_budget_rub: 300,
+    daily_budget_rub: 700,
     total_budget_rub: 25000,
     campaign_name: 'POISK_SHELKUNCHIK_BOLSHOI_HOT',
     campaign_id: 716098640,
@@ -612,7 +613,8 @@ const SEED = [
     forecast_clicks: 60,
     forecast_cpc_rub: 85,
     forecast_conversions: 3,
-    forecast_notes: 'Разгон с mid-Nov; основной spend в декабре. High ticket ~70к. Speculative.',
+    forecast_notes:
+      'High demand (Wordstat 2k+), даты с 18.12 — daily 700 сейчас; ramp выше ближе к 18 дек. High ticket ~70к. Speculative.',
     campaign_negatives: [
       ...CAMPAIGN_NEG_DEFAULT,
       'мультфильм',
@@ -706,7 +708,7 @@ const SEED = [
       },
     ],
     notes:
-      'Slug LP старый (novogodniy-balet…), в UI/SEO — Щелкунчик. Много дат = одна РК; диапазон в креативах.',
+      'Slug LP старый (novogodniy-balet…), в UI/SEO — Щелкунчик. Много дат = одна РК; диапазон в креативах. Daily ramp ближе к 18.12.',
   },
 ];
 
