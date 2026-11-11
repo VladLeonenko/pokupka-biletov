@@ -32,7 +32,7 @@ function rowToForm(r: PromoPopupCampaignRow) {
     venue_ilike: r.venue_ilike || '%Больш%',
     venue_scope: (r as { venue_scope?: string }).venue_scope || 'exclude',
     code_prefix: r.code_prefix || 'SITE10',
-    delay_ms: Number(r.delay_ms) || 2500,
+    delay_ms: Number(r.delay_ms) || 12000,
     notes: r.notes || '',
   };
 }
@@ -64,7 +64,7 @@ export function GetbiletPromoPopupPage() {
           venue_ilike: '%Больш%',
           venue_scope: 'exclude',
           code_prefix: 'SITE10',
-          delay_ms: 2500,
+          delay_ms: 12000,
           notes: '',
         },
   );

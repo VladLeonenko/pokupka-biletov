@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { claimPromoPopup, fetchPromoPopupPreview } from '@/services/biletPublicApi';
 import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
@@ -14,6 +14,8 @@ import {
 import styles from './BolshoiPromoPopup.module.css';
 
 const DEFAULT_SLUG = 'except-bolshoi-10';
+/** Фоллбек, если в кампании нет delay_ms */
+const DEFAULT_SHOW_AFTER_MS = 12_000;
 
 type Props = {
   slug?: string;
@@ -26,9 +28,18 @@ function formatRemain(ms: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+type GrantPayload = {
+  code: string;
+  expiresAt: string;
+  headline?: string;
+  bodyText?: string;
+  ctaLabel?: string;
+};
+
 /**
  * Глобальный попап: один раз на посетителя, на любом tickets-роуте.
  * Скидка 10% на всё кроме Большого (проверка на чекауте).
+ * Показ через ~10–15с от входа (delay кампании), claim стартует сразу.
  */
 export function BolshoiPromoPopup({ slug = DEFAULT_SLUG }: Props) {
   const location = useLocation();
@@ -39,11 +50,13 @@ export function BolshoiPromoPopup({ slug = DEFAULT_SLUG }: Props) {
   const [showBar, setShowBar] = useState(false);
   const [code, setCode] = useState('');
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [headline, setHeadline] = useState('Ваш купон на 10%');
+  const [headline, setHeadline] = useState('Ваш промокод на 10%');
   const [bodyText, setBodyText] = useState('');
   const [ctaLabel, setCtaLabel] = useState('Скопировать код');
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const grantRef = useRef<GrantPayload | null>(null);
+  const shownRef = useRef(false);
 
   const remainMs = useMemo(() => {
     if (!expiresAt) return 0;
@@ -65,97 +78,122 @@ export function BolshoiPromoPopup({ slug = DEFAULT_SLUG }: Props) {
     }
   }, [remainMs, open, showBar]);
 
-  const applyGrant = useCallback(
-    (g: {
-      code: string;
-      expiresAt: string;
-      headline?: string;
-      bodyText?: string;
-      ctaLabel?: string;
-      openModal: boolean;
-    }) => {
-      setCode(g.code);
-      setExpiresAt(g.expiresAt);
-      if (g.headline) setHeadline(g.headline);
-      if (g.bodyText) setBodyText(g.bodyText);
-      if (g.ctaLabel) setCtaLabel(g.ctaLabel);
+  const persistAndBroadcast = useCallback(
+    (g: GrantPayload, dismissedModal: boolean) => {
       writeStoredPromoGrant({
         code: g.code,
         expiresAt: g.expiresAt,
         slug,
-        dismissedModal: !g.openModal,
+        dismissedModal,
         headline: g.headline,
         bodyText: g.bodyText,
         ctaLabel: g.ctaLabel,
       });
       markPromoSeenForever(slug);
       broadcastPromoCode(g.code);
-      setOpen(g.openModal);
-      setShowBar(!g.openModal);
     },
     [slug],
+  );
+
+  const revealModal = useCallback(
+    (g: GrantPayload) => {
+      if (shownRef.current) return;
+      shownRef.current = true;
+      setCode(g.code);
+      setExpiresAt(g.expiresAt);
+      if (g.headline) setHeadline(g.headline);
+      if (g.bodyText) setBodyText(g.bodyText);
+      if (g.ctaLabel) setCtaLabel(g.ctaLabel);
+      persistAndBroadcast(g, false);
+      setOpen(true);
+      setShowBar(false);
+    },
+    [persistAndBroadcast],
+  );
+
+  const revealBarOnly = useCallback(
+    (g: GrantPayload) => {
+      setCode(g.code);
+      setExpiresAt(g.expiresAt);
+      if (g.headline) setHeadline(g.headline);
+      if (g.bodyText) setBodyText(g.bodyText);
+      if (g.ctaLabel) setCtaLabel(g.ctaLabel);
+      persistAndBroadcast(g, true);
+      setOpen(false);
+      setShowBar(true);
+      shownRef.current = true;
+    },
+    [persistAndBroadcast],
   );
 
   useEffect(() => {
     if (!onTickets || isAdmin) return;
     let cancelled = false;
-    let delayTimer: number | undefined;
+    let showTimer: number | undefined;
+
+    const stored = readStoredPromoGrant(slug);
+    if (stored) {
+      revealBarOnly({
+        code: stored.code,
+        expiresAt: stored.expiresAt,
+        headline: stored.headline,
+        bodyText: stored.bodyText,
+        ctaLabel: stored.ctaLabel,
+      });
+      return;
+    }
+    if (wasPromoSeenForever(slug)) return;
+
+    const bootAt = Date.now();
 
     (async () => {
-      const stored = readStoredPromoGrant(slug);
-      if (stored) {
-        if (cancelled) return;
-        applyGrant({
-          code: stored.code,
-          expiresAt: stored.expiresAt,
-          headline: stored.headline,
-          bodyText: stored.bodyText,
-          ctaLabel: stored.ctaLabel,
-          // Уже видел: только плашка, без повторной модалки
-          openModal: false,
-        });
-        return;
-      }
-
-      // Уже получал когда-то (даже если код истёк) — больше не показываем
-      if (wasPromoSeenForever(slug)) return;
-
-      const preview = await fetchPromoPopupPreview({ slug });
-      if (cancelled || !preview.eligible || !preview.campaign) return;
+      const preview = await fetchPromoPopupPreview({ slug }).catch(() => null);
+      if (cancelled) return;
+      if (!preview?.eligible || !preview.campaign) return;
 
       setHeadline(preview.campaign.headline);
       setBodyText(preview.campaign.bodyText);
       setCtaLabel(preview.campaign.ctaLabel || 'Скопировать код');
 
-      const delay = Math.max(0, Number(preview.campaign.delayMs) || 2500);
-      delayTimer = window.setTimeout(async () => {
-        if (cancelled) return;
-        const visitorKey = getOrCreatePromoVisitorKey();
-        const claim = await claimPromoPopup({ visitorKey, slug });
-        if (cancelled) return;
-        if (claim.alreadyClaimed) {
-          markPromoSeenForever(slug);
-          return;
-        }
-        if (!claim.ok || !claim.code || !claim.expiresAt) return;
-        applyGrant({
-          code: claim.code,
-          expiresAt: claim.expiresAt,
-          headline: claim.headline,
-          bodyText: claim.bodyText,
-          ctaLabel: claim.ctaLabel,
-          openModal: true,
-        });
-      }, delay);
+      const showAfterMs = Math.min(
+        15_000,
+        Math.max(8_000, Number(preview.campaign.delayMs) || DEFAULT_SHOW_AFTER_MS),
+      );
+
+      // Claim сразу — к моменту показа код уже есть
+      const visitorKey = getOrCreatePromoVisitorKey();
+      const claim = await claimPromoPopup({ visitorKey, slug }).catch(() => null);
+      if (cancelled) return;
+      if (claim?.alreadyClaimed) {
+        markPromoSeenForever(slug);
+        return;
+      }
+      if (!claim?.ok || !claim.code || !claim.expiresAt) return;
+
+      const grant: GrantPayload = {
+        code: claim.code,
+        expiresAt: claim.expiresAt,
+        headline: claim.headline || preview.campaign.headline,
+        bodyText: claim.bodyText || preview.campaign.bodyText,
+        ctaLabel: claim.ctaLabel || preview.campaign.ctaLabel,
+      };
+      grantRef.current = grant;
+
+      const elapsed = Date.now() - bootAt;
+      const wait = Math.max(0, showAfterMs - elapsed);
+      showTimer = window.setTimeout(() => {
+        if (cancelled || !grantRef.current) return;
+        revealModal(grantRef.current);
+      }, wait);
     })().catch(() => {
       /* silent */
     });
 
     return () => {
       cancelled = true;
-      if (delayTimer) window.clearTimeout(delayTimer);
+      if (showTimer) window.clearTimeout(showTimer);
     };
-  }, [onTickets, isAdmin, slug, applyGrant]);
+  }, [onTickets, isAdmin, slug, revealBarOnly, revealModal]);
 
   const onCopy = async () => {
     if (!code) return;
@@ -187,7 +225,7 @@ export function BolshoiPromoPopup({ slug = DEFAULT_SLUG }: Props) {
               ×
             </button>
             <span className={styles.ornament} aria-hidden />
-            <p className={styles.eyebrow}>Персональный купон · 10%</p>
+            <p className={styles.eyebrow}>Персональный промокод · 10%</p>
             <h2 className={styles.headline}>{headline}</h2>
             {bodyText ? <p className={styles.body}>{bodyText}</p> : null}
             <div className={styles.codeBox}>
