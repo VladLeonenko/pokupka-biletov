@@ -663,7 +663,17 @@ export function TicketCheckoutPage() {
     });
   }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
+  /** До layoutJsonForStage: Bolshoi hallPreview уже в context/map layout. */
+  const zonePreorderHallEarly = useMemo(
+    () =>
+      parseHallPreviewSectorCheckout(ctx?.stageMap?.layout_json) ||
+      parseHallPreviewSectorCheckout(mapByStageId?.layout_json),
+    [ctx?.stageMap?.layout_json, mapByStageId?.layout_json],
+  );
+
   const filteredOffers = useMemo(() => {
+    // Большой (zone preorder со схемы): фильтр зона/цена/проход не нужен — только схема.
+    if (zonePreorderHallEarly) return listableOffers as OfferRow[];
     if (isFootballStadiumStage) {
       if (stadiumSectorFilter === 'all') return listableOffers as OfferRow[];
       return (listableOffers as OfferRow[]).filter(
@@ -677,7 +687,15 @@ export function TicketCheckoutPage() {
       ? { ...filterState, priceRange: [pb.min, pb.max] }
       : filterState;
     return filterOffers(listableOffers as OfferRowLike[], state) as OfferRow[];
-  }, [isFootballStadiumStage, listableOffers, filterState, stadiumSectorFilter, pb.min, pb.max]);
+  }, [
+    zonePreorderHallEarly,
+    isFootballStadiumStage,
+    listableOffers,
+    filterState,
+    stadiumSectorFilter,
+    pb.min,
+    pb.max,
+  ]);
 
   const priceColorMap = useMemo(() => {
     const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
@@ -2181,7 +2199,7 @@ export function TicketCheckoutPage() {
 
 
 
-          {!isLoading && !isError && listableOffers.length > 0 && (
+          {!isLoading && !isError && listableOffers.length > 0 && !zonePreorderHall && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
                 Фильтр
