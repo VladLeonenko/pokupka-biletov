@@ -123,6 +123,8 @@ module.exports = {
         NODE_ENV: 'production',
         VAKHTANGOV_AUTO_BOOK: '1',
         VAKHTANGOV_MAX_PAIRS: '2',
+        VAKHTANGOV_MAX_REBOOKS: '1',
+        VAKHTANGOV_REBOOK_AFTER_MS: String(20 * 60 * 1000),
         VAKHTANGOV_NOTIFY_EMAIL:
           'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com',
         VAKHTANGOV_BCC: 'yaguda_io@mail.ru',

@@ -32,6 +32,8 @@ const HOT_INTERVAL_MS = Number(process.env.VAKHTANGOV_HOT_INTERVAL_MS || 800);
 const AUTO_BOOK = process.env.VAKHTANGOV_AUTO_BOOK !== '0';
 const MAX_PAIRS = Number(process.env.VAKHTANGOV_MAX_PAIRS || 1);
 const REBOOK_AFTER_MS = Number(process.env.VAKHTANGOV_REBOOK_AFTER_MS || 20 * 60 * 1000);
+/** Сколько успешных повторов после первой брони (1 = всего 2 успеха на сеанс). */
+const MAX_REBOOKS = Math.max(0, Number(process.env.VAKHTANGOV_MAX_REBOOKS ?? 1));
 const LOG_MAX = 2 * 1024 * 1024;
 
 /** Целевые сеансы с сайтов спектаклей (stage=main). */
@@ -127,7 +129,13 @@ function shouldBook(key) {
   if (!AUTO_BOOK || bookingInFlight.has(key)) return false;
   const h = holds.get(key);
   if (!h) return true;
+  // Уже исчерпали: 1-я бронь + MAX_REBOOKS повторов — больше не трогаем сеанс.
+  if (h.done) return false;
+  const successCount = Number(h.successCount || (h.orderOk ? 1 : 0));
+  if (successCount >= 1 + MAX_REBOOKS) return false;
   if (Date.now() < (h.cooldownUntil || 0)) return false;
+  // Повтор только после успешной брони и истечения cooldown.
+  if (successCount >= 1 && !h.orderOk) return false;
   return true;
 }
 
@@ -141,25 +149,40 @@ async function tryBook(ev) {
 
   bookingInFlight.add(key);
   try {
-    log(`book ${ev.label} path=${ev.path} pairs<=${MAX_PAIRS}`);
+    const prev = holds.get(key);
+    const prevSuccess = Number(prev?.successCount || (prev?.orderOk ? 1 : 0));
+    const isRebook = prevSuccess >= 1;
+    const excludeSeatKeys = isRebook ? (prev?.seats || []) : [];
+    log(
+      `${isRebook ? 'rebook' : 'book'} ${ev.label} path=${ev.path} pairs<=${MAX_PAIRS}` +
+        (excludeSeatKeys.length ? ` exclude=[${excludeSeatKeys.join(',')}]` : '') +
+        ` successWas=${prevSuccess}/${1 + MAX_REBOOKS}`,
+    );
     const result = await bookVakhtangovParterPairs(
       { path: ev.path, accessHash: ev.accessHash, label: ev.label },
-      { maxPairs: MAX_PAIRS },
+      { maxPairs: MAX_PAIRS, excludeSeatKeys },
     );
 
     if (result.ok && result.paymentUrl) {
+      const successCount = prevSuccess + 1;
+      const done = successCount >= 1 + MAX_REBOOKS;
       holds.set(key, {
         orderOk: true,
+        successCount,
+        rebookCount: Math.max(0, successCount - 1),
+        done,
         bookedAt: Date.now(),
-        cooldownUntil: Date.now() + REBOOK_AFTER_MS,
+        // после финальной брони cooldown не нужен — done стопит навсегда
+        cooldownUntil: done ? 0 : Date.now() + REBOOK_AFTER_MS,
         seats: (result.seats || []).map((s) => `${s.row}-${s.place}`),
+        prevSeats: excludeSeatKeys.length ? excludeSeatKeys : (prev?.seats || null),
         paymentUrl: result.paymentUrl,
         orderId: result.orderId || null,
       });
       saveState();
       saveResult({
         platform: 'vakhtangov-ticketland',
-        action: 'book',
+        action: isRebook ? 'rebook' : 'book',
         label: ev.label,
         show: ev.show,
         datetime: ev.datetime,
@@ -187,8 +210,9 @@ async function tryBook(ev) {
         ? seats.map((s) => `р${s.row}м${s.place}`).join('+')
         : 'места?';
       const text = [
-        '✅ Вахтангов — бронь (партер, пара)',
+        isRebook ? '🔁 Вахтангов — ПОВТОРНАЯ бронь (партер, пара)' : '✅ Вахтангов — бронь (партер, пара)',
         `Спектакль: ${ev.label}`,
+        `попытка: ${successCount}/${1 + MAX_REBOOKS}${done ? ' · дальше стоп' : ''}`,
         ...pairLines,
         `сумма: ${result.amount ?? '—'}₽`,
         result.orderId ? `orderId: ${result.orderId}` : null,
@@ -200,7 +224,7 @@ async function tryBook(ev) {
         .filter(Boolean)
         .join('\n');
       log(
-        `OK ${ev.label} seats=${seats.map((s) => `${s.row}-${s.place}`).join(',')} order=${result.orderId || '—'} pay=${result.paymentUrl}`,
+        `OK ${ev.label} #${successCount}/${1 + MAX_REBOOKS}${done ? ' DONE' : ''} seats=${seats.map((s) => `${s.row}-${s.place}`).join(',')} order=${result.orderId || '—'} pay=${result.paymentUrl}`,
       );
       if (result.orderId) {
         try {
@@ -220,7 +244,10 @@ async function tryBook(ev) {
           log(`pay-track register fail: ${e.message}`);
         }
       }
-      await notifyBook(`✅ Вахтангов: ${ev.label} · ${seatShort}`, text).catch((e) => log(`mail fail: ${e.message}`));
+      await notifyBook(
+        `${isRebook ? '🔁' : '✅'} Вахтангов: ${ev.label} · ${seatShort}${done ? ' · стоп' : ''}`,
+        text,
+      ).catch((e) => log(`mail fail: ${e.message}`));
       return;
     }
 
@@ -260,8 +287,8 @@ async function tryBook(ev) {
   }
 }
 
-log(`start targets=${TARGETS.length} interval=${INTERVAL_MS}/${HOT_INTERVAL_MS} pairs=${MAX_PAIRS} auto=${AUTO_BOOK}`);
-log('mail: only on successful book; contacts←sniper-contacts.json');
+log(`start targets=${TARGETS.length} interval=${INTERVAL_MS}/${HOT_INTERVAL_MS} pairs=${MAX_PAIRS} rebooks=${MAX_REBOOKS} auto=${AUTO_BOOK}`);
+log('mail: only on successful book; max 1 rebook/session then stop; contacts←sniper-contacts.json');
 
 while (true) {
   let anyHot = false;
