@@ -974,6 +974,8 @@ export function TicketCheckoutPage() {
           : null),
       ticketHref,
       requiresFanId,
+      requiresPassportManager:
+        mapSelectedSeats.length > 0 && mapSelectedSeats.every((s) => s.zoneOnly === true),
     };
   }, [
     repertoireId,
@@ -1049,6 +1051,8 @@ export function TicketCheckoutPage() {
           : null),
       ticketHref,
       requiresFanId,
+      requiresPassportManager:
+        mapSelectedSeats.length > 0 && mapSelectedSeats.every((s) => s.zoneOnly === true),
     });
   }, [
     repertoireId,
@@ -1392,30 +1396,21 @@ export function TicketCheckoutPage() {
     ? priceColorMap.get(ownHint.priceKey) ?? colorForPriceIndex(0)
     : null;
 
+  /**
+   * Чипы на схеме фильтруют только `offersForMapDisplay` через mapSelectedPriceKey.
+   * Не трогаем filterState.priceRange: иначе на МХТ/театре клик по цене
+   * схлопывает список офферов ниже и даёт скачки/глюки на мобилке.
+   */
   const handleMapPriceSelect = useCallback(
     (pk: string) => {
-      if (mapSelectedPriceKey === pk) {
-        setMapSelectedPriceKey(null);
-        if (!isFootballStadiumStage) {
-          setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
-        }
-        return;
-      }
-      const n = Number(pk);
-      setMapSelectedPriceKey(pk);
-      if (!isFootballStadiumStage && Number.isFinite(n)) {
-        setFilterState((s) => ({ ...s, priceRange: [n, n] }));
-      }
+      setMapSelectedPriceKey((cur) => (cur === pk ? null : pk));
     },
-    [isFootballStadiumStage, mapSelectedPriceKey, pb.min, pb.max],
+    [],
   );
 
   const handleMapPriceReset = useCallback(() => {
     setMapSelectedPriceKey(null);
-    if (!isFootballStadiumStage) {
-      setFilterState((s) => ({ ...s, priceRange: [pb.min, pb.max] }));
-    }
-  }, [isFootballStadiumStage, pb.min, pb.max]);
+  }, []);
 
   const showOwnBestPriceGroup = useCallback(() => {
     if (!ownHint) return;

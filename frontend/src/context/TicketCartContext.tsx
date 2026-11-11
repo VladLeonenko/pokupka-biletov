@@ -33,6 +33,8 @@ export type TicketCartSnapshot = {
   descriptionLead?: string | null;
   ticketHref: string;
   requiresFanId?: boolean;
+  /** Большой и др. zone-preorder: паспорт + менеджер свяжется. */
+  requiresPassportManager?: boolean;
 };
 
 type TicketCartContextValue = {

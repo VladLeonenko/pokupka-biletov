@@ -25,9 +25,14 @@ export type TicketPurchaseDialogProps = {
   /** Краткий тизер описания (как на странице события) */
   descriptionLead?: string | null;
   requiresFanId?: boolean;
+  /** Zone-preorder (Большой): нужны паспортные данные, менеджер свяжется. */
+  requiresPassportManager?: boolean;
   hold?: TicketSeatHoldState | null;
   onHoldExpired?: () => void;
 };
+
+export const PASSPORT_MANAGER_NOTICE =
+  'Для билетов Большого театра потребуются паспортные данные. После оплаты с вами свяжется наш менеджер, чтобы уточнить данные и подтвердить места в выбранной зоне.';
 
 const fieldSx = {
   '& .MuiOutlinedInput-root': { borderRadius: '2px' },
@@ -47,6 +52,7 @@ export function TicketPurchaseDialog({
   sessionLabel,
   descriptionLead,
   requiresFanId = false,
+  requiresPassportManager = false,
   hold = null,
   onHoldExpired,
 }: TicketPurchaseDialogProps) {
@@ -239,6 +245,12 @@ export function TicketPurchaseDialog({
           </div>
           {descriptionLead?.trim() ? (
             <p className={styles.eventDesc}>{descriptionLead.trim()}</p>
+          ) : null}
+          {requiresPassportManager ? (
+            <div className={styles.fanIdBlock} role="note" style={{ marginTop: 12 }}>
+              <p className={styles.fanIdBlockTitle}>Паспортные данные</p>
+              <p className={styles.fanIdBlockHint}>{PASSPORT_MANAGER_NOTICE}</p>
+            </div>
           ) : null}
           <div className={styles.seatsRow}>
             <span className={styles.seatsLabel}>Места</span>

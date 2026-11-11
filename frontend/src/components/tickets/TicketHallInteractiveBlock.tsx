@@ -2468,7 +2468,7 @@ export function TicketHallInteractiveBlock({
    * на выбор ряда/места.
    */
   const zonePreorderNote = hallPreviewSectorCheckout
-    ? 'Предзаказ на зону · номера мест подтвердим при отправке билетов'
+    ? 'Предзаказ на зону · потребуются паспортные данные, с вами свяжется менеджер'
     : null;
   const sectorAvailabilityLabel = useCallback(
     (sector: SectorSummary) => {
@@ -2684,6 +2684,29 @@ export function TicketHallInteractiveBlock({
     zoom,
   ]);
 
+  /** Стабильный Set ключей — без O(n) .some() на каждый seat в DOM/canvas. */
+  const selectedSeatKeySet = useMemo(
+    () => new Set(selectedSeatDetails.map((d) => d.key)),
+    [selectedSeatDetails],
+  );
+  const selectedSeatKeysSig = useMemo(
+    () => [...selectedSeatKeySet].join('|'),
+    [selectedSeatKeySet],
+  );
+  /**
+   * МХТ: estimateMinSeatSpacingSvg по ~879 seats дорогой — не гонять на каждый paint
+   * при клике места (раньше было внутри rAF paint).
+   */
+  const theaterSpacingSvg = useMemo(
+    () => estimateMinSeatSpacingSvg(nativeSeats, svgViewBox.width, svgViewBox.height),
+    [nativeSeats, svgViewBox.width, svgViewBox.height],
+  );
+  /**
+   * МХТ: сотни DOM hitbox-кнопок + getBoundingClientRect на каждое место при клике
+   * убивают мобилку. Canvas + viewport pick (endPan) уже выбирают места.
+   */
+  const skipTheaterDomSeatButtons = theaterSvgSeatCanvas && isMhtChekhovHall;
+
   useEffect(() => {
     if (!useCanvasCompositing) return;
     const canvas = canvasRef.current;
@@ -2794,13 +2817,8 @@ export function TicketHallInteractiveBlock({
             .map((s) => `${s.xPct.toFixed(2)}|${s.yPct.toFixed(2)}`),
         );
         const scalePx = w / Math.max(1, svgViewBox.width);
-        const spacingSvg = estimateMinSeatSpacingSvg(
-          nativeSeats,
-          svgViewBox.width,
-          svgViewBox.height,
-        );
         /** Только МХТ — мелкий densCap-радиус. Большой/svgNative → r≈2.86*scale. */
-        const radiusOpts = { mhtChekhov: isMhtChekhovHall, spacingSvg };
+        const radiusOpts = { mhtChekhov: isMhtChekhovHall, spacingSvg: theaterSpacingSvg };
         const rIdle = theaterSeatRadiusPx(scalePx, false, radiusOpts);
         const rActive = theaterSeatRadiusPx(scalePx, true, radiusOpts);
         ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;
@@ -2817,7 +2835,7 @@ export function TicketHallInteractiveBlock({
         }
         ctx.fill();
 
-        const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
+        const activeKeys = selectedSeatKeySet;
         const drawTheaterSellable = (seat: (typeof visibleNativePlacements)[number]) => {
           if (seat.previewOnly) return;
           const active = activeKeys.has(seat.key);
@@ -2862,7 +2880,7 @@ export function TicketHallInteractiveBlock({
           drawTheaterSellable(seat);
         }
       } else if (visibleNativePlacements.length > 0) {
-        const activeKeys = new Set(selectedSeatDetails.map((seatDetail) => seatDetail.key));
+        const activeKeys = selectedSeatKeySet;
         const mapZoomedNow = zoom > fitZoom + 0.01;
         const drawStadiumSellable = (seat: (typeof visibleNativePlacements)[number]) => {
           const active = activeKeys.has(seat.key);
@@ -2932,10 +2950,12 @@ export function TicketHallInteractiveBlock({
     getLayerScreenBox,
     hallRasterVersion,
     isMapDragging,
-    selectedSeatDetails,
+    selectedSeatKeysSig,
+    selectedSeatKeySet,
     skipDuplicateInteractiveDotsOnCanvas,
     isMhtChekhovHall,
     preferLayoutSeatPositions,
+    theaterSpacingSvg,
     theaterSvgSeatCanvas,
     theaterSectorCheckout,
     nativeSeats,
@@ -3272,9 +3292,17 @@ export function TicketHallInteractiveBlock({
                     ))
                 : null}
               {useSvgNative
-                ? visibleNativePlacements.map((p) => {
+                ? skipTheaterDomSeatButtons
+                  ? null
+                  : (() => {
+                    const layerBoxOnce = getLayerScreenBox();
+                    const stadiumLayerWidth =
+                      layerBoxOnce?.width && layerBoxOnce.width > 1
+                        ? layerBoxOnce.width
+                        : Math.round(svgViewBox.width);
+                    return visibleNativePlacements.map((p) => {
                     const visualKey = p.key;
-                    const active = selectedSeatDetails.some((d) => d.key === visualKey);
+                    const active = selectedSeatKeySet.has(visualKey);
                     const bg = p.previewOnly ? DOM_UNIFORM_SEAT_ACCENT : colorForSeat(p.priceKey);
                     const seatInfo = {
                       key: visualKey,
@@ -3284,10 +3312,6 @@ export function TicketHallInteractiveBlock({
                       seat: p.seat,
                       priceKey: p.priceKey,
                     };
-                    const layerBox = getLayerScreenBox();
-                    const stadiumLayerWidth = layerBox?.width && layerBox.width > 1
-                      ? layerBox.width
-                      : Math.round(svgViewBox.width);
                     const syncCanvasHitbox =
                       sectorMode.enabled && useSvgNative && useCanvasCompositing;
                     const hitboxPx = syncCanvasHitbox
@@ -3412,7 +3436,8 @@ export function TicketHallInteractiveBlock({
                         <span className={styles.seatDotLabel}>{p.seat}</span>
                       </button>
                     );
-                  })
+                  });
+                  })()
                 : categorySectorOnlyCheckout
                   ? null
                 : sorted.map((row, rowIdx) => {
@@ -3538,7 +3563,7 @@ export function TicketHallInteractiveBlock({
                         ? 'Эта ложа продаётся только целиком — один заказ на всю ложу. Отдельные места в ней не продаём.'
                         : sectorQtyCheckout
                           ? hallPreviewSectorCheckout
-                            ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне, а номера мест подтвердим при отправке билетов.'
+                            ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне. Потребуются паспортные данные: после оплаты с вами свяжется наш менеджер.'
                             : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
                           : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
@@ -3549,9 +3574,9 @@ export function TicketHallInteractiveBlock({
                     ) : null}
                     <p className={styles.categoryModalLead}>
                       {selectedSectorSummary.meta.boxWhole
-                        ? 'Предзаказ на ложу целиком. Номера мест подтвердим при отправке билетов.'
+                        ? 'Предзаказ на ложу целиком. Потребуются паспортные данные — после оплаты с вами свяжется наш менеджер.'
                         : hallPreviewSectorCheckout
-                          ? 'Предзаказ на зону. Номера мест подтвердим при отправке билетов.'
+                          ? 'Предзаказ на зону. Потребуются паспортные данные — после оплаты с вами свяжется наш менеджер.'
                           : sectorQtyCheckout
                             ? 'Бронирование по сектору — места подберёт система.'
                             : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
@@ -3814,7 +3839,7 @@ export function TicketHallInteractiveBlock({
               <span>Внимание! Требуется Fan ID!</span>
             </div>
           ) : null}
-          {selectedSeatDetails.length > 0 && !hideSelectionBar ? (
+          {selectedSeatDetails.length > 0 && !hideSelectionBar && !hallPreviewSectorCheckout ? (
             <div className={styles.selectionBar}>
               {onClearSelection ? (
                 <IconButton
@@ -3851,8 +3876,8 @@ export function TicketHallInteractiveBlock({
               <span className={styles.zoneHintText}>
                 <strong>Места продаются зонами</strong>
                 <span>
-                  Нажмите на цветную зону и укажите количество билетов. Номера мест подтвердим
-                  при отправке билетов.
+                  Нажмите на цветную зону и укажите количество билетов. Потребуются паспортные
+                  данные — после оплаты с вами свяжется наш менеджер.
                 </span>
               </span>
               <button

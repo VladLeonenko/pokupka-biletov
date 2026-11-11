@@ -38,7 +38,12 @@ export function TicketCartStickyBar() {
    * конце страницы. Пока она видна — резервируем под неё место внизу body.
    */
   const barRef = useRef<HTMLDivElement | null>(null);
-  const shouldShowBar = Boolean(cart && cart.seats.length > 0 && !purchaseOpen);
+  const zoneOnlyForPad =
+    Boolean(cart?.mapSelectedSeats?.length) &&
+    (cart?.mapSelectedSeats ?? []).every((s) => s.zoneOnly === true);
+  const shouldShowBar = Boolean(
+    cart && cart.seats.length > 0 && !purchaseOpen && !zoneOnlyForPad,
+  );
   useEffect(() => {
     const node = barRef.current;
     if (!shouldShowBar || !node) return undefined;
@@ -58,6 +63,15 @@ export function TicketCartStickyBar() {
   if (!cart || cart.seats.length === 0) return null;
   if (typeof document === 'undefined') return null;
 
+  /**
+   * Большой (zoneOnly): qty крутится в модалке зоны — нижняя плашка
+   * перекрывает «+» и мешает выбрать 2–3 билета. Checkout только из модалки.
+   */
+  const zoneOnlySelection =
+    Array.isArray(cart.mapSelectedSeats) &&
+    cart.mapSelectedSeats.length > 0 &&
+    cart.mapSelectedSeats.every((s) => s.zoneOnly === true);
+
   const seatCount = cart.seats.length;
   const seatsLine =
     cart.seatLabels && cart.seatLabels.length > 0 && cart.seatLabels.length <= 4
@@ -70,7 +84,7 @@ export function TicketCartStickyBar() {
 
   return createPortal(
     <>
-      {!purchaseOpen ? (
+      {!purchaseOpen && !zoneOnlySelection ? (
         <div className={styles.shell} ref={barRef}>
           <div className={styles.inner}>
             <Paper className={styles.bar} elevation={8} component="div" role="region" aria-label="Выбранные места">
@@ -144,6 +158,7 @@ export function TicketCartStickyBar() {
             sessionLabel={cart.sessionLabel}
             descriptionLead={cart.descriptionLead}
             requiresFanId={cart.requiresFanId}
+            requiresPassportManager={cart.requiresPassportManager}
             hold={hold}
             onHoldExpired={() => {
               void releaseSeatHold();
