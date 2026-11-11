@@ -158,7 +158,7 @@ function isDuplicateFeatured(slide: HeroSlideView): boolean {
 function featuredFallbackSlide(): HeroSlideView {
   return {
     id: FEATURED_HERO_SLUG,
-    title: 'НОВОГОДНИЙ БАЛЕТ ЧАЙКОВСКОГО',
+    title: 'ЩЕЛКУНЧИК',
     imageUrl: featuredHeroImageUrl(null),
     tags: '18.12.2026 — 10.01.2027 · БАЛЕТ · 6+',
     venueLabel: 'БОЛЬШОЙ ТЕАТР — ИСТОРИЧЕСКАЯ СЦЕНА',
@@ -171,7 +171,7 @@ function featuredFallbackSlide(): HeroSlideView {
   };
 }
 
-/** Первый слайд hero всегда «Новогодний балет Чайковского». */
+/** Первый слайд hero всегда «Щелкунчик» (Большой, сезон дек–янв). */
 function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent[]): HeroSlideView[] {
   if (!isFeaturedHeroActive()) return slides;
 
@@ -180,7 +180,7 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
     ? {
         ...eventToSlide(featuredEv, 0),
         id: FEATURED_HERO_SLUG,
-        title: 'НОВОГОДНИЙ БАЛЕТ ЧАЙКОВСКОГО',
+        title: 'ЩЕЛКУНЧИК',
         imageUrl: featuredHeroImageUrl(featuredEv),
         ticketHref: FEATURED_HERO_HREF,
       }

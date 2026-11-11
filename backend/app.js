@@ -95,6 +95,7 @@ import biletRouter from './routes/bilet.js';
 import ticketPaymentWebhooksRouter from './routes/ticketPaymentWebhooks.js';
 import { handleTbankEacqNotification } from './routes/biletTicketCheckout.js';
 import getbiletAdminRouter from './routes/getbiletAdmin.js';
+import adsMediaplanRouter from './routes/adsMediaplan.js';
 import {
   ticketsVitrinePublicRouter,
   ticketsVitrineAdminRouter,
@@ -403,6 +404,7 @@ app.use('/api/chat', chatRouter); // Публичные и админские э
 app.use('/api/chatbot', requireAuth, requireAdmin, chatbotRouter);
 app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский парсинг
 app.use('/api/admin/getbilet', requireAuth, requireAdminOrSalesManager, getbiletAdminRouter);
+app.use('/api/admin/ads-mediaplan', requireAuth, requireAdminOrSalesManager, adsMediaplanRouter);
 app.use('/api/admin/tickets-vitrine', ticketsVitrineAdminRouter);
 app.use('/api/snipe', sniperRouter);
 app.use('/api/monitors', monitorRouter);

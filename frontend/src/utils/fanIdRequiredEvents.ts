@@ -32,6 +32,9 @@ const TICKET_SLUG_TO_REPERTOIRE: Record<string, string> = {
   'basta-i-guf': '69ac1c5246a4d000309ecd5c',
   /** Спартак — Зенит (Лукойл Арена). */
   'spartak-moskva-zenit-sankt-peterburg-futbol': '67c15a6058f79d00302785ea',
+  /** Щелкунчик / Большой — человечный ЧПУ (сезон дек–янв); канон id в БД со старым slug. */
+  'shelkunchik-bolshoi': 'novogodniy-balet-chaykovskogo-2026-12',
+  'shelkunchik-bolshoi-teatr': 'novogodniy-balet-chaykovskogo-2026-12',
 };
 
 const BLOCKED_TICKET_SLUGS = new Set(['final-kubka-rossii-po-futbolu-2026']);

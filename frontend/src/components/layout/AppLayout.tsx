@@ -47,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'GetBilet: наценка', icon: <PriceIcon />, path: '/admin/getbilet/markup', roles: ['admin', 'sales_manager'] },
   { label: 'Цены конкурентов (Афиша…)', icon: <TrendingDownIcon />, path: '/admin/getbilet/competitor-prices', roles: ['admin', 'sales_manager'] },
   { label: 'GetBilet: промокоды', icon: <LocalOfferIcon />, path: '/admin/getbilet/promos', roles: ['admin', 'sales_manager'] },
+  { label: 'Медиаплан рекламы', icon: <CampaignIcon />, path: '/admin/ads-mediaplan', roles: ['admin', 'sales_manager'] },
   { label: 'Витрина билетов (контент)', icon: <StorefrontIcon />, path: '/admin/tickets-vitrine', roles: ['admin', 'sales_manager'] },
   { label: 'Снайпер мест', icon: <GpsFixedIcon />, path: '/admin/sniper', roles: ['admin'] },
   { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories', roles: ['admin'] },

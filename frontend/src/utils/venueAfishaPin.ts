@@ -20,6 +20,7 @@ export const VENUE_AFISHA_PIN: Record<string, string[]> = {
 const TITLE_PIN: Record<string, RegExp[]> = {
   'mht-im-chehova': [/кабала\s+святош/i, /гамлет/i],
   'bolshoy-teatr': [
+    /щелкунчик/i,
     /новогодн\w*\s+балет\s+чайковского/i,
     /баядерка/i,
     /чайка/i,

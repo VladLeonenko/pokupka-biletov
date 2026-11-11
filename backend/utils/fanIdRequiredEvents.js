@@ -31,6 +31,9 @@ const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
   'kabala-svjatosch': '686cd69c58f79d0030278b9d',
   /** Спартак — Зенит (Лукойл Арена) — ЧПУ для Директа. */
   'spartak-moskva-zenit-sankt-peterburg-futbol': '67c15a6058f79d00302785ea',
+  /** Щелкунчик Большой — ЧПУ без «только декабрь» в URL (сеансы дек–янв). */
+  'shelkunchik-bolshoi': 'novogodniy-balet-chaykovskogo-2026-12',
+  'shelkunchik-bolshoi-teatr': 'novogodniy-balet-chaykovskogo-2026-12',
   /** Большой: старые per-date id → каноническая карточка со всеми сеансами. */
   'rigoletto-2026-10-14': 'rigoletto-2026-10-13',
   'rigoletto-2026-10-15': 'rigoletto-2026-10-13',

@@ -330,6 +330,24 @@
   background: var(--neg-orange, #ff4e18);
 }
 
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--neg-orange, #ff4e18);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.ctaPrimary:hover {
+  filter: brightness(1.06);
+}
+
 .hours {
   font-size: 0.85rem;
   font-weight: 600;

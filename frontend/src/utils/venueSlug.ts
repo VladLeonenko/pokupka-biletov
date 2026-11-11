@@ -8,12 +8,17 @@ export const VENUE_SLUG_ALIASES: Record<string, string> = {
   'mht-chehova': 'mht-im-chehova',
   luzhniki: 'bsa-luzhniki',
   'bsa-luzhniki': 'bsa-luzhniki',
+  'bolshoi-theatre': 'bolshoy-teatr',
+  bolshoi: 'bolshoy-teatr',
+  'bolshoi-teatr': 'bolshoy-teatr',
 };
 
 /** Ручные подписи для SEO, если slug не резолвится из API. */
 export const VENUE_SLUG_LABELS: Record<string, string> = {
   'mht-chehova': 'МХТ им. Чехова',
   'mht-im-chehova': 'МХТ им. Чехова',
+  'bolshoy-teatr': 'Большой театр',
+  'bolshoi-theatre': 'Большой театр',
   'teatr-na-taganke': 'Театр на Таганке',
   'krokus-siti-holl': 'Крокус Сити Холл',
   'vtb-arena': 'ВТБ Арена',

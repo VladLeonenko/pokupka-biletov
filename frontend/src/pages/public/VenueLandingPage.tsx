@@ -25,6 +25,7 @@ import {
   buildVenueLandingList,
 } from '@/utils/venueSlug';
 import { buildVenueLandingCopy } from '@/utils/venueLandingCopy';
+import { pinVenueAfishaEvents } from '@/utils/venueAfishaPin';
 import { resolveVenueCoverUrl, VENUE_COVER_FALLBACK } from '@/data/venueBuildingCovers';
 import { ratingZone } from '@/utils/eventRating';
 import { OPERATOR } from '@/utils/operatorLegalInfo';
@@ -113,7 +114,15 @@ export function VenueLandingPage() {
     return filterEventsClient(allEvents, { venue: venueName });
   }, [allEvents, venueName]);
 
-  const uniqueEvents = useMemo(() => dedupeBiletEventsByShow(filtered), [filtered]);
+  const venueCanon = useMemo(
+    () => canonicalizeVenueSlug(venueSlug) || venueSlug,
+    [venueSlug],
+  );
+
+  const uniqueEvents = useMemo(
+    () => pinVenueAfishaEvents(venueCanon, dedupeBiletEventsByShow(filtered)),
+    [filtered, venueCanon],
+  );
   const visibleEvents = useMemo(
     () => uniqueEvents.slice(0, visibleCount),
     [uniqueEvents, visibleCount],
@@ -155,10 +164,7 @@ export function VenueLandingPage() {
     [uniqueEvents],
   );
 
-  const venueCoverUrl = useMemo(
-    () => resolveVenueCoverUrl(canonicalizeVenueSlug(venueSlug) || venueSlug),
-    [venueSlug],
-  );
+  const venueCoverUrl = useMemo(() => resolveVenueCoverUrl(venueCanon), [venueCanon]);
 
   /** OG / hero: здание площадки, не афиша случайного спектакля. */
   const ogImage = venueCoverUrl;
@@ -289,6 +295,7 @@ export function VenueLandingPage() {
     uniqueEvents[0] && venueName
       ? `/ticket/${encodeURIComponent(String(uniqueEvents[0].repertoireId || uniqueEvents[0].id))}`
       : '/events';
+  const firstTicketTitle = uniqueEvents[0]?.title?.trim() || null;
 
   return (
     <>
@@ -341,10 +348,17 @@ export function VenueLandingPage() {
           <p className={styles.lead}>{copy.about}</p>
 
           <p className={styles.trustRow} aria-label="Преимущества">
-            Электронный билет · Схема зала · Поддержка
+            Электронный билет · Схема зала · Оплата онлайн · Поддержка
           </p>
 
           <div className={styles.heroCta}>
+            {firstTicketHref !== '/events' ? (
+              <Link to={firstTicketHref} className={styles.ctaPrimary}>
+                {firstTicketTitle
+                  ? `Выбрать места — ${firstTicketTitle}`
+                  : 'Выбрать места'}
+              </Link>
+            ) : null}
             <a className={styles.phoneBtn} href={`tel:${OPERATOR.phoneTel}`}>
               {OPERATOR.phone}
             </a>
