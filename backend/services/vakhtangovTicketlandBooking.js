@@ -76,9 +76,22 @@ function splitName(full) {
   return { last: parts[0] || 'Иванов', first: parts[1] || 'Иван' };
 }
 
-function findParterPairs(places) {
+function seatKey(p) {
+  return `${p.row}-${p.place}`;
+}
+
+/**
+ * @param {any[]} places
+ * @param {{ excludeSeatKeys?: Set<string>|string[] }} [opts]
+ */
+function findParterPairs(places, opts = {}) {
+  const exclude = opts.excludeSeatKeys instanceof Set
+    ? opts.excludeSeatKeys
+    : new Set(opts.excludeSeatKeys || []);
   const free = (places || []).filter(
-    (p) => Number(p.state) === 0 && /партер/i.test(p.section?.name || ''),
+    (p) => Number(p.state) === 0
+      && /партер/i.test(p.section?.name || '')
+      && !exclude.has(seatKey(p)),
   );
   free.sort(
     (a, b) => Number(a.row) - Number(b.row) || Number(a.place) - Number(b.place) || a.price - b.price,
@@ -141,7 +154,7 @@ async function selectSeat(page, s) {
 
 /**
  * @param {{ path: string, accessHash: string, label?: string }} performance
- * @param {{ maxPairs?: number, contactsFile?: string, dryRun?: boolean, contactIndex?: number }} [opts]
+ * @param {{ maxPairs?: number, contactsFile?: string, dryRun?: boolean, contactIndex?: number, excludeSeatKeys?: string[] }} [opts]
  */
 export async function bookVakhtangovParterPairs(performance, opts = {}) {
   const contacts = loadContacts(opts.contactsFile);
@@ -149,6 +162,7 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
   const maxPairs = Math.max(1, Math.min(Number(opts.maxPairs || 1), 3));
   const contact = contacts[Number(opts.contactIndex || 0) % contacts.length];
   const { first, last } = splitName(contact.name);
+  const excludeSeatKeys = opts.excludeSeatKeys || [];
 
   const browser = await chromium.launch({
     headless: true,
@@ -202,7 +216,7 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
       return r.json();
     }, perf.id);
 
-    const pairs = findParterPairs(map.places || []);
+    const pairs = findParterPairs(map.places || [], { excludeSeatKeys });
     if (!pairs.length) {
       return {
         ok: false,
@@ -211,6 +225,7 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
         freeParter: (map.places || []).filter(
           (p) => p.state === 0 && /партер/i.test(p.section?.name || ''),
         ).length,
+        excluded: excludeSeatKeys.length,
       };
     }
 
