@@ -90,7 +90,7 @@ export function arrToLines(a?: string[] | null): string {
 }
 
 export async function fetchAdsMediaplan(): Promise<AdsMediaplanItem[]> {
-  const res = await fetch(`${API_BASE}/admin/ads-mediaplan`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/api/admin/ads-mediaplan`, { headers: authHeaders() });
   const data = await handle<{ items: AdsMediaplanItem[] }>(res);
   return data.items || [];
 }
@@ -98,7 +98,7 @@ export async function fetchAdsMediaplan(): Promise<AdsMediaplanItem[]> {
 export async function createAdsMediaplanItem(
   body: Partial<AdsMediaplanItem>,
 ): Promise<AdsMediaplanItem> {
-  const res = await fetch(`${API_BASE}/admin/ads-mediaplan`, {
+  const res = await fetch(`${API_BASE}/api/admin/ads-mediaplan`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(body),
@@ -111,7 +111,7 @@ export async function updateAdsMediaplanItem(
   id: number,
   body: Partial<AdsMediaplanItem>,
 ): Promise<AdsMediaplanItem> {
-  const res = await fetch(`${API_BASE}/admin/ads-mediaplan/${id}`, {
+  const res = await fetch(`${API_BASE}/api/admin/ads-mediaplan/${id}`, {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify(body),
@@ -121,7 +121,7 @@ export async function updateAdsMediaplanItem(
 }
 
 export async function deleteAdsMediaplanItem(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/admin/ads-mediaplan/${id}`, {
+  const res = await fetch(`${API_BASE}/api/admin/ads-mediaplan/${id}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -129,7 +129,7 @@ export async function deleteAdsMediaplanItem(id: number): Promise<void> {
 }
 
 export async function scanAdsMediaplan(opts: { add?: boolean; limit?: number }) {
-  const res = await fetch(`${API_BASE}/admin/ads-mediaplan/actions/scan`, {
+  const res = await fetch(`${API_BASE}/api/admin/ads-mediaplan/actions/scan`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(opts),
@@ -148,7 +148,7 @@ export async function scanAdsMediaplan(opts: { add?: boolean; limit?: number }) 
 }
 
 export async function rescoreAdsMediaplan(id: number): Promise<AdsMediaplanItem> {
-  const res = await fetch(`${API_BASE}/admin/ads-mediaplan/actions/rescore/${id}`, {
+  const res = await fetch(`${API_BASE}/api/admin/ads-mediaplan/actions/rescore/${id}`, {
     method: 'POST',
     headers: authHeaders(),
   });
