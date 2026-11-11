@@ -1,7 +1,7 @@
-import { Box, Typography, Stack } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { SITE_BRAND, getSiteBaseUrl } from '@/config/site';
+import styles from './NotFoundPage.module.css';
 
 const NAV_LINKS = [
   { to: '/', label: 'Афиша' },
@@ -18,79 +18,40 @@ export function NotFoundPage() {
   return (
     <>
       <SeoMetaTags
-        title={`404 — Страница не найдена | ${SITE_BRAND}`}
-        description="Страница не найдена. Вернитесь в афишу или поиск мероприятий."
+        title={`Страница не найдена | ${SITE_BRAND}`}
+        description="Такой страницы нет. Откройте афишу или поиск мероприятий — билеты на концерты, театр и спорт."
         url={typeof window !== 'undefined' ? `${window.location.origin}/404` : `${origin}/404`}
         noindex
       />
-      <Box
-        sx={{
-          minHeight: 'calc(100vh - 120px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 8,
-          px: 2,
-          background:
-            'radial-gradient(800px 400px at 50% 0%, rgba(255,78,24,0.12), transparent 60%), #fafafa',
-        }}
-      >
-        <Typography
-          component="h1"
-          sx={{
-            fontSize: { xs: '6.5rem', md: '9rem' },
-            fontWeight: 900,
-            color: '#111',
-            letterSpacing: '-0.05em',
-            lineHeight: 1,
-          }}
-        >
-          404
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: { xs: '1.05rem', md: '1.2rem' },
-            color: 'rgba(0,0,0,0.55)',
-            mt: 1.5,
-            mb: 1,
-            textAlign: 'center',
-            maxWidth: 420,
-          }}
-        >
-          Такой страницы нет — но афиша на месте
-        </Typography>
-        <Typography sx={{ color: 'rgba(0,0,0,0.4)', mb: 4, fontSize: '0.9rem' }}>
-          {SITE_BRAND}
-        </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={1.5} justifyContent="center" sx={{ maxWidth: 560 }}>
-          {NAV_LINKS.map(({ to, label }) => (
-            <Typography
-              key={to}
-              component={Link}
-              to={to}
-              sx={{
-                color: 'rgba(0,0,0,0.7)',
-                textDecoration: 'none',
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                px: 2,
-                py: 1,
-                borderRadius: '2px',
-                border: '1px solid rgba(0,0,0,0.12)',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  color: '#ff4e18',
-                  borderColor: 'rgba(255,78,24,0.45)',
-                  bgcolor: 'rgba(255,78,24,0.06)',
-                },
-              }}
-            >
-              {label}
-            </Typography>
-          ))}
-        </Stack>
-      </Box>
+      <main className={styles.page} data-page="404">
+        <div className={styles.panel}>
+          <p className={styles.kicker}>{SITE_BRAND}</p>
+          <p className={styles.code} aria-hidden="true">
+            404
+          </p>
+          <h1 className={styles.title}>Такой страницы нет</h1>
+          <p className={styles.lead}>
+            Ссылка устарела или адрес набран с ошибкой. Афиша на месте — можно сразу выбрать
+            мероприятие.
+          </p>
+          <div className={styles.actions}>
+            <Link className={styles.ctaPrimary} to="/">
+              На главную
+            </Link>
+            <Link className={styles.ctaGhost} to="/events">
+              Смотреть афишу
+            </Link>
+          </div>
+          <ul className={styles.nav}>
+            {NAV_LINKS.map(({ to, label }) => (
+              <li key={to}>
+                <Link to={to}>{label}</Link>
+              </li>
+            ))}
+          </ul>
+          <p className={styles.brand}>{SITE_BRAND}</p>
+        </div>
+      </main>
     </>
   );
 }

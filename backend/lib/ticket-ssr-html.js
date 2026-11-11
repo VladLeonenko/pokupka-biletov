@@ -375,6 +375,26 @@ export function buildCmsPageSsrHtml(p) {
 </main>`;
 }
 
+/** Soft-404 shell for crawlers / no-JS (matches FE NotFoundPage tone). */
+export function buildNotFoundSsrHtml(opts = {}) {
+  const brand = escapeHtml(opts.brand || 'Билет Всем');
+  return `<main class="bv-ssr-notfound" data-ssr="notfound" style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:3rem 1.25rem;text-align:center;background:radial-gradient(800px 400px at 12% -10%,rgba(255,78,24,.16),transparent 60%),#fafafa;color:#111">
+  <div style="max-width:36rem">
+    <p style="margin:0 0 .75rem;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ff4e18">${brand}</p>
+    <p style="margin:0;font-size:clamp(4.5rem,16vw,7.5rem);font-weight:900;letter-spacing:-.06em;line-height:.9" aria-hidden="true">404</p>
+    <h1 style="margin:1rem 0 .5rem;font-size:clamp(1.35rem,3vw,1.85rem);font-weight:800">Такой страницы нет</h1>
+    <p style="margin:0 auto 1.5rem;max-width:28rem;color:rgba(0,0,0,.55);line-height:1.45">Ссылка устарела или адрес набран с ошибкой. Афиша на месте — можно сразу выбрать мероприятие.</p>
+    <p style="margin:0 0 1rem">
+      <a href="/" style="display:inline-block;margin:.25rem;padding:.7rem 1.2rem;background:#ff4e18;color:#fff;font-weight:800;text-decoration:none">На главную</a>
+      <a href="/events" style="display:inline-block;margin:.25rem;padding:.7rem 1.2rem;border:1px solid rgba(0,0,0,.14);color:#111;font-weight:800;text-decoration:none">Смотреть афишу</a>
+    </p>
+    <p style="margin:0;font-size:.9rem">
+      <a href="/contacts">Контакты</a> · <a href="/faq">FAQ</a> · <a href="/returns">Возврат</a>
+    </p>
+  </div>
+</main>`;
+}
+
 /** ItemList JSON-LD payload (не script). */
 export function buildEventItemListSchema(base, events, { name, url } = {}) {
   if (!Array.isArray(events) || !events.length) return null;
