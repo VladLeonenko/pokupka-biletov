@@ -1,5 +1,6 @@
 /**
  * Админка медиаплана Директ: CRUD + скан ассортимента/спроса.
+ * 1 row = 1 event/LP; группы по интенту+landing; минуса: кампания / событие / группа.
  */
 import { Router } from 'express';
 import fs from 'node:fs';
@@ -11,6 +12,7 @@ import { scoreSeoDraft } from '../lib/adsMediaplanScore.js';
 const router = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '../data');
+const MIGRATIONS_DIR = path.join(__dirname, '../migrations');
 
 const COMMON_NEG = [
   'бесплатно',
@@ -29,6 +31,164 @@ const COMMON_NEG = [
   'официальные билеты',
 ];
 
+const CAMPAIGN_NEG_DEFAULT = [
+  ...COMMON_NEG,
+  'содержание',
+  'анализ',
+  'сюжет',
+  'трансляция',
+  'отзывы',
+  'вики',
+  'ticketland',
+  'kassir',
+  'яндекс афиша',
+  'афиша',
+];
+
+function uniqArr(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const x of arr || []) {
+    const s = String(x || '').trim();
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+  }
+  return out;
+}
+
+function normalizeAd(a) {
+  if (!a || typeof a !== 'object') return { title: '', title2: '', text: '' };
+  return {
+    title: String(a.title || '').trim(),
+    title2: String(a.title2 || '').trim(),
+    text: String(a.text || '').trim(),
+  };
+}
+
+function normalizeGroup(g, idx = 0) {
+  const id = String(g?.id || `group-${idx + 1}`).trim() || `group-${idx + 1}`;
+  return {
+    id,
+    name: String(g?.name || `Группа ${idx + 1}`).trim(),
+    landing_url: String(g?.landing_url || '').trim(),
+    hot_keywords: uniqArr(g?.hot_keywords),
+    negative_keywords: uniqArr(g?.negative_keywords),
+    ads: Array.isArray(g?.ads) && g.ads.length
+      ? g.ads.map(normalizeAd)
+      : [{ title: '', title2: '', text: '' }],
+  };
+}
+
+function normalizeStructure(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((g, i) => normalizeGroup(g, i));
+}
+
+function isStructureEmpty(raw) {
+  if (raw == null) return true;
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    return !t || t === '[]' || t === 'null';
+  }
+  if (Array.isArray(raw)) return raw.length === 0;
+  return true;
+}
+
+/** Legacy flat → одна группа «HOT купить». */
+function synthesizeStructureFromLegacy(row) {
+  const titles = row.ad_titles || [];
+  const texts = row.ad_texts || [];
+  const ads = [];
+  const n = Math.max(titles.length, texts.length, 1);
+  for (let i = 0; i < n; i += 1) {
+    ads.push({
+      title: titles[i] || '',
+      title2: '',
+      text: texts[i] || '',
+    });
+  }
+  return [
+    normalizeGroup(
+      {
+        id: 'hot-buy',
+        name: 'HOT купить',
+        landing_url: row.lp_url || '',
+        hot_keywords: row.hot_keywords || [],
+        negative_keywords: [],
+        ads,
+      },
+      0,
+    ),
+  ];
+}
+
+/** Flat-поля из структуры (union) — совместимость со старым UI/API. */
+function syncFlatFromStructure(structure, eventNegatives = []) {
+  const groups = normalizeStructure(structure);
+  const hot = [];
+  const titles = [];
+  const texts = [];
+  const groupNeg = [];
+  for (const g of groups) {
+    hot.push(...(g.hot_keywords || []));
+    groupNeg.push(...(g.negative_keywords || []));
+    for (const a of g.ads || []) {
+      if (a.title) titles.push(a.title);
+      if (a.text) texts.push(a.text);
+    }
+  }
+  return {
+    hot_keywords: uniqArr(hot),
+    negative_keywords: uniqArr([...(eventNegatives || []), ...groupNeg]),
+    ad_titles: uniqArr(titles),
+    ad_texts: uniqArr(texts),
+  };
+}
+
+function skeletonStructure({ lp_url, hot_keywords = [], ads = [] }) {
+  return [
+    normalizeGroup(
+      {
+        id: 'hot-buy',
+        name: 'HOT купить',
+        landing_url: lp_url || '',
+        hot_keywords,
+        negative_keywords: [],
+        ads: ads.length ? ads : [{ title: '', title2: '', text: '' }],
+      },
+      0,
+    ),
+  ];
+}
+
+function resolveStructureAndFlat(input) {
+  const hasStructure =
+    input.structure_json != null && !isStructureEmpty(input.structure_json);
+  let structure = hasStructure
+    ? normalizeStructure(input.structure_json)
+    : synthesizeStructureFromLegacy(input);
+  if (!structure.length) {
+    structure = skeletonStructure({
+      lp_url: input.lp_url,
+      hot_keywords: input.hot_keywords || [],
+    });
+  }
+  const eventNeg = uniqArr(input.negative_keywords || []);
+  const flat = syncFlatFromStructure(structure, eventNeg);
+  // event-level negatives остаются отдельно; flat.negative_keywords = event ∪ group
+  return {
+    structure_json: structure,
+    hot_keywords: flat.hot_keywords.length ? flat.hot_keywords : uniqArr(input.hot_keywords || []),
+    negative_keywords: eventNeg.length ? eventNeg : flat.negative_keywords,
+    ad_titles: flat.ad_titles.length ? flat.ad_titles : uniqArr(input.ad_titles || []),
+    ad_texts: flat.ad_texts.length ? flat.ad_texts : uniqArr(input.ad_texts || []),
+    campaign_negatives: uniqArr(input.campaign_negatives || []),
+  };
+}
+
 /** Стартовый медиаплан под текущий HOT-контур 75к. */
 const SEED = [
   {
@@ -36,6 +196,9 @@ const SEED = [
     event_title: 'Кабала святош',
     venue: 'МХТ им. А. П. Чехова',
     event_date: '2026-11-20',
+    date_label: '20 ноября',
+    date_from: '2026-11-20',
+    date_to: '2026-11-20',
     lp_url: 'https://biletvsem.com/ticket/kabala-svyatosh',
     status: 'planned',
     priority: 100,
@@ -73,40 +236,102 @@ const SEED = [
     forecast_cpc_rub: 80,
     forecast_conversions: 2.5,
     forecast_notes: 'День-1 на низком бюджете; после минусов — поднять daily. Speculative.',
-    hot_keywords: [
-      'кабала святош билеты',
-      'кабала святош купить билет',
-      'купить билеты кабала святош',
-      'кабала святош мхт билеты',
-      'кабала святош мхт купить билеты',
-      'спектакль кабала святош билеты',
-    ],
-    negative_keywords: [
-      ...COMMON_NEG,
+    campaign_negatives: [
+      ...CAMPAIGN_NEG_DEFAULT,
+      'либретто',
       'книга',
-      'анализ',
-      'урок',
       'аудиокнига',
       'школьный',
-      'александринский',
-      'гастроли',
+      'урок',
     ],
-    ad_titles: [
-      'Купить билеты Кабала святош',
-      'Кабала святош - билеты МХТ',
-      'Билеты на Кабала святош',
+    negative_keywords: ['александринский', 'гастроли', 'булгаков музей'],
+    structure_json: [
+      {
+        id: 'hot-buy',
+        name: 'HOT купить',
+        landing_url: 'https://biletvsem.com/ticket/kabala-svyatosh',
+        hot_keywords: [
+          'кабала святош билеты',
+          'кабала святош купить билет',
+          'купить билеты кабала святош',
+          'спектакль кабала святош билеты',
+        ],
+        negative_keywords: ['турандот', 'чайка', 'официальный'],
+        ads: [
+          {
+            title: 'Купить билеты Кабала святош',
+            title2: 'МХТ · 20 ноября',
+            text: 'Схема зала, места онлайн, оплата картой, e-билет на почту.',
+          },
+          {
+            title: 'Билеты на Кабала святош',
+            title2: 'Выбор мест онлайн',
+            text: 'Дата 20.11. Оплата онлайн, электронный билет без очереди в кассу.',
+          },
+          {
+            title: 'Кабала святош — купить билет',
+            title2: '20 ноября · схема',
+            text: 'Места на схеме МХТ. Оплата картой, e-билет сразу после оплаты.',
+          },
+        ],
+      },
+      {
+        id: 'venue-scene',
+        name: 'Venue / сцена МХТ',
+        landing_url: 'https://biletvsem.com/ticket/kabala-svyatosh',
+        hot_keywords: [
+          'кабала святош мхт билеты',
+          'кабала святош мхт купить билеты',
+          'кабала святош мхт чехова билеты',
+        ],
+        negative_keywords: ['ленком', 'сатирикон', 'вахтангова', 'официальный сайт мхт'],
+        ads: [
+          {
+            title: 'Кабала святош — билеты МХТ',
+            title2: 'им. Чехова · 20.11',
+            text: 'Камергерский: схема зала, оплата онлайн, электронный билет.',
+          },
+          {
+            title: 'Билеты МХТ: Кабала святош',
+            title2: 'Схема и оплата',
+            text: '20 ноября. Выберите места на схеме — e-билет на почту.',
+          },
+        ],
+      },
+      {
+        id: 'seats-price',
+        name: 'Места / цена',
+        landing_url: 'https://biletvsem.com/ticket/kabala-svyatosh',
+        hot_keywords: [
+          'кабала святош билеты москва',
+          'кабала святош цена билетов',
+          'кабала святош схема зала билеты',
+        ],
+        negative_keywords: ['дешево', 'бронь без оплаты', 'vip перекуп'],
+        ads: [
+          {
+            title: 'Кабала святош — места на схеме',
+            title2: 'Цена видна до оплаты',
+            text: 'МХТ, 20 ноября. Сектора на схеме, оплата картой, e-билет.',
+          },
+          {
+            title: 'Билеты Кабала святош — схема',
+            title2: 'Онлайн без кассы',
+            text: 'Выбор ряда и места. Оплата онлайн, билет на e-mail.',
+          },
+        ],
+      },
     ],
-    ad_texts: [
-      'МХТ им. Чехова, 20 ноября. Схема зала, места онлайн, оплата картой, e-билет.',
-      'Выбор мест на схеме. Дата 20.11, оплата онлайн, электронный билет на почту.',
-    ],
-    notes: 'РК уже в Директе (OFF). Не писать «официальная продажа».',
+    notes: 'РК уже в Директе (OFF). Не писать «официальная продажа». Группы по интенту, не по дням.',
   },
   {
     event_slug: 'gamlet',
     event_title: 'Гамлет',
     venue: 'МХТ им. А. П. Чехова',
     event_date: '2026-11-25',
+    date_label: '25 ноября',
+    date_from: '2026-11-25',
+    date_to: '2026-11-25',
     lp_url: 'https://biletvsem.com/ticket/gamlet',
     status: 'planned',
     priority: 90,
@@ -139,27 +364,84 @@ const SEED = [
     forecast_cpc_rub: 70,
     forecast_conversions: 1.5,
     forecast_notes: 'Малый объём — не раздувать ставку. Speculative.',
-    hot_keywords: [
-      'гамлет мхт билеты',
-      'мхт гамлет купить билеты',
-      'гамлет мхт чехова билеты',
-      'купить билеты гамлет мхт',
-      'билеты на гамлет мхт',
-    ],
-    negative_keywords: [
-      ...COMMON_NEG,
-      'ленком',
-      'мдт',
-      'около дома станиславского',
+    campaign_negatives: [
+      ...CAMPAIGN_NEG_DEFAULT,
       'шекспир текст',
       'перевод',
-      'отелло',
-      'король лир',
+      'либретто',
     ],
-    ad_titles: ['Билеты на Гамлет - МХТ', 'Купить билеты Гамлет МХТ'],
-    ad_texts: [
-      'Чехова, схема зала. Выбор мест онлайн, оплата картой, e-билет.',
-      'Дата 25 ноября. Места на схеме, без очереди в кассу.',
+    negative_keywords: ['отелло', 'король лир', 'гамлет балет'],
+    structure_json: [
+      {
+        id: 'hot-buy',
+        name: 'HOT купить',
+        landing_url: 'https://biletvsem.com/ticket/gamlet',
+        hot_keywords: [
+          'гамлет мхт билеты',
+          'купить билеты гамлет мхт',
+          'билеты на гамлет мхт',
+          'мхт гамлет купить билеты',
+        ],
+        negative_keywords: ['ленком', 'мдт', 'около дома станиславского'],
+        ads: [
+          {
+            title: 'Билеты на Гамлет — МХТ',
+            title2: '25 ноября',
+            text: 'Чехова: схема зала, места онлайн, оплата картой, e-билет.',
+          },
+          {
+            title: 'Купить билеты Гамлет МХТ',
+            title2: 'Схема · e-билет',
+            text: 'Дата 25.11. Без очереди в кассу — билет на почту после оплаты.',
+          },
+        ],
+      },
+      {
+        id: 'venue-scene',
+        name: 'Venue МХТ Чехова',
+        landing_url: 'https://biletvsem.com/ticket/gamlet',
+        hot_keywords: [
+          'гамлет мхт чехова билеты',
+          'гамлет театр чехова билеты',
+          'билеты гамлет мхт им чехова',
+        ],
+        negative_keywords: ['сатирикон', 'вахтангова', 'официальный сайт мхт'],
+        ads: [
+          {
+            title: 'Гамлет — МХТ им. Чехова',
+            title2: 'Билеты онлайн',
+            text: '25 ноября. Схема зала, оплата картой, электронный билет.',
+          },
+          {
+            title: 'Билеты Гамлет · Чехова',
+            title2: 'Камергерский',
+            text: 'Только МХТ. Места на схеме, e-билет после оплаты.',
+          },
+        ],
+      },
+      {
+        id: 'seats-price',
+        name: 'Места / цена',
+        landing_url: 'https://biletvsem.com/ticket/gamlet',
+        hot_keywords: [
+          'гамлет мхт цена билетов',
+          'гамлет мхт схема зала',
+          'билеты гамлет мхт купить места',
+        ],
+        negative_keywords: ['бесплатно', 'текст пьесы'],
+        ads: [
+          {
+            title: 'Гамлет МХТ — места на схеме',
+            title2: 'Цена до оплаты',
+            text: '25 ноября. Выберите ряд и место — e-билет на почту.',
+          },
+          {
+            title: 'Билеты Гамлет — схема МХТ',
+            title2: 'Оплата онлайн',
+            text: 'Сектора и цены на схеме. Электронный билет сразу.',
+          },
+        ],
+      },
     ],
     notes: 'В каталоге несколько Гамлетов — LP только МХТ (6735c3a8569a15f2087ba5ee).',
   },
@@ -168,6 +450,9 @@ const SEED = [
     event_title: 'Баядерка',
     venue: 'Большой театр — Историческая сцена',
     event_date: '2026-11-13',
+    date_label: '13–15 ноября',
+    date_from: '2026-11-13',
+    date_to: '2026-11-15',
     lp_url: 'https://biletvsem.com/ticket/bayaderka-2026-11-13',
     status: 'planned',
     priority: 85,
@@ -200,26 +485,98 @@ const SEED = [
     forecast_cpc_rub: 90,
     forecast_conversions: 0.8,
     forecast_notes: 'Высокий floor цены (~от 40к) — мало оплат, осторожный spend. Speculative.',
-    hot_keywords: [
-      'баядерка билеты',
-      'баядерка купить билет',
-      'баядерка балет билеты',
-      'баядерка большой театр купить билеты',
-      'балет баядерка большой театр',
+    campaign_negatives: [
+      ...CAMPAIGN_NEG_DEFAULT,
+      'либретто',
+      'история балета',
+      'партия',
+      'вариация',
+      'льготн',
+      'пенсионер',
     ],
-    negative_keywords: [...COMMON_NEG, 'история балета', 'либретто', 'партия', 'вариация'],
-    ad_titles: ['Купить билеты Баядерка', 'Баядерка - билеты Большой'],
-    ad_texts: [
-      'Большой, 13-15.11. Историческая сцена. Зоны на схеме, оплата онлайн, e-билет.',
-      'Зоны на схеме, оплата онлайн, электронный билет на почту.',
+    negative_keywords: ['мариинский', 'новая сцена баядерка'],
+    structure_json: [
+      {
+        id: 'hot-buy',
+        name: 'HOT купить',
+        landing_url: 'https://biletvsem.com/ticket/bayaderka-2026-11-13',
+        hot_keywords: [
+          'баядерка билеты',
+          'баядерка купить билет',
+          'баядерка балет билеты',
+          'купить билеты баядерка',
+        ],
+        negative_keywords: ['официальный', 'официальный сайт большого'],
+        ads: [
+          {
+            title: 'Купить билеты Баядерка',
+            title2: '13–15 ноября',
+            text: 'Большой, Историческая. Зоны на схеме, оплата онлайн, e-билет.',
+          },
+          {
+            title: 'Баядерка — билеты онлайн',
+            title2: 'Историческая сцена',
+            text: '13–15.11. Сектора на схеме, оплата картой, билет на почту.',
+          },
+        ],
+      },
+      {
+        id: 'venue-scene',
+        name: 'Большой · Историческая',
+        landing_url: 'https://biletvsem.com/ticket/bayaderka-2026-11-13',
+        hot_keywords: [
+          'баядерка большой театр купить билеты',
+          'балет баядерка большой театр',
+          'баядерка большой театр билеты',
+        ],
+        negative_keywords: ['новая сцена', 'филиал', 'официальный сайт большого театра'],
+        ads: [
+          {
+            title: 'Баядерка — билеты Большой',
+            title2: 'Историческая сцена',
+            text: '13–15.11. Зоны на схеме, оплата онлайн, электронный билет.',
+          },
+          {
+            title: 'Билеты Баядерка · Большой',
+            title2: '13–15 ноября',
+            text: 'Историческая сцена. Выбор зоны, e-билет после оплаты.',
+          },
+        ],
+      },
+      {
+        id: 'seats-price',
+        name: 'Места / цена',
+        landing_url: 'https://biletvsem.com/ticket/bayaderka-2026-11-13',
+        hot_keywords: [
+          'баядерка билеты цена',
+          'баядерка схема зала большой',
+          'баядерка партер билеты',
+        ],
+        negative_keywords: ['бесплатно', 'льготный'],
+        ads: [
+          {
+            title: 'Баядерка — зоны на схеме',
+            title2: 'Цена до оплаты',
+            text: 'Большой 13–15.11. Сектора видны на схеме, e-билет на почту.',
+          },
+          {
+            title: 'Билеты Баядерка — схема',
+            title2: 'Историческая',
+            text: 'Выбор зоны онлайн. Оплата картой, электронный билет.',
+          },
+        ],
+      },
     ],
-    notes: 'EndDate РК 15.11. После — не продлевать без наличия.',
+    notes: 'EndDate РК 15.11. Много дат на одном LP = одна РК; даты в креативах.',
   },
   {
     event_slug: 'novogodniy-balet-chaykovskogo-2026-12',
     event_title: 'Щелкунчик',
     venue: 'Большой театр — Историческая сцена',
     event_date: '2026-12-18',
+    date_label: '18 дек – 10 янв',
+    date_from: '2026-12-18',
+    date_to: '2027-01-10',
     lp_url: 'https://biletvsem.com/ticket/novogodniy-balet-chaykovskogo-2026-12',
     status: 'planned',
     priority: 95,
@@ -256,39 +613,117 @@ const SEED = [
     forecast_cpc_rub: 85,
     forecast_conversions: 3,
     forecast_notes: 'Разгон с mid-Nov; основной spend в декабре. High ticket ~70к. Speculative.',
-    hot_keywords: [
-      'щелкунчик большой театр билеты',
-      'большой театр щелкунчик купить билет',
-      'щелкунчик купить билеты',
-      'щелкунчик балет купить билеты',
-      'щелкунчик большой театр билеты 2026',
-      'билеты на щелкунчик москва большой театр',
-    ],
-    negative_keywords: [
-      ...COMMON_NEG,
+    campaign_negatives: [
+      ...CAMPAIGN_NEG_DEFAULT,
       'мультфильм',
       'сказка читать',
       'ноты',
       'партия',
-      'мариинский',
-      'вахтангова',
-      'сталинас',
+      'либретто',
+      'льготн',
+      'пенсионер',
     ],
-    ad_titles: ['Купить билеты Щелкунчик', 'Щелкунчик - билеты Большой'],
-    ad_texts: [
-      'Чайковский, 18 дек-10 янв. Схема зала, оплата онлайн, e-билет.',
-      'Выбор мест на схеме, оплата онлайн, электронный билет на почту.',
+    negative_keywords: ['мариинский', 'вахтангова', 'сталинас', 'детский сад'],
+    structure_json: [
+      {
+        id: 'hot-buy',
+        name: 'HOT купить',
+        landing_url: 'https://biletvsem.com/ticket/novogodniy-balet-chaykovskogo-2026-12',
+        hot_keywords: [
+          'щелкунчик купить билеты',
+          'щелкунчик балет купить билеты',
+          'билеты на щелкунчик москва большой театр',
+          'щелкунчик большой театр билеты 2026',
+        ],
+        negative_keywords: ['официальный', 'официальный сайт большого'],
+        ads: [
+          {
+            title: 'Купить билеты Щелкунчик',
+            title2: '18 дек – 10 янв',
+            text: 'Чайковский, Большой. Схема зала, оплата онлайн, e-билет.',
+          },
+          {
+            title: 'Щелкунчик — билеты онлайн',
+            title2: 'Историческая сцена',
+            text: 'Даты 18.12–10.01. Места на схеме, билет на почту после оплаты.',
+          },
+          {
+            title: 'Билеты Щелкунчик · купить',
+            title2: 'Большой · 6+',
+            text: 'Выбор мест на схеме. Оплата картой, электронный билет.',
+          },
+        ],
+      },
+      {
+        id: 'venue-scene',
+        name: 'Большой · Историческая',
+        landing_url: 'https://biletvsem.com/ticket/novogodniy-balet-chaykovskogo-2026-12',
+        hot_keywords: [
+          'щелкунчик большой театр билеты',
+          'большой театр щелкунчик купить билет',
+          'щелкунчик историческая сцена билеты',
+        ],
+        negative_keywords: [
+          'новая сцена',
+          'официальный сайт большого театра',
+          'филиал',
+        ],
+        ads: [
+          {
+            title: 'Щелкунчик — билеты Большой',
+            title2: 'Историческая сцена',
+            text: '18 дек – 10 янв. Схема зала, оплата онлайн, e-билет.',
+          },
+          {
+            title: 'Билеты Щелкунчик · Большой',
+            title2: 'Чайковский · 6+',
+            text: 'Историческая. Зоны на схеме, электронный билет на почту.',
+          },
+        ],
+      },
+      {
+        id: 'seats-price',
+        name: 'Места / цена',
+        landing_url: 'https://biletvsem.com/ticket/novogodniy-balet-chaykovskogo-2026-12',
+        hot_keywords: [
+          'щелкунчик большой театр цена билетов',
+          'щелкунчик схема зала большой',
+          'щелкунчик партер билеты большой',
+        ],
+        negative_keywords: ['бесплатно', 'мульт'],
+        ads: [
+          {
+            title: 'Щелкунчик — места на схеме',
+            title2: 'Цена до оплаты',
+            text: 'Большой, 18.12–10.01. Сектора видны на схеме, e-билет.',
+          },
+          {
+            title: 'Билеты Щелкунчик — схема',
+            title2: 'Историческая',
+            text: 'Выбор зоны онлайн. Оплата картой, билет на e-mail.',
+          },
+        ],
+      },
     ],
-    notes: 'Slug LP старый (novogodniy-balet…), в UI/SEO — Щелкунчик. Бюджет растить после минусов.',
+    notes:
+      'Slug LP старый (novogodniy-balet…), в UI/SEO — Щелкунчик. Много дат = одна РК; диапазон в креативах.',
   },
 ];
 
+// Синхронизация flat из structure для SEED
+for (const s of SEED) {
+  const flat = syncFlatFromStructure(s.structure_json, s.negative_keywords || []);
+  s.hot_keywords = flat.hot_keywords;
+  s.ad_titles = flat.ad_titles;
+  s.ad_texts = flat.ad_texts;
+  // event-level negatives остаются как заданы; не затираем union в negative_keywords seed
+}
+
 async function ensureTable() {
-  const sql = fs.readFileSync(
-    path.join(__dirname, '../migrations/088_ads_mediaplan.sql'),
-    'utf8',
-  );
-  await ticketPool.query(sql);
+  for (const name of ['088_ads_mediaplan.sql', '089_ads_mediaplan_groups.sql']) {
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, name), 'utf8');
+    await ticketPool.query(sql);
+  }
 }
 
 function rowOut(r) {
@@ -300,9 +735,27 @@ function rowOut(r) {
     keywords: r.seo_keywords,
     body: r.body_excerpt,
   });
+  let structure = r.structure_json;
+  if (typeof structure === 'string') {
+    try {
+      structure = JSON.parse(structure);
+    } catch {
+      structure = [];
+    }
+  }
+  if (isStructureEmpty(structure)) {
+    structure = synthesizeStructureFromLegacy(r);
+  } else {
+    structure = normalizeStructure(structure);
+  }
   return {
     ...r,
     research_json: r.research_json || {},
+    date_label: r.date_label || null,
+    date_from: r.date_from || null,
+    date_to: r.date_to || null,
+    campaign_negatives: r.campaign_negatives || [],
+    structure_json: structure,
     hot_keywords: r.hot_keywords || [],
     negative_keywords: r.negative_keywords || [],
     ad_titles: r.ad_titles || [],
@@ -310,6 +763,55 @@ function rowOut(r) {
     seo_score_live: scored.score10,
     seo_score_fail: scored.fail,
   };
+}
+
+const SEED_INSERT_COLS = `
+  event_slug, event_title, venue, event_date, date_label, date_from, date_to, lp_url,
+  status, priority, sort_order,
+  daily_budget_rub, total_budget_rub, campaign_name, campaign_id, research_json,
+  seo_title, seo_description, seo_h1, seo_keywords, seo_score, seo_score_notes, body_excerpt,
+  forecast_impressions, forecast_clicks, forecast_cpc_rub, forecast_conversions, forecast_notes,
+  hot_keywords, negative_keywords, ad_titles, ad_texts, campaign_negatives, structure_json, notes
+`;
+
+function seedParams(s, scored) {
+  return [
+    s.event_slug,
+    s.event_title,
+    s.venue,
+    s.event_date,
+    s.date_label || null,
+    s.date_from || null,
+    s.date_to || null,
+    s.lp_url,
+    s.status,
+    s.priority,
+    s.sort_order,
+    s.daily_budget_rub,
+    s.total_budget_rub,
+    s.campaign_name,
+    s.campaign_id,
+    JSON.stringify(s.research_json || {}),
+    s.seo_title,
+    s.seo_description,
+    s.seo_h1,
+    s.seo_keywords,
+    scored.score10,
+    scored.fail.length ? `Слабые места: ${scored.fail.join(', ')}` : 'Ок по чеклисту',
+    s.body_excerpt,
+    s.forecast_impressions,
+    s.forecast_clicks,
+    s.forecast_cpc_rub,
+    s.forecast_conversions,
+    s.forecast_notes,
+    s.hot_keywords,
+    s.negative_keywords,
+    s.ad_titles,
+    s.ad_texts,
+    s.campaign_negatives || [],
+    JSON.stringify(s.structure_json || []),
+    s.notes,
+  ];
 }
 
 async function seedIfEmpty() {
@@ -325,55 +827,87 @@ async function seedIfEmpty() {
       body: s.body_excerpt,
     });
     await ticketPool.query(
-      `INSERT INTO ads_mediaplan_events (
-        event_slug, event_title, venue, event_date, lp_url, status, priority, sort_order,
-        daily_budget_rub, total_budget_rub, campaign_name, campaign_id, research_json,
-        seo_title, seo_description, seo_h1, seo_keywords, seo_score, seo_score_notes, body_excerpt,
-        forecast_impressions, forecast_clicks, forecast_cpc_rub, forecast_conversions, forecast_notes,
-        hot_keywords, negative_keywords, ad_titles, ad_texts, notes
-      ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,
-        $9,$10,$11,$12,$13::jsonb,
-        $14,$15,$16,$17,$18,$19,$20,
-        $21,$22,$23,$24,$25,
-        $26,$27,$28,$29,$30
-      ) ON CONFLICT (event_slug) DO NOTHING`,
-      [
-        s.event_slug,
-        s.event_title,
-        s.venue,
-        s.event_date,
-        s.lp_url,
-        s.status,
-        s.priority,
-        s.sort_order,
-        s.daily_budget_rub,
-        s.total_budget_rub,
-        s.campaign_name,
-        s.campaign_id,
-        JSON.stringify(s.research_json || {}),
-        s.seo_title,
-        s.seo_description,
-        s.seo_h1,
-        s.seo_keywords,
-        scored.score10,
-        scored.fail.length ? `Слабые места: ${scored.fail.join(', ')}` : 'Ок по чеклисту',
-        s.body_excerpt,
-        s.forecast_impressions,
-        s.forecast_clicks,
-        s.forecast_cpc_rub,
-        s.forecast_conversions,
-        s.forecast_notes,
-        s.hot_keywords,
-        s.negative_keywords,
-        s.ad_titles,
-        s.ad_texts,
-        s.notes,
-      ],
+      `INSERT INTO ads_mediaplan_events (${SEED_INSERT_COLS})
+       VALUES (
+         $1,$2,$3,$4,$5,$6,$7,$8,
+         $9,$10,$11,
+         $12,$13,$14,$15,$16::jsonb,
+         $17,$18,$19,$20,$21,$22,$23,
+         $24,$25,$26,$27,$28,
+         $29,$30,$31,$32,$33,$34::jsonb,$35
+       ) ON CONFLICT (event_slug) DO NOTHING`,
+      seedParams(s, scored),
     );
     n += 1;
   }
   return { seeded: n };
+}
+
+/**
+ * Для уже существующих seed-строк без structure_json — заполняем структуру
+ * и даты/campaign_negatives, не трогая пользовательские правки если structure уже есть.
+ */
+async function seedStructureIfMissing() {
+  const bySlug = new Map(SEED.map((s) => [s.event_slug, s]));
+  const { rows } = await ticketPool.query(
+    `SELECT id, event_slug, structure_json, hot_keywords, negative_keywords,
+            ad_titles, ad_texts, lp_url, date_label, campaign_negatives
+     FROM ads_mediaplan_events`,
+  );
+  let updated = 0;
+  for (const r of rows) {
+    const empty = isStructureEmpty(r.structure_json);
+    const seed = bySlug.get(r.event_slug);
+    if (!empty) continue;
+    let structure;
+    let date_label = r.date_label;
+    let date_from = null;
+    let date_to = null;
+    let campaign_negatives = r.campaign_negatives || [];
+    let negative_keywords = r.negative_keywords || [];
+    if (seed) {
+      structure = seed.structure_json;
+      date_label = date_label || seed.date_label;
+      date_from = seed.date_from;
+      date_to = seed.date_to;
+      if (!campaign_negatives?.length) campaign_negatives = seed.campaign_negatives || [];
+      if (!negative_keywords?.length) negative_keywords = seed.negative_keywords || [];
+    } else {
+      structure = synthesizeStructureFromLegacy(r);
+    }
+    const flat = syncFlatFromStructure(structure, negative_keywords);
+    await ticketPool.query(
+      `UPDATE ads_mediaplan_events SET
+         structure_json = $2::jsonb,
+         date_label = COALESCE(date_label, $3),
+         date_from = COALESCE(date_from, $4::date),
+         date_to = COALESCE(date_to, $5::date),
+         campaign_negatives = CASE
+           WHEN campaign_negatives IS NULL OR cardinality(campaign_negatives) = 0 THEN $6
+           ELSE campaign_negatives
+         END,
+         hot_keywords = CASE WHEN cardinality(hot_keywords) = 0 THEN $7 ELSE hot_keywords END,
+         negative_keywords = CASE WHEN cardinality(negative_keywords) = 0 THEN $8 ELSE negative_keywords END,
+         ad_titles = CASE WHEN cardinality(ad_titles) = 0 THEN $9 ELSE ad_titles END,
+         ad_texts = CASE WHEN cardinality(ad_texts) = 0 THEN $10 ELSE ad_texts END,
+         updated_at = NOW()
+       WHERE id = $1`,
+      [
+        r.id,
+        JSON.stringify(structure),
+        date_label || null,
+        date_from,
+        date_to,
+        campaign_negatives,
+        flat.hot_keywords,
+        negative_keywords,
+        flat.ad_titles,
+        flat.ad_texts,
+      ],
+    );
+    updated += 1;
+  }
+  return { updated };
 }
 
 function loadWordstatHints() {
@@ -406,6 +940,7 @@ router.get('/', async (req, res) => {
   try {
     await ensureTable();
     await seedIfEmpty();
+    await seedStructureIfMissing();
     const { rows } = await ticketPool.query(
       `SELECT * FROM ads_mediaplan_events
        ORDER BY priority DESC, sort_order ASC, id ASC`,
@@ -429,7 +964,6 @@ router.post('/actions/scan', async (req, res) => {
 
     let events = [];
     try {
-      // Колонки SEO/даты на проде есть; локально могут отсутствовать — fallback без них.
       const ev = await ticketPool.query(
         `SELECT getbilet_external_id AS id,
                 title_manual AS title,
@@ -500,16 +1034,30 @@ router.post('/actions/scan', async (req, res) => {
     if (add) {
       for (const c of top.filter((x) => x.demandScore > 0).slice(0, 10)) {
         const scored = scoreSeoDraft(c);
+        const hot = c.wordstat.map((w) => w.phrase);
+        const structure = skeletonStructure({
+          lp_url: c.lp_url,
+          hot_keywords: hot,
+          ads: [
+            {
+              title: `Купить билеты ${c.event_title}`.slice(0, 56),
+              title2: '',
+              text: 'Схема зала, оплата онлайн, электронный билет на почту.',
+            },
+          ],
+        });
         try {
           const { rows } = await ticketPool.query(
             `INSERT INTO ads_mediaplan_events (
               event_slug, event_title, venue, event_date, lp_url, status, priority,
               research_json, seo_title, seo_description, seo_h1, seo_keywords,
-              seo_score, seo_score_notes, hot_keywords, negative_keywords, notes
+              seo_score, seo_score_notes, hot_keywords, negative_keywords,
+              campaign_negatives, structure_json, ad_titles, ad_texts, notes
             ) VALUES (
               $1,$2,$3,$4,$5,'planned',$6,
               $7::jsonb,$8,$9,$10,$11,
-              $12,$13,$14,$15,$16
+              $12,$13,$14,$15,
+              $16,$17::jsonb,$18,$19,$20
             )
             ON CONFLICT (event_slug) DO NOTHING
             RETURNING *`,
@@ -532,9 +1080,13 @@ router.post('/actions/scan', async (req, res) => {
               c.seo_keywords,
               scored.score10,
               scored.fail.length ? `Слабые места: ${scored.fail.join(', ')}` : null,
-              c.wordstat.map((w) => w.phrase),
-              COMMON_NEG,
-              'Добавлено сканом. Проверьте минуса и бюджет вручную.',
+              hot,
+              [],
+              CAMPAIGN_NEG_DEFAULT,
+              JSON.stringify(structure),
+              structure[0].ads.map((a) => a.title).filter(Boolean),
+              structure[0].ads.map((a) => a.text).filter(Boolean),
+              'Добавлено сканом. Проверьте группы, минуса и бюджет вручную.',
             ],
           );
           if (rows[0]) added.push(rowOut(rows[0]));
@@ -578,19 +1130,23 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'event_slug и event_title обязательны' });
     }
     const scored = scoreSeoDraft(b);
+    const resolved = resolveStructureAndFlat(b);
     const { rows } = await ticketPool.query(
       `INSERT INTO ads_mediaplan_events (
-        event_slug, event_title, venue, event_date, lp_url, status, priority, sort_order,
+        event_slug, event_title, venue, event_date, date_label, date_from, date_to, lp_url,
+        status, priority, sort_order,
         daily_budget_rub, total_budget_rub, campaign_name, campaign_id, research_json,
         seo_title, seo_description, seo_h1, seo_keywords, seo_score, seo_score_notes, body_excerpt,
         forecast_impressions, forecast_clicks, forecast_cpc_rub, forecast_conversions, forecast_notes,
-        hot_keywords, negative_keywords, ad_titles, ad_texts, notes
+        hot_keywords, negative_keywords, ad_titles, ad_texts, campaign_negatives, structure_json, notes
       ) VALUES (
-        $1,$2,$3,$4,$5,COALESCE($6,'planned'),COALESCE($7,50),COALESCE($8,100),
-        $9,$10,$11,$12,COALESCE($13::jsonb,'{}'::jsonb),
-        $14,$15,$16,$17,$18,$19,$20,
-        $21,$22,$23,$24,$25,
-        COALESCE($26,'{}'),COALESCE($27,'{}'),COALESCE($28,'{}'),COALESCE($29,'{}'),$30
+        $1,$2,$3,$4,$5,$6,$7,$8,
+        COALESCE($9,'planned'),COALESCE($10,50),COALESCE($11,100),
+        $12,$13,$14,$15,COALESCE($16::jsonb,'{}'::jsonb),
+        $17,$18,$19,$20,$21,$22,$23,
+        $24,$25,$26,$27,$28,
+        COALESCE($29,'{}'),COALESCE($30,'{}'),COALESCE($31,'{}'),COALESCE($32,'{}'),
+        COALESCE($33,'{}'),COALESCE($34::jsonb,'[]'::jsonb),$35
       )
       RETURNING *`,
       [
@@ -598,6 +1154,9 @@ router.post('/', async (req, res) => {
         String(b.event_title).trim(),
         b.venue || null,
         b.event_date || null,
+        b.date_label || null,
+        b.date_from || null,
+        b.date_to || null,
         b.lp_url || null,
         b.status || 'planned',
         b.priority ?? 50,
@@ -620,10 +1179,14 @@ router.post('/', async (req, res) => {
         b.forecast_cpc_rub ?? null,
         b.forecast_conversions ?? null,
         b.forecast_notes || null,
-        b.hot_keywords || [],
-        b.negative_keywords || [],
-        b.ad_titles || [],
-        b.ad_texts || [],
+        resolved.hot_keywords,
+        resolved.negative_keywords,
+        resolved.ad_titles,
+        resolved.ad_texts,
+        resolved.campaign_negatives.length
+          ? resolved.campaign_negatives
+          : CAMPAIGN_NEG_DEFAULT,
+        JSON.stringify(resolved.structure_json),
         b.notes || null,
       ],
     );
@@ -643,38 +1206,80 @@ router.put('/:id', async (req, res) => {
     const id = Number(req.params.id);
     const b = req.body || {};
     const scored = scoreSeoDraft(b);
+
+    const hasStructure = b.structure_json != null && !isStructureEmpty(b.structure_json);
+    const hasFlatArrays =
+      b.hot_keywords != null ||
+      b.negative_keywords != null ||
+      b.ad_titles != null ||
+      b.ad_texts != null;
+    let resolved = null;
+    if (hasStructure || hasFlatArrays || b.campaign_negatives != null) {
+      resolved = resolveStructureAndFlat({
+        ...b,
+        structure_json: hasStructure
+          ? b.structure_json
+          : b.structure_json === null
+            ? []
+            : b.structure_json,
+        lp_url: b.lp_url,
+      });
+      // если structure не прислали, но есть flat — синтезируем
+      if (!hasStructure && hasFlatArrays) {
+        resolved.structure_json = synthesizeStructureFromLegacy({
+          lp_url: b.lp_url,
+          hot_keywords: b.hot_keywords || [],
+          ad_titles: b.ad_titles || [],
+          ad_texts: b.ad_texts || [],
+        });
+        const flat = syncFlatFromStructure(
+          resolved.structure_json,
+          uniqArr(b.negative_keywords || []),
+        );
+        resolved.hot_keywords = flat.hot_keywords;
+        resolved.ad_titles = flat.ad_titles;
+        resolved.ad_texts = flat.ad_texts;
+        resolved.negative_keywords = uniqArr(b.negative_keywords || []);
+      }
+    }
+
     const { rows } = await ticketPool.query(
       `UPDATE ads_mediaplan_events SET
         event_slug = COALESCE($2, event_slug),
         event_title = COALESCE($3, event_title),
         venue = COALESCE($4, venue),
         event_date = COALESCE($5, event_date),
-        lp_url = COALESCE($6, lp_url),
-        status = COALESCE($7, status),
-        priority = COALESCE($8, priority),
-        sort_order = COALESCE($9, sort_order),
-        daily_budget_rub = COALESCE($10, daily_budget_rub),
-        total_budget_rub = COALESCE($11, total_budget_rub),
-        campaign_name = COALESCE($12, campaign_name),
-        campaign_id = COALESCE($13, campaign_id),
-        research_json = COALESCE($14::jsonb, research_json),
-        seo_title = COALESCE($15, seo_title),
-        seo_description = COALESCE($16, seo_description),
-        seo_h1 = COALESCE($17, seo_h1),
-        seo_keywords = COALESCE($18, seo_keywords),
-        seo_score = $19,
-        seo_score_notes = COALESCE($20, seo_score_notes),
-        body_excerpt = COALESCE($21, body_excerpt),
-        forecast_impressions = COALESCE($22, forecast_impressions),
-        forecast_clicks = COALESCE($23, forecast_clicks),
-        forecast_cpc_rub = COALESCE($24, forecast_cpc_rub),
-        forecast_conversions = COALESCE($25, forecast_conversions),
-        forecast_notes = COALESCE($26, forecast_notes),
-        hot_keywords = COALESCE($27, hot_keywords),
-        negative_keywords = COALESCE($28, negative_keywords),
-        ad_titles = COALESCE($29, ad_titles),
-        ad_texts = COALESCE($30, ad_texts),
-        notes = COALESCE($31, notes),
+        date_label = COALESCE($6, date_label),
+        date_from = COALESCE($7, date_from),
+        date_to = COALESCE($8, date_to),
+        lp_url = COALESCE($9, lp_url),
+        status = COALESCE($10, status),
+        priority = COALESCE($11, priority),
+        sort_order = COALESCE($12, sort_order),
+        daily_budget_rub = COALESCE($13, daily_budget_rub),
+        total_budget_rub = COALESCE($14, total_budget_rub),
+        campaign_name = COALESCE($15, campaign_name),
+        campaign_id = COALESCE($16, campaign_id),
+        research_json = COALESCE($17::jsonb, research_json),
+        seo_title = COALESCE($18, seo_title),
+        seo_description = COALESCE($19, seo_description),
+        seo_h1 = COALESCE($20, seo_h1),
+        seo_keywords = COALESCE($21, seo_keywords),
+        seo_score = $22,
+        seo_score_notes = COALESCE($23, seo_score_notes),
+        body_excerpt = COALESCE($24, body_excerpt),
+        forecast_impressions = COALESCE($25, forecast_impressions),
+        forecast_clicks = COALESCE($26, forecast_clicks),
+        forecast_cpc_rub = COALESCE($27, forecast_cpc_rub),
+        forecast_conversions = COALESCE($28, forecast_conversions),
+        forecast_notes = COALESCE($29, forecast_notes),
+        hot_keywords = COALESCE($30, hot_keywords),
+        negative_keywords = COALESCE($31, negative_keywords),
+        ad_titles = COALESCE($32, ad_titles),
+        ad_texts = COALESCE($33, ad_texts),
+        campaign_negatives = COALESCE($34, campaign_negatives),
+        structure_json = COALESCE($35::jsonb, structure_json),
+        notes = COALESCE($36, notes),
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -684,6 +1289,9 @@ router.put('/:id', async (req, res) => {
         b.event_title ?? null,
         b.venue ?? null,
         b.event_date ?? null,
+        b.date_label ?? null,
+        b.date_from ?? null,
+        b.date_to ?? null,
         b.lp_url ?? null,
         b.status ?? null,
         b.priority ?? null,
@@ -706,10 +1314,12 @@ router.put('/:id', async (req, res) => {
         b.forecast_cpc_rub ?? null,
         b.forecast_conversions ?? null,
         b.forecast_notes ?? null,
-        b.hot_keywords ?? null,
-        b.negative_keywords ?? null,
-        b.ad_titles ?? null,
-        b.ad_texts ?? null,
+        resolved ? resolved.hot_keywords : b.hot_keywords ?? null,
+        resolved ? resolved.negative_keywords : b.negative_keywords ?? null,
+        resolved ? resolved.ad_titles : b.ad_titles ?? null,
+        resolved ? resolved.ad_texts : b.ad_texts ?? null,
+        resolved ? resolved.campaign_negatives : b.campaign_negatives ?? null,
+        resolved ? JSON.stringify(resolved.structure_json) : null,
         b.notes ?? null,
       ],
     );

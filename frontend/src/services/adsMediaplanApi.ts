@@ -34,12 +34,30 @@ async function handle<T>(res: Response): Promise<T> {
 
 export type AdsMediaplanStatus = 'planned' | 'active' | 'paused' | 'done' | 'rejected';
 
+export type AdsMediaplanAd = {
+  title: string;
+  title2?: string;
+  text: string;
+};
+
+export type AdsMediaplanGroup = {
+  id: string;
+  name: string;
+  landing_url: string;
+  hot_keywords: string[];
+  negative_keywords: string[];
+  ads: AdsMediaplanAd[];
+};
+
 export type AdsMediaplanItem = {
   id: number;
   event_slug: string;
   event_title: string;
   venue?: string | null;
   event_date?: string | null;
+  date_label?: string | null;
+  date_from?: string | null;
+  date_to?: string | null;
   lp_url?: string | null;
   status: AdsMediaplanStatus;
   priority: number;
@@ -70,10 +88,16 @@ export type AdsMediaplanItem = {
   forecast_cpc_rub?: number | null;
   forecast_conversions?: number | null;
   forecast_notes?: string | null;
+  /** @deprecated flat — синхронизируется из structure_json */
   hot_keywords?: string[];
+  /** Минуса уровня события */
   negative_keywords?: string[];
+  /** @deprecated flat */
   ad_titles?: string[];
+  /** @deprecated flat */
   ad_texts?: string[];
+  campaign_negatives?: string[];
+  structure_json?: AdsMediaplanGroup[];
   notes?: string | null;
   updated_at?: string;
 };
@@ -87,6 +111,17 @@ export function linesToArr(s: string): string[] {
 
 export function arrToLines(a?: string[] | null): string {
   return (a || []).join('\n');
+}
+
+export function emptyGroup(landing = ''): AdsMediaplanGroup {
+  return {
+    id: `g-${Date.now().toString(36)}`,
+    name: 'HOT купить',
+    landing_url: landing,
+    hot_keywords: [],
+    negative_keywords: [],
+    ads: [{ title: '', title2: '', text: '' }],
+  };
 }
 
 export async function fetchAdsMediaplan(): Promise<AdsMediaplanItem[]> {

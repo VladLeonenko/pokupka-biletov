@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Chip,
+  Collapse,
   Divider,
   FormControl,
   Grid,
@@ -26,16 +27,20 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import RadarIcon from '@mui/icons-material/Radar';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SaveIcon from '@mui/icons-material/Save';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useToast } from '@/components/common/ToastProvider';
 import {
   arrToLines,
   createAdsMediaplanItem,
   deleteAdsMediaplanItem,
+  emptyGroup,
   fetchAdsMediaplan,
   linesToArr,
   rescoreAdsMediaplan,
   scanAdsMediaplan,
   updateAdsMediaplanItem,
+  type AdsMediaplanGroup,
   type AdsMediaplanItem,
   type AdsMediaplanStatus,
 } from '@/services/adsMediaplanApi';
@@ -48,11 +53,16 @@ const STATUS_LABEL: Record<AdsMediaplanStatus, string> = {
   rejected: 'Отказ',
 };
 
+type DraftGroup = AdsMediaplanGroup & {
+  hot_text?: string;
+  neg_text?: string;
+};
+
 type Draft = AdsMediaplanItem & {
-  hot_keywords_text?: string;
-  negative_keywords_text?: string;
-  ad_titles_text?: string;
-  ad_texts_text?: string;
+  campaign_negatives_text?: string;
+  event_negatives_text?: string;
+  groups?: DraftGroup[];
+  showLegacy?: boolean;
   research_why?: string;
   research_competitors?: string;
   research_snippets?: string;
@@ -60,14 +70,33 @@ type Draft = AdsMediaplanItem & {
   research_wordstat?: string;
 };
 
+function toDraftGroup(g: AdsMediaplanGroup): DraftGroup {
+  return {
+    ...g,
+    ads: (g.ads || []).map((a) => ({
+      title: a.title || '',
+      title2: a.title2 || '',
+      text: a.text || '',
+    })),
+    hot_text: arrToLines(g.hot_keywords),
+    neg_text: arrToLines(g.negative_keywords),
+  };
+}
+
 function toDraft(item: AdsMediaplanItem): Draft {
   const r = item.research_json || {};
+  const structure =
+    item.structure_json && item.structure_json.length
+      ? item.structure_json
+      : [
+          emptyGroup(item.lp_url || ''),
+        ];
   return {
     ...item,
-    hot_keywords_text: arrToLines(item.hot_keywords),
-    negative_keywords_text: arrToLines(item.negative_keywords),
-    ad_titles_text: arrToLines(item.ad_titles),
-    ad_texts_text: arrToLines(item.ad_texts),
+    campaign_negatives_text: arrToLines(item.campaign_negatives),
+    event_negatives_text: arrToLines(item.negative_keywords),
+    groups: structure.map(toDraftGroup),
+    showLegacy: false,
     research_why: r.why || '',
     research_competitors: (r.competitors || []).join('\n'),
     research_snippets: (r.snippets || []).join('\n'),
@@ -83,11 +112,26 @@ function fromDraft(d: Draft): Partial<AdsMediaplanItem> {
     const [phrase, count] = line.split(/\t|;/);
     return { phrase: phrase.trim(), count: count ? Number(count) : undefined };
   });
+  const structure: AdsMediaplanGroup[] = (d.groups || []).map((g, i) => ({
+    id: g.id || `group-${i + 1}`,
+    name: g.name || `Группа ${i + 1}`,
+    landing_url: g.landing_url || '',
+    hot_keywords: linesToArr(g.hot_text || ''),
+    negative_keywords: linesToArr(g.neg_text || ''),
+    ads: (g.ads || []).map((a) => ({
+      title: (a.title || '').trim(),
+      title2: (a.title2 || '').trim(),
+      text: (a.text || '').trim(),
+    })),
+  }));
   return {
     event_slug: d.event_slug,
     event_title: d.event_title,
     venue: d.venue,
     event_date: d.event_date ? String(d.event_date).slice(0, 10) : null,
+    date_label: d.date_label || null,
+    date_from: d.date_from ? String(d.date_from).slice(0, 10) : null,
+    date_to: d.date_to ? String(d.date_to).slice(0, 10) : null,
     lp_url: d.lp_url,
     status: d.status,
     priority: Number(d.priority) || 50,
@@ -107,10 +151,9 @@ function fromDraft(d: Draft): Partial<AdsMediaplanItem> {
     forecast_cpc_rub: d.forecast_cpc_rub != null ? Number(d.forecast_cpc_rub) : null,
     forecast_conversions: d.forecast_conversions != null ? Number(d.forecast_conversions) : null,
     forecast_notes: d.forecast_notes,
-    hot_keywords: linesToArr(d.hot_keywords_text || ''),
-    negative_keywords: linesToArr(d.negative_keywords_text || ''),
-    ad_titles: linesToArr(d.ad_titles_text || ''),
-    ad_texts: linesToArr(d.ad_texts_text || ''),
+    campaign_negatives: linesToArr(d.campaign_negatives_text || ''),
+    negative_keywords: linesToArr(d.event_negatives_text || ''),
+    structure_json: structure,
     notes: d.notes,
     research_json: {
       why: d.research_why || '',
@@ -132,6 +175,8 @@ const emptyNew = (): Draft =>
     sort_order: 100,
     hot_keywords: [],
     negative_keywords: [],
+    campaign_negatives: [],
+    structure_json: [emptyGroup('')],
     ad_titles: [],
     ad_texts: [],
     research_json: {},
@@ -222,6 +267,30 @@ export function AdsMediaplanPage() {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
+  const updateGroup = (idx: number, patch: Partial<DraftGroup>) => {
+    setDraft((prev) => {
+      if (!prev?.groups) return prev;
+      const groups = prev.groups.map((g, i) => (i === idx ? { ...g, ...patch } : g));
+      return { ...prev, groups };
+    });
+  };
+
+  const updateAd = (
+    gIdx: number,
+    aIdx: number,
+    patch: Partial<{ title: string; title2: string; text: string }>,
+  ) => {
+    setDraft((prev) => {
+      if (!prev?.groups) return prev;
+      const groups = prev.groups.map((g, i) => {
+        if (i !== gIdx) return g;
+        const ads = (g.ads || []).map((a, j) => (j === aIdx ? { ...a, ...patch } : a));
+        return { ...g, ads };
+      });
+      return { ...prev, groups };
+    });
+  };
+
   const totalDaily = data
     .filter((x) => x.status === 'planned' || x.status === 'active')
     .reduce((s, x) => s + (Number(x.daily_budget_rub) || 0), 0);
@@ -234,7 +303,7 @@ export function AdsMediaplanPage() {
             Медиаплан рекламы
           </Typography>
           <Typography color="text.secondary" variant="body2">
-            События в Директе: семантика, ориентиры, SEO, бюджет, минуса. День-1 план ≈ {totalDaily} ₽/день
+            1 строка = 1 LP/РК. Группы по интенту. День-1 ≈ {totalDaily} ₽/день · success = purchase
           </Typography>
         </Box>
         <Stack direction="row" gap={1} flexWrap="wrap">
@@ -328,8 +397,11 @@ export function AdsMediaplanPage() {
                         <Typography fontWeight={600} variant="body2">
                           {row.event_title}
                         </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {row.date_label || row.venue || row.event_slug}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {row.venue || row.event_slug}
+                          {(row.structure_json || []).length || 0} гр.
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -394,7 +466,10 @@ export function AdsMediaplanPage() {
               </Stack>
 
               {(draft.seo_score_live != null || draft.seo_score != null) && (
-                <Alert severity={(draft.seo_score_live ?? draft.seo_score ?? 0) >= 8 ? 'success' : 'warning'} sx={{ mb: 2 }}>
+                <Alert
+                  severity={(draft.seo_score_live ?? draft.seo_score ?? 0) >= 8 ? 'success' : 'warning'}
+                  sx={{ mb: 2 }}
+                >
                   Оценка текстов: <b>{draft.seo_score_live ?? draft.seo_score}/10</b>
                   {draft.seo_score_notes ? ` — ${draft.seo_score_notes}` : ''}
                   {draft.seo_score_fail?.length
@@ -430,16 +505,6 @@ export function AdsMediaplanPage() {
                   />
                 </Grid>
                 <Grid item xs={6} sm={3}>
-                  <TextField
-                    label="Дата"
-                    type="date"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    value={draft.event_date ? String(draft.event_date).slice(0, 10) : ''}
-                    onChange={(e) => setField('event_date', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6} sm={3}>
                   <FormControl fullWidth>
                     <InputLabel>Статус</InputLabel>
                     <Select
@@ -454,6 +519,55 @@ export function AdsMediaplanPage() {
                       ))}
                     </Select>
                   </FormControl>
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField
+                    label="Приоритет"
+                    type="number"
+                    fullWidth
+                    value={draft.priority ?? 50}
+                    onChange={(e) => setField('priority', Number(e.target.value) || 50)}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography fontWeight={700} gutterBottom>
+                    Даты LP / креативов
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                    Много дат на одном LP = одна РК; группы по интенту, не по дням. Диапазон — в
+                    date_label / объявлениях.
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="date_label"
+                    fullWidth
+                    placeholder="20 ноября / 18 дек – 10 янв"
+                    value={draft.date_label || ''}
+                    onChange={(e) => setField('date_label', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField
+                    label="date_from"
+                    type="date"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={draft.date_from ? String(draft.date_from).slice(0, 10) : ''}
+                    onChange={(e) => setField('date_from', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField
+                    label="date_to"
+                    type="date"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={draft.date_to ? String(draft.date_to).slice(0, 10) : ''}
+                    onChange={(e) => setField('date_to', e.target.value)}
+                  />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
@@ -632,7 +746,7 @@ export function AdsMediaplanPage() {
                 <Grid item xs={12}>
                   <Divider sx={{ my: 1 }} />
                   <Typography fontWeight={700} gutterBottom>
-                    SEO / тексты (литературно, ёмко)
+                    SEO / тексты
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -685,49 +799,233 @@ export function AdsMediaplanPage() {
                 <Grid item xs={12}>
                   <Divider sx={{ my: 1 }} />
                   <Typography fontWeight={700} gutterBottom>
-                    Ключи и минуса
+                    Минуса кампании
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                    Общий мусор РК (бесплатно / скачать / вики / отзывы…). Слой 1 из 3.
+                  </Typography>
                   <TextField
-                    label="HOT-ключи (по строке)"
+                    label="campaign_negatives (по строке)"
                     fullWidth
                     multiline
-                    minRows={5}
-                    value={draft.hot_keywords_text || ''}
-                    onChange={(e) => setField('hot_keywords_text', e.target.value)}
+                    minRows={4}
+                    value={draft.campaign_negatives_text || ''}
+                    onChange={(e) => setField('campaign_negatives_text', e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12}>
                   <TextField
-                    label="Минус-слова (по строке)"
+                    label="Минуса события (event-level)"
                     fullWidth
                     multiline
-                    minRows={5}
-                    value={draft.negative_keywords_text || ''}
-                    onChange={(e) => setField('negative_keywords_text', e.target.value)}
+                    minRows={2}
+                    value={draft.event_negatives_text || ''}
+                    onChange={(e) => setField('event_negatives_text', e.target.value)}
+                    helperText="Слой 2: конфликты / чужие постановки. Групповые — внутри групп ниже."
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Заголовки объявлений"
-                    fullWidth
-                    multiline
-                    minRows={3}
-                    value={draft.ad_titles_text || ''}
-                    onChange={(e) => setField('ad_titles_text', e.target.value)}
-                  />
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }} />
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Box>
+                      <Typography fontWeight={700}>Группы объявлений</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        По интенту + landing. Не дробить по календарным дням.
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() =>
+                        setDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                groups: [
+                                  ...(prev.groups || []),
+                                  toDraftGroup(emptyGroup(prev.lp_url || '')),
+                                ],
+                              }
+                            : prev,
+                        )
+                      }
+                    >
+                      Группа
+                    </Button>
+                  </Stack>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Тексты объявлений"
-                    fullWidth
-                    multiline
-                    minRows={3}
-                    value={draft.ad_texts_text || ''}
-                    onChange={(e) => setField('ad_texts_text', e.target.value)}
-                  />
+
+                {(draft.groups || []).map((g, gi) => (
+                  <Grid item xs={12} key={g.id || gi}>
+                    <Box
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        p: 1.5,
+                        mb: 1,
+                      }}
+                    >
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                        <Typography fontWeight={600} variant="body2">
+                          Группа {gi + 1}
+                          {g.name ? `: ${g.name}` : ''}
+                        </Typography>
+                        <Button
+                          size="small"
+                          color="error"
+                          disabled={(draft.groups || []).length <= 1}
+                          onClick={() =>
+                            setDraft((prev) =>
+                              prev
+                                ? { ...prev, groups: (prev.groups || []).filter((_, i) => i !== gi) }
+                                : prev,
+                            )
+                          }
+                        >
+                          Удалить группу
+                        </Button>
+                      </Stack>
+                      <Grid container spacing={1.5}>
+                        <Grid item xs={12} sm={4}>
+                          <TextField
+                            label="Название группы"
+                            fullWidth
+                            size="small"
+                            value={g.name || ''}
+                            onChange={(e) => updateGroup(gi, { name: e.target.value })}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField
+                            label="id"
+                            fullWidth
+                            size="small"
+                            value={g.id || ''}
+                            onChange={(e) => updateGroup(gi, { id: e.target.value })}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField
+                            label="Landing URL"
+                            fullWidth
+                            size="small"
+                            value={g.landing_url || ''}
+                            onChange={(e) => updateGroup(gi, { landing_url: e.target.value })}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="HOT-ключи группы"
+                            fullWidth
+                            size="small"
+                            multiline
+                            minRows={4}
+                            value={g.hot_text || ''}
+                            onChange={(e) => updateGroup(gi, { hot_text: e.target.value })}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Минуса группы"
+                            fullWidth
+                            size="small"
+                            multiline
+                            minRows={4}
+                            value={g.neg_text || ''}
+                            onChange={(e) => updateGroup(gi, { neg_text: e.target.value })}
+                            helperText="Слой 3: чужие площадки, «официальный», конфликт-события"
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            mb={0.5}
+                          >
+                            <Typography variant="body2" fontWeight={600}>
+                              Объявления ({(g.ads || []).length})
+                            </Typography>
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                updateGroup(gi, {
+                                  ads: [...(g.ads || []), { title: '', title2: '', text: '' }],
+                                })
+                              }
+                            >
+                              + объявление
+                            </Button>
+                          </Stack>
+                          {(g.ads || []).map((ad, ai) => (
+                            <Box
+                              key={ai}
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1.4fr auto' },
+                                gap: 1,
+                                mb: 1,
+                              }}
+                            >
+                              <TextField
+                                label="Title"
+                                size="small"
+                                value={ad.title || ''}
+                                onChange={(e) => updateAd(gi, ai, { title: e.target.value })}
+                              />
+                              <TextField
+                                label="Title2"
+                                size="small"
+                                value={ad.title2 || ''}
+                                onChange={(e) => updateAd(gi, ai, { title2: e.target.value })}
+                              />
+                              <TextField
+                                label="Text"
+                                size="small"
+                                value={ad.text || ''}
+                                onChange={(e) => updateAd(gi, ai, { text: e.target.value })}
+                              />
+                              <Button
+                                size="small"
+                                color="error"
+                                disabled={(g.ads || []).length <= 1}
+                                onClick={() =>
+                                  updateGroup(gi, {
+                                    ads: (g.ads || []).filter((_, j) => j !== ai),
+                                  })
+                                }
+                              >
+                                ✕
+                              </Button>
+                            </Box>
+                          ))}
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Grid>
+                ))}
+
+                <Grid item xs={12}>
+                  <Button
+                    size="small"
+                    startIcon={draft.showLegacy ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    onClick={() => setField('showLegacy', !draft.showLegacy)}
+                  >
+                    Legacy flat (синхронизируется с 1-й/union групп)
+                  </Button>
+                  <Collapse in={!!draft.showLegacy}>
+                    <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
+                      Редактируйте через группы выше. Flat-поля бэкенд пересобирает при сохранении
+                      structure_json.
+                    </Alert>
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      HOT union: {(draft.groups || []).flatMap((g) => linesToArr(g.hot_text || '')).join(' · ') || '—'}
+                    </Typography>
+                  </Collapse>
                 </Grid>
+
                 <Grid item xs={12}>
                   <TextField
                     label="Заметки"

@@ -127,6 +127,7 @@ const MIGRATION_FILES = [
   '086_event_reviews.sql',
   '087_event_review_submissions.sql',
   '088_ads_mediaplan.sql',
+  '089_ads_mediaplan_groups.sql',
 ];
 
 async function applyMigration(filename) {
