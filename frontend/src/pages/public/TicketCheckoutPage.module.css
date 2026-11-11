@@ -757,6 +757,16 @@ img.heroPosterImg {
   color: #1a1a1a;
 }
 
+/* CLS: место под карусель цен до прихода chips (иначе прыжок над схемой). */
+.priceFilterSlot {
+  min-height: 56px;
+  background: #fff;
+}
+
+.priceFilterSlot:empty {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .hallMapStage {
   position: relative;
   min-width: 0;

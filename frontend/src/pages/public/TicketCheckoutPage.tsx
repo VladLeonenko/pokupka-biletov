@@ -1390,11 +1390,12 @@ export function TicketCheckoutPage() {
   const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
 
   /**
-   * CWV: don't parse/paint TicketHallInteractiveBlock until the map stage is near viewport.
-   * Fixed-height stage → no CLS when chunk mounts (unlike idle-swap without reserved space).
+   * CWV: don't parse/paint TicketHallInteractiveBlock until near viewport + idle.
+   * Fixed-height stage → no CLS when chunk mounts.
    */
   const hallStageRef = useRef<HTMLDivElement | null>(null);
   const [hallInView, setHallInView] = useState(false);
+  const [hallIdleReady, setHallIdleReady] = useState(false);
   useEffect(() => {
     if (!hallMapReady) {
       setHallInView(false);
@@ -1414,13 +1415,34 @@ export function TicketCheckoutPage() {
         }
       },
       // No large rootMargin: keeps hall JS off first paint / LH lab (map is below hero).
-      // Real scroll still mounts immediately when the stage enters the viewport.
       { root: null, rootMargin: '0px', threshold: 0.05 },
     );
     io.observe(el);
     return () => io.disconnect();
   }, [hallMapReady]);
-  const mountHallInteractive = hallMapReady && hallInView;
+  useEffect(() => {
+    if (!hallInView) {
+      setHallIdleReady(false);
+      return;
+    }
+    let cancelled = false;
+    const arm = () => {
+      if (!cancelled) setHallIdleReady(true);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(arm, { timeout: 900 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(id);
+      };
+    }
+    const t = window.setTimeout(arm, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [hallInView]);
+  const mountHallInteractive = hallMapReady && hallInView && hallIdleReady;
 
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
@@ -2032,14 +2054,16 @@ export function TicketCheckoutPage() {
               ) : null}
               {hallMapReady && !sessionOffersPending ? (
                 <>
-                  {priceChipsForMap.length > 0 ? (
-                    <TicketPriceFilterCarousel
-                      chips={priceChipsForMap}
-                      selectedPriceKeys={mapSelectedPriceKeys}
-                      onSelect={handleMapPriceSelect}
-                      onReset={handleMapPriceReset}
-                    />
-                  ) : null}
+                  <div className={styles.priceFilterSlot} aria-hidden={priceChipsForMap.length === 0}>
+                    {priceChipsForMap.length > 0 ? (
+                      <TicketPriceFilterCarousel
+                        chips={priceChipsForMap}
+                        selectedPriceKeys={mapSelectedPriceKeys}
+                        onSelect={handleMapPriceSelect}
+                        onReset={handleMapPriceReset}
+                      />
+                    ) : null}
+                  </div>
                   <div className={styles.hallMapStage} ref={hallStageRef}>
                     <Suspense fallback={<HallMapLoadingPane />}>
                       {mountHallInteractive ? (
