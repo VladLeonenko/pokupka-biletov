@@ -420,7 +420,8 @@ export function TicketCheckoutPage() {
     enabled: Boolean(repertoireId),
     staleTime: 15_000,
     gcTime: 5 * 60_000,
-    refetchOnMount: true,
+    // always: SSR может отдать offers=[] (ssrOffersOmitted) — без always зал залипает пустым
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     retry: 1,
     refetchInterval: (query) =>

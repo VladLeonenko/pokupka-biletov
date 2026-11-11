@@ -26,10 +26,20 @@ export function seedQueryClientFromDom(qc: QueryClient) {
     qc.setQueryData(['bilet-resolve-slug', seed.resolveSlug.slug], seed.resolveSlug.data);
   }
   if (seed.repertoirePage?.repertoireId) {
-    qc.setQueryData(
-      ['bilet-repertoire-page', seed.repertoirePage.repertoireId, 'markup-v2'],
-      seed.repertoirePage.data,
-    );
+    const pageData = seed.repertoirePage.data as
+      | { offersMeta?: { ssrOffersOmitted?: boolean } }
+      | null
+      | undefined;
+    // SSR специально отдаёт offers=[], иначе HTML ~500KB. Не гидрируем этот
+    // query как fresh — иначе staleTime 15s блокирует refetchOnMount и зал пустой.
+    if (pageData?.offersMeta?.ssrOffersOmitted) {
+      // skip — TicketCheckoutPage сходит в /page за полным bundle
+    } else {
+      qc.setQueryData(
+        ['bilet-repertoire-page', seed.repertoirePage.repertoireId, 'markup-v2'],
+        seed.repertoirePage.data,
+      );
+    }
   }
   if (seed.home) {
     qc.setQueryData(['bilet-home-public', seed.home.cityId], seed.home.data);
