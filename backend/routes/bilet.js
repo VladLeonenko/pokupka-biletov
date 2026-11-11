@@ -854,14 +854,32 @@ router.get('/repertoire/:repertoireId/description-sections', async (req, res) =>
   }
 });
 
-/** Промо-попап: подходит ли событие под кампанию (без выдачи кода). */
+function readCookie(req, name) {
+  const raw = String(req.headers.cookie || '');
+  const parts = raw.split(';');
+  for (const part of parts) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    const k = part.slice(0, idx).trim();
+    if (k !== name) continue;
+    return decodeURIComponent(part.slice(idx + 1).trim());
+  }
+  return '';
+}
+
+function clientIp(req) {
+  const xf = String(req.headers['x-forwarded-for'] || '')
+    .split(',')[0]
+    .trim();
+  return xf || req.ip || req.socket?.remoteAddress || '';
+}
+
+/** Промо-попап: активна ли кампания (без выдачи кода). Глобально на сайте. */
 router.get('/promo-popup/preview', async (req, res) => {
   try {
-    const { previewPromoPopup } = await import('../services/promoPopup.js');
-    const slug = String(req.query.slug || 'bolshoi-10').trim() || 'bolshoi-10';
-    const repertoireId = String(req.query.repertoireId || '').trim();
-    const venueHint = String(req.query.venue || '').trim();
-    const out = await previewPromoPopup({ slug, repertoireId, venueHint });
+    const { previewPromoPopup, DEFAULT_PROMO_POPUP_SLUG } = await import('../services/promoPopup.js');
+    const slug = String(req.query.slug || DEFAULT_PROMO_POPUP_SLUG).trim() || DEFAULT_PROMO_POPUP_SLUG;
+    const out = await previewPromoPopup({ slug });
     return res.json(out);
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
@@ -872,19 +890,39 @@ router.get('/promo-popup/preview', async (req, res) => {
   }
 });
 
-/** Промо-попап: выдать персональный код на TTL (по умолчанию 60 мин). */
+/** Промо-попап: выдать персональный код на TTL (по умолчанию 60 мин). 1 раз на visitor. */
 router.post('/promo-popup/claim', async (req, res) => {
   try {
-    const { claimPromoPopup } = await import('../services/promoPopup.js');
-    const slug = String(req.body?.slug || 'bolshoi-10').trim() || 'bolshoi-10';
-    const visitorKey = String(req.body?.visitorKey || '').trim();
+    const {
+      claimPromoPopup,
+      DEFAULT_PROMO_POPUP_SLUG,
+      newVisitorKey,
+      promoVisitorCookieName,
+    } = await import('../services/promoPopup.js');
+    const slug = String(req.body?.slug || DEFAULT_PROMO_POPUP_SLUG).trim() || DEFAULT_PROMO_POPUP_SLUG;
+    const cookieName = promoVisitorCookieName();
+    const fromCookie = readCookie(req, cookieName);
+    const fromBody = String(req.body?.visitorKey || '').trim();
+    const visitorKey = (fromCookie || fromBody || newVisitorKey()).slice(0, 80);
     const repertoireId = String(req.body?.repertoireId || '').trim();
-    const venueHint = String(req.body?.venue || req.body?.venueLabel || '').trim();
-    const out = await claimPromoPopup({ slug, visitorKey, repertoireId, venueHint });
+    const out = await claimPromoPopup({
+      slug,
+      visitorKey,
+      repertoireId,
+      claimIp: clientIp(req),
+    });
+
+    const secure = String(req.protocol || '').includes('https') || req.secure || req.headers['x-forwarded-proto'] === 'https';
+    res.setHeader(
+      'Set-Cookie',
+      `${cookieName}=${encodeURIComponent(visitorKey)}; Path=/; Max-Age=${365 * 24 * 3600}; SameSite=Lax; HttpOnly${secure ? '; Secure' : ''}`,
+    );
+
     if (!out.ok) {
-      return res.status(400).json(out);
+      const status = out.alreadyClaimed ? 409 : 400;
+      return res.status(status).json(out);
     }
-    return res.json(out);
+    return res.json({ ...out, visitorKey });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
       return res.status(503).json({ ok: false, error: 'schema' });

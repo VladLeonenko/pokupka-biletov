@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { claimPromoPopup, fetchPromoPopupPreview } from '@/services/biletPublicApi';
+import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
 import {
   broadcastPromoCode,
   getOrCreatePromoVisitorKey,
   markPromoModalDismissed,
+  markPromoSeenForever,
   readStoredPromoGrant,
+  wasPromoSeenForever,
   writeStoredPromoGrant,
 } from '@/utils/promoPopupVisitor';
 import styles from './BolshoiPromoPopup.module.css';
 
-const DEFAULT_SLUG = 'bolshoi-10';
+const DEFAULT_SLUG = 'except-bolshoi-10';
 
 type Props = {
-  repertoireId: string;
-  venueLabel?: string | null;
   slug?: string;
 };
 
@@ -24,12 +26,20 @@ function formatRemain(ms: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLUG }: Props) {
+/**
+ * Глобальный попап: один раз на посетителя, на любом tickets-роуте.
+ * Скидка 10% на всё кроме Большого (проверка на чекауте).
+ */
+export function BolshoiPromoPopup({ slug = DEFAULT_SLUG }: Props) {
+  const location = useLocation();
+  const onTickets = matchesTicketsChromePath(location.pathname);
+  const isAdmin = location.pathname.replace(/\/+$/, '').startsWith('/admin');
+
   const [open, setOpen] = useState(false);
   const [showBar, setShowBar] = useState(false);
   const [code, setCode] = useState('');
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [headline, setHeadline] = useState('Ваш купон Большого');
+  const [headline, setHeadline] = useState('Ваш купон на 10%');
   const [bodyText, setBodyText] = useState('');
   const [ctaLabel, setCtaLabel] = useState('Скопировать код');
   const [copied, setCopied] = useState(false);
@@ -78,6 +88,7 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
         bodyText: g.bodyText,
         ctaLabel: g.ctaLabel,
       });
+      markPromoSeenForever(slug);
       broadcastPromoCode(g.code);
       setOpen(g.openModal);
       setShowBar(!g.openModal);
@@ -86,7 +97,7 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
   );
 
   useEffect(() => {
-    if (!repertoireId) return;
+    if (!onTickets || isAdmin) return;
     let cancelled = false;
     let delayTimer: number | undefined;
 
@@ -100,16 +111,16 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
           headline: stored.headline,
           bodyText: stored.bodyText,
           ctaLabel: stored.ctaLabel,
-          openModal: !stored.dismissedModal,
+          // Уже видел: только плашка, без повторной модалки
+          openModal: false,
         });
         return;
       }
 
-      const preview = await fetchPromoPopupPreview({
-        repertoireId,
-        venue: venueLabel || undefined,
-        slug,
-      });
+      // Уже получал когда-то (даже если код истёк) — больше не показываем
+      if (wasPromoSeenForever(slug)) return;
+
+      const preview = await fetchPromoPopupPreview({ slug });
       if (cancelled || !preview.eligible || !preview.campaign) return;
 
       setHeadline(preview.campaign.headline);
@@ -120,13 +131,13 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
       delayTimer = window.setTimeout(async () => {
         if (cancelled) return;
         const visitorKey = getOrCreatePromoVisitorKey();
-        const claim = await claimPromoPopup({
-          visitorKey,
-          repertoireId,
-          venue: venueLabel || undefined,
-          slug,
-        });
-        if (cancelled || !claim.ok || !claim.code || !claim.expiresAt) return;
+        const claim = await claimPromoPopup({ visitorKey, slug });
+        if (cancelled) return;
+        if (claim.alreadyClaimed) {
+          markPromoSeenForever(slug);
+          return;
+        }
+        if (!claim.ok || !claim.code || !claim.expiresAt) return;
         applyGrant({
           code: claim.code,
           expiresAt: claim.expiresAt,
@@ -144,7 +155,7 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
       cancelled = true;
       if (delayTimer) window.clearTimeout(delayTimer);
     };
-  }, [repertoireId, venueLabel, slug, applyGrant]);
+  }, [onTickets, isAdmin, slug, applyGrant]);
 
   const onCopy = async () => {
     if (!code) return;
@@ -160,11 +171,12 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
 
   const onDismissModal = () => {
     markPromoModalDismissed(slug);
+    markPromoSeenForever(slug);
     setOpen(false);
     if (code && remainMs > 0) setShowBar(true);
   };
 
-  if (!code || remainMs <= 0) return null;
+  if (!onTickets || isAdmin || !code || remainMs <= 0) return null;
 
   return (
     <>
@@ -175,7 +187,7 @@ export function BolshoiPromoPopup({ repertoireId, venueLabel, slug = DEFAULT_SLU
               ×
             </button>
             <span className={styles.ornament} aria-hidden />
-            <p className={styles.eyebrow}>Большой театр · персональный купон</p>
+            <p className={styles.eyebrow}>Персональный купон · 10%</p>
             <h2 className={styles.headline}>{headline}</h2>
             {bodyText ? <p className={styles.body}>{bodyText}</p> : null}
             <div className={styles.codeBox}>

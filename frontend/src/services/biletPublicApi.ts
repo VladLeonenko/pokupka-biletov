@@ -1407,6 +1407,7 @@ export type PromoPopupClaim = {
   ok: boolean;
   error?: string;
   reused?: boolean;
+  alreadyClaimed?: boolean;
   code?: string;
   expiresAt?: string;
   discountKind?: string;
@@ -1420,17 +1421,21 @@ export type PromoPopupClaim = {
 export async function claimPromoPopup(body: {
   visitorKey: string;
   repertoireId?: string;
-  venue?: string;
   slug?: string;
 }): Promise<PromoPopupClaim> {
   const res = await sessionFetch(`${getApiBase()}/api/bilet/promo-popup/claim`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   const data = (await res.json().catch(() => ({}))) as PromoPopupClaim;
   if (!res.ok || !data.ok) {
-    return { ok: false, error: data.error || 'Не удалось получить промокод' };
+    return {
+      ok: false,
+      error: data.error || 'Не удалось получить промокод',
+      alreadyClaimed: Boolean(data.alreadyClaimed),
+    };
   }
   return data;
 }

@@ -493,6 +493,7 @@ export type PromoPopupCampaignRow = {
   discount_value: string | number;
   ttl_minutes: number;
   venue_ilike: string;
+  venue_scope?: 'include' | 'exclude' | 'all';
   code_prefix: string;
   delay_ms: number;
   notes: string | null;

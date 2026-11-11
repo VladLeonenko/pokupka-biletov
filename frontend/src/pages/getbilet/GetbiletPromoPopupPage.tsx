@@ -30,7 +30,8 @@ function rowToForm(r: PromoPopupCampaignRow) {
     discount_value: Number(r.discount_value) || 10,
     ttl_minutes: Number(r.ttl_minutes) || 60,
     venue_ilike: r.venue_ilike || '%Больш%',
-    code_prefix: r.code_prefix || 'BOLSH10',
+    venue_scope: (r as { venue_scope?: string }).venue_scope || 'exclude',
+    code_prefix: r.code_prefix || 'SITE10',
     delay_ms: Number(r.delay_ms) || 2500,
     notes: r.notes || '',
   };
@@ -61,7 +62,8 @@ export function GetbiletPromoPopupPage() {
           discount_value: 10,
           ttl_minutes: 60,
           venue_ilike: '%Больш%',
-          code_prefix: 'BOLSH10',
+          venue_scope: 'exclude',
+          code_prefix: 'SITE10',
           delay_ms: 2500,
           notes: '',
         },
@@ -125,11 +127,12 @@ export function GetbiletPromoPopupPage() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 860 }}>
       <Typography variant="h5" sx={{ mb: 1 }}>
-        Промо-попап (Большой)
+        Промо-попап (кроме Большого)
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Персональный код на скидку с TTL. Показывается на страницах событий, у которых площадка
-        подходит под шаблон venue_ilike. Код живёт не дольше указанного TTL с момента выдачи.
+        Один раз на посетителя, на любом tickets-роуте. Персональный код с TTL. По умолчанию
+        venue_scope=exclude + шаблон %Больш% — скидка на всё, кроме Большого. На чекауте Большого
+        код отклоняется.
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
@@ -212,12 +215,26 @@ export function GetbiletPromoPopupPage() {
           />
         </Box>
         <TextField
+          select
+          fullWidth
+          label="Скоуп площадки"
+          value={form.venue_scope}
+          onChange={(e) => setForm((f) => ({ ...f, venue_scope: e.target.value }))}
+          sx={{ mb: 2 }}
+          SelectProps={{ native: true }}
+          helperText="exclude = всё кроме шаблона; include = только шаблон; all = без фильтра"
+        >
+          <option value="exclude">exclude (кроме шаблона)</option>
+          <option value="include">include (только шаблон)</option>
+          <option value="all">all (везде)</option>
+        </TextField>
+        <TextField
           fullWidth
           label="Шаблон площадки (ILIKE)"
           value={form.venue_ilike}
           onChange={(e) => setForm((f) => ({ ...f, venue_ilike: e.target.value }))}
           sx={{ mb: 2 }}
-          helperText="Например %Больш% — все события Большого (Историческая / Новая сцена)."
+          helperText="Для exclude: %Больш% — скидка НЕ действует на Большой."
         />
         <TextField
           fullWidth

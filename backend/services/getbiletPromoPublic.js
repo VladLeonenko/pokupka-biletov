@@ -1,5 +1,5 @@
 import ticketPool from '../ticketDb.js';
-import { resolveEventVenueLabel, venueMatchesIlike } from './promoPopup.js';
+import { checkVenueScope, resolveEventVenueLabel } from './promoPopup.js';
 
 /**
  * Публичная проверка промокода getbilet_promo_codes (ticket DB).
@@ -19,7 +19,7 @@ export async function validateGetbiletPromoForAmount(codeRaw, amountRub, ctx = {
 
   const r = await ticketPool.query(
     `SELECT id, code, discount_kind, discount_value, max_uses_total, uses_count,
-            valid_from, valid_until, min_order_amount, is_active, venue_ilike
+            valid_from, valid_until, min_order_amount, is_active, venue_ilike, venue_scope
      FROM getbilet_promo_codes
      WHERE lower(trim(code)) = lower(trim($1))`,
     [code]
@@ -42,13 +42,17 @@ export async function validateGetbiletPromoForAmount(codeRaw, amountRub, ctx = {
     return { ok: false, error: 'Лимит использований промокода исчерпан' };
   }
   const venuePattern = row.venue_ilike != null ? String(row.venue_ilike).trim() : '';
-  if (venuePattern) {
-    let venue = typeof ctx.venueLabel === 'string' ? ctx.venueLabel.trim() : '';
-    if (!venue && ctx.repertoireId) {
-      venue = await resolveEventVenueLabel(String(ctx.repertoireId));
-    }
-    if (!venueMatchesIlike(venue, venuePattern)) {
-      return { ok: false, error: 'Промокод действует только на события Большого театра' };
+  const venueScope = row.venue_scope != null ? String(row.venue_scope) : 'include';
+  if (venuePattern || venueScope === 'exclude' || venueScope === 'include') {
+    if (venuePattern && venueScope !== 'all') {
+      let venue = typeof ctx.venueLabel === 'string' ? ctx.venueLabel.trim() : '';
+      if (!venue && ctx.repertoireId) {
+        venue = await resolveEventVenueLabel(String(ctx.repertoireId));
+      }
+      const scopeCheck = checkVenueScope(venueScope, venue, venuePattern);
+      if (!scopeCheck.ok) {
+        return { ok: false, error: scopeCheck.error || 'Промокод не действует на это событие' };
+      }
     }
   }
   const minAmt = row.min_order_amount != null ? Number(row.min_order_amount) : null;

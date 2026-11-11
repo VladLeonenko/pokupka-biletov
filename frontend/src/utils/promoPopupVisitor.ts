@@ -1,5 +1,6 @@
 const VISITOR_KEY = 'bv_promo_visitor_v1';
 const GRANT_PREFIX = 'bv_promo_grant:';
+const SEEN_PREFIX = 'bv_promo_seen:';
 
 export type StoredPromoGrant = {
   code: string;
@@ -58,6 +59,22 @@ export function markPromoModalDismissed(slug: string) {
   const g = readStoredPromoGrant(slug);
   if (!g) return;
   writeStoredPromoGrant({ ...g, dismissedModal: true });
+}
+
+export function markPromoSeenForever(slug: string) {
+  try {
+    localStorage.setItem(`${SEEN_PREFIX}${slug}`, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+export function wasPromoSeenForever(slug: string): boolean {
+  try {
+    return localStorage.getItem(`${SEEN_PREFIX}${slug}`) === '1';
+  } catch {
+    return false;
+  }
 }
 
 /** Код для автоподстановки в форму оплаты. */
