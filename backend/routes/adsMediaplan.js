@@ -1379,4 +1379,6 @@ router.post('/actions/rescore/:id', async (req, res) => {
   }
 });
 
+export { ensureTable, seedIfEmpty, seedStructureIfMissing, SEED };
+
 export default router;
