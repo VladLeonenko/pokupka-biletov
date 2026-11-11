@@ -184,6 +184,11 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 5),
     outlineTest: rightBoxTest('1\\s*ярус', 5),
+    /**
+     * Диагональный gap с ложей 6 (dx≈4) режет pad до пола 3 — обводка
+     * вплотную к точкам. minPad=8 как у 7/8 и бельэтажа (preferred).
+     */
+    minPad: 8,
   },
   {
     id: 'lozha1_right_6',
@@ -192,6 +197,8 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 6),
     outlineTest: rightBoxTest('1\\s*ярус', 6),
+    /** См. lozha1_right_5 — соседний диагональный clip. */
+    minPad: 8,
   },
   {
     id: 'lozha1_right_7',
@@ -582,8 +589,8 @@ function nonOverlappingPad(rule, bbox, neighbors, preferred) {
     else if (dx === 0) maxPad = dy / 2;
     else if (dy === 0) maxPad = dx / 2;
     else maxPad = Math.min(dx, dy) / 2;
-    /** −1 px запас на дуги Minkowski. */
-    pad = Math.min(pad, Math.max(3, maxPad - 1));
+    /** −1 px запас на дуги Minkowski; rule.minPad поднимает пол (ложи 5–6). */
+    pad = Math.min(pad, Math.max(rule.minPad ?? 3, maxPad - 1));
   }
   return pad;
 }
