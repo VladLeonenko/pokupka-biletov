@@ -699,37 +699,42 @@
 
 /**
  * Белые сектора на сером viewport (Вахтангов / эталон Новой сцены Большого).
- * Цвет цены — только у sellable-точек и контура на hover, не заливка path.
+ * Визуальная белизна — в SVG/canvas-подложке. sectorLayer только hit + тонкий контур,
+ * иначе opaque fill (z-index 4) накроет canvas-точки (z-index 0).
  */
 .sectorLayerWhiteWash.sectorLayerFitOverview .sectorPath {
   vector-effect: non-scaling-stroke;
   stroke-width: 1.15px;
-  fill-opacity: 1;
+  fill-opacity: 0;
   stroke-opacity: 0.9;
 }
 
 .sectorLayerWhiteWash.sectorLayerFitOverview .sectorPathUnavailable {
-  fill: #ffffff;
+  fill: transparent;
+  fill-opacity: 0;
   stroke: rgba(0, 0, 0, 0.06);
   opacity: 0.92;
 }
 
 .sectorLayerWhiteWash.sectorLayerFitOverview .sectorPathAvailable {
-  fill: #ffffff;
+  fill: transparent;
+  fill-opacity: 0;
   stroke: rgba(0, 0, 0, 0.06);
   opacity: 1;
 }
 
 .sectorLayerWhiteWash.sectorLayerFitOverview .sectorPathInteractive:hover,
 .sectorLayerWhiteWash.sectorLayerFitOverview .sectorPathInteractive:focus {
-  fill: #ffffff;
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 10%, transparent);
+  fill-opacity: 1;
   stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 72%, #94a3b8);
   stroke-width: 1.45px;
   opacity: 1;
 }
 
 .sectorLayerWhiteWash.sectorLayerFitOverview .sectorPathActive {
-  fill: #ffffff;
+  fill: color-mix(in srgb, var(--sector-accent, #2f80ed) 14%, transparent);
+  fill-opacity: 1;
   stroke: color-mix(in srgb, var(--sector-accent, #2f80ed) 82%, #64748b);
   stroke-width: 1.6px;
   opacity: 1;
