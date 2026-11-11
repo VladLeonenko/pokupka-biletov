@@ -78,6 +78,11 @@ import { invalidateOffersCache, getOfferListByRepertoireIdCached } from '../serv
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
 import {
+  buildOfferSessionsIndex,
+  filterOffersPayloadBySession,
+  pickDefaultOfferSession,
+} from '../utils/offerSessionsIndex.js';
+import {
   applyGetbiletMarkupToOfferPayload,
   getGetbiletMarkupRuleForRepertoire,
 } from '../services/getbiletMarkupPublic.js';
@@ -752,6 +757,12 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
     }
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
     const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
+    const eventDateTimeHint =
+      req.query.eventDateTime != null
+        ? String(req.query.eventDateTime).trim()
+        : req.query.session != null
+          ? String(req.query.session).trim()
+          : '';
     const [context, offersResult] = await Promise.all([
       getRepertoirePublicContext(repertoireId, {
         omitStageSvgMarkup: true,
@@ -771,17 +782,31 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
       res.setHeader('X-Getbilet-Offers-Cache', offersResult.meta.cache);
     }
     setMarkupResponseHeader(res, offersResult.markupRule);
-    const offersPayload = filterPublicOffersPayload(
+    const offersFull = filterPublicOffersPayload(
       normalizeGetbiletOfferListPayload(offersResult.payload),
       repertoireId,
     );
+    const sessions = buildOfferSessionsIndex(offersFull);
+    const scopedToSession = pickDefaultOfferSession(sessions, eventDateTimeHint || null);
+    const offersPayload = scopedToSession
+      ? filterOffersPayloadBySession(offersFull, scopedToSession)
+      : offersFull;
+    const fullCount = Array.isArray(offersFull?.ResultData) ? offersFull.ResultData.length : 0;
+    const scopedCount = Array.isArray(offersPayload?.ResultData) ? offersPayload.ResultData.length : 0;
     return sendPublicJson(
       req,
       res,
       {
         context,
         offers: offersPayload,
-        offersMeta: offersResult.meta ?? null,
+        sessions,
+        offersMeta: {
+          ...(offersResult.meta && typeof offersResult.meta === 'object' ? offersResult.meta : {}),
+          scopedToSession,
+          sessionsCount: sessions.length,
+          offersFullCount: fullCount,
+          offersScopedCount: scopedCount,
+        },
       },
       { noCache: true },
     );

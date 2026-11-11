@@ -9,7 +9,7 @@ import {
   type FormEvent,
 } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   Accordion,
   AccordionDetails,
@@ -408,21 +408,34 @@ export function TicketCheckoutPage() {
   const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
   const paymentFailed = searchParams.get('payment') === 'failed';
 
+  /** Ручной выбор сеанса; null = сервер сам scoped к ближайшему / hint. */
+  const [userSessionKey, setUserSessionKey] = useState<string | null>(null);
+  useEffect(() => {
+    setUserSessionKey(null);
+  }, [repertoireId]);
+
+  const sessionFetchKey = userSessionKey ?? sessionHint ?? '__default__';
+
   const {
     data: pageBundle,
     isLoading: pageLoading,
     isError: pageError,
     error: pageErrorObj,
     isSuccess: pageSuccess,
+    isFetching: pageFetching,
   } = useQuery({
-    queryKey: ['bilet-repertoire-page', repertoireId, 'markup-v2'],
-    queryFn: () => fetchRepertoirePageBundle(repertoireId),
+    queryKey: ['bilet-repertoire-page', repertoireId, 'markup-v2', sessionFetchKey],
+    queryFn: () =>
+      fetchRepertoirePageBundle(repertoireId, {
+        eventDateTime: userSessionKey ?? sessionHint,
+      }),
     enabled: Boolean(repertoireId),
     staleTime: 15_000,
     gcTime: 5 * 60_000,
     // always: SSR может отдать offers=[] (ssrOffersOmitted) — без always зал залипает пустым
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
     retry: 1,
     refetchInterval: (query) =>
       query.state.data?.offersMeta?.cache === 'miss_pending' ? 800 : false,
@@ -540,8 +553,31 @@ export function TicketCheckoutPage() {
     return null;
   }, [offers, ctx?.venueAddress, venueAddressFromCatalog]);
 
-  /** Все сеансы по полному каталогу (расписание не зависит от фильтра цены/зоны). */
+  /**
+   * Расписание: предпочтительно sessions[] с API (все даты + minPrice без 1100 SeatList).
+   * Fallback — группировка текущих offers (старые ответы / 1 сеанс).
+   */
   const allSessionsSorted = useMemo(() => {
+    const apiSessions = pageBundle?.sessions;
+    if (Array.isArray(apiSessions) && apiSessions.length > 0) {
+      let entries = apiSessions.map((s) => {
+        const stub: OfferRow = {
+          EventDateTime: s.eventDateTime,
+          AgentPrice: s.minPrice != null ? String(s.minPrice) : undefined,
+          NominalPrice: s.minPrice != null ? String(s.minPrice) : undefined,
+          SeatList: [],
+        };
+        return [s.eventDateTime, [stub]] as [string, OfferRow[]];
+      });
+      if (sessionHint) {
+        const idx = entries.findIndex(([e]) => sessionMatchesHint(e, sessionHint));
+        if (idx > 0) {
+          const [hit] = entries.splice(idx, 1);
+          entries = [hit, ...entries];
+        }
+      }
+      return entries;
+    }
     const m = new Map<string, OfferRow[]>();
     for (const o of listableOffers as OfferRow[]) {
       const k = o.EventDateTime ?? '_';
@@ -565,7 +601,7 @@ export function TicketCheckoutPage() {
       }
     }
     return entries;
-  }, [listableOffers, sessionHint]);
+  }, [pageBundle?.sessions, listableOffers, sessionHint]);
 
   const [filterState, setFilterState] = useState<OfferFilterState>({
     zone: 'all',
@@ -674,7 +710,11 @@ export function TicketCheckoutPage() {
     return allSessionsSorted[0][0];
   }, [allSessionsSorted, sessionHint]);
 
-  const [selectedSessionKey, setSelectedSessionKey] = useState<string | null>(null);
+  const selectedSessionKey =
+    userSessionKey ??
+    pageBundle?.offersMeta?.scopedToSession ??
+    defaultSessionKey;
+  const setSelectedSessionKey = setUserSessionKey;
   const [mapDialogOpen, setMapDialogOpen] = useState(false);
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [offerId, setOfferId] = useState<string | null>(null);
@@ -694,10 +734,6 @@ export function TicketCheckoutPage() {
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('md'));
-  useEffect(() => {
-    setSelectedSessionKey(defaultSessionKey);
-  }, [repertoireId, defaultSessionKey]);
-
   useEffect(() => {
     if (!repertoireId) return;
     setOwnHintDismissed(false);
@@ -1105,8 +1141,14 @@ export function TicketCheckoutPage() {
     return `${n} сеансов`;
   }, [allSessionsSorted.length]);
 
-  const minPriceHero =
-    listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
+  const minPriceHero = useMemo(() => {
+    const fromSessions = (pageBundle?.sessions ?? [])
+      .map((s) => s.minPrice)
+      .filter((n): n is number => n != null && Number.isFinite(n) && n > 0);
+    if (fromSessions.length > 0) return Math.min(...fromSessions);
+    if (listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0) return pb.min;
+    return null;
+  }, [pageBundle?.sessions, listableOffers.length, pb.min]);
 
   const isSupercupSportCheckout = isSupercupNnRepertoire(repertoireId);
 
@@ -1323,7 +1365,15 @@ export function TicketCheckoutPage() {
   const seatListPrimary = Boolean(!hallSvg && !showHallMapShell);
 
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
-  const noOffersAfterFetch = !isLoading && (isSuccess || isError) && offers.length === 0;
+  const noOffersAfterFetch =
+    !isLoading && !pageFetching && (isSuccess || isError) && offers.length === 0;
+
+  /** Смена сеанса: keepPreviousData ещё держит чужой EventDateTime — не рисуем чужие места. */
+  const sessionOffersPending = useMemo(() => {
+    if (!pageFetching || !selectedSessionKey || selectedSessionKey === '_') return false;
+    if (offers.length === 0) return true;
+    return !(offers as OfferRow[]).some((o) => (o.EventDateTime ?? '_') === selectedSessionKey);
+  }, [pageFetching, selectedSessionKey, offers]);
 
   /** Ключ сеанса для карты: без офферов используем «_», чтобы отрисовать подложку без выбора даты. */
   const hallMapSessionKey = useMemo(() => {
@@ -1980,7 +2030,7 @@ export function TicketCheckoutPage() {
                   {reserveError}
                 </Alert>
               ) : null}
-              {hallMapReady ? (
+              {hallMapReady && !sessionOffersPending ? (
                 <>
                   {priceChipsForMap.length > 0 ? (
                     <TicketPriceFilterCarousel

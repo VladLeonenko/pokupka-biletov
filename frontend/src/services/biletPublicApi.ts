@@ -859,10 +859,27 @@ export type RepertoireContext = {
   checkoutHideSeatList?: boolean;
 };
 
+export type RepertoireOfferSession = {
+  eventDateTime: string;
+  minPrice: number | null;
+  offerCount: number;
+  seatCount: number;
+};
+
 export type RepertoirePageBundle = {
   context: RepertoireContext;
   offers: unknown;
-  offersMeta?: { cache?: string; ageMs?: number } | null;
+  /** Календарь сеансов без SeatList — полный индекс, пока offers scoped к одному сеансу. */
+  sessions?: RepertoireOfferSession[];
+  offersMeta?: {
+    cache?: string;
+    ageMs?: number;
+    scopedToSession?: string | null;
+    sessionsCount?: number;
+    offersFullCount?: number;
+    offersScopedCount?: number;
+    ssrOffersOmitted?: boolean;
+  } | null;
 };
 
 /** Контекст + офферы одним запросом (страница /ticket). */
@@ -1004,10 +1021,17 @@ export async function submitRepertoireReview(
   };
 }
 
-export async function fetchRepertoirePageBundle(repertoireId: string): Promise<RepertoirePageBundle> {
+export async function fetchRepertoirePageBundle(
+  repertoireId: string,
+  opts?: { eventDateTime?: string | null },
+): Promise<RepertoirePageBundle> {
   const base = getApiBase();
+  const q = new URLSearchParams();
+  const dt = opts?.eventDateTime?.trim();
+  if (dt) q.set('eventDateTime', dt);
+  const qs = q.toString();
   const res = await fetch(
-    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page`,
+    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page${qs ? `?${qs}` : ''}`,
     {
       headers: {
         Accept: 'application/json',
