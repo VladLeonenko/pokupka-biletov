@@ -681,8 +681,24 @@ export function isEventActual(ev: NormalizedBiletEvent): boolean {
   return parsedMs >= todayMs;
 }
 
+/** Одно шоу под разными названиями/провайдерами (Profticket ↔ GetBilet). */
+function canonicalShowAliasKey(ev: NormalizedBiletEvent): string | null {
+  const title = ev.title.trim().replace(/\s+/g, ' ').toLowerCase();
+  const venue = (ev.venue || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const nikulin = /цирк\s+никулин|цветн/i.test(venue);
+  if (
+    nikulin &&
+    (/лабиринт/.test(title) || /новогодн\w*\s+лабиринт/.test(title))
+  ) {
+    return 'alias:nikulin-labyrinth';
+  }
+  return null;
+}
+
 /** Ключ одного спектакля: репертуар API, префикс составного id (`rep::…`) или название. */
 export function biletEventShowKey(ev: NormalizedBiletEvent): string {
+  const alias = canonicalShowAliasKey(ev);
+  if (alias) return alias;
   const rep = ev.repertoireId?.trim();
   if (rep) return `rep:${rep}`;
   if (ev.id.includes('::')) {
@@ -692,12 +708,29 @@ export function biletEventShowKey(ev: NormalizedBiletEvent): string {
   return `title:${ev.title.trim().replace(/\s+/g, ' ').toLowerCase()}`;
 }
 
+function showDedupePreferScore(ev: NormalizedBiletEvent): number {
+  const title = ev.title.trim().toLowerCase();
+  // Канон Profticket / Wordstat «новогодний лабиринт», не getbilet-дубль.
+  if (/^новогодн\w*\s+лабиринт/.test(title)) return 2;
+  if (/лабиринт/.test(title) && /цирк/.test(title)) return 0;
+  return 1;
+}
+
 /**
  * Один ряд на спектакль: при нескольких датах оставляем ближайшую по isoDate.
  * Порядок входа не важен — сортируем по дате, затем уникализируем по ключу.
+ * Alias-группы (Лабиринт Никулина): предпочитаем каноническое название.
  */
 export function dedupeBiletEventsByShow(events: NormalizedBiletEvent[]): NormalizedBiletEvent[] {
-  const sorted = [...events].sort((a, b) => eventSortTimeMs(a) - eventSortTimeMs(b));
+  const sorted = [...events].sort((a, b) => {
+    const ka = biletEventShowKey(a);
+    const kb = biletEventShowKey(b);
+    if (ka === kb && ka.startsWith('alias:')) {
+      const pref = showDedupePreferScore(b) - showDedupePreferScore(a);
+      if (pref) return pref;
+    }
+    return eventSortTimeMs(a) - eventSortTimeMs(b);
+  });
   const seen = new Set<string>();
   const out: NormalizedBiletEvent[] = [];
   for (const ev of sorted) {
