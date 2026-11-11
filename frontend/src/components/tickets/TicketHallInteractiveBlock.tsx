@@ -28,10 +28,10 @@ import {
 import { isMhtChekhovMainStageId } from '../../constants/getbiletStages';
 import styles from './TicketHallInteractiveBlock.module.css';
 
-/** Серые места: #d0d0d0 как GetBilet SVG. */
-const CANVAS_HALL_SEAT_DOT_FILL = '#d0d0d0';
+/** Серые места: #c8ccd4 как GetBilet Bolshoi SVG circle fill. */
+const CANVAS_HALL_SEAT_DOT_FILL = '#c8ccd4';
 /** Маркер без оффера / превью схемы в DOM; офферы — colorForSeat. */
-const DOM_UNIFORM_SEAT_ACCENT = '#d0d0d0';
+const DOM_UNIFORM_SEAT_ACCENT = '#c8ccd4';
 /** Подложка при zoom — без grayscale, поле остаётся зелёным. */
 const CANVAS_ZOOMED_BACKDROP_FILTER = 'saturate(1.1) contrast(1.03) brightness(1.02)';
 /** Акцент «выгодное предложение» (наши места с лучшей ценой; совпадает с CSS var(--own-best-color) fallback). */
@@ -2788,7 +2788,8 @@ export function TicketHallInteractiveBlock({
           svgViewBox.width,
           svgViewBox.height,
         );
-        const radiusOpts = { mhtChekhov: isMhtChekhovHall || layoutMode === 'svgNative', spacingSvg };
+        /** Только МХТ — мелкий densCap-радиус. Большой/svgNative → r≈2.86*scale. */
+        const radiusOpts = { mhtChekhov: isMhtChekhovHall, spacingSvg };
         const rIdle = theaterSeatRadiusPx(scalePx, false, radiusOpts);
         const rActive = theaterSeatRadiusPx(scalePx, true, radiusOpts);
         ctx.fillStyle = CANVAS_HALL_SEAT_DOT_FILL;

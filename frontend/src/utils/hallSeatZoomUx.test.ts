@@ -35,12 +35,12 @@ describe('hall seat radii by venue', () => {
     expect(next * 2).toBeLessThan(spacingSvg * scalePx);
   });
 
-  it('Bolshoi/default respects density cap vs raw SVG r', () => {
+  it('Bolshoi/default matches SVG r≈2.86*scale (no densCap crush)', () => {
     const scalePx = 2;
     const spacingSvg = 6;
     const next = theaterSeatRadiusPx(scalePx, false, { spacingSvg });
-    expect(next).toBeLessThan(2.86 * scalePx);
-    expect(next).toBeLessThanOrEqual(spacingSvg * scalePx * 0.34 + 1e-6);
+    expect(next).toBeCloseTo(2.86 * scalePx, 5);
+    expect(next).toBeGreaterThan(spacingSvg * scalePx * 0.34);
   });
 
   it('estimateMinSeatSpacingSvg finds grid step', () => {

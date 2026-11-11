@@ -382,7 +382,7 @@ export function stripSvgSeatCirclesForBackdrop(html: string): string {
 export type ProcessHallSvgOpts = {
   /**
    * МХТ: убрать circle-места из svgHtml (рисует canvas).
-   * Большой/прочие: оставить кружки, перекрасить в #d0d0d0 — как было «идеально».
+   * Большой/прочие: оставить кружки, перекрасить в #c8ccd4 — GetBilet Bolshoi fill.
    */
   stripSeatCircles?: boolean;
 };
@@ -508,7 +508,7 @@ export function processHallSvgForNative(
 
   for (const c of seatCircles) {
     c.setAttribute('r', String(rUniform));
-    c.setAttribute('fill', '#d0d0d0');
+    c.setAttribute('fill', '#c8ccd4');
     c.removeAttribute('stroke');
     c.removeAttribute('stroke-width');
     c.setAttribute('stroke', 'none');

@@ -3,8 +3,8 @@
  * Историческая сцена: правые ложи бельэтажа/1 яруса — sellable только ряд 1;
  * левые VIP (boxWhole) — все ряды; preview бельэтажа → view-beletazh.jpg.
  *
- * ВАЖНО: sectorMode.path строится через outlineTest (полная ложа),
- * НЕ из отфильтрованных lit-мест. Нельзя кормить builder только рядом 1.
+ * ВАЖНО: sectorMode.path — справа outlineTest = ряд 1 (lit 3 места);
+ * слева VIP — вся ложа. Hall size 1500×1100 (не 1190).
  *
  *   node scripts/patch-bolshoi-historical-row1-boxes.js           # dry-run
  *   APPLY=1 node scripts/patch-bolshoi-historical-row1-boxes.js  # запись
@@ -47,7 +47,7 @@ async function main() {
   /** SVG/места = 1500×1100; НЕ дефолт 1190 — иначе path уезжает от точек. */
   const { hallWidth: hallW, hallHeight: hallH } = resolveBolshoiHistoricalHallSize(lj);
   const remapped = remapBolshoiSeatsToSellableLabels(lj.seats);
-  /** Paths = full-box outlineTest; qty/color = row-1 справа, все ряды слева (boxWhole). */
+  /** Paths = row-1 справа / full left VIP; qty/color same. */
   const sectorMode = buildBolshoiSellableSectorMode(remapped, hallW, hallH);
   const before = countByLabel(
     (lj.seats || []).map((s) => ({ ...s, sellable: s.sellable !== false && Boolean(s.sector) })),

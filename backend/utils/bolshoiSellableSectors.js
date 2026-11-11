@@ -133,8 +133,9 @@ function leftBoxOutlineTest(tierRe, boxNo) {
 
 /**
  * Продаваемые зоны. Подсветка/офферы — `test`; SVG-контур — `outlineTest`
- * (если задан), иначе те же места. Нельзя строить path только по lit-местам
- * ряда 1: получится узкая полоска вместо полной ложи.
+ * (если задан), иначе те же места.
+ * Правые ложи: outline = ряд 1 (lit 3 места), не full 3-row hull.
+ * Левые VIP (box): outline = вся ложа.
  *
  * `priceAlias` — старый лейбл для подхвата цены после переименования зон.
  */
@@ -157,7 +158,8 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 4),
-    outlineTest: rightBoxOutlineTest('Бельэтаж', 4),
+    /** Контур только lit ряд 1 (3 места), не full 3-row hull. */
+    outlineTest: rightBoxTest('Бельэтаж', 4),
   },
   {
     id: 'beletazh_right_5',
@@ -165,7 +167,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 5),
-    outlineTest: rightBoxOutlineTest('Бельэтаж', 5),
+    outlineTest: rightBoxTest('Бельэтаж', 5),
   },
   {
     id: 'beletazh_right_6',
@@ -173,7 +175,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.beletazh,
     priceAlias: 'Бельэтаж правая (ложи 4–6)',
     test: rightBoxTest('Бельэтаж', 6),
-    outlineTest: rightBoxOutlineTest('Бельэтаж', 6),
+    outlineTest: rightBoxTest('Бельэтаж', 6),
   },
   {
     id: 'lozha1_right_5',
@@ -181,7 +183,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 5),
-    outlineTest: rightBoxOutlineTest('1\\s*ярус', 5),
+    outlineTest: rightBoxTest('1\\s*ярус', 5),
   },
   {
     id: 'lozha1_right_6',
@@ -189,7 +191,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 6),
-    outlineTest: rightBoxOutlineTest('1\\s*ярус', 6),
+    outlineTest: rightBoxTest('1\\s*ярус', 6),
   },
   {
     id: 'lozha1_right_7',
@@ -197,7 +199,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 7),
-    outlineTest: rightBoxOutlineTest('1\\s*ярус', 7),
+    outlineTest: rightBoxTest('1\\s*ярус', 7),
   },
   {
     id: 'lozha1_right_8',
@@ -205,7 +207,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
     previewImageUrl: BOLSHOI_VIEW_IMAGES.tier1,
     priceAlias: '1 ярус правая (ложи 5–8)',
     test: rightBoxTest('1\\s*ярус', 8),
-    outlineTest: rightBoxOutlineTest('1\\s*ярус', 8),
+    outlineTest: rightBoxTest('1\\s*ярус', 8),
   },
   {
     id: 'balkon2_left',
@@ -598,9 +600,8 @@ export function buildBolshoiSellableSectorMode(
     const labeled = seats.filter((s) => s.sector === rule.label);
     const qtySeats = labeled.length ? labeled : seats.filter((s) => rule.test(s));
     /**
-     * Контур — ВСЕГДА по полной ложе (outlineTest / все места сектора).
-     * НИКОГДА не строить path только из lit ряда 1: получится полоска не на группе.
-     * Sellable-цвет/qty — отдельно из qtySeats (ряд 1 справа / все ряды слева).
+     * Контур: outlineTest если задан (справа = ряд 1; слева VIP = вся ложа),
+     * иначе qtySeats. Sellable-цвет/qty — отдельно из qtySeats.
      */
     const outlineSeats = rule.outlineTest
       ? seats.filter((s) => rule.outlineTest(s))

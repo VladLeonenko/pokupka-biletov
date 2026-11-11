@@ -1,18 +1,19 @@
 /**
  * Радиусы точек схемы (canvas). Геометрию (x/y) не трогаем — только диаметр.
  *
- * Театр: grey == saleable. Радиус ограничен плотностью сетки (не слипаются на 100%).
- * МХТ: плотнее/мельче. Большой: ближе к SVG r≈2.86, но тоже с density cap.
+ * МХТ: мелкие solid grey+saleable, densCap по шагу сетки (не каша на 100%).
+ * Большой / прочие: ≈ нативный SVG seat r≈2.86*scale (без densCap — иначе крошки).
  * Выбранное: ×1.22 сверху.
  */
 
 export type SeatRadiusOpts = {
   theater?: boolean;
   mhtChekhov?: boolean;
-  /** Мин. шаг центров мест в координатах SVG (viewBox units). */
+  /** Мин. шаг центров мест в координатах SVG (viewBox units). Только МХТ densCap. */
   spacingSvg?: number;
 };
 
+/** GetBilet/наши схемы Большого: типичный r кружка места в SVG. */
 const SVG_SEAT_R_MATCH = 2.86;
 
 /** Оценка min spacing по xPct/yPct (выборка, без полного O(n²) на 2k). */
@@ -43,18 +44,21 @@ export function theaterSeatRadiusPx(
   active = false,
   opts?: Pick<SeatRadiusOpts, 'mhtChekhov' | 'spacingSvg'>,
 ): number {
-  const spacing = opts?.spacingSvg;
-  /** Диаметр ≤ ~70% шага — на 100% точки не слипаются в «кашу». */
-  const densCap =
-    spacing != null && spacing > 0 ? Math.max(0.45, spacing * scalePx * 0.34) : Infinity;
-  /**
-   * Без жёсткого cap вроде 3.2px: на pinch canvas упирался в потолок,
-   * а SVG r=4 в raster продолжал расти → grey ≫ saleable.
-   * Только densCap (шаг сетки) + мягкий потолок.
-   */
-  let r = opts?.mhtChekhov
-    ? Math.max(0.55, Math.min(densCap, scalePx * 1.05, 14))
-    : Math.max(0.75, Math.min(densCap, scalePx * SVG_SEAT_R_MATCH, 16));
+  let r: number;
+  if (opts?.mhtChekhov) {
+    const spacing = opts?.spacingSvg;
+    /** Диаметр ≤ ~70% шага — на 100% точки не слипаются в «кашу». */
+    const densCap =
+      spacing != null && spacing > 0 ? Math.max(0.45, spacing * scalePx * 0.34) : Infinity;
+    /**
+     * Без жёсткого cap вроде 3.2px: на pinch canvas упирался в потолок,
+     * а SVG r=4 в raster продолжал расти → grey ≫ saleable.
+     */
+    r = Math.max(0.55, Math.min(densCap, scalePx * 1.05, 14));
+  } else {
+    /** Большой: полный SVG r≈2.86*scale — densCap ломал видимость. */
+    r = Math.max(0.85, Math.min(10, scalePx * SVG_SEAT_R_MATCH));
+  }
   if (active) r *= 1.22;
   return r;
 }
