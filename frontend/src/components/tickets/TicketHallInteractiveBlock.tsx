@@ -773,6 +773,11 @@ type Props = {
   offers: HallOfferRow[];
   getPriceKey: (o: HallOfferRow) => string;
   colorForSeat: (priceKey: string) => string;
+  /**
+   * Multi-select чипов цены: подсвечиваем только эти ключи, офферы не режем.
+   * Пусто = показать все цены.
+   */
+  activePriceKeys?: string[] | null;
   activeOfferId: string | null;
   selectedSeats: string[];
   /**
@@ -826,6 +831,7 @@ export function TicketHallInteractiveBlock({
   offers,
   getPriceKey,
   colorForSeat,
+  activePriceKeys = null,
   activeOfferId,
   selectedSeats,
   parentSelectedSeats = undefined,
@@ -2295,6 +2301,7 @@ export function TicketHallInteractiveBlock({
   activatePlacementRef.current = (p: SvgNativePlacement) => {
     if (hallPreviewSectorCheckout || seatSelectionDisabled) return;
     if (sectorMode.enabled && zoomRef.current <= fitZoomRef.current + 0.01) return;
+    /** Price-filter: pick идёт через placementsForHoverRef (уже отфильтрован). */
     const seatInfo: HallSelectedSeat = {
       key: p.key,
       offerId: p.offerId,
@@ -2501,6 +2508,21 @@ export function TicketHallInteractiveBlock({
     return nativePlacements;
   }, [nativePlacements, pbiletCategoryCheckout, sectorMode.enabled]);
 
+  const activePriceKeySet = useMemo(() => {
+    if (!activePriceKeys || activePriceKeys.length === 0) return null;
+    return new Set(activePriceKeys.map((k) => String(Number.isFinite(Number(k)) ? Number(k) : k)));
+  }, [activePriceKeys]);
+
+  const seatPassesPriceFilter = useCallback(
+    (pk: string) => {
+      if (!activePriceKeySet) return true;
+      const n = Number(pk);
+      const norm = Number.isFinite(n) ? String(n) : pk;
+      return activePriceKeySet.has(norm) || activePriceKeySet.has(pk);
+    },
+    [activePriceKeySet],
+  );
+
   const denseBackgroundHall = backgroundSeatCoordinates.length >= 8000 || useHallBackgroundRaster;
   const skipDuplicateInteractiveDotsOnCanvas =
     uniformHallSeatAppearance && denseBackgroundHall && useCanvasCompositing;
@@ -2514,7 +2536,10 @@ export function TicketHallInteractiveBlock({
    */
   const hideSectorFill = mapZoomed && !hallPreviewSectorCheckout;
 
-  placementsForHoverRef.current = visibleNativePlacements;
+  /** Pick только по выбранным ценам (если фильтр активен). */
+  placementsForHoverRef.current = activePriceKeySet
+    ? visibleNativePlacements.filter((p) => !p.previewOnly && seatPassesPriceFilter(p.priceKey))
+    : visibleNativePlacements;
 
   const probeSeatHover = useCallback(
     (clientX: number, clientY: number) => {
@@ -2804,17 +2829,19 @@ export function TicketHallInteractiveBlock({
          * Важно: placement.key = `offerId-seat-x-y`, а nativeSeat key = seatMapKey(sector,row,seat).
          * Сравнивать только по svgKey — иначе grey рисуется ПОД каждым sellable → «бублик».
          */
+        /**
+         * При активном price-filter цветные только выбранные цены;
+         * остальные sellable остаются серыми (как «не в фильтре»), геометрию не ломаем.
+         */
+        const highlightedSellable = visibleNativePlacements.filter(
+          (s) => !s.previewOnly && seatPassesPriceFilter(s.priceKey),
+        );
         const sellableSvgKeys = new Set(
-          visibleNativePlacements
-            .filter((s) => !s.previewOnly)
-            .map((s) => s.svgKey)
-            .filter(Boolean),
+          highlightedSellable.map((s) => s.svgKey).filter(Boolean),
         );
         /** Fallback: если svgKey не совпал — не двоим grey под цветной точкой. */
         const sellablePosKeys = new Set(
-          visibleNativePlacements
-            .filter((s) => !s.previewOnly)
-            .map((s) => `${s.xPct.toFixed(2)}|${s.yPct.toFixed(2)}`),
+          highlightedSellable.map((s) => `${s.xPct.toFixed(2)}|${s.yPct.toFixed(2)}`),
         );
         const scalePx = w / Math.max(1, svgViewBox.width);
         /** Только МХТ — мелкий densCap-радиус. Большой/svgNative → r≈2.86*scale. */
@@ -2838,6 +2865,7 @@ export function TicketHallInteractiveBlock({
         const activeKeys = selectedSeatKeySet;
         const drawTheaterSellable = (seat: (typeof visibleNativePlacements)[number]) => {
           if (seat.previewOnly) return;
+          if (!seatPassesPriceFilter(seat.priceKey)) return;
           const active = activeKeys.has(seat.key);
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
@@ -2886,6 +2914,7 @@ export function TicketHallInteractiveBlock({
           const active = activeKeys.has(seat.key);
           /** Серые «лишние» точки без оффера совпадают с фоном allSeatCoordinates — не дублировать. Офферы GetBilet всегда цветом цены. */
           if (skipDuplicateInteractiveDotsOnCanvas && !active && seat.previewOnly) return;
+          if (!seat.previewOnly && !seatPassesPriceFilter(seat.priceKey)) return;
 
           const sx = x + (seat.xPct / 100) * w;
           const sy = y + (seat.yPct / 100) * h;
@@ -2950,6 +2979,7 @@ export function TicketHallInteractiveBlock({
     getLayerScreenBox,
     hallRasterVersion,
     isMapDragging,
+    seatPassesPriceFilter,
     selectedSeatKeysSig,
     selectedSeatKeySet,
     skipDuplicateInteractiveDotsOnCanvas,

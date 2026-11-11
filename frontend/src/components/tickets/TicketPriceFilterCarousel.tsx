@@ -13,7 +13,7 @@ export type PriceFilterChip = {
 
 type Props = {
   chips: PriceFilterChip[];
-  selectedPriceKey: string | null;
+  selectedPriceKeys: string[];
   onSelect: (priceKey: string) => void;
   onReset: () => void;
 };
@@ -29,10 +29,11 @@ function ResetIcon() {
   );
 }
 
-export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, onReset }: Props) {
+export function TicketPriceFilterCarousel({ chips, selectedPriceKeys, onSelect, onReset }: Props) {
   if (chips.length === 0) return null;
 
-  const hasSelection = selectedPriceKey != null;
+  const selectedSet = new Set(selectedPriceKeys);
+  const hasSelection = selectedSet.size > 0;
 
   return (
     <div className={styles.root} data-testid="prices-filter-bar">
@@ -49,7 +50,7 @@ export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, o
       <div className={styles.scrollWrap} data-testid="prices-filter-list-wrapper">
         <ul className={styles.list} data-testid="prices-filter-list">
           {chips.map((chip) => {
-            const selected = selectedPriceKey === chip.priceKey;
+            const selected = selectedSet.has(chip.priceKey);
             return (
               <li key={chip.priceKey}>
                 <button
@@ -59,8 +60,9 @@ export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, o
                   }`}
                   style={
                     {
+                      ['--chip-color' as string]: chip.color,
                       ...(selected || chip.ownBest
-                        ? { borderColor: chip.color, color: chip.ownBest ? '#1a1a1a' : chip.color }
+                        ? { borderColor: chip.color, color: selected ? '#0f172a' : '#1a1a1a' }
                         : null),
                       ...(chip.ownBest ? { ['--own-best-color' as string]: chip.color } : null),
                     } as CSSProperties
@@ -70,11 +72,26 @@ export function TicketPriceFilterCarousel({ chips, selectedPriceKey, onSelect, o
                   data-testid="price-filter-wrapper"
                 >
                   <span
-                    className={`${styles.colorDot} ${chip.ownBest ? styles.colorDotOwnBest : ''}`}
+                    className={`${styles.colorDot} ${chip.ownBest ? styles.colorDotOwnBest : ''} ${
+                      selected ? styles.colorDotSelected : ''
+                    }`}
                     style={{ backgroundColor: chip.color }}
                     data-testid="price-filter-color-element"
                     aria-hidden
-                  />
+                  >
+                    {selected ? (
+                      <svg className={styles.chipCheck} viewBox="0 0 12 12" width="10" height="10">
+                        <path
+                          d="M2.2 6.2L4.8 8.8L9.8 3.2"
+                          fill="none"
+                          stroke="#fff"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : null}
+                  </span>
                   <span className={styles.priceText} data-testid="price-filter-value">
                     {chip.price.toLocaleString('ru-RU')}
                     {chip.showPlus ? '+' : ''}

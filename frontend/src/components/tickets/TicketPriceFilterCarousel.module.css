@@ -81,7 +81,8 @@
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 
 .chip:hover {
@@ -89,8 +90,12 @@
 }
 
 .chipSelected {
-  background: #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+  background: color-mix(in srgb, var(--chip-color, #64748b) 16%, #fff);
+  border-color: var(--chip-color, #64748b);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--chip-color, #64748b) 32%, transparent),
+    0 1px 4px rgba(15, 23, 42, 0.08);
+  font-weight: 700;
 }
 
 .chipOwnBest {
@@ -99,11 +104,30 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--own-best-color, #ff4e18) 28%, transparent);
 }
 
+.chipOwnBest.chipSelected {
+  background: color-mix(in srgb, var(--chip-color, var(--own-best-color, #ff4e18)) 18%, #fff);
+  border-color: var(--chip-color, var(--own-best-color, #ff4e18));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--chip-color, var(--own-best-color, #ff4e18)) 36%, transparent),
+    0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
 .colorDot {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
   border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.colorDotSelected {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.chipCheck {
+  display: block;
 }
 
 .colorDotOwnBest {

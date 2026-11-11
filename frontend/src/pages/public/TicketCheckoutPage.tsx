@@ -215,8 +215,14 @@ function parseOffers(raw: unknown): OfferRow[] {
   }) as OfferRow[];
 }
 
+/** Единый ключ цены: 29000 и "29000.00" → "29000", иначе чипы и схема расходятся. */
+function normalizePriceKey(raw: unknown): string {
+  const n = Number(raw);
+  return Number.isFinite(n) ? String(n) : String(raw ?? '0');
+}
+
 function priceKey(o: OfferRow): string {
-  return String(o.AgentPrice ?? o.NominalPrice ?? '0');
+  return normalizePriceKey(o.AgentPrice ?? o.NominalPrice ?? '0');
 }
 
 function minPriceForOffers(rows: OfferRow[]): number | null {
@@ -569,7 +575,7 @@ export function TicketCheckoutPage() {
   /** Лужники: фильтр по сектору стадиона (A101, C143…), не театральные «Партер/Балкон». */
   const [stadiumSectorFilter, setStadiumSectorFilter] = useState<string>('all');
   /** Фильтр ценовой группы на схеме (карусель над картой, как portalbilet). */
-  const [mapSelectedPriceKey, setMapSelectedPriceKey] = useState<string | null>(null);
+  const [mapSelectedPriceKeys, setMapSelectedPriceKeys] = useState<string[]>([]);
   const [ownSeatsFocusNonce, setOwnSeatsFocusNonce] = useState(0);
   const [ownHintDismissed, setOwnHintDismissed] = useState(false);
   const [showAllOfferRows, setShowAllOfferRows] = useState(false);
@@ -1129,6 +1135,41 @@ export function TicketCheckoutPage() {
     return `Осталось ${diff} ${word}`;
   }, [isSupercupSportCheckout, allSessionsSorted]);
 
+  /** Срочность для HOT LP (Баядерка до 13.11 и др. ≤3 дня). */
+  const hotUrgencyLabel = useMemo(() => {
+    const slug = String(routeKey || repertoireId || '').toLowerCase();
+    const isHotUrgent =
+      slug.includes('bayaderka') ||
+      slug.includes('turandot') ||
+      slug.includes('chaika-2026') ||
+      slug.includes('kabala') ||
+      slug === 'gamlet';
+    if (!isHotUrgent) return null;
+    const iso =
+      allSessionsSorted[0]?.[0] ||
+      ctx?.beginDateTime ||
+      resolvedEventFromSlug?.isoDate ||
+      null;
+    if (!iso || iso === '_') return null;
+    const eventDay = new Date(iso);
+    if (Number.isNaN(eventDay.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(eventDay);
+    target.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((target.getTime() - today.getTime()) / 86400000);
+    if (diff < 0 || diff > 3) return null;
+    if (diff === 0) return 'Сегодня';
+    if (diff === 1) return 'Завтра';
+    return `Через ${diff} дня`;
+  }, [
+    routeKey,
+    repertoireId,
+    allSessionsSorted,
+    ctx?.beginDateTime,
+    resolvedEventFromSlug?.isoDate,
+  ]);
+
   const hallSvg = useMemo(() => {
     if (isFootballStadiumStageEarly) {
       const fromMap = mapByStageId?.svg_markup?.trim();
@@ -1355,7 +1396,7 @@ export function TicketCheckoutPage() {
   );
 
   useEffect(() => {
-    setMapSelectedPriceKey(null);
+    setMapSelectedPriceKeys([]);
   }, [hallMapSessionKey]);
 
   const priceChipsForMap = useMemo((): PriceFilterChip[] => {
@@ -1386,30 +1427,24 @@ export function TicketCheckoutPage() {
     }));
   }, [offersForMap, priceColorMap]);
 
-  const offersForMapDisplay = useMemo(() => {
-    if (!mapSelectedPriceKey) return offersForMap;
-    return offersForMap.filter((o) => priceKey(o) === mapSelectedPriceKey);
-  }, [offersForMap, mapSelectedPriceKey]);
-
   const ownHint = useMemo(() => ownOffersHint(offersForMap), [offersForMap]);
   const ownHintColor = ownHint
     ? priceColorMap.get(ownHint.priceKey) ?? colorForPriceIndex(0)
     : null;
 
   /**
-   * Чипы на схеме фильтруют только `offersForMapDisplay` через mapSelectedPriceKey.
-   * Не трогаем filterState.priceRange: иначе на МХТ/театре клик по цене
-   * схлопывает список офферов ниже и даёт скачки/глюки на мобилке.
+   * Чипы: multi-select. Офферы на схему всегда полные — фильтр только подсвечивает
+   * цены (иначе МХТ терял места: subset офферов не матчился с SVG → всё серое).
    */
-  const handleMapPriceSelect = useCallback(
-    (pk: string) => {
-      setMapSelectedPriceKey((cur) => (cur === pk ? null : pk));
-    },
-    [],
-  );
+  const handleMapPriceSelect = useCallback((pk: string) => {
+    const key = normalizePriceKey(pk);
+    setMapSelectedPriceKeys((cur) =>
+      cur.includes(key) ? cur.filter((x) => x !== key) : [...cur, key],
+    );
+  }, []);
 
   const handleMapPriceReset = useCallback(() => {
-    setMapSelectedPriceKey(null);
+    setMapSelectedPriceKeys([]);
   }, []);
 
   const showOwnBestPriceGroup = useCallback(() => {
@@ -1624,6 +1659,7 @@ export function TicketCheckoutPage() {
 
   const catalogSeo = useMemo(() => {
     const opts = {
+      minPrice: minPriceHero,
       venueLabel: ctx?.venueLabel ?? null,
       beginDateTime:
         ctx?.beginDateTime ??
@@ -1640,10 +1676,13 @@ export function TicketCheckoutPage() {
     canonicalSlug,
     repertoireId,
     routeKey,
+    minPriceHero,
     ctx?.venueLabel,
     ctx?.beginDateTime,
     resolvedEventFromSlug?.isoDate,
   ]);
+
+  const heroH1 = catalogSeo?.h1 || displayTitle;
 
   return (
     <>
@@ -1657,18 +1696,26 @@ export function TicketCheckoutPage() {
           (ctx?.heroLead?.trim() || ctx?.descriptionSnippet?.trim())?.slice(0, 160) ||
           'Выберите лучшие места на схеме зала, оформите заказ онлайн и получите электронный билет сразу после оплаты.'
         }
+        keywords={catalogSeo?.keywords}
         image={ogImage}
         url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
       />
       <EventJsonLd
         name={displayTitle}
-        description={ctx?.heroLead?.trim() || ctx?.descriptionSnippet?.trim() || null}
+        description={
+          catalogSeo?.description ||
+          ctx?.heroLead?.trim() ||
+          ctx?.descriptionSnippet?.trim() ||
+          null
+        }
         url={origin ? `${origin}${canonicalTicketPath}` : canonicalTicketPath}
         image={ogImage}
         startDate={
           hallMapSessionKey && hallMapSessionKey !== '_'
             ? hallMapSessionKey
-            : null
+            : ctx?.beginDateTime ||
+              resolvedEventFromSlug?.isoDate ||
+              null
         }
         venueName={mergedVenue || null}
         venueAddress={mergedVenueAddress || null}
@@ -1720,7 +1767,7 @@ export function TicketCheckoutPage() {
                   </div>
                 ) : null}
                 <Typography variant="h4" component="h1" className={styles.heroTitle}>
-                  {displayTitle}
+                  {heroH1}
                 </Typography>
                 {mergedVenue || mergedVenueAddress ? (
                   <div className={styles.heroVenueBlock}>
@@ -1749,7 +1796,7 @@ export function TicketCheckoutPage() {
                     {heroLeadDisplay}
                   </Typography>
                 ) : null}
-                {(minPriceHero != null || sessionChipLabel) && (
+                {(minPriceHero != null || sessionChipLabel || hotUrgencyLabel) && (
                   <div className={styles.heroChips}>
                     {minPriceHero != null ? (
                       <span
@@ -1760,14 +1807,24 @@ export function TicketCheckoutPage() {
                         от {minPriceHero.toLocaleString('ru-RU')} ₽
                       </span>
                     ) : null}
+                    {hotUrgencyLabel ? (
+                      <span className={`${styles.heroChip} ${styles.heroChipAccent}`}>
+                        {hotUrgencyLabel}
+                      </span>
+                    ) : null}
                     {sessionChipLabel ? (
                       <span className={styles.heroChip}>{sessionChipLabel}</span>
                     ) : null}
                   </div>
                 )}
+                <p className={styles.heroTrust} aria-label="Доверие">
+                  {minPriceHero != null
+                    ? 'Места в наличии · Оплата онлайн · Электронный билет · Поддержка'
+                    : 'Оплата онлайн · Электронный билет · Поддержка'}
+                </p>
                 <div className={styles.heroCtaRow}>
                   <button type="button" className={styles.heroSelectBtn} onClick={scrollToSeatPick}>
-                    Выбрать место
+                    Выбрать места
                   </button>
                   <button
                     type="button"
@@ -1927,7 +1984,7 @@ export function TicketCheckoutPage() {
                   {priceChipsForMap.length > 0 ? (
                     <TicketPriceFilterCarousel
                       chips={priceChipsForMap}
-                      selectedPriceKey={mapSelectedPriceKey}
+                      selectedPriceKeys={mapSelectedPriceKeys}
                       onSelect={handleMapPriceSelect}
                       onReset={handleMapPriceReset}
                     />
@@ -1939,9 +1996,10 @@ export function TicketCheckoutPage() {
                           hallSvgHtml={hallSvg!}
                           layoutJson={layoutJsonForStage}
                           stageExternalId={stageIdEff}
-                          offers={offersForMapDisplay}
+                          offers={offersForMap}
                           getPriceKey={(o) => priceKey(o as OfferRow)}
                           colorForSeat={colorSeat}
+                          activePriceKeys={mapSelectedPriceKeys}
                           activeOfferId={offerId}
                           selectedSeats={seats}
                           parentSelectedSeats={mapSelectedSeats}
@@ -2674,7 +2732,7 @@ export function TicketCheckoutPage() {
                     {priceChipsForMap.length > 0 ? (
                       <TicketPriceFilterCarousel
                         chips={priceChipsForMap}
-                        selectedPriceKey={mapSelectedPriceKey}
+                        selectedPriceKeys={mapSelectedPriceKeys}
                         onSelect={handleMapPriceSelect}
                         onReset={handleMapPriceReset}
                       />
@@ -2686,9 +2744,10 @@ export function TicketCheckoutPage() {
                           hallSvgHtml={hallSvg!}
                           layoutJson={layoutJsonForStage}
                           stageExternalId={stageIdEff}
-                          offers={offersForMapDisplay}
+                          offers={offersForMap}
                           getPriceKey={(o) => priceKey(o as OfferRow)}
                           colorForSeat={colorSeat}
+                          activePriceKeys={mapSelectedPriceKeys}
                           activeOfferId={offerId}
                           selectedSeats={seats}
                           parentSelectedSeats={mapSelectedSeats}
