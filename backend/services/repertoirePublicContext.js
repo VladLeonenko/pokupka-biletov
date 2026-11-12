@@ -38,7 +38,6 @@ import {
   VAKHTANGOV_MAIN_STAGE_MAP_KEY,
 } from './vakhtangovMainStageMap.js';
 import { slugify } from '../utils/eventSlug.js';
-import { layoutForBolshoiRepertoire } from '../utils/bolshoiCheckoutMode.js';
 import {
   isFanIdRequiredForRepertoire,
   repertoireIdForTicketSlug,
@@ -826,13 +825,6 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
     stageMap && typeof stageMap.external_plan_url === 'string' && stageMap.external_plan_url.trim()
       ? stageMap.external_plan_url.trim()
       : null;
-
-  if (stageMap?.layout_json) {
-    stageMap = {
-      ...stageMap,
-      layout_json: layoutForBolshoiRepertoire(stageMap.layout_json, repertoireId),
-    };
-  }
 
   const omitSvg = opts.omitStageSvgMarkup === true;
   const stageMapForClient =

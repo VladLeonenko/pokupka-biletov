@@ -10,7 +10,6 @@ import {
   getGetbiletMarkupRuleForRepertoire,
 } from '../services/getbiletMarkupPublic.js';
 import { getPublicOffersForRepertoire } from './getbiletOffersPublic.js';
-import { materializeBolshoiNewStageSeatOffers } from './bolshoiSeatOfferMaterialize.js';
 
 const DEMO_REPERTOIRE_ID = process.env.TBANK_DEMO_REPERTOIRE_ID?.trim() || 'tbank-demo-event';
 
@@ -67,19 +66,6 @@ async function loadCachedOfferRowById(repertoireId, offerId) {
   const rows = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
   const fromCache = rows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id);
   if (fromCache) return fromCache;
-  if (rows.length > 0) {
-    try {
-      const materialized = await materializeBolshoiNewStageSeatOffers(repertoireId, payload);
-      const mrows = Array.isArray(materialized?.ResultData) ? materialized.ResultData : [];
-      const hit = mrows.find((row) => row && typeof row === 'object' && String(row.Id ?? '') === id);
-      if (hit) return hit;
-    } catch (err) {
-      console.warn(
-        '[ticketSeatReservation] bolshoi seat offer',
-        err instanceof Error ? err.message : err,
-      );
-    }
-  }
   try {
     const m = await ticketPool.query(
       `SELECT COALESCE(manual_offers_json, '[]'::jsonb) AS manual_offers_json
