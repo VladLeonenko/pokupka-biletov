@@ -190,13 +190,15 @@ export function useCursor(currentPath?: string, disableCustomCursor?: boolean) {
       updateCursor();
     };
 
+    let initTimer: number | undefined;
     if (document.body) {
-      setTimeout(initCursor, 50);
+      initTimer = window.setTimeout(initCursor, 50);
     } else {
       document.addEventListener('DOMContentLoaded', handleDOMContentLoaded);
     }
 
     return () => {
+      window.clearTimeout(initTimer);
       if (animationId) {
         cancelAnimationFrame(animationId);
         animationId = null;

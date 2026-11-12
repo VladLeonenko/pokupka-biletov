@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPublicPage, getPublicPartials } from '@/services/publicApi';
 import { useMemo } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, Navigate } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { PublicPageRenderer } from '@/components/public/PublicPageRenderer';
-import { NotFoundPage } from '@/pages/public/NotFoundPage';
 
 export function PublicPageView() {
   const location = useLocation();
@@ -16,7 +15,7 @@ export function PublicPageView() {
   
   // Не пытаемся загружать админские страницы через pages API
   if (pathSlug.startsWith('/admin')) {
-    return <NotFoundPage />;
+    return <Navigate to="/404" replace />;
   }
   
   // Normalize slug: remove trailing slash (except root), handle .html extension
@@ -145,7 +144,7 @@ ${conditionalScripts}
   }
 
   if (isError || !page || page === null) {
-    return <NotFoundPage />;
+    return <Navigate to="/404" replace />;
   }
 
   return (

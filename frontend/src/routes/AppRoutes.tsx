@@ -338,7 +338,7 @@ export function AppRoutes() {
       <Route path="/funnels" element={<Navigate to="/admin/funnels" replace />} />
       <Route path="/404" element={<NotFoundPage />} />
       <Route path="/:slug" element={<PublicPageView />} />
-      <Route path="*" element={<NotFoundPage />} />
+      <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
     </Suspense>
   );
