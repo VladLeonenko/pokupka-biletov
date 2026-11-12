@@ -203,7 +203,7 @@ export function HeaderFooterInjector() {
         if (!href) return;
         if (rel.includes('icon') || rel.includes('apple-touch-icon')) {
           if (href.includes('favicon') || href.includes('@img') || href.includes('apple-touch')) {
-            link.setAttribute('href', href.endsWith('.svg') ? '/favicon.svg' : '/favicon.ico');
+            link.setAttribute('href', href.includes('.svg') ? '/favicon.svg?v=2' : '/favicon.ico?v=2');
             return;
           }
         }

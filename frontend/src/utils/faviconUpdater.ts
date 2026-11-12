@@ -2,7 +2,7 @@
  * Утилита для динамического обновления фавиконки с анимацией и счетчиком уведомлений
  */
 
-const DEFAULT_FAVICON = '/favicon.svg';
+const DEFAULT_FAVICON = '/favicon.svg?v=2';
 let animationFrameId: number | null = null;
 let originalFaviconHref: string | null = null;
 /** База для бейджа уведомлений: подмена с билетной витрины (см. setTicketsVitrineFaviconBase). */
