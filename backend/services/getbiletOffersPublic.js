@@ -12,6 +12,7 @@ import {
 } from './getbiletManualOffers.js';
 import { sanitizePublicOffersPayload } from './getbiletOwnOffers.js';
 import { applyExternalSiteUndercutToPayload } from './externalCompetitorPrices.js';
+import { materializeBolshoiNewStageSeatOffers } from './bolshoiSeatOfferMaterialize.js';
 
 /**
  * @param {string} repertoireId
@@ -32,8 +33,18 @@ export async function getPublicOffersForRepertoire(repertoireId, opts = {}) {
     marked = await applyExternalSiteUndercutToPayload(repertoireId, marked);
   }
   const payload = sanitizePublicOffersPayload(marked);
+  let seated = payload;
+  try {
+    seated = await materializeBolshoiNewStageSeatOffers(repertoireId, payload);
+  } catch (err) {
+    console.warn(
+      '[getbilet] bolshoi seat offers',
+      repertoireId,
+      err instanceof Error ? err.message : err,
+    );
+  }
   if (!markupRule) {
     console.warn('[getbilet] public offers without markup rule:', repertoireId);
   }
-  return { payload, meta, markupRule };
+  return { payload: seated, meta, markupRule };
 }
