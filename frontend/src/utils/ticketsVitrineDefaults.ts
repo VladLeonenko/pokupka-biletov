@@ -23,7 +23,7 @@ const DEFAULTS: TicketsVitrineContent = {
     { label: 'Детям', genre: 'Детям' },
   ],
   header: {
-    logoTitle: 'Афиша',
+    logoTitle: 'Билет Всем',
     logoSub: 'билеты на мероприятия',
     logoPlacement: 'left',
     logoShowTextWithImage: true,

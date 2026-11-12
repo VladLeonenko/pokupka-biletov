@@ -7,6 +7,7 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { getAdminOrder, getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import { pushPurchase } from '@/utils/dataLayer';
+import { celebrateLogoPaid } from '@/components/tickets/TicketsSiteLogo';
 
 type OrderDetailPageProps = {
   adminView?: boolean;
@@ -70,6 +71,7 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
           ? (order as any).total
           : undefined;
     const totalRub = totalCents != null ? totalCents / 100 : undefined;
+    celebrateLogoPaid();
     reachMetrikaGoal('purchase', {
       order_number: orderNumber,
       order_price: totalRub,

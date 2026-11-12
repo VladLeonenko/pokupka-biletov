@@ -86,7 +86,7 @@ export function TicketsHeader() {
 
   const vitrine = useMemo(() => mergeTicketsVitrine(vitrineRes?.content), [vitrineRes]);
   const directions = directionsForHeader(vitrine.directions);
-  const logoTitle = vitrine.header?.logoTitle ?? 'Афиша';
+  const logoTitle = vitrine.header?.logoTitle ?? 'Билет Всем';
   const logoSub = vitrine.header?.logoSub ?? 'билеты на мероприятия';
   const logoImageUrl = vitrine.header?.logoImageUrl?.trim();
   const logoShowTextWithImage = vitrine.header?.logoShowTextWithImage !== false;

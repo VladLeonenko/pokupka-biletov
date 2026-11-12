@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="&#1041;&#1080;&#1083;&#1077;&#1090; &#1042;&#1089;&#1077;&#1084;">
+  <rect width="40" height="40" rx="9" fill="#111" />
+  <path fill="#ff4e18" fill-rule="evenodd" d="M12.5 8H29V13.5H17V18H25A4 4 0 0 1 29 22V22.5A2.5 2.5 0 0 0 29 27.5V28A4 4 0 0 1 25 32H12.5A1.5 1.5 0 0 1 11 30.5V9.5A1.5 1.5 0 0 1 12.5 8ZM17 22.5H22.5V27.5H17Z" />
+</svg>

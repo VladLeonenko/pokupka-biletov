@@ -28,19 +28,140 @@
   width: 36px;
   height: 36px;
   display: block;
+  overflow: visible;
 }
 
 .markBg {
   fill: #111;
 }
 
-.markTicket {
+.letter {
+  fill: var(--neg-orange, #ff4e18);
+  transform-box: fill-box;
+  transform-origin: 50% 60%;
+  transition: transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.perf line {
+  stroke: var(--neg-orange, #ff4e18);
+  stroke-width: 1.6;
+  stroke-dasharray: 1.5 1;
+}
+
+.root:hover .letter {
+  transform: translateY(-1.2px) rotate(-7deg) scale(1.06);
+}
+
+.root:hover .perf line {
+  animation: logoPerfRun 0.6s linear infinite;
+}
+
+@keyframes logoPerfRun {
+  to {
+    stroke-dashoffset: -5;
+  }
+}
+
+.flip {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.back {
+  opacity: 0;
+}
+
+.backBg {
   fill: var(--neg-orange, #ff4e18);
 }
 
-.markTear {
+.check {
+  fill: none;
+  stroke: #111;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+}
+
+.paid .flip {
+  animation: logoFlip 0.6s ease-in-out;
+}
+
+.paid .front {
+  animation: logoHide 0.6s steps(1) forwards;
+}
+
+.paid .back {
+  animation: logoShow 0.6s steps(1) forwards;
+}
+
+.paid .check {
+  animation: logoDraw 0.45s 0.45s ease-out forwards;
+}
+
+@keyframes logoFlip {
+  50% {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes logoHide {
+  0% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes logoShow {
+  0% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes logoDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .letter,
+  .perf line,
+  .paid .flip,
+  .paid .front,
+  .paid .back,
+  .paid .check {
+    animation: none;
+    transition: none;
+  }
+
+  .root:hover .letter {
+    transform: none;
+  }
+}
+
+.word {
+  display: block;
+  height: 15px;
+  width: auto;
+  aspect-ratio: 175 / 19.7;
+}
+
+.wordInk {
   fill: #111;
-  opacity: 0.9;
+}
+
+.wordAccent {
+  fill: var(--neg-orange, #ff4e18);
 }
 
 .text {
@@ -82,4 +203,13 @@
   .sub {
     font-size: 0.55rem;
   }
+
+  .word {
+    height: 17px;
+  }
+}
+
+.word + .sub {
+  margin-top: 4px;
+  letter-spacing: 0.14em;
 }

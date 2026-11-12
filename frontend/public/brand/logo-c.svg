@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 48" role="img" aria-label="&#1041;&#1080;&#1083;&#1077;&#1090; &#1042;&#1089;&#1077;&#1084;">
+  <g transform="scale(1.2)">
+  <rect width="40" height="40" rx="9" fill="#111" />
+  <path fill="#ff4e18" fill-rule="evenodd" d="M12.5 8H21.6V13.5H17V18H25A4 4 0 0 1 29 22V22.5A2.5 2.5 0 0 0 29 27.5V28A4 4 0 0 1 25 32H12.5A1.5 1.5 0 0 1 11 30.5V9.5A1.5 1.5 0 0 1 12.5 8ZM17 22.5H22.5V27.5H17Z" />
+  <g transform="rotate(-18 23.4 13.5) translate(1.4 -0.4)">
+    <path fill="#ff4e18" d="M23.4 8H28A1.5 1.5 0 0 1 29.5 9.5V12A1.5 1.5 0 0 1 28 13.5H23.4Z" />
+  </g>
+</g>
+  <text x="60" y="26" font-family="Geologica, Manrope, -apple-system, 'Segoe UI', sans-serif" font-size="22" font-weight="800" letter-spacing="-0.3" fill="#111">&#1073;&#1080;&#1083;&#1077;&#1090;<tspan fill="#ff4e18">&#1074;&#1089;&#1077;&#1084;</tspan></text>
+  <text x="61" y="41" font-family="Geologica, Manrope, -apple-system, 'Segoe UI', sans-serif" font-size="9" font-weight="600" letter-spacing="0.6" fill="#111" fill-opacity="0.45">&#1073;&#1080;&#1083;&#1077;&#1090;&#1099; &#1085;&#1072; &#1084;&#1077;&#1088;&#1086;&#1087;&#1088;&#1080;&#1103;&#1090;&#1080;&#1103;</text>
+</svg>
