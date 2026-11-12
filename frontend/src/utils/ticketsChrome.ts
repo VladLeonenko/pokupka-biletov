@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /** Те же маршруты, что и `useTicketsChrome` в App.tsx — шапка/тема витрины билетов. */
@@ -34,6 +34,36 @@ export function matchesTicketsChromePath(pathname: string): boolean {
   // /events, /events/map, /events/venues, /events/venue/:slug, /events/city|genre/:slug
   if (p === '/events' || p.startsWith('/events/')) return true;
   return false;
+}
+
+/** Страницы вне списка путей (404 на произвольном URL) могут сами включить оформление витрины. */
+let forcedCount = 0;
+const forcedListeners = new Set<() => void>();
+
+function emitForced() {
+  forcedListeners.forEach((l) => l());
+}
+
+export function useForceTicketsChrome(): void {
+  useEffect(() => {
+    forcedCount += 1;
+    emitForced();
+    return () => {
+      forcedCount -= 1;
+      emitForced();
+    };
+  }, []);
+}
+
+export function useTicketsChromeForced(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      forcedListeners.add(cb);
+      return () => forcedListeners.delete(cb);
+    },
+    () => forcedCount > 0,
+    () => false
+  );
 }
 
 export function useTicketsChromePath(): boolean {

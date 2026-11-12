@@ -24,7 +24,7 @@ import { hasAnalyticalConsent } from '@/hooks/useCookieConsent';
 import { useAuth } from '@/auth/AuthProvider';
 import { useCacheVersionWatcher } from '@/hooks/useCacheVersionWatcher';
 import { useCursor } from '@/hooks/useCursor';
-import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
+import { matchesTicketsChromePath, useTicketsChromeForced } from '@/utils/ticketsChrome';
 import { RouteSeoDefaults } from '@/components/common/RouteSeoDefaults';
 import { TicketCartProvider } from '@/context/TicketCartContext';
 import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
@@ -37,10 +37,12 @@ export default function App() {
   const isLoginPage = /^\/admin\/login$/i.test(normalizedPath);
   const shouldUseAdminLayout = isAdminRoute && !isLoginPage && !!token && ['admin', 'sales_manager'].includes(user?.role ?? '');
 
-  const useTicketsChrome = useMemo(
+  const forcedTicketsChrome = useTicketsChromeForced();
+  const pathTicketsChrome = useMemo(
     () => matchesTicketsChromePath(location.pathname),
     [location.pathname]
   );
+  const useTicketsChrome = pathTicketsChrome || forcedTicketsChrome;
 
   useCacheVersionWatcher();
   useCursor(normalizedPath, useTicketsChrome);

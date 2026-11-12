@@ -31,7 +31,7 @@ import { fetchPublicTicketsVitrine } from '@/services/ticketsVitrineApi';
 import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
 import { directionsForHeader } from '@/utils/ticketsDirectionsFilter';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
-import { matchesTicketsChromePath } from '@/utils/ticketsChrome';
+import { matchesTicketsChromePath, useTicketsChromeForced } from '@/utils/ticketsChrome';
 import { setTicketsVitrineFaviconBase } from '@/utils/faviconUpdater';
 import styles from './TicketsHeader.module.css';
 import { TicketsUserMenu } from '@/components/tickets/TicketsUserMenu';
@@ -93,7 +93,8 @@ export function TicketsHeader() {
   const logoPlacement = vitrine.header?.logoPlacement === 'center' ? 'center' : 'left';
   const faviconUrl = vitrine.header?.faviconUrl?.trim();
 
-  const ticketsChrome = matchesTicketsChromePath(loc.pathname);
+  const forcedTicketsChrome = useTicketsChromeForced();
+  const ticketsChrome = matchesTicketsChromePath(loc.pathname) || forcedTicketsChrome;
 
   useEffect(() => {
     if (!ticketsChrome) {
