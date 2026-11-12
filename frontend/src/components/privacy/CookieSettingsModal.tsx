@@ -137,6 +137,7 @@ export function CookieSettingsModal({ open, onClose, onSave }: CookieSettingsMod
                 <li>Сохранение товаров в корзине</li>
                 <li>Запоминание настроек сайта</li>
                 <li>Защита от мошенничества</li>
+                <li>Яндекс.Метрика: визиты и переходы с рекламы, счётчик включён всегда</li>
               </Box>
             </AccordionDetails>
           </Accordion>
@@ -206,7 +207,6 @@ export function CookieSettingsModal({ open, onClose, onSave }: CookieSettingsMod
               </Typography>
               <Box component="ul" sx={{ pl: 3, mb: 0 }}>
                 <li>Google Analytics (собирает статистику в обезличенном виде)</li>
-                <li>Яндекс.Метрика (анализ поведения пользователей)</li>
                 <li>Подсчёт посещений и популярных страниц</li>
                 <li>Выявление проблем в работе сайта</li>
               </Box>

@@ -1,6 +1,6 @@
 /**
  * Yandex.Metrika — hit при смене SPA-маршрута.
- * Счётчик инициализируется только после cookie consent (useCookieConsent).
+ * Счётчик инициализируется из index.html сразу, без cookie consent.
  */
 
 import { reachMailRuGoal } from '@/utils/mailRuCounter';

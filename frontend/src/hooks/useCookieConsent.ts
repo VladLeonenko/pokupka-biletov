@@ -244,16 +244,10 @@ export function useCookieConsent() {
       }
     } else if (typeof window !== 'undefined') {
       window.gtag = () => {};
-      window.ym = () => {};
       const gaScript = document.querySelector('script[src*="googletagmanager"]');
-      const ymScript = document.querySelector('script[src*="yandex.ru/metrika"]');
       const mailScript = document.getElementById('tmr-code');
       if (gaScript) gaScript.remove();
-      if (ymScript) ymScript.remove();
       if (mailScript) mailScript.remove();
-      if (window.dataLayer) {
-        window.dataLayer = [];
-      }
     }
   };
 

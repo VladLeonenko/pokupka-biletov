@@ -85,16 +85,17 @@ export default function App() {
     }
   }, [isAdminRoute, isLoginPage, useTicketsChrome]);
 
-  // Yandex.Metrika + Top.Mail.Ru: hit only after analytical consent
+  // Первый просмотр шлёт счётчик из index.html. Дальше — hit на смене маршрута, без баннера.
+  // Top.Mail.Ru по-прежнему только после согласия на аналитику.
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    if (!hasAnalyticalConsent()) return;
     const url = `${window.location.origin}${location.pathname}${location.search || ''}`;
     hitYandexMetrika(url);
+    if (!hasAnalyticalConsent()) return;
     hitMailRuCounter(url, user?.id);
   }, [location.pathname, location.search, user?.id]);
 
