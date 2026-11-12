@@ -36,7 +36,6 @@ export function matchesTicketsChromePath(pathname: string): boolean {
   return false;
 }
 
-/** Страницы вне списка путей (404 на произвольном URL) могут сами включить оформление витрины. */
 let forcedCount = 0;
 const forcedListeners = new Set<() => void>();
 
@@ -44,9 +43,17 @@ function emitForced() {
   forcedListeners.forEach((l) => l());
 }
 
+function stripCustomCursor() {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.cursor--large, .cursor--small, #custom-cursor-styles').forEach((n) => n.remove());
+  if (document.body) document.body.style.cursor = '';
+}
+
+/** Страницы вне списка путей (404) сами включают оформление витрины. */
 export function useForceTicketsChrome(): void {
   useEffect(() => {
     forcedCount += 1;
+    stripCustomCursor();
     emitForced();
     return () => {
       forcedCount -= 1;

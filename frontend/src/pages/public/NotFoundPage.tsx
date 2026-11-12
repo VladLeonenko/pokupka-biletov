@@ -151,14 +151,15 @@ export function NotFoundPage() {
             disableElevation
             sx={{
               bgcolor: ORANGE,
-              color: '#fff',
+              color: '#fff !important',
               borderRadius: 999,
               px: 4,
               py: 1.4,
               fontWeight: 800,
               textTransform: 'none',
               fontSize: '1rem',
-              '&:hover': { bgcolor: '#e8430f' },
+              boxShadow: '0 8px 24px rgba(255,78,24,0.28)',
+              '&:hover': { bgcolor: '#e8430f', boxShadow: '0 10px 28px rgba(255,78,24,0.36)' },
             }}
           >
             В афишу
@@ -168,7 +169,7 @@ export function NotFoundPage() {
             to="/search"
             variant="outlined"
             sx={{
-              color: INK,
+              color: `${INK} !important`,
               borderColor: 'rgba(0,0,0,0.2)',
               borderRadius: 999,
               px: 4,
@@ -190,16 +191,26 @@ export function NotFoundPage() {
               component={Link}
               to={to}
               sx={{
-                color: 'rgba(0,0,0,0.7)',
+                color: `${INK} !important`,
                 textDecoration: 'none',
-                fontSize: '0.85rem',
-                fontWeight: 700,
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
                 px: 1.75,
-                py: 0.75,
+                py: 1,
                 borderRadius: 999,
-                border: '1px solid rgba(0,0,0,0.12)',
-                transition: 'all 0.2s ease',
-                '&:hover': { color: ORANGE, borderColor: 'rgba(255,78,24,0.45)', bgcolor: 'rgba(255,78,24,0.06)' },
+                border: '2px solid',
+                borderColor: ORANGE,
+                background: '#fff',
+                boxShadow: '0 2px 10px rgba(255, 78, 24, 0.14)',
+                transition: 'background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  color: '#fff !important',
+                  bgcolor: ORANGE,
+                  borderColor: ORANGE,
+                  boxShadow: '0 4px 14px rgba(255, 78, 24, 0.28)',
+                },
               }}
             >
               {label}

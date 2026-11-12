@@ -37,6 +37,7 @@ export default function App() {
   const isLoginPage = /^\/admin\/login$/i.test(normalizedPath);
   const shouldUseAdminLayout = isAdminRoute && !isLoginPage && !!token && ['admin', 'sales_manager'].includes(user?.role ?? '');
 
+  /** Сейчас включается только страницей 404 — на ней без чата. */
   const forcedTicketsChrome = useTicketsChromeForced();
   const pathTicketsChrome = useMemo(
     () => matchesTicketsChromePath(location.pathname),
@@ -143,9 +144,11 @@ export default function App() {
             {/* HeaderFooterInjector для legacy HTML страниц (PublicPageView) */}
             <HeaderFooterInjector />
             {/* Виджеты чата — lazy load, не блокируют первый рендер */}
-            <Suspense fallback={null}>
-              <ChatWidget />
-            </Suspense>
+            {forcedTicketsChrome ? null : (
+              <Suspense fallback={null}>
+                <ChatWidget />
+              </Suspense>
+            )}
             {/* Cookie Consent Modal */}
             <CookieConsentProvider />
           </>
