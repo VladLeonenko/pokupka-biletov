@@ -473,8 +473,11 @@ export async function bookSeatsViaApi({ sessionId, appKey = MXAT_APP_KEY, pairCo
         results.push({ ...o.result, name: o.contact.name, email: o.contact.email, phone: o.contact.phone });
         o.pair.seats.forEach((s) => bookedSeatIds.add(s.id));
       } else {
-        item.tries += 1;
-        if (item.tries >= maxTries) errors.push({ name: o.contact.name, email: o.contact.email, error: o.error });
+        const soft = /429|капч|captcha|timeout|ECONN|ETIMEDOUT|fetch failed|HTTP 5|no_pair/i.test(String(o.error));
+        if (soft) item.soft = (item.soft || 0) + 1;
+        else item.tries += 1;
+        const giveUp = soft ? item.soft >= 8 : item.tries >= maxTries;
+        if (giveUp) errors.push({ name: o.contact.name, email: o.contact.email, error: o.error });
         else retry.push(item);
       }
     }

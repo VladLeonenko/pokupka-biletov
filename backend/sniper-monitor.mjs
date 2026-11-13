@@ -300,6 +300,13 @@ const lastNoPairAt = new Map();
 const lastHuntLog = new Map();
 const lastCaptchaAlert = new Map();
 const lastForceLog = new Map();
+const lastClosedLog = new Map();
+// Старт 15 ноября: 11, 29 и 30 января. Их опрашиваем первыми и пачками по 10,
+// чтобы три даты шли вместе, как в залпе 15 октября и 6 ноября.
+const HOT_SESSIONS = new Set(['137620322', '137673163', '137673221']);
+const HOT_WAVE = 10;
+let coldCursor = 0;
+let lastColdAt = 0;
 let lastRenewAt = 0;
 
 // Разовое исключение из лимита «1 перебронь»: эти места берём снова, пока нет живой брони.
@@ -415,7 +422,16 @@ async function bookForcedPairs(sid, availability) {
 }
 
 while (true) {
-  for (const sid of targetSessions) {
+  const hotIds = targetSessions.filter((s) => HOT_SESSIONS.has(String(s)));
+  const coldIds = targetSessions.filter((s) => !HOT_SESSIONS.has(String(s)));
+  const turn = [...hotIds];
+  if (coldIds.length && Date.now() - lastColdAt > 20_000) {
+    turn.push(coldIds[coldCursor % coldIds.length]);
+    coldCursor += 1;
+    lastColdAt = Date.now();
+  }
+  let hotWork = false;
+  for (const sid of turn) {
     const target = sessionTargets.get(sid);
     const booked = bookedPairs.get(sid) || 0;
     const remaining = target - booked;
@@ -433,11 +449,18 @@ while (true) {
       let seatSet = bookedSeatIdsBySession.get(sid);
       if (!seatSet) { seatSet = new Set(); bookedSeatIdsBySession.set(sid, seatSet); }
       const cs = sessionContacts.get(sid);
-      const sessionContactsList = cs && cs.length ? cs : contacts;
+      const pool = cs && cs.length ? cs : contacts;
+      const sessionContactsList = pool.filter((c) => c?.email && !contactBlacklist.has(c.email));
+      if (!sessionContactsList.length) {
+        console.log(`[${t}] ${sid}: все контакты в чёрном списке, бронь пропущена`);
+        continue;
+      }
+      const isHot = HOT_SESSIONS.has(String(sid));
+      if (isHot) hotWork = true;
       const { results, errors } = await bookSeatsViaApi({
         sessionId: sid,
         appKey: args.appKey,
-        pairCount: remaining,
+        pairCount: isHot ? Math.min(remaining, HOT_WAVE) : remaining,
         contacts: sessionContactsList,
         concurrency: args.concurrency,
         maxTries: args.maxTries,
@@ -495,7 +518,8 @@ while (true) {
         lastCaptchaAlert.set(sid, Date.now());
         console.log(`[${t}] 🔴 ${sid}: КАПЧА/429 (${a.error}) | осталось ${remaining} пар`);
       }
-    } else {
+    } else if (Date.now() - (lastClosedLog.get(sid) || 0) > 60_000) {
+      lastClosedLog.set(sid, Date.now());
       console.log(`[${t}] ${sid}: закрыто (${a.availableCount} мест)${a.error ? ' — ' + a.error : ''} | осталось ${remaining} пар`);
     }
   }
@@ -505,5 +529,5 @@ while (true) {
     await renewReservations(args.appKey);
   }
   // монитор работает 24/7: до-бронирует по мере выкладки новых мест, пока цель не достигнута
-  await new Promise((r) => setTimeout(r, args.interval));
+  await new Promise((r) => setTimeout(r, hotWork ? 50 : Math.max(args.interval, 2000)));
 }
