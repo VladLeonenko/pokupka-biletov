@@ -366,6 +366,11 @@ export async function renewPayment(orderId, appKey = MXAT_APP_KEY) {
   return api('POST', `/payments/${orderId}`, {}, appKey);
 }
 
+/** Текущий платёж заказа. 200 + status=cancelled значит холд уже мёртв. */
+export async function getPayment(orderId, appKey = MXAT_APP_KEY) {
+  return api('GET', `/payments/${orderId}`, undefined, appKey);
+}
+
 /**
  * Бронирует одну группу пар мест (один заказ) и возвращает ссылку на оплату.
  */

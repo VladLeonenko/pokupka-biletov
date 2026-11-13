@@ -66,7 +66,8 @@ async function tick() {
   const rows = bots.map(healthOf);
   writeJson(HEALTH_FILE, { at: new Date().toISOString(), bots: rows });
 
-  const bad = rows.filter((r) => r.health !== 'ok' && !QUIET_OK.has(r.name));
+  // «молчит» — процесс online, писать не о чем. Письмо только если процесс реально не online.
+  const bad = rows.filter((r) => r.health === 'down' && r.name !== 'sniper-watchdog' && !QUIET_OK.has(r.name));
   if (!bad.length) return;
 
   const state = readState();

@@ -21,10 +21,10 @@ import {
   bookSeatsViaApi,
   bookOneOrder,
   renewPayment,
+  getPayment,
   MXAT_APP_KEY,
 } from './services/afishaApiBooking.js';
 import { sendTransactionalMail, isMailConfigured } from './services/mail/transporter.js';
-import { notifyOps } from './services/sniperOpsNotify.js';
 import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 import { MHT_KABALA_PREFERENCE } from './utils/findBestSeatsInHall.js';
 
@@ -100,8 +100,31 @@ function saveResults(record) {
   fs.writeFileSync(RESULTS_FILE, JSON.stringify(list, null, 2));
 }
 
-// Продление броней: повторный POST /payments/{orderId} обновляет окно оплаты (~45 мин),
-// чтобы бронь не слетала, пока оператор не оплатит. Запускается раз в ~30 минут.
+function markHoldCancelled(rec, r) {
+  r.status = 'cancelled';
+  const sid = String(rec.sessionId);
+  const set = bookedSeatIdsBySession.get(sid);
+  let allowRebook = false;
+  for (const id of r.seatIds || []) {
+    const n = seatBookCount.get(`${sid}:${id}`) || 1;
+    if (n >= 2) {
+      if (!bookedSeatIdsBySession.has(sid)) bookedSeatIdsBySession.set(sid, new Set());
+      bookedSeatIdsBySession.get(sid).add(id);
+    } else {
+      allowRebook = true;
+      set?.delete(id);
+    }
+  }
+  if ((bookedPairs.get(sid) || 0) > 0) bookedPairs.set(sid, (bookedPairs.get(sid) || 1) - 1);
+  console.log(`[renew] ${r.orderId}: заказ отменён/истёк — ${allowRebook ? 'одна перебронь ещё разрешена' : 'лимит переброни (1) исчерпан, места больше не берём'}.`);
+}
+
+// Продление броней. POST /payments повторно часто отвечает 400, хотя холд жив.
+// Сначала GET: отменяем только если Афиша сама сказала cancelled/expired.
+// Пока окно больше 25 минут — ссылку из письма не трогаем.
+const RENEW_EVERY_MS = 5 * 60 * 1000;
+const RENEW_WHEN_REMAIN_UNDER_S = 25 * 60;
+
 async function renewReservations(appKey) {
   let list = [];
   try { list = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf-8')); } catch { return; }
@@ -110,41 +133,49 @@ async function renewReservations(appKey) {
   for (const rec of list) {
     for (const r of rec.results || []) {
       if (!r.orderId) continue;
-      if (r.status === 'success' || r.status === 'cancelled') continue; // оплачен/уже слетел
+      if (r.status === 'success' || r.status === 'cancelled') continue;
+      let payment = null;
       try {
-        const p = await renewPayment(r.orderId, appKey);
-        if (p && p.payUrl) {
-          r.paymentUrl = p.payUrl;
-          r.status = p.status;
-          r.remainingTime = p.remainingTime;
-          if (p.qrCode) r.qrCode = p.qrCode;
-          changed = true;
-          console.log(`[renew] ${r.orderId}: бронь продлена, окно оплаты ${p.remainingTime}с`);
-        }
+        payment = await getPayment(r.orderId, appKey);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        // Только если заказ реально отменён/истёк — помечаем слетевшим, чтобы снайпер перебронировал.
-        if (/отменен|отменён|нельзя|не осталось|истек|истёк|expired|cancel|400|404|409/i.test(msg)) {
-          r.status = 'cancelled';
-          changed = true;
-          const sid = String(rec.sessionId);
-          const set = bookedSeatIdsBySession.get(sid);
-          let allowRebook = false;
-          for (const id of r.seatIds || []) {
-            const n = seatBookCount.get(`${sid}:${id}`) || 1;
-            if (n >= 2) {
-              if (!bookedSeatIdsBySession.has(sid)) bookedSeatIdsBySession.set(sid, new Set());
-              bookedSeatIdsBySession.get(sid).add(id);
-            } else {
-              allowRebook = true;
-              set?.delete(id);
-            }
-          }
-          if ((bookedPairs.get(sid) || 0) > 0) bookedPairs.set(sid, (bookedPairs.get(sid) || 1) - 1);
-          console.log(`[renew] ${r.orderId}: заказ отменён/истёк — ${allowRebook ? 'одна перебронь ещё разрешена' : 'лимит переброни (1) исчерпан, места больше не берём'}.`);
-        } else {
-          console.log(`[renew] ${r.orderId}: временная ошибка (${msg.slice(0, 80)}) — повторю в следующий цикл.`);
-        }
+        console.log(`[renew] ${r.orderId}: не прочитал платёж (${msg.slice(0, 80)}) — повторю`);
+        await new Promise((res) => setTimeout(res, 250));
+        continue;
+      }
+      const st = String(payment?.status || '').toLowerCase();
+      if (st === 'success' || st === 'paid') {
+        r.status = 'success';
+        changed = true;
+        console.log(`[renew] ${r.orderId}: оплачен`);
+        continue;
+      }
+      if (st === 'cancelled' || st === 'canceled' || st === 'expired') {
+        markHoldCancelled(rec, r);
+        changed = true;
+        await new Promise((res) => setTimeout(res, 250));
+        continue;
+      }
+      if (payment?.payUrl) r.paymentUrl = payment.payUrl;
+      if (payment?.qrCode) r.qrCode = payment.qrCode;
+      r.status = payment?.status || r.status;
+      r.remainingTime = payment?.remainingTime;
+      changed = true;
+      const remain = Number(payment?.remainingTime);
+      if (Number.isFinite(remain) && remain > RENEW_WHEN_REMAIN_UNDER_S) {
+        await new Promise((res) => setTimeout(res, 100));
+        continue;
+      }
+      try {
+        const p = await renewPayment(r.orderId, appKey);
+        if (p?.payUrl) r.paymentUrl = p.payUrl;
+        if (p?.status) r.status = p.status;
+        if (p?.remainingTime != null) r.remainingTime = p.remainingTime;
+        if (p?.qrCode) r.qrCode = p.qrCode;
+        console.log(`[renew] ${r.orderId}: бронь продлена, окно оплаты ${r.remainingTime}с`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.log(`[renew] ${r.orderId}: продлить не вышло (${msg.slice(0, 80)}), холд не помечаю отменённым`);
       }
       await new Promise((res) => setTimeout(res, 250));
     }
@@ -460,29 +491,16 @@ while (true) {
         lastNoPairAt.set(sid, Date.now());
       }
     } else if (a.captchaBlocked) {
-      console.log(`[${t}] 🔴 ${sid}: КАПЧА/429 блокирует API (${a.error}) | осталось ${remaining} пар`);
-      // раз в 3 минуты — тревожное письмо, чтобы не засыпать почту
       if (Date.now() - (lastCaptchaAlert.get(sid) || 0) > 180000) {
         lastCaptchaAlert.set(sid, Date.now());
-        await notifyOps({
-          subject: `Капча блокирует снайпер — сессия ${sid}`,
-          text: [
-            `Сессия ${sid}: API Афиши возвращает 429/капчу, бронь не проходит.`,
-            `Ошибка: ${a.error}`,
-            'Авто-решение SVG-капчи включено; растровые капчи сохраняются в data/captcha/.',
-            'Монитор продолжает поллить и автоматически повторит бронь, когда капча пройдёт.',
-          ].join('\n'),
-          dedupeKey: `captcha-block:${sid}`,
-          ttlMs: 180000,
-        }).catch(() => {});
-        console.log('📧 Тревога о капче ушла операторам и в колокольчик.');
+        console.log(`[${t}] 🔴 ${sid}: КАПЧА/429 (${a.error}) | осталось ${remaining} пар`);
       }
     } else {
       console.log(`[${t}] ${sid}: закрыто (${a.availableCount} мест)${a.error ? ' — ' + a.error : ''} | осталось ${remaining} пар`);
     }
   }
   // Продление активных броней (раз в ~30 минут), чтобы окно оплаты не истекало.
-  if (Date.now() - lastRenewAt > 30 * 60 * 1000) {
+  if (Date.now() - lastRenewAt > RENEW_EVERY_MS) {
     lastRenewAt = Date.now();
     await renewReservations(args.appKey);
   }

@@ -276,15 +276,6 @@ async function ensureSession({ force = false, reason = '' } = {}) {
   } catch (e) {
     lastResolveAt = Date.now();
     console.error('[resolve] FAIL', e instanceof Error ? e.message : e);
-    if (Date.now() - lastAlertAt > 6 * 3600_000) {
-      lastAlertAt = Date.now();
-      void alertOps(
-        'WOW CUP: не удалось резолвить session с wowcup.tennis',
-        `${e instanceof Error ? e.message : e}\nСейчас работаем на fallback: ${sessionKey}\nПроверь лендинг / widget URL вручную.`,
-        args.notifyEmail,
-        args.bcc,
-      );
-    }
     return { sessionKey, clientKey, changed: false, error: e };
   }
 }
