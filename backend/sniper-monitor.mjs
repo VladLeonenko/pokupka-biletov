@@ -17,7 +17,9 @@ import dotenv from 'dotenv';
 import {
   resolveEventSessions,
   getSessionAvailability,
+  getHallJson,
   bookSeatsViaApi,
+  bookOneOrder,
   renewPayment,
   MXAT_APP_KEY,
 } from './services/afishaApiBooking.js';
@@ -266,17 +268,132 @@ try {
 const lastNoPairAt = new Map();
 const lastHuntLog = new Map();
 const lastCaptchaAlert = new Map();
+const lastForceLog = new Map();
 let lastRenewAt = 0;
+
+// Разовое исключение из лимита «1 перебронь»: эти места берём снова, пока нет живой брони.
+// Общий лимит на остальные места не меняется.
+const FORCE_PAIRS = {
+  '135037141': [
+    { email: 'diana_io@mail.ru', ids: ['45781124', '45781123'] },
+    { email: 'iosifyagudaev@yandex.ru', ids: ['45781457', '45781458'] },
+  ],
+};
+
+function forcePairHeld(sid, ids) {
+  let list = [];
+  try { list = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf-8')); } catch { return false; }
+  const want = ids.map(String).sort().join(',');
+  for (const rec of list) {
+    if (String(rec.sessionId) !== String(sid)) continue;
+    for (const r of rec.results || []) {
+      const got = (r.seatIds || []).map(String).sort().join(',');
+      if (got !== want) continue;
+      if (r.status !== 'cancelled') return true;
+    }
+  }
+  return false;
+}
+
+async function bookForcedPairs(sid, availability) {
+  const spec = FORCE_PAIRS[String(sid)];
+  if (!spec) return;
+  const pending = spec.filter((p) => !forcePairHeld(sid, p.ids));
+  if (!pending.length) return;
+  const t = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour12: false });
+  if (!availability || availability.availableCount <= 0) {
+    if (Date.now() - (lastForceLog.get(sid) || 0) > 60_000) {
+      lastForceLog.set(sid, Date.now());
+      console.log(`[${t}] исключение ${sid}: зал пуст, жду ${pending.map((p) => p.email).join(', ')}`);
+    }
+    return;
+  }
+  let hall;
+  try { hall = await getHallJson(sid, args.appKey); } catch { return; }
+  const byId = new Map();
+  for (const level of hall.levels || []) {
+    for (const row of level.rows || []) {
+      for (const seat of row.seats || []) byId.set(String(seat.id), { level, row, seat });
+    }
+  }
+  const results = [];
+  const errors = [];
+  for (const p of pending) {
+    const found = p.ids.map((id) => byId.get(String(id))).filter(Boolean);
+    if (found.length !== p.ids.length || found.some((s) => !s.seat.isAvailable)) continue;
+    const contact = contacts.find((c) => String(c.email || '').toLowerCase() === p.email);
+    if (!contact) {
+      errors.push({ email: p.email, error: 'нет контакта' });
+      continue;
+    }
+    const level = found[0].level;
+    const row = found[0].row;
+    const pair = {
+      levelId: level.id,
+      levelName: level.name,
+      row: row.number,
+      seats: found.map((s) => ({ id: s.seat.id, number: s.seat.number, price: s.seat.price })),
+      totalPrice: found.reduce((sum, s) => sum + (Number(s.seat.price) || 0), 0),
+    };
+    try {
+      const r = await bookOneOrder(hall, [pair], sid, args.appKey, contact);
+      results.push({ ...r, name: contact.name, email: contact.email, phone: contact.phone, forced: true });
+      let seatSet = bookedSeatIdsBySession.get(String(sid));
+      if (!seatSet) { seatSet = new Set(); bookedSeatIdsBySession.set(String(sid), seatSet); }
+      for (const id of r.seatIds || []) {
+        seatBookCount.set(`${sid}:${id}`, (seatBookCount.get(`${sid}:${id}`) || 0) + 1);
+        seatSet.add(id);
+      }
+      if (r.orderId) {
+        try {
+          registerPendingPayment({
+            platform: 'afisha',
+            orderId: r.orderId,
+            paymentUrl: r.paymentUrl || null,
+            label: formatRuDate(availability.time) || sid,
+            eventId: sid,
+            amount: r.totalPrice ?? null,
+            tickets: (r.seatIds || []).length || 2,
+            seats: r.seats || null,
+            trackUntilMs: Date.now() + 6 * 3600_000,
+          });
+        } catch { /* ledger best-effort */ }
+      }
+    } catch (e) {
+      errors.push({ name: contact.name, email: contact.email, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  if (!results.length && !errors.length) return;
+  if (results.length) bookedPairs.set(String(sid), (bookedPairs.get(String(sid)) || 0) + results.length);
+  const record = {
+    sessionId: sid,
+    date: availability.time,
+    label: formatRuDate(availability.time),
+    spectacle: args.spectacle,
+    bookedAt: new Date().toISOString(),
+    forced: true,
+    results,
+    errors,
+  };
+  saveResults(record);
+  console.log(`\n✅ исключение ${sid}: +${results.length} заказов, ошибок ${errors.length}.`);
+  for (const r of results) console.log(`   ${r.name} (${r.email}) | ${r.seats} | ${r.totalPrice} ₽ | ${r.paymentUrl}`);
+  for (const e of errors) console.log(`   ❌ ${e.name || e.email}: ${e.error}`);
+  const mail = await notifyEmail(record, args.notifyEmail || contacts[0].email, args.bcc || 'yaguda_io@mail.ru');
+  console.log(`📧 Письмо: ${mail.ok ? `отправлено (${mail.via})` : 'не отправлено — ' + (mail.reason || 'нет')}`);
+}
 
 while (true) {
   for (const sid of targetSessions) {
     const target = sessionTargets.get(sid);
     const booked = bookedPairs.get(sid) || 0;
     const remaining = target - booked;
-    if (remaining <= 0) continue; // цель по сессии достигнута
 
     const a = await getSessionAvailability(sid, args.appKey);
     const t = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour12: false });
+    if (FORCE_PAIRS[String(sid)]) await bookForcedPairs(sid, a);
+    if (remaining <= 0) continue;
+
     if (a.availableCount > 0) {
       if (Date.now() - (lastHuntLog.get(sid) || 0) > 60_000) {
         lastHuntLog.set(sid, Date.now());
