@@ -7,6 +7,10 @@ import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import { FAN_ID_NOTICE, isValidFanId, isFanIdRequiredForRepertoire, normalizeFanId } from '@/utils/fanIdRequiredEvents';
 import { TicketHoldTimer } from '@/components/tickets/TicketHoldTimer';
 import { isTicketHoldActive, type TicketSeatHoldState } from '@/utils/ticketSeatHold';
+import {
+  peekPendingCheckoutPromo,
+  PROMO_CODE_APPLIED_EVENT,
+} from '@/utils/promoPopupVisitor';
 import styles from './TicketPurchaseDialog.module.css';
 
 export type TicketPurchaseDialogProps = {
@@ -24,6 +28,7 @@ export type TicketPurchaseDialogProps = {
   sessionLabel?: string | null;
   /** Краткий тизер описания (как на странице события) */
   descriptionLead?: string | null;
+  venueLabel?: string | null;
   requiresFanId?: boolean;
   /** Zone-preorder (Большой): нужны паспортные данные, менеджер свяжется. */
   requiresPassportManager?: boolean;
@@ -51,6 +56,7 @@ export function TicketPurchaseDialog({
   baseTotalRub,
   sessionLabel,
   descriptionLead,
+  venueLabel = null,
   requiresFanId = false,
   requiresPassportManager = false,
   hold = null,
@@ -97,7 +103,19 @@ export function TicketPurchaseDialog({
     setPromoHint(null);
     setPromoFinalRub(null);
     setPromoDiscountRub(null);
+    const pending = peekPendingCheckoutPromo();
+    if (pending) setPromo(pending);
   }, [open, base]);
+
+  useEffect(() => {
+    const onPromo = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ code?: string }>).detail;
+      const next = detail?.code?.trim();
+      if (next) setPromo(next.toUpperCase());
+    };
+    window.addEventListener(PROMO_CODE_APPLIED_EVENT, onPromo);
+    return () => window.removeEventListener(PROMO_CODE_APPLIED_EVENT, onPromo);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -109,7 +127,10 @@ export function TicketPurchaseDialog({
       return;
     }
     const t = window.setTimeout(() => {
-      validateBiletTicketPromo(code, base)
+      validateBiletTicketPromo(code, base, {
+        repertoireId,
+        venueLabel: venueLabel || undefined,
+      })
         .then((r) => {
           if (!r.ok) {
             setPromoHint({ ok: false, text: r.error || 'Недоступен' });
@@ -128,7 +149,7 @@ export function TicketPurchaseDialog({
         });
     }, 450);
     return () => clearTimeout(t);
-  }, [promo, base, open]);
+  }, [promo, base, open, repertoireId, venueLabel]);
 
   const displayFinalRub = promoFinalRub != null ? promoFinalRub : base;
 
@@ -144,6 +165,7 @@ export function TicketPurchaseDialog({
         customerPhone: phone.trim(),
         customerEmail: email.trim(),
         promoCode: promo.trim() || undefined,
+        venueLabel: venueLabel || undefined,
         fanId: requiresFanIdEffective ? normalizeFanId(fanId) : undefined,
         heldGetbiletOrderIds: hold?.getbiletOrderIds,
         heldMakeData: hold?.makeData,

@@ -146,10 +146,13 @@ function shouldBook(key) {
   if (!AUTO_BOOK || bookingInFlight.has(key)) return false;
   const h = holds.get(key);
   if (!h) return true;
+  // Уже исчерпали: 1-я бронь + MAX_REBOOKS повторов — больше не трогаем сеанс.
   if (h.done) return false;
   const successCount = Number(h.successCount || (h.orderOk || h.orderId ? 1 : 0));
   if (successCount >= 1 + MAX_REBOOKS) return false;
   if (Date.now() < (h.cooldownUntil || 0)) return false;
+  // Повтор только после успешной брони и истечения cooldown.
+  if (successCount >= 1 && !h.orderOk) return false;
   return true;
 }
 
@@ -185,9 +188,9 @@ async function tryBook(ev) {
     );
     const result = await Promise.race([
       bookVakhtangovParterPairs(
-      { path: ev.path, accessHash: ev.accessHash, label: ev.label },
-      { maxPairs: MAX_PAIRS, excludeSeatKeys },
-    ),
+        { path: ev.path, accessHash: ev.accessHash, label: ev.label },
+        { maxPairs: MAX_PAIRS, excludeSeatKeys },
+      ),
       new Promise((_, reject) => setTimeout(() => reject(new Error('book timeout 120s')), 120_000)),
     ]);
 

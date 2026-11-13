@@ -19,6 +19,7 @@ import {
   buildEventsIndexSsrHtml,
   buildHomeSsrHtml,
   buildCmsPageSsrHtml,
+  buildNotFoundSsrHtml,
   buildEventItemListSchema,
 } from '../lib/ticket-ssr-html.js';
 import {
@@ -93,6 +94,11 @@ function normalizePublicPath(pathname) {
 function isNoindexPublicPath(pathname) {
   const n = normalizePublicPath(pathname);
   return NOINDEX_PATH_PREFIXES.some((prefix) => n === prefix || n.startsWith(`${prefix}/`));
+}
+
+/** Явный /404 — HTTP 404 + брендовый SSR. Остальные unknown идут в SPA/CMS (/:slug). */
+function isNotFoundPublicPath(pathname) {
+  return normalizePublicPath(pathname) === '/404';
 }
 
 function looksLikeGetbiletId(value) {
@@ -393,14 +399,16 @@ export async function seoRenderer(req, res, next) {
     const allowCache = !Object.keys(query).length;
     const socialBot = isSocialPreviewBot(req);
 
+    const hardNotFound = isNotFoundPublicPath(pathOnly);
+
     // Полный SSR-кэш — только людям. Ботам всегда лёгкий документ с OG в начале.
     if (allowCache && !socialBot) {
       const cached = getSsrHtmlCache(pathOnly);
       if (cached) {
-        res.status(200);
+        res.status(hardNotFound ? 404 : 200);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Vary', 'Accept-Encoding, User-Agent');
-        res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
+        res.setHeader('Cache-Control', hardNotFound ? 'no-store' : 'public, max-age=60, must-revalidate');
         res.setHeader('X-BV-SSR-Cache', 'HIT');
         return res.send(cached);
       }
@@ -426,6 +434,7 @@ export async function seoRenderer(req, res, next) {
     }
 
     // Корзина / ЛК / auth — noindex даже без query (CSR noindex бот не видит).
+    // /404 уже получает нормальный title из generateSeoTags — не затирать «Служебная».
     if (isNoindexPublicPath(pathOnly)) {
       const baseUrl = siteBaseUrl();
       const canonPath = normalizePublicPath(pathOnly);
@@ -493,12 +502,15 @@ export async function seoRenderer(req, res, next) {
       console.log('[SSR] ✓', pathOnly, ssrFragment ? '+ content' : '');
     }
 
-    res.status(200);
+    res.status(hardNotFound ? 404 : 200);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', allowCache ? 'public, max-age=60, must-revalidate' : 'no-store');
+    res.setHeader(
+      'Cache-Control',
+      hardNotFound || !allowCache ? 'no-store' : 'public, max-age=60, must-revalidate',
+    );
     res.setHeader('Vary', 'Accept-Encoding');
-    res.setHeader('X-BV-SSR-Cache', allowCache ? 'MISS' : 'BYPASS');
-    if (allowCache) setSsrHtmlCache(pathOnly, html);
+    res.setHeader('X-BV-SSR-Cache', allowCache && !hardNotFound ? 'MISS' : 'BYPASS');
+    if (allowCache && !hardNotFound) setSsrHtmlCache(pathOnly, html);
 
     res.send(html);
   } catch (err) {
@@ -517,6 +529,18 @@ async function generateSeoTags(url) {
   try {
     const base = siteBaseUrl();
     const brand = siteBrand();
+
+    // 404 — отдельный noindex-лендинг в стиле сайта (не «Служебная страница»).
+    if (url === '/404' || url === '/404/') {
+      const canonical = `${base}/404`;
+      const title = 'Страница не найдена';
+      const description =
+        'Такой страницы нет. Откройте афишу или поиск мероприятий — билеты на концерты, театр и спорт.';
+      out.metaTags = `${metaBlockForPage({ base, brand, canonical, title, description, ogType: 'website' })}
+    <meta name="robots" content="noindex, nofollow" />`;
+      out.ssr = { kind: 'notfound', title, description, path: '/404' };
+      return out;
+    }
 
     // Поиск мероприятий
     if (url === '/events' || url === '/events/') {
@@ -1019,8 +1043,12 @@ async function generateSsrContent(url, seoCtx) {
       const events = await fetchPublishedEventsForSsr(24);
       return buildEventsIndexSsrHtml({ events });
     }
+    if (isNotFoundPublicPath(url)) {
+      return buildNotFoundSsrHtml({ brand: siteBrand() });
+    }
     return '';
   }
+  if (ssr.kind === 'notfound') return buildNotFoundSsrHtml({ brand: siteBrand() });
   if (ssr.kind === 'ticket') return buildTicketEventSsrHtml(ssr);
   if (ssr.kind === 'events-index') return buildEventsIndexSsrHtml({ events: ssr.events || [] });
   if (ssr.kind === 'home') return buildHomeSsrHtml({ events: ssr.events || [] });
@@ -1369,7 +1397,26 @@ async function buildReactTicketsQuerySeed(pathOnly, ssrMeta) {
         { headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } },
       );
       if (res.ok) {
-        seed.repertoirePage = { repertoireId, data: await res.json() };
+        const data = await res.json();
+        // Не кладём полный GetOfferList в HTML: на больших залах это 300–500KB+
+        // (SeatList/сектора), раздувает документ и TTFB на cache MISS. Контекст +
+        // meta остаются; офферы подтянет клиент (refetchOnMount на ticket page).
+        if (data && typeof data === 'object' && data.offers) {
+          const method =
+            data.offers.Method ||
+            data.offers.method ||
+            'GetOfferListByRepertoireId';
+          data.offers = {
+            Success: true,
+            Method: method,
+            ResultData: [],
+          };
+          data.offersMeta = {
+            ...(data.offersMeta && typeof data.offersMeta === 'object' ? data.offersMeta : {}),
+            ssrOffersOmitted: true,
+          };
+        }
+        seed.repertoirePage = { repertoireId, data };
       }
     } catch (e) {
       console.warn('[SSR] react seed page:', e?.message || e);

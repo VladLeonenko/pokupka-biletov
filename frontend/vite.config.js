@@ -86,9 +86,41 @@ export default defineConfig(function (_a) {
                 },
             },
             // Vite/Rollup сами строят безопасный граф чанков.
-            // Ручной vendor/react-vendor split давал циклические чанки и ReferenceError в production.
+            // Явный split: иначе shared-shell (~600KB) называется ScrollToTop-*.js и жрёт TBT в LH.
             rollupOptions: {
                 output: {
+                    manualChunks: function (id) {
+                        var n = id.split('\\').join('/');
+                        if (n.includes('/components/common/ScrollToTop'))
+                            return 'scroll-top';
+                        if (n.includes('/ssr/PublicTicketsShell') ||
+                            n.includes('/ssr/createEmotionCache') ||
+                            n.includes('/components/tickets/TicketsHeader') ||
+                            n.includes('/components/tickets/TicketsFooter') ||
+                            n.includes('/components/tickets/TicketCartStickyBar') ||
+                            n.includes('/components/common/ToastProvider') ||
+                            n.includes('/components/common/ErrorBoundary') ||
+                            n.includes('/components/privacy/CookieConsentProvider') ||
+                            n.includes('/context/TicketCartContext') ||
+                            n.includes('/theme/ThemeModeProvider') ||
+                            n.includes('/auth/AuthProvider') ||
+                            n.includes('/utils/ticketsTheme')) {
+                            return 'tickets-shell';
+                        }
+                        if (!n.includes('node_modules'))
+                            return;
+                        if (n.includes('@mui') || n.includes('@emotion'))
+                            return 'mui';
+                        if (n.includes('react-dom') ||
+                            n.includes('react-router') ||
+                            n.includes('/react/')) {
+                            return 'react-vendor';
+                        }
+                        if (n.includes('@tanstack/react-query'))
+                            return 'query';
+                        if (n.includes('date-fns'))
+                            return 'date-fns';
+                    },
                     // Оптимизация имен файлов для кэширования
                     chunkFileNames: 'assets/js/[name]-[hash].js',
                     entryFileNames: 'assets/js/[name]-[hash].js',

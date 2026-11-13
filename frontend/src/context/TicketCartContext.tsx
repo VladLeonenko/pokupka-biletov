@@ -31,6 +31,7 @@ export type TicketCartSnapshot = {
   seatLabels?: string[];
   mapOfferSelections?: Array<{ offerId: string; seats: string[] }>;
   descriptionLead?: string | null;
+  venueLabel?: string | null;
   ticketHref: string;
   requiresFanId?: boolean;
   /** Большой и др. zone-preorder: паспорт + менеджер свяжется. */

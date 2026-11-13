@@ -27,6 +27,7 @@ import MapIcon from '@mui/icons-material/Map';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
+import CampaignIcon from '@mui/icons-material/Campaign';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -47,6 +48,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'GetBilet: наценка', icon: <PriceIcon />, path: '/admin/getbilet/markup', group: 'Билеты', roles: ['admin', 'sales_manager'] },
   { label: 'Цены конкурентов (Афиша…)', icon: <TrendingDownIcon />, path: '/admin/getbilet/competitor-prices', group: 'Билеты', roles: ['admin', 'sales_manager'] },
   { label: 'GetBilet: промокоды', icon: <LocalOfferIcon />, path: '/admin/getbilet/promos', group: 'Билеты', roles: ['admin', 'sales_manager'] },
+  { label: 'Промо-попап (−Большой)', icon: <LocalOfferIcon />, path: '/admin/getbilet/promo-popup', group: 'Билеты', roles: ['admin', 'sales_manager'] },
+  { label: 'Медиаплан рекламы', icon: <CampaignIcon />, path: '/admin/ads-mediaplan', group: 'Билеты', roles: ['admin', 'sales_manager'] },
   { label: 'Витрина билетов (контент)', icon: <StorefrontIcon />, path: '/admin/tickets-vitrine', group: 'Билеты', roles: ['admin', 'sales_manager'] },
   { label: 'Снайпер мест', icon: <GpsFixedIcon />, path: '/admin/sniper', group: 'Билеты', roles: ['admin'] },
 

@@ -136,12 +136,21 @@
   color: #fff !important;
 }
 
+.heroTrust {
+  margin: 14px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 252, 248, 0.82);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
 .heroCtaRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .heroSelectBtn {
@@ -557,6 +566,8 @@ img.heroPosterImg {
   overflow: hidden;
   background: #fff;
   scroll-margin-top: 110px;
+  /* CLS: оболочка зала до SVG/офферов сеанса */
+  min-height: min(62vh, 580px);
 }
 
 .seatPickAnchor {
@@ -679,6 +690,8 @@ img.heroPosterImg {
   gap: 12px;
   overflow-x: auto;
   padding: 4px 2px 12px;
+  /* CLS: высота карточек известна до прихода sessions */
+  min-height: 108px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -742,6 +755,16 @@ img.heroPosterImg {
   font-size: 0.85rem;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+/* CLS: место под карусель цен до прихода chips (иначе прыжок над схемой). */
+.priceFilterSlot {
+  min-height: 56px;
+  background: #fff;
+}
+
+.priceFilterSlot:empty {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .hallMapStage {

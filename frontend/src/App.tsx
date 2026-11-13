@@ -28,6 +28,7 @@ import { matchesTicketsChromePath, useTicketsChromeForced } from '@/utils/ticket
 import { RouteSeoDefaults } from '@/components/common/RouteSeoDefaults';
 import { TicketCartProvider } from '@/context/TicketCartContext';
 import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
+import { BolshoiPromoPopup as SitePromoPopup } from '@/components/tickets/BolshoiPromoPopup';
 
 export default function App() {
   const location = useLocation();
@@ -142,6 +143,8 @@ export default function App() {
             {useTicketsChrome ? <TicketCartStickyBar /> : null}
             {/* HeaderFooterInjector для legacy HTML страниц (PublicPageView) */}
             <HeaderFooterInjector />
+            {/* Промо-попап 10% (кроме Большого) — один раз, ~12с от входа */}
+            {useTicketsChrome ? <SitePromoPopup /> : null}
             {/* Виджеты чата — lazy load, не блокируют первый рендер */}
             {forcedTicketsChrome ? null : (
               <Suspense fallback={null}>

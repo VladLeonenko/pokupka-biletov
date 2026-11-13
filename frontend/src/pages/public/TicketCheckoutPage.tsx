@@ -9,7 +9,7 @@ import {
   type FormEvent,
 } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   Accordion,
   AccordionDetails,
@@ -409,20 +409,34 @@ export function TicketCheckoutPage() {
   const sessionHint = searchParams.get('eventDateTime')?.trim() || null;
   const paymentFailed = searchParams.get('payment') === 'failed';
 
+  /** Ручной выбор сеанса; null = сервер сам scoped к ближайшему / hint. */
+  const [userSessionKey, setUserSessionKey] = useState<string | null>(null);
+  useEffect(() => {
+    setUserSessionKey(null);
+  }, [repertoireId]);
+
+  const sessionFetchKey = userSessionKey ?? sessionHint ?? '__default__';
+
   const {
     data: pageBundle,
     isLoading: pageLoading,
     isError: pageError,
     error: pageErrorObj,
     isSuccess: pageSuccess,
+    isFetching: pageFetching,
   } = useQuery({
-    queryKey: ['bilet-repertoire-page', repertoireId, 'markup-v2'],
-    queryFn: () => fetchRepertoirePageBundle(repertoireId),
+    queryKey: ['bilet-repertoire-page', repertoireId, 'markup-v2', sessionFetchKey],
+    queryFn: () =>
+      fetchRepertoirePageBundle(repertoireId, {
+        eventDateTime: userSessionKey ?? sessionHint,
+      }),
     enabled: Boolean(repertoireId),
     staleTime: 15_000,
     gcTime: 5 * 60_000,
-    refetchOnMount: true,
+    // always: SSR может отдать offers=[] (ssrOffersOmitted) — без always зал залипает пустым
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
     retry: 1,
     refetchInterval: (query) =>
       query.state.data?.offersMeta?.cache === 'miss_pending' ? 800 : false,
@@ -540,8 +554,31 @@ export function TicketCheckoutPage() {
     return null;
   }, [offers, ctx?.venueAddress, venueAddressFromCatalog]);
 
-  /** Все сеансы по полному каталогу (расписание не зависит от фильтра цены/зоны). */
+  /**
+   * Расписание: предпочтительно sessions[] с API (все даты + minPrice без 1100 SeatList).
+   * Fallback — группировка текущих offers (старые ответы / 1 сеанс).
+   */
   const allSessionsSorted = useMemo(() => {
+    const apiSessions = pageBundle?.sessions;
+    if (Array.isArray(apiSessions) && apiSessions.length > 0) {
+      let entries = apiSessions.map((s) => {
+        const stub: OfferRow = {
+          EventDateTime: s.eventDateTime,
+          AgentPrice: s.minPrice != null ? String(s.minPrice) : undefined,
+          NominalPrice: s.minPrice != null ? String(s.minPrice) : undefined,
+          SeatList: [],
+        };
+        return [s.eventDateTime, [stub]] as [string, OfferRow[]];
+      });
+      if (sessionHint) {
+        const idx = entries.findIndex(([e]) => sessionMatchesHint(e, sessionHint));
+        if (idx > 0) {
+          const [hit] = entries.splice(idx, 1);
+          entries = [hit, ...entries];
+        }
+      }
+      return entries;
+    }
     const m = new Map<string, OfferRow[]>();
     for (const o of listableOffers as OfferRow[]) {
       const k = o.EventDateTime ?? '_';
@@ -565,7 +602,7 @@ export function TicketCheckoutPage() {
       }
     }
     return entries;
-  }, [listableOffers, sessionHint]);
+  }, [pageBundle?.sessions, listableOffers, sessionHint]);
 
   const [filterState, setFilterState] = useState<OfferFilterState>({
     zone: 'all',
@@ -622,7 +659,17 @@ export function TicketCheckoutPage() {
     });
   }, [repertoireId, isSuccess, listableOffers.length, pb.min, pb.max]);
 
+  /** До layoutJsonForStage: Bolshoi hallPreview уже в context/map layout. */
+  const zonePreorderHallEarly = useMemo(
+    () =>
+      parseHallPreviewSectorCheckout(ctx?.stageMap?.layout_json) ||
+      parseHallPreviewSectorCheckout(mapByStageId?.layout_json),
+    [ctx?.stageMap?.layout_json, mapByStageId?.layout_json],
+  );
+
   const filteredOffers = useMemo(() => {
+    // Большой (zone preorder со схемы): фильтр зона/цена/проход не нужен — только схема.
+    if (zonePreorderHallEarly) return listableOffers as OfferRow[];
     if (isFootballStadiumStage) {
       if (stadiumSectorFilter === 'all') return listableOffers as OfferRow[];
       return (listableOffers as OfferRow[]).filter(
@@ -636,7 +683,15 @@ export function TicketCheckoutPage() {
       ? { ...filterState, priceRange: [pb.min, pb.max] }
       : filterState;
     return filterOffers(listableOffers as OfferRowLike[], state) as OfferRow[];
-  }, [isFootballStadiumStage, listableOffers, filterState, stadiumSectorFilter, pb.min, pb.max]);
+  }, [
+    zonePreorderHallEarly,
+    isFootballStadiumStage,
+    listableOffers,
+    filterState,
+    stadiumSectorFilter,
+    pb.min,
+    pb.max,
+  ]);
 
   const priceColorMap = useMemo(() => {
     const sorted = Array.from(new Set(listableOffers.map(priceKey))).sort(
@@ -674,7 +729,11 @@ export function TicketCheckoutPage() {
     return allSessionsSorted[0][0];
   }, [allSessionsSorted, sessionHint]);
 
-  const [selectedSessionKey, setSelectedSessionKey] = useState<string | null>(null);
+  const selectedSessionKey =
+    userSessionKey ??
+    pageBundle?.offersMeta?.scopedToSession ??
+    defaultSessionKey;
+  const setSelectedSessionKey = setUserSessionKey;
   const [mapDialogOpen, setMapDialogOpen] = useState(false);
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [offerId, setOfferId] = useState<string | null>(null);
@@ -694,10 +753,6 @@ export function TicketCheckoutPage() {
   const theme = useTheme();
   const fullScreenMap = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobileViewport = useMediaQuery(theme.breakpoints.down('md'));
-  useEffect(() => {
-    setSelectedSessionKey(defaultSessionKey);
-  }, [repertoireId, defaultSessionKey]);
-
   useEffect(() => {
     if (!repertoireId) return;
     setOwnHintDismissed(false);
@@ -979,6 +1034,7 @@ export function TicketCheckoutPage() {
         (mergedVenue
           ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
           : null),
+      venueLabel: mergedVenue || null,
       ticketHref,
       requiresFanId,
       requiresPassportManager:
@@ -1056,6 +1112,7 @@ export function TicketCheckoutPage() {
         (mergedVenue
           ? `Площадка: ${mergedVenue}${mergedVenueAddress ? `, ${mergedVenueAddress}` : ''}`
           : null),
+      venueLabel: mergedVenue || null,
       ticketHref,
       requiresFanId,
       requiresPassportManager:
@@ -1105,8 +1162,14 @@ export function TicketCheckoutPage() {
     return `${n} сеансов`;
   }, [allSessionsSorted.length]);
 
-  const minPriceHero =
-    listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0 ? pb.min : null;
+  const minPriceHero = useMemo(() => {
+    const fromSessions = (pageBundle?.sessions ?? [])
+      .map((s) => s.minPrice)
+      .filter((n): n is number => n != null && Number.isFinite(n) && n > 0);
+    if (fromSessions.length > 0) return Math.min(...fromSessions);
+    if (listableOffers.length > 0 && Number.isFinite(pb.min) && pb.min > 0) return pb.min;
+    return null;
+  }, [pageBundle?.sessions, listableOffers.length, pb.min]);
 
   const isSupercupSportCheckout = isSupercupNnRepertoire(repertoireId);
 
@@ -1323,7 +1386,15 @@ export function TicketCheckoutPage() {
   const seatListPrimary = Boolean(!hallSvg && !showHallMapShell);
 
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
-  const noOffersAfterFetch = !isLoading && (isSuccess || isError) && offers.length === 0;
+  const noOffersAfterFetch =
+    !isLoading && !pageFetching && (isSuccess || isError) && offers.length === 0;
+
+  /** Смена сеанса: keepPreviousData ещё держит чужой EventDateTime — не рисуем чужие места. */
+  const sessionOffersPending = useMemo(() => {
+    if (!pageFetching || !selectedSessionKey || selectedSessionKey === '_') return false;
+    if (offers.length === 0) return true;
+    return !(offers as OfferRow[]).some((o) => (o.EventDateTime ?? '_') === selectedSessionKey);
+  }, [pageFetching, selectedSessionKey, offers]);
 
   /** Ключ сеанса для карты: без офферов используем «_», чтобы отрисовать подложку без выбора даты. */
   const hallMapSessionKey = useMemo(() => {
@@ -1340,11 +1411,12 @@ export function TicketCheckoutPage() {
   const hallMapReady = Boolean(hallSvg?.trim() && hallMapSessionKey);
 
   /**
-   * CWV: don't parse/paint TicketHallInteractiveBlock until the map stage is near viewport.
-   * Fixed-height stage → no CLS when chunk mounts (unlike idle-swap without reserved space).
+   * CWV: don't parse/paint TicketHallInteractiveBlock until near viewport + idle.
+   * Fixed-height stage → no CLS when chunk mounts.
    */
   const hallStageRef = useRef<HTMLDivElement | null>(null);
   const [hallInView, setHallInView] = useState(false);
+  const [hallIdleReady, setHallIdleReady] = useState(false);
   useEffect(() => {
     if (!hallMapReady) {
       setHallInView(false);
@@ -1364,13 +1436,34 @@ export function TicketCheckoutPage() {
         }
       },
       // No large rootMargin: keeps hall JS off first paint / LH lab (map is below hero).
-      // Real scroll still mounts immediately when the stage enters the viewport.
       { root: null, rootMargin: '0px', threshold: 0.05 },
     );
     io.observe(el);
     return () => io.disconnect();
   }, [hallMapReady]);
-  const mountHallInteractive = hallMapReady && hallInView;
+  useEffect(() => {
+    if (!hallInView) {
+      setHallIdleReady(false);
+      return;
+    }
+    let cancelled = false;
+    const arm = () => {
+      if (!cancelled) setHallIdleReady(true);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(arm, { timeout: 900 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(id);
+      };
+    }
+    const t = window.setTimeout(arm, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [hallInView]);
+  const mountHallInteractive = hallMapReady && hallInView && hallIdleReady;
 
   /** Офферы выбранного сеанса для схемы (при архивном событии список пустой, секторный режим остаётся ориентиром). */
   const offersForMap = useMemo(() => {
@@ -1990,16 +2083,18 @@ export function TicketCheckoutPage() {
                   {reserveError}
                 </Alert>
               ) : null}
-              {hallMapReady ? (
+              {hallMapReady && !sessionOffersPending ? (
                 <>
-                  {priceChipsForMap.length > 0 ? (
-                    <TicketPriceFilterCarousel
-                      chips={priceChipsForMap}
-                      selectedPriceKeys={mapSelectedPriceKeys}
-                      onSelect={handleMapPriceSelect}
-                      onReset={handleMapPriceReset}
-                    />
-                  ) : null}
+                  <div className={styles.priceFilterSlot} aria-hidden={priceChipsForMap.length === 0}>
+                    {priceChipsForMap.length > 0 ? (
+                      <TicketPriceFilterCarousel
+                        chips={priceChipsForMap}
+                        selectedPriceKeys={mapSelectedPriceKeys}
+                        onSelect={handleMapPriceSelect}
+                        onReset={handleMapPriceReset}
+                      />
+                    ) : null}
+                  </div>
                   <div className={styles.hallMapStage} ref={hallStageRef}>
                     <Suspense fallback={<HallMapLoadingPane />}>
                       {mountHallInteractive ? (
@@ -2110,7 +2205,7 @@ export function TicketCheckoutPage() {
 
 
 
-          {!isLoading && !isError && listableOffers.length > 0 && (
+          {!isLoading && !isError && listableOffers.length > 0 && !zonePreorderHall && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
                 Фильтр

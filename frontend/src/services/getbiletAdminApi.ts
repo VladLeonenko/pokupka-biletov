@@ -482,6 +482,58 @@ export async function deletePromo(id: number): Promise<void> {
   await handle(res);
 }
 
+export type PromoPopupCampaignRow = {
+  id: number;
+  slug: string;
+  is_active: boolean;
+  headline: string;
+  body_text: string;
+  cta_label: string;
+  discount_kind: string;
+  discount_value: string | number;
+  ttl_minutes: number;
+  venue_ilike: string;
+  venue_scope?: 'include' | 'exclude' | 'all';
+  code_prefix: string;
+  delay_ms: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PromoPopupCampaignStats = {
+  grants_total: number;
+  grants_active: number;
+  grants_expired: number;
+  used: number;
+};
+
+export async function listPromoPopupCampaigns(): Promise<PromoPopupCampaignRow[]> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/promo-popup-campaigns`, {
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
+export async function updatePromoPopupCampaign(
+  id: number,
+  body: Record<string, unknown>,
+): Promise<PromoPopupCampaignRow> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/promo-popup-campaigns/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  return handle(res);
+}
+
+export async function fetchPromoPopupCampaignStats(id: number): Promise<PromoPopupCampaignStats> {
+  const res = await fetch(`${API_BASE}/api/admin/getbilet/promo-popup-campaigns/${id}/stats`, {
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+
 export interface GetbiletStageMapListRow {
   id: number;
   stage_external_id: string;

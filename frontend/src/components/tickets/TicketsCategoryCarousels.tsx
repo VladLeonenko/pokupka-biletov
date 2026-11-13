@@ -8,6 +8,7 @@ import {
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
 import { pinVenueAfishaEvents } from '@/utils/venueAfishaPin';
+import { sortEventsByTheaterDemand } from '@/utils/eventDemandRank';
 import styles from './TicketsCategoryCarousels.module.css';
 
 function venueCanonForDirection(dir: CategoryDirection): string | null {
@@ -45,8 +46,14 @@ function timeMs(ev: NormalizedBiletEvent): number {
   return Number.MAX_SAFE_INTEGER;
 }
 
-/** Премьеры выше, внутри — ближайшие даты. */
-function sortCategoryEvents(rows: NormalizedBiletEvent[]): NormalizedBiletEvent[] {
+/** Премьеры выше, внутри — ближайшие даты. Театр — по Wordstat/HOT-спросу. */
+function sortCategoryEvents(
+  rows: NormalizedBiletEvent[],
+  dir: CategoryDirection,
+): NormalizedBiletEvent[] {
+  const isTheater =
+    dir.genre?.trim().toLowerCase() === 'театр' || dir.label.trim().toLowerCase() === 'театр';
+  if (isTheater) return sortEventsByTheaterDemand(rows);
   return [...rows].sort((a, b) => {
     if (a.isPremiere && !b.isPremiere) return -1;
     if (!a.isPremiere && b.isPremiere) return 1;
@@ -135,8 +142,8 @@ export function TicketsCategoryCarousels({
         const filtered = filterEventsClient(source, genre ? { genre } : { q: q! });
         const venueCanon = venueCanonForDirection(d);
         const ordered = venueCanon
-          ? pinVenueAfishaEvents(venueCanon, sortCategoryEvents(filtered))
-          : sortCategoryEvents(filtered);
+          ? pinVenueAfishaEvents(venueCanon, sortCategoryEvents(filtered, d))
+          : sortCategoryEvents(filtered, d);
         const sorted = ordered.slice(0, MAX_PER_ROW);
         return { dir: d, items: sorted };
       })

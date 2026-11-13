@@ -1,0 +1,25 @@
+---
+description: Feature-ветки нельзя выкатывать на прод без мержа в main — иначе код пропадает при следующем деплое main
+alwaysApply: true
+---
+
+# Feature → main до прода (обязательно)
+
+Инцидент 11–13.11.2026: на прод выкатили `feature/lp-ads-75k-2026-11` (Щелкунчик, медиаплан, промо-попап). Потом `deploy-via-git.sh main` вернул сервер на `main` без этих коммитов — название и админка «пропали», хотя в БД данные остались.
+
+## Жёсткие правила
+
+1. **Прод = только `main`.** Деплой: `./scripts/deploy-via-git.sh main` после того, как нужные коммиты уже в `origin/main`.
+2. **Не деплоить feature-ветку на прод**, пока она не влита в `main` (merge/PR). Исключение — только явный hotfix с немедленным merge в `main` в том же сеансе.
+3. Перед `ssh … deploy-via-git.sh FEATURE`:  
+   `git merge-base --is-ancestor origin/FEATURE origin/main` должен быть true **или** сразу после успешного деплоя feature сделать merge в `main` + push + деплой `main`.
+4. После работы на feature: **merge в `main` + push `main`**, не оставлять прод на orphan-ветке.
+5. Перед мержем сверить diff:  
+   `git log --oneline origin/main..origin/FEATURE` и `git diff --stat origin/main...origin/FEATURE`.
+6. Hotfix прямо на сервере / только в БД без коммита в `main` — запрещён как единственный источник правды (исключение: разовые data-fix с зеркалом в seed/скрипт репо).
+
+## Чеклист агента перед деплоем
+
+- [ ] Текущая ветка / целевой BRANCH для скрипта — `main`, либо feature уже ancestor of `main`
+- [ ] `git push origin main` уже содержит нужные изменения
+- [ ] Нет «временного» прода с feature HEAD, который завтра перетрёт `main`

@@ -16,6 +16,11 @@ alwaysApply: true
 - Key: `~/.ssh/cursor_deploy_ed25519`
 - Проект на VPS: `/var/pokupka-biletov` (не `/var/www/...`)
 
+## Ветка
+
+- На прод выкатывать **только то, что уже в `origin/main`**.
+- Feature-ветку на прод без merge в `main` — **запрещено** (см. `git-feature-merge-before-prod.mdc`). Иначе следующий деплой `main` сотрёт код, а БД останется «осиротевшей».
+
 ## Порядок
 
 1. Локально: commit (только если пользователь просил commit) + `git push` нужной ветки.

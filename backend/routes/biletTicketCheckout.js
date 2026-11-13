@@ -98,7 +98,14 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
     try {
       const code = req.body?.code ?? req.body?.promoCode ?? '';
       const amountRub = Number(req.body?.amountRub);
-      const v = await validateGetbiletPromoForAmount(String(code), amountRub);
+      const repertoireId =
+        typeof req.body?.repertoireId === 'string' ? req.body.repertoireId.trim() : '';
+      const venueLabel =
+        typeof req.body?.venueLabel === 'string' ? req.body.venueLabel.trim() : '';
+      const v = await validateGetbiletPromoForAmount(String(code), amountRub, {
+        repertoireId: repertoireId || undefined,
+        venueLabel: venueLabel || undefined,
+      });
       if (!v.ok) {
         return res.status(400).json({ ok: false, error: v.error || 'Промокод недоступен' });
       }
@@ -148,6 +155,10 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       }
 
       const promoCode = typeof req.body?.promoCode === 'string' ? req.body.promoCode.trim() : '';
+      const venueLabel =
+        typeof req.body?.venueLabel === 'string' && req.body.venueLabel.trim()
+          ? req.body.venueLabel.trim().slice(0, 300)
+          : null;
 
       let fanId = null;
       if (isFanIdRequiredForRepertoire(repertoireId)) {
@@ -180,13 +191,18 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       const baseRub = priced.baseRub;
       let finalRub = baseRub;
       let promoId = null;
+      let discountRub = 0;
       if (promoCode) {
-        const pv = await validateGetbiletPromoForAmount(promoCode, baseRub);
+        const pv = await validateGetbiletPromoForAmount(promoCode, baseRub, {
+          repertoireId,
+          venueLabel: venueLabel || undefined,
+        });
         if (!pv.ok) {
           throw new GetbiletValidationError(pv.error || 'Промокод недоступен');
         }
         finalRub = pv.finalRub;
         promoId = pv.promo?.id ?? null;
+        discountRub = Math.max(0, Number(pv.discountRub) || Math.max(0, baseRub - finalRub));
       }
 
       const amountKopecks = Math.round(finalRub * 100);
@@ -199,6 +215,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         ticketCheckout: true,
         deferPartnerBooking: true,
         eventTitle,
+        venueLabel: venueLabel || undefined,
         seats,
         seatLabels: seatLabels?.length ? seatLabels : undefined,
         sessionLabel: sessionLabel || undefined,
@@ -206,6 +223,10 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         offerSelections,
         repertoireId,
         promoId,
+        promoCode: promoCode || undefined,
+        baseRub,
+        discountRub: discountRub > 0 ? discountRub : undefined,
+        finalRub,
         fanId: fanId || undefined,
         gift: gift || undefined,
         getbiletMakeOrder: null,
@@ -281,9 +302,17 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
             order_number: orderNumber,
             customer_name: customerName,
             customer_email: customerEmail,
+            customer_phone: customerPhone,
             total_cents: amountKopecks,
+            currency: 'RUB',
+            status: 'pending',
+            payment_status: 'pending',
+            payment_method: 'online',
+            payment_provider: 'tbank',
             payment_metadata: paymentMeta,
             payment_checkout_url: paymentUrl,
+            external_payment_id: paymentId,
+            created_at: new Date().toISOString(),
           },
           { paymentUrl },
         );

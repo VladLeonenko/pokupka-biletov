@@ -78,6 +78,11 @@ import { invalidateOffersCache, getOfferListByRepertoireIdCached } from '../serv
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import { filterPublicOffersPayload } from '../utils/filterPublicOffersPayload.js';
 import {
+  buildOfferSessionsIndex,
+  filterOffersPayloadBySession,
+  pickDefaultOfferSession,
+} from '../utils/offerSessionsIndex.js';
+import {
   applyGetbiletMarkupToOfferPayload,
   getGetbiletMarkupRuleForRepertoire,
 } from '../services/getbiletMarkupPublic.js';
@@ -754,6 +759,12 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
     }
     const repertoireId = requireNonEmptyString(req.params.repertoireId, 'repertoireId');
     const forceRefresh = req.query.refresh === '1' || req.query.fresh === '1';
+    const eventDateTimeHint =
+      req.query.eventDateTime != null
+        ? String(req.query.eventDateTime).trim()
+        : req.query.session != null
+          ? String(req.query.session).trim()
+          : '';
     const [context, offersResult] = await Promise.all([
       getRepertoirePublicContext(repertoireId, {
         omitStageSvgMarkup: true,
@@ -773,17 +784,31 @@ router.get('/repertoire/:repertoireId/page', async (req, res) => {
       res.setHeader('X-Getbilet-Offers-Cache', offersResult.meta.cache);
     }
     setMarkupResponseHeader(res, offersResult.markupRule);
-    const offersPayload = filterPublicOffersPayload(
+    const offersFull = filterPublicOffersPayload(
       normalizeGetbiletOfferListPayload(offersResult.payload),
       repertoireId,
     );
+    const sessions = buildOfferSessionsIndex(offersFull);
+    const scopedToSession = pickDefaultOfferSession(sessions, eventDateTimeHint || null);
+    const offersPayload = scopedToSession
+      ? filterOffersPayloadBySession(offersFull, scopedToSession)
+      : offersFull;
+    const fullCount = Array.isArray(offersFull?.ResultData) ? offersFull.ResultData.length : 0;
+    const scopedCount = Array.isArray(offersPayload?.ResultData) ? offersPayload.ResultData.length : 0;
     return sendPublicJson(
       req,
       res,
       {
         context,
         offers: offersPayload,
-        offersMeta: offersResult.meta ?? null,
+        sessions,
+        offersMeta: {
+          ...(offersResult.meta && typeof offersResult.meta === 'object' ? offersResult.meta : {}),
+          scopedToSession,
+          sessionsCount: sessions.length,
+          offersFullCount: fullCount,
+          offersScopedCount: scopedCount,
+        },
       },
       { noCache: true },
     );
@@ -828,6 +853,84 @@ router.get('/repertoire/:repertoireId/description-sections', async (req, res) =>
     return sendPublicJson(req, res, payload, { cacheSeconds: 300, staleSeconds: 600 });
   } catch (err) {
     return sendGetbiletError(err, res);
+  }
+});
+
+function readCookie(req, name) {
+  const raw = String(req.headers.cookie || '');
+  const parts = raw.split(';');
+  for (const part of parts) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    const k = part.slice(0, idx).trim();
+    if (k !== name) continue;
+    return decodeURIComponent(part.slice(idx + 1).trim());
+  }
+  return '';
+}
+
+function clientIp(req) {
+  const xf = String(req.headers['x-forwarded-for'] || '')
+    .split(',')[0]
+    .trim();
+  return xf || req.ip || req.socket?.remoteAddress || '';
+}
+
+/** Промо-попап: активна ли кампания (без выдачи кода). Глобально на сайте. */
+router.get('/promo-popup/preview', async (req, res) => {
+  try {
+    const { previewPromoPopup, DEFAULT_PROMO_POPUP_SLUG } = await import('../services/promoPopup.js');
+    const slug = String(req.query.slug || DEFAULT_PROMO_POPUP_SLUG).trim() || DEFAULT_PROMO_POPUP_SLUG;
+    const out = await previewPromoPopup({ slug });
+    return res.json(out);
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({ eligible: false, reason: 'schema' });
+    }
+    console.error('[bilet/promo-popup/preview]', err);
+    return res.status(500).json({ eligible: false, reason: 'error' });
+  }
+});
+
+/** Промо-попап: выдать персональный код на TTL (по умолчанию 60 мин). 1 раз на visitor. */
+router.post('/promo-popup/claim', async (req, res) => {
+  try {
+    const {
+      claimPromoPopup,
+      DEFAULT_PROMO_POPUP_SLUG,
+      newVisitorKey,
+      promoVisitorCookieName,
+    } = await import('../services/promoPopup.js');
+    const slug = String(req.body?.slug || DEFAULT_PROMO_POPUP_SLUG).trim() || DEFAULT_PROMO_POPUP_SLUG;
+    const cookieName = promoVisitorCookieName();
+    const fromCookie = readCookie(req, cookieName);
+    const fromBody = String(req.body?.visitorKey || '').trim();
+    const visitorKey = (fromCookie || fromBody || newVisitorKey()).slice(0, 80);
+    const repertoireId = String(req.body?.repertoireId || '').trim();
+    const out = await claimPromoPopup({
+      slug,
+      visitorKey,
+      repertoireId,
+      claimIp: clientIp(req),
+    });
+
+    const secure = String(req.protocol || '').includes('https') || req.secure || req.headers['x-forwarded-proto'] === 'https';
+    res.setHeader(
+      'Set-Cookie',
+      `${cookieName}=${encodeURIComponent(visitorKey)}; Path=/; Max-Age=${365 * 24 * 3600}; SameSite=Lax; HttpOnly${secure ? '; Secure' : ''}`,
+    );
+
+    if (!out.ok) {
+      const status = out.alreadyClaimed ? 409 : 400;
+      return res.status(status).json(out);
+    }
+    return res.json({ ...out, visitorKey });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === '42P01') {
+      return res.status(503).json({ ok: false, error: 'schema' });
+    }
+    console.error('[bilet/promo-popup/claim]', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'claim_failed' });
   }
 });
 

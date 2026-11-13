@@ -1,8 +1,9 @@
-/** Приоритетный hero на главной (маркетинг / прод). */
+/** Приоритетный hero на главной (маркетинг / прод). Канон id в БД — старый slug. */
 export const FEATURED_HERO_SLUG = 'novogodniy-balet-chaykovskogo-2026-12';
 export const FEATURED_HERO_REPERTOIRE_ID = 'novogodniy-balet-chaykovskogo-2026-12';
-/** Публичная ссылка без даты. Старый id резолвится и 301-ит сюда. */
-export const FEATURED_HERO_HREF = '/ticket/schelkunchik-bolshoy';
+/** Публичная ссылка без даты. Старый id и shelkunchik-* резолвятся / 301 сюда. */
+export const FEATURED_HERO_PUBLIC_SLUG = 'schelkunchik-bolshoy';
+export const FEATURED_HERO_HREF = `/ticket/${FEATURED_HERO_PUBLIC_SLUG}`;
 
 /** Снятый с витрины суперфинал (май 2026) — убираем из слайдера при дедупе. */
 export const LEGACY_FEATURED_HERO_SLUG = 'superfinal-fonbet-kubka-rossii-spartak-krasnodar';
@@ -74,7 +75,7 @@ export function isFeaturedHeroSlideId(id: string | undefined): boolean {
 
 export function isFeaturedHeroHref(href: string | undefined): boolean {
   const h = String(href ?? '').toLowerCase();
-  if (h.includes('schelkunchik-bolshoy')) return true;
+  if (h.includes('schelkunchik-bolshoy') || h.includes('shelkunchik-bolshoi')) return true;
   if (h.includes(FEATURED_HERO_SLUG)) return true;
   if (FEATURED_HERO_REPERTOIRE_ID && h.includes(FEATURED_HERO_REPERTOIRE_ID.toLowerCase())) return true;
   return false;

@@ -92,18 +92,39 @@ export default defineConfig(({ mode }) => {
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          if (id.includes('@mui') || id.includes('@emotion')) return 'mui';
+          const n = id.split('\\').join('/');
+          // Не давать Rollup назвать 600KB shared-shell как ScrollToTop-*.js
+          // (LH/TBT атрибутит весь scripting на это имя).
+          if (n.includes('/components/common/ScrollToTop')) return 'scroll-top';
           if (
-            id.includes('react-dom') ||
-            id.includes('react-router') ||
-            id.includes('/react/')
+            n.includes('/ssr/PublicTicketsShell') ||
+            n.includes('/ssr/createEmotionCache') ||
+            n.includes('/components/tickets/TicketsHeader') ||
+            n.includes('/components/tickets/TicketsFooter') ||
+            n.includes('/components/tickets/TicketCartStickyBar') ||
+            n.includes('/components/common/ToastProvider') ||
+            n.includes('/components/common/ErrorBoundary') ||
+            n.includes('/components/privacy/CookieConsentProvider') ||
+            n.includes('/context/TicketCartContext') ||
+            n.includes('/theme/ThemeModeProvider') ||
+            n.includes('/auth/AuthProvider') ||
+            n.includes('/utils/ticketsTheme') ||
+            n.includes('/styles/tickets-theme.css')
+          ) {
+            return 'tickets-shell';
+          }
+          if (!n.includes('node_modules')) return;
+          if (n.includes('@mui') || n.includes('@emotion')) return 'mui';
+          if (
+            n.includes('react-dom') ||
+            n.includes('react-router') ||
+            n.includes('/react/')
           ) {
             return 'react-vendor';
           }
-          if (id.includes('@tanstack/react-query')) return 'query';
-          if (id.includes('date-fns')) return 'date-fns';
-          return 'vendor';
+          if (n.includes('@tanstack/react-query')) return 'query';
+          if (n.includes('date-fns')) return 'date-fns';
+          // Остальное — автосплит Rollup (единый vendor раздувал shared TBT).
         },
         // Оптимизация имен файлов для кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',

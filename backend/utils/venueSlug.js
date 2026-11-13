@@ -4,11 +4,16 @@ import { slugify } from './eventSlug.js';
 export const VENUE_SLUG_ALIASES = {
   'mht-chehova': 'mht-im-chehova',
   luzhniki: 'bsa-luzhniki',
+  'bolshoi-theatre': 'bolshoy-teatr',
+  bolshoi: 'bolshoy-teatr',
+  'bolshoi-teatr': 'bolshoy-teatr',
 };
 
 export const VENUE_SLUG_LABELS = {
   'mht-chehova': 'МХТ им. Чехова',
   'mht-im-chehova': 'МХТ им. Чехова',
+  'bolshoy-teatr': 'Большой театр',
+  'bolshoi-theatre': 'Большой театр',
   'teatr-na-taganke': 'Театр на Таганке',
   'krokus-siti-holl': 'Крокус Сити Холл',
   'vtb-arena': 'ВТБ Арена',

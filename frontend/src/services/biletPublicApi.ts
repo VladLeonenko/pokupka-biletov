@@ -694,8 +694,24 @@ export function isEventActual(ev: NormalizedBiletEvent): boolean {
   return parsedMs >= todayMs;
 }
 
+/** Одно шоу под разными названиями/провайдерами (Profticket ↔ GetBilet). */
+function canonicalShowAliasKey(ev: NormalizedBiletEvent): string | null {
+  const title = ev.title.trim().replace(/\s+/g, ' ').toLowerCase();
+  const venue = (ev.venue || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const nikulin = /цирк\s+никулин|цветн/i.test(venue);
+  if (
+    nikulin &&
+    (/лабиринт/.test(title) || /новогодн\w*\s+лабиринт/.test(title))
+  ) {
+    return 'alias:nikulin-labyrinth';
+  }
+  return null;
+}
+
 /** Ключ одного спектакля: репертуар API, префикс составного id (`rep::…`) или название. */
 export function biletEventShowKey(ev: NormalizedBiletEvent): string {
+  const alias = canonicalShowAliasKey(ev);
+  if (alias) return alias;
   const rep = ev.repertoireId?.trim();
   if (rep) return `rep:${rep}`;
   if (ev.id.includes('::')) {
@@ -705,12 +721,29 @@ export function biletEventShowKey(ev: NormalizedBiletEvent): string {
   return `title:${ev.title.trim().replace(/\s+/g, ' ').toLowerCase()}`;
 }
 
+function showDedupePreferScore(ev: NormalizedBiletEvent): number {
+  const title = ev.title.trim().toLowerCase();
+  // Канон Profticket / Wordstat «новогодний лабиринт», не getbilet-дубль.
+  if (/^новогодн\w*\s+лабиринт/.test(title)) return 2;
+  if (/лабиринт/.test(title) && /цирк/.test(title)) return 0;
+  return 1;
+}
+
 /**
  * Один ряд на спектакль: при нескольких датах оставляем ближайшую по isoDate.
  * Порядок входа не важен — сортируем по дате, затем уникализируем по ключу.
+ * Alias-группы (Лабиринт Никулина): предпочитаем каноническое название.
  */
 export function dedupeBiletEventsByShow(events: NormalizedBiletEvent[]): NormalizedBiletEvent[] {
-  const sorted = [...events].sort((a, b) => eventSortTimeMs(a) - eventSortTimeMs(b));
+  const sorted = [...events].sort((a, b) => {
+    const ka = biletEventShowKey(a);
+    const kb = biletEventShowKey(b);
+    if (ka === kb && ka.startsWith('alias:')) {
+      const pref = showDedupePreferScore(b) - showDedupePreferScore(a);
+      if (pref) return pref;
+    }
+    return eventSortTimeMs(a) - eventSortTimeMs(b);
+  });
   const seen = new Set<string>();
   const out: NormalizedBiletEvent[] = [];
   for (const ev of sorted) {
@@ -874,10 +907,27 @@ export type RepertoireContext = {
   checkoutHideSeatList?: boolean;
 };
 
+export type RepertoireOfferSession = {
+  eventDateTime: string;
+  minPrice: number | null;
+  offerCount: number;
+  seatCount: number;
+};
+
 export type RepertoirePageBundle = {
   context: RepertoireContext;
   offers: unknown;
-  offersMeta?: { cache?: string; ageMs?: number } | null;
+  /** Календарь сеансов без SeatList — полный индекс, пока offers scoped к одному сеансу. */
+  sessions?: RepertoireOfferSession[];
+  offersMeta?: {
+    cache?: string;
+    ageMs?: number;
+    scopedToSession?: string | null;
+    sessionsCount?: number;
+    offersFullCount?: number;
+    offersScopedCount?: number;
+    ssrOffersOmitted?: boolean;
+  } | null;
 };
 
 /** Контекст + офферы одним запросом (страница /ticket). */
@@ -1019,10 +1069,17 @@ export async function submitRepertoireReview(
   };
 }
 
-export async function fetchRepertoirePageBundle(repertoireId: string): Promise<RepertoirePageBundle> {
+export async function fetchRepertoirePageBundle(
+  repertoireId: string,
+  opts?: { eventDateTime?: string | null },
+): Promise<RepertoirePageBundle> {
   const base = getApiBase();
+  const q = new URLSearchParams();
+  const dt = opts?.eventDateTime?.trim();
+  if (dt) q.set('eventDateTime', dt);
+  const qs = q.toString();
   const res = await fetch(
-    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page`,
+    `${base}/api/bilet/repertoire/${encodeURIComponent(repertoireId)}/page${qs ? `?${qs}` : ''}`,
     {
       headers: {
         Accept: 'application/json',
@@ -1313,6 +1370,7 @@ async function sessionFetch(input: string, init?: RequestInit): Promise<Response
   const sid = getSessionId();
   const res = await fetch(input, {
     ...init,
+    credentials: init?.credentials ?? 'include',
     headers: {
       Accept: 'application/json',
       ...(sid ? { 'x-session-id': sid } : {}),
@@ -1333,13 +1391,19 @@ export async function ensurePublicSessionForCheckout(): Promise<void> {
 export async function validateBiletTicketPromo(
   code: string,
   amountRub: number,
+  opts?: { repertoireId?: string; venueLabel?: string },
 ): Promise<
   { ok: true; finalRub: number; discountRub: number } | { ok: false; error?: string }
 > {
   const res = await sessionFetch(`${getApiBase()}/api/bilet/validate-promo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, amountRub }),
+    body: JSON.stringify({
+      code,
+      amountRub,
+      repertoireId: opts?.repertoireId,
+      venueLabel: opts?.venueLabel,
+    }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
@@ -1357,6 +1421,74 @@ export async function validateBiletTicketPromo(
   };
 }
 
+export type PromoPopupPreview = {
+  eligible: boolean;
+  reason?: string;
+  venue?: string;
+  campaign?: {
+    slug: string;
+    headline: string;
+    bodyText: string;
+    ctaLabel: string;
+    discountKind: string;
+    discountValue: number;
+    ttlMinutes: number;
+    delayMs: number;
+  };
+};
+
+export async function fetchPromoPopupPreview(params: {
+  repertoireId?: string;
+  venue?: string;
+  slug?: string;
+}): Promise<PromoPopupPreview> {
+  const qs = new URLSearchParams();
+  if (params.slug) qs.set('slug', params.slug);
+  if (params.repertoireId) qs.set('repertoireId', params.repertoireId);
+  if (params.venue) qs.set('venue', params.venue);
+  const res = await sessionFetch(`${getApiBase()}/api/bilet/promo-popup/preview?${qs}`);
+  const data = (await res.json().catch(() => ({}))) as PromoPopupPreview;
+  if (!res.ok) return { eligible: false, reason: 'error' };
+  return data;
+}
+
+export type PromoPopupClaim = {
+  ok: boolean;
+  error?: string;
+  reused?: boolean;
+  alreadyClaimed?: boolean;
+  code?: string;
+  expiresAt?: string;
+  discountKind?: string;
+  discountValue?: number;
+  ttlMinutes?: number;
+  headline?: string;
+  bodyText?: string;
+  ctaLabel?: string;
+};
+
+export async function claimPromoPopup(body: {
+  visitorKey: string;
+  repertoireId?: string;
+  slug?: string;
+}): Promise<PromoPopupClaim> {
+  const res = await sessionFetch(`${getApiBase()}/api/bilet/promo-popup/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as PromoPopupClaim;
+  if (!res.ok || !data.ok) {
+    return {
+      ok: false,
+      error: data.error || 'Не удалось получить промокод',
+      alreadyClaimed: Boolean(data.alreadyClaimed),
+    };
+  }
+  return data;
+}
+
 export type BiletCheckoutPayload = {
   offerId: string;
   seats: string[];
@@ -1367,6 +1499,7 @@ export type BiletCheckoutPayload = {
   customerPhone: string;
   customerEmail: string;
   promoCode?: string;
+  venueLabel?: string;
   fanId?: string;
   heldGetbiletOrderIds?: string[];
   heldMakeData?: unknown;

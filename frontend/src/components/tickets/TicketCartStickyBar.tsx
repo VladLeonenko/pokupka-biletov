@@ -157,6 +157,7 @@ export function TicketCartStickyBar() {
             baseTotalRub={cart.baseTotalRub}
             sessionLabel={cart.sessionLabel}
             descriptionLead={cart.descriptionLead}
+            venueLabel={cart.venueLabel}
             requiresFanId={cart.requiresFanId}
             requiresPassportManager={cart.requiresPassportManager}
             hold={hold}

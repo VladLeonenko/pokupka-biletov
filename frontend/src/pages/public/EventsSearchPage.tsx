@@ -35,6 +35,7 @@ import {
   venueSlugFromName,
   VENUE_SLUG_LABELS,
 } from '@/utils/venueSlug';
+import { sortEventsByTheaterDemand } from '@/utils/eventDemandRank';
 
 const GENRE_CHIPS = ['Театр', 'Концерт', 'Драма', 'Комедия', 'Детям', 'Спорт'];
 const LANDING_CITIES = [
@@ -195,7 +196,12 @@ export function EventsSearchPage() {
     [allEvents, qUrl, venueUrl, genreUrl, stageUrl],
   );
 
-  const uniqueFiltered = useMemo(() => dedupeBiletEventsByShow(filtered), [filtered]);
+  const uniqueFiltered = useMemo(() => {
+    const deduped = dedupeBiletEventsByShow(filtered);
+    const genreNorm = (genreUrl || '').trim().toLowerCase();
+    if (genreNorm === 'театр') return sortEventsByTheaterDemand(deduped);
+    return deduped;
+  }, [filtered, genreUrl]);
   const uniqueCatalogTotal = useMemo(() => dedupeBiletEventsByShow(allEvents), [allEvents]);
 
   // Сброс окна при смене фильтра
