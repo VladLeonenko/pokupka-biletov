@@ -143,6 +143,54 @@ function sendDistFile(res, relName, contentType, cacheControl) {
   return false;
 }
 
+/** Мессенджеры/соцсети: им нужен только head, не 500KB React SSR. */
+function isSocialPreviewBot(req) {
+  const ua = String(req.headers['user-agent'] || '');
+  // Не Googlebot/Yandex: им нужен полный HTML для индекса. Только превью-карточки.
+  return /TelegramBot|Twitterbot|facebookexternalhit|Facebot|WhatsApp|Slackbot|Discordbot|LinkedInBot|vkShare|odklbot|SkypeUriPreview|Pinterest/i.test(
+    ua,
+  );
+}
+
+/**
+ * Лёгкий HTML для превью ссылки (Telegram/WhatsApp/…).
+ * Без React SSR и без огромного JSON-LD — иначе краулер часто не рисует карточку.
+ * @param {string} metaTags
+ */
+function buildSocialPreviewHtml(metaTags) {
+  const tags = String(metaTags || '').trim();
+  const titleMatch = tags.match(/<title>([^<]*)<\/title>/i);
+  const title = titleMatch ? titleMatch[1] : 'Билет Всем';
+  const canonMatch = tags.match(/rel=["']canonical["'][^>]*href=["']([^"']+)["']/i)
+    || tags.match(/href=["']([^"']+)["'][^>]*rel=["']canonical["']/i);
+  const href = canonMatch ? canonMatch[1] : '/';
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+${tags}
+</head>
+<body>
+<p>${title}</p>
+<p><a href="${href}">Открыть на сайте</a></p>
+</body>
+</html>`;
+}
+
+/** Вставляет SEO сразу после charset — Telegram читает начало документа. */
+function injectSeoNearHeadStart(html, headInject) {
+  if (!headInject) return html;
+  const block = `\n${headInject}\n`;
+  if (/<meta\b[^>]*charset=/i.test(html)) {
+    return html.replace(/(<meta\b[^>]*charset=[^>]*>)/i, `$1${block}`);
+  }
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (m) => `${m}${block}`);
+  }
+  return html.replace('</head>', `${block}</head>`);
+}
+
 /**
  * Убирает дефолтные title/description/canonical/OG/Twitter/robots из шаблона index.html,
  * чтобы не было дублей при SSR (один <title>, один набор meta).
@@ -343,13 +391,15 @@ export async function seoRenderer(req, res, next) {
     const pathOnly = req.path;
     const query = req.query || {};
     const allowCache = !Object.keys(query).length;
+    const socialBot = isSocialPreviewBot(req);
 
-    if (allowCache) {
+    // Полный SSR-кэш — только людям. Ботам всегда лёгкий документ с OG в начале.
+    if (allowCache && !socialBot) {
       const cached = getSsrHtmlCache(pathOnly);
       if (cached) {
         res.status(200);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Vary', 'Accept-Encoding');
+        res.setHeader('Vary', 'Accept-Encoding, User-Agent');
         res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
         res.setHeader('X-BV-SSR-Cache', 'HIT');
         return res.send(cached);
@@ -365,13 +415,7 @@ export async function seoRenderer(req, res, next) {
     }
     let seoTags = typeof seoCtx === 'string' ? seoCtx : seoCtx?.metaTags || '';
     const ssrMeta = typeof seoCtx === 'object' && seoCtx ? seoCtx : null;
-    const ssrFragment = await generateSsrContent(pathOnly, ssrMeta);
     const base = siteBaseUrl();
-    const extraLd = buildExtraHeadJsonLd({
-      pathOnly,
-      origin: base,
-      metaTagsHtml: seoTags,
-    });
 
     // Query-параметры: canonical без query уже в meta; для индекса — noindex,follow.
     if (!allowCache) {
@@ -398,12 +442,27 @@ export async function seoRenderer(req, res, next) {
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     }
 
+    if (socialBot) {
+      const slim = buildSocialPreviewHtml(seoTags);
+      res.status(200);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Vary', 'Accept-Encoding, User-Agent');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.setHeader('X-BV-SSR-Cache', 'SOCIAL');
+      return res.send(slim);
+    }
+
+    const ssrFragment = await generateSsrContent(pathOnly, ssrMeta);
+    const extraLd = buildExtraHeadJsonLd({
+      pathOnly,
+      origin: base,
+      metaTagsHtml: seoTags,
+    });
+
     // Всегда strip shell SEO: иначе дубли title/OG/JSON-LD с index.html.
     html = stripDefaultSeoFromHtml(html);
     const headInject = `${seoTags || ''}${extraLd || ''}`;
-    if (headInject) {
-      html = html.replace('</head>', `${headInject}\n  </head>`);
-    }
+    html = injectSeoNearHeadStart(html, headInject);
 
     // Batch B: React SSR + hydrate for / and /ticket/* (mutual exclusion vs string #root shell).
     let usedReactSsr = false;

@@ -10,7 +10,6 @@ import { TicketsFooter } from '@/components/tickets/TicketsFooter';
 import { TicketCartProvider } from '@/context/TicketCartContext';
 import { TicketCartStickyBar } from '@/components/tickets/TicketCartStickyBar';
 import { ThemeModeProvider } from '@/theme/ThemeModeProvider';
-import { isReactSsrTicketsPath } from '@/ssr/reactSsrTickets';
 import { applyTicketsTheme } from '@/utils/ticketsTheme';
 import '@/styles/tickets-theme.css';
 
@@ -24,9 +23,9 @@ type Props = {
 /**
  * Soft-nav left the hydrate shell (home-only ↔ ticket-only) → full document load.
  * `*` means this shell has no matching route — always hard-nav.
- * Do NOT skip when `isReactSsrTicketsPath`: home shell has only `/`, so
- * `/ticket/:slug` would otherwise render blank forever (header+footer only).
- * Never assign the exact same href (infinite reload) — bump `_` if needed.
+ * Оболочка главной знает только `/`, оболочка билета — только `/ticket/*`.
+ * Иначе `/ticket/:slug` с главной рисуется пустым (шапка и подвал).
+ * Same URL: reload(). Нельзя дописывать ?_= — оно остаётся в адресной строке.
  */
 function LeaveReactSsrShell() {
   const location = useLocation();
@@ -35,21 +34,12 @@ function LeaveReactSsrShell() {
     if (tried.current) return;
     tried.current = true;
     const url = new URL(window.location.href);
-    const moneyPath = isReactSsrTicketsPath(location.pathname);
-    if (moneyPath) {
-      // home↔ticket: clean URL so server SSR + correct hydrate kind
-      url.searchParams.delete('bv_full');
-      url.searchParams.delete('_');
-    } else if (!url.searchParams.has('bv_full')) {
-      url.searchParams.set('bv_full', '1');
-    } else {
-      url.searchParams.set('_', String(Date.now()));
-    }
+    url.searchParams.delete('bv_full');
+    url.searchParams.delete('_');
     const next = url.pathname + url.search + url.hash;
     const cur = window.location.pathname + window.location.search + window.location.hash;
     if (next === cur) {
-      url.searchParams.set('_', String(Date.now()));
-      window.location.replace(url.pathname + url.search + url.hash);
+      window.location.reload();
       return;
     }
     window.location.replace(next);
