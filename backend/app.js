@@ -210,7 +210,34 @@ app.use(helmet({
   xFrameOptions: { action: 'deny' }, // Защита от clickjacking
   xXssProtection: true, // XSS защита
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  // COOP same-origin ломает Telegram/WhatsApp link preview на части клиентов.
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
 }));
+
+/** Картинки/OG: без CSP/XFO — Telegram отбрасывает превью, если jpeg отвечает как HTML-страница. */
+app.use((req, res, next) => {
+  const p = req.path || '';
+  const ua = String(req.headers['user-agent'] || '');
+  const isAsset =
+    p.startsWith('/uploads/') ||
+    p === '/og-cover.jpg' ||
+    /\.(jpe?g|png|webp|gif|ico|svg)$/i.test(p);
+  const isSocialBot =
+    /TelegramBot|Twitterbot|facebookexternalhit|Facebot|WhatsApp|Slackbot|Discordbot|LinkedInBot|vkShare|SkypeUriPreview/i.test(
+      ua,
+    );
+  if (isAsset || isSocialBot) {
+    res.removeHeader('Content-Security-Policy');
+    res.removeHeader('Cross-Origin-Opener-Policy');
+    res.removeHeader('X-Frame-Options');
+    if (isAsset) {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' })); // Увеличено для загрузки больших файлов
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Для form-data
 

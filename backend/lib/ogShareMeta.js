@@ -114,6 +114,13 @@ function isShareableRaster(url) {
 export function pickShareImage(ctx) {
   const banner = ctx?.bannerUrl ? String(ctx.bannerUrl).trim() : '';
   const poster = ctx?.posterUrl ? String(ctx.posterUrl).trim() : '';
+  // Новое имя файла — сброс кэша картинки Telegram (старый URL мог залипнуть пустым).
+  if (
+    banner.includes('bolshoi-novogodniy-balet-chaykovskogo-banner') ||
+    poster.includes('bolshoi-novogodniy-balet-chaykovskogo')
+  ) {
+    return '/uploads/images/schelkunchik-og-tg-v1.jpg';
+  }
   if (isShareableRaster(banner)) return banner;
   if (isShareableRaster(poster)) return poster;
   return SITE_SHARE_IMAGE;
