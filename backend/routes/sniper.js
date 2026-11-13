@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { requireAuth, requireAdmin, requireAdminOrSalesManager } from '../middleware/auth.js';
 import { listBuyers, saveBuyers } from '../services/sniperBuyers.js';
 import { feeFor, orderStatus, ticketCount } from '../services/sniperFees.js';
+import { historyStats } from '../services/sniperHistory.js';
 import { bookSeatsViaApi, resolveEventSessions, getSessionAvailability, MXAT_APP_KEY } from '../services/afishaApiBooking.js';
 import { sendTransactionalMail } from '../services/mail/transporter.js';
 import {
@@ -313,6 +314,30 @@ sniperRouter.get('/queue', requireAuth, requireAdminOrSalesManager, (req, res) =
   const data = [...byKey.values()].map(withFee).sort((a, b) => String(b.bookedAt || '').localeCompare(String(a.bookedAt || '')));
   const feePaid = data.reduce((sum, row) => sum + (row.fee || 0), 0);
   res.json({ success: true, updatedAt, feePaid, summary: paymentSummary(Number(process.env.SNIPER_FEE_PER_TICKET || 0)), data });
+});
+
+sniperRouter.get('/history', requireAuth, requireAdminOrSalesManager, (req, res) => {
+  const now = new Date();
+  const mskToday = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
+  let from = String(req.query.from || '').slice(0, 10);
+  let to = String(req.query.to || '').slice(0, 10);
+  const period = String(req.query.period || '');
+  if (!from || !to) {
+    const end = to || mskToday;
+    const endDate = new Date(`${end}T12:00:00+03:00`);
+    const start = new Date(endDate);
+    if (period === 'week') start.setDate(start.getDate() - 6);
+    else if (period === 'month') start.setDate(start.getDate() - 29);
+    else if (period === 'all') {
+      from = '';
+      to = '';
+    } else start.setDate(start.getDate() - 29);
+    if (period !== 'all') {
+      from = from || start.toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
+      to = end;
+    }
+  }
+  res.json({ success: true, data: historyStats({ from: from || undefined, to: to || undefined }) });
 });
 
 sniperRouter.get('/buyers', requireAuth, requireAdmin, (req, res) => {

@@ -79,6 +79,20 @@ type SessionStat = {
 type Captcha = { token: string; imageSrc: string; createdAt: string };
 
 type QueueFilter = 'all' | 'pending' | 'expiring' | 'paid' | 'expired' | 'error';
+type HistoryPeriod = 'week' | 'month' | 'custom' | 'all';
+type HistoryRow = {
+  day: string;
+  show: string;
+  orders: number;
+  tickets: number;
+  rebooks: number;
+  errors: number;
+  paid: number;
+  paidTickets: number;
+  amount: number;
+  fee: number;
+};
+type HistoryTotals = Omit<HistoryRow, 'day' | 'show'>;
 
 const emptyBuyer = (): Buyer => ({
   id: '',
@@ -181,6 +195,12 @@ export function SniperDesk() {
   const [draft, setDraft] = useState({ name: '', email: '', phone: '' });
   const [shotBusy, setShotBusy] = useState(false);
   const [shotMsg, setShotMsg] = useState<string | null>(null);
+  const [histPeriod, setHistPeriod] = useState<HistoryPeriod>('month');
+  const [histFrom, setHistFrom] = useState('');
+  const [histTo, setHistTo] = useState('');
+  const [histRows, setHistRows] = useState<HistoryRow[]>([]);
+  const [histTotals, setHistTotals] = useState<HistoryTotals | null>(null);
+  const [histBusy, setHistBusy] = useState(false);
 
   const loadMonitors = useCallback(async () => {
     try {
@@ -232,6 +252,28 @@ export function SniperDesk() {
     }
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    setHistBusy(true);
+    try {
+      const q = new URLSearchParams();
+      if (histPeriod === 'custom') {
+        if (histFrom) q.set('from', histFrom);
+        if (histTo) q.set('to', histTo);
+      } else {
+        q.set('period', histPeriod);
+      }
+      const body = await api(`/api/snipe/history?${q}`, { headers: headers() });
+      setHistRows(body.data?.rows ?? []);
+      setHistTotals(body.data?.totals ?? null);
+      if (body.data?.from) setHistFrom(body.data.from);
+      if (body.data?.to) setHistTo(body.data.to);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'История недоступна');
+    } finally {
+      setHistBusy(false);
+    }
+  }, [histPeriod, histFrom, histTo]);
+
   useEffect(() => {
     loadMonitors();
     loadQueue();
@@ -244,6 +286,11 @@ export function SniperDesk() {
     const d = setInterval(loadStatus, 20000);
     return () => { clearInterval(a); clearInterval(b); clearInterval(c); clearInterval(d); };
   }, [loadMonitors, loadQueue, loadStatus, loadCaptcha, loadBuyers]);
+
+  useEffect(() => {
+    if (histPeriod === 'custom' && (!histFrom || !histTo)) return;
+    loadHistory();
+  }, [histPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!captcha?.token || typeof Notification === 'undefined') return;
@@ -465,6 +512,65 @@ export function SniperDesk() {
           </Stack>
         </Paper>
       </Collapse>
+
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} justifyContent="space-between" spacing={1} sx={{ mb: 1.5 }}>
+          <Typography fontWeight={600}>История броней</Typography>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+            {(['week', 'month', 'all'] as HistoryPeriod[]).map((p) => (
+              <Chip key={p} size="small" label={p === 'week' ? 'неделя' : p === 'month' ? 'месяц' : 'всё'} variant={histPeriod === p ? 'filled' : 'outlined'} onClick={() => setHistPeriod(p)} />
+            ))}
+            <Chip size="small" label="свой период" variant={histPeriod === 'custom' ? 'filled' : 'outlined'} onClick={() => setHistPeriod('custom')} />
+            {histPeriod === 'custom' && (
+              <>
+                <TextField size="small" type="date" label="с" InputLabelProps={{ shrink: true }} value={histFrom} onChange={(e) => setHistFrom(e.target.value)} />
+                <TextField size="small" type="date" label="по" InputLabelProps={{ shrink: true }} value={histTo} onChange={(e) => setHistTo(e.target.value)} />
+                <Button size="small" variant="contained" disabled={histBusy || !histFrom || !histTo} onClick={loadHistory}>Показать</Button>
+              </>
+            )}
+          </Stack>
+        </Stack>
+        {histTotals && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {histBusy ? 'Считаю…' : `${histFrom || '…'} → ${histTo || '…'} · заказов ${histTotals.orders} · билетов ${histTotals.tickets} · переброней ${histTotals.rebooks} · оплачено ${histTotals.paid} (${histTotals.paidTickets} бил.) · твои ${histTotals.fee.toLocaleString('ru-RU')} ₽`}
+          </Typography>
+        )}
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Дата</TableCell>
+                <TableCell>Шоу</TableCell>
+                <TableCell align="right">Заказы</TableCell>
+                <TableCell align="right">Билеты</TableCell>
+                <TableCell align="right">Переброни</TableCell>
+                <TableCell align="right">Ошибки</TableCell>
+                <TableCell align="right">Оплачено</TableCell>
+                <TableCell align="right">Сумма</TableCell>
+                <TableCell align="right">Твои</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {histRows.length === 0 && (
+                <TableRow><TableCell colSpan={9}>{histBusy ? '…' : 'За период пусто'}</TableCell></TableRow>
+              )}
+              {histRows.map((r) => (
+                <TableRow key={`${r.day}-${r.show}`}>
+                  <TableCell>{r.day}</TableCell>
+                  <TableCell>{r.show}</TableCell>
+                  <TableCell align="right">{r.orders}</TableCell>
+                  <TableCell align="right">{r.tickets}</TableCell>
+                  <TableCell align="right">{r.rebooks}</TableCell>
+                  <TableCell align="right">{r.errors}</TableCell>
+                  <TableCell align="right">{r.paid} / {r.paidTickets}</TableCell>
+                  <TableCell align="right">{r.amount ? `${r.amount.toLocaleString('ru-RU')} ₽` : '—'}</TableCell>
+                  <TableCell align="right">{r.fee ? `${r.fee.toLocaleString('ru-RU')} ₽` : '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }} spacing={1}>
