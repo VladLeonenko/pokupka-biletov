@@ -175,10 +175,16 @@ app.use(helmet({
       connectSrc: [
         "'self'",
         "https://api.openai.com",
-        "https://mc.yandex.ru", // Яндекс.Метрика
+        // Яндекс.Метрика + Вебвизор (гео-зеркала + webvisor CDN)
+        "https://mc.yandex.ru",
         "wss://mc.yandex.ru",
-        "https://mc.yandex.com", // Metrika CDN/beacon (CSP)
+        "https://mc.yandex.com",
         "wss://mc.yandex.com",
+        "https://mc.webvisor.com",
+        "wss://mc.webvisor.com",
+        "https://mc.webvisor.org",
+        "wss://mc.webvisor.org",
+        "https://yastatic.net",
         "https://top-fwz1.mail.ru", // Top.Mail.Ru (VK)
         "https://www.google-analytics.com", // Google Analytics
         "https://www.googletagmanager.com",
@@ -187,13 +193,49 @@ app.use(helmet({
         "http://localhost:5173",
         "ws://localhost:5173", // WebSocket для Vite HMR
       ],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://player.vimeo.com"],
+      // blob + mc.* — запись/воспроизведение Вебвизора и карты кликов
+      frameSrc: [
+        "'self'",
+        "blob:",
+        "https://mc.yandex.ru",
+        "https://mc.yandex.com",
+        "https://mc.webvisor.com",
+        "https://mc.webvisor.org",
+        "https://www.youtube.com",
+        "https://player.vimeo.com",
+      ],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "https:", "data:"],
       workerSrc: ["'self'", "blob:"],
-      childSrc: ["'self'", "blob:"],
+      childSrc: [
+        "'self'",
+        "blob:",
+        "https://mc.yandex.ru",
+        "https://mc.yandex.com",
+        "https://mc.webvisor.com",
+        "https://mc.webvisor.org",
+      ],
       formAction: ["'self'"],
-      frameAncestors: ["'self'"],
+      // Плеер Вебвизора в кабинете Метрики встраивает сайт в iframe
+      frameAncestors: [
+        "'self'",
+        "https://metrika.yandex.ru",
+        "https://metrika.yandex.by",
+        "https://metrika.yandex.com",
+        "https://metrika.yandex.com.tr",
+        "https://metrika.yandex.kz",
+        "https://metrika.ya.ru",
+        "https://metrica.yandex.ru",
+        "https://metrica.yandex.by",
+        "https://metrica.yandex.com",
+        "https://metrica.yandex.com.tr",
+        "https://metrica.yandex.kz",
+        "https://metrica.ya.ru",
+        "https://analytics.yandex.ru",
+        "https://analytics.yandex.com",
+        "https://webvisor.com",
+        "https://*.webvisor.com",
+      ],
       baseUri: ["'self'"],
       upgradeInsecureRequests: isDevelopment ? null : [],
     },
@@ -208,7 +250,8 @@ app.use(helmet({
     includeSubDomains: true,
     preload: true,
   },
-  xFrameOptions: { action: 'deny' }, // Защита от clickjacking
+  // XFO DENY/SAMEORIGIN ломает плеер Вебвизора; whitelist — в CSP frame-ancestors
+  xFrameOptions: false,
   xXssProtection: true, // XSS защита
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   // COOP same-origin ломает Telegram/WhatsApp link preview на части клиентов.
