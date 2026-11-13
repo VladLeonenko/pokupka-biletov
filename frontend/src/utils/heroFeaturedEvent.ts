@@ -46,7 +46,7 @@ export function isFeaturedHeroActive(): boolean {
 export function isFeaturedHeroEventTitle(title: string | undefined): boolean {
   const t = String(title || '').trim();
   if (!t) return false;
-  return /новогодн\w*\s+балет\s+чайковского/i.test(t);
+  return /щелкунчик/i.test(t) || /новогодн\w*\s+балет\s+чайковского/i.test(t);
 }
 
 function matchesSlugOrRep(id: string, slug: string, rep: string): boolean {
