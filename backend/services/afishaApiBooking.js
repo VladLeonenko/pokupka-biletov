@@ -88,6 +88,12 @@ function saveManualCaptchaState(token, image) {
   const dir = captchaDir();
   const state = { token, imageSrc: toImageSrc(image), createdAt: new Date().toISOString() };
   fs.writeFileSync(path.join(dir, 'current.json'), JSON.stringify(state, null, 2));
+  void import('./sniperOpsNotify.js').then((m) => m.notifyOps({
+    subject: 'Капча: снайпер ждёт ввод',
+    text: 'Открой админку → Снайпер мест и введи символы с картинки. Бот повторит бронь после ответа.',
+    dedupeKey: `captcha-img:${token}`,
+    ttlMs: 30 * 60_000,
+  })).catch(() => {});
   return state;
 }
 

@@ -22,6 +22,7 @@ import {
   MXAT_APP_KEY,
 } from './services/afishaApiBooking.js';
 import { sendTransactionalMail, isMailConfigured } from './services/mail/transporter.js';
+import { notifyOps } from './services/sniperOpsNotify.js';
 import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 import { MHT_KABALA_PREFERENCE } from './utils/findBestSeatsInHall.js';
 
@@ -346,19 +347,18 @@ while (true) {
       // раз в 3 минуты — тревожное письмо, чтобы не засыпать почту
       if (Date.now() - (lastCaptchaAlert.get(sid) || 0) > 180000) {
         lastCaptchaAlert.set(sid, Date.now());
-        const to = args.notifyEmail || contacts[0].email;
-        await sendTransactionalMail({
-          to,
-          bcc: args.bcc || 'yaguda_io@mail.ru',
-          subject: `⚠️ КАПЧА блокирует снайпер — сессия ${sid}`,
+        await notifyOps({
+          subject: `Капча блокирует снайпер — сессия ${sid}`,
           text: [
             `Сессия ${sid}: API Афиши возвращает 429/капчу, бронь не проходит.`,
             `Ошибка: ${a.error}`,
             'Авто-решение SVG-капчи включено; растровые капчи сохраняются в data/captcha/.',
             'Монитор продолжает поллить и автоматически повторит бронь, когда капча пройдёт.',
           ].join('\n'),
+          dedupeKey: `captcha-block:${sid}`,
+          ttlMs: 180000,
         }).catch(() => {});
-        console.log(`📧 Тревога о капче отправлена на ${to}.`);
+        console.log('📧 Тревога о капче ушла операторам и в колокольчик.');
       }
     } else {
       console.log(`[${t}] ${sid}: закрыто (${a.availableCount} мест)${a.error ? ' — ' + a.error : ''} | осталось ${remaining} пар`);

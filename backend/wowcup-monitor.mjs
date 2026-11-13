@@ -25,6 +25,7 @@ import {
   resolveWowcupTicketFromSite,
 } from './services/afishaTicketsteamBooking.js';
 import { sendTransactionalMail, isMailConfigured } from './services/mail/transporter.js';
+import { notifyOps } from './services/sniperOpsNotify.js';
 import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -176,19 +177,13 @@ async function notify(record, notifyEmail, bcc) {
   ]);
 }
 
-function alertOps(subject, text, notifyEmail, bcc) {
-  const recipients = String(notifyEmail || '').split(/[,;]+/).map((s) => s.trim()).filter(Boolean);
-  if (!recipients.length || !isMailConfigured()) {
-    console.error('ALERT (no mail):', subject, text);
-    return Promise.resolve();
-  }
-  // Не блокировать poll/book на SMTP (домашний IP иначе виснет на смене ключа)
+function alertOps(subject, text) {
   return Promise.race([
-    sendTransactionalMail({
-      to: recipients.join(', '),
-      subject: `🚨 ${subject}`,
+    notifyOps({
+      subject: `WOW CUP: ${subject}`,
       text,
-      bcc,
+      dedupeKey: `wowcup:${subject}`,
+      ttlMs: 6 * 3600_000,
     }),
     new Promise((resolve) => setTimeout(() => resolve({ ok: false, reason: 'mail_timeout' }), 8000)),
   ]).catch((e) => console.error('alert mail fail', e.message));

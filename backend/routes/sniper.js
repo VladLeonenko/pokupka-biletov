@@ -2,7 +2,8 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
+import { requireAuth, requireAdmin, requireAdminOrSalesManager } from '../middleware/auth.js';
+import { listBuyers, saveBuyers } from '../services/sniperBuyers.js';
 import { bookSeatsViaApi, resolveEventSessions, getSessionAvailability, MXAT_APP_KEY } from '../services/afishaApiBooking.js';
 import { sendTransactionalMail } from '../services/mail/transporter.js';
 import {
@@ -124,11 +125,13 @@ sniperRouter.get('/check-payments', requireAuth, requireAdminOrSalesManager, asy
     const st = readPayStatus();
     for (const o of orders) {
       try {
+        const prev = st.orders[o.orderId] || {};
+        if (prev.manual && prev.status === 'success') continue;
         const r = await fetch(`https://mapi.afisha.ru/api/v21/payments/${o.orderId}`, {
           headers: { 'X-Application-Key': MXAT_APP_KEY, 'X-City-Id': '2563', Referer: 'https://www.afisha.ru/' },
         });
         const j = await r.json().catch(() => ({}));
-        st.orders[o.orderId] = { status: j.status ?? '?', checkedAt: new Date().toISOString() };
+        st.orders[o.orderId] = { ...prev, status: j.status ?? '?', checkedAt: new Date().toISOString(), manual: !!prev.manual };
       } catch {}
       await new Promise((r2) => setTimeout(r2, 200));
     }
@@ -174,8 +177,13 @@ sniperRouter.get('/payments', requireAuth, requireAdminOrSalesManager, (req, res
   res.json({ success: true, updatedAt, summary: paymentSummary(fee), data: orders });
 });
 
+let statusCache = { at: 0, body: null };
+
 /** Боевой статус: сессии, прогресс, контакты, доступность, ссылки на оплату. */
 sniperRouter.get('/status', requireAuth, requireAdminOrSalesManager, async (req, res) => {
+  if (statusCache.body && Date.now() - statusCache.at < 15000) {
+    return res.json(statusCache.body);
+  }
   try {
     let contacts = [];
     try { contacts = JSON.parse(fs.readFileSync(CONTACTS_FILE, 'utf-8')); } catch {}
@@ -201,9 +209,114 @@ sniperRouter.get('/status', requireAuth, requireAdminOrSalesManager, async (req,
         open: (a.availableCount || 0) > 0,
       });
     }
-    res.json({ success: true, data: { sessions, contacts, results } });
+    const body = { success: true, data: { sessions, contacts } };
+    statusCache = { at: Date.now(), body };
+    res.json(body);
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+function buyerText(b) {
+  if (!b) return '';
+  if (typeof b === 'string') return b;
+  if (Array.isArray(b)) return b.map(buyerText).filter(Boolean).join(', ');
+  const name = b.name || b.fullName || '';
+  return [name, b.email].filter(Boolean).join(' · ');
+}
+
+function payToStatus(st) {
+  if (st === 'success' || st === 'paid') return 'paid';
+  if (st === 'cancelled' || st === 'expired') return 'expired';
+  if (st === 'error') return 'error';
+  return 'pending';
+}
+
+/** Очередь оплат: ledger + история Афиши + живые брони Театра Наций. */
+sniperRouter.get('/queue', requireAuth, requireAdminOrSalesManager, (req, res) => {
+  const { orders, updatedAt } = listPayments();
+  const byKey = new Map();
+  for (const o of orders) {
+    byKey.set(o.id || `${o.platform}:${o.orderId}`, {
+      id: o.id || `${o.platform}:${o.orderId}`,
+      platform: o.platform,
+      orderId: o.orderId,
+      bookedAt: o.registeredAt || null,
+      show: o.label || o.platform,
+      seats: o.seats || '',
+      buyer: buyerText(o.buyers),
+      amount: o.amount ?? null,
+      tickets: o.tickets ?? null,
+      status: o.status || 'pending',
+      trackUntil: o.trackUntil || null,
+      paymentUrl: o.paymentUrl || null,
+      paidAt: o.paidAt || null,
+      accountEmail: null,
+    });
+  }
+  const pay = readPayStatus();
+  for (const rec of readResults()) {
+    const show = rec.spectacle || sessionMeta(rec).spectacle;
+    for (const r of rec.results || []) {
+      const orderId = r.orderId ? String(r.orderId) : '';
+      if (orderId && [...byKey.values()].some((x) => String(x.orderId) === orderId)) continue;
+      const key = orderId ? `afisha:${orderId}` : `afisha:${rec.bookedAt || ''}:${r.email || ''}:${r.paymentUrl || ''}`;
+      const st = orderId ? pay.orders[orderId]?.status : null;
+      byKey.set(key, {
+        id: key,
+        platform: 'afisha',
+        orderId: orderId || null,
+        bookedAt: rec.bookedAt || null,
+        show: show || 'Афиша',
+        seats: r.seats || '',
+        buyer: [r.name, r.email].filter(Boolean).join(' · '),
+        amount: r.totalPrice ?? null,
+        tickets: null,
+        status: payToStatus(st),
+        trackUntil: null,
+        paymentUrl: r.paymentUrl || null,
+        paidAt: st === 'success' ? (pay.orders[orderId]?.checkedAt || null) : null,
+        accountEmail: null,
+      });
+    }
+  }
+  const tonFile = path.join(__dirname, '..', 'data', 'ton-account-state.json');
+  let ton = {};
+  try { ton = JSON.parse(fs.readFileSync(tonFile, 'utf8')); } catch { ton = {}; }
+  for (const [email, a] of Object.entries(ton || {})) {
+    if (!a || a.status !== 'locked') continue;
+    const id = `ton:${email}`;
+    byKey.set(id, {
+      id,
+      platform: 'ton',
+      orderId: email,
+      bookedAt: a.lockedAt || null,
+      show: a.sessionLabel ? `Обыкновенная смерть · ${a.sessionLabel}` : 'Обыкновенная смерть',
+      seats: a.seats || '',
+      buyer: email,
+      amount: null,
+      tickets: null,
+      status: 'pending',
+      trackUntil: null,
+      paymentUrl: a.paymentUrl || null,
+      paidAt: null,
+      accountEmail: email,
+    });
+  }
+  const data = [...byKey.values()].sort((a, b) => String(b.bookedAt || '').localeCompare(String(a.bookedAt || '')));
+  res.json({ success: true, updatedAt, summary: paymentSummary(Number(process.env.SNIPER_FEE_PER_TICKET || 0)), data });
+});
+
+sniperRouter.get('/buyers', requireAuth, requireAdmin, (req, res) => {
+  res.json({ success: true, data: listBuyers() });
+});
+
+sniperRouter.put('/buyers', requireAuth, requireAdmin, (req, res) => {
+  try {
+    const data = saveBuyers(req.body?.buyers ?? req.body);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
   }
 });
 

@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import dotenv from 'dotenv';
-import { sendTransactionalMail, isMailConfigured } from './services/mail/transporter.js';
+import { notifyOps } from './services/sniperOpsNotify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -17,12 +17,6 @@ const HEALTH_FILE = path.join(__dirname, 'data', 'sniper-health.json');
 const INTERVAL_MS = Number(process.env.SNIPER_WATCHDOG_MS || 60_000);
 const SILENT_MS = Number(process.env.SNIPER_SILENT_MS || 20 * 60_000);
 const REALERT_MS = 6 * 3600_000;
-const NOTIFY = (
-  process.env.SNIPER_WATCHDOG_EMAIL
-  || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com'
-).trim();
-const BCC = process.env.SNIPER_WATCHDOG_BCC || 'yaguda_io@mail.ru';
-
 /** Эти процессы могут молчать в логе и при этом быть живыми. */
 const QUIET_OK = new Set(['sniper-payment-tracker', 'kassir-monitor']);
 
@@ -73,7 +67,7 @@ async function tick() {
   writeJson(HEALTH_FILE, { at: new Date().toISOString(), bots: rows });
 
   const bad = rows.filter((r) => r.health !== 'ok' && !QUIET_OK.has(r.name));
-  if (!bad.length || !isMailConfigured()) return;
+  if (!bad.length) return;
 
   const state = readState();
   const fresh = [];
@@ -91,11 +85,11 @@ async function tick() {
   if (!fresh.length) return;
 
   const lines = fresh.map((r) => `${r.health === 'silent' ? 'МОЛЧИТ' : 'НЕ ONLINE'} ${r.name} status=${r.status} лог ${r.logAgeMin == null ? 'нет' : r.logAgeMin + ' мин'}`);
-  await sendTransactionalMail({
-    to: NOTIFY,
-    bcc: BCC,
+  await notifyOps({
     subject: `Снайпер встал: ${fresh.map((r) => r.name).join(', ')}`,
-    text: ['Боты перестали работать.', '', ...lines, '', 'Админка → Снайпер мест → статус «молчит» / «остановлен».'].join('\n'),
+    text: ['Боты перестали работать.', '', ...lines, '', 'Админка → Снайпер мест.'].join('\n'),
+    dedupeKey: `watchdog:${fresh.map((r) => r.name + r.health).sort().join(',')}`,
+    ttlMs: REALERT_MS,
   });
   console.log(`[watchdog] mailed ${fresh.map((r) => r.name).join(', ')}`);
 }

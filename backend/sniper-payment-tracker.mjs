@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import { sendTransactionalMail } from './services/mail/transporter.js';
+import { notifyOps } from './services/sniperOpsNotify.js';
 import {
   listPayments,
   markPayment,
@@ -25,12 +25,6 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const LOG_FILE = path.join(__dirname, 'data', 'sniper-payment-tracker.log');
 const INTERVAL_MS = Number(process.env.SNIPER_PAY_POLL_MS || 15_000);
-const NOTIFY = (
-  process.env.SNIPER_PAY_NOTIFY_EMAIL
-  || process.env.INTICKETS_NOTIFY_EMAIL
-  || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com'
-).trim();
-const BCC = process.env.SNIPER_PAY_BCC || process.env.INTICKETS_BCC || 'yaguda_io@mail.ru';
 const FEE = Number(process.env.SNIPER_FEE_PER_TICKET || 0);
 const UA = 'Mozilla/5.0 (compatible; biletvsem-pay-tracker/1.0)';
 const MAX_TRACK_MS = Number(process.env.SNIPER_PAY_MAX_TRACK_MS || 6 * 3600_000);
@@ -45,7 +39,7 @@ function log(line) {
 }
 
 async function notify(subject, text) {
-  return sendTransactionalMail({ to: NOTIFY, subject, text, bcc: BCC });
+  return notifyOps({ subject, text, dedupeKey: `paid:${subject}`, ttlMs: 60_000 });
 }
 
 async function checkRadario(rec) {

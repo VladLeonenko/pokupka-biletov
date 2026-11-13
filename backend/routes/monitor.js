@@ -8,25 +8,41 @@ import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 const require = createRequire(import.meta.url);
 
 const MONITORS = [
-  { name: 'sniper-monitor', label: 'Кабала святош (Афиша)' },
-  { name: 'sniper-monitor-cycle2', label: 'Кабала святош — цикл 2 (Афиша)' },
-  { name: 'sniper-monitor-gamlet', label: 'Гамлет (Афиша, 5 ноября)' },
-  { name: 'ton-browser-monitor', label: 'Обыкновенная смерть (Театр Наций, браузер)' },
-  { name: 'ton-monitor', label: 'Обыкновенная смерть (Театр Наций, HTTP-запасной)' },
-  { name: 'intickets-monitor', label: 'Опера нищих (Театр Пушкина, Radario)' },
-  { name: 'profticket-monitor', label: 'Новогодний лабиринт (Цирк Никулина, Profticket)' },
-  { name: 'profticket-browser-monitor', label: 'Profticket browser' },
-  { name: 'profticket-session-pool', label: 'Profticket session pool' },
-  { name: 'vakhtangov-monitor', label: 'Вахтангов (Онегин / Маскарад / Лир)' },
-  { name: 'konserzh-monitor', label: 'Консьерж (Современник)' },
-  { name: 'sniper-monitor-wowcup', label: 'WOW CUP' },
-  { name: 'kassir-monitor', label: 'Дон Жуан (Kassir, на VPS выключен)' },
-  { name: 'sniper-payment-tracker', label: 'Трекер оплат' },
-  { name: 'sniper-watchdog', label: 'Сторож (письмо, если бот замолчал)' },
+  { name: 'sniper-monitor', label: 'Кабала святош', show: 'Кабала святош', venue: 'МХТ · Афиша', kind: 'show' },
+  { name: 'sniper-monitor-cycle2', label: 'Кабала святош — цикл 2', show: 'Кабала святош', venue: 'МХТ · Афиша', kind: 'show' },
+  { name: 'sniper-monitor-gamlet', label: 'Гамлет', show: 'Гамлет', venue: 'Афиша · 5 ноября', kind: 'show', archived: true },
+  { name: 'ton-browser-monitor', label: 'Обыкновенная смерть', show: 'Обыкновенная смерть', venue: 'Театр Наций', kind: 'show' },
+  { name: 'ton-monitor', label: 'Театр Наций, HTTP-запасной', kind: 'service' },
+  { name: 'intickets-monitor', label: 'Опера нищих', show: 'Опера нищих', venue: 'Театр Пушкина', kind: 'show' },
+  { name: 'profticket-monitor', label: 'Новогодний лабиринт', show: 'Новогодний лабиринт', venue: 'Цирк Никулина', kind: 'show' },
+  { name: 'profticket-browser-monitor', label: 'Profticket browser', kind: 'service' },
+  { name: 'profticket-session-pool', label: 'Profticket session pool', kind: 'service' },
+  { name: 'vakhtangov-monitor', label: 'Вахтангов', show: 'Онегин / Маскарад / Лир', venue: 'Вахтангов', kind: 'show' },
+  { name: 'konserzh-monitor', label: 'Консьерж', show: 'Консьерж', venue: 'Современник', kind: 'show' },
+  { name: 'sniper-monitor-wowcup', label: 'WOW CUP', show: 'WOW CUP', venue: 'Яндекс Билеты', kind: 'show' },
+  { name: 'kassir-monitor', label: 'Дон Жуан', show: 'Дон Жуан', venue: 'Kassir', kind: 'show' },
+  { name: 'sniper-payment-tracker', label: 'Трекер оплат', kind: 'service' },
+  { name: 'sniper-watchdog', label: 'Сторож', kind: 'service' },
 ];
 
 const QUIET_OK = new Set(['sniper-payment-tracker', 'kassir-monitor', 'sniper-watchdog']);
 const SILENT_MS = 20 * 60 * 1000;
+
+function lastLogLine(logPath) {
+  if (!logPath) return '';
+  try {
+    const st = fs.statSync(logPath);
+    const read = Math.min(4096, st.size);
+    if (read <= 0) return '';
+    const buf = Buffer.alloc(read);
+    const fd = fs.openSync(logPath, 'r');
+    try { fs.readSync(fd, buf, 0, read, st.size - read); } finally { fs.closeSync(fd); }
+    const lines = buf.toString('utf8').split('\n').map((s) => s.trim()).filter(Boolean);
+    return (lines[lines.length - 1] || '').slice(0, 240);
+  } catch {
+    return '';
+  }
+}
 
 function botHealth(proc) {
   const online = proc?.pm2_env?.status === 'online';
@@ -139,11 +155,16 @@ monitorRouter.get('/', requireAuth, requireAdminOrSalesManager, async (req, res)
       return {
         name: m.name,
         label: m.label,
+        show: m.show || null,
+        venue: m.venue || null,
+        kind: m.kind || 'show',
+        archived: !!m.archived,
         status: p ? p.pm2_env?.status : 'not_found',
         online: p?.pm2_env?.status === 'online',
         health: p ? botHealth(p) : 'down',
         restarts: p?.pm2_env?.restart_time || 0,
         uptime: p?.pm2_env?.pm_uptime || 0,
+        lastLog: p ? lastLogLine(p.pm2_env?.pm_out_log_path) : '',
       };
     });
     res.json({ success: true, data });
