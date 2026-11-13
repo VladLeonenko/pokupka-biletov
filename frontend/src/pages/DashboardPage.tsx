@@ -26,6 +26,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Divider,
+  useTheme,
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -258,15 +259,52 @@ function namedChartData(rows: Array<{ name: string; users: number }> | undefined
   };
 }
 
+function PeriodFigure({ value, hint }: { value: string; hint: string }) {
+  return (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <Typography sx={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1 }}>{value}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, maxWidth: 340, lineHeight: 1.45 }}>
+        {hint}
+      </Typography>
+    </Box>
+  );
+}
+
+function padHours(rows: Array<{ hour: string; users: number }> | undefined) {
+  const map = new Map<number, number>();
+  for (const row of rows || []) {
+    const h = Number(String(row.hour).split(':')[0]);
+    if (Number.isFinite(h) && h >= 0 && h <= 23) map.set(h, (map.get(h) || 0) + Number(row.users || 0));
+  }
+  return Array.from({ length: 24 }, (_, hour) => ({ hour, users: map.get(hour) || 0 }));
+}
+
+function lineDataset(label: string, values: number[], color: string) {
+  return {
+    label,
+    data: values,
+    borderColor: color,
+    backgroundColor: `${color}22`,
+    fill: true,
+    tension: 0.35,
+    borderWidth: 2,
+    pointRadius: values.length > 12 ? 0 : 4,
+    pointHoverRadius: 5,
+    pointBackgroundColor: color,
+  };
+}
+
 function ReportCard({ title, children, height }: { title: string; children: React.ReactNode; height?: number }) {
+  const theme = useTheme();
+  const dark = theme.palette.mode === 'dark';
   return (
     <Paper
       variant="outlined"
       sx={{
         p: 2,
         height: '100%',
-        borderColor: 'rgba(255,255,255,0.08)',
-        background: 'linear-gradient(165deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+        borderColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(17,17,17,0.08)',
+        background: dark ? 'rgba(255,255,255,0.02)' : '#fff',
       }}
     >
       <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 600, letterSpacing: '0.02em' }}>
@@ -322,6 +360,7 @@ export function DashboardPage() {
 }
 
 function AdminMetricsDashboard() {
+  const theme = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [cacheVersion, setCacheVersion] = useState(() => getStoredCacheVersion() || '');
@@ -424,12 +463,35 @@ function AdminMetricsDashboard() {
     localStorage.setItem(PERIOD_KEY, value);
   };
 
+  const dark = theme.palette.mode === 'dark';
+  const gridColor = dark ? 'rgba(255,255,255,0.08)' : 'rgba(17,17,17,0.08)';
+  const tickColor = dark ? 'rgba(255,255,255,0.62)' : 'rgba(17,17,17,0.55)';
   const chartOpts = {
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#111',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: false,
+      },
+    },
     scales: {
-      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' } },
-      x: { grid: { display: false } },
+      y: {
+        beginAtZero: true,
+        grid: { color: gridColor },
+        ticks: { color: tickColor, maxTicksLimit: 6, font: { size: 11 } },
+        border: { display: false },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: tickColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 8, font: { size: 11 } },
+        border: { display: false },
+      },
     },
   };
 
@@ -438,84 +500,63 @@ function AdminMetricsDashboard() {
     plugins: { legend: { position: 'right' as const, labels: { boxWidth: 12, font: { size: 11 } } } },
   };
 
-  const visitorsData = {
-    labels: (data?.visitors || []).map((d) => d.date?.slice(5) || d.date || ''),
-    datasets: [
-      {
-        label: 'Посетители',
-        data: (data?.visitors || []).map((d) => d.users),
-        borderColor: '#5b8def',
-        backgroundColor: 'rgba(91,141,239,0.15)',
-        fill: true,
-        tension: 0.35,
-      },
-    ],
-  };
+  const dayLabels = (rows: Array<{ date?: string }> | undefined) =>
+    (rows || []).map((d) => d.date?.slice(5) || d.date || '');
+  const visitorsSeries = data?.visitors || [];
+  const sessionSeries = data?.avgSessionSec || [];
+  const bounceSeries = data?.bounceRate || [];
+  const hours = padHours(data?.byHour);
+  const visitorsByHour = visitorsSeries.length < 2 && hours.some((h) => h.users > 0);
+  const visitorsData = visitorsByHour
+    ? {
+        labels: hours.map((h) => String(h.hour).padStart(2, '0')),
+        datasets: [lineDataset('Посетители', hours.map((h) => h.users), '#ff4e18')],
+      }
+    : {
+        labels: dayLabels(visitorsSeries),
+        datasets: [lineDataset('Посетители', visitorsSeries.map((d) => d.users), '#ff4e18')],
+      };
   const sessionData = {
-    labels: (data?.avgSessionSec || []).map((d) => d.date?.slice(5) || d.date || ''),
-    datasets: [
-      {
-        label: 'Сек',
-        data: (data?.avgSessionSec || []).map((d) => d.seconds),
-        borderColor: '#3dba8c',
-        backgroundColor: 'rgba(61,186,140,0.15)',
-        fill: true,
-        tension: 0.35,
-      },
-    ],
+    labels: dayLabels(sessionSeries),
+    datasets: [lineDataset('Секунды', sessionSeries.map((d) => d.seconds), dark ? '#f5f5f5' : '#111111')],
   };
   const bounceData = {
-    labels: (data?.bounceRate || []).map((d) => d.date?.slice(5) || d.date || ''),
+    labels: dayLabels(bounceSeries),
     datasets: [
-      {
-        label: 'Отказы %',
-        data: (data?.bounceRate || []).map((d) => (d.rate > 1 ? d.rate : d.rate * 100)),
-        borderColor: '#e85d75',
-        backgroundColor: 'rgba(232,93,117,0.12)',
-        fill: true,
-        tension: 0.35,
-      },
+      lineDataset(
+        'Отказы %',
+        bounceSeries.map((d) => (d.rate > 1 ? d.rate : d.rate * 100)),
+        '#c62828',
+      ),
     ],
   };
   const hourData = {
-    labels: (data?.byHour || []).map((d) => `${d.hour}:00`),
+    labels: hours.map((h) => String(h.hour).padStart(2, '0')),
     datasets: [
       {
-        label: 'Пользователи',
-        data: (data?.byHour || []).map((d) => d.users),
-        backgroundColor: 'rgba(155,123,255,0.75)',
-        borderRadius: 4,
+        label: 'Посетители',
+        data: hours.map((h) => h.users),
+        backgroundColor: '#ff4e18',
+        borderRadius: 6,
+        maxBarThickness: 18,
       },
     ],
   };
   const depthData = {
-    labels: (data?.pageDepth || []).map((d) => d.date?.slice(5) || d.date || ''),
-    datasets: [
-      {
-        label: 'Глубина',
-        data: (data?.pageDepth || []).map((d) => d.depth),
-        borderColor: '#f0a060',
-        backgroundColor: 'rgba(240,160,96,0.15)',
-        fill: true,
-        tension: 0.35,
-      },
-    ],
+    labels: dayLabels(data?.pageDepth),
+    datasets: [lineDataset('Глубина', (data?.pageDepth || []).map((d) => d.depth), '#1565c0')],
   };
   const loadData = {
-    labels: (data?.pageLoadTime || []).map((d) => d.date?.slice(5) || d.date || ''),
+    labels: dayLabels(data?.pageLoadTime),
     datasets: [
-      {
-        label: 'Сек',
-        data: (data?.pageLoadTime || []).map((d) => {
+      lineDataset(
+        'Секунды',
+        (data?.pageLoadTime || []).map((d) => {
           const v = Number(d.seconds) || 0;
-          // Метрика иногда отдаёт мс
           return v > 100 ? v / 1000 : v;
         }),
-        borderColor: '#45c4d9',
-        backgroundColor: 'rgba(69,196,217,0.15)',
-        fill: true,
-        tension: 0.35,
-      },
+        '#00838f',
+      ),
     ],
   };
 
@@ -884,27 +925,50 @@ function AdminMetricsDashboard() {
 
       {visible.visitors && (
         <Grid item xs={12} md={8}>
-          <ReportCard title={`Посетители · ${periodLabel}`} height={260}>
-            <Line data={visitorsData} options={chartOpts} />
+          <ReportCard title={visitorsByHour ? `Посетители по часам · ${periodLabel}` : `Посетители · ${periodLabel}`} height={260}>
+            {visitorsByHour ? (
+              <Bar data={hourData} options={chartOpts} />
+            ) : visitorsSeries.length < 2 ? (
+              <PeriodFigure
+                value={String(summary?.users ?? visitorsSeries[0]?.users ?? 0)}
+                hint="За день нет ряда по часам. На «7 дней» здесь линия по дням."
+              />
+            ) : (
+              <Line data={visitorsData} options={chartOpts} />
+            )}
           </ReportCard>
         </Grid>
       )}
       {visible.session && (
         <Grid item xs={12} md={4}>
           <ReportCard title="Среднее время на сайте" height={260}>
-            <Line data={sessionData} options={chartOpts} />
+            {sessionSeries.length < 2 ? (
+              <PeriodFigure
+                value={formatDuration(Number(summary?.avgVisitDurationSeconds) || 0)}
+                hint="За один день график — одна точка. Динамика видна с периода «7 дней»."
+              />
+            ) : (
+              <Line data={sessionData} options={chartOpts} />
+            )}
           </ReportCard>
         </Grid>
       )}
 
-      {visible.bounce && (data?.bounceRate?.length ?? 0) > 0 && (
+      {visible.bounce && (bounceSeries.length > 0 || summary?.bounceRate != null) && (
         <Grid item xs={12} md={6}>
           <ReportCard title="Показатель отказов" height={240}>
-            <Line data={bounceData} options={chartOpts} />
+            {bounceSeries.length < 2 ? (
+              <PeriodFigure
+                value={formatPct(summary?.bounceRate ?? bounceSeries[0]?.rate ?? 0)}
+                hint="Отказы за выбранный день. Линия по дням — на периоде от 7 дней."
+              />
+            ) : (
+              <Line data={bounceData} options={chartOpts} />
+            )}
           </ReportCard>
         </Grid>
       )}
-      {visible.byHour && (data?.byHour?.length ?? 0) > 0 && (
+      {visible.byHour && !visitorsByHour && hours.some((h) => h.users > 0) && (
         <Grid item xs={12} md={6}>
           <ReportCard title="Активность по часам" height={240}>
             <Bar data={hourData} options={chartOpts} />
@@ -914,14 +978,25 @@ function AdminMetricsDashboard() {
       {visible.pageDepth && (data?.pageDepth?.length ?? 0) > 0 && (
         <Grid item xs={12} md={6}>
           <ReportCard title="Глубина просмотра по дням" height={240}>
-            <Line data={depthData} options={chartOpts} />
+            {(data?.pageDepth?.length ?? 0) < 2 ? (
+              <PeriodFigure
+                value={String(Math.round((summary?.avgPageViews || data?.pageDepth?.[0]?.depth || 0) * 10) / 10)}
+                hint="Средняя глубина за день. По дням — на периоде от 7 дней."
+              />
+            ) : (
+              <Line data={depthData} options={chartOpts} />
+            )}
           </ReportCard>
         </Grid>
       )}
       {visible.pageLoad && (data?.pageLoadTime?.length ?? 0) > 0 && (
         <Grid item xs={12} md={6}>
           <ReportCard title="Скорость загрузки (сек)" height={240}>
-            <Line data={loadData} options={chartOpts} />
+            {(data?.pageLoadTime?.length ?? 0) < 2 ? (
+              <PeriodFigure value={`${loadData.datasets[0].data[0] ?? 0} с`} hint="Одно измерение за день." />
+            ) : (
+              <Line data={loadData} options={chartOpts} />
+            )}
           </ReportCard>
         </Grid>
       )}
