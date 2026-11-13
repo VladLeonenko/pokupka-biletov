@@ -25,7 +25,12 @@ export function useCursor(currentPath?: string, disableCustomCursor?: boolean) {
 
     const rawPath = currentPath ?? window.location.pathname;
     const normalizedPath = rawPath.replace(/\/+$/, '') || '/';
-    if (normalizedPath.startsWith('/admin')) return;
+    if (normalizedPath.startsWith('/admin')) {
+      document.getElementById('custom-cursor-styles')?.remove();
+      document.querySelectorAll('.cursor--large, .cursor--small').forEach((node) => node.remove());
+      document.body.style.cursor = '';
+      return;
+    }
 
     let animationId: number | null = null;
     let cursorLarge: HTMLElement | null = null;

@@ -209,7 +209,7 @@ export function useCookieConsent() {
             clickmap: true,
             trackLinks: true,
             accurateTrackBounce: true,
-            webvisor: true,
+            webvisor: !/^\/admin(\/|$)/.test(window.location.pathname),
             ecommerce: 'dataLayer',
             defer: true,
             trackHash: false,

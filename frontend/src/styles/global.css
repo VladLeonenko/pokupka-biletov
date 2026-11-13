@@ -139,6 +139,44 @@ select,
   cursor: text;
 }
 
+/* Вебвизор Метрики ставит cursor:none и свой слой. В админке слой не покрывает правую колонку — указатель пропадает. */
+html[data-admin='true'],
+html[data-admin='true'] body,
+body[data-admin='true'],
+body[data-admin='true'] * {
+  cursor: auto !important;
+}
+html[data-admin='true'] a,
+html[data-admin='true'] button,
+html[data-admin='true'] [role='button'],
+html[data-admin='true'] label,
+html[data-admin='true'] summary,
+body[data-admin='true'] a,
+body[data-admin='true'] button,
+body[data-admin='true'] [role='button'],
+body[data-admin='true'] label,
+body[data-admin='true'] summary,
+body[data-admin='true'] .MuiButton-root,
+body[data-admin='true'] .MuiIconButton-root,
+body[data-admin='true'] .MuiListItemButton-root,
+body[data-admin='true'] .MuiMenuItem-root,
+body[data-admin='true'] .MuiChip-root,
+body[data-admin='true'] .MuiTab-root,
+body[data-admin='true'] .MuiLink-root,
+body[data-admin='true'] .MuiSelect-select {
+  cursor: pointer !important;
+}
+body[data-admin='true'] input,
+body[data-admin='true'] textarea,
+body[data-admin='true'] select,
+body[data-admin='true'] [contenteditable='true'] {
+  cursor: text !important;
+}
+body[data-admin='true'] :disabled,
+body[data-admin='true'] .Mui-disabled {
+  cursor: default !important;
+}
+
 /* Исправление MUI светлых фонов — только публичный тёмный сайт, не админка */
 body:not([data-admin='true']) .MuiPaper-root {
   background-color: #1a1a1a !important;
