@@ -155,6 +155,9 @@ function isDuplicateFeatured(slide: HeroSlideView): boolean {
   return false;
 }
 
+const FEATURED_HERO_DESCRIPTION =
+  'Балет Чайковского на Исторической сцене Большого театра: оркестр, кордебалет и праздничный зал на Театральной площади.';
+
 function featuredFallbackSlide(): HeroSlideView {
   return {
     id: FEATURED_HERO_SLUG,
@@ -163,6 +166,7 @@ function featuredFallbackSlide(): HeroSlideView {
     tags: '18.12.2026 — 10.01.2027 · БАЛЕТ · 6+',
     venueLabel: 'БОЛЬШОЙ ТЕАТР — ИСТОРИЧЕСКАЯ СЦЕНА',
     venueAddress: 'Театральная пл., 1, Москва',
+    description: FEATURED_HERO_DESCRIPTION,
     lineLeft: '18',
     lineRight: '12.2026',
     visualShape: 'shard',
@@ -176,12 +180,14 @@ function withFeaturedFirst(slides: HeroSlideView[], events: NormalizedBiletEvent
   if (!isFeaturedHeroActive()) return slides;
 
   const featuredEv = findFeaturedEvent(events);
-  const featured: HeroSlideView = featuredEv
+  const fromEvent = featuredEv ? eventToSlide(featuredEv, 0) : null;
+  const featured: HeroSlideView = fromEvent
     ? {
-        ...eventToSlide(featuredEv, 0),
+        ...fromEvent,
         id: FEATURED_HERO_SLUG,
         title: 'ЩЕЛКУНЧИК',
         imageUrl: featuredHeroImageUrl(featuredEv),
+        description: fromEvent.description || FEATURED_HERO_DESCRIPTION,
         ticketHref: FEATURED_HERO_HREF,
       }
     : featuredFallbackSlide();

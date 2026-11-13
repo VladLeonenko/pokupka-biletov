@@ -807,6 +807,49 @@ img.visualImg {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/*
+ * Мобильные правила .inner выше по файлу перебивает базовый display:grid.
+ * Герой с flex-basis:0 и overflow:hidden оставлял только дату, остальной текст обрезался.
+ */
+@media (max-width: 899px) {
+  .hero {
+    min-height: 0;
+    height: auto;
+  }
+
+  .heroBody,
+  .slideStage {
+    flex: 0 0 auto;
+    min-height: min(58vh, 480px);
+  }
+
+  .inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    gap: 0;
+    flex: 0 0 auto;
+    min-height: min(58vh, 480px);
+    padding: 16px 16px 6px;
+  }
+
+  .left {
+    margin-top: auto;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .description {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+  }
+}
+
 .skeletonLeft {
   height: 260px;
   border-radius: 4px;
