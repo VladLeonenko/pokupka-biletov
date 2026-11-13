@@ -51,6 +51,8 @@ type QueueRow = {
   paymentUrl: string | null;
   paidAt: string | null;
   accountEmail: string | null;
+  fee?: number | null;
+  feeNote?: string;
 };
 
 type Buyer = {
@@ -132,13 +134,6 @@ function holdLeft(iso: string | null) {
   return `${h} ч ${m % 60} мин`;
 }
 
-function isTodayMsk(iso: string | null) {
-  if (!iso) return false;
-  const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
-  const row = new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
-  return day === row;
-}
-
 function isExpiring(row: QueueRow) {
   if (row.status !== 'pending' || !row.trackUntil) return false;
   const left = Date.parse(row.trackUntil) - Date.now();
@@ -148,7 +143,8 @@ function isExpiring(row: QueueRow) {
 function statusLabel(status: string) {
   if (status === 'paid') return 'оплачено';
   if (status === 'pending') return 'ждёт оплату';
-  if (status === 'expired' || status === 'gone') return 'протухло';
+  if (status === 'unchecked') return 'ещё не сверяли';
+  if (status === 'lapsed' || status === 'expired' || status === 'gone') return 'холд истёк';
   if (status === 'error') return 'ошибка';
   return status || '—';
 }
@@ -156,7 +152,7 @@ function statusLabel(status: string) {
 function matches(row: QueueRow, filter: QueueFilter) {
   if (filter === 'all') return true;
   if (filter === 'expiring') return isExpiring(row);
-  if (filter === 'expired') return row.status === 'expired' || row.status === 'gone';
+  if (filter === 'expired') return row.status === 'expired' || row.status === 'gone' || row.status === 'lapsed';
   if (filter === 'error') return row.status === 'error';
   return row.status === filter;
 }
@@ -378,9 +374,7 @@ export function SniperDesk() {
   const silent = (monitors ?? []).filter((m) => m.health === 'silent').length;
   const pending = queue.filter((r) => r.status === 'pending');
   const expiring = queue.filter(isExpiring);
-  const paidToday = queue.filter((r) => r.status === 'paid' && isTodayMsk(r.paidAt));
-  const paidSum = paidToday.reduce((s, r) => s + (r.amount || 0), 0);
-  const paidTickets = paidToday.reduce((s, r) => s + (r.tickets || (r.amount ? 1 : 0)), 0);
+  const feePaid = queue.reduce((s, r) => s + (r.fee || 0), 0);
   const visible = useMemo(() => queue.filter((r) => matches(r, filter)), [queue, filter]);
   const kabalaLine = sessions.map((s) => `${s.label} ${s.booked}/${s.target}${s.open ? ` · от ${s.minPrice ?? '?'}₽` : ''}`).join(' · ');
 
@@ -397,7 +391,7 @@ export function SniperDesk() {
         <Chip color={silent ? 'warning' : 'default'} label={`молчит ${silent}`} onClick={() => setShowService(true)} />
         <Chip color={pending.length ? 'warning' : 'default'} label={`ждут оплату ${pending.length}`} onClick={() => setFilter('pending')} />
         <Chip color={expiring.length ? 'error' : 'default'} label={`< 15 мин ${expiring.length}`} onClick={() => setFilter('expiring')} />
-        <Chip color="success" label={`оплачено сегодня ${paidSum.toLocaleString('ru-RU')} ₽ · ${paidTickets} бил.`} onClick={() => setFilter('paid')} />
+        <Chip color="success" label={`твои с оплаченных ${feePaid.toLocaleString('ru-RU')} ₽`} onClick={() => setFilter('paid')} />
         <Chip label="все" variant={filter === 'all' ? 'filled' : 'outlined'} onClick={() => setFilter('all')} />
       </Stack>
 
@@ -493,13 +487,14 @@ export function SniperDesk() {
                 <TableCell align="right">Сумма</TableCell>
                 <TableCell>Статус</TableCell>
                 <TableCell>Холд</TableCell>
+                <TableCell align="right">Твои</TableCell>
                 <TableCell>Оплата</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
               {visible.length === 0 && (
-                <TableRow><TableCell colSpan={9}>Пусто</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10}>Пусто</TableCell></TableRow>
               )}
               {visible.map((row) => (
                 <TableRow key={row.id}>
@@ -512,6 +507,7 @@ export function SniperDesk() {
                     <Chip size="small" label={statusLabel(row.status)} color={row.status === 'paid' ? 'success' : row.status === 'pending' ? 'warning' : row.status === 'error' ? 'error' : 'default'} />
                   </TableCell>
                   <TableCell>{holdLeft(row.trackUntil)}</TableCell>
+                  <TableCell align="right" title={row.feeNote || ''}>{row.fee != null ? `${row.fee.toLocaleString('ru-RU')} ₽` : '—'}</TableCell>
                   <TableCell>{row.paymentUrl ? <a href={row.paymentUrl} target="_blank" rel="noreferrer">открыть</a> : '—'}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5}>
@@ -561,6 +557,20 @@ export function SniperDesk() {
   );
 }
 
+function humanBot(m: Monitor) {
+  if (m.name === 'bolshoi-monitor' && !m.online) {
+    return 'На сервере не запущен. Код и тесты лежат локально, в pm2 процесса нет.';
+  }
+  if (!m.online) return m.status === 'not_found' ? 'Процесса на сервере нет' : 'Остановлен';
+  if (m.health === 'silent') return 'Молчит: давно ничего не пишет в лог';
+  const line = m.lastLog || '';
+  if (/капч/i.test(line)) return 'Упёрся в капчу и ждёт ввод';
+  if (/бронь|заброни|paymentUrl|✅/.test(line)) return 'Только что взял места';
+  if (/закрыто|аншлаг|нет мест|0 мест/i.test(line)) return 'Смотрит зал, свободных мест нет';
+  if (/ERR|error|403|QRATOR/i.test(line)) return 'Ошибка, в лог лучше заглянуть';
+  return 'Работает и следит за залом';
+}
+
 function BotCard({ m, busy, extra, onAction }: { m: Monitor; busy: boolean; extra?: string; onAction: (name: string, act: 'start' | 'stop' | 'restart') => void }) {
   const health = m.health === 'silent' ? 'молчит' : m.online ? 'работает' : (m.status === 'not_found' ? 'не настроен' : 'остановлен');
   const color = m.health === 'silent' ? 'warning' : m.online ? 'success' : 'default';
@@ -574,11 +584,7 @@ function BotCard({ m, busy, extra, onAction }: { m: Monitor; busy: boolean; extr
         <Chip size="small" color={color} label={health} />
       </Stack>
       {extra && <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>{extra}</Typography>}
-      {m.lastLog && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {m.lastLog}
-        </Typography>
-      )}
+      <Typography variant="body2" sx={{ mt: 0.5 }} title={m.lastLog || ''}>{humanBot(m)}</Typography>
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
         <Button size="small" variant="contained" color="success" disabled={busy || m.online} onClick={() => onAction(m.name, 'start')}>Старт</Button>
         <Button size="small" variant="outlined" disabled={busy || !m.online} onClick={() => onAction(m.name, 'restart')}>Рестарт</Button>

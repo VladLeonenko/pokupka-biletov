@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireAuth, requireAdmin, requireAdminOrSalesManager } from '../middleware/auth.js';
 import { listBuyers, saveBuyers } from '../services/sniperBuyers.js';
+import { feeFor, orderStatus, ticketCount } from '../services/sniperFees.js';
 import { bookSeatsViaApi, resolveEventSessions, getSessionAvailability, MXAT_APP_KEY } from '../services/afishaApiBooking.js';
 import { sendTransactionalMail } from '../services/mail/transporter.js';
 import {
@@ -225,11 +226,17 @@ function buyerText(b) {
   return [name, b.email].filter(Boolean).join(' · ');
 }
 
-function payToStatus(st) {
-  if (st === 'success' || st === 'paid') return 'paid';
-  if (st === 'cancelled' || st === 'expired') return 'expired';
-  if (st === 'error') return 'error';
-  return 'pending';
+function withFee(row) {
+  const tickets = ticketCount(row.seats, row.tickets);
+  const status = orderStatus(row);
+  const quote = feeFor({ ...row, tickets });
+  return {
+    ...row,
+    tickets: tickets || row.tickets || null,
+    status,
+    fee: status === 'paid' ? quote.fee : null,
+    feeNote: quote.feeNote,
+  };
 }
 
 /** Очередь оплат: ledger + история Афиши + живые брони Театра Наций. */
@@ -247,7 +254,7 @@ sniperRouter.get('/queue', requireAuth, requireAdminOrSalesManager, (req, res) =
       buyer: buyerText(o.buyers),
       amount: o.amount ?? null,
       tickets: o.tickets ?? null,
-      status: o.status || 'pending',
+      status: o.status || null,
       trackUntil: o.trackUntil || null,
       paymentUrl: o.paymentUrl || null,
       paidAt: o.paidAt || null,
@@ -272,7 +279,7 @@ sniperRouter.get('/queue', requireAuth, requireAdminOrSalesManager, (req, res) =
         buyer: [r.name, r.email].filter(Boolean).join(' · '),
         amount: r.totalPrice ?? null,
         tickets: null,
-        status: payToStatus(st),
+        status: st,
         trackUntil: null,
         paymentUrl: r.paymentUrl || null,
         paidAt: st === 'success' ? (pay.orders[orderId]?.checkedAt || null) : null,
@@ -297,14 +304,15 @@ sniperRouter.get('/queue', requireAuth, requireAdminOrSalesManager, (req, res) =
       amount: null,
       tickets: null,
       status: 'pending',
-      trackUntil: null,
+      trackUntil: a.lockedAt ? new Date(Date.parse(a.lockedAt) + 45 * 60_000).toISOString() : null,
       paymentUrl: a.paymentUrl || null,
       paidAt: null,
       accountEmail: email,
     });
   }
-  const data = [...byKey.values()].sort((a, b) => String(b.bookedAt || '').localeCompare(String(a.bookedAt || '')));
-  res.json({ success: true, updatedAt, summary: paymentSummary(Number(process.env.SNIPER_FEE_PER_TICKET || 0)), data });
+  const data = [...byKey.values()].map(withFee).sort((a, b) => String(b.bookedAt || '').localeCompare(String(a.bookedAt || '')));
+  const feePaid = data.reduce((sum, row) => sum + (row.fee || 0), 0);
+  res.json({ success: true, updatedAt, feePaid, summary: paymentSummary(Number(process.env.SNIPER_FEE_PER_TICKET || 0)), data });
 });
 
 sniperRouter.get('/buyers', requireAuth, requireAdmin, (req, res) => {

@@ -21,6 +21,7 @@ const MONITORS = [
   { name: 'konserzh-monitor', label: 'Консьерж', show: 'Консьерж', venue: 'Современник', kind: 'show' },
   { name: 'sniper-monitor-wowcup', label: 'WOW CUP', show: 'WOW CUP', venue: 'Яндекс Билеты', kind: 'show' },
   { name: 'kassir-monitor', label: 'Дон Жуан', show: 'Дон Жуан', venue: 'Kassir', kind: 'show' },
+  { name: 'bolshoi-monitor', label: 'Щелкунчик', show: 'Щелкунчик', venue: 'Большой театр', kind: 'show' },
   { name: 'sniper-payment-tracker', label: 'Трекер оплат', kind: 'service' },
   { name: 'sniper-watchdog', label: 'Сторож', kind: 'service' },
 ];
