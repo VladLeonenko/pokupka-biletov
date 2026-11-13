@@ -157,31 +157,31 @@ p {
   color: #ffffff !important;
 }
 
-/* Стили для поля ввода в чате (Telegram-стиль) */
-.MuiInputBase-input {
+/* Стили для поля ввода в чате (Telegram-стиль). В админке цвет задаёт MUI-тема. */
+body:not([data-admin='true']) .MuiInputBase-input {
   color: #ffffff !important;
   background-color: #2a2a2a !important;
 }
 
-.MuiInputBase-input::placeholder {
+body:not([data-admin='true']) .MuiInputBase-input::placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
   opacity: 1 !important;
 }
 
-.MuiInputBase-root {
+body:not([data-admin='true']) .MuiInputBase-root {
   background-color: #2a2a2a !important;
   color: #ffffff !important;
 }
 
-.MuiOutlinedInput-notchedOutline {
+body:not([data-admin='true']) .MuiOutlinedInput-notchedOutline {
   border-color: #444444 !important;
 }
 
-.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+body:not([data-admin='true']) .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
   border-color: #555555 !important;
 }
 
-.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+body:not([data-admin='true']) .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
   border-color: #ffbb00 !important;
 }
 

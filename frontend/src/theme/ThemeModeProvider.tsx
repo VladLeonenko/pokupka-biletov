@@ -1,7 +1,9 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { useLocation } from 'react-router-dom';
+import { persistThemeMode, readStoredThemeMode, type ThemeMode } from '@/theme/themeStorage';
 
-type Mode = 'light' | 'dark';
+type Mode = ThemeMode;
 type ThemeCtx = { mode: Mode; toggle: () => void };
 
 const ThemeModeContext = createContext<ThemeCtx | undefined>(undefined);
@@ -94,23 +96,41 @@ function buildTheme(mode: Mode) {
   });
 }
 
-function readInitialMode(): Mode {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return 'dark';
-  try {
-    return (localStorage.getItem('admin.theme') as Mode) || 'dark';
-  } catch {
-    return 'dark';
-  }
+export function applyAdminDomTheme(mode: Mode) {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', mode);
+  root.classList.remove('tickets-theme');
+  document.body.classList.remove('tickets-theme');
+  document.body.removeAttribute('data-tickets');
+  const dark = mode === 'dark';
+  root.classList.toggle('dark-theme', dark);
+  root.classList.toggle('light-theme', !dark);
+  document.body.classList.toggle('dark-theme', dark);
+  document.body.classList.toggle('light-theme', !dark);
+  root.style.removeProperty('--bg-color');
+  root.style.removeProperty('--text-color');
+  root.style.removeProperty('--header-bg');
+  root.style.removeProperty('--border-color');
+  document.body.style.backgroundColor = '';
+  document.body.style.color = '';
+}
+
+/** Только внутри Router + ThemeModeProvider. На /admin синхронизирует классы темы с MUI. */
+export function AdminThemeSync() {
+  const { pathname } = useLocation();
+  const { mode } = useThemeMode();
+  useEffect(() => {
+    const normalized = pathname.replace(/\/+$/, '') || '/';
+    if (!normalized.startsWith('/admin')) return;
+    applyAdminDomTheme(mode);
+  }, [pathname, mode]);
+  return null;
 }
 
 export function ThemeModeProvider({ children }: PropsWithChildren) {
-  const [mode, setMode] = useState<Mode>(readInitialMode);
+  const [mode, setMode] = useState<Mode>(() => readStoredThemeMode('admin'));
   useEffect(() => {
-    try {
-      localStorage.setItem('admin.theme', mode);
-    } catch {
-      /* private / SSR */
-    }
+    persistThemeMode(mode, 'admin');
   }, [mode]);
   const toggle = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
   const theme = useMemo(() => buildTheme(mode), [mode]);

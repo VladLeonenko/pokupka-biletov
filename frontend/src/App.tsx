@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AppRoutes } from '@/routes/AppRoutes';
 import { ToastProvider } from '@/components/common/ToastProvider';
-import { ThemeModeProvider } from '@/theme/ThemeModeProvider';
+import { AdminThemeSync, ThemeModeProvider } from '@/theme/ThemeModeProvider';
 const ChatWidget = lazy(() => import('@/components/chat/ChatWidget').then(m => ({ default: m.ChatWidget })));
 import { CookieConsentProvider } from '@/components/privacy/CookieConsentProvider';
 import { HeaderFooterInjector } from '@/components/public/HeaderFooterInjector';
@@ -74,10 +74,7 @@ export default function App() {
   }, [shouldUseAdminLayout, isAdminRoute, isLoginPage]);
 
   useEffect(() => {
-    if (isAdminRoute || isLoginPage) {
-      restoreDefaultPublicTheme();
-      return;
-    }
+    if (isAdminRoute || isLoginPage) return;
     if (useTicketsChrome) {
       applyTicketsTheme();
     } else {
@@ -107,6 +104,7 @@ export default function App() {
 
   return (
     <ThemeModeProvider>
+      <AdminThemeSync />
       <TicketCartProvider>
       <ToastProvider>
         <RouteSeoDefaults />

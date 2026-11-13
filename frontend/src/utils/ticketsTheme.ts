@@ -2,10 +2,10 @@
 
 export function applyTicketsTheme(): void {
   document.documentElement.setAttribute('data-theme', 'tickets');
-  document.documentElement.classList.remove('dark-theme');
+  document.documentElement.classList.remove('dark-theme', 'light-theme');
   document.documentElement.classList.add('tickets-theme');
   document.body.setAttribute('data-tickets', 'true');
-  document.body.classList.remove('dark-theme');
+  document.body.classList.remove('dark-theme', 'light-theme');
   document.body.classList.add('tickets-theme');
 
   const root = document.documentElement;
@@ -23,10 +23,10 @@ export function applyTicketsTheme(): void {
 export function restoreDefaultPublicTheme(): void {
   document.documentElement.setAttribute('data-theme', 'dark');
   document.documentElement.classList.add('dark-theme');
-  document.documentElement.classList.remove('tickets-theme');
+  document.documentElement.classList.remove('tickets-theme', 'light-theme');
   document.body.removeAttribute('data-tickets');
   document.body.classList.add('dark-theme');
-  document.body.classList.remove('tickets-theme');
+  document.body.classList.remove('tickets-theme', 'light-theme');
 
   const root = document.documentElement;
   root.style.setProperty('--bg-color', '#141414');
