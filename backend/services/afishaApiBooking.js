@@ -433,9 +433,11 @@ async function mapConcurrency(items, concurrency, worker) {
 export async function bookSeatsViaApi({ sessionId, appKey = MXAT_APP_KEY, pairCount, contacts = [], concurrency = 5, maxTries = 3, preference = null, skipSeatIds = null }) {
   if (!contacts.length) throw new Error('нужен хотя бы один контакт {name, email}');
   const count = pairCount ?? contacts.length;
-  const rankPairs = (hall, opts) => (preference
-    ? findBestSeatsByPreference(hall, preference, opts)
-    : findBestSeatPairs(hall, opts));
+  const rankPairs = (hall, opts) => {
+    if (!preference) return findBestSeatPairs(hall, opts);
+    const preferred = findBestSeatsByPreference(hall, preference, opts);
+    return preferred.length ? preferred : findBestSeatPairs(hall, opts);
+  };
 
   const results = [];
   const errors = [];
