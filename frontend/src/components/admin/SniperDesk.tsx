@@ -62,6 +62,7 @@ type Buyer = {
   documentType: string;
   documentSeries: string;
   documentNumber: string;
+  password: string;
 };
 
 type SessionStat = {
@@ -86,6 +87,7 @@ const emptyBuyer = (): Buyer => ({
   documentType: 'PassportRf',
   documentSeries: '',
   documentNumber: '',
+  password: '',
 });
 
 function headers(json = false): HeadersInit {
@@ -537,7 +539,7 @@ export function SniperDesk() {
           </Stack>
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          ЛК — логин личного кабинета площадки, если он отдельно от почты. ФИО, паспорт, телефон и почта уходят в ботов. Паспорт попадает в файл паспортов, только когда заполнен номер. Уже запущенный бот видит новый список после перезапуска.
+          Сюда сходятся контакты, старый бэкап контактов, паспорта и ЛК Театра Наций (почта + пароль). Пустое ФИО у ЛК — нормально, допиши. Паспорт уходит в файл паспортов только с номером, пароль — только в файл ЛК. Боты подхватывают список после рестарта.
         </Typography>
         <Stack spacing={1}>
           {buyers.map((b, i) => (
@@ -548,6 +550,7 @@ export function SniperDesk() {
               <TextField size="small" label="Номер" value={b.documentNumber} onChange={(e) => setBuyers((prev) => prev.map((x, j) => j === i ? { ...x, documentNumber: e.target.value } : x))} sx={{ maxWidth: 120 }} />
               <TextField size="small" label="Телефон" value={b.phone} onChange={(e) => setBuyers((prev) => prev.map((x, j) => j === i ? { ...x, phone: e.target.value } : x))} />
               <TextField size="small" label="Почта" value={b.email} onChange={(e) => setBuyers((prev) => prev.map((x, j) => j === i ? { ...x, email: e.target.value } : x))} sx={{ minWidth: 200 }} />
+              <TextField size="small" label="Пароль ЛК" value={b.password || ''} onChange={(e) => setBuyers((prev) => prev.map((x, j) => j === i ? { ...x, password: e.target.value } : x))} sx={{ minWidth: 140 }} />
               <Button size="small" color="error" onClick={() => setBuyers((prev) => prev.filter((_, j) => j !== i))}>Удалить</Button>
             </Stack>
           ))}
