@@ -248,6 +248,11 @@ if [ -f "scripts/apply-ticket-migrations.js" ]; then
   node scripts/apply-ticket-migrations.js 2>/dev/null || echo "⚠️ Ticket DB: задайте TICKET_* в .env и примените migrate:tickets"
 fi
 
+if [ -f "scripts/backfill-public-slugs.js" ]; then
+  echo "🔗 ЧПУ событий (public_slug, без дат)..."
+  node scripts/backfill-public-slugs.js 2>/dev/null || echo "⚠️ public_slug: проверьте ticket DB"
+fi
+
 if [ -f "scripts/seed-tbank-demo-event.js" ]; then
   echo "🧪 Демо-мероприятие T-Bank (тест интернет-эквайринга)..."
   node scripts/seed-tbank-demo-event.js 2>/dev/null || echo "⚠️ seed T-Bank demo: проверьте TICKET_* и ticket DB"

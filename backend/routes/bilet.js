@@ -87,6 +87,7 @@ import {
   setGetbiletEventsHttpCache,
 } from '../services/getbiletEventsHttpCache.js';
 import { slugify } from '../utils/eventSlug.js';
+import { attachPublicSlugs } from '../services/publicSlugStore.js';
 import ticketPool from '../ticketDb.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { registerBiletTicketCheckoutRoutes } from './biletTicketCheckout.js';
@@ -404,6 +405,7 @@ function compactItemMatchesSlug(item, slug) {
   const target = slug.toLowerCase();
   const title = String(item.title || '');
   if (slugify(title) === target) return true;
+  if (String(item.publicSlug || '').toLowerCase() === target) return true;
   const rep = String(item.repertoireId || '').trim();
   if (rep && rep.toLowerCase() === target) return true;
   const cardId = String(item.id || '').trim();
@@ -1132,7 +1134,9 @@ router.get('/home', async (req, res) => {
   try {
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
     const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
-    const actions = compactActions(data?.actions, Number(process.env.GETBILET_HOME_EVENTS_LIMIT || 120));
+    const actions = await attachPublicSlugs(
+      compactActions(data?.actions, Number(process.env.GETBILET_HOME_EVENTS_LIMIT || 120)),
+    );
     return sendPublicJson(req, res, {
       actions,
       total: Array.isArray(data?.actions) ? data.actions.length : actions.length,
@@ -1155,7 +1159,7 @@ router.get('/events-lite', async (req, res) => {
     const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 2500);
     const bypass = req.query.refresh === '1' || req.query.fresh === '1';
     const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
-    const actions = compactActions(data?.actions, limit);
+    const actions = await attachPublicSlugs(compactActions(data?.actions, limit));
     return sendPublicJson(req, res, {
       actions,
       total: Array.isArray(data?.actions) ? data.actions.length : actions.length,
@@ -1186,7 +1190,7 @@ router.get('/resolve-slug/:slug', async (req, res) => {
     }
 
     const { data } = await getOrLoadEventsPayloadForPublic(req);
-    const actions = compactActions(data?.actions, 500);
+    const actions = await attachPublicSlugs(compactActions(data?.actions, 500));
     const hit = await resolveRepertoireSlug(slug, actions);
     if (!hit) {
       return res.status(404).json({ error: 'not_found' });
@@ -1218,6 +1222,7 @@ router.get('/events', async (req, res) => {
     }
     const { data } = await getOrLoadEventsPayloadForPublic(req, { bypass });
     const payload = buildCompactEventsPayload(data, limit);
+    await attachPublicSlugs(payload.actions);
     if (!bypass) {
       setGetbiletEventsHttpCache(cacheKey, payload);
       res.setHeader('X-Getbilet-Events-Cache', 'miss');

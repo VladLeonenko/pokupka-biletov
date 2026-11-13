@@ -17,7 +17,9 @@ const DEFAULT_FAN_ID_SLUGS = new Set([
 ]);
 
 /** Маркетинговые ЧПУ → repertoire id (РК, Директ), если slug не в compact /events. */
-const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
+export const TICKET_SLUG_TO_REPERTOIRE = Object.freeze({
+  /** Щелкунчик / новогодний балет Чайковского — ЧПУ без даты. */
+  'schelkunchik-bolshoy': 'novogodniy-balet-chaykovskogo-2026-12',
   /** Старый ЧПУ суперфинала Лужники → живой Суперкубок НН (не отдавать майское событие). */
   'superfinal-fonbet-kubka-rossii-spartak-krasnodar': '6a46656d46a4d000309ed0a2',
   'olimpbet-superkubok-rossii': '6a46656d46a4d000309ed0a2',

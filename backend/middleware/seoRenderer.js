@@ -48,6 +48,7 @@ import {
 import { resolveVenueLandingSeo } from '../lib/venue-landing-seo.js';
 import { VENUE_LABELS } from '../lib/venue-labels.js';
 import { canonicalizeVenueSlug } from '../utils/venueSlug.js';
+import { ogImageMetaTags, pickShareImage, SITE_SHARE_IMAGE } from '../lib/ogShareMeta.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -167,21 +168,21 @@ function stripDefaultSeoFromHtml(html) {
  */
 function metaBlockForPage(p) {
   const { base, brand, canonical, title, description, ogType } = p;
-  const ogImage = toAbsUrl(base, p.ogImage) || `${base}/favicon.svg`;
+  const ogImage = p.ogImage || SITE_SHARE_IMAGE;
   return `
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
     <link rel="canonical" href="${canonical}" />
+    <meta property="og:locale" content="ru_RU" />
     <meta property="og:type" content="${escapeHtml(ogType)}" />
     <meta property="og:url" content="${canonical}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:image" content="${escapeHtml(ogImage)}" />
+    ${ogImageMetaTags({ base, image: ogImage, alt: title, escapeHtml })}
     <meta property="og:site_name" content="${escapeHtml(brand)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`;
+    <meta name="twitter:description" content="${escapeHtml(description)}" />`;
 }
 
 /**
@@ -357,6 +358,11 @@ export async function seoRenderer(req, res, next) {
 
     let html = fs.readFileSync(currentPath, 'utf-8');
     const seoCtx = await generateSeoTags(pathOnly);
+    if (seoCtx && typeof seoCtx === 'object' && seoCtx.redirect) {
+      const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.redirect(301, `${seoCtx.redirect}${qs}`);
+    }
     let seoTags = typeof seoCtx === 'string' ? seoCtx : seoCtx?.metaTags || '';
     const ssrMeta = typeof seoCtx === 'object' && seoCtx ? seoCtx : null;
     const ssrFragment = await generateSsrContent(pathOnly, ssrMeta);
@@ -651,6 +657,14 @@ async function generateSeoTags(url) {
         const ctxKey = repId || routeSlug;
         const ctx = ctxKey ? await getRepertoireContext(ctxKey) : null;
         const repertoireId = ctx?.repertoireId || repId || '';
+        const publicSlug = String((ctx && ctx.publicSlug) || '').trim().toLowerCase();
+        if (publicSlug && /^[a-z0-9][a-z0-9-]*$/.test(publicSlug)) {
+          const canon = `/ticket/${publicSlug}`;
+          const here = url.replace(/\/+$/, '') || url;
+          if (here !== canon) {
+            return { redirect: canon, metaTags: '', ssr: null };
+          }
+        }
         const minPrice = repertoireId ? await getCachedMinPrice(repertoireId) : null;
         const venueFromCtx = (ctx && ctx.venueLabel) || null;
         const beginFromCtx = (ctx && ctx.beginDateTime) || null;
@@ -671,11 +685,13 @@ async function generateSeoTags(url) {
         const venueLabel =
           venueFromCtx || catalogSeo?.facts?.venue || null;
         const venueAddress = (ctx && ctx.venueAddress) || null;
-        const canonicalPath = routeSlug
-          ? `/ticket/${encodeURIComponent(routeSlug)}`
-          : repId
-            ? `/ticket/${encodeURIComponent(repId)}`
-            : '/events';
+        const canonicalPath = publicSlug
+          ? `/ticket/${publicSlug}`
+          : routeSlug
+            ? `/ticket/${encodeURIComponent(routeSlug)}`
+            : repId
+              ? `/ticket/${encodeURIComponent(repId)}`
+              : '/events';
         const canonical = `${base}${canonicalPath}`;
         const displayTitle =
           (ctx && ctx.title) || catalogSeo?.h1 || dbSeo?.h1 || 'Мероприятие';
@@ -722,17 +738,17 @@ async function generateSeoTags(url) {
         const keywordsMeta = keywordsSrc
           ? `\n    <meta name="keywords" content="${escapeHtml(keywordsSrc)}" />`
           : '';
-        const ogImage = toAbsUrl(
+        const pageImage = toAbsUrl(base, (ctx && (ctx.posterUrl || ctx.bannerUrl)) || '');
+        const shareImage = pickShareImage(ctx);
+        const ogLine = ogImageMetaTags({
           base,
-          (ctx && (ctx.posterUrl || ctx.bannerUrl)) || '',
-        );
-        const ogLine = ogImage
-          ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />
-    <meta name="twitter:image" content="${escapeHtml(ogImage)}" />`
-          : '';
+          image: shareImage,
+          alt: displayTitle,
+          escapeHtml,
+        });
         // WebP+w=960 — AVIF cold encode ~1–2s delayed LCP; match TicketEventPosterImg cover.
-        const lcpPreload = ogImage
-          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(ogImage)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`
+        const lcpPreload = pageImage
+          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(pageImage)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`
           : '';
         const locationJson =
           venueLabel || venueAddress
@@ -767,7 +783,7 @@ async function generateSeoTags(url) {
               '@type': 'Event',
               name: displayTitle,
               url: canonical,
-              ...(ogImage ? { image: ogImage } : {}),
+              ...(pageImage ? { image: pageImage } : {}),
               description: description.slice(0, 500),
               ...(beginDateTime ? { startDate: beginDateTime } : {}),
               organizer: { '@type': 'Organization', name: brand, url: base },
@@ -799,6 +815,7 @@ async function generateSeoTags(url) {
     <meta name="description" content="${escapeHtml(description)}" />${keywordsMeta}
     <link rel="canonical" href="${canonical}" />
     ${lcpPreload}
+    <meta property="og:locale" content="ru_RU" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${canonical}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
@@ -821,7 +838,7 @@ async function generateSeoTags(url) {
           beginDateTime,
           minPrice,
           canonicalPath,
-          posterUrl: ogImage || null,
+          posterUrl: pageImage || null,
           sections,
           related,
           faq: faqItems,
@@ -1018,6 +1035,7 @@ async function enrichVenueLandingSsr(venueLabel) {
   try {
     const r = await ticketPool.query(
       `SELECT getbilet_external_id::text AS id,
+              NULLIF(btrim(public_slug), '') AS public_slug,
               COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
               NULLIF(TRIM(venue_manual), '') AS venue_label,
               NULLIF(TRIM(venue_address_manual), '') AS venue_address,
@@ -1061,7 +1079,7 @@ async function enrichVenueLandingSsr(venueLabel) {
     id: row.id,
     title: row.title,
     venueLabel: row.venue_label || label,
-    path: `/ticket/${encodeURIComponent(row.id)}`,
+    path: `/ticket/${encodeURIComponent(row.public_slug || row.id)}`,
   }));
 
   let minPrice = null;
@@ -1155,6 +1173,7 @@ async function fetchPublishedEventsForSsr(limit = 20) {
   try {
     const r = await ticketPool.query(
       `SELECT getbilet_external_id::text AS id,
+              NULLIF(btrim(public_slug), '') AS public_slug,
               COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
               NULLIF(TRIM(venue_manual), '') AS venue_label
        FROM getbilet_events
@@ -1167,7 +1186,7 @@ async function fetchPublishedEventsForSsr(limit = 20) {
       id: row.id,
       title: row.title,
       venueLabel: row.venue_label,
-      path: `/ticket/${encodeURIComponent(row.id)}`,
+      path: `/ticket/${encodeURIComponent(row.public_slug || row.id)}`,
     }));
   } catch (err) {
     console.warn('[SSR] published events:', err.message);

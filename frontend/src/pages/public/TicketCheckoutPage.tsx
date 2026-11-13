@@ -368,6 +368,7 @@ export function TicketCheckoutPage() {
       return {
         id: resolvedSlugApi.repertoireId,
         repertoireId: resolvedSlugApi.repertoireId,
+        publicSlug: resolvedSlugApi.publicSlug || undefined,
         title: resolvedSlugApi.title ?? 'Мероприятие',
         stageId: resolvedSlugApi.stageId ?? undefined,
         imageUrl: resolvedSlugApi.posterUrl ?? undefined,
@@ -1555,15 +1556,24 @@ export function TicketCheckoutPage() {
   );
 
   /**
-   * Manual seed-ключи (`rigoletto-2026-10-15`) оставляем как канон —
-   * иначе slugify(title) даёт `rigoletto-sr-15-oktyabrya-…`, resolve-slug → 404 → /events.
+   * Канон — public_slug (название + площадка, без даты).
+   * Пока колонка пустая, manual-ключ остаётся как есть, чтобы не уехать в slugify(title) и 404.
    */
   const canonicalSlug = useMemo(() => {
+    const pub = (ctx?.publicSlug || resolvedEventFromSlug?.publicSlug || '').trim().toLowerCase();
+    if (pub && !looksLikeGetbiletId(pub)) return pub;
     const rid = repertoireId.trim();
     if (rid && looksLikeManualTicketRouteKey(rid)) return rid.toLowerCase();
     if (routeSlugIsManual && routeSlug) return routeSlug.trim().toLowerCase();
     return slugify(canonicalSourceTitle) || 'event';
-  }, [repertoireId, routeSlug, routeSlugIsManual, canonicalSourceTitle]);
+  }, [
+    ctx?.publicSlug,
+    resolvedEventFromSlug?.publicSlug,
+    repertoireId,
+    routeSlug,
+    routeSlugIsManual,
+    canonicalSourceTitle,
+  ]);
 
   const canonicalTicketPath = useMemo(() => {
     if (!canonicalSlug || canonicalSlug === 'event') return '/events';
@@ -1640,8 +1650,9 @@ export function TicketCheckoutPage() {
     if (!routeKeyIsId && !resolvedEventFromSlug && !repertoireId) return;
     if (routeKeyIsId && !ctx?.title?.trim()) return;
     const wantSlug = canonicalSlug;
+    const search = searchStrForCanonical ? `?${searchStrForCanonical}` : '';
     const hash = window.location.hash || '';
-    const target = `/ticket/${wantSlug}${hash}`;
+    const target = `/ticket/${wantSlug}${search}${hash}`;
     const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (cur !== target) {
       navigate(target, { replace: true });

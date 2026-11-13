@@ -42,6 +42,7 @@ import {
   isFanIdRequiredForRepertoire,
   repertoireIdForTicketSlug,
 } from '../utils/fanIdRequiredEvents.js';
+import { publicSlugByRepertoireId, repertoireIdByPublicSlug } from './publicSlugStore.js';
 import { isManualRepertoireKey } from '../utils/repertoireRouteKey.js';
 import {
   assertRepertoireStorefrontAccess,
@@ -857,6 +858,7 @@ export async function getRepertoirePublicContext(repertoireId, opts = {}) {
     stageMap: stageMapForClient,
     externalPlanUrl,
     requiresFanId: isFanIdRequiredForRepertoire(repertoireId),
+    publicSlug: (await publicSlugByRepertoireId(repertoireId)) || null,
   };
 
   if (fastPath && FAST_CTX_TTL_MS > 0) {
@@ -913,6 +915,7 @@ export async function buildResolveHitFromRepertoireId(repertoireId) {
       null,
     bannerUrl: (base.bannerManual && String(base.bannerManual).trim()) || null,
     beginDateTime: pickFirst(base.payload, ['EventDateTime', 'beginDateTime', 'startDateTime']),
+    publicSlug: (await publicSlugByRepertoireId(repertoireId)) || null,
   };
 }
 
@@ -930,6 +933,12 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
   if (aliasRep) {
     const aliasHit = await buildResolveHitFromRepertoireId(aliasRep);
     if (aliasHit) return aliasHit;
+  }
+
+  const fromPublic = await repertoireIdByPublicSlug(target);
+  if (fromPublic) {
+    const publicHit = await buildResolveHitFromRepertoireId(fromPublic);
+    if (publicHit) return publicHit;
   }
 
   /** Только если slug совпадает с реальным manual repertoire id (seed), не с ЧПУ из названия. */
@@ -953,6 +962,7 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
             null,
           bannerUrl: (base.bannerManual && String(base.bannerManual).trim()) || null,
           beginDateTime: pickFirst(base.payload, ['EventDateTime', 'beginDateTime', 'startDateTime']),
+          publicSlug: (await publicSlugByRepertoireId(target)) || null,
         };
       }
     } catch {
@@ -964,6 +974,7 @@ export async function resolveRepertoireSlug(slug, catalogCompact = []) {
     if (!item) return false;
     const title = String(item.title || '');
     if (slugify(title) === target) return true;
+    if (String(item.publicSlug || '').toLowerCase() === target) return true;
     const rep = String(item.repertoireId || '').trim();
     if (rep && rep.toLowerCase() === target) return true;
     const cardId = String(item.id || '').trim();

@@ -85,6 +85,8 @@ export type NormalizedBiletEvent = {
   id: string;
   /** Репертуар GetBilet (для /ticket/:repertoireId), если id — составной сеансовый ключ */
   repertoireId?: string;
+  /** Канонический ЧПУ без даты: /ticket/{publicSlug} */
+  publicSlug?: string;
   title: string;
   subtitle?: string;
   /** Первый абзац развёрнутого описания — для hero на главной. */
@@ -136,10 +138,16 @@ export function ticketCheckoutHref(
     imageUrl?: string;
     bannerUrl?: string;
     repertoireId?: string;
+    publicSlug?: string;
     isoDate?: string;
   },
   opts?: { focusHall?: boolean },
 ): string {
+  const pub = ev.publicSlug?.trim();
+  if (pub) {
+    const path = `/ticket/${encodeURIComponent(pub)}`;
+    return opts?.focusHall ? `${path}#hall` : path;
+  }
   const rep =
     ev.repertoireId?.trim() ||
     (ev.id.includes('::') ? ev.id.split('::')[0]?.trim() || '' : ev.id.trim());
@@ -402,9 +410,11 @@ export function normalizeBiletEventsPayload(raw: unknown): NormalizedBiletEvent[
     const ratingCountNum =
       ratingCountRaw != null ? Number(ratingCountRaw) : Number(row.RatingCount ?? row.ratingCount);
 
+    const publicSlug = pickString(row, ['publicSlug', 'public_slug']);
     out.push({
       id: id || `anon-${out.length}`,
       repertoireId: repertoireId || undefined,
+      publicSlug,
       title,
       subtitle: subtitleEff,
       heroDescription,
@@ -540,6 +550,7 @@ export async function fetchBiletEventsLite(limit = BILET_EVENTS_LITE_LIMIT): Pro
 
 export type BiletResolvedSlug = {
   repertoireId: string;
+  publicSlug?: string | null;
   title?: string;
   stageId?: string | null;
   posterUrl?: string | null;
@@ -550,11 +561,13 @@ export type BiletResolvedSlug = {
 function compactActionToResolvedSlug(row: Record<string, unknown>, target: string): BiletResolvedSlug | null {
   const title = String(row.title || '').trim();
   const rep = String(row.repertoireId || row.id || '').trim();
+  const pub = String(row.publicSlug || '').trim().toLowerCase();
   if (!rep) return null;
   const t = target.toLowerCase();
-  if (slugify(title) !== t && rep.toLowerCase() !== t) return null;
+  if (slugify(title) !== t && rep.toLowerCase() !== t && pub !== t) return null;
   return {
     repertoireId: rep,
+    publicSlug: pub || null,
     title: title || undefined,
     stageId: row.stageId != null ? String(row.stageId) : null,
     posterUrl: row.posterUrl != null ? String(row.posterUrl) : null,
@@ -833,6 +846,8 @@ export type RepertoireContext = {
   repertoireId: string;
   stageId: string | null;
   title: string;
+  /** Канонический ЧПУ /ticket/:publicSlug, без даты и без id GetBilet. */
+  publicSlug?: string | null;
   /** Площадка из каталога (без запроса офферов). */
   venueLabel?: string | null;
   /** Адрес площадки (GetStageList / payload). */

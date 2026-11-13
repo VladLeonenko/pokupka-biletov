@@ -114,16 +114,28 @@ export async function handleSitemapXml(req, res) {
       });
     }
 
-    const ticketEventRows = await ticketRows(
+    let ticketEventRows = await ticketRows(
       'getbilet_events',
-      `SELECT getbilet_external_id::text AS ext_id, updated_at
+      `SELECT getbilet_external_id::text AS ext_id,
+              NULLIF(btrim(public_slug), '') AS public_slug,
+              updated_at
        FROM getbilet_events
        WHERE is_published = TRUE
          AND COALESCE(storefront_hidden, FALSE) = FALSE
        ORDER BY updated_at DESC`,
     );
+    if (!ticketEventRows.length) {
+      ticketEventRows = await ticketRows(
+        'getbilet_events-legacy',
+        `SELECT getbilet_external_id::text AS ext_id, updated_at
+         FROM getbilet_events
+         WHERE is_published = TRUE
+           AND COALESCE(storefront_hidden, FALSE) = FALSE
+         ORDER BY updated_at DESC`,
+      );
+    }
     for (const row of ticketEventRows) {
-      const rid = encodeURIComponent(row.ext_id);
+      const rid = encodeURIComponent(row.public_slug || row.ext_id);
       urls.push({
         loc: `${BASE_URL}/ticket/${rid}`,
         lastmod: formatDate(row.updated_at),
@@ -273,6 +285,7 @@ export async function handleLlmsTxt(req, res) {
     const ticketEvents = await ticketRows(
       'llms.txt tickets',
       `SELECT getbilet_external_id::text AS ext_id,
+              NULLIF(btrim(public_slug), '') AS public_slug,
               COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title
        FROM getbilet_events
        WHERE is_published = TRUE
@@ -281,7 +294,7 @@ export async function handleLlmsTxt(req, res) {
        LIMIT 40`,
     );
     const eventLinks = ticketEvents
-      .map((e) => `- [${e.title}](${BASE_URL}/ticket/${encodeURIComponent(e.ext_id)})`)
+      .map((e) => `- [${e.title}](${BASE_URL}/ticket/${encodeURIComponent(e.public_slug || e.ext_id)})`)
       .join('\n');
 
     const md = `# ${BRAND}
@@ -341,6 +354,7 @@ export async function handleLlmsFullTxt(req, res) {
     const ticketEvents = await ticketRows(
       'llms-full tickets',
       `SELECT getbilet_external_id::text AS ext_id,
+              NULLIF(btrim(public_slug), '') AS public_slug,
               COALESCE(NULLIF(TRIM(title_manual), ''), getbilet_external_id::text) AS title,
               NULLIF(TRIM(venue_manual), '') AS venue,
               LEFT(COALESCE(description_manual, ''), 160) AS summary
@@ -353,7 +367,7 @@ export async function handleLlmsFullTxt(req, res) {
 
     const eventBlocks = ticketEvents
       .map((e) => {
-        const bits = [`### ${e.title}`, `${BASE_URL}/ticket/${encodeURIComponent(e.ext_id)}`];
+        const bits = [`### ${e.title}`, `${BASE_URL}/ticket/${encodeURIComponent(e.public_slug || e.ext_id)}`];
         if (e.venue) bits.push(`Площадка: ${e.venue}`);
         if (e.summary) bits.push(e.summary);
         return `${bits.join('\n')}\n`;
