@@ -114,12 +114,8 @@ const ChatsListPage = lazy(() => import('@/pages/chat/ChatsListPage').then(m => 
 const ChatViewPage = lazy(() => import('@/pages/chat/ChatViewPage').then(m => ({ default: m.ChatViewPage })));
 const ChatbotSettingsPage = lazy(() => import('@/pages/chatbot/ChatbotSettingsPage').then(m => ({ default: m.ChatbotSettingsPage })));
 const ReviewsManagePage = lazy(() => import('@/pages/admin/ReviewsManagePage').then(m => ({ default: m.ReviewsManagePage })));
-const AwardsManagePage = lazy(() => import('@/pages/admin/AwardsManagePage').then(m => ({ default: m.AwardsManagePage })));
 const TeamListPage = lazy(() => import('@/pages/team/TeamListPage'));
 const TeamEditorPage = lazy(() => import('@/pages/team/TeamEditorPage'));
-const AIChatPage = lazy(() => import('@/pages/admin/AIChatPage').then(m => ({ default: m.AIChatPage })));
-const ProjectsDashboardPage = lazy(() => import('@/pages/admin/ProjectsDashboardPage'));
-const QuizManagementPage = lazy(() => import('@/pages/admin/QuizManagementPage').then(m => ({ default: m.QuizManagementPage })));
 const OrdersAdminPage = lazy(() => import('@/pages/admin/OrdersAdminPage').then(m => ({ default: m.default })));
 const AdminsManagePage = lazy(() => import('@/pages/admin/AdminsManagePage').then(m => ({ default: m.AdminsManagePage })));
 const SalesAnalyticsPage = lazy(() => import('@/pages/admin/SalesAnalyticsPage').then(m => ({ default: m.SalesAnalyticsPage })));
@@ -258,7 +254,6 @@ export function AppRoutes() {
       {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
-      <Route path="/admin/sales-academy/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/admin/sales-analytics" element={<ProtectedAdmin><SalesAnalyticsPage /></ProtectedAdmin>} />
       <Route path="/admin/pages" element={<ProtectedAdmin><PagesListPage /></ProtectedAdmin>} />
       <Route path="/admin/pages/:id" element={<ProtectedAdmin><PageEditorPage /></ProtectedAdmin>} />
@@ -270,10 +265,7 @@ export function AppRoutes() {
       <Route path="/admin/blog/:id/builder" element={<ProtectedAdmin><BlogPageBuilderPage /></ProtectedAdmin>} />
       <Route path="/admin/blog/categories" element={<ProtectedAdmin><BlogCategoriesPage /></ProtectedAdmin>} />
       <Route path="/admin/seo" element={<ProtectedAdmin><SeoPage /></ProtectedAdmin>} />
-      <Route path="/admin/carousels/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
-      <Route path="/admin/cases/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/product-categories" element={<ProtectedAdmin><ProductCategoriesPage /></ProtectedAdmin>} />
-      <Route path="/admin/products/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/orders" element={<Protected><Suspense fallback={<LoadingFallback />}><OrdersAdminPage /></Suspense></Protected>} />
       <Route
         path="/admin/orders/:orderNumber"
@@ -285,38 +277,22 @@ export function AppRoutes() {
           </Protected>
         }
       />
-      <Route path="/admin/parsing" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/promotions" element={<Protected><PromotionsListPage /></Protected>} />
-      <Route path="/admin/quiz" element={<ProtectedAdmin><QuizManagementPage /></ProtectedAdmin>} />
       <Route path="/admin/promotions/:id" element={<Protected><PromotionEditorPage /></Protected>} />
       <Route path="/admin/forms/:formId/submissions/:submissionId" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/forms" element={<Protected><FormsManagementPage /></Protected>} />
       <Route path="/admin/funnels" element={<Protected><FunnelsListPage /></Protected>} />
       <Route path="/admin/funnels/:id" element={<Protected><FunnelViewPage /></Protected>} />
-      <Route path="/admin/tasks/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
-      <Route path="/admin/planner/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
-      <Route path="/admin/test-auth" element={<Protected><Navigate to="/admin" replace /></Protected>} />
-      <Route path="/admin/task-executor" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/admin/clients" element={<Protected><ClientsListPage /></Protected>} />
       <Route path="/admin/clients/:id" element={<Protected><ClientEditorPage /></Protected>} />
       <Route path="/admin/chat" element={<Protected><ChatsListPage /></Protected>} />
       <Route path="/admin/chat/:chatId" element={<Protected><ChatViewPage /></Protected>} />
       <Route path="/admin/chatbot" element={<ProtectedAdmin><ChatbotSettingsPage /></ProtectedAdmin>} />
       <Route path="/admin/reviews" element={<Protected><ReviewsManagePage /></Protected>} />
-      <Route path="/admin/awards" element={<ProtectedAdmin><AwardsManagePage /></ProtectedAdmin>} />
       <Route path="/admin/team" element={<ProtectedAdmin><TeamListPage /></ProtectedAdmin>} />
       <Route path="/admin/admins" element={<ProtectedAdmin><AdminsManagePage /></ProtectedAdmin>} />
       <Route path="/admin/team/:id" element={<ProtectedAdmin><TeamEditorPage /></ProtectedAdmin>} />
-      <Route path="/admin/email/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
-      <Route path="/admin/sales-pipeline" element={<Protected><Navigate to="/admin" replace /></Protected>} />
-      <Route path="/admin/sites/*" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
-      <Route path="/admin/exercise-images" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
-      <Route path="/admin/ai-chat" element={<Protected><AIChatPage /></Protected>} />
-      <Route path="/admin/ai-team" element={<Protected><Navigate to="/admin" replace /></Protected>} />
-      <Route path="/admin/projects-dashboard" element={<Protected><ProjectsDashboardPage /></Protected>} />
-      <Route path="/admin/commercial-proposals/*" element={<Protected><Navigate to="/admin" replace /></Protected>} />
       <Route path="/commercial-proposals/:id" element={<ProposalViewPage />} />
-      <Route path="/admin/donors" element={<ProtectedAdmin><Navigate to="/admin" replace /></ProtectedAdmin>} />
       <Route path="/admin/getbilet/events" element={<Protected><GetbiletEventsListPage /></Protected>} />
       <Route path="/admin/getbilet/events/:id" element={<Protected><GetbiletEventEditPage /></Protected>} />
       <Route path="/admin/getbilet/stage-maps" element={<Protected><GetbiletStageMapsPage /></Protected>} />

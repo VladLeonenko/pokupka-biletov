@@ -15,6 +15,7 @@ export function applyTicketsTheme(): void {
   root.style.setProperty('--border-color', 'rgba(0, 0, 0, 0.08)');
   document.body.style.backgroundColor = '#ffffff';
   document.body.style.color = '#111111';
+  document.documentElement.style.colorScheme = 'light';
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', '#ffffff');
@@ -35,6 +36,7 @@ export function restoreDefaultPublicTheme(): void {
   root.style.setProperty('--border-color', '#333333');
   document.body.style.backgroundColor = '#141414';
   document.body.style.color = '#ffffff';
+  document.documentElement.style.colorScheme = 'dark';
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', '#141414');

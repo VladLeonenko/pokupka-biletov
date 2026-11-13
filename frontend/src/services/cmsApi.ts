@@ -398,12 +398,27 @@ export async function listCarousels(): Promise<Carousel[]> {
 }
 
 // Metrics API
+export type MetricsNamedCount = { name: string; users: number };
+export type MetricsPeriod = 'today' | 'yesterday' | '7d' | '14d' | '30d' | '90d' | 'month' | 'lastMonth' | 'custom';
+export type MetricsComparison = {
+  users: number | null;
+  visits: number | null;
+  pageviews: number | null;
+  bounceRate: number | null;
+  avgVisitDurationSeconds: number | null;
+  avgPageViews: number | null;
+  newUsers: number | null;
+};
+export type MetricsGoal = { id: number | string; name: string; reaches: number; conversionRate: number };
 export type MetricsOverview = {
+  period?: string;
+  date1?: string;
+  date2?: string;
+  previousPeriod?: { date1: string; date2: string };
   visitors: Array<{ date: string; users: number }>;
   avgSessionSec: Array<{ date: string; seconds: number }>;
   topPages: Array<{ path: string; title: string; views: number }>;
-  analyticsSource?: 'yandex' | 'ga' | 'internal' | 'error';
-  /** Сводка за 30 дней (Яндекс.Метрика) */
+  analyticsSource?: 'ga' | 'yandex' | 'internal' | 'error';
   summary?: {
     users: number;
     visits: number;
@@ -411,10 +426,34 @@ export type MetricsOverview = {
     bounceRate: number;
     avgVisitDurationSeconds: number;
     avgPageViews: number;
+    newUsers?: number | null;
+    goalReaches?: number | null;
   };
-  trafficSources?: Array<{ name: string; users: number }>;
-  devices?: Array<{ name: string; users: number }>;
+  previousSummary?: MetricsOverview['summary'];
+  comparison?: MetricsComparison;
+  trafficSources?: MetricsNamedCount[];
+  devices?: MetricsNamedCount[];
   bounceRate?: Array<{ date: string; rate: number }>;
+  searchPhrases?: MetricsNamedCount[];
+  regions?: MetricsNamedCount[];
+  searchEngines?: MetricsNamedCount[];
+  browsers?: MetricsNamedCount[];
+  operatingSystems?: MetricsNamedCount[];
+  countries?: MetricsNamedCount[];
+  newVsReturning?: MetricsNamedCount[];
+  entryPages?: MetricsNamedCount[];
+  exitPages?: MetricsNamedCount[];
+  referers?: MetricsNamedCount[];
+  socialNetworks?: MetricsNamedCount[];
+  byHour?: Array<{ hour: string; users: number }>;
+  pageDepth?: Array<{ date: string; depth: number }>;
+  pageLoadTime?: Array<{ date: string; seconds: number }>;
+  utmSource?: MetricsNamedCount[];
+  utmMedium?: MetricsNamedCount[];
+  utmCampaign?: MetricsNamedCount[];
+  gender?: MetricsNamedCount[];
+  age?: MetricsNamedCount[];
+  goals?: MetricsGoal[];
   stats?: {
     ordersTotal: number;
     revenueTotalCents: number;
@@ -428,9 +467,52 @@ export type MetricsOverview = {
   };
 };
 
-export async function getMetricsOverview(): Promise<MetricsOverview> {
-  const res = await doFetch(`${getApiBaseUrl()}/api/metrics/overview`);
+export async function getMetricsOverview(params: { period?: MetricsPeriod | string; date1?: string; date2?: string } = {}): Promise<MetricsOverview> {
+  const qs = new URLSearchParams();
+  if (params.period) qs.set('period', params.period);
+  if (params.date1) qs.set('date1', params.date1);
+  if (params.date2) qs.set('date2', params.date2);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  const res = await doFetch(`${getApiBaseUrl()}/api/metrics/overview${suffix}`);
   if (!res.ok) throw new Error('Failed to fetch metrics');
+  return res.json();
+}
+
+export type YandexMetrikaStatus = {
+  connected: boolean;
+  counterId?: string | null;
+  counterName?: string | null;
+  error?: string;
+  warning?: string;
+  source?: string;
+  visitorsCount?: number;
+  visits30d?: number | null;
+  users30d?: number | null;
+  pageviews30d?: number | null;
+};
+
+export async function getYandexMetrikaStatus(): Promise<YandexMetrikaStatus> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/metrics/yandex/status`);
+  if (!res.ok) throw new Error('Failed to fetch Metrika status');
+  return res.json();
+}
+
+export async function getYandexMetrikaAuthUrl(): Promise<{ url: string; redirectHint: string; counterId: string }> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/metrics/yandex/auth-url`);
+  if (!res.ok) throw new Error('Failed to get auth URL');
+  return res.json();
+}
+
+export async function exchangeYandexMetrikaCode(code: string): Promise<YandexMetrikaStatus> {
+  const res = await doFetch(`${getApiBaseUrl()}/api/metrics/yandex/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code.trim(), counter_id: '109119282' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err?.error === 'string' ? err.error : 'OAuth exchange failed');
+  }
   return res.json();
 }
 

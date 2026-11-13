@@ -16,7 +16,7 @@
 }
 
 :root.light-theme {
-  --bg-color: #ffffff;
+  --bg-color: #f5f5f5;
   --text-color: #141414;
   --header-bg: #ffffff;
   --border-color: #e0e0e0;
@@ -104,7 +104,7 @@ p {
   border-color: #333333 !important;
 }
 
-.dark-theme .MuiTypography-root {
+.dark-theme .MuiTypography-root:not(.MuiTypography-colorError):not(.MuiTypography-colorSuccess):not(.MuiTypography-colorWarning) {
   color: #ffffff !important;
 }
 
@@ -124,7 +124,7 @@ p {
   border-color: #e0e0e0 !important;
 }
 
-.light-theme .MuiTypography-root {
+.light-theme .MuiTypography-root:not(.MuiTypography-colorError):not(.MuiTypography-colorSuccess):not(.MuiTypography-colorWarning) {
   color: #141414 !important;
 }
 

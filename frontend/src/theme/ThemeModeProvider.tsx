@@ -1,7 +1,7 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { useLocation } from 'react-router-dom';
-import { persistThemeMode, readStoredThemeMode, type ThemeMode } from '@/theme/themeStorage';
+import { persistThemeMode, readAdminThemeMode, type ThemeMode } from '@/theme/themeStorage';
 
 type Mode = ThemeMode;
 type ThemeCtx = { mode: Mode; toggle: () => void };
@@ -18,7 +18,7 @@ function buildTheme(mode: Mode) {
     palette: {
       mode,
       primary: { main: YELLOW, contrastText: '#141414' },
-      background: { default: isDark ? DARK_BG : '#ffffff', paper: isDark ? DARK_PAPER : '#ffffff' },
+      background: { default: isDark ? DARK_BG : '#f5f5f5', paper: isDark ? DARK_PAPER : '#ffffff' },
       text: { primary: isDark ? '#ffffff' : '#141414', secondary: isDark ? '#d0d0d0' : '#555555' },
     },
     typography: {
@@ -107,6 +107,7 @@ export function applyAdminDomTheme(mode: Mode) {
   root.classList.toggle('light-theme', !dark);
   document.body.classList.toggle('dark-theme', dark);
   document.body.classList.toggle('light-theme', !dark);
+  root.style.colorScheme = mode;
   root.style.removeProperty('--bg-color');
   root.style.removeProperty('--text-color');
   root.style.removeProperty('--header-bg');
@@ -128,7 +129,7 @@ export function AdminThemeSync() {
 }
 
 export function ThemeModeProvider({ children }: PropsWithChildren) {
-  const [mode, setMode] = useState<Mode>(() => readStoredThemeMode('admin'));
+  const [mode, setMode] = useState<Mode>(() => readAdminThemeMode());
   useEffect(() => {
     persistThemeMode(mode, 'admin');
   }, [mode]);

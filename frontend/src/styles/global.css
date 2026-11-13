@@ -13,8 +13,8 @@ html {
   font-display: swap; /* Показываем текст системным шрифтом пока загружается Raleway */
 }
 
-/* Глобальные стили для темной темы (витрина tickets — свой стек в tickets-theme.css) */
-body:not([data-tickets='true']) {
+/* Глобальные стили для темной темы. Админка и витрина билетов красятся своими темами. */
+body:not([data-tickets='true']):not([data-admin='true']) {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
@@ -139,42 +139,42 @@ select,
   cursor: text;
 }
 
-/* Исправление MUI светлых фонов */
-.MuiPaper-root {
+/* Исправление MUI светлых фонов — только публичный тёмный сайт, не админка */
+body:not([data-admin='true']) .MuiPaper-root {
   background-color: #1a1a1a !important;
 }
 
-.MuiDialog-paper {
+body:not([data-admin='true']) .MuiDialog-paper {
   background-color: #1a1a1a !important;
 }
 
-.MuiCard-root {
+body:not([data-admin='true']) .MuiCard-root {
   background-color: #1a1a1a !important;
 }
 
-.MuiListItem-root:hover,
-.css-tle48i-MuiListItem-root:hover {
+body:not([data-admin='true']) .MuiListItem-root:hover,
+body:not([data-admin='true']) .css-tle48i-MuiListItem-root:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-.MuiTableCell-root {
+body:not([data-admin='true']) .MuiTableCell-root {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-.MuiTextField-root .MuiOutlinedInput-root {
+body:not([data-admin='true']) .MuiTextField-root .MuiOutlinedInput-root {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-.MuiSelect-root {
+body:not([data-admin='true']) .MuiSelect-root {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* Аккордеоны */
-.MuiAccordion-root {
+body:not([data-admin='true']) .MuiAccordion-root {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-.MuiAccordion-root:before {
+body:not([data-admin='true']) .MuiAccordion-root:before {
   background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
@@ -184,16 +184,16 @@ select,
 }
 
 /* Кнопки */
-.MuiButton-outlined {
+body:not([data-admin='true']) .MuiButton-outlined {
   border-color: rgba(255, 255, 255, 0.23) !important;
 }
 
-.MuiButton-outlined:hover {
+body:not([data-admin='true']) .MuiButton-outlined:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Чипы */
-.MuiChip-root {
+body:not([data-admin='true']) .MuiChip-root {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 /* Белые плашки (AI Boost Team: Проверено, Рекомендуем) */
@@ -206,21 +206,21 @@ select,
 }
 
 /* Табы */
-.MuiTab-root {
+body:not([data-admin='true']) .MuiTab-root {
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
-.MuiTab-root.Mui-selected {
+body:not([data-admin='true']) .MuiTab-root.Mui-selected {
   color: #ffffff !important;
 }
 
 /* Дропдауны */
-.MuiMenu-paper,
-.MuiPopover-paper {
+body:not([data-admin='true']) .MuiMenu-paper,
+body:not([data-admin='true']) .MuiPopover-paper {
   background-color: #1a1a1a !important;
 }
 
-.MuiMenuItem-root:hover {
+body:not([data-admin='true']) .MuiMenuItem-root:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -267,21 +267,21 @@ section section {
 }
 
 /* MUI Card unified dark style */
-.MuiCard-root {
+body:not([data-admin='true']) .MuiCard-root {
   border: 1px solid rgba(255,255,255,0.06) !important;
   border-radius: 12px !important;
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s !important;
 }
-.MuiCard-root:hover {
+body:not([data-admin='true']) .MuiCard-root:hover {
   border-color: rgba(255,187,0,0.2) !important;
   box-shadow: 0 12px 40px rgba(0,0,0,0.35) !important;
 }
 
 /* MuiCardContent text defaults */
-.MuiCardContent-root .MuiTypography-h6 {
+body:not([data-admin='true']) .MuiCardContent-root .MuiTypography-h6 {
   color: #fff !important;
 }
-.MuiCardContent-root .MuiTypography-body2 {
+body:not([data-admin='true']) .MuiCardContent-root .MuiTypography-body2 {
   color: rgba(255,255,255,0.5) !important;
 }
 

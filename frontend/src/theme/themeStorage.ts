@@ -12,8 +12,27 @@ function isThemeMode(value: string | null): value is ThemeMode {
 
 const DEFAULT_THEME: Record<ThemeScope, ThemeMode> = {
   public: 'dark',
-  admin: 'dark',
+  admin: 'light',
 };
+
+/** Сброс автосохранённой тёмной темы админки на светлую по умолчанию. Дальше переключатель помнит выбор. */
+const ADMIN_THEME_REV = '2';
+
+export function readAdminThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    if (localStorage.getItem('admin.theme.rev') !== ADMIN_THEME_REV) {
+      localStorage.setItem('admin.theme.rev', ADMIN_THEME_REV);
+      localStorage.setItem('admin.theme', 'light');
+      return 'light';
+    }
+    const stored = localStorage.getItem(THEME_KEYS.admin);
+    if (isThemeMode(stored)) return stored;
+  } catch {
+    /* private mode */
+  }
+  return 'light';
+}
 
 export function readStoredThemeMode(scope: ThemeScope = 'public'): ThemeMode {
   if (typeof window === 'undefined') return DEFAULT_THEME[scope];

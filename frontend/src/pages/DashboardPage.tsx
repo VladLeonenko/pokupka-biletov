@@ -1,50 +1,382 @@
 import { useMemo, useState } from 'react';
-import { useAuth } from '@/auth/AuthProvider';
-import { Card, CardContent, Grid, Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Button } from '@mui/material';
+import {
+  Grid,
+  Typography,
+  Box,
+  Paper,
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Button,
+  TextField,
+  Chip,
+  Alert,
+  Collapse,
+  FormGroup,
+  FormControlLabel,
+  Switch,
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  ToggleButton,
+  ToggleButtonGroup,
+  Divider,
+} from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { getMetricsOverview, MetricsOverview, clearGlobalCache } from '@/services/cmsApi';
-import { Line, Doughnut } from 'react-chartjs-2';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  getMetricsOverview,
+  MetricsOverview,
+  MetricsPeriod,
+  clearGlobalCache,
+  getYandexMetrikaStatus,
+  getYandexMetrikaAuthUrl,
+  exchangeYandexMetrikaCode,
+} from '@/services/cmsApi';
+import { Line, Doughnut, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
-  ArcElement,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  ArcElement,
+  BarElement,
   Tooltip,
   Legend,
+  Filler,
 } from 'chart.js';
 import { useToast } from '@/components/common/ToastProvider';
 import { getStoredCacheVersion } from '@/utils/cacheVersion';
+import { useAuth } from '@/auth/AuthProvider';
 import { ManagerDashboardPage } from '@/pages/admin/ManagerDashboardPage';
 
-ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  BarElement,
+  Tooltip,
+  Legend,
+  Filler,
+);
 
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds < 60) return `${Math.round(seconds)} сек`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return s > 0 ? `${m} мин ${s} сек` : `${m} мин`;
+type ReportKey =
+  | 'kpi'
+  | 'visitors'
+  | 'session'
+  | 'bounce'
+  | 'byHour'
+  | 'pageDepth'
+  | 'pageLoad'
+  | 'devices'
+  | 'browsers'
+  | 'os'
+  | 'newVsReturning'
+  | 'gender'
+  | 'age'
+  | 'sources'
+  | 'engines'
+  | 'phrases'
+  | 'referers'
+  | 'social'
+  | 'utm'
+  | 'goals'
+  | 'regions'
+  | 'countries'
+  | 'pages'
+  | 'entryPages'
+  | 'exitPages';
+
+type ReportGroup = { id: string; title: string; keys: ReportKey[] };
+
+const REPORT_GROUPS: ReportGroup[] = [
+  { id: 'summary', title: 'Сводка', keys: ['kpi', 'goals'] },
+  {
+    id: 'dynamics',
+    title: 'Динамика',
+    keys: ['visitors', 'session', 'bounce', 'byHour', 'pageDepth', 'pageLoad'],
+  },
+  {
+    id: 'audience',
+    title: 'Аудитория',
+    keys: ['devices', 'browsers', 'os', 'newVsReturning', 'gender', 'age', 'regions', 'countries'],
+  },
+  {
+    id: 'traffic',
+    title: 'Трафик',
+    keys: ['sources', 'engines', 'phrases', 'utm', 'referers', 'social'],
+  },
+  { id: 'content', title: 'Контент', keys: ['pages', 'entryPages', 'exitPages'] },
+];
+
+const REPORT_LABELS: Record<ReportKey, string> = {
+  kpi: 'KPI + сравнение с прошлым периодом',
+  visitors: 'Посетители',
+  session: 'Время на сайте',
+  bounce: 'Отказы',
+  byHour: 'Активность по часам',
+  pageDepth: 'Глубина просмотра',
+  pageLoad: 'Скорость загрузки',
+  devices: 'Устройства',
+  browsers: 'Браузеры',
+  os: 'ОС',
+  newVsReturning: 'Новые / вернувшиеся',
+  gender: 'Пол',
+  age: 'Возраст',
+  sources: 'Источники трафика',
+  engines: 'Поисковые системы',
+  phrases: 'Поисковые запросы',
+  referers: 'Рефереры',
+  social: 'Соцсети',
+  utm: 'UTM (source / medium / campaign)',
+  goals: 'Цели / конверсии',
+  regions: 'Города',
+  countries: 'Страны',
+  pages: 'Топ страниц',
+  entryPages: 'Страницы входа',
+  exitPages: 'Страницы выхода',
+};
+
+const STORAGE_KEY = 'bilet_dashboard_reports_v1';
+const PERIOD_KEY = 'bilet_dashboard_period_v1';
+
+const DEFAULT_VISIBLE: Record<ReportKey, boolean> = {
+  kpi: true,
+  visitors: true,
+  session: true,
+  bounce: true,
+  byHour: true,
+  pageDepth: true,
+  pageLoad: true,
+  devices: true,
+  browsers: true,
+  os: false,
+  newVsReturning: true,
+  gender: true,
+  age: true,
+  sources: true,
+  engines: true,
+  phrases: true,
+  referers: false,
+  social: false,
+  utm: true,
+  goals: true,
+  regions: true,
+  countries: false,
+  pages: true,
+  entryPages: true,
+  exitPages: false,
+};
+
+const PERIODS: Array<{ value: MetricsPeriod; label: string }> = [
+  { value: 'today', label: 'Сегодня' },
+  { value: 'yesterday', label: 'Вчера' },
+  { value: '7d', label: '7 дней' },
+  { value: '14d', label: '14 дней' },
+  { value: '30d', label: '30 дней' },
+  { value: '90d', label: '90 дней' },
+  { value: 'month', label: 'Этот месяц' },
+  { value: 'lastMonth', label: 'Прошлый месяц' },
+  { value: 'custom', label: 'Свой' },
+];
+
+const PERIOD_LABELS: Record<string, string> = Object.fromEntries(PERIODS.map((p) => [p.value, p.label]));
+
+const CHART_COLORS = ['#e8a317', '#5b8def', '#3dba8c', '#e85d75', '#9b7bff', '#45c4d9', '#f0a060', '#7a8ba8'];
+
+function loadVisible(): Record<ReportKey, boolean> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_VISIBLE };
+    return { ...DEFAULT_VISIBLE, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_VISIBLE };
+  }
+}
+
+function loadPeriod(): MetricsPeriod {
+  try {
+    const v = localStorage.getItem(PERIOD_KEY) as MetricsPeriod | null;
+    if (v && PERIODS.some((p) => p.value === v)) return v;
+  } catch {
+    /* ignore */
+  }
+  return '30d';
+}
+
+function formatDuration(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatPct(v: number): string {
+  if (!Number.isFinite(v)) return '—';
+  const n = v > 1 ? v : v * 100;
+  return `${n.toFixed(1)}%`;
+}
+
+/** delta % vs previous; invertGood=true → рост хуже (отказы) */
+function DeltaChip({ value, invertGood }: { value?: number | null; invertGood?: boolean }) {
+  if (value == null || !Number.isFinite(value)) return null;
+  const up = value > 0;
+  const good = invertGood ? !up : up;
+  const color = Math.abs(value) < 0.05 ? 'default' : good ? 'success' : 'error';
+  const sign = value > 0 ? '+' : '';
+  return (
+    <Chip
+      size="small"
+      color={color as 'default' | 'success' | 'error'}
+      variant="outlined"
+      label={`${sign}${value.toFixed(1)}%`}
+      sx={{ height: 22, mt: 0.5, '& .MuiChip-label': { px: 0.75, fontSize: 11 } }}
+    />
+  );
+}
+
+function namedChartData(rows: Array<{ name: string; users: number }> | undefined) {
+  const list = rows || [];
+  return {
+    labels: list.map((r) => (r.name.length > 28 ? `${r.name.slice(0, 26)}…` : r.name)),
+    datasets: [
+      {
+        data: list.map((r) => r.users),
+        backgroundColor: list.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+        borderWidth: 0,
+      },
+    ],
+  };
+}
+
+function ReportCard({ title, children, height }: { title: string; children: React.ReactNode; height?: number }) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        height: '100%',
+        borderColor: 'rgba(255,255,255,0.08)',
+        background: 'linear-gradient(165deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+      }}
+    >
+      <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 600, letterSpacing: '0.02em' }}>
+        {title}
+      </Typography>
+      <Box sx={{ height: height ?? 'auto' }}>{children}</Box>
+    </Paper>
+  );
+}
+
+function NamedTable({
+  rows,
+  nameHeader,
+  empty,
+}: {
+  rows?: Array<{ name: string; users: number }>;
+  nameHeader: string;
+  empty?: string;
+}) {
+  if (!rows?.length) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        {empty || 'Нет данных за период'}
+      </Typography>
+    );
+  }
+  return (
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          <TableCell>{nameHeader}</TableCell>
+          <TableCell align="right">Польз.</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map((r) => (
+          <TableRow key={r.name} hover>
+            <TableCell sx={{ maxWidth: 340, wordBreak: 'break-all' }}>{r.name}</TableCell>
+            <TableCell align="right">{Math.round(r.users)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
 }
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const { showToast } = useToast();
-
   if (user?.role === 'sales_manager') {
     return <ManagerDashboardPage />;
   }
+  return <AdminMetricsDashboard />;
+}
+
+function AdminMetricsDashboard() {
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [cacheVersion, setCacheVersion] = useState(() => getStoredCacheVersion() || '');
-  const { data } = useQuery<MetricsOverview>({ queryKey: ['metrics-overview'], queryFn: getMetricsOverview });
+  const [oauthCode, setOauthCode] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [visible, setVisible] = useState<Record<ReportKey, boolean>>(loadVisible);
+  const [period, setPeriod] = useState<MetricsPeriod>(loadPeriod);
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+
+  const queryParams = useMemo(() => {
+    if (period === 'custom' && customFrom && customTo) {
+      return { period: 'custom' as const, date1: customFrom, date2: customTo };
+    }
+    if (period === 'custom') return { period: '30d' as const };
+    return { period };
+  }, [period, customFrom, customTo]);
+
+  const { data, isLoading, isError, isFetching } = useQuery<MetricsOverview>({
+    queryKey: ['metrics-overview', queryParams],
+    queryFn: () => getMetricsOverview(queryParams),
+    enabled: period !== 'custom' || Boolean(customFrom && customTo),
+  });
+  const { data: ymStatus } = useQuery({
+    queryKey: ['yandex-metrika-status'],
+    queryFn: getYandexMetrikaStatus,
+    retry: false,
+  });
+
+  const exchangeMut = useMutation({
+    mutationFn: (code: string) => exchangeYandexMetrikaCode(code),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['yandex-metrika-status'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics-overview'] });
+      setOauthCode('');
+      showToast('Яндекс.Метрика подключена', 'success');
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+
+  const openYandexOAuth = async () => {
+    try {
+      const { url } = await getYandexMetrikaAuthUrl();
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
+  };
+
   const cacheVersionLabel = useMemo(() => {
     if (!cacheVersion) return '—';
     const timestamp = Number(cacheVersion);
     if (!Number.isNaN(timestamp)) {
       const date = new Date(timestamp);
-      if (!Number.isNaN(date.getTime())) {
-        return date.toLocaleString();
-      }
+      if (!Number.isNaN(date.getTime())) return date.toLocaleString();
     }
     return cacheVersion;
   }, [cacheVersion]);
@@ -63,135 +395,352 @@ export function DashboardPage() {
 
   const handleClearCache = () => {
     if (cacheMutation.isPending) return;
-    const confirmed = window.confirm('Сбросить кэш для всех пользователей? Все посетители увидят актуальные данные после обновления страницы.');
-    if (confirmed) {
-      cacheMutation.mutate();
-    }
+    const confirmed = window.confirm(
+      'Сбросить кэш для всех пользователей? Все посетители увидят актуальные данные после обновления страницы.',
+    );
+    if (confirmed) cacheMutation.mutate();
+  };
+
+  const persistVisible = (next: Record<ReportKey, boolean>) => {
+    setVisible(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const toggleReport = (key: ReportKey) => {
+    persistVisible({ ...visible, [key]: !visible[key] });
+  };
+
+  const setGroup = (keys: ReportKey[], on: boolean) => {
+    const next = { ...visible };
+    keys.forEach((k) => {
+      next[k] = on;
+    });
+    persistVisible(next);
+  };
+
+  const handlePeriod = (_: unknown, value: MetricsPeriod | null) => {
+    if (!value) return;
+    setPeriod(value);
+    localStorage.setItem(PERIOD_KEY, value);
+  };
+
+  const chartOpts = {
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' } },
+      x: { grid: { display: false } },
+    },
+  };
+
+  const doughnutOpts = {
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'right' as const, labels: { boxWidth: 12, font: { size: 11 } } } },
   };
 
   const visitorsData = {
-    labels: (data?.visitors || []).map(d => d.date.slice(5)),
-    datasets: [{ label: 'Посетители', data: (data?.visitors || []).map(d => d.users), borderColor: '#1976d2', backgroundColor: 'rgba(25,118,210,0.2)', tension: 0.3 }],
+    labels: (data?.visitors || []).map((d) => d.date?.slice(5) || d.date || ''),
+    datasets: [
+      {
+        label: 'Посетители',
+        data: (data?.visitors || []).map((d) => d.users),
+        borderColor: '#5b8def',
+        backgroundColor: 'rgba(91,141,239,0.15)',
+        fill: true,
+        tension: 0.35,
+      },
+    ],
   };
   const sessionData = {
-    labels: (data?.avgSessionSec || []).map(d => d.date.slice(5)),
-    datasets: [{ label: 'Среднее время (сек)', data: (data?.avgSessionSec || []).map(d => d.seconds), borderColor: '#2e7d32', backgroundColor: 'rgba(46,125,50,0.2)', tension: 0.3 }],
+    labels: (data?.avgSessionSec || []).map((d) => d.date?.slice(5) || d.date || ''),
+    datasets: [
+      {
+        label: 'Сек',
+        data: (data?.avgSessionSec || []).map((d) => d.seconds),
+        borderColor: '#3dba8c',
+        backgroundColor: 'rgba(61,186,140,0.15)',
+        fill: true,
+        tension: 0.35,
+      },
+    ],
   };
-
-  const stats = data?.stats;
-  const summary = data?.summary;
-  const trafficSources = data?.trafficSources || [];
-  const devices = data?.devices || [];
-  const bounceRateData = data?.bounceRate || [];
-  const analyticsLabel = data?.analyticsSource === 'ga' ? 'Google Analytics' : data?.analyticsSource === 'yandex' ? 'Яндекс.Метрика' : 'Внутренняя аналитика';
-
-  const trafficChartData = trafficSources.length
-    ? {
-        labels: trafficSources.map((s) => s.name),
-        datasets: [{ data: trafficSources.map((s) => s.users), backgroundColor: ['#1976d2', '#2e7d32', '#ed6c02', '#9c27b0', '#d32f2f', '#0288d1', '#5c6bc0', '#00897b'] }],
-      }
-    : null;
-
-  const devicesChartData = devices.length
-    ? {
-        labels: devices.map((d) => d.name),
-        datasets: [{ data: devices.map((d) => d.users), backgroundColor: ['#1976d2', '#2e7d32', '#ed6c02'] }],
-      }
-    : null;
-
   const bounceData = {
-    labels: bounceRateData.map((d) => d.date?.slice(5)),
-    datasets: [{ label: 'Отказы %', data: bounceRateData.map((d) => d.rate), borderColor: '#ed6c02', backgroundColor: 'rgba(237,108,0,0.2)', tension: 0.3 }],
+    labels: (data?.bounceRate || []).map((d) => d.date?.slice(5) || d.date || ''),
+    datasets: [
+      {
+        label: 'Отказы %',
+        data: (data?.bounceRate || []).map((d) => (d.rate > 1 ? d.rate : d.rate * 100)),
+        borderColor: '#e85d75',
+        backgroundColor: 'rgba(232,93,117,0.12)',
+        fill: true,
+        tension: 0.35,
+      },
+    ],
   };
+  const hourData = {
+    labels: (data?.byHour || []).map((d) => `${d.hour}:00`),
+    datasets: [
+      {
+        label: 'Пользователи',
+        data: (data?.byHour || []).map((d) => d.users),
+        backgroundColor: 'rgba(155,123,255,0.75)',
+        borderRadius: 4,
+      },
+    ],
+  };
+  const depthData = {
+    labels: (data?.pageDepth || []).map((d) => d.date?.slice(5) || d.date || ''),
+    datasets: [
+      {
+        label: 'Глубина',
+        data: (data?.pageDepth || []).map((d) => d.depth),
+        borderColor: '#f0a060',
+        backgroundColor: 'rgba(240,160,96,0.15)',
+        fill: true,
+        tension: 0.35,
+      },
+    ],
+  };
+  const loadData = {
+    labels: (data?.pageLoadTime || []).map((d) => d.date?.slice(5) || d.date || ''),
+    datasets: [
+      {
+        label: 'Сек',
+        data: (data?.pageLoadTime || []).map((d) => {
+          const v = Number(d.seconds) || 0;
+          // Метрика иногда отдаёт мс
+          return v > 100 ? v / 1000 : v;
+        }),
+        borderColor: '#45c4d9',
+        backgroundColor: 'rgba(69,196,217,0.15)',
+        fill: true,
+        tension: 0.35,
+      },
+    ],
+  };
+
+  const summary = data?.summary;
+  const comparison = data?.comparison;
+  const stats = data?.stats;
+  const periodLabel =
+    period === 'custom' && customFrom && customTo
+      ? `${customFrom} — ${customTo}`
+      : PERIOD_LABELS[data?.period || period] || period;
+  const sourceLabel =
+    data?.analyticsSource === 'yandex'
+      ? 'Яндекс.Метрика'
+      : data?.analyticsSource === 'ga'
+        ? 'Google Analytics'
+        : data?.analyticsSource === 'internal'
+          ? 'Внутренняя статистика'
+          : data?.analyticsSource || '—';
+
+  // overview уже тянет Яндекс → считаем подключенной даже если status упёрся в quota
+  const metrikaLive = Boolean(ymStatus?.connected || data?.analyticsSource === 'yandex');
+  const needsOauth = !metrikaLive;
+  const statusWarn = ymStatus?.warning || (!metrikaLive ? ymStatus?.error : undefined);
 
   return (
     <Grid container spacing={2}>
-      {summary && (
-        <Grid item xs={12}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Сводка за 30 дней</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={6} sm={4} md={2}>
-                <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Посетители</Typography>
-                  <Typography variant="h5">{summary.users?.toLocaleString('ru-RU') ?? '—'}</Typography>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Визиты</Typography>
-                  <Typography variant="h5">{summary.visits?.toLocaleString('ru-RU') ?? '—'}</Typography>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Просмотры</Typography>
-                  <Typography variant="h5">{summary.pageviews?.toLocaleString('ru-RU') ?? '—'}</Typography>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Отказы</Typography>
-                  <Typography variant="h5">{(summary.bounceRate ?? 0).toFixed(1)}%</Typography>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Время на сайте</Typography>
-                  <Typography variant="h6">{formatDuration(summary.avgVisitDurationSeconds ?? 0)}</Typography>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Глубина просмотра</Typography>
-                  <Typography variant="h5">{(summary.avgPageViews ?? 0).toFixed(1)} стр</Typography>
-                </Card>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
-      )}
+      <Grid item xs={12}>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1.5 }}>
+            <Typography variant="h6" sx={{ mr: 1 }}>
+              Обзор аналитики
+            </Typography>
+            <Chip
+              size="small"
+              label={metrikaLive ? `Метрика · ${ymStatus?.counterId || '109119282'}` : 'Метрика не подключена'}
+              color={metrikaLive ? 'success' : 'default'}
+            />
+            {data?.analyticsSource && <Chip size="small" variant="outlined" label={sourceLabel} />}
+            {isFetching && <Chip size="small" label="Обновление…" />}
+            <Box sx={{ flex: 1 }} />
+            <Button
+              size="small"
+              startIcon={<SettingsOutlinedIcon />}
+              variant="outlined"
+              onClick={() => setSettingsOpen(true)}
+            >
+              Настройка отчётов
+            </Button>
+          </Box>
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Период
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={period}
+            onChange={handlePeriod}
+            sx={{ flexWrap: 'wrap', gap: 0.5, mb: period === 'custom' ? 1.5 : 0 }}
+          >
+            {PERIODS.map((p) => (
+              <ToggleButton key={p.value} value={p.value} sx={{ px: 1.25, py: 0.5, textTransform: 'none' }}>
+                {p.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <Collapse in={period === 'custom'}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1 }} alignItems="center">
+              <TextField
+                size="small"
+                type="date"
+                label="С"
+                InputLabelProps={{ shrink: true }}
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+              <TextField
+                size="small"
+                type="date"
+                label="По"
+                InputLabelProps={{ shrink: true }}
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
+            </Stack>
+          </Collapse>
+
+          {statusWarn && (
+            <Alert severity="warning" sx={{ mt: 1.5, mb: needsOauth ? 1 : 0 }}>
+              {statusWarn}
+              {String(statusWarn).toLowerCase().includes('quota') ||
+              String(statusWarn).toLowerCase().includes('parallel')
+                ? ' — это лимит Яндекса, не «отвал» токена. Подожди минуту и обнови страницу.'
+                : null}
+            </Alert>
+          )}
+
+          {needsOauth && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, mb: 1 }}>
+                Счётчик 109119282. OAuth → код с verification_code → вставь ниже.
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                <Button variant="outlined" size="small" onClick={() => void openYandexOAuth()}>
+                  Открыть OAuth
+                </Button>
+                <TextField
+                  size="small"
+                  placeholder="Код из oauth.yandex.ru/verification_code"
+                  value={oauthCode}
+                  onChange={(e) => setOauthCode(e.target.value)}
+                  sx={{ minWidth: 280, flex: 1 }}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={!oauthCode.trim() || exchangeMut.isPending}
+                  onClick={() => exchangeMut.mutate(oauthCode.trim())}
+                >
+                  {exchangeMut.isPending ? '…' : 'Подключить'}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Paper>
+      </Grid>
+
+      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Настройка отчётов</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Включай/выключай блоки. Настройки сохраняются в браузере. Период меняется на панели Обзора.
+          </Typography>
+          {REPORT_GROUPS.map((group) => (
+            <Box key={group.id} sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Typography variant="subtitle2">{group.title}</Typography>
+                <Button size="small" onClick={() => setGroup(group.keys, true)}>
+                  все
+                </Button>
+                <Button size="small" onClick={() => setGroup(group.keys, false)}>
+                  сброс
+                </Button>
+              </Box>
+              <FormGroup>
+                {group.keys.map((key) => (
+                  <FormControlLabel
+                    key={key}
+                    control={<Switch size="small" checked={visible[key]} onChange={() => toggleReport(key)} />}
+                    label={REPORT_LABELS[key]}
+                  />
+                ))}
+              </FormGroup>
+              <Divider sx={{ mt: 1 }} />
+            </Box>
+          ))}
+          <Button size="small" onClick={() => persistVisible({ ...DEFAULT_VISIBLE })}>
+            Вернуть по умолчанию
+          </Button>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettingsOpen(false)}>Готово</Button>
+        </DialogActions>
+      </Dialog>
+
       {stats && (
         <Grid item xs={12}>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Бизнес-метрики</Typography>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Бизнес-метрики
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={6} sm={4} md={2}>
                 <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Заказов всего</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Заказов всего
+                  </Typography>
                   <Typography variant="h5">{stats.ordersTotal}</Typography>
                 </Card>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Заказов за 30 дней</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Заказов за 30 дней
+                  </Typography>
                   <Typography variant="h5">{stats.ordersMonth}</Typography>
                 </Card>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Выручка всего</Typography>
-                  <Typography variant="h6">{(stats.revenueTotalCents / 100).toLocaleString('ru-RU')} ₽</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Выручка всего
+                  </Typography>
+                  <Typography variant="h6">
+                    {(stats.revenueTotalCents / 100).toLocaleString('ru-RU')} ₽
+                  </Typography>
                 </Card>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Клиентов</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Клиентов
+                  </Typography>
                   <Typography variant="h5">{stats.clientsTotal}</Typography>
                 </Card>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Заявок (форм)</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Заявок (форм)
+                  </Typography>
                   <Typography variant="h5">{stats.formSubmissionsTotal}</Typography>
                   {stats.formSubmissionsNew > 0 && (
-                    <Typography variant="caption" color="error">+{stats.formSubmissionsNew} новых</Typography>
+                    <Typography variant="caption" color="error">
+                      +{stats.formSubmissionsNew} новых
+                    </Typography>
                   )}
                 </Card>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Card variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Просмотров товаров (30 д)</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Просмотров товаров (30 д)
+                  </Typography>
                   <Typography variant="h5">{stats.productViewsMonth}</Typography>
                 </Card>
               </Grid>
@@ -199,15 +748,25 @@ export function DashboardPage() {
           </Paper>
         </Grid>
       )}
+
       <Grid item xs={12}>
-        <Paper variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+          }}
+        >
           <Box>
-            <Typography variant="h6" sx={{ mb: 0.5 }}>Управление кэшем</Typography>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>
+              Управление кэшем
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               Текущая версия: {cacheVersionLabel}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Нажмите, чтобы принудительно обновить ресурсы сайта для всех пользователей.
             </Typography>
           </Box>
           <Button
@@ -221,86 +780,378 @@ export function DashboardPage() {
           </Button>
         </Paper>
       </Grid>
-      <Grid item xs={12} md={8}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Посетители (30 дней)
-            {analyticsLabel && (
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>— {analyticsLabel}</Typography>
-            )}
-          </Typography>
-          <Box sx={{ height: 260 }}>
-            <Line data={visitorsData} options={{ maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
-          </Box>
-        </Paper>
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Среднее время на сайте</Typography>
-          <Box sx={{ height: 260 }}>
-            <Line data={sessionData} options={{ maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
-          </Box>
-        </Paper>
-      </Grid>
-      {bounceRateData.length > 0 && (
+
+      {isError && (
+        <Grid item xs={12}>
+          <Alert severity="error">Не удалось загрузить метрики</Alert>
+        </Grid>
+      )}
+      {isLoading && (
+        <Grid item xs={12}>
+          <Typography color="text.secondary">Загрузка отчётов…</Typography>
+        </Grid>
+      )}
+
+      {visible.kpi && summary && (
+        <Grid item xs={12}>
+          {data?.previousPeriod && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Сравнение с {data.previousPeriod.date1} — {data.previousPeriod.date2}
+            </Typography>
+          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} useFlexGap flexWrap="wrap">
+            {(
+              [
+                {
+                  label: 'Посетители',
+                  value: Math.round(summary.users).toLocaleString('ru-RU'),
+                  delta: comparison?.users,
+                },
+                {
+                  label: 'Визиты',
+                  value: Math.round(summary.visits).toLocaleString('ru-RU'),
+                  delta: comparison?.visits,
+                },
+                {
+                  label: 'Просмотры',
+                  value: Math.round(summary.pageviews).toLocaleString('ru-RU'),
+                  delta: comparison?.pageviews,
+                },
+                {
+                  label: 'Новые',
+                  value:
+                    summary.newUsers != null ? Math.round(summary.newUsers).toLocaleString('ru-RU') : '—',
+                  delta: comparison?.newUsers,
+                },
+                {
+                  label: 'Отказы',
+                  value: formatPct(summary.bounceRate),
+                  delta: comparison?.bounceRate,
+                  invertGood: true,
+                },
+                {
+                  label: 'Время на сайте',
+                  value: formatDuration(summary.avgVisitDurationSeconds),
+                  delta: comparison?.avgVisitDurationSeconds,
+                },
+                {
+                  label: 'Глубина',
+                  value: Number(summary.avgPageViews).toFixed(1),
+                  delta: comparison?.avgPageViews,
+                },
+                {
+                  label: 'Цели',
+                  value:
+                    summary.goalReaches != null
+                      ? Math.round(summary.goalReaches).toLocaleString('ru-RU')
+                      : '—',
+                  delta: null,
+                },
+              ] as Array<{
+                label: string;
+                value: string;
+                delta?: number | null;
+                invertGood?: boolean;
+              }>
+            ).map((kpi) => (
+              <Paper
+                key={kpi.label}
+                variant="outlined"
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  minWidth: 130,
+                  flex: '1 1 130px',
+                  borderColor: 'rgba(232,163,23,0.25)',
+                  background: 'linear-gradient(145deg, rgba(232,163,23,0.08), transparent)',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  {kpi.label}
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  {kpi.value}
+                </Typography>
+                <DeltaChip value={kpi.delta} invertGood={kpi.invertGood} />
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {periodLabel}
+                </Typography>
+              </Paper>
+            ))}
+          </Stack>
+        </Grid>
+      )}
+
+      {visible.visitors && (
+        <Grid item xs={12} md={8}>
+          <ReportCard title={`Посетители · ${periodLabel}`} height={260}>
+            <Line data={visitorsData} options={chartOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.session && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Среднее время на сайте" height={260}>
+            <Line data={sessionData} options={chartOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.bounce && (data?.bounceRate?.length ?? 0) > 0 && (
         <Grid item xs={12} md={6}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Показатель отказов</Typography>
-            <Box sx={{ height: 220 }}>
-              <Line data={bounceData} options={{ maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }} />
-            </Box>
-          </Paper>
+          <ReportCard title="Показатель отказов" height={240}>
+            <Line data={bounceData} options={chartOpts} />
+          </ReportCard>
         </Grid>
       )}
-      {trafficChartData && (
-        <Grid item xs={12} md={3}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Источники трафика</Typography>
-            <Box sx={{ height: 220 }}>
-              <Doughnut data={trafficChartData} options={{ maintainAspectRatio: false }} />
-            </Box>
-          </Paper>
+      {visible.byHour && (data?.byHour?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Активность по часам" height={240}>
+            <Bar data={hourData} options={chartOpts} />
+          </ReportCard>
         </Grid>
       )}
-      {devicesChartData && (
-        <Grid item xs={12} md={3}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Устройства</Typography>
-            <Box sx={{ height: 220 }}>
-              <Doughnut data={devicesChartData} options={{ maintainAspectRatio: false }} />
-            </Box>
-          </Paper>
+      {visible.pageDepth && (data?.pageDepth?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Глубина просмотра по дням" height={240}>
+            <Line data={depthData} options={chartOpts} />
+          </ReportCard>
         </Grid>
       )}
-      <Grid item xs={12}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Топ страниц</Typography>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Страница</TableCell>
-                <TableCell>Заголовок</TableCell>
-                <TableCell align="right">Просмотры</TableCell>
-              </TableRow>
-            </TableHead>
-<TableBody>
-              {(data?.topPages || []).length === 0 ? (
+      {visible.pageLoad && (data?.pageLoadTime?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Скорость загрузки (сек)" height={240}>
+            <Line data={loadData} options={chartOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.goals && (
+        <Grid item xs={12}>
+          <ReportCard title="Цели / конверсии">
+            {(data?.goals?.length ?? 0) === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Цели не заведены в счётчике или нет достижений за период.
+              </Typography>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Цель</TableCell>
+                    <TableCell align="right">Достижения</TableCell>
+                    <TableCell align="right">Конверсия</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(data?.goals || []).map((g) => (
+                    <TableRow key={String(g.id)} hover>
+                      <TableCell>{g.name}</TableCell>
+                      <TableCell align="right">{Math.round(g.reaches)}</TableCell>
+                      <TableCell align="right">{formatPct(g.conversionRate)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.devices && (data?.devices?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Устройства" height={240}>
+            <Doughnut data={namedChartData(data?.devices)} options={doughnutOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.newVsReturning && (data?.newVsReturning?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Новые / вернувшиеся" height={240}>
+            <Doughnut data={namedChartData(data?.newVsReturning)} options={doughnutOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.gender && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Пол" height={240}>
+            {(data?.gender?.length ?? 0) === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Нет данных (демография не собирается или мало трафика).
+              </Typography>
+            ) : (
+              <Doughnut data={namedChartData(data?.gender)} options={doughnutOpts} />
+            )}
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.age && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Возраст">
+            <NamedTable
+              rows={data?.age}
+              nameHeader="Интервал"
+              empty="Нет данных (демография не собирается или мало трафика)"
+            />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.browsers && (data?.browsers?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Браузеры" height={240}>
+            <Doughnut data={namedChartData(data?.browsers)} options={doughnutOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.os && (data?.operatingSystems?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Операционные системы" height={240}>
+            <Bar
+              data={{
+                labels: (data?.operatingSystems || []).map((r) => r.name),
+                datasets: [
+                  {
+                    data: (data?.operatingSystems || []).map((r) => r.users),
+                    backgroundColor: '#45c4d9',
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{ ...chartOpts, indexAxis: 'y' as const }}
+            />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.sources && (data?.trafficSources?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Источники трафика" height={260}>
+            <Bar
+              data={{
+                labels: (data?.trafficSources || []).map((r) => r.name),
+                datasets: [
+                  {
+                    label: 'Пользователи',
+                    data: (data?.trafficSources || []).map((r) => r.users),
+                    backgroundColor: '#e8a317',
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{ ...chartOpts, indexAxis: 'y' as const }}
+            />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.engines && (data?.searchEngines?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Поисковые системы" height={240}>
+            <Doughnut data={namedChartData(data?.searchEngines)} options={doughnutOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.social && (data?.socialNetworks?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Соцсети" height={240}>
+            <Doughnut data={namedChartData(data?.socialNetworks)} options={doughnutOpts} />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.countries && (data?.countries?.length ?? 0) > 0 && (
+        <Grid item xs={12} md={4}>
+          <ReportCard title="Страны">
+            <NamedTable rows={data?.countries} nameHeader="Страна" />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.regions && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Города">
+            <NamedTable rows={data?.regions} nameHeader="Город" />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.phrases && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Поисковые запросы">
+            <NamedTable
+              rows={data?.searchPhrases}
+              nameHeader="Запрос"
+              empty="Нет данных (мало органики или фразы скрыты Метрикой)"
+            />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.utm && (
+        <>
+          <Grid item xs={12} md={4}>
+            <ReportCard title="UTM Source">
+              <NamedTable rows={data?.utmSource} nameHeader="Source" empty="Нет UTM-меток за период" />
+            </ReportCard>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <ReportCard title="UTM Medium">
+              <NamedTable rows={data?.utmMedium} nameHeader="Medium" empty="Нет UTM-меток за период" />
+            </ReportCard>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <ReportCard title="UTM Campaign">
+              <NamedTable rows={data?.utmCampaign} nameHeader="Campaign" empty="Нет UTM-меток за период" />
+            </ReportCard>
+          </Grid>
+        </>
+      )}
+
+      {visible.referers && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Рефереры">
+            <NamedTable rows={data?.referers} nameHeader="Источник" />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.entryPages && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Страницы входа">
+            <NamedTable rows={data?.entryPages} nameHeader="URL" />
+          </ReportCard>
+        </Grid>
+      )}
+      {visible.exitPages && (
+        <Grid item xs={12} md={6}>
+          <ReportCard title="Страницы выхода">
+            <NamedTable rows={data?.exitPages} nameHeader="URL" />
+          </ReportCard>
+        </Grid>
+      )}
+
+      {visible.pages && (
+        <Grid item xs={12}>
+          <ReportCard title={`Топ страниц · ${periodLabel}`}>
+            <Table size="small">
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={3} align="center" sx={{ color: 'text.secondary' }}>Нет данных</TableCell>
+                  <TableCell>Страница</TableCell>
+                  <TableCell>Заголовок</TableCell>
+                  <TableCell align="right">Просмотры</TableCell>
                 </TableRow>
-              ) : (data?.topPages || []).map((p) => (
+              </TableHead>
+              <TableBody>
+                {(data?.topPages || []).map((p) => (
                   <TableRow key={p.path} hover>
-                  <TableCell>{p.path}</TableCell>
-                  <TableCell>{p.title}</TableCell>
-                  <TableCell align="right">{p.views}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
-      </Grid>
+                    <TableCell sx={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {p.path}
+                    </TableCell>
+                    <TableCell>{p.title}</TableCell>
+                    <TableCell align="right">{p.views}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ReportCard>
+        </Grid>
+      )}
     </Grid>
   );
 }
-
-
