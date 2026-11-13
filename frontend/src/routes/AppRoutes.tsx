@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { CircularProgress, Box } from '@mui/material';
 
@@ -159,39 +159,21 @@ const LoadingFallback = () => (
 
 function Protected({ children }: { children: JSX.Element }) {
   const { token, user } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsChecking(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   if (!token) return <Navigate to="/admin/login" replace />;
-  if (isChecking || (token && !user)) return null;
-
-  if (!['admin', 'sales_manager'].includes(user?.role ?? '')) {
+  if (!user) return <LoadingFallback />;
+  if (!['admin', 'sales_manager'].includes(user.role ?? '')) {
     return <Navigate to="/account" replace />;
   }
-
   return children;
 }
 
 function ProtectedAdmin({ children }: { children: JSX.Element }) {
   const { token, user } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsChecking(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   if (!token) return <Navigate to="/admin/login" replace />;
-  if (isChecking || (token && !user)) return null;
-
-  if (user?.role !== 'admin') {
+  if (!user) return <LoadingFallback />;
+  if (user.role !== 'admin') {
     return <Navigate to="/admin" replace />;
   }
-
   return children;
 }
 
@@ -291,8 +273,8 @@ export function AppRoutes() {
       <Route path="/admin/funnels/:id" element={<Protected><FunnelViewPage /></Protected>} />
       <Route path="/admin/clients" element={<Protected><ClientsListPage /></Protected>} />
       <Route path="/admin/clients/:id" element={<Protected><ClientEditorPage /></Protected>} />
-      <Route path="/admin/chat" element={<Protected><ChatsListPage /></Protected>} />
-      <Route path="/admin/chat/:chatId" element={<Protected><ChatViewPage /></Protected>} />
+      <Route path="/admin/chat" element={<Protected><Suspense fallback={<LoadingFallback />}><ChatsListPage /></Suspense></Protected>} />
+      <Route path="/admin/chat/:chatId" element={<Protected><Suspense fallback={<LoadingFallback />}><ChatViewPage /></Suspense></Protected>} />
       <Route path="/admin/chatbot" element={<ProtectedAdmin><ChatbotSettingsPage /></ProtectedAdmin>} />
       <Route path="/admin/reviews" element={<Protected><ReviewsManagePage /></Protected>} />
       <Route path="/admin/team" element={<ProtectedAdmin><TeamListPage /></ProtectedAdmin>} />

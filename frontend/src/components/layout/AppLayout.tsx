@@ -2,24 +2,15 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { Box, CssBaseline, Collapse, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, ListSubheader, Toolbar, AppBar, Typography, useTheme, useMediaQuery, Tooltip, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ArticleIcon from '@mui/icons-material/Article';
-import SeoIcon from '@mui/icons-material/Tag';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { useThemeMode } from '@/theme/ThemeModeProvider';
 import PriceIcon from '@mui/icons-material/PriceChange';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import LaunchIcon from '@mui/icons-material/Launch';
-import PeopleIcon from '@mui/icons-material/People';
 import ChatIcon from '@mui/icons-material/Chat';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import RateReviewIcon from '@mui/icons-material/RateReview';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import CategoryIcon from '@mui/icons-material/Category';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
@@ -53,21 +44,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Витрина билетов (контент)', icon: <StorefrontIcon />, path: '/admin/tickets-vitrine', group: 'Билеты', roles: ['admin', 'sales_manager'] },
   { label: 'Снайпер мест', icon: <GpsFixedIcon />, path: '/admin/sniper', group: 'Билеты', roles: ['admin'] },
 
-  { label: 'Страницы', icon: <DescriptionIcon />, path: '/admin/pages', group: 'Контент', roles: ['admin'] },
-  { label: 'Блог', icon: <ArticleIcon />, path: '/admin/blog', group: 'Контент', roles: ['admin'] },
-  { label: 'SEO', icon: <SeoIcon />, path: '/admin/seo', group: 'Контент', roles: ['admin'] },
-  { label: 'Категории продуктов', icon: <CategoryIcon />, path: '/admin/product-categories', group: 'Контент', roles: ['admin'] },
-  { label: 'Акции', icon: <LocalOfferIcon />, path: '/admin/promotions', group: 'Контент', roles: ['admin', 'sales_manager'] },
-
   { label: 'Заказы', icon: <ReceiptLongIcon />, path: '/admin/orders', group: 'Продажи', roles: ['admin', 'sales_manager'] },
-  { label: 'Формы', icon: <AssignmentIcon />, path: '/admin/forms', group: 'Продажи', roles: ['admin', 'sales_manager'] },
-  { label: 'Воронки', icon: <AccountTreeIcon />, path: '/admin/funnels', group: 'Продажи', roles: ['admin', 'sales_manager'] },
-  { label: 'Клиенты', icon: <PeopleIcon />, path: '/admin/clients', group: 'Продажи', roles: ['admin', 'sales_manager'] },
-
-  { label: 'Чаты', icon: <ChatIcon />, path: '/admin/chat', group: 'CRM', roles: ['admin', 'sales_manager'] },
-  { label: 'Настройки чат-бота', icon: <SmartToyIcon />, path: '/admin/chatbot', group: 'CRM', roles: ['admin'] },
-  { label: 'Отзывы', icon: <RateReviewIcon />, path: '/admin/reviews', group: 'CRM', roles: ['admin', 'sales_manager'] },
-  { label: 'Команда', icon: <PeopleIcon />, path: '/admin/team', group: 'CRM', roles: ['admin'] },
+  { label: 'Чаты', icon: <ChatIcon />, path: '/admin/chat', group: 'Продажи', roles: ['admin', 'sales_manager'] },
 
   { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins', group: 'Система', roles: ['admin'] },
 ];
@@ -150,7 +128,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6" noWrap>Admin CMS</Typography>
+        <Typography variant="h6" noWrap>Билет Всем</Typography>
       </Toolbar>
       <Divider />
       <List>
@@ -248,22 +226,6 @@ export function AppLayout({ children }: PropsWithChildren) {
                 sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
               >
                 Продакшен
-              </Button>
-            )}
-          </Tooltip>
-          <Tooltip title="Открыть каталог услуг в новой вкладке">
-            {isCompact ? (
-              <IconButton color="inherit" onClick={() => window.open('/catalog', '_blank')} aria-label="Каталог" sx={{ flexShrink: 0 }}>
-                <CategoryIcon fontSize="small" />
-              </IconButton>
-            ) : (
-              <Button
-                color="inherit"
-                size="small"
-                onClick={() => window.open('/catalog', '_blank')}
-                sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-              >
-                Каталог
               </Button>
             )}
           </Tooltip>

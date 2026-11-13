@@ -4,9 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pool from '../db.js';
-import { requireAuth, optionalAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
-import { createAiTeamIncident } from './aiTeam.js';
-import { callOpenAIText } from './ai.js';
+import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,55 +32,83 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
-function detectAggressiveMessage(messageText) {
-  if (!messageText || typeof messageText !== 'string') return null;
-  const text = messageText.toLowerCase();
+function phoneTail(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  return digits.slice(-10);
+}
 
-  const patternsHigh = [
-    'ненавижу',
-    'сука',
-    'убью',
-    'урод',
-    'мразь',
-    'идиот',
-    'дебил',
-    'придурок',
-    'вы издеваетесь',
-  ];
+async function findOrdersForContact(email, phone) {
+  const tail = phoneTail(phone);
+  if (!email && !tail) return [];
+  const result = await pool.query(
+    `SELECT
+       o.order_number,
+       o.status,
+       o.payment_status,
+       o.total_cents,
+       o.created_at,
+       o.customer_name,
+       o.customer_email,
+       o.customer_phone,
+       COALESCE((
+         SELECT string_agg(DISTINCT oi.product_title, ', ')
+         FROM order_items oi
+         WHERE oi.order_id = o.id
+       ), '') AS titles
+     FROM orders o
+     WHERE (
+       ($1::text IS NOT NULL AND o.customer_email IS NOT NULL AND lower(o.customer_email) = lower($1))
+       OR (
+         $2::text IS NOT NULL
+         AND length(regexp_replace(COALESCE(o.customer_phone, ''), '\\D', '', 'g')) >= 10
+         AND right(regexp_replace(o.customer_phone, '\\D', '', 'g'), 10) = $2
+       )
+     )
+     ORDER BY o.created_at DESC
+     LIMIT 8`,
+    [email || null, tail]
+  );
+  return result.rows;
+}
 
-  const patternsMedium = [
-    'что за хрень',
-    'вы что творите',
-    'ужасный сервис',
-    'вы меня достали',
-    'совершенно неприемлемо',
-    'подам в суд',
-    'вы мошенники',
-    'обман',
-  ];
+const TICKET_REPLIES = [
+  {
+    test: (t) => /не приш|не получил|где билет|нет письм|не приход|спам/.test(t),
+    text: 'Электронный билет приходит на почту после успешной оплаты — обычно за несколько минут, иногда до 24 часов. Проверьте «Спам» и поиск по названию мероприятия.\n\nЕсли письма нет, напишите номер заказа и почту из оформления — оператор сверит оплату. Также: info@biletvsem.ru, +7 (995) 657-42-92 (ежедневно 10:00–20:00).',
+  },
+  {
+    test: (t) => /возврат|вернуть|обмен|перенос|отмен/.test(t),
+    text: 'Возврат зависит от организатора и правил мероприятия. Чем раньше заявление, тем выше шанс вернуть больше.\n\nНапишите номер заказа, мероприятие и причину — передадим в поддержку. Подробности: /returns. Почта: info@biletvsem.ru.',
+  },
+  {
+    test: (t) => /оплат|списал|деньг|не прошл|чек|карт/.test(t),
+    text: 'Если оплата прошла, билет уходит на почту из заказа. Если деньги списались, а письма нет — пришлите номер заказа или почту и примерное время оплаты.\n\nЕсли банк отклонил платёж, заказ не оформлен: оплату можно повторить на странице события.',
+  },
+  {
+    test: (t) => /мест|схем|зал|ряд|сектор|выбрать/.test(t),
+    text: 'Места выбираются на схеме зала на странице события: цвет точки — цена. Серое или некликабельное место уже занято.\n\nНапишите название мероприятия и дату — подскажем, что сейчас доступно.',
+  },
+  {
+    test: (t) => /именн|переоформ|фио|паспорт/.test(t),
+    text: 'Смена ФИО на именном билете возможна только если это разрешает организатор. Напишите номер заказа и новые данные — уточним и передадим.',
+  },
+];
 
-  const matchedHigh = patternsHigh.some((p) => text.includes(p));
-  const matchedMedium = patternsMedium.some((p) => text.includes(p));
+const OPERATOR_HANDOFF = 'Сообщение видит оператор «Билет Всем». Чтобы проверить заказ быстрее, напишите номер заказа и почту или телефон из оформления.\n\nСрочно: +7 (995) 657-42-92, info@biletvsem.ru (ежедневно 10:00–20:00). Частые вопросы: /faq, возврат: /returns.';
 
-  if (matchedHigh) {
-    return {
-      severity: 'high',
-      description: `Автообнаружение агрессивного сообщения: "${messageText.slice(0, 200)}"`,
-    };
-  }
-  if (matchedMedium) {
-    return {
-      severity: 'medium',
-      description: `Автообнаружение потенциально агрессивного сообщения: "${messageText.slice(0, 200)}"`,
-    };
-  }
-  return null;
+function ticketReply(userMessage) {
+  const text = String(userMessage || '').toLowerCase();
+  return TICKET_REPLIES.find((item) => item.test(text))?.text || null;
 }
 
 // Публичный эндпоинт для отправки сообщений от клиента (без авторизации)
 router.post('/public/send', async (req, res) => {
   try {
-    const { sessionId, chatId, message, clientName, clientEmail, clientPhone } = req.body;
+    const { sessionId, chatId, message, clientName, clientEmail, clientPhone, pageUrl, pageTitle } = req.body;
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ error: 'Empty message' });
+    }
 
     let chat = null;
 
@@ -107,99 +133,50 @@ router.post('/public/send', async (req, res) => {
       }
     }
 
-    // Если чат не найден, создаем новый
     if (!chat) {
-      // Ищем или создаем клиента
-      let clientId = null;
-      
-      // Ищем существующего клиента по email или phone
-      if (clientEmail) {
-        const emailCheck = await pool.query('SELECT id FROM clients WHERE email = $1 LIMIT 1', [clientEmail]);
-        if (emailCheck.rows.length > 0) {
-          clientId = emailCheck.rows[0].id;
-        }
-      }
-      if (!clientId && clientPhone) {
-        const phoneCheck = await pool.query('SELECT id FROM clients WHERE phone = $1 LIMIT 1', [clientPhone]);
-        if (phoneCheck.rows.length > 0) {
-          clientId = phoneCheck.rows[0].id;
-        }
-      }
-      
-      // Создаем нового клиента (всегда, если не нашли существующего)
-      if (!clientId) {
-        const newClientResult = await pool.query(
-          `INSERT INTO clients (name, email, phone, source, status)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING id`,
-          [
-            clientName || 'Гость из чата',
-            clientEmail || null,
-            clientPhone || null,
-            'chatbot',
-            'lead'
-          ]
-        );
-        clientId = newClientResult.rows[0].id;
-        
-        // Автоматически создаем сделку в воронке продаж
-        try {
-          const { createDealForClient } = await import('../utils/funnelHelper.js');
-          await createDealForClient(
-            clientId,
-            clientName || 'Гость из чата',
-            clientEmail,
-            clientPhone,
-            'chatbot'
-          );
-        } catch (dealErr) {
-          console.warn('[chat] Error creating deal for client:', dealErr);
-        }
-      }
-
       const chatResult = await pool.query(
-        `INSERT INTO chats (client_id, client_name, client_email, client_phone, source, status, session_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO chats (client_name, client_email, client_phone, source, status, session_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [clientId, clientName || null, clientEmail || null, clientPhone || null, 'website', 'active', sessionId || null]
+        [clientName || null, clientEmail || null, clientPhone || null, 'website', 'active', sessionId || null]
       );
       chat = chatResult.rows[0];
+    } else if (clientName || clientEmail || clientPhone) {
+      const updated = await pool.query(
+        `UPDATE chats SET
+           client_name = COALESCE(NULLIF($2, ''), client_name),
+           client_email = COALESCE(NULLIF($3, ''), client_email),
+           client_phone = COALESCE(NULLIF($4, ''), client_phone),
+           updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [chat.id, clientName || null, clientEmail || null, clientPhone || null]
+      );
+      chat = updated.rows[0] || chat;
     }
 
-    // Сохраняем сообщение клиента
+    const meta = {};
+    if (pageUrl) meta.pageUrl = String(pageUrl).slice(0, 500);
+    if (pageTitle) meta.pageTitle = String(pageTitle).slice(0, 200);
+
     const messageResult = await pool.query(
-      `INSERT INTO chat_messages (chat_id, sender_type, message_text, message_type)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO chat_messages (chat_id, sender_type, message_text, message_type, metadata)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
        RETURNING *`,
-      [chat.id, 'client', message, 'text']
+      [chat.id, 'client', String(message).trim(), 'text', Object.keys(meta).length ? JSON.stringify(meta) : null]
     );
 
-    // Обновляем last_message_at в чате
     await pool.query(
       `UPDATE chats SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [chat.id]
     );
 
-    // Автоматическая фиксация агрессивных сообщений клиента
-    try {
-      const aggressive = detectAggressiveMessage(message);
-      if (aggressive && chat.client_id) {
-        await createAiTeamIncident({
-          clientId: chat.client_id,
-          type: 'AGGRESSIVE',
-          severity: aggressive.severity,
-          description: aggressive.description,
-        });
-      }
-    } catch (e) {
-      console.error('[chat] Failed to create AGGRESSIVE incident:', e);
-    }
-
     // Создаем уведомление для админов о новом сообщении
     try {
       const { createNotification } = await import('./notifications.js');
       const clientName = chat.client_name || 'Гость';
-      const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+      const text = String(message);
+      const messagePreview = text.length > 50 ? text.substring(0, 50) + '...' : text;
       
       console.log('[chat] Создаем уведомление для чата:', chat.id, 'от', clientName);
       
@@ -233,204 +210,35 @@ router.post('/public/send', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════════
-// AI System Prompt для чат-бота (используется при промахе правил)
-// ═══════════════════════════════════════════════════════════════
-const CHATBOT_SYSTEM_PROMPT = `Ты — AI-консультант компании PrimeCoder (prime-coder.ru). Отвечай дружелюбно, по делу, на русском языке.
+async function insertBotMessage(chatId, botMessage) {
+  const botMessageResult = await pool.query(
+    `INSERT INTO chat_messages (chat_id, sender_type, message_text, message_type, is_bot_message)
+     VALUES ($1, 'bot', $2, 'text', TRUE)
+     RETURNING *`,
+    [chatId, botMessage]
+  );
+  await pool.query(
+    `UPDATE chats SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [chatId]
+  );
+  return botMessageResult.rows[0];
+}
 
-## О компании
-PrimeCoder — маркетплейс digital-услуг и веб-студия полного цикла. На рынке с 2017 года. 150+ проектов. Команда: разработчики, дизайнеры, маркетологи, SEO-специалисты. Москва.
-
-## Услуги и цены
-
-### Разработка сайтов
-- **Сайт-визитка** — от 50 000 ₽, 7-14 дней
-- **Лендинг** — от 80 000 ₽, 10-14 дней (конверсия 8-15%)
-- **Корпоративный сайт** — от 150 000 ₽, 30-60 дней
-- **Интернет-магазин** — от 250 000 ₽, 45-90 дней (интеграция 1С, CRM, доставка)
-- **Сайт на WordPress** — от 80 000 ₽, 14-30 дней
-- **Сайт на 1С-Битрикс** — от 200 000 ₽, 30-60 дней
-- **Сайт на Tilda** — от 40 000 ₽, 5-10 дней
-
-### SEO-продвижение
-- **SEO старт** — от 65 000 ₽/мес (аудит, оптимизация, 20+ запросов)
-- **SEO бизнес** — от 120 000 ₽/мес (60+ запросов, контент, ссылки)
-- **SEO премиум** — от 250 000 ₽/мес (100+ запросов, полный контроль)
-
-### Реклама у блогеров
-- **Старт** — от 150 000 ₽, 14 дней (5 блогеров, 100к охвата)
-- **Малый бизнес** — от 350 000 ₽, 21 день (15 блогеров, 500к охвата)
-- **Prime** — от 750 000 ₽, 30 дней (30+ блогеров, 1.5 млн охвата)
-- Платформы: Telegram, VK, YouTube, Instagram, TikTok
-
-### UI/UX дизайн
-- **Дизайн лендинга** — от 60 000 ₽
-- **Дизайн корпоративного сайта** — от 120 000 ₽
-- **Редизайн** — от 80 000 ₽
-- **UI-kit / дизайн-система** — от 100 000 ₽
-
-### Маркетинг и продажи
-- **Комплексный маркетинг** — от 280 000 ₽/мес (7 каналов + CRM)
-- **Контент/SMM** — от 55 000 ₽/мес (30 постов + видео)
-- **Реклама-аудит** — от 28 000 ₽
-
-### AI-продвижение
-- Автоматическая генерация контента, AI-чатбот, предиктивная аналитика
-
-### Аутсорсинг (digital-агентствам)
-- Разработка и поддержка сайтов ваших клиентов, SLA 99.5%
-
-## Преимущества PrimeCoder
-- Персональный менеджер на связи 24/7
-- Гарантия от 1 года
-- Поэтапная оплата
-- Договор с фиксированной стоимостью
-- Еженедельные отчёты
-- Участие в благотворительности
-
-## Полезные страницы сайта
-- Каталог услуг: /catalog
-- Портфолио: /portfolio
-- Отзывы: /reviews
-- О компании: /about
-- Контакты: /contacts
-- Блог: /blog
-
-## Правила общения
-1. Отвечай конкретно, без воды. 2-5 предложений на ответ, максимум 10.
-2. Если клиент описывает задачу — предложи 1-2 подходящие услуги с ценой.
-3. НЕ выдумывай цены — используй только те, что указаны выше. Если точной цены нет — скажи "от X ₽, точную стоимость рассчитаем под ваш проект".
-4. НЕ запрашивай телефон/email агрессивно. Если клиент хочет оставить контакты — прими. Если нет — продолжай помогать.
-5. Если вопрос не по теме digital-услуг — вежливо верни к теме.
-6. Предлагай релевантные страницы сайта в формате: "Подробнее: /catalog"
-7. Если клиент готов к заказу — предложи оставить заявку на /contacts или написать в Telegram: @primecoder
-8. Используй маркированные списки для читаемости.
-9. НЕ используй эмодзи.`;
-
-// Функция обработки сообщения чат-ботом
 async function processBotMessage(chatId, userMessage) {
   try {
-    const messageLower = userMessage.toLowerCase().trim();
+    const answer = ticketReply(userMessage);
+    if (answer) return await insertBotMessage(chatId, answer);
 
-    // Получаем активные правила чат-бота, отсортированные по приоритету
-    const rulesResult = await pool.query(
-      `SELECT * FROM chatbot_rules
-       WHERE is_active = TRUE
-       ORDER BY priority DESC, id ASC`
-    );
-
-    // Ищем подходящее правило
-    for (const rule of rulesResult.rows) {
-      const keywords = rule.keywords || [];
-      const matched = keywords.some(keyword => 
-        messageLower.includes(keyword.toLowerCase())
-      );
-
-      if (matched) {
-        // Логируем срабатывание правила
-        await pool.query(
-          `INSERT INTO chatbot_logs (chat_id, rule_id, user_message, matched_keywords, response_type)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [chatId, rule.id, userMessage, keywords, rule.response_type]
-        );
-
-        // Отправляем ответ в зависимости от типа
-        let botMessage = null;
-        let fileUrl = null;
-        let fileName = null;
-
-        if (rule.response_type === 'text') {
-          botMessage = rule.response_text;
-        } else if (rule.response_type === 'file' && rule.file_url) {
-          botMessage = rule.response_text || 'Вот запрошенный файл:';
-          fileUrl = rule.file_url;
-          fileName = rule.file_name;
-        } else if (rule.response_type === 'proposal' && rule.proposal_template_id) {
-          // Получаем шаблон коммерческого предложения
-          const templateResult = await pool.query(
-            'SELECT * FROM proposal_templates WHERE id = $1 AND is_active = TRUE',
-            [rule.proposal_template_id]
-          );
-          if (templateResult.rows.length > 0) {
-            const template = templateResult.rows[0];
-            botMessage = template.title;
-            if (template.file_url) {
-              fileUrl = template.file_url;
-              fileName = template.name + '.pdf';
-            } else {
-              botMessage = template.content;
-            }
-          }
-        } else if (rule.response_type === 'redirect' && rule.redirect_url) {
-          botMessage = rule.response_text || 'Перейдите по ссылке: ' + rule.redirect_url;
-        }
-
-        if (botMessage) {
-          const messageType = fileUrl ? 'file' : (rule.response_type === 'proposal' ? 'proposal' : 'text');
-          const metadata = fileUrl ? { fileUrl, fileName, templateId: rule.proposal_template_id } : null;
-
-          const botMessageResult = await pool.query(
-            `INSERT INTO chat_messages (chat_id, sender_type, message_text, message_type, file_url, file_name, is_bot_message, metadata)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING *`,
-            [chatId, 'bot', botMessage, messageType, fileUrl, fileName, true, metadata ? JSON.stringify(metadata) : null]
-          );
-
-          // Обновляем last_message_at в чате
-          await pool.query(
-            `UPDATE chats SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [chatId]
-          );
-
-          await pool.query(
-            `UPDATE chatbot_logs SET bot_response = $1 WHERE chat_id = $2 AND rule_id = $3 AND created_at = (SELECT MAX(created_at) FROM chatbot_logs WHERE chat_id = $2)`,
-            [botMessage, chatId, rule.id]
-          );
-
-          return botMessageResult.rows[0];
-        }
-      }
-    }
-
-    // Если не найдено подходящего правила — отдаём OpenAI с контекстом беседы
-    let aiResponse;
-    try {
-      // Последние 10 сообщений для контекста
-      const historyResult = await pool.query(
-        `SELECT sender_type, message_text FROM chat_messages
-         WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 10`,
-        [chatId]
-      );
-      const history = historyResult.rows.reverse();
-
-      const messages = [
-        { role: 'system', content: CHATBOT_SYSTEM_PROMPT },
-        ...history.map(m => ({
-          role: m.sender_type === 'client' ? 'user' : 'assistant',
-          content: m.message_text || '',
-        })),
-        { role: 'user', content: userMessage },
-      ];
-
-      aiResponse = await callOpenAIText(messages);
-    } catch (aiErr) {
-      console.error('[chat] AI fallback error:', aiErr.message);
-      aiResponse = 'Спасибо за ваше сообщение! Наш менеджер свяжется с вами в ближайшее время. Если хотите получить ответ быстрее — напишите нам в Telegram: @primecoder';
-    }
-
-    const defaultMessageResult = await pool.query(
-      `INSERT INTO chat_messages (chat_id, sender_type, message_text, message_type, is_bot_message)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [chatId, 'bot', aiResponse, 'text', true]
-    );
-
-    await pool.query(
-      `UPDATE chats SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    const lastBot = await pool.query(
+      `SELECT message_text FROM chat_messages
+       WHERE chat_id = $1 AND sender_type = 'bot'
+       ORDER BY created_at DESC LIMIT 1`,
       [chatId]
     );
-
-    return defaultMessageResult.rows[0];
+    if (String(lastBot.rows[0]?.message_text || '').includes('оператор «Билет Всем»')) {
+      return null;
+    }
+    return await insertBotMessage(chatId, OPERATOR_HANDOFF);
   } catch (error) {
     console.error('[chat] Error processing bot message:', error);
     return null;
@@ -453,9 +261,21 @@ router.get('/public/:chatId', async (req, res) => {
       return res.status(404).json({ error: 'Chat not found' });
     }
 
+    const chat = chatResult.rows[0];
+    const orders = await findOrdersForContact(chat.client_email, chat.client_phone);
+    const pageRow = [...messagesResult.rows].reverse().find((row) => {
+      const meta = row.metadata;
+      return row.sender_type === 'client' && meta && (meta.pageUrl || meta.pageTitle);
+    });
+    if (pageRow?.metadata) {
+      chat.page_url = pageRow.metadata.pageUrl || null;
+      chat.page_title = pageRow.metadata.pageTitle || null;
+    }
+
     res.json({
-      chat: chatResult.rows[0],
-      messages: messagesResult.rows
+      chat,
+      messages: messagesResult.rows,
+      orders,
     });
   } catch (error) {
     console.error('[chat] Error fetching chat:', error);
@@ -512,58 +332,12 @@ router.post('/public/get-or-create', async (req, res) => {
       }
     }
 
-    // Если чат не найден, создаем новый
     if (!chat) {
-      let clientId = null;
-      if (clientEmail || clientPhone) {
-        if (clientEmail) {
-          const emailCheck = await pool.query('SELECT id FROM clients WHERE email = $1 LIMIT 1', [clientEmail]);
-          if (emailCheck.rows.length > 0) {
-            clientId = emailCheck.rows[0].id;
-          }
-        }
-        if (!clientId && clientPhone) {
-          const phoneCheck = await pool.query('SELECT id FROM clients WHERE phone = $1 LIMIT 1', [clientPhone]);
-          if (phoneCheck.rows.length > 0) {
-            clientId = phoneCheck.rows[0].id;
-          }
-        }
-        if (!clientId && (clientName || clientEmail || clientPhone)) {
-          const newClientResult = await pool.query(
-            `INSERT INTO clients (name, email, phone, source, status)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id`,
-            [
-              clientName || 'Гость из чата',
-              clientEmail || null,
-              clientPhone || null,
-              'chatbot',
-              'lead'
-            ]
-          );
-          clientId = newClientResult.rows[0].id;
-          
-          // Автоматически создаем сделку в воронке продаж
-          try {
-            const { createDealForClient } = await import('../utils/funnelHelper.js');
-            await createDealForClient(
-              clientId,
-              clientName || 'Гость из чата',
-              clientEmail,
-              clientPhone,
-              'chatbot'
-            );
-          } catch (dealErr) {
-            console.warn('[chat] Error creating deal for client:', dealErr);
-          }
-        }
-      }
-
       const chatResult = await pool.query(
-        `INSERT INTO chats (client_id, client_name, client_email, client_phone, source, status, session_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO chats (client_name, client_email, client_phone, source, status, session_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [clientId, clientName || null, clientEmail || null, clientPhone || null, 'website', 'active', sessionId || null]
+        [clientName || null, clientEmail || null, clientPhone || null, 'website', 'active', sessionId || null]
       );
       chat = chatResult.rows[0];
     }
@@ -616,19 +390,14 @@ router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
       limit = 50,
       status = '',
       search = '',
-      assignedTo = ''
+      assignedTo = '',
+      includeEmpty = ''
     } = req.query;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const conditions = [];
     const params = [];
     let paramIndex = 1;
-
-    if (req.user?.role === 'sales_manager') {
-      conditions.push(`c.assigned_to = $${paramIndex}`);
-      params.push(req.user.id);
-      paramIndex++;
-    }
 
     if (status) {
       conditions.push(`c.status = $${paramIndex}`);
@@ -646,10 +415,18 @@ router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
       conditions.push(`(
         c.client_name ILIKE $${paramIndex} OR
         c.client_email ILIKE $${paramIndex} OR
-        c.client_phone ILIKE $${paramIndex}
+        c.client_phone ILIKE $${paramIndex} OR
+        EXISTS (
+          SELECT 1 FROM chat_messages sm
+          WHERE sm.chat_id = c.id AND sm.message_text ILIKE $${paramIndex}
+        )
       )`);
       params.push(`%${search}%`);
       paramIndex++;
+    }
+
+    if (includeEmpty !== '1' && includeEmpty !== 'true') {
+      conditions.push(`EXISTS (SELECT 1 FROM chat_messages mx WHERE mx.chat_id = c.id AND mx.sender_type = 'client')`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -665,9 +442,24 @@ router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
     const result = await pool.query(
       `SELECT 
         c.*,
-        (SELECT COUNT(*) FROM chat_messages cm WHERE cm.chat_id = c.id AND cm.sender_type = 'client' AND cm.is_read = FALSE) as unread_count,
+        (SELECT COUNT(*)::int FROM chat_messages cm WHERE cm.chat_id = c.id AND cm.sender_type = 'client' AND cm.is_read = FALSE) as unread_count,
+        (SELECT COUNT(*)::int FROM chat_messages cm WHERE cm.chat_id = c.id AND cm.sender_type = 'client') as message_count,
         (SELECT message_text FROM chat_messages cm WHERE cm.chat_id = c.id ORDER BY cm.created_at DESC LIMIT 1) as last_message,
         (SELECT created_at FROM chat_messages cm WHERE cm.chat_id = c.id ORDER BY cm.created_at DESC LIMIT 1) as last_message_time,
+        (SELECT cm.metadata->>'pageUrl' FROM chat_messages cm WHERE cm.chat_id = c.id AND cm.sender_type = 'client' AND cm.metadata ? 'pageUrl' ORDER BY cm.created_at DESC LIMIT 1) as page_url,
+        (SELECT cm.metadata->>'pageTitle' FROM chat_messages cm WHERE cm.chat_id = c.id AND cm.sender_type = 'client' AND cm.metadata ? 'pageTitle' ORDER BY cm.created_at DESC LIMIT 1) as page_title,
+        (
+          SELECT COUNT(*)::int FROM orders o
+          WHERE (
+            (c.client_email IS NOT NULL AND o.customer_email IS NOT NULL AND lower(o.customer_email) = lower(c.client_email))
+            OR (
+              c.client_phone IS NOT NULL
+              AND length(regexp_replace(COALESCE(c.client_phone, ''), '\\D', '', 'g')) >= 10
+              AND length(regexp_replace(COALESCE(o.customer_phone, ''), '\\D', '', 'g')) >= 10
+              AND right(regexp_replace(o.customer_phone, '\\D', '', 'g'), 10) = right(regexp_replace(c.client_phone, '\\D', '', 'g'), 10)
+            )
+          )
+        ) as orders_count,
         COALESCE(u.name, u.email) as assigned_to_name,
         COALESCE(cl.total_orders, 0) as total_orders,
         COALESCE(cl.total_revenue_cents, 0) as total_revenue_cents
@@ -699,8 +491,8 @@ router.get('/', requireAuth, requireAdminOrSalesManager, async (req, res) => {
 router.get('/:chatId', requireAuth, requireAdminOrSalesManager, async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chatWhere = req.user?.role === 'sales_manager' ? 'c.id = $1 AND c.assigned_to = $2' : 'c.id = $1';
-    const chatParams = req.user?.role === 'sales_manager' ? [chatId, req.user.id] : [chatId];
+    const chatWhere = 'c.id = $1';
+    const chatParams = [chatId];
     const chatResult = await pool.query(
       `SELECT 
         c.*,

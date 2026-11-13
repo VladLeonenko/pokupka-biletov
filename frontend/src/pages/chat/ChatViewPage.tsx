@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getChat, sendAdminMessage, assignChat, updateChatStatus, ChatMessage, uploadChatFile } from '@/services/chatApi';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { getChat, sendAdminMessage, updateChatStatus, uploadChatFile, ChatOrder } from '@/services/chatApi';
 import {
   Box,
   Paper,
   TextField,
   IconButton,
   Typography,
-  Avatar,
   Button,
   FormControl,
   InputLabel,
@@ -16,12 +15,60 @@ import {
   MenuItem,
   Link,
   CircularProgress,
+  Chip,
+  Stack,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useToast } from '@/components/common/ToastProvider';
-import { formatTime } from '@/utils/date';
+import { formatDateTime, formatTime } from '@/utils/date';
+
+const ACCENT = '#ff4e18';
+
+const QUICK_REPLIES = [
+  'Билет уходит на почту после оплаты. Проверьте «Спам» и поиск по названию мероприятия.',
+  'Напишите номер заказа и почту из оформления — сверю оплату и статус.',
+  'Возврат зависит от организатора. Пришлите номер заказа, мероприятие и причину — передадим.',
+  'Если банк отклонил платёж, заказ не создан. Можно повторить оплату на странице события.',
+];
+
+const PAYMENT_LABEL: Record<string, string> = {
+  paid: 'оплачен',
+  pending: 'ожидает оплаты',
+  failed: 'ошибка оплаты',
+  cancelled: 'отменён',
+  canceled: 'отменён',
+  refunded: 'возврат',
+};
+
+function money(cents?: number) {
+  return `${((Number(cents) || 0) / 100).toLocaleString('ru-RU')} ₽`;
+}
+
+function pageHref(url?: string) {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return url.startsWith('/') ? url : `/${url}`;
+}
+
+function OrderCard({ order }: { order: ChatOrder }) {
+  return (
+    <Box sx={{ py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Link component={RouterLink} to={`/admin/orders/${order.order_number}`} underline="hover" sx={{ fontWeight: 700 }}>
+        {order.order_number}
+      </Link>
+      <Typography variant="body2">{order.titles || 'Билет'}</Typography>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {PAYMENT_LABEL[order.payment_status || ''] || order.payment_status || order.status}
+        {' · '}
+        {money(order.total_cents)}
+        {' · '}
+        {formatDateTime(order.created_at)}
+      </Typography>
+    </Box>
+  );
+}
 
 export function ChatViewPage() {
   const { chatId } = useParams<{ chatId: string }>();
@@ -29,28 +76,26 @@ export function ChatViewPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const seenCount = useRef(0);
   const [inputMessage, setInputMessage] = useState('');
-  const [lastMessageCount, setLastMessageCount] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['chat', chatId],
-    queryFn: () => getChat(parseInt(chatId!)),
-    enabled: !!chatId,
-    refetchInterval: 5000, // Обновляем каждые 5 секунд
-  });
-
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['chat', chatId],
+    queryFn: () => getChat(parseInt(chatId!, 10)),
+    enabled: !!chatId && Number.isFinite(Number(chatId)),
+    refetchInterval: 4000,
+  });
 
   const sendMutation = useMutation({
     mutationFn: async ({ message, file }: { message: string; file?: File }) => {
       if (file) {
         setUploading(true);
         try {
-          const uploadResult = await uploadChatFile(parseInt(chatId!), file);
+          const uploadResult = await uploadChatFile(parseInt(chatId!, 10), file);
           return await sendAdminMessage(
-            parseInt(chatId!),
+            parseInt(chatId!, 10),
             message || 'Файл',
             'file',
             uploadResult.url,
@@ -61,9 +106,8 @@ export function ChatViewPage() {
           setUploading(false);
           setSelectedFile(null);
         }
-      } else {
-        return await sendAdminMessage(parseInt(chatId!), message);
       }
+      return await sendAdminMessage(parseInt(chatId!, 10), message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
@@ -71,54 +115,25 @@ export function ChatViewPage() {
       setInputMessage('');
       setSelectedFile(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       showToast(error.message || 'Ошибка отправки сообщения', 'error');
       setUploading(false);
     },
   });
 
-  const assignMutation = useMutation({
-    mutationFn: (userId?: number) => assignChat(parseInt(chatId!), userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
-      showToast('Чат назначен', 'success');
-    },
-  });
-
   const statusMutation = useMutation({
-    mutationFn: (status: 'active' | 'closed' | 'archived') => updateChatStatus(parseInt(chatId!), status),
+    mutationFn: (status: 'active' | 'closed' | 'archived') => updateChatStatus(parseInt(chatId!, 10), status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
       queryClient.invalidateQueries({ queryKey: ['chats'] });
-      showToast('Статус обновлен', 'success');
     },
+    onError: (error: Error) => showToast(error.message || 'Не удалось сменить статус', 'error'),
   });
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-    
-    // Проверяем новые сообщения от клиента и воспроизводим звук
-    const messages = data?.messages || [];
-    if (messages.length > lastMessageCount && lastMessageCount > 0) {
-      const newMessages = messages.slice(lastMessageCount);
-      const hasClientMessage = newMessages.some(msg => msg.sender_type === 'client');
-      
-      if (hasClientMessage) {
-        // Воспроизводим звук уведомления
-        if (!audioRef.current) {
-          audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLXiTcIGWi77eefTRAMUKfj8LZjHAY4kdfy');
-          audioRef.current.volume = 0.5;
-        }
-        audioRef.current.play().catch(() => {
-          /* ignore playback errors */
-        });
-      }
-    }
-    
-    setLastMessageCount(messages.length);
-  }, [data?.messages, lastMessageCount]);
+    messagesEndRef.current?.scrollIntoView({ behavior: seenCount.current ? 'smooth' : 'auto' });
+    seenCount.current = data?.messages.length || 0;
+  }, [data?.messages]);
 
   const handleSend = () => {
     if (!inputMessage.trim() && !selectedFile) return;
@@ -127,13 +142,12 @@ export function ChatViewPage() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        showToast('Файл слишком большой. Максимальный размер: 10MB', 'error');
-        return;
-      }
-      setSelectedFile(file);
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Файл слишком большой. Максимум 10 МБ', 'error');
+      return;
     }
+    setSelectedFile(file);
   };
 
   if (isLoading) {
@@ -144,174 +158,167 @@ export function ChatViewPage() {
     );
   }
 
-  if (!data) {
+  if (isError || !data) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography>Чат не найден</Typography>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin/chat')}>К списку</Button>
+        <Typography sx={{ mt: 2 }}>Чат не найден</Typography>
       </Box>
     );
   }
 
-  const { chat, messages } = data;
+  const { chat, messages, orders = [] } = data;
+  const href = pageHref(chat.page_url);
+  const internal = href.startsWith('/') && !href.startsWith('//');
 
   return (
-    <Box sx={{ p: 3, height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-        <IconButton onClick={() => navigate('/admin/chat')}>
+    <Box sx={{ height: { xs: 'auto', md: 'calc(100vh - 140px)' }, minHeight: 520, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, gap: 1, flexWrap: 'wrap' }}>
+        <IconButton onClick={() => navigate('/admin/chat')} aria-label="К списку">
           <ArrowBackIcon />
         </IconButton>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h5">{chat.client_name || 'Клиент'}</Typography>
+        <Box sx={{ flex: 1, minWidth: 180 }}>
+          <Typography variant="h5">{chat.client_name || 'Гость'}</Typography>
           <Typography variant="body2" color="text.secondary">
-            {chat.client_email} {chat.client_phone}
+            {[chat.client_email, chat.client_phone].filter(Boolean).join(' · ') || 'контактов нет — попросите почту или номер заказа'}
           </Typography>
         </Box>
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>Статус</InputLabel>
           <Select
             value={chat.status}
             label="Статус"
-            onChange={(e) => statusMutation.mutate(e.target.value as any)}
+            onChange={(e) => statusMutation.mutate(e.target.value as 'active' | 'closed' | 'archived')}
           >
-            <MenuItem value="active">Активный</MenuItem>
+            <MenuItem value="active">Открыт</MenuItem>
             <MenuItem value="closed">Закрыт</MenuItem>
             <MenuItem value="archived">Архив</MenuItem>
           </Select>
         </FormControl>
       </Box>
 
-      <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Box
-          sx={{
-            flex: 1,
-            overflowY: 'auto',
-            p: 2,
-            bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-          }}
-        >
-          {messages.map((msg) => (
-            <Box
-              key={msg.id}
-              sx={{
-                display: 'flex',
-                justifyContent: msg.sender_type === 'client' ? 'flex-start' : 'flex-end',
-                gap: 1,
-              }}
-            >
-              {msg.sender_type === 'client' && (
-                <Avatar sx={{ bgcolor: '#ffbb00' }}>
-                  {chat.client_name?.[0] || 'К'}
-                </Avatar>
-              )}
-              <Box
-                sx={{
-                  maxWidth: '70%',
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: msg.sender_type === 'client' ? '#e8f5e9 !important' : '#ffbb00 !important',
-                  color: msg.sender_type === 'client' ? '#1b5e20 !important' : '#000000 !important',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                  border: msg.sender_type === 'client' ? '1px solid #81c784' : 'none',
-                  '& *': {
-                    color: msg.sender_type === 'client' ? '#1b5e20 !important' : '#000000 !important',
-                  },
-                  '& .MuiTypography-root': {
-                    color: msg.sender_type === 'client' ? '#1b5e20 !important' : '#000000 !important',
-                  },
-                }}
-              >
-                {msg.message_type === 'file' && msg.file_url ? (
-                  <Box>
-                    {msg.message_text && (
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        {msg.message_text}
-                      </Typography>
-                    )}
-                      <Link
-                        href={msg.file_url.startsWith('http') ? msg.file_url : `${window.location.origin}${msg.file_url}`}
-                        target="_blank"
-                        download={msg.file_name}
-                        sx={{
-                          color: msg.sender_type === 'client' ? '#1b5e20 !important' : '#000000 !important',
-                          textDecoration: 'underline',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                        }}
-                      >
-                      📎 {msg.file_name || 'Скачать файл'}
-                      {msg.file_size && (
-                        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                          ({(msg.file_size / 1024).toFixed(1)} KB)
-                        </Typography>
-                      )}
-                    </Link>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{msg.message_text}</Typography>
-                )}
-                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
-                  {formatTime(msg.created_at)} {msg.sender_name && `• ${msg.sender_name}`}
-                </Typography>
-              </Box>
-              {msg.sender_type !== 'client' && (
-                <Avatar sx={{ bgcolor: '#1976d2' }}>
-                  {msg.sender_name?.[0] || 'А'}
-                </Avatar>
-              )}
-            </Box>
-          ))}
-          <div ref={messagesEndRef} />
-        </Box>
-
-        <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', display: 'flex', gap: 1, alignItems: 'center' }}>
-          {selectedFile && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="caption">{selectedFile.name}</Typography>
-              <IconButton size="small" onClick={() => setSelectedFile(null)}>
-                ×
-              </IconButton>
-            </Box>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+        <Paper sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0, p: 2, overflow: 'auto', maxHeight: { xs: 280, md: 'none' } }}>
+          <Typography variant="subtitle2" gutterBottom>Откуда написали</Typography>
+          {href ? (
+            internal ? (
+              <Link component={RouterLink} to={href} underline="hover">{chat.page_title || href}</Link>
+            ) : (
+              <Link href={href} target="_blank" rel="noopener noreferrer" underline="hover">{chat.page_title || href}</Link>
+            )
+          ) : (
+            <Typography variant="body2" color="text.secondary">Страница не передана (старый диалог)</Typography>
           )}
-          <input
-            type="file"
-            id="file-upload"
-            style={{ display: 'none' }}
-            onChange={handleFileSelect}
-            accept="*/*"
-          />
-          <label htmlFor="file-upload">
-            <IconButton component="span" disabled={uploading || sendMutation.isPending}>
-              <AttachFileIcon />
+
+          <Typography variant="subtitle2" sx={{ mt: 2 }} gutterBottom>Заказы по почте или телефону</Typography>
+          {orders.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">Совпадений нет. Если клиент не оставил почту — спросите номер заказа.</Typography>
+          ) : orders.map((order) => <OrderCard key={order.order_number} order={order} />)}
+
+          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Быстрые ответы</Typography>
+          <Stack spacing={1}>
+            {QUICK_REPLIES.map((text) => (
+              <Button
+                key={text}
+                size="small"
+                variant="outlined"
+                onClick={() => setInputMessage(text)}
+                sx={{ justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none' }}
+              >
+                {text}
+              </Button>
+            ))}
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ flex: 1, minWidth: 0, minHeight: 360, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: 'action.hover' }}>
+            {messages.length === 0 && (
+              <Typography variant="body2" color="text.secondary">Сообщений ещё нет</Typography>
+            )}
+            {messages.map((msg) => {
+              const mine = msg.sender_type !== 'client';
+              return (
+                <Box key={msg.id} sx={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+                  <Box
+                    sx={{
+                      maxWidth: '75%',
+                      p: 1.25,
+                      borderRadius: 2,
+                      bgcolor: mine ? ACCENT : 'background.paper',
+                      color: mine ? '#fff' : 'text.primary',
+                      border: mine ? 'none' : '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    {msg.sender_type === 'bot' && (
+                      <Chip label="подсказка" size="small" sx={{ mb: 0.5, height: 20, color: '#fff', bgcolor: 'rgba(0,0,0,0.25)' }} />
+                    )}
+                    {msg.message_type === 'file' && msg.file_url ? (
+                      <Link
+                        href={msg.file_url.startsWith('http') ? msg.file_url : msg.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ color: 'inherit' }}
+                      >
+                        {msg.file_name || 'Файл'}
+                      </Link>
+                    ) : (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.message_text}</Typography>
+                    )}
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.75, color: 'inherit' }}>
+                      {formatTime(msg.created_at)}
+                      {msg.sender_type === 'client' ? '' : msg.sender_type === 'bot' ? ' · бот' : ' · мы'}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </Box>
+
+          <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+            <input id="chat-file-upload" type="file" hidden onChange={handleFileSelect} />
+            <label htmlFor="chat-file-upload">
+              <IconButton component="span" disabled={uploading || sendMutation.isPending} aria-label="Файл">
+                <AttachFileIcon />
+              </IconButton>
+            </label>
+            <Box sx={{ flex: 1 }}>
+              {selectedFile && (
+                <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                  {selectedFile.name}
+                  <Button size="small" onClick={() => setSelectedFile(null)}>убрать</Button>
+                </Typography>
+              )}
+              <TextField
+                fullWidth
+                size="small"
+                multiline
+                maxRows={4}
+                placeholder="Ответ клиенту"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                disabled={sendMutation.isPending || uploading}
+              />
+            </Box>
+            <IconButton
+              onClick={handleSend}
+              disabled={sendMutation.isPending || uploading || (!inputMessage.trim() && !selectedFile)}
+              aria-label="Отправить"
+              sx={{ bgcolor: ACCENT, color: '#fff', '&:hover': { bgcolor: '#e64514' } }}
+            >
+              <SendIcon />
             </IconButton>
-          </label>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Введите сообщение..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            disabled={sendMutation.isPending || uploading}
-          />
-          <IconButton
-            onClick={handleSend}
-            disabled={sendMutation.isPending || uploading || (!inputMessage.trim() && !selectedFile)}
-            sx={{ bgcolor: '#ffbb00', color: 'white', '&:hover': { bgcolor: '#e6a800' } }}
-          >
-            <SendIcon />
-          </IconButton>
-        </Box>
-      </Paper>
+          </Box>
+        </Paper>
+      </Box>
     </Box>
   );
 }
-

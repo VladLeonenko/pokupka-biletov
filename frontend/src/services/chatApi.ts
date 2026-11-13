@@ -15,8 +15,24 @@ export interface Chat {
   unread_count?: number;
   last_message?: string;
   last_message_time?: string;
+  page_url?: string;
+  page_title?: string;
+  message_count?: number;
+  orders_count?: number;
   total_orders?: number;
   total_revenue_cents?: number;
+}
+
+export interface ChatOrder {
+  order_number: string;
+  status: string;
+  payment_status?: string;
+  total_cents: number;
+  created_at: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  titles?: string;
 }
 
 export interface ChatMessage {
@@ -39,6 +55,7 @@ export interface ChatMessage {
 export interface ChatWithMessages {
   chat: Chat;
   messages: ChatMessage[];
+  orders?: ChatOrder[];
 }
 
 export interface ChatsListResponse {
@@ -84,12 +101,14 @@ export async function sendClientMessage(
   message: string,
   clientName?: string,
   clientEmail?: string,
-  clientPhone?: string
+  clientPhone?: string,
+  pageUrl?: string,
+  pageTitle?: string
 ): Promise<{ chatId: number; message: ChatMessage; botResponse: ChatMessage | null }> {
   const response = await fetch(`${API_BASE}/api/chat/public/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, chatId, message, clientName, clientEmail, clientPhone }),
+    body: JSON.stringify({ sessionId, chatId, message, clientName, clientEmail, clientPhone, pageUrl, pageTitle }),
   });
   if (!response.ok) {
     throw new Error(`Failed to send message: ${response.statusText}`);
@@ -133,6 +152,7 @@ export async function listChats(filters: {
   status?: string;
   search?: string;
   assignedTo?: number;
+  includeEmpty?: boolean;
 } = {}): Promise<ChatsListResponse> {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
