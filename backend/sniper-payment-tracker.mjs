@@ -18,6 +18,7 @@ import {
   paymentSummary,
   readLedger,
 } from './services/sniperPaymentTracker.js';
+import { MXAT_APP_KEY } from './services/afishaApiBooking.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -32,6 +33,7 @@ const NOTIFY = (
 const BCC = process.env.SNIPER_PAY_BCC || process.env.INTICKETS_BCC || 'yaguda_io@mail.ru';
 const FEE = Number(process.env.SNIPER_FEE_PER_TICKET || 0);
 const UA = 'Mozilla/5.0 (compatible; biletvsem-pay-tracker/1.0)';
+const MAX_TRACK_MS = Number(process.env.SNIPER_PAY_MAX_TRACK_MS || 6 * 3600_000);
 
 function log(line) {
   const s = `${new Date().toISOString()} ${line}\n`;
@@ -140,11 +142,26 @@ async function checkTicketland(rec) {
   return { status: 'unknown', detail: `type=${type || '—'} no qr` };
 }
 
+async function checkAfisha(rec) {
+  if (!rec.orderId) return { status: 'unknown', detail: 'no orderId' };
+  const res = await fetch(`https://mapi.afisha.ru/api/v21/payments/${encodeURIComponent(rec.orderId)}`, {
+    headers: { 'X-Application-Key': MXAT_APP_KEY, 'X-City-Id': '2563', Referer: 'https://www.afisha.ru/', 'User-Agent': UA },
+    signal: AbortSignal.timeout(15000),
+  });
+  const j = await res.json().catch(() => ({}));
+  const st = String(j.status || '').toLowerCase();
+  if (st === 'success' || st === 'paid') return { status: 'paid', detail: `afisha ${st}` };
+  if (st === 'cancelled' || st === 'expired' || st === 'canceled') return { status: 'expired', detail: `afisha ${st}` };
+  if (!res.ok) return { status: 'unknown', detail: `afisha http ${res.status}` };
+  return { status: 'pending', detail: `afisha ${st || 'pending'}` };
+}
+
 async function checkOne(rec) {
   if (rec.platform === 'radario') return checkRadario(rec);
   if (rec.platform === 'vakhtangov-ticketland' || rec.platform === 'ticketland') {
     return checkTicketland(rec);
   }
+  if (rec.platform === 'afisha' || rec.platform === 'wowcup-ticketsteam') return checkAfisha(rec);
   return { status: 'unknown', detail: `no checker for ${rec.platform}` };
 }
 
@@ -187,8 +204,17 @@ async function tick() {
       const until = Date.parse(rec.trackUntil || 0);
       const r = await checkOne(rec);
       let nextStatus = r.status;
-      if (nextStatus === 'pending' && Number.isFinite(until) && now > until) {
-        nextStatus = 'expired';
+      let extendUntil = null;
+      const age = now - Date.parse(rec.registeredAt || 0);
+      const detail = r.detail || '';
+      const stillOpen = /qr still open/.test(detail) || /^afisha (?!expired|cancelled|canceled|success|paid)/.test(detail);
+      if ((nextStatus === 'pending' || (nextStatus === 'expired' && /qr still open/.test(r.detail || ''))) && Number.isFinite(until) && now > until) {
+        if (stillOpen && age < MAX_TRACK_MS) {
+          nextStatus = 'pending';
+          extendUntil = new Date(now + 30 * 60_000).toISOString();
+        } else {
+          nextStatus = 'expired';
+        }
       }
       // gone после окна → expired; gone внутри окна оставляем gone (возможна оплата)
       if (nextStatus === 'gone' && Number.isFinite(until) && now > until) {
@@ -198,6 +224,7 @@ async function tick() {
       const updated = markPayment(rec.id, {
         status: nextStatus === 'pending' ? 'pending' : nextStatus,
         lastCheckDetail: r.detail,
+        ...(extendUntil ? { trackUntil: extendUntil } : {}),
         ...(nextStatus === 'paid' ? { paidAt: new Date().toISOString() } : {}),
       });
 

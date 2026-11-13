@@ -22,6 +22,7 @@ import {
   MXAT_APP_KEY,
 } from './services/afishaApiBooking.js';
 import { sendTransactionalMail, isMailConfigured } from './services/mail/transporter.js';
+import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 import { MHT_KABALA_PREFERENCE } from './utils/findBestSeatsInHall.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -123,7 +124,21 @@ async function renewReservations(appKey) {
         if (/отменен|отменён|нельзя|не осталось|истек|истёк|expired|cancel|400|404|409/i.test(msg)) {
           r.status = 'cancelled';
           changed = true;
-          console.log(`[renew] ${r.orderId}: заказ отменён/истёк — бронь слетела, места вернутся в продажу.`);
+          const sid = String(rec.sessionId);
+          const set = bookedSeatIdsBySession.get(sid);
+          let allowRebook = false;
+          for (const id of r.seatIds || []) {
+            const n = seatBookCount.get(`${sid}:${id}`) || 1;
+            if (n >= 2) {
+              if (!bookedSeatIdsBySession.has(sid)) bookedSeatIdsBySession.set(sid, new Set());
+              bookedSeatIdsBySession.get(sid).add(id);
+            } else {
+              allowRebook = true;
+              set?.delete(id);
+            }
+          }
+          if ((bookedPairs.get(sid) || 0) > 0) bookedPairs.set(sid, (bookedPairs.get(sid) || 1) - 1);
+          console.log(`[renew] ${r.orderId}: заказ отменён/истёк — ${allowRebook ? 'одна перебронь ещё разрешена' : 'лимит переброни (1) исчерпан, места больше не берём'}.`);
         } else {
           console.log(`[renew] ${r.orderId}: временная ошибка (${msg.slice(0, 80)}) — повторю в следующий цикл.`);
         }
@@ -226,22 +241,29 @@ console.log('\nЦели:');
 for (const sid of targetSessions) console.log(`  ${sid} → ${sessionTargets.get(sid)} пар (забронировано: ${bookedPairs.get(sid) || 0})`);
 console.log(`\nМониторинг старт. Интервал: ${args.interval}мс. Приоритет мест: МХТ (Партер→Амфитеатр→Бельэтаж→Ложи→Балкон). Работает 24/7.\n`);
 
-// Уже занятые нами места (чтобы не бронировать их повторно при докидывании мест).
+// Место: 1 бронь + 1 перебронь, дальше skip навсегда (и после рестарта тоже).
 const bookedSeatIdsBySession = new Map();
+const seatBookCount = new Map();
 try {
   const prev = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf-8'));
   for (const rec of prev) {
     const sid = String(rec.sessionId);
     for (const r of rec.results || []) {
-      if (r.status === 'cancelled') continue;
+      const cancelled = r.status === 'cancelled';
       for (const id of r.seatIds || []) {
-        if (!bookedSeatIdsBySession.has(sid)) bookedSeatIdsBySession.set(sid, new Set());
-        bookedSeatIdsBySession.get(sid).add(id);
+        const k = `${sid}:${id}`;
+        const n = (seatBookCount.get(k) || 0) + 1;
+        seatBookCount.set(k, n);
+        if (!cancelled || n >= 2) {
+          if (!bookedSeatIdsBySession.has(sid)) bookedSeatIdsBySession.set(sid, new Set());
+          bookedSeatIdsBySession.get(sid).add(id);
+        }
       }
     }
   }
 } catch {}
 const lastNoPairAt = new Map();
+const lastHuntLog = new Map();
 const lastCaptchaAlert = new Map();
 let lastRenewAt = 0;
 
@@ -255,7 +277,10 @@ while (true) {
     const a = await getSessionAvailability(sid, args.appKey);
     const t = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour12: false });
     if (a.availableCount > 0) {
-      console.log(`[${t}] 🔥 ${sid}: доступно ${a.availableCount} мест (${a.minPrice}₽). Бронирую ещё ${remaining} пар(ы)...`);
+      if (Date.now() - (lastHuntLog.get(sid) || 0) > 60_000) {
+        lastHuntLog.set(sid, Date.now());
+        console.log(`[${t}] 🔥 ${sid}: доступно ${a.availableCount} мест (${a.minPrice}₽). Бронирую ещё ${remaining} пар(ы)...`);
+      }
       let seatSet = bookedSeatIdsBySession.get(sid);
       if (!seatSet) { seatSet = new Set(); bookedSeatIdsBySession.set(sid, seatSet); }
       const cs = sessionContacts.get(sid);
@@ -272,6 +297,28 @@ while (true) {
       });
       if (results.length || errors.length) {
         bookedPairs.set(sid, booked + results.length);
+        for (const r of results) {
+          for (const id of r.seatIds || []) {
+            const k = `${sid}:${id}`;
+            seatBookCount.set(k, (seatBookCount.get(k) || 0) + 1);
+            seatSet.add(id);
+          }
+          if (r.orderId) {
+            try {
+              registerPendingPayment({
+                platform: 'afisha',
+                orderId: r.orderId,
+                paymentUrl: r.paymentUrl || null,
+                label: formatRuDate(a.time) || sid,
+                eventId: sid,
+                amount: r.totalPrice ?? null,
+                tickets: (r.seatIds || []).length || 2,
+                seats: r.seats || null,
+                trackUntilMs: Date.now() + 6 * 3600_000,
+              });
+            } catch { /* ledger best-effort */ }
+          }
+        }
         const record = { sessionId: sid, date: a.time, label: formatRuDate(a.time), spectacle: args.spectacle, bookedAt: new Date().toISOString(), results, errors };
         saveResults(record);
         console.log(`\n✅ ${sid}: +${results.length} заказов (всего ${bookedPairs.get(sid)}/${target} пар), ошибок ${errors.length}.`);

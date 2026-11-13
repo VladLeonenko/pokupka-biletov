@@ -10,6 +10,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { sendTransactionalMail } from './services/mail/transporter.js';
+import { registerPendingPayment } from './services/sniperPaymentTracker.js';
+import { rebookBlocked, stampSuccess } from './services/rebookGuard.js';
 import {
   SOVREMENNIK_HOST,
   launchInticketsCtx,
@@ -132,6 +134,7 @@ async function resolveSeancesFromSite() {
 function shouldBook(key) {
   if (!AUTO_BOOK || bookingInFlight.has(key)) return false;
   const h = holds.get(key);
+  if (rebookBlocked(h)) return false;
   if (!h) return true;
   if (Date.now() < (h.cooldownUntil || 0)) return false;
   return true;
@@ -198,12 +201,13 @@ while (true) {
         });
 
         if (result.ok) {
-          holds.set(key, {
-            orderOk: true,
+          const next = stampSuccess(holds.get(key), {
             bookedAt: Date.now(),
-            cooldownUntil: Date.now() + REBOOK_AFTER_MS,
             paymentUrl: result.paymentUrl,
-          });
+            orderId: result.orderId || result.paymentUrl || key,
+          }, REBOOK_AFTER_MS);
+          holds.set(key, next);
+          if (next.done) log(`STOP ${s.label}: лимит 1 перебронь`);
           saveState();
           const rec = {
             platform: 'sovremennik-intickets',
@@ -215,6 +219,19 @@ while (true) {
             result,
           };
           saveResult(rec);
+          try {
+            registerPendingPayment({
+              platform: 'sovremennik-intickets',
+              orderId: result.orderId || result.paymentUrl,
+              paymentUrl: result.paymentUrl || null,
+              label: s.label,
+              eventId: s.seanceId,
+              amount: result.amount ?? null,
+              tickets: result.tickets || 2,
+              seats: result.seatsLabel || null,
+              trackUntilMs: Date.now() + 3 * 3600_000,
+            });
+          } catch { /* */ }
           const text = [
             '✅ Консьерж (Современник / Intickets) — бронь',
             `Сеанс: ${s.label}`,

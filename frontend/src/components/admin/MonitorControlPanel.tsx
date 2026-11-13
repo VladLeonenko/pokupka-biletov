@@ -22,6 +22,7 @@ type MonitorStatus = {
   label: string;
   status: string;
   online: boolean;
+  health?: 'ok' | 'silent' | 'down';
   restarts: number;
   uptime: number;
 };
@@ -103,7 +104,9 @@ export function MonitorControlPanel() {
                 <TableRow key={m.name}>
                   <TableCell>{m.label}</TableCell>
                   <TableCell align="center">
-                    {m.online ? (
+                    {m.health === 'silent' ? (
+                      <Chip size="small" color="warning" label="молчит" />
+                    ) : m.online ? (
                       <Chip size="small" color="success" label="работает" />
                     ) : (
                       <Chip size="small" color="default" label={m.status === 'not_found' ? 'не настроен' : 'остановлен'} />

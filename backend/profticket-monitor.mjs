@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { getEvents, getScheme, startBasketSession, preReservation, createOrder } from './services/profticketApi.js';
 import { sendTransactionalMail } from './services/mail/transporter.js';
+import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -203,6 +204,19 @@ while (true) {
             results: [{ name: contact.name, email: contact.email, phone: contact.phone, seats: seatsText, price: totalPrice, paymentUrl: o.paymentUrl, orderId: o.order?.id, tickets: seatsToBook.length, seatKeys: seatsToBook.map((s) => `${e.id}|${s.cod_sec}|${s.row}|${s.seat}`) }],
           };
           saveResult(rec);
+          try {
+            registerPendingPayment({
+              platform: 'profticket',
+              orderId: o.order?.id,
+              paymentUrl: o.paymentUrl,
+              label: e.date_formatted,
+              eventId: e.id,
+              amount: totalPrice,
+              tickets: seatsToBook.length,
+              seats: seatsText,
+              trackUntilMs: Date.now() + 3 * 3600_000,
+            });
+          } catch { /* */ }
           console.log(`  ✅ ${contact.email} | ${rec.results[0].seats} | ${o.paymentUrl}`);
           await notify(rec).catch(() => {});
           bookedNow = true;

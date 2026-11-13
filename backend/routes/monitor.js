@@ -1,5 +1,6 @@
 // Управление мониторами-снайперами из админки (старт/стоп через PM2).
 import express from 'express';
+import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { requireAuth, requireAdminOrSalesManager } from '../middleware/auth.js';
@@ -16,7 +17,29 @@ const MONITORS = [
   { name: 'profticket-monitor', label: 'Новогодний лабиринт (Цирк Никулина, Profticket)' },
   { name: 'profticket-browser-monitor', label: 'Profticket browser' },
   { name: 'profticket-session-pool', label: 'Profticket session pool' },
+  { name: 'vakhtangov-monitor', label: 'Вахтангов (Онегин / Маскарад / Лир)' },
+  { name: 'konserzh-monitor', label: 'Консьерж (Современник)' },
+  { name: 'sniper-monitor-wowcup', label: 'WOW CUP' },
+  { name: 'kassir-monitor', label: 'Дон Жуан (Kassir, на VPS выключен)' },
+  { name: 'sniper-payment-tracker', label: 'Трекер оплат' },
+  { name: 'sniper-watchdog', label: 'Сторож (письмо, если бот замолчал)' },
 ];
+
+const QUIET_OK = new Set(['sniper-payment-tracker', 'kassir-monitor', 'sniper-watchdog']);
+const SILENT_MS = 20 * 60 * 1000;
+
+function botHealth(proc) {
+  const online = proc?.pm2_env?.status === 'online';
+  if (!online) return 'down';
+  if (QUIET_OK.has(proc.name)) return 'ok';
+  const logPath = proc.pm2_env?.pm_out_log_path;
+  try {
+    const age = Date.now() - fs.statSync(logPath).mtimeMs;
+    return age > SILENT_MS ? 'silent' : 'ok';
+  } catch {
+    return 'silent';
+  }
+}
 
 function loadPm2() {
   for (const p of [
@@ -118,6 +141,7 @@ monitorRouter.get('/', requireAuth, requireAdminOrSalesManager, async (req, res)
         label: m.label,
         status: p ? p.pm2_env?.status : 'not_found',
         online: p?.pm2_env?.status === 'online',
+        health: p ? botHealth(p) : 'down',
         restarts: p?.pm2_env?.restart_time || 0,
         uptime: p?.pm2_env?.pm_uptime || 0,
       };

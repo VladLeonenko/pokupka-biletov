@@ -17,6 +17,7 @@ import {
   primeSessionPool,
 } from './services/radarioBooking.js';
 import { registerPendingPayment } from './services/sniperPaymentTracker.js';
+import { rebookBlocked, stampSuccess } from './services/rebookGuard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -103,6 +104,7 @@ loadState();
 async function fetchGroup() {
   const res = await fetch('https://radario.ru/web-api/events/2747582/eventGroup?distributionType=Widget', {
     headers: { Accept: 'application/json', Referer: 'https://teatrpushkin.ru/' },
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`eventGroup HTTP ${res.status}`);
   const j = await res.json();
@@ -135,10 +137,11 @@ function shouldBook(eventId, ticketCount, { isEdge = false, isProbe = false } = 
   if (!AUTO_BOOK || bookingInFlight.has(eventId)) return false;
   if (ticketCount <= 0) return false;
   const h = holds.get(eventId);
+  if (rebookBlocked(h)) return false;
   if (!h) return true;
   const now = Date.now();
-  if (h.orderId && now < h.cooldownUntil && !isEdge) return false;
   if (isEdge || isProbe) return true;
+  if (h.orderId && now < h.cooldownUntil) return false;
   if (h.pendingSoftLock && h.softLockUntil && now < h.softLockUntil) return false;
   return true;
 }
@@ -185,14 +188,17 @@ async function tryBook(cfg, meta) {
     const warm = getWarmBuySession(cfg.id);
     log(`book ${cfg.label} #${attempt} max=${maxTickets} (pairs-only)${isEdge ? ' EDGE' : ''}${isProbe ? ' PROBE' : ''}${warm ? ' warm' : ''} race=${raceSessions}${preferSeatNumbers.length ? ` prefer=[${preferSeatNumbers.join(',')}]` : ''}`);
 
-    const result = await bookRadarioEvent(cfg.id, {
-      maxTickets,
-      preferSeatNumbers,
-      useWarm: !isEdge && !isProbe,
-      forceFresh: true,
-      skipPreview: true,
-      raceSessions,
-    });
+    const result = await Promise.race([
+      bookRadarioEvent(cfg.id, {
+        maxTickets,
+        preferSeatNumbers,
+        useWarm: !isEdge && !isProbe,
+        forceFresh: true,
+        skipPreview: true,
+        raceSessions,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('book timeout 90s')), 90_000)),
+    ]);
 
     // Жёстко: успех только если в заказе ≥1 полная соседняя пара (чётное ≥2).
     const seatCount = (result.seats || []).length;
@@ -212,16 +218,17 @@ async function tryBook(cfg, meta) {
 
     if (result.ok) {
       const seatNums = (result.seats || []).map((s) => s.seatNumber);
-      holds.set(cfg.id, {
+      const next = stampSuccess(prev, {
         orderId: result.orderId,
         seats: seatNums.length ? seatNums : preferSeatNumbers,
         attempt,
         bookedAt: Date.now(),
-        cooldownUntil: Date.now() + REBOOK_AFTER_MS,
         sawZeroAfterBook: false,
         pendingSoftLock: false,
         softLockUntil: 0,
-      });
+      }, REBOOK_AFTER_MS);
+      holds.set(cfg.id, next);
+      if (next.done) log(`STOP ${cfg.label}: лимит 1 перебронь`);
       saveState();
       saveResult({
         platform: 'radario',

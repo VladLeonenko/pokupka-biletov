@@ -199,10 +199,15 @@ export async function bookVakhtangovParterPairs(performance, opts = {}) {
     const perf = await page.evaluate(async (path) => {
       const r = await fetch(`/api/show/performance/?url=${encodeURIComponent(path)}`, {
         credentials: 'include',
+        signal: AbortSignal.timeout(15000),
       });
-      if (!r.ok) throw new Error(`performance HTTP ${r.status}`);
+      if (!r.ok) return { error: `performance HTTP ${r.status}` };
       return r.json();
     }, `${performance.path}?lite-layout=1&iframe-hash=${performance.accessHash}`);
+
+    if (perf?.error) {
+      return { ok: false, reason: 'performance_http', detail: perf.error };
+    }
 
     if (perf?.isSoldOut) {
       return { ok: false, reason: 'sold_out', performanceId: perf.id };

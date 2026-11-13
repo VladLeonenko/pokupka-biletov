@@ -16,6 +16,8 @@ import {
   fetchScheme,
   fetchEventPageKit,
 } from './services/kassirApi.js';
+import { registerPendingPayment } from './services/sniperPaymentTracker.js';
+import { rebookBlocked, stampSuccess } from './services/rebookGuard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -31,24 +33,35 @@ const STATE_FILE = path.join(DATA_DIR, 'kassir-hold-state.json');
 const NOTIFY_BOOK = (process.env.KASSIR_NOTIFY_EMAIL
   || 'vladislav.leonenko@bk.ru,leonenkovlad2018@yandex.ru,gyrodin@mail.ru,iosif131999@gmail.com').trim();
 const BCC_BOOK = process.env.KASSIR_BCC || 'yaguda_io@mail.ru';
-const INTERVAL_MS = Number(process.env.KASSIR_INTERVAL_MS || 3000);
-const HOT_INTERVAL_MS = Number(process.env.KASSIR_HOT_INTERVAL_MS || 500);
+const INTERVAL_MS = Number(process.env.KASSIR_INTERVAL_MS || 15000);
+const HOT_INTERVAL_MS = Number(process.env.KASSIR_HOT_INTERVAL_MS || 8000);
 const AUTO_BOOK = process.env.KASSIR_AUTO_BOOK !== '0';
 const MAX_TICKETS = Number(process.env.KASSIR_MAX_TICKETS || 2);
 const REBOOK_AFTER_MS = Number(process.env.KASSIR_REBOOK_AFTER_MS || 20 * 60 * 1000);
 const SOFT_BACKOFF_MS = Number(process.env.KASSIR_SOFT_BACKOFF_MS || 60_000);
 const LOG_MAX = 2 * 1024 * 1024;
 
-/** target: Дон Жуан 25.11; test можно задать KASSIR_TEST_EVENT_ID.
- * RISK: event id hardcoded — при пересоздании события на kassir обновить env/ID,
- * иначе полл в пустоту (урок wowcup sessionKey). */
+/** targets: Дон Жуан. RISK: hash/id на kassir меняется — сверять URL.
+ * 7170999 = КЗ «Москва» 19.12 (ссылка пользователя)
+ * 5406528 = Русская песня 25.11
+ * Доп. через KASSIR_EVENT_ID / KASSIR_EXTRA_EVENT_IDS=id:label:url,... */
 const EVENTS = [
   {
-    id: Number(process.env.KASSIR_EVENT_ID || 5406528),
-    label: process.env.KASSIR_EVENT_LABEL || 'Дон Жуан 25.11 19:00',
-    url: process.env.KASSIR_EVENT_URL || 'https://msk.kassir.ru/teatr/don-juan-13#5406528',
+    id: Number(process.env.KASSIR_EVENT_ID || 7170999),
+    label: process.env.KASSIR_EVENT_LABEL || 'Дон Жуан 19.12 19:00 КЗ Москва',
+    url: process.env.KASSIR_EVENT_URL || 'https://msk.kassir.ru/teatr/don-juan-13#7170999',
   },
 ];
+if (process.env.KASSIR_KEEP_OLD !== '0') {
+  const oldId = Number(process.env.KASSIR_OLD_EVENT_ID || 5406528);
+  if (!EVENTS.some((e) => e.id === oldId)) {
+    EVENTS.push({
+      id: oldId,
+      label: process.env.KASSIR_OLD_EVENT_LABEL || 'Дон Жуан 25.11 19:00 Русская песня',
+      url: process.env.KASSIR_OLD_EVENT_URL || 'https://msk.kassir.ru/teatr/don-juan-13#5406528',
+    });
+  }
+}
 if (process.env.KASSIR_TEST_EVENT_ID) {
   EVENTS.unshift({
     id: Number(process.env.KASSIR_TEST_EVENT_ID),
@@ -101,6 +114,30 @@ function saveResult(rec) {
 
 loadState();
 
+function takeSingleInstanceLock() {
+  const lock = path.join(DATA_DIR, 'kassir.pid');
+  try {
+    const old = Number(fs.readFileSync(lock, 'utf8'));
+    if (old && old !== process.pid) {
+      try {
+        process.kill(old, 0);
+        console.error(`kassir already running pid=${old}, exit`);
+        process.exit(0);
+      } catch { /* stale */ }
+    }
+  } catch { /* first */ }
+  fs.writeFileSync(lock, String(process.pid));
+  const unlock = () => {
+    try {
+      if (fs.readFileSync(lock, 'utf8').trim() === String(process.pid)) fs.unlinkSync(lock);
+    } catch { /* */ }
+  };
+  process.on('exit', unlock);
+  process.on('SIGTERM', () => { unlock(); process.exit(0); });
+  process.on('SIGINT', () => { unlock(); process.exit(0); });
+}
+takeSingleInstanceLock();
+
 async function notifyBook(subject, text) {
   return sendTransactionalMail({ to: NOTIFY_BOOK, subject, text, bcc: BCC_BOOK });
 }
@@ -108,10 +145,12 @@ async function notifyBook(subject, text) {
 function shouldBook(eventId, count, isEdge) {
   if (!AUTO_BOOK || bookingInFlight.has(eventId) || count <= 0) return false;
   const h = holds.get(eventId);
+  if (rebookBlocked(h)) return false;
   if (!h) return true;
   const now = Date.now();
-  if (h.orderId && now < h.cooldownUntil && !isEdge) return false;
-  if (h.failUntil && now < h.failUntil && !isEdge) return false;
+  if (isEdge) return true;
+  if (h.orderId && now < (h.cooldownUntil || 0)) return false;
+  if (h.failUntil && now < h.failUntil) return false;
   return true;
 }
 
@@ -128,13 +167,27 @@ async function tryBook(cfg, { count, isEdge }) {
     });
     if (result.ok) {
       const seatIds = (result.seats || []).map((s) => s.seatId);
-      holds.set(cfg.id, {
+      const next = stampSuccess(prev, {
         orderId: result.orderId,
         seatIds,
         bookedAt: Date.now(),
-        cooldownUntil: Date.now() + REBOOK_AFTER_MS,
         failUntil: 0,
-      });
+      }, REBOOK_AFTER_MS);
+      holds.set(cfg.id, next);
+      if (next.done) log(`STOP ${cfg.label}: лимит 1 перебронь`);
+      try {
+        registerPendingPayment({
+          platform: 'kassir',
+          orderId: result.orderId,
+          paymentUrl: result.paymentUrl || null,
+          label: cfg.label,
+          eventId: cfg.id,
+          amount: result.amount ?? null,
+          tickets: (result.seats || []).length || null,
+          seats: seatIds.join(','),
+          trackUntilMs: Date.now() + 3 * 3600_000,
+        });
+      } catch { /* */ }
       saveState();
       saveResult({
         platform: 'kassir',
@@ -205,10 +258,9 @@ async function tryBook(cfg, { count, isEdge }) {
 
 log(`start events=${EVENTS.map((e) => e.id).join(',')} interval=${INTERVAL_MS}/${HOT_INTERVAL_MS} auto=${AUTO_BOOK} max=${MAX_TICKETS}`);
 console.log(`Kassir sniper: log→${LOG_FILE} (почта только при успехе)`);
-console.log('Kassir: если order-kit → 403 Forbidden — IP в бане (типично VPS). Нужен домашний IP или KASSIR_PROXY.');
+console.log('Kassir: API через Playwright (Node fetch = 403 TLS). Home LaunchAgent = основной охотник.');
 
 while (true) {
-  let anyTickets = false;
   let anyEdge = false;
   try {
     if (Date.now() < pollBanUntil) {
@@ -220,8 +272,10 @@ while (true) {
       const kit = await fetchOrderKit(cfg.id);
       consecutive403 = 0;
       const count = availableSeatCount(kit);
+      const prevCount = lastCount.has(cfg.id) ? (lastCount.get(cfg.id) || 0) : null;
+      const rising = prevCount === 0 && count > 0;
       let freeN = 0;
-      if (count > 0) {
+      if (count > 0 && (rising || shouldBook(cfg.id, count, rising))) {
         try {
           const sch = await fetchScheme(cfg.id);
           freeN = extractFreeSeats(kit, sch).length;
@@ -239,7 +293,6 @@ while (true) {
         lastCount.set(cfg.id, effective);
         isEdge = prev === 0 && effective > 0;
       }
-      if (effective > 0) anyTickets = true;
       if (isEdge) {
         anyEdge = true;
         log(`EDGE ${cfg.label} 0→${effective} (quotas=${count}, free=${freeN})`);
@@ -262,11 +315,23 @@ while (true) {
     log(`poll: ${msg}`);
     if (status === 403 || /HTTP 403/i.test(msg)) {
       consecutive403 += 1;
-      const wait = Math.min(30 * 60_000, 60_000 * 2 ** Math.min(consecutive403 - 1, 4));
+      const wait = Math.min(120_000, 5_000 * 2 ** Math.min(consecutive403 - 1, 4));
       pollBanUntil = Date.now() + wait;
-      log(`IP/ban order-kit 403×${consecutive403} → пауза ${Math.round(wait / 1000)}s (запусти с домашнего IP или прокси; VPS api.kassir.ru часто Forbidden)`);
-      console.error(`[kassir] 403 Forbidden — пауза ${Math.round(wait / 1000)}s. С VPS order-kit обычно мёртв, с домашнего IP — ок.`);
+      const recycle = consecutive403 === 3;
+      log(`order-kit 403×${consecutive403} пауза ${Math.round(wait / 1000)}s${recycle ? ' recycle' : ''}`);
+      console.error(`[kassir] 403 пауза ${Math.round(wait / 1000)}s${recycle ? ', один recycle' : ''}`);
+      if (recycle) {
+        try {
+          const { closeKassirBrowser } = await import('./services/kassirApi.js');
+          await closeKassirBrowser();
+        } catch {
+          /* */
+        }
+      }
+    } else if (/Failed to fetch|has been closed|Target closed/i.test(msg)) {
+      pollBanUntil = Date.now() + 8_000;
     }
   }
-  await new Promise((r) => setTimeout(r, anyEdge ? 200 : (anyTickets ? HOT_INTERVAL_MS : INTERVAL_MS)));
+  const hot = anyEdge || bookingInFlight.size > 0;
+  await new Promise((r) => setTimeout(r, hot ? (anyEdge ? 200 : HOT_INTERVAL_MS) : INTERVAL_MS));
 }

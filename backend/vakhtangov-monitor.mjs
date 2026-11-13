@@ -74,6 +74,22 @@ function loadState() {
     const j = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
     for (const [k, h] of Object.entries(j?.holds || {})) holds.set(k, h);
   } catch { /* first */ }
+  try {
+    const list = JSON.parse(fs.readFileSync(RESULTS_FILE, 'utf8'));
+    const n = new Map();
+    for (const rec of list) {
+      if (rec.action !== 'book' && rec.action !== 'rebook') continue;
+      const k = rec.datetime;
+      if (!k) continue;
+      n.set(k, (n.get(k) || 0) + 1);
+    }
+    for (const [k, count] of n) {
+      if (count < 1 + MAX_REBOOKS) continue;
+      const prev = holds.get(k) || {};
+      holds.set(k, { ...prev, successCount: count, done: true, orderOk: true });
+    }
+    if (n.size) saveState();
+  } catch { /* no results yet */ }
 }
 
 function saveState() {
@@ -97,6 +113,7 @@ loadState();
 async function fetchAfisha() {
   const res = await fetch(AFISHA_URL, {
     headers: { Accept: 'application/json', Referer: 'https://vakhtangov.ru/' },
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`afisha HTTP ${res.status}`);
   const raw = await res.json();
@@ -129,14 +146,22 @@ function shouldBook(key) {
   if (!AUTO_BOOK || bookingInFlight.has(key)) return false;
   const h = holds.get(key);
   if (!h) return true;
-  // Уже исчерпали: 1-я бронь + MAX_REBOOKS повторов — больше не трогаем сеанс.
   if (h.done) return false;
-  const successCount = Number(h.successCount || (h.orderOk ? 1 : 0));
+  const successCount = Number(h.successCount || (h.orderOk || h.orderId ? 1 : 0));
   if (successCount >= 1 + MAX_REBOOKS) return false;
   if (Date.now() < (h.cooldownUntil || 0)) return false;
-  // Повтор только после успешной брони и истечения cooldown.
-  if (successCount >= 1 && !h.orderOk) return false;
   return true;
+}
+
+function keepProgress(prev, patch) {
+  return {
+    ...(prev || {}),
+    ...patch,
+    successCount: prev?.successCount,
+    done: prev?.done,
+    orderId: patch.orderId || prev?.orderId,
+    orderOk: prev?.orderOk === true ? true : (patch.orderOk ?? prev?.orderOk),
+  };
 }
 
 async function tryBook(ev) {
@@ -158,10 +183,13 @@ async function tryBook(ev) {
         (excludeSeatKeys.length ? ` exclude=[${excludeSeatKeys.join(',')}]` : '') +
         ` successWas=${prevSuccess}/${1 + MAX_REBOOKS}`,
     );
-    const result = await bookVakhtangovParterPairs(
+    const result = await Promise.race([
+      bookVakhtangovParterPairs(
       { path: ev.path, accessHash: ev.accessHash, label: ev.label },
       { maxPairs: MAX_PAIRS, excludeSeatKeys },
-    );
+    ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('book timeout 120s')), 120_000)),
+    ]);
 
     if (result.ok && result.paymentUrl) {
       const successCount = prevSuccess + 1;
@@ -253,17 +281,19 @@ async function tryBook(ev) {
 
     log(`fail ${ev.label}: ${result.reason}`);
     const failCooldown =
-      result.reason === 'no_parter_pairs' || result.reason === 'sold_out'
+      result.reason === 'performance_http'
+        ? 15 * 60_000
+        : result.reason === 'no_parter_pairs' || result.reason === 'sold_out'
         ? 20_000
         : result.reason === 'order_create_failed' || result.reason === 'no_payment_url'
           ? 45_000
           : 15_000;
-    holds.set(key, {
-      orderOk: false,
+    const prevHold = holds.get(key);
+    holds.set(key, keepProgress(prevHold, {
       lastFailReason: result.reason,
-      emptyStreak: (holds.get(key)?.emptyStreak || 0) + 1,
+      emptyStreak: (prevHold?.emptyStreak || 0) + 1,
       cooldownUntil: Date.now() + failCooldown,
-    });
+    }));
     saveState();
     saveResult({
       platform: 'vakhtangov-ticketland',
@@ -276,11 +306,12 @@ async function tryBook(ev) {
     });
   } catch (err) {
     log(`error ${ev.label}: ${err instanceof Error ? err.message : err}`);
-    holds.set(key, {
-      orderOk: false,
+    const prevHold = holds.get(key);
+    const is404 = /performance HTTP 404|performance_http/.test(err instanceof Error ? err.message : String(err));
+    holds.set(key, keepProgress(prevHold, {
       lastFailReason: 'exception',
-      cooldownUntil: Date.now() + 30_000,
-    });
+      cooldownUntil: Date.now() + (is404 ? 15 * 60_000 : 30_000),
+    }));
     saveState();
   } finally {
     bookingInFlight.delete(key);
@@ -305,12 +336,12 @@ while (true) {
         seenOpen.add(ev.datetime);
         log(`OPEN ${ev.label} title="${ev.title}" has=${ev.hasTickets} sales=${ev.salesOn} p=${ev.performanceId}`);
       }
-      if (ev.hasTickets && ev.salesOn) jobs.push(tryBook(ev));
+      if (ev.hasTickets && ev.salesOn) jobs.push(ev);
     }
     if (!present) {
       // тихо — даты ещё не в Ticketland-ленте
-    } else if (jobs.length) {
-      await Promise.allSettled(jobs);
+    } else {
+      for (const ev of jobs) await tryBook(ev);
     }
   } catch (err) {
     log(`poll: ${err instanceof Error ? err.message : err}`);
