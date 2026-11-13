@@ -44,7 +44,23 @@ export function TicketsFooter() {
             <Link to="/requisites">Реквизиты</Link>
           </div>
         </div>
-        <div className={styles.copy}>{copy}</div>
+        <div className={styles.bottom}>
+          <div className={styles.copy}>{copy}</div>
+          <a
+            className={styles.devBadge}
+            href="https://prime-coder.ru"
+            target="_blank"
+            rel="noopener"
+          >
+            <span className={styles.devBadgeMark} aria-hidden>
+              PC
+            </span>
+            <span className={styles.devBadgeText}>
+              Сайт разработан студией{' '}
+              <span className={styles.devBadgeBrand}>PrimeCoder</span>
+            </span>
+          </a>
+        </div>
       </div>
     </footer>
   );
