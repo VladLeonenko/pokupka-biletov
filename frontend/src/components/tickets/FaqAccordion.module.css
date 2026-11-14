@@ -64,9 +64,10 @@
 .answerOpen {
   display: grid;
   min-width: 0;
+  width: 100%;
   transition:
-    grid-template-rows 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.32s ease;
+    grid-template-rows 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .answer {
@@ -79,8 +80,14 @@
   opacity: 1;
 }
 
+.answerOpen .answerInner {
+  transform: none;
+}
+
 .answerInner {
   overflow: hidden;
+  transform: translateY(16px);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
   font-size: 0.95rem;
   font-weight: 500;
@@ -158,8 +165,13 @@
 @media (prefers-reduced-motion: reduce) {
   .answer,
   .answerOpen,
+  .answerInner,
   .dot,
   .dotOn {
     transition: none;
+  }
+
+  .answerInner {
+    transform: none;
   }
 }

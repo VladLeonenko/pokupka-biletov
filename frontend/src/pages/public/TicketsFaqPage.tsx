@@ -192,7 +192,7 @@ export function TicketsFaqPage() {
           {SECTIONS.map((section) => (
             <section key={section.title} className={styles.faqSection}>
               <h2 className={styles.faqCategory}>{section.title}</h2>
-              <FaqAccordion items={section.items} defaultOpen={0} />
+              <FaqAccordion items={section.items} />
             </section>
           ))}
 

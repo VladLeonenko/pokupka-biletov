@@ -312,39 +312,6 @@
   margin: 0;
 }
 
-.faqPage {
-  background: #f6f5f2;
-}
-
-.faqPage .hero {
-  background: transparent;
-  color: #111;
-  margin-bottom: 8px;
-}
-
-.faqPage .hero::before {
-  display: none;
-}
-
-.faqPage .kicker {
-  color: rgba(0, 0, 0, 0.4);
-  text-shadow: none;
-}
-
-.faqPage .title {
-  color: #111;
-  text-shadow: none;
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  max-width: 14ch;
-}
-
-.faqPage .lead {
-  color: rgba(0, 0, 0, 0.55);
-  text-shadow: none;
-}
-
 .faqPage .shell {
-  max-width: 1100px;
+  max-width: var(--tickets-max, 1440px);
 }

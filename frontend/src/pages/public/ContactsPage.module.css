@@ -1,14 +1,17 @@
 .root {
   min-height: calc(100vh - 160px);
-  padding: clamp(48px, 8vw, 88px) clamp(16px, 4vw, 28px) 72px;
+  padding: clamp(48px, 8vw, 88px) 0 72px;
   background: radial-gradient(720px 380px at 50% 0%, rgba(255, 78, 24, 0.1), transparent 68%), #fff;
   color: #111;
   font-family: var(--neg-font, 'Manrope', system-ui, sans-serif);
 }
 
 .hero {
-  max-width: 720px;
+  max-width: var(--tickets-max, 1440px);
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto 48px;
+  padding: 0 16px;
   text-align: center;
 }
 
@@ -71,8 +74,11 @@
 }
 
 .grid {
-  max-width: 1080px;
+  max-width: var(--tickets-max, 1440px);
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
+  padding: 0 16px;
   display: grid;
   grid-template-columns: 1fr;
   gap: 28px;
@@ -130,8 +136,12 @@
 }
 
 .legal {
-  max-width: 1080px;
+  max-width: var(--tickets-max, 1440px);
+  width: 100%;
+  box-sizing: border-box;
   margin: 36px auto 0;
+  padding-left: 16px;
+  padding-right: 16px;
   padding-top: 20px;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   font-size: 0.8rem;
