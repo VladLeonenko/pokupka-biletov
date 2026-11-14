@@ -1382,7 +1382,7 @@ export function TicketCheckoutPage() {
     contextSaysNoHallMap,
   ]);
 
-  /** Без схемы список мест — основной UI (не хоронить под расписанием/accordion). */
+  /** Без схемы список мест раскрыт сразу (не accordion). Расписание всегда выше, под баннером. */
   const seatListPrimary = Boolean(!hallSvg && !showHallMapShell);
 
   /** После ответа API офферов нет (конец продажи / пусто) — всё равно можно показать схему зала. */
@@ -1978,8 +1978,8 @@ export function TicketCheckoutPage() {
           sx={{ pb: 4 }}
         >
 
-          {/* Со схемой — расписание сверху; без схемы — сначала места (см. блок ниже). */}
-          {!seatListPrimary && !isSupercupSportCheckout && allSessionsSorted.length > 0 && (
+          {/* Расписание всегда сразу под баннером, до выбора мест. */}
+          {allSessionsSorted.length > 0 && (
             <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
               <div className={styles.scheduleHeader}>
                 <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
@@ -2142,68 +2142,6 @@ export function TicketCheckoutPage() {
               )}
             </Paper>
           ) : null}
-
-          {isSupercupSportCheckout && allSessionsSorted.length > 0 && (
-            <Box component="section" className={styles.scheduleSection} sx={{ mb: 3 }}>
-              <div className={styles.scheduleHeader}>
-                <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-                  Расписание
-                </Typography>
-                <button
-                  type="button"
-                  className={styles.scheduleToggle}
-                  onClick={() => setScheduleCollapsed((v) => !v)}
-                  aria-expanded={!scheduleCollapsed}
-                >
-                  {scheduleCollapsed ? 'Показать календарь' : 'Скрыть календарь'}
-                </button>
-              </div>
-              {!scheduleCollapsed ? (
-                <>
-                  {mergedVenue || mergedVenueAddress ? (
-                    <Box sx={{ mb: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                        Площадка проведения
-                      </Typography>
-                      {mergedVenue ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          {mergedVenue}
-                        </Typography>
-                      ) : null}
-                      {mergedVenueAddress ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {mergedVenueAddress}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  ) : null}
-                  <div className={styles.scheduleStrip}>
-                    {allSessionsSorted.map(([dt, rows]) => {
-                      const minP = minPriceForOffers(rows);
-                      const { time, dateLine } = formatSessionCard(dt);
-                      const selected = selectedSessionKey === dt;
-                      return (
-                        <button
-                          key={dt}
-                          type="button"
-                          className={`${styles.scheduleCard} ${selected ? styles.scheduleCardSelected : ''}`}
-                          onClick={() => setSelectedSessionKey(dt)}
-                        >
-                          <div className={styles.scheduleCardDate}>{dateLine}</div>
-                          <div className={styles.scheduleCardTime}>{time}</div>
-                          {minP != null ? (
-                            <div className={styles.scheduleCardPrice}>от {minP.toLocaleString('ru-RU')} ₽</div>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : null}
-            </Box>
-          )}
-
-
 
           {!isLoading && !isError && listableOffers.length > 0 && !zonePreorderHall && (
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -2656,66 +2594,6 @@ export function TicketCheckoutPage() {
                 </AccordionDetails>
               </Accordion>
             )
-          )}
-
-          {seatListPrimary && !isSupercupSportCheckout && allSessionsSorted.length > 0 && (
-            <Box component="section" className={styles.scheduleSection} sx={{ mb: 3, mt: 1 }}>
-              <div className={styles.scheduleHeader}>
-                <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-                  Расписание
-                </Typography>
-                <button
-                  type="button"
-                  className={styles.scheduleToggle}
-                  onClick={() => setScheduleCollapsed((v) => !v)}
-                  aria-expanded={!scheduleCollapsed}
-                >
-                  {scheduleCollapsed ? 'Показать календарь' : 'Скрыть календарь'}
-                </button>
-              </div>
-              {!scheduleCollapsed ? (
-                <>
-                  {mergedVenue || mergedVenueAddress ? (
-                    <Box sx={{ mb: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                        Площадка проведения
-                      </Typography>
-                      {mergedVenue ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          {mergedVenue}
-                        </Typography>
-                      ) : null}
-                      {mergedVenueAddress ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {mergedVenueAddress}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  ) : null}
-                  <div className={styles.scheduleStrip}>
-                    {allSessionsSorted.map(([dt, rows]) => {
-                      const minP = minPriceForOffers(rows);
-                      const { time, dateLine } = formatSessionCard(dt);
-                      const selected = selectedSessionKey === dt;
-                      return (
-                        <button
-                          key={dt}
-                          type="button"
-                          className={`${styles.scheduleCard} ${selected ? styles.scheduleCardSelected : ''}`}
-                          onClick={() => setSelectedSessionKey(dt)}
-                        >
-                          <div className={styles.scheduleCardDate}>{dateLine}</div>
-                          <div className={styles.scheduleCardTime}>{time}</div>
-                          {minP != null ? (
-                            <div className={styles.scheduleCardPrice}>от {minP.toLocaleString('ru-RU')} ₽</div>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : null}
-            </Box>
           )}
 
           <Suspense fallback={null}>
