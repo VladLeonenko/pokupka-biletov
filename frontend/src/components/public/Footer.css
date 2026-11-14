@@ -149,7 +149,7 @@ footer {
 
 /* Адаптивность для мобильных устройств (до 768px) */
 @media (max-width: 768px) {
-  footer {
+  body:not([data-tickets='true']) footer {
     padding: 40px 0 !important;
   }
   
@@ -188,7 +188,7 @@ footer {
 
 /* Адаптивность для маленьких мобильных (до 480px) */
 @media (max-width: 480px) {
-  footer {
+  body:not([data-tickets='true']) footer {
     padding: 30px 0 !important;
   }
   
