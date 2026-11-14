@@ -25,7 +25,11 @@ import { fileURLToPath } from 'node:url';
 
 import ticketPool from '../ticketDb.js';
 import { buildBolshoiSectors } from '../utils/bolshoiHistoricalHallSvg.js';
-import { buildSectorsFromAfishaOutlines } from '../utils/bolshoiNewStageAfishaOutlines.js';
+import {
+  buildSectorsFromAfishaOutlines,
+  pointInPolygon,
+  sampleSvgPath,
+} from '../utils/bolshoiNewStageAfishaOutlines.js';
 import {
   BOLSHOI_NEW_STAGE_SECTOR_FILL,
   collapseBolshoiNewStageToParterMid,
@@ -60,6 +64,199 @@ function sectionIdFromLabel(sector) {
       .replace(/^-|-$/g, '')
       .slice(0, 64) || 'sector'
   );
+}
+
+/** Алгебраическая окружность по точкам ряда. null, если ряд прямой. */
+function fitCircle(pts) {
+  if (pts.length < 3) return null;
+  const rows = [
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  for (const [x, y] of pts) {
+    const z = x * x + y * y;
+    rows[0][0] += x * x;
+    rows[0][1] += x * y;
+    rows[0][2] += x;
+    rows[0][3] += x * z;
+    rows[1][0] += x * y;
+    rows[1][1] += y * y;
+    rows[1][2] += y;
+    rows[1][3] += y * z;
+    rows[2][0] += x;
+    rows[2][1] += y;
+    rows[2][2] += 1;
+    rows[2][3] += z;
+  }
+  for (let col = 0; col < 3; col += 1) {
+    let piv = col;
+    for (let r = col + 1; r < 3; r += 1) {
+      if (Math.abs(rows[r][col]) > Math.abs(rows[piv][col])) piv = r;
+    }
+    if (Math.abs(rows[piv][col]) < 1e-6) return null;
+    const tmp = rows[col];
+    rows[col] = rows[piv];
+    rows[piv] = tmp;
+    const div = rows[col][col];
+    for (let c = col; c < 4; c += 1) rows[col][c] /= div;
+    for (let r = 0; r < 3; r += 1) {
+      if (r === col) continue;
+      const f = rows[r][col];
+      for (let c = col; c < 4; c += 1) rows[r][c] -= f * rows[col][c];
+    }
+  }
+  const cx = rows[0][3] / 2;
+  const cy = rows[1][3] / 2;
+  const r2 = rows[2][3] + cx * cx + cy * cy;
+  if (!(r2 > 16)) return null;
+  return { cx, cy, r: Math.sqrt(r2) };
+}
+
+function tangentDeg(ang) {
+  return (Math.atan2(Math.cos(ang), -Math.sin(ang)) * 180) / Math.PI;
+}
+
+/** Буквы идут влево-направо, на вертикали — сверху вниз. reverse() массива места не двигает. */
+function layReadingOrder(glyphs) {
+  if (!glyphs || glyphs.length < 2) return glyphs;
+  const a = glyphs[0];
+  const b = glyphs[glyphs.length - 1];
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const backward = Math.abs(dx) >= Math.abs(dy) ? dx < 0 : dy < 0;
+  if (!backward) return glyphs;
+  const xs = glyphs.map((g) => g.x);
+  const ys = glyphs.map((g) => g.y);
+  const rots = glyphs.map((g) => g.rotate);
+  const n = glyphs.length;
+  return glyphs.map((g, i) => ({
+    ...g,
+    x: xs[n - 1 - i],
+    y: ys[n - 1 - i],
+    rotate: rots[n - 1 - i],
+  }));
+}
+
+/** Нижняя дуга: касательная переворачивает буквы. +180° оставляет их вдоль дуги, но читаемыми. */
+function uprightGlyphs(glyphs) {
+  if (!glyphs?.length) return glyphs;
+  const mid = glyphs[Math.floor((glyphs.length - 1) / 2)];
+  let rot = Number(mid.rotate) || 0;
+  while (rot > 180) rot -= 360;
+  while (rot < -180) rot += 360;
+  if (Math.abs(rot) <= 90) return glyphs;
+  return glyphs.map((g) => {
+    let r = (Number(g.rotate) || 0) + 180;
+    while (r > 180) r -= 360;
+    while (r < -180) r += 360;
+    return { ...g, rotate: r };
+  });
+}
+
+/**
+ * Подпись по дуге сектора. Короткие имена — над рядами.
+ * Длинные (ложи балкона) — буквами вдоль дуги клина, не прямой строкой.
+ * @returns {Array<{ text: string, x: number, y: number, fontSize: number, rotate: number }> | null}
+ */
+function radialLabelGlyphs(text, fontSize, seatPts, anchor, outlinePts) {
+  const circle = fitCircle(seatPts);
+  if (!circle || circle.r > 20000) return null;
+  const mid = Math.atan2(anchor.y - circle.cy, anchor.x - circle.cx);
+  const unwrap = (a) => {
+    let d = a - mid;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return mid + d;
+  };
+  const angs = seatPts.map(([x, y]) => unwrap(Math.atan2(y - circle.cy, x - circle.cx)));
+  const full = Math.max(...angs) - Math.min(...angs);
+  if (!(full > 0.012)) return null;
+  const chars = [...text];
+  const radii = seatPts.map(([x, y]) => Math.hypot(x - circle.cx, y - circle.cy));
+  const outerR = Math.max(...radii);
+  const anchorR = Math.hypot(anchor.x - circle.cx, anchor.y - circle.cy);
+  const outward = anchorR >= outerR - 2 ? 1 : -1;
+  /** Полоса сразу за крайним рядом, не на острие сектора. */
+  const rText = outward > 0 ? Math.min(anchorR, outerR + fontSize * 1.6) : Math.max(anchorR, outerR - fontSize * 1.6);
+  const inside = (x, y) => !outlinePts?.length || pointInPolygon(x, y, outlinePts);
+  const clearOfSeats = (glyphs) => {
+    for (const g of glyphs) {
+      if (!inside(g.x, g.y)) return false;
+      for (const [sx, sy] of seatPts) {
+        if (Math.hypot(g.x - sx, g.y - sy) < fontSize * 0.95) return false;
+      }
+    }
+    return true;
+  };
+
+  if (chars.length > 12) {
+    const seatMid = angs.reduce((sum, a) => sum + a, 0) / angs.length;
+    let edgeR = outerR;
+    if (outlinePts?.length) {
+      edgeR = outward > 0 ? 0 : Infinity;
+      for (const [x, y] of outlinePts) {
+        const rr = Math.hypot(x - circle.cx, y - circle.cy);
+        if (outward > 0) edgeR = Math.max(edgeR, rr);
+        else edgeR = Math.min(edgeR, rr);
+      }
+    }
+    let rBand = outerR + outward * Math.min(Math.abs(edgeR - outerR) * 0.55, fontSize * 3.6);
+    let gap = fontSize * 0.82;
+    const buildBand = (r, step) => {
+      const dAng = step / r;
+      const span = (chars.length - 1) * dAng;
+      const glyphs = chars.map((ch, i) => {
+        const ang = seatMid - span / 2 + i * dAng;
+        return {
+          text: ch,
+          x: circle.cx + r * Math.cos(ang),
+          y: circle.cy + r * Math.sin(ang),
+          fontSize,
+          rotate: tangentDeg(ang),
+        };
+      });
+      return layReadingOrder(glyphs);
+    };
+    let glyphs = buildBand(rBand, gap);
+    for (let k = 0; k < 8 && !clearOfSeats(glyphs); k += 1) {
+      gap *= 0.9;
+      glyphs = buildBand(rBand, gap);
+    }
+    for (let k = 0; k < 6 && !clearOfSeats(glyphs); k += 1) {
+      rBand = outerR + (rBand - outerR) * 0.85;
+      glyphs = buildBand(rBand, gap);
+    }
+    if (!clearOfSeats(glyphs)) {
+      return uprightGlyphs([{ text, x: anchor.x, y: anchor.y, fontSize, rotate: tangentDeg(mid) }]);
+    }
+    return uprightGlyphs(glyphs);
+  }
+
+  const n = chars.length;
+  const maxGap = fontSize * 3.2;
+  let span = Math.min(full * 0.55, ((n - 1) * maxGap) / rText);
+  const build = (useSpan) => {
+    const glyphs = chars.map((ch, i) => {
+      const t = n === 1 ? 0 : i / (n - 1);
+      const ang = mid - useSpan / 2 + t * useSpan;
+      return {
+        text: ch,
+        x: circle.cx + rText * Math.cos(ang),
+        y: circle.cy + rText * Math.sin(ang),
+        fontSize,
+        rotate: tangentDeg(ang),
+      };
+    });
+    return layReadingOrder(glyphs);
+  };
+  let glyphs = build(span);
+  for (let k = 0; k < 8 && !clearOfSeats(glyphs); k += 1) {
+    span *= 0.75;
+    glyphs = build(span);
+  }
+  if (!clearOfSeats(glyphs)) return null;
+  return uprightGlyphs(glyphs);
 }
 
 function esc(s) {
@@ -120,6 +317,83 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
   const sectors = outlineBuilt.sectors;
   if (!sectors.length) throw new Error('afisha hallplan: нет outline-секторов');
 
+  /** Явный якорь подписи (пустая зона сектора), иначе центроид. */
+  const labelByName = new Map();
+  for (const level of hallplan.levels || []) {
+    const name = String(level?.name || '').trim();
+    const lab = level?.label;
+    if (!name || !lab || typeof lab !== 'object') continue;
+    const x = Number(lab.x);
+    const y = Number(lab.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const rotate = Number(lab.rotate);
+    labelByName.set(name, {
+      x,
+      y,
+      rotate: Number.isFinite(rotate) ? rotate : 0,
+      radial: lab.radial === true,
+      glyphs: Array.isArray(lab.glyphs) ? lab.glyphs : null,
+    });
+  }
+  const seatsBySection = new Map();
+  for (const p of places) {
+    const list = seatsBySection.get(p.section) || [];
+    list.push(p);
+    seatsBySection.set(p.section, list);
+  }
+  for (const s of sectors) {
+    const anchor = labelByName.get(s.label) || { x: s.centroid.x, y: s.centroid.y, rotate: 0 };
+    s.labelAnchor = anchor;
+    const fsPx = s.totalSeats <= 8 ? 9 : s.totalSeats <= 20 ? 10 : 11;
+    const sectionSeats = seatsBySection.get(s.label) || [];
+    /** Дуга подписи = ряд, ближайший к якорю, а не вся толща яруса. */
+    const byRow = new Map();
+    for (const p of sectionSeats) {
+      const rowPts = byRow.get(p.row) || [];
+      rowPts.push([p.cx, p.cy]);
+      byRow.set(p.row, rowPts);
+    }
+    let arcPts = sectionSeats.map((p) => [p.cx, p.cy]);
+    let bestD = Infinity;
+    for (const pts of byRow.values()) {
+      if (pts.length < 3) continue;
+      const mx = pts.reduce((sum, pt) => sum + pt[0], 0) / pts.length;
+      const my = pts.reduce((sum, pt) => sum + pt[1], 0) / pts.length;
+      const d = Math.hypot(mx - anchor.x, my - anchor.y);
+      if (d < bestD) {
+        bestD = d;
+        arcPts = pts;
+      }
+    }
+    if (anchor.glyphs?.length) {
+      s.labelPieces = anchor.glyphs
+        .map((g) => {
+          const x = Number(g.x);
+          const y = Number(g.y);
+          const fontSize = Number(g.fontSize);
+          if (!g.text || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(fontSize)) return null;
+          const piece = { text: String(g.text), x, y, fontSize };
+          const rot = Number(g.rotate);
+          if (Number.isFinite(rot) && rot !== 0) piece.rotate = rot;
+          return piece;
+        })
+        .filter(Boolean);
+      continue;
+    }
+    const radial = anchor.radial
+      ? radialLabelGlyphs(
+          s.label,
+          fsPx,
+          arcPts,
+          anchor,
+          s.path ? sampleSvgPath(s.path, 4) : [],
+        )
+      : null;
+    s.labelPieces = radial || [
+      { text: s.label, x: anchor.x, y: anchor.y, fontSize: fsPx, rotate: anchor.rotate || 0 },
+    ];
+  }
+
   const rDot = Math.max(2.4, Math.min(hallWidth, hallHeight) * 0.0026);
   const circles = places
     .map(
@@ -129,12 +403,38 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
     .join('\n');
 
   const stage = hallplan.stage && typeof hallplan.stage === 'object' ? hallplan.stage : null;
-  const stageX = stage && Number.isFinite(Number(stage.x_coord))
+  let stageX = stage && Number.isFinite(Number(stage.x_coord))
     ? Number(stage.x_coord) + (Number(stage.width) || 0) / 2
     : hallWidth / 2;
-  const stageY = stage && Number.isFinite(Number(stage.y_coord))
+  let stageY = stage && Number.isFinite(Number(stage.y_coord))
     ? Number(stage.y_coord) + 8
     : Math.round(hallHeight * 0.97);
+  /** Цирк: тонкая «сцена» Яндекса внутри кольца, не на краю. Подпись — в центр арены. */
+  let stageAnchor = 'baseline';
+  if (places.length >= 50 && stage) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const p of places) {
+      if (p.cx < minX) minX = p.cx;
+      if (p.cy < minY) minY = p.cy;
+      if (p.cx > maxX) maxX = p.cx;
+      if (p.cy > maxY) maxY = p.cy;
+    }
+    const bw = maxX - minX;
+    const bh = maxY - minY;
+    const edge = Math.min(bw, bh) * 0.18;
+    const scx = Number(stage.x_coord) + (Number(stage.width) || 0) / 2;
+    const scy = Number(stage.y_coord) + (Number(stage.height) || 0) / 2;
+    const nearEdge =
+      scx < minX + edge || scx > maxX - edge || scy < minY + edge || scy > maxY - edge;
+    if (!nearEdge && bw > 0 && bh > 0) {
+      stageX = (minX + maxX) / 2;
+      stageY = (minY + maxY) / 2;
+      stageAnchor = 'central';
+    }
+  }
 
   /**
    * ONE path per sector: white fill + sector-contour (same d).
@@ -149,10 +449,14 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
     .join('\n');
 
   const sectorLabels = sectors
-    .map((s) => {
-      const fsPx = s.totalSeats <= 8 ? 9 : s.totalSeats <= 20 ? 10 : 11;
-      return `    <text x="${s.centroid.x.toFixed(1)}" y="${s.centroid.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fsPx}" fill="rgba(90,90,86,0.8)" pointer-events="none">${esc(s.label)}</text>`;
-    })
+    .flatMap((s) =>
+      (s.labelPieces || []).map((g) => {
+        const rot = g.rotate
+          ? ` transform="rotate(${Number(g.rotate).toFixed(1)} ${g.x.toFixed(1)} ${g.y.toFixed(1)})"`
+          : '';
+        return `    <text x="${g.x.toFixed(1)}" y="${g.y.toFixed(1)}"${rot} text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-size="${g.fontSize}" fill="rgba(90,90,86,0.8)" pointer-events="none">${esc(g.text)}</text>`;
+      }),
+    )
     .join('\n');
 
   const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${hallWidth} ${hallHeight}" width="${hallWidth}" height="${hallHeight}" style="background:${HALL_VIEWPORT_BG}">
@@ -163,7 +467,7 @@ export function buildTheaterLayoutFromAfishaHallplan(hallplan, opts) {
 ${sectorPaths}
   </g>
   <g id="bolshoi-new-stage-scene">
-    <text x="${stageX.toFixed(1)}" y="${stageY.toFixed(1)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(90,90,86,0.55)">Сцена</text>
+    <text x="${stageX.toFixed(1)}" y="${stageY.toFixed(1)}" text-anchor="middle" dominant-baseline="${stageAnchor === 'central' ? 'central' : 'auto'}" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(90,90,86,0.55)">Сцена</text>
   </g>
   <g id="bolshoi-new-stage-seats" fill="#f97316" stroke="none">
 ${circles}
@@ -259,7 +563,10 @@ async function main() {
   fs.mkdirSync(path.dirname(bundleOut), { recursive: true });
   fs.writeFileSync(bundleOut, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
 
-  const enrichedOut = path.join(REPO_ROOT, 'frontend/public/tools/bolshoi-new-stage-enriched.svg');
+  const enrichedRel =
+    optionalEnv('STAGE_MAP_ENRICHED_SVG') ||
+    'frontend/public/tools/bolshoi-new-stage-enriched.svg';
+  const enrichedOut = path.isAbsolute(enrichedRel) ? enrichedRel : path.join(REPO_ROOT, enrichedRel);
   try {
     fs.mkdirSync(path.dirname(enrichedOut), { recursive: true });
     fs.writeFileSync(enrichedOut, `${built.svgMarkup}\n`, 'utf8');
@@ -268,6 +575,8 @@ async function main() {
   }
 
   const maxZoom = Number(optionalEnv('STAGE_MAP_MAX_ZOOM_MULTIPLIER', '2'));
+  /** Большой: секторный предзаказ. Остальные залы того же hallplan — места. */
+  const seatCheckout = truthyEnv('STAGE_MAP_SEAT_CHECKOUT', false);
   let layoutJson = {
     layoutMode: 'svgNative',
     showUnavailableSeats: true,
@@ -276,24 +585,29 @@ async function main() {
     allSeatCoordinates: built.allSeatCoordinates,
     seats: built.seats,
     maxZoomMultiplier: Number.isFinite(maxZoom) ? maxZoom : 2,
-    sectorFocusZoomMultiplier: Number.isFinite(maxZoom) ? maxZoom : 2,
+    /** Клик по сектору кадрирует облако мест (клиент). Не путать с потолком зума. */
+    sectorFocusZoomMultiplier: 2,
     hallKind: optionalEnv('STAGE_MAP_HALL_KIND', 'theater'),
     hallViewportBackground: HALL_VIEWPORT_BG,
     preferLayoutSeatPositions: true,
-    /** Как Историческая: qty по сектору, без выбора конкретного места. */
-    hallPreviewSectorCheckout: true,
-    seatSelectionDisabled: true,
-    hideSeatList: true,
+    /** Большой: qty по сектору. STAGE_MAP_SEAT_CHECKOUT=1 — места, как Вахтангов. */
+    hallPreviewSectorCheckout: !seatCheckout,
+    seatSelectionDisabled: !seatCheckout,
+    hideSeatList: !seatCheckout,
     /** Надписи поверх canvas-точек (sectorLayer hallMapLabels, z > seats). */
     hallMapLabels: (built.sectors || [])
-      .map((s) => {
-        const fsPx = (s.totalSeats || 0) <= 8 ? 9 : (s.totalSeats || 0) <= 20 ? 10 : 11;
-        const cx = s.centroid?.x;
-        const cy = s.centroid?.y;
-        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
-        return { text: s.label, x: cx, y: cy, fontSize: fsPx, plate: false };
-      })
-      .filter(Boolean),
+      .flatMap((s) =>
+        (s.labelPieces || [])
+          .map((g) => {
+            const x = Number(g.x);
+            const y = Number(g.y);
+            if (!g.text || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+            const label = { text: g.text, x, y, fontSize: g.fontSize, plate: false };
+            if (g.rotate) label.rotate = Math.round(g.rotate * 10) / 10;
+            return label;
+          })
+          .filter(Boolean),
+      ),
     sectorMode: built.sectorMode,
     pbilet: {
       hallWidth: built.hallWidth,
@@ -312,13 +626,24 @@ async function main() {
       importedAt: new Date().toISOString(),
       pipeline: 'afisha-outline-fills-no-hull-strokes',
     },
-    note: 'bolshoi-new: seats as-is; gray fills+⬡ = level.outline; no convex-hull strokes',
+    note:
+      optionalEnv('STAGE_MAP_NOTE') ||
+      'bolshoi-new: seats as-is; gray fills+⬡ = level.outline; no convex-hull strokes',
   };
 
-  /** Продажа: один сектор «Партер (середина)» = лейбл ManualOffer из seed. */
-  const collapsed = collapseBolshoiNewStageToParterMid(layoutJson);
-  layoutJson = collapsed.layout;
-  console.log(`[import-bolshoi-new-stage] parter collapse: ${collapsed.reason}`);
+  /** Большой: один сектор «Партер (середина)» = лейбл ManualOffer из seed. */
+  if (!seatCheckout) {
+    const collapsed = collapseBolshoiNewStageToParterMid(layoutJson);
+    layoutJson = collapsed.layout;
+    console.log(`[import-bolshoi-new-stage] parter collapse: ${collapsed.reason}`);
+  }
+
+  const layoutOutRel = optionalEnv('STAGE_MAP_LAYOUT_JSON');
+  if (layoutOutRel) {
+    const layoutOut = path.isAbsolute(layoutOutRel) ? layoutOutRel : path.join(REPO_ROOT, layoutOutRel);
+    fs.mkdirSync(path.dirname(layoutOut), { recursive: true });
+    fs.writeFileSync(layoutOut, `${JSON.stringify(layoutJson)}\n`, 'utf8');
+  }
 
   const applyDb = truthyEnv('APPLY_DB', false);
   let saved = null;
@@ -343,7 +668,7 @@ async function main() {
         TITLE,
         built.svgMarkup,
         JSON.stringify(layoutJson),
-        `Bolshoi new-stage: places=${built.places.length}; outline sectors=${built.sectorMode.sectors.length}; containment=${built.outlineBuilt.overallPct.toFixed(1)}%; no hull strokes`,
+        `${TITLE}: places=${built.places.length}; outline sectors=${built.sectorMode.sectors.length}; containment=${built.outlineBuilt.overallPct.toFixed(1)}%; no hull strokes`,
         optionalEnv(
           'STAGE_MAP_EXTERNAL_PLAN_URL',
           'https://bolshoi.ru/visit/halls/new_stage/',

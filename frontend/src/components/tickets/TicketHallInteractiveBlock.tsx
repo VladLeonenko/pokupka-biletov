@@ -480,21 +480,6 @@ function parseMaxZoomMultiplier(
   return 8;
 }
 
-/** Zoom при клике по сектору (не zoom-to-fill bbox). */
-function parseSectorFocusZoomMultiplier(
-  layout: unknown,
-  maxZoomMultiplier: number,
-  isCoarsePointer = false,
-): number {
-  const r = layout && typeof layout === 'object' ? (layout as Record<string, unknown>) : null;
-  const raw = r?.sectorFocusZoomMultiplier;
-  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
-  if (Number.isFinite(n) && n >= 1) return Math.min(n, maxZoomMultiplier);
-  if (!isStadiumScaleHallLayout(layout)) return Math.min(2, maxZoomMultiplier);
-  if (isCoarsePointer) return Math.min(40, maxZoomMultiplier);
-  return maxZoomMultiplier;
-}
-
 function parseSectorMode(layout: unknown): { enabled: boolean; sectors: SectorMeta[] } {
   if (!layout || typeof layout !== 'object') return { enabled: false, sectors: [] };
   const raw = (layout as Record<string, unknown>).sectorMode;
@@ -1401,12 +1386,7 @@ export function TicketHallInteractiveBlock({
     () => parseMaxZoomMultiplier(layoutJson, sectorMode.enabled, isCoarsePointer),
     [isCoarsePointer, layoutJson, sectorMode.enabled],
   );
-  const sectorFocusZoomMultiplier = useMemo(
-    () => parseSectorFocusZoomMultiplier(layoutJson, maxZoomMultiplier, isCoarsePointer),
-    [isCoarsePointer, layoutJson, maxZoomMultiplier],
-  );
   const maxZoom = fitZoom * maxZoomMultiplier;
-  const sectorFocusZoom = fitZoom * sectorFocusZoomMultiplier;
   const clampZoom = useCallback((z: number) => Math.min(maxZoom || 4, Math.max(0.03, z)), [maxZoom]);
   const discreteZoomLevels = useMemo(
     () => {
@@ -2038,29 +2018,45 @@ export function TicketHallInteractiveBlock({
     }
 
     /**
-     * Театр: камера по облаку мест уровня (path из seed часто крошечный AABB /
-     * в чужих координатах → белая пустота на 200%).
+     * Камера на места именно этого сектора, не на весь ярус.
+     * Центр — среднее мест (у кольца AABB уезжает в арену).
+     * Зум — чтобы сектор влез в видимую область, не maxZoom.
      */
-    const focusSeats = nativeSeats.filter((seat) => {
-      if (theaterSectorCheckout) {
-        return theaterLevelFillGroup(seat.sector).key === theaterLevelFillGroup(sector.meta.label).key;
-      }
-      return sectorNormsMatch(seat.sector, sector.meta.label);
-    });
+    const exactSeats = nativeSeats.filter((seat) => sectorNormsMatch(seat.sector, sector.meta.label));
+    const focusSeats = exactSeats.length >= 2
+      ? exactSeats
+      : theaterSectorCheckout
+        ? nativeSeats.filter(
+            (seat) =>
+              theaterLevelFillGroup(seat.sector).key === theaterLevelFillGroup(sector.meta.label).key,
+          )
+        : exactSeats;
     if (focusSeats.length >= 2) {
       let minXp = Infinity;
       let minYp = Infinity;
       let maxXp = -Infinity;
       let maxYp = -Infinity;
+      let sumX = 0;
+      let sumY = 0;
       for (const seat of focusSeats) {
         minXp = Math.min(minXp, seat.xPct);
         minYp = Math.min(minYp, seat.yPct);
         maxXp = Math.max(maxXp, seat.xPct);
         maxYp = Math.max(maxYp, seat.yPct);
+        sumX += seat.xPct;
+        sumY += seat.yPct;
       }
-      const centerX = (((minXp + maxXp) / 2) / 100) * layers.offsetWidth;
-      const centerY = (((minYp + maxYp) / 2) / 100) * layers.offsetHeight;
-      focusLayerPoint(centerX, centerY, sectorFocusZoom, sector.meta.label);
+      const n = focusSeats.length;
+      const centerX = (sumX / n / 100) * layers.offsetWidth;
+      const centerY = (sumY / n / 100) * layers.offsetHeight;
+      const bw = ((maxXp - minXp) / 100) * layers.offsetWidth;
+      const bh = ((maxYp - minYp) / 100) * layers.offsetHeight;
+      const panelOffset = vp.clientWidth >= 760 ? Math.min(390, vp.clientWidth * 0.38) : 0;
+      const viewW = Math.max(160, vp.clientWidth - panelOffset);
+      const viewH = Math.max(160, vp.clientHeight);
+      const fitSector = Math.min((viewW * 0.72) / Math.max(bw, 12), (viewH * 0.72) / Math.max(bh, 12));
+      const z = clampZoom(Math.min(Math.max(fitSector, fitZoom * 1.35), fitZoom * 3));
+      focusLayerPoint(centerX, centerY, z, sector.meta.label);
       return;
     }
 
@@ -2073,11 +2069,19 @@ export function TicketHallInteractiveBlock({
     const midY = (bbox.minY + bbox.maxY) / 2;
     const centerX = ((midX - svgViewBox.minX) / Math.max(1e-6, svgViewBox.width)) * layers.offsetWidth;
     const centerY = ((midY - svgViewBox.minY) / Math.max(1e-6, svgViewBox.height)) * layers.offsetHeight;
-    focusLayerPoint(centerX, centerY, sectorFocusZoom, sector.meta.label);
+    const bw = ((bbox.maxX - bbox.minX) / Math.max(1e-6, svgViewBox.width)) * layers.offsetWidth;
+    const bh = ((bbox.maxY - bbox.minY) / Math.max(1e-6, svgViewBox.height)) * layers.offsetHeight;
+    const panelOffset = vp.clientWidth >= 760 ? Math.min(390, vp.clientWidth * 0.38) : 0;
+    const viewW = Math.max(160, vp.clientWidth - panelOffset);
+    const viewH = Math.max(160, vp.clientHeight);
+    const fitSector = Math.min((viewW * 0.72) / Math.max(bw, 12), (viewH * 0.72) / Math.max(bh, 12));
+    const z = clampZoom(Math.min(Math.max(fitSector, fitZoom * 1.35), fitZoom * 3));
+    focusLayerPoint(centerX, centerY, z, sector.meta.label);
   }, [
+    clampZoom,
+    fitZoom,
     focusLayerPoint,
     nativeSeats,
-    sectorFocusZoom,
     svgViewBox.height,
     svgViewBox.minX,
     svgViewBox.minY,

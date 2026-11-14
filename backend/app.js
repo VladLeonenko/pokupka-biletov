@@ -31,6 +31,10 @@ import bolshoiHistoricalStageHallSeatEditorRouter from './routes/bolshoiHistoric
 import kremlinPalaceHallSeatEditorRouter from './routes/kremlinPalaceHallSeatEditor.js';
 import supercupNnHallSeatEditorRouter from './routes/supercupNnHallSeatEditor.js';
 import lukoilArenaHallSeatEditorRouter from './routes/lukoilArenaHallSeatEditor.js';
+import bigCircusHallSeatEditorRouter from './routes/bigCircusHallSeatEditor.js';
+import nationsMainHallSeatEditorRouter from './routes/nationsMainHallSeatEditor.js';
+import nationsSmallHallSeatEditorRouter from './routes/nationsSmallHallSeatEditor.js';
+import nikulinCircusHallSeatEditorRouter from './routes/nikulinCircusHallSeatEditor.js';
 import metricsRouter, { checkYandexConnection } from './routes/metrics.js';
 import seoSuggestRouter from './routes/seoSuggest.js';
 import seoOgImageRouter from './routes/seoOgImage.js';
@@ -346,6 +350,10 @@ app.use('/api/tools/bolshoi-historical-stage-seats', bolshoiHistoricalStageHallS
 app.use('/api/tools/kremlin-palace-seats', kremlinPalaceHallSeatEditorRouter);
 app.use('/api/tools/supercup-nn-football-seats', supercupNnHallSeatEditorRouter);
 app.use('/api/tools/lukoil-arena-seats', lukoilArenaHallSeatEditorRouter);
+app.use('/api/tools/big-circus-hall-seats', bigCircusHallSeatEditorRouter);
+app.use('/api/tools/nations-main-hall-seats', nationsMainHallSeatEditorRouter);
+app.use('/api/tools/nations-small-hall-seats', nationsSmallHallSeatEditorRouter);
+app.use('/api/tools/nikulin-circus-hall-seats', nikulinCircusHallSeatEditorRouter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/verify', authLimiter);

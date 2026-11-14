@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 190" width="520" height="190" style="background:#f5f5f5">
+  <title>Театр Наций — Малая сцена</title>
+  <desc>Afisha seats as-is; white sectors on #f5f5f5; sellable = colored dots; labels above seats</desc>
+  <rect width="100%" height="100%" fill="#f5f5f5" pointer-events="none"/>
+  <g id="bolshoi-new-stage-sector-outlines">
+    <path class="sector-contour" d="M 34.0 34.0 H 466.0 V 146.0 H 34.0 Z" fill="#ffffff" fill-opacity="1" stroke="rgba(0,0,0,0.06)" stroke-width="1" data-sector="Партер" pointer-events="fill"/>
+  </g>
+  <g id="bolshoi-new-stage-scene">
+    <text x="221.5" y="33.0" text-anchor="middle" dominant-baseline="auto" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="rgba(90,90,86,0.55)">Сцена</text>
+  </g>
+  <g id="bolshoi-new-stage-seats" fill="#f97316" stroke="none">
+    <circle cx="50.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="1" fill="#f97316" stroke="none"/>
+    <circle cx="50.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="1" fill="#f97316" stroke="none"/>
+    <circle cx="50.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="1" fill="#f97316" stroke="none"/>
+    <circle cx="50.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="1" fill="#f97316" stroke="none"/>
+    <circle cx="50.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="1" fill="#f97316" stroke="none"/>
+    <circle cx="70.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="2" fill="#f97316" stroke="none"/>
+    <circle cx="70.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="2" fill="#f97316" stroke="none"/>
+    <circle cx="70.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="2" fill="#f97316" stroke="none"/>
+    <circle cx="70.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="2" fill="#f97316" stroke="none"/>
+    <circle cx="70.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="2" fill="#f97316" stroke="none"/>
+    <circle cx="90.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="3" fill="#f97316" stroke="none"/>
+    <circle cx="90.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="3" fill="#f97316" stroke="none"/>
+    <circle cx="90.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="3" fill="#f97316" stroke="none"/>
+    <circle cx="90.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="3" fill="#f97316" stroke="none"/>
+    <circle cx="90.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="3" fill="#f97316" stroke="none"/>
+    <circle cx="110.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="4" fill="#f97316" stroke="none"/>
+    <circle cx="110.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="4" fill="#f97316" stroke="none"/>
+    <circle cx="110.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="4" fill="#f97316" stroke="none"/>
+    <circle cx="110.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="4" fill="#f97316" stroke="none"/>
+    <circle cx="110.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="4" fill="#f97316" stroke="none"/>
+    <circle cx="130.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="5" fill="#f97316" stroke="none"/>
+    <circle cx="130.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="5" fill="#f97316" stroke="none"/>
+    <circle cx="130.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="5" fill="#f97316" stroke="none"/>
+    <circle cx="130.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="5" fill="#f97316" stroke="none"/>
+    <circle cx="130.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="5" fill="#f97316" stroke="none"/>
+    <circle cx="150.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="6" fill="#f97316" stroke="none"/>
+    <circle cx="150.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="6" fill="#f97316" stroke="none"/>
+    <circle cx="150.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="6" fill="#f97316" stroke="none"/>
+    <circle cx="150.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="6" fill="#f97316" stroke="none"/>
+    <circle cx="150.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="6" fill="#f97316" stroke="none"/>
+    <circle cx="170.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="7" fill="#f97316" stroke="none"/>
+    <circle cx="170.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="7" fill="#f97316" stroke="none"/>
+    <circle cx="170.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="7" fill="#f97316" stroke="none"/>
+    <circle cx="170.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="7" fill="#f97316" stroke="none"/>
+    <circle cx="170.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="7" fill="#f97316" stroke="none"/>
+    <circle cx="190.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="8" fill="#f97316" stroke="none"/>
+    <circle cx="190.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="8" fill="#f97316" stroke="none"/>
+    <circle cx="190.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="8" fill="#f97316" stroke="none"/>
+    <circle cx="190.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="8" fill="#f97316" stroke="none"/>
+    <circle cx="190.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="8" fill="#f97316" stroke="none"/>
+    <circle cx="210.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="9" fill="#f97316" stroke="none"/>
+    <circle cx="210.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="9" fill="#f97316" stroke="none"/>
+    <circle cx="210.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="9" fill="#f97316" stroke="none"/>
+    <circle cx="210.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="9" fill="#f97316" stroke="none"/>
+    <circle cx="210.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="9" fill="#f97316" stroke="none"/>
+    <circle cx="230.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="10" fill="#f97316" stroke="none"/>
+    <circle cx="230.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="10" fill="#f97316" stroke="none"/>
+    <circle cx="230.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="10" fill="#f97316" stroke="none"/>
+    <circle cx="230.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="10" fill="#f97316" stroke="none"/>
+    <circle cx="230.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="10" fill="#f97316" stroke="none"/>
+    <circle cx="250.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="11" fill="#f97316" stroke="none"/>
+    <circle cx="250.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="11" fill="#f97316" stroke="none"/>
+    <circle cx="250.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="11" fill="#f97316" stroke="none"/>
+    <circle cx="250.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="11" fill="#f97316" stroke="none"/>
+    <circle cx="250.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="11" fill="#f97316" stroke="none"/>
+    <circle cx="270.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="12" fill="#f97316" stroke="none"/>
+    <circle cx="270.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="12" fill="#f97316" stroke="none"/>
+    <circle cx="270.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="12" fill="#f97316" stroke="none"/>
+    <circle cx="270.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="12" fill="#f97316" stroke="none"/>
+    <circle cx="270.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="12" fill="#f97316" stroke="none"/>
+    <circle cx="290.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="13" fill="#f97316" stroke="none"/>
+    <circle cx="290.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="13" fill="#f97316" stroke="none"/>
+    <circle cx="290.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="13" fill="#f97316" stroke="none"/>
+    <circle cx="290.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="13" fill="#f97316" stroke="none"/>
+    <circle cx="290.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="13" fill="#f97316" stroke="none"/>
+    <circle cx="310.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="14" fill="#f97316" stroke="none"/>
+    <circle cx="310.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="14" fill="#f97316" stroke="none"/>
+    <circle cx="310.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="14" fill="#f97316" stroke="none"/>
+    <circle cx="310.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="14" fill="#f97316" stroke="none"/>
+    <circle cx="310.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="14" fill="#f97316" stroke="none"/>
+    <circle cx="330.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="15" fill="#f97316" stroke="none"/>
+    <circle cx="330.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="15" fill="#f97316" stroke="none"/>
+    <circle cx="330.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="15" fill="#f97316" stroke="none"/>
+    <circle cx="330.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="15" fill="#f97316" stroke="none"/>
+    <circle cx="330.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="15" fill="#f97316" stroke="none"/>
+    <circle cx="350.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="16" fill="#f97316" stroke="none"/>
+    <circle cx="350.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="16" fill="#f97316" stroke="none"/>
+    <circle cx="350.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="16" fill="#f97316" stroke="none"/>
+    <circle cx="350.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="16" fill="#f97316" stroke="none"/>
+    <circle cx="350.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="16" fill="#f97316" stroke="none"/>
+    <circle cx="370.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="17" fill="#f97316" stroke="none"/>
+    <circle cx="370.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="17" fill="#f97316" stroke="none"/>
+    <circle cx="370.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="17" fill="#f97316" stroke="none"/>
+    <circle cx="370.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="17" fill="#f97316" stroke="none"/>
+    <circle cx="370.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="17" fill="#f97316" stroke="none"/>
+    <circle cx="390.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="18" fill="#f97316" stroke="none"/>
+    <circle cx="390.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="18" fill="#f97316" stroke="none"/>
+    <circle cx="390.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="18" fill="#f97316" stroke="none"/>
+    <circle cx="390.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="18" fill="#f97316" stroke="none"/>
+    <circle cx="390.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="18" fill="#f97316" stroke="none"/>
+    <circle cx="410.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="19" fill="#f97316" stroke="none"/>
+    <circle cx="410.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="19" fill="#f97316" stroke="none"/>
+    <circle cx="410.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="19" fill="#f97316" stroke="none"/>
+    <circle cx="410.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="19" fill="#f97316" stroke="none"/>
+    <circle cx="410.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="19" fill="#f97316" stroke="none"/>
+    <circle cx="430.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="20" fill="#f97316" stroke="none"/>
+    <circle cx="430.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="20" fill="#f97316" stroke="none"/>
+    <circle cx="430.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="20" fill="#f97316" stroke="none"/>
+    <circle cx="430.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="20" fill="#f97316" stroke="none"/>
+    <circle cx="430.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="20" fill="#f97316" stroke="none"/>
+    <circle cx="450.00" cy="50.00" r="2.40" place-name="Партер" row="1" place="21" fill="#f97316" stroke="none"/>
+    <circle cx="450.00" cy="70.00" r="2.40" place-name="Партер" row="2" place="21" fill="#f97316" stroke="none"/>
+    <circle cx="450.00" cy="90.00" r="2.40" place-name="Партер" row="3" place="21" fill="#f97316" stroke="none"/>
+    <circle cx="450.00" cy="110.00" r="2.40" place-name="Партер" row="4" place="21" fill="#f97316" stroke="none"/>
+    <circle cx="450.00" cy="130.00" r="2.40" place-name="Партер" row="5" place="21" fill="#f97316" stroke="none"/>
+  </g>
+  <g id="bolshoi-new-stage-sector-labels" pointer-events="none">
+    <text x="273.1" y="89.8" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="rgba(90,90,86,0.8)" pointer-events="none">Партер</text>
+  </g>
+</svg>
+
