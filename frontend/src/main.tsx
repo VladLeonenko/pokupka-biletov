@@ -2,6 +2,9 @@ import '@/utils/silenceWarnings';
 import '@/styles/theme.css';
 import '@/styles/global.css';
 import { errorMonitoring } from './utils/errorMonitoring';
+import { installChunkLoadRecovery } from '@/utils/chunkLoadRecovery';
+
+installChunkLoadRecovery();
 
 errorMonitoring.init();
 
@@ -43,8 +46,9 @@ if (import.meta.env.PROD && typeof navigator !== 'undefined' && 'serviceWorker' 
 /** Служебный cache-bust узкой SSR-оболочки. В адресе ему не место. */
 function stripShellReloadParams() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has('_') && !url.searchParams.has('bv_full')) return;
+  if (!url.searchParams.has('_') && !url.searchParams.has('_bv') && !url.searchParams.has('bv_full')) return;
   url.searchParams.delete('_');
+  url.searchParams.delete('_bv');
   url.searchParams.delete('bv_full');
   const next = url.pathname + url.search + url.hash;
   window.history.replaceState(window.history.state, '', next);

@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { Box, Button, Typography, Container } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { isChunkLoadError, reloadOnceForChunkError } from '@/utils/chunkLoadRecovery';
 
 interface Props {
   children: ReactNode;
@@ -8,6 +9,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  reloading: boolean;
   error: Error | null;
   errorInfo: React.ErrorInfo | null;
 }
@@ -25,14 +27,19 @@ export class ErrorBoundary extends Component<Props, State> {
     super(props);
     this.state = {
       hasError: false,
+      reloading: false,
       error: null,
       errorInfo: null,
     };
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
+    if (isChunkLoadError(error) && reloadOnceForChunkError()) {
+      return { hasError: true, reloading: true, error };
+    }
     return {
       hasError: true,
+      reloading: false,
       error,
     };
   }
@@ -90,6 +97,8 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   render() {
+    if (this.state.reloading) return null;
+
     if (this.state.hasError) {
       const errorMessage = this.state.error?.message || 'Неизвестная ошибка';
       const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('Failed to fetch');
