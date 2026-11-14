@@ -51,36 +51,37 @@ body[data-tickets='true'] a {
   color: inherit;
 }
 
-body[data-tickets='true'] .MuiPaper-root,
-body[data-tickets='true'] .MuiCard-root {
+html[data-theme='tickets'] body[data-tickets='true'] .MuiPaper-root,
+html[data-theme='tickets'] body[data-tickets='true'] .MuiCard-root {
   background-color: #fff !important;
   color: #111 !important;
 }
 
-body[data-tickets='true'] .MuiTextField-root .MuiOutlinedInput-root {
+/* index.css (theme.css) грузится после этого файла — специфичность выше, чем у
+   body:not([data-admin]):not([data-tickets]) .MuiInputBase-*, иначе поля снова #2a2a2a. */
+html[data-theme='tickets'] body[data-tickets='true'] .MuiTextField-root .MuiOutlinedInput-root,
+html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-root {
   background-color: #fff !important;
   color: #111 !important;
+  color-scheme: light;
 }
 
-body[data-tickets='true'] .MuiOutlinedInput-notchedOutline {
+html[data-theme='tickets'] body[data-tickets='true'] .MuiOutlinedInput-notchedOutline {
   border-color: rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Перебить theme.css (.MuiInputBase-input { background #2a2a2a }) и global MUI */
-body[data-tickets='true'] .MuiInputBase-root {
+html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-input,
+html[data-theme='tickets'] body[data-tickets='true'] textarea.MuiInputBase-input {
   background-color: #fff !important;
   color: #111 !important;
+  color-scheme: light;
+  -webkit-text-fill-color: #111;
 }
 
-body[data-tickets='true'] .MuiInputBase-input,
-body[data-tickets='true'] textarea.MuiInputBase-input {
-  background-color: #fff !important;
-  color: #111 !important;
-}
-
-body[data-tickets='true'] .MuiInputBase-input::placeholder,
-body[data-tickets='true'] .MuiOutlinedInput-input::placeholder {
+html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-input::placeholder,
+html[data-theme='tickets'] body[data-tickets='true'] .MuiOutlinedInput-input::placeholder {
   color: rgba(0, 0, 0, 0.42) !important;
+  -webkit-text-fill-color: rgba(0, 0, 0, 0.42);
   opacity: 1 !important;
 }
 
@@ -96,14 +97,14 @@ body[data-tickets='true'] .MuiSelect-icon {
   color: rgba(0, 0, 0, 0.45) !important;
 }
 
-body[data-tickets='true'] .MuiMenu-paper,
-body[data-tickets='true'] .MuiPopover-paper {
+html[data-theme='tickets'] body[data-tickets='true'] .MuiMenu-paper,
+html[data-theme='tickets'] body[data-tickets='true'] .MuiPopover-paper {
   background-color: #fff !important;
   color: #111 !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
-body[data-tickets='true'] .MuiMenuItem-root {
+html[data-theme='tickets'] body[data-tickets='true'] .MuiMenuItem-root {
   color: #111 !important;
 }
 

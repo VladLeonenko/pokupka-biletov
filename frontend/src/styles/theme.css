@@ -157,31 +157,32 @@ p {
   color: #ffffff !important;
 }
 
-/* Стили для поля ввода в чате (Telegram-стиль). В админке цвет задаёт MUI-тема. */
-body:not([data-admin='true']) .MuiInputBase-input {
+/* Стили для поля ввода в чате (Telegram-стиль). В админке цвет задаёт MUI-тема.
+   Витрина data-tickets светлая — эти правила её не красят (index.css грузится позже tickets-theme). */
+body:not([data-admin='true']):not([data-tickets='true']) .MuiInputBase-input {
   color: #ffffff !important;
   background-color: #2a2a2a !important;
 }
 
-body:not([data-admin='true']) .MuiInputBase-input::placeholder {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiInputBase-input::placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
   opacity: 1 !important;
 }
 
-body:not([data-admin='true']) .MuiInputBase-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiInputBase-root {
   background-color: #2a2a2a !important;
   color: #ffffff !important;
 }
 
-body:not([data-admin='true']) .MuiOutlinedInput-notchedOutline {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiOutlinedInput-notchedOutline {
   border-color: #444444 !important;
 }
 
-body:not([data-admin='true']) .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
   border-color: #555555 !important;
 }
 
-body:not([data-admin='true']) .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
   border-color: #ffbb00 !important;
 }
 

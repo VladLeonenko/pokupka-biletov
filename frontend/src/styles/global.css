@@ -199,11 +199,11 @@ body:not([data-admin='true']) .MuiTableCell-root {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-body:not([data-admin='true']) .MuiTextField-root .MuiOutlinedInput-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiTextField-root .MuiOutlinedInput-root {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-body:not([data-admin='true']) .MuiSelect-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiSelect-root {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
@@ -252,13 +252,13 @@ body:not([data-admin='true']) .MuiTab-root.Mui-selected {
   color: #ffffff !important;
 }
 
-/* Дропдауны */
-body:not([data-admin='true']) .MuiMenu-paper,
-body:not([data-admin='true']) .MuiPopover-paper {
+/* Дропдауны тёмного публичного сайта. На витрине меню светлое (tickets-theme.css). */
+body:not([data-admin='true']):not([data-tickets='true']) .MuiMenu-paper,
+body:not([data-admin='true']):not([data-tickets='true']) .MuiPopover-paper {
   background-color: #1a1a1a !important;
 }
 
-body:not([data-admin='true']) .MuiMenuItem-root:hover {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiMenuItem-root:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
