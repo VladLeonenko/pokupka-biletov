@@ -298,25 +298,33 @@ const lastNoPairAt = new Map();
 const lastHuntLog = new Map();
 const lastCaptchaAlert = new Map();
 const lastClosedLog = new Map();
-// 15 ноября: сначала 29 января, потом 30-е, 11-е только когда по первым двум пар больше нет.
-const HOT_ORDER = ['137673163', '137673221', '137620322'];
+// 29 января важнее 30-го. 11-е берём, когда у первых двух кончились лучшие пары.
+// Сначала только приоритет (партер 3–18, 1 ряд амфитеатра/бельэтажа/балкона, ложи),
+// короткими пачками, иначе 29-е съедает минуту на балконе и партер 30-го уходит.
+const HOT_PRIMARY = ['137673163', '137673221'];
+const HOT_LAST = '137620322';
+const HOT_ORDER = [...HOT_PRIMARY, HOT_LAST];
+const BEST_WAVE = { '137673163': 8, '137673221': 6, '137620322': 8 };
+const bestExhausted = new Set();
 let coldCursor = 0;
 let lastColdAt = 0;
 let lastRenewAt = 0;
 
-console.log('Старт продаж: 29 января → 30 января → 11 января. Повторный обход старых мест выключен.');
+console.log('Старт продаж: лучшие места 29 января, сразу лучшие 30-го, 11-е после них. Потом остаток зала.');
 let hotOpenLast = false;
 while (true) {
   const known = new Set(targetSessions.map(String));
   const hotIds = HOT_ORDER.filter((id) => known.has(id));
   const coldIds = targetSessions.filter((s) => !HOT_ORDER.includes(String(s)));
-  const turn = [...hotIds];
+  const quotaLeft = (id) => (sessionTargets.get(id) || 0) - (bookedPairs.get(id) || 0) > 0;
+  const turn = hotIds.filter((id) => quotaLeft(id));
   if (!hotOpenLast && coldIds.length && Date.now() - lastColdAt > 20_000) {
     turn.push(String(coldIds[coldCursor % coldIds.length]));
     coldCursor += 1;
     lastColdAt = Date.now();
   }
   let hotWork = false;
+  const openBest = new Set();
   for (const sid of turn) {
     const target = sessionTargets.get(sid);
     const booked = bookedPairs.get(sid) || 0;
@@ -326,6 +334,12 @@ while (true) {
     const t = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour12: false });
     const isHot = HOT_ORDER.includes(String(sid));
     if (remaining <= 0) continue;
+    const huntingBest = isHot && !bestExhausted.has(String(sid));
+    if (huntingBest && a.availableCount > 0 && HOT_PRIMARY.includes(String(sid))) openBest.add(String(sid));
+    if (String(sid) === HOT_LAST && [...openBest].some((id) => !bestExhausted.has(id))) continue;
+    const laterNeedsBest = HOT_ORDER.slice(HOT_ORDER.indexOf(String(sid)) + 1)
+      .some((id) => known.has(id) && quotaLeft(id) && !bestExhausted.has(id));
+    if (isHot && !huntingBest && laterNeedsBest) continue;
 
     if (a.availableCount > 0) {
       if (Date.now() - (lastHuntLog.get(sid) || 0) > 60_000) {
@@ -345,13 +359,18 @@ while (true) {
       const { results, errors } = await bookSeatsViaApi({
         sessionId: sid,
         appKey: args.appKey,
-        pairCount: remaining,
+        pairCount: huntingBest ? Math.min(remaining, BEST_WAVE[String(sid)] || 6) : remaining,
         contacts: sessionContactsList,
         concurrency: args.concurrency,
         maxTries: args.maxTries,
         preference: MHT_KABALA_PREFERENCE,
+        preferOnly: huntingBest,
         skipSeatIds: seatSet,
       });
+      if (huntingBest && !results.length && !errors.length) {
+        bestExhausted.add(String(sid));
+        console.log(`[${t}] ${sid}: лучшие места разобраны, дата уступает следующим`);
+      }
       if (results.length || errors.length) {
         bookedPairs.set(sid, booked + results.length);
         for (const r of results) {

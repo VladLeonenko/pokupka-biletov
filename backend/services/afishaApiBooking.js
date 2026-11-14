@@ -427,16 +427,17 @@ async function mapConcurrency(items, concurrency, worker) {
  * повторяется со следующим лучшим местом (до maxTries раз). Отслеживает уже
  * забронированные места, чтобы не повторить их.
  *
- * @param {{ sessionId, appKey?, pairCount?, contacts, concurrency?, maxTries?, preference?, skipSeatIds? }} opts
+ * @param {{ sessionId, appKey?, pairCount?, contacts, concurrency?, maxTries?, preference?, preferOnly?, skipSeatIds? }} opts
  * @returns {Promise<{ results: Array, errors: Array }>}
  */
-export async function bookSeatsViaApi({ sessionId, appKey = MXAT_APP_KEY, pairCount, contacts = [], concurrency = 5, maxTries = 3, preference = null, skipSeatIds = null }) {
+export async function bookSeatsViaApi({ sessionId, appKey = MXAT_APP_KEY, pairCount, contacts = [], concurrency = 5, maxTries = 3, preference = null, preferOnly = false, skipSeatIds = null }) {
   if (!contacts.length) throw new Error('нужен хотя бы один контакт {name, email}');
   const count = pairCount ?? contacts.length;
   const rankPairs = (hall, opts) => {
     if (!preference) return findBestSeatPairs(hall, opts);
     const preferred = findBestSeatsByPreference(hall, preference, opts);
-    return preferred.length ? preferred : findBestSeatPairs(hall, opts);
+    if (preferred.length || preferOnly) return preferred;
+    return findBestSeatPairs(hall, opts);
   };
 
   const results = [];
