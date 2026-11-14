@@ -2,6 +2,7 @@ import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { persistThemeMode, readAdminThemeMode, type ThemeMode } from '@/theme/themeStorage';
+import { matchesTicketsChromePath, useTicketsChromeForced } from '@/utils/ticketsChrome';
 
 type Mode = ThemeMode;
 type ThemeCtx = { mode: Mode; toggle: () => void };
@@ -130,11 +131,17 @@ export function AdminThemeSync() {
 
 export function ThemeModeProvider({ children }: PropsWithChildren) {
   const [mode, setMode] = useState<Mode>(() => readAdminThemeMode());
+  const { pathname } = useLocation();
+  const forcedTickets = useTicketsChromeForced();
+  const ticketsChrome = forcedTickets || matchesTicketsChromePath(pathname);
   useEffect(() => {
     persistThemeMode(mode, 'admin');
   }, [mode]);
   const toggle = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
-  const theme = useMemo(() => buildTheme(mode), [mode]);
+  const theme = useMemo(
+    () => buildTheme(ticketsChrome ? 'light' : mode),
+    [mode, ticketsChrome],
+  );
   const ctx = useMemo(() => ({ mode, toggle }), [mode]);
 
   return (

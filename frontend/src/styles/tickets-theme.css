@@ -78,6 +78,13 @@ html[data-theme='tickets'] body[data-tickets='true'] textarea.MuiInputBase-input
   -webkit-text-fill-color: #111;
 }
 
+/* legacy style.min.css задаёт input { color:#fff } и вместе с color-scheme:dark красит поля в чёрный */
+html[data-theme='tickets'] body[data-tickets='true'] input,
+html[data-theme='tickets'] body[data-tickets='true'] textarea,
+html[data-theme='tickets'] body[data-tickets='true'] select {
+  color-scheme: light;
+}
+
 html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-input::placeholder,
 html[data-theme='tickets'] body[data-tickets='true'] .MuiOutlinedInput-input::placeholder {
   color: rgba(0, 0, 0, 0.42) !important;

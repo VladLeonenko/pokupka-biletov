@@ -113,6 +113,7 @@ export function TicketsUserMenu() {
         open={open}
         anchorEl={anchor}
         onClose={onClose}
+        hideBackdrop
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{
@@ -179,11 +180,19 @@ export function TicketsUserMenu() {
 
           <Menu
             disablePortal
+            hideBackdrop
             anchorEl={cityMenuAnchor}
             open={Boolean(cityMenuAnchor)}
             onClose={() => setCityMenuAnchor(null)}
             slotProps={{
-              paper: { sx: { maxHeight: 320, minWidth: 220 } },
+              paper: {
+                sx: {
+                  maxHeight: 320,
+                  minWidth: 220,
+                  bgcolor: '#fff',
+                  color: '#141414',
+                },
+              },
             }}
           >
             {cityOptions.map((c) => (

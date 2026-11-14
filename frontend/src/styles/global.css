@@ -177,25 +177,25 @@ body[data-admin='true'] .Mui-disabled {
   cursor: default !important;
 }
 
-/* Исправление MUI светлых фонов — только публичный тёмный сайт, не админка */
-body:not([data-admin='true']) .MuiPaper-root {
+/* Исправление MUI светлых фонов — только публичный тёмный сайт, не админка и не витрина */
+body:not([data-admin='true']):not([data-tickets='true']) .MuiPaper-root {
   background-color: #1a1a1a !important;
 }
 
-body:not([data-admin='true']) .MuiDialog-paper {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiDialog-paper {
   background-color: #1a1a1a !important;
 }
 
-body:not([data-admin='true']) .MuiCard-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiCard-root {
   background-color: #1a1a1a !important;
 }
 
-body:not([data-admin='true']) .MuiListItem-root:hover,
-body:not([data-admin='true']) .css-tle48i-MuiListItem-root:hover {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiListItem-root:hover,
+body:not([data-admin='true']):not([data-tickets='true']) .css-tle48i-MuiListItem-root:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-body:not([data-admin='true']) .MuiTableCell-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiTableCell-root {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
@@ -208,30 +208,34 @@ body:not([data-admin='true']):not([data-tickets='true']) .MuiSelect-root {
 }
 
 /* Аккордеоны */
-body:not([data-admin='true']) .MuiAccordion-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiAccordion-root {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-body:not([data-admin='true']) .MuiAccordion-root:before {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiAccordion-root:before {
   background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-/* Модальные окна */
-.MuiBackdrop-root {
+/* Модальные окна тёмного сайта. На витрине затемнение только у Dialog, не у поповеров. */
+body:not([data-tickets='true']) .MuiBackdrop-root {
   background-color: rgba(0, 0, 0, 0.8) !important;
 }
 
+body[data-tickets='true'] .MuiDialog-root > .MuiBackdrop-root {
+  background-color: rgba(17, 17, 17, 0.45) !important;
+}
+
 /* Кнопки */
-body:not([data-admin='true']) .MuiButton-outlined {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiButton-outlined {
   border-color: rgba(255, 255, 255, 0.23) !important;
 }
 
-body:not([data-admin='true']) .MuiButton-outlined:hover {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiButton-outlined:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Чипы */
-body:not([data-admin='true']) .MuiChip-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiChip-root {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 /* Белые плашки (AI Boost Team: Проверено, Рекомендуем) */
@@ -244,11 +248,11 @@ body:not([data-admin='true']) .MuiChip-root {
 }
 
 /* Табы */
-body:not([data-admin='true']) .MuiTab-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiTab-root {
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
-body:not([data-admin='true']) .MuiTab-root.Mui-selected {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiTab-root.Mui-selected {
   color: #ffffff !important;
 }
 
@@ -305,21 +309,21 @@ section section {
 }
 
 /* MUI Card unified dark style */
-body:not([data-admin='true']) .MuiCard-root {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiCard-root {
   border: 1px solid rgba(255,255,255,0.06) !important;
   border-radius: 12px !important;
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s !important;
 }
-body:not([data-admin='true']) .MuiCard-root:hover {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiCard-root:hover {
   border-color: rgba(255,187,0,0.2) !important;
   box-shadow: 0 12px 40px rgba(0,0,0,0.35) !important;
 }
 
 /* MuiCardContent text defaults */
-body:not([data-admin='true']) .MuiCardContent-root .MuiTypography-h6 {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiCardContent-root .MuiTypography-h6 {
   color: #fff !important;
 }
-body:not([data-admin='true']) .MuiCardContent-root .MuiTypography-body2 {
+body:not([data-admin='true']):not([data-tickets='true']) .MuiCardContent-root .MuiTypography-body2 {
   color: rgba(255,255,255,0.5) !important;
 }
 
@@ -330,21 +334,33 @@ body:not([data-admin='true']) .MuiCardContent-root .MuiTypography-body2 {
   border-radius: 12px !important;
 }
 
-/* Links – unified accent color (exclude menu, header, sidebar) */
-main a, .MuiContainer-root a, article a {
+/* Links – unified accent color (exclude menu, header, sidebar). Витрина красится своими ссылками. */
+body:not([data-tickets='true']) main a,
+body:not([data-tickets='true']) .MuiContainer-root a,
+body:not([data-tickets='true']) article a {
   color: #ffbb00 !important;
   transition: opacity 0.2s !important;
 }
-/* Жёлтые кнопки-ссылки: текст #141414 */
-main a.btn, main a.submit-order, .MuiContainer-root a.btn, .MuiContainer-root a.submit-order,
-article a.btn, article a.submit-order,
-main a.MuiButton-root.MuiButton-contained, .MuiContainer-root a.MuiButton-root.MuiButton-contained,
-.hero-cta a, .hero-cta a.MuiButton-root,
-a.new-client-cta, .MuiContainer-root a.new-client-cta,
-main a[style*="ffbb00"], .MuiContainer-root a[style*="ffbb00"] {
+/* Жёлтые кнопки-ссылки: текст #141414. На витрине кнопки оранжевые со своим текстом. */
+body:not([data-tickets='true']) main a.btn,
+body:not([data-tickets='true']) main a.submit-order,
+body:not([data-tickets='true']) .MuiContainer-root a.btn,
+body:not([data-tickets='true']) .MuiContainer-root a.submit-order,
+body:not([data-tickets='true']) article a.btn,
+body:not([data-tickets='true']) article a.submit-order,
+body:not([data-tickets='true']) main a.MuiButton-root.MuiButton-contained,
+body:not([data-tickets='true']) .MuiContainer-root a.MuiButton-root.MuiButton-contained,
+body:not([data-tickets='true']) .hero-cta a,
+body:not([data-tickets='true']) .hero-cta a.MuiButton-root,
+body:not([data-tickets='true']) a.new-client-cta,
+body:not([data-tickets='true']) .MuiContainer-root a.new-client-cta,
+body:not([data-tickets='true']) main a[style*="ffbb00"],
+body:not([data-tickets='true']) .MuiContainer-root a[style*="ffbb00"] {
   color: #141414 !important;
 }
-main a:hover, .MuiContainer-root a:hover, article a:hover {
+body:not([data-tickets='true']) main a:hover,
+body:not([data-tickets='true']) .MuiContainer-root a:hover,
+body:not([data-tickets='true']) article a:hover {
   opacity: 0.8 !important;
 }
 main a.btn:hover, main a.submit-order:hover, .MuiContainer-root a.btn:hover, .MuiContainer-root a.submit-order:hover,

@@ -23,15 +23,15 @@
   --accent-color: #ffbb00;
 }
 
-/* Применение темы к body */
-body {
+/* Применение темы к body. Витрина задаёт свои цвета в tickets-theme.css. */
+body:not([data-tickets='true']) {
   background-color: var(--bg-color) !important;
   color: var(--text-color) !important;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Применение темы к header */
-header {
+body:not([data-tickets='true']) header {
   background: transparent !important;
   background-color: transparent !important;
   color: var(--text-color) !important;
@@ -40,7 +40,7 @@ header {
 }
 
 /* Применение темы к footer */
-footer {
+body:not([data-tickets='true']) footer {
   background: transparent !important;
   background-color: transparent !important;
   color: var(--text-color) !important;
@@ -48,28 +48,34 @@ footer {
 }
 
 /* Применение темы к основным контейнерам */
-section, .section {
+body:not([data-tickets='true']) section,
+body:not([data-tickets='true']) .section {
   color: var(--text-color);
   transition: color 0.3s ease;
 }
 
 /* Применение темы к ссылкам */
-a {
+body:not([data-tickets='true']) a {
   color: var(--text-color);
   transition: color 0.3s ease;
 }
 
-a:hover {
+body:not([data-tickets='true']) a:hover {
   color: var(--accent-color);
 }
 
 /* Применение темы к заголовкам */
-h1, h2, h3, h4, h5, h6 {
+body:not([data-tickets='true']) h1,
+body:not([data-tickets='true']) h2,
+body:not([data-tickets='true']) h3,
+body:not([data-tickets='true']) h4,
+body:not([data-tickets='true']) h5,
+body:not([data-tickets='true']) h6 {
   color: var(--text-color);
 }
 
 /* Применение темы к параграфам */
-p {
+body:not([data-tickets='true']) p {
   color: var(--text-color);
 }
 
@@ -79,32 +85,38 @@ p {
   color: inherit;
 }
 
-/* Темная тема для Material-UI компонентов */
-.dark-theme .MuiPaper-root {
+/* Темная тема для Material-UI. Витрина (data-theme=tickets) эти правила не красят. */
+html.dark-theme:not([data-theme='tickets']) .MuiPaper-root,
+body.dark-theme:not([data-tickets='true']) .MuiPaper-root {
   background-color: #1a1a1a !important;
   color: #ffffff !important;
 }
 
-.dark-theme .MuiCard-root {
+html.dark-theme:not([data-theme='tickets']) .MuiCard-root,
+body.dark-theme:not([data-tickets='true']) .MuiCard-root {
   background-color: #1a1a1a !important;
   color: #ffffff !important;
 }
 
-.dark-theme .MuiTextField-root .MuiOutlinedInput-root {
+html.dark-theme:not([data-theme='tickets']) .MuiTextField-root .MuiOutlinedInput-root,
+body.dark-theme:not([data-tickets='true']) .MuiTextField-root .MuiOutlinedInput-root {
   color: #ffffff !important;
   border-color: #333333 !important;
 }
 
-.dark-theme .MuiTextField-root .MuiOutlinedInput-root fieldset {
+html.dark-theme:not([data-theme='tickets']) .MuiTextField-root .MuiOutlinedInput-root fieldset,
+body.dark-theme:not([data-tickets='true']) .MuiTextField-root .MuiOutlinedInput-root fieldset {
   border-color: #333333 !important;
 }
 
-.dark-theme .MuiTableCell-root {
+html.dark-theme:not([data-theme='tickets']) .MuiTableCell-root,
+body.dark-theme:not([data-tickets='true']) .MuiTableCell-root {
   color: #ffffff !important;
   border-color: #333333 !important;
 }
 
-.dark-theme .MuiTypography-root:not(.MuiTypography-colorError):not(.MuiTypography-colorSuccess):not(.MuiTypography-colorWarning) {
+html.dark-theme:not([data-theme='tickets']) .MuiTypography-root:not(.MuiTypography-colorError):not(.MuiTypography-colorSuccess):not(.MuiTypography-colorWarning),
+body.dark-theme:not([data-tickets='true']) .MuiTypography-root:not(.MuiTypography-colorError):not(.MuiTypography-colorSuccess):not(.MuiTypography-colorWarning) {
   color: #ffffff !important;
 }
 

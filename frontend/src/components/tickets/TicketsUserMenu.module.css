@@ -6,6 +6,8 @@
   width: min(100vw - 32px, 340px);
   border-radius: 16px !important;
   overflow: hidden;
+  background: #fff !important;
+  color: #141414 !important;
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.18),
     0 4px 12px rgba(0, 0, 0, 0.08) !important;
