@@ -435,7 +435,7 @@ export async function bookSeatsViaApi({ sessionId, appKey = MXAT_APP_KEY, pairCo
   const count = pairCount ?? contacts.length;
   const rankPairs = (hall, opts) => {
     if (!preference) return findBestSeatPairs(hall, opts);
-    const preferred = findBestSeatsByPreference(hall, preference, opts);
+    const preferred = findBestSeatsByPreference(hall, preference, { ...opts, strict: preferOnly });
     if (preferred.length || preferOnly) return preferred;
     return findBestSeatPairs(hall, opts);
   };

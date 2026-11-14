@@ -59,6 +59,9 @@ function parseArgs(argv) {
     else if (a === '--exclude-month') args.excludeMonth = n, i++;
     else if (a === '--exclude-dates') args.excludeDates = String(n).split(',').map((s) => s.trim()).filter(Boolean), i++;
     else if (a === '--spectacle') args.spectacle = n, i++;
+    else if (a === '--parter-rows') args.parterRows = String(n).split('-').map((x) => Number(x.trim())), i++;
+    else if (a === '--only-parter') args.onlyParter = true;
+    else if (a === '--contacts-slice') args.contactsSlice = String(n).split(':').map((x) => Number(x.trim())), i++;
   }
   return args;
 }
@@ -205,7 +208,11 @@ async function notifyEmail(record, notifyEmail, bcc) {
 }
 
 const args = parseArgs(process.argv);
-const contacts = loadContacts(args.contactsFile);
+let contacts = loadContacts(args.contactsFile);
+if (Array.isArray(args.contactsSlice) && args.contactsSlice.length === 2) {
+  const [from, to] = args.contactsSlice;
+  contacts = contacts.slice(from, to);
+}
 console.log(`Контактов: ${contacts.length} (пар к брони: ${args.pairs ?? contacts.length})`);
 if (!isMailConfigured()) console.warn('⚠️  Почта не настроена (EMAIL_HOST/USER/PASS). Письмо не уйдёт — но ссылки будут в data/sniper-results.json.');
 
@@ -298,33 +305,36 @@ const lastNoPairAt = new Map();
 const lastHuntLog = new Map();
 const lastCaptchaAlert = new Map();
 const lastClosedLog = new Map();
-// 29 января важнее 30-го. 11-е берём, когда у первых двух кончились лучшие пары.
-// Сначала только приоритет (партер 3–18, 1 ряд амфитеатра/бельэтажа/балкона, ложи),
-// короткими пачками, иначе 29-е съедает минуту на балконе и партер 30-го уходит.
-const HOT_PRIMARY = ['137673163', '137673221'];
-const HOT_LAST = '137620322';
-const HOT_ORDER = [...HOT_PRIMARY, HOT_LAST];
-const BEST_WAVE = { '137673163': 8, '137673221': 6, '137620322': 8 };
+// Все силы на 29 января, пока там есть подходящие пары. Потом 30-е, потом 11-е.
+const HOT_ORDER = ['137673163', '137673221', '137620322'];
 const bestExhausted = new Set();
+const seatPreference = MHT_KABALA_PREFERENCE
+  .filter((p) => !args.onlyParter || (String(p.level).includes('партер') && !String(p.level).includes('ложа')))
+  .map((p) => (
+    Array.isArray(args.parterRows) && args.parterRows.length === 2
+    && String(p.level).includes('партер') && !String(p.level).includes('ложа')
+      ? { ...p, rows: args.parterRows }
+      : p
+  ));
 let coldCursor = 0;
 let lastColdAt = 0;
 let lastRenewAt = 0;
 
-console.log('Старт продаж: лучшие места 29 января, сразу лучшие 30-го, 11-е после них. Потом остаток зала.');
+console.log(`Старт продаж: все силы на 29 января, пока есть подходящие пары. Потом 30 января, потом 11-е.${args.parterRows ? ` Партер ряды ${args.parterRows.join('-')}.` : ''}`);
 let hotOpenLast = false;
 while (true) {
   const known = new Set(targetSessions.map(String));
   const hotIds = HOT_ORDER.filter((id) => known.has(id));
   const coldIds = targetSessions.filter((s) => !HOT_ORDER.includes(String(s)));
   const quotaLeft = (id) => (sessionTargets.get(id) || 0) - (bookedPairs.get(id) || 0) > 0;
-  const turn = hotIds.filter((id) => quotaLeft(id));
+  const suitable = hotIds.find((id) => quotaLeft(id) && !bestExhausted.has(id));
+  const turn = suitable ? [suitable] : hotIds.filter((id) => quotaLeft(id)).slice(0, 1);
   if (!hotOpenLast && coldIds.length && Date.now() - lastColdAt > 20_000) {
     turn.push(String(coldIds[coldCursor % coldIds.length]));
     coldCursor += 1;
     lastColdAt = Date.now();
   }
   let hotWork = false;
-  const openBest = new Set();
   for (const sid of turn) {
     const target = sessionTargets.get(sid);
     const booked = bookedPairs.get(sid) || 0;
@@ -335,11 +345,6 @@ while (true) {
     const isHot = HOT_ORDER.includes(String(sid));
     if (remaining <= 0) continue;
     const huntingBest = isHot && !bestExhausted.has(String(sid));
-    if (huntingBest && a.availableCount > 0 && HOT_PRIMARY.includes(String(sid))) openBest.add(String(sid));
-    if (String(sid) === HOT_LAST && [...openBest].some((id) => !bestExhausted.has(id))) continue;
-    const laterNeedsBest = HOT_ORDER.slice(HOT_ORDER.indexOf(String(sid)) + 1)
-      .some((id) => known.has(id) && quotaLeft(id) && !bestExhausted.has(id));
-    if (isHot && !huntingBest && laterNeedsBest) continue;
 
     if (a.availableCount > 0) {
       if (Date.now() - (lastHuntLog.get(sid) || 0) > 60_000) {
@@ -359,11 +364,11 @@ while (true) {
       const { results, errors } = await bookSeatsViaApi({
         sessionId: sid,
         appKey: args.appKey,
-        pairCount: huntingBest ? Math.min(remaining, BEST_WAVE[String(sid)] || 6) : remaining,
+        pairCount: remaining,
         contacts: sessionContactsList,
         concurrency: args.concurrency,
         maxTries: args.maxTries,
-        preference: MHT_KABALA_PREFERENCE,
+        preference: seatPreference,
         preferOnly: huntingBest,
         skipSeatIds: seatSet,
       });

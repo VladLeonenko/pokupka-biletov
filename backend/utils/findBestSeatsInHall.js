@@ -223,7 +223,8 @@ export function findBestSeatsByPreference(hall, preference = MHT_KABALA_PREFEREN
   }
 
   // Fallback: если по preference мало пар — добавляем любые пары из всего зала.
-  if (out.length < limit) {
+  // strict: только список приоритета, без «любых» мест. Так бот понимает, что лучшие кончились.
+  if (!opts.strict && out.length < limit) {
     const anyPairs = findBestSeatPairs(hall, { count, limit: limit - out.length });
     for (const p of anyPairs) out.push({ ...p, _rank: toNum(p.row) });
   }
