@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
 import { EventPosterCard } from './EventPosterCard';
+import { FaqAccordion } from './FaqAccordion';
 import { OPERATOR } from '@/utils/operatorLegalInfo';
 import styles from './TicketsHomeBlocks.module.css';
 
@@ -191,20 +192,7 @@ export function TicketsHomeExtras({ events }: Props) {
               Полный FAQ →
             </Link>
           </div>
-          <div className={styles.faqList}>
-            {FAQ.map((item, i) => (
-              <details key={item.q} className={styles.details}>
-                <summary className={styles.summary}>
-                  <span className={styles.faqIndex} aria-hidden>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className={styles.faqQuestion}>{item.q}</span>
-                  <span className={styles.faqToggle} aria-hidden />
-                </summary>
-                <div className={styles.answer}>{item.a}</div>
-              </details>
-            ))}
-          </div>
+          <FaqAccordion items={FAQ} />
         </div>
       </section>
     </>

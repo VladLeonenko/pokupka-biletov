@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Menu, MenuItem, Popover } from '@mui/material';
@@ -28,17 +28,38 @@ export function TicketsUserMenu() {
   const currentCityId = useTicketsCityId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [cityMenuAnchor, setCityMenuAnchor] = useState<null | HTMLElement>(null);
+  const paperRef = useRef<HTMLDivElement | null>(null);
   const open = Boolean(anchor);
 
   useEffect(() => {
     if (!open) setCityMenuAnchor(null);
   }, [open]);
 
-  const onOpen = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    setAnchor(e.currentTarget);
+  const onClose = useCallback(() => setAnchor(null), []);
+
+  const onToggle = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    setAnchor((cur) => (cur ? null : e.currentTarget));
   }, []);
 
-  const onClose = useCallback(() => setAnchor(null), []);
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (anchor?.contains(target)) return;
+      if (paperRef.current?.contains(target)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, anchor, onClose]);
 
   const goLogin = useCallback(() => {
     onClose();
@@ -103,7 +124,7 @@ export function TicketsUserMenu() {
         aria-label="Профиль и помощь"
         aria-haspopup="true"
         aria-expanded={open ? 'true' : 'false'}
-        onClick={onOpen}
+        onClick={onToggle}
         sx={{ color: 'inherit' }}
       >
         <PersonOutlineIcon />
@@ -114,12 +135,22 @@ export function TicketsUserMenu() {
         anchorEl={anchor}
         onClose={onClose}
         hideBackdrop
+        disableScrollLock
+        disableAutoFocus
+        disableEnforceFocus
+        disableRestoreFocus
+        transitionDuration={{ enter: 220, exit: 160 }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{
-          paper: { className: styles.paper, elevation: 0 },
+          root: { sx: { pointerEvents: 'none' } },
+          paper: {
+            ref: paperRef,
+            className: styles.paper,
+            elevation: 0,
+            sx: { pointerEvents: 'auto' },
+          },
         }}
-        disableScrollLock
       >
         {!token || !user ? (
           <div className={styles.top}>

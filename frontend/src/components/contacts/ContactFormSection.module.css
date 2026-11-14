@@ -188,10 +188,10 @@
   min-height: 48px;
   padding: 0 28px;
   border: none;
-  border-radius: 12px;
+  border-radius: 999px;
   font: inherit;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.02em;
   color: #fff;
   background: var(--neg-orange, #ff4e18);

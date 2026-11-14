@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { OPERATOR } from '@/utils/operatorLegalInfo';
+import { FaqAccordion } from '@/components/tickets/FaqAccordion';
 import styles from './TicketsHelpPages.module.css';
 
 type FaqSection = { title: string; items: { q: string; a: ReactNode }[] };
@@ -170,7 +171,7 @@ export function TicketsFaqPage() {
         url={currentUrl}
       />
 
-      <main className={styles.page}>
+      <main className={`${styles.page} ${styles.faqPage}`}>
         <header className={styles.hero}>
           <div className={styles.heroInner}>
             <span className={styles.kicker}>Справка</span>
@@ -191,14 +192,7 @@ export function TicketsFaqPage() {
           {SECTIONS.map((section) => (
             <section key={section.title} className={styles.faqSection}>
               <h2 className={styles.faqCategory}>{section.title}</h2>
-              <div className={`${styles.card} ${styles.faqList}`}>
-                {section.items.map((item) => (
-                  <details key={item.q} className={styles.faqItem}>
-                    <summary className={styles.summary}>{item.q}</summary>
-                    <div className={styles.faqBody}>{item.a}</div>
-                  </details>
-                ))}
-              </div>
+              <FaqAccordion items={section.items} defaultOpen={0} />
             </section>
           ))}
 
