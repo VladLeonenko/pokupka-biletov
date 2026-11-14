@@ -27,6 +27,10 @@ type Props = {
   imageUrl?: string;
   /** При imageUrl: показывать title/sub рядом (по умолчанию true) */
   showTextWithImage?: boolean;
+  /** Только знак, без слова. */
+  markOnly?: boolean;
+  /** Крупный знак с постоянной анимацией — для героя страницы. */
+  hero?: boolean;
 };
 
 function Mark() {
@@ -81,7 +85,19 @@ export function TicketsSiteLogo({
   sub = 'билеты на мероприятия',
   imageUrl,
   showTextWithImage = true,
+  markOnly = false,
+  hero = false,
 }: Props) {
+  const rootClass = `${styles.root} ${hero ? styles.hero : ''}`.trim();
+
+  if (markOnly) {
+    return (
+      <span className={rootClass} aria-label={title}>
+        <Mark />
+      </span>
+    );
+  }
+
   const img = imageUrl?.trim();
   const showText = !img || showTextWithImage !== false;
 
@@ -102,7 +118,7 @@ export function TicketsSiteLogo({
   }
 
   return (
-    <span className={styles.root} aria-label={`${title} — ${sub}`}>
+    <span className={rootClass} aria-label={`${title} — ${sub}`}>
       <Mark />
       <span className={styles.text}>
         <Wordmark />

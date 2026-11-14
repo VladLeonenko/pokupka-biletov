@@ -2,7 +2,7 @@
   min-height: calc(100vh - 120px);
   padding-top: 28px;
   padding-bottom: 56px;
-  background: #fafafa;
+  background: #f3f3f1;
   color: #111;
   font-family: var(--neg-font, system-ui, sans-serif);
 }
@@ -35,11 +35,20 @@
 
 .title {
   margin: 0;
-  font-size: clamp(1.35rem, 3.5vw, 1.85rem);
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1.15;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  color: #111;
+}
+
+.sectionLabel {
+  margin: 0 0 12px;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: #111;
 }
 
@@ -53,9 +62,11 @@
 
 .card {
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border: none;
+  border-radius: 22px;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 10px 28px rgba(0, 0, 0, 0.05);
 }
 
 .cardPad {
@@ -72,16 +83,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 22px;
+  padding: 12px 18px;
   border: none;
-  border-radius: 8px;
-  background: var(--neg-orange, #ff4e18);
+  border-radius: 999px;
+  background: #111;
   color: #fff !important;
   font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -103,15 +113,14 @@
   align-items: center;
   justify-content: center;
   padding: 11px 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  background: #fff;
+  border-radius: 999px;
+  border: none;
+  background: #f3f3f1;
   color: #111 !important;
   font-family: inherit;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -120,8 +129,8 @@
 }
 
 .btnGhost:hover {
-  border-color: var(--neg-orange, #ff4e18);
-  color: var(--neg-orange, #ff4e18) !important;
+  background: #e8e8e4;
+  color: #111 !important;
 }
 
 .link {

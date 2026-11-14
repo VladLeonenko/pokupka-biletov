@@ -23,6 +23,8 @@ export function matchesTicketsChromePath(pathname: string): boolean {
       '/requisites',
       '/404',
       '/case/bilet-vsem',
+      '/admin/login',
+      '/auth/login',
     ].includes(p)
   ) {
     return true;

@@ -66,25 +66,25 @@ export function CookieConsentModal({ open, onClose }: CookieConsentModalProps) {
             Cookie
           </p>
           <p id="cookie-consent-desc" className={styles.text}>
-            Нужны для сайта и аналитики.{' '}
-            <a href="/cookies" target="_blank" rel="noopener noreferrer" className={styles.link}>
+            Нужны, чтобы помнить корзину и понимать, что заходит. Рекламу сами не включаем.{' '}
+            <a href="/cookies" className={styles.link}>
               Подробнее
             </a>
           </p>
         </div>
         <div className={styles.actions}>
           <button type="button" className={styles.btn} onClick={handleRejectAll}>
-            Нет
+            Только нужные
           </button>
           <button type="button" className={styles.btnGhost} onClick={handleOpenSettings}>
-            Ещё
+            Настроить
           </button>
           <button
             type="button"
             className={`${styles.btn} ${styles.btnPrimary}`}
             onClick={handleAcceptAll}
           >
-            ОК
+            Хорошо
           </button>
         </div>
       </div>

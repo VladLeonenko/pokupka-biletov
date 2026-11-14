@@ -52,8 +52,69 @@
   transform: translateY(-1.2px) rotate(-7deg) scale(1.06);
 }
 
-.root:hover .perf line {
+.root:hover .perf line,
+.hero .perf line {
   animation: logoPerfRun 0.6s linear infinite;
+}
+
+.hero {
+  gap: 12px;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.hero .mark {
+  width: 64px;
+  height: 64px;
+}
+
+.hero .text {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hero .word {
+  height: auto;
+  width: min(200px, 56vw);
+}
+
+.hero .sub {
+  margin-top: 6px;
+  font-size: 0.62rem;
+}
+
+@media (min-width: 800px) {
+  .hero {
+    flex-wrap: nowrap;
+    gap: 14px;
+  }
+
+  .hero .mark {
+    width: 96px;
+    height: 96px;
+  }
+
+  .hero .word {
+    width: min(240px, 24vw);
+  }
+
+  .hero .sub {
+    font-size: 0.72rem;
+  }
+}
+
+.hero .letter {
+  animation: logoIdle 3.2s ease-in-out infinite;
+}
+
+@keyframes logoIdle {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(6deg) translateY(-1px);
+  }
 }
 
 @keyframes logoPerfRun {
@@ -144,7 +205,8 @@
     transition: none;
   }
 
-  .root:hover .letter {
+  .root:hover .letter,
+  .hero .letter {
     transform: none;
   }
 }

@@ -35,7 +35,7 @@ export default function App() {
   const { token, user } = useAuth();
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
   const isAdminRoute = normalizedPath.startsWith('/admin');
-  const isLoginPage = /^\/admin\/login$/i.test(normalizedPath);
+  const isLoginPage = /^\/(admin\/login|auth\/login)$/i.test(normalizedPath);
   const shouldUseAdminLayout = isAdminRoute && !isLoginPage && !!token && ['admin', 'sales_manager'].includes(user?.role ?? '');
 
   /** Сейчас включается только страницей 404 — на ней без чата. */
@@ -75,7 +75,7 @@ export default function App() {
   }, [shouldUseAdminLayout, isAdminRoute, isLoginPage]);
 
   useEffect(() => {
-    if (isAdminRoute || isLoginPage) return;
+    if (isAdminRoute && !isLoginPage) return;
     if (useTicketsChrome) {
       applyTicketsTheme();
     } else {
@@ -118,7 +118,7 @@ export default function App() {
           <AppLayout>
             <AppRoutes />
           </AppLayout>
-        ) : isAdminRoute ? (
+        ) : isAdminRoute && !isLoginPage ? (
           <AppRoutes />
         ) : (
           <>

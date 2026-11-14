@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { OPERATOR } from '@/utils/operatorLegalInfo';
 import { FaqAccordion } from '@/components/tickets/FaqAccordion';
+import { TicketStage } from '@/components/tickets/TicketStage';
 import styles from './TicketsHelpPages.module.css';
 
 type FaqSection = { title: string; items: { q: string; a: ReactNode }[] };
@@ -171,46 +172,44 @@ export function TicketsFaqPage() {
         url={currentUrl}
       />
 
-      <main className={`${styles.page} ${styles.faqPage}`}>
-        <header className={styles.hero}>
-          <div className={styles.heroInner}>
-            <span className={styles.kicker}>Справка</span>
-            <h1 className={styles.title}>Частые вопросы</h1>
-            <p className={styles.lead}>
-              {OPERATOR.brand} — сервис покупки билетов на концерты, театр и спорт. Не нашли ответ — напишите в
-              поддержку.
-            </p>
-          </div>
-        </header>
-
+      <main>
+        <TicketStage
+          kicker="Справка"
+          title="Частые вопросы"
+          lead={`${OPERATOR.brand} — сервис покупки билетов. Не нашли ответ — напишите, разберём заказ.`}
+          stub="FAQ"
+        >
         <div className={styles.shell}>
-          <p className={styles.updated}>
-            Обновлено{' '}
-            {new Date().toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+          <article className={styles.card}>
+            <p className={styles.updated}>
+              Обновлено{' '}
+              {new Date().toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
 
-          {SECTIONS.map((section) => (
-            <section key={section.title} className={styles.faqSection}>
-              <h2 className={styles.faqCategory}>{section.title}</h2>
-              <FaqAccordion items={section.items} />
-            </section>
-          ))}
+            {SECTIONS.map((section) => (
+              <section key={section.title} className={styles.faqSection}>
+                <h2 className={styles.faqCategory}>{section.title}</h2>
+                <FaqAccordion items={section.items} />
+              </section>
+            ))}
 
-          <div className={styles.ctaRow} style={{ marginTop: 8 }}>
-            <Link className={styles.cta} to="/contacts#contacts-form">
-              Задать другой вопрос
-            </Link>
-            <Link className={styles.ctaGhost} to="/returns">
-              Возврат и обмен
-            </Link>
-          </div>
+            <div className={styles.ctaRow} style={{ marginTop: 8 }}>
+              <Link className={styles.cta} to="/contacts#contacts-form">
+                Задать другой вопрос
+              </Link>
+              <Link className={styles.ctaGhost} to="/returns">
+                Возврат и обмен
+              </Link>
+            </div>
 
-          <p className={styles.related}>
-            Юридические документы:{' '}
-            <Link to="/privacy">конфиденциальность</Link>, <Link to="/offer">оферта</Link>,{' '}
-            <Link to="/requisites">реквизиты</Link>.
-          </p>
+            <p className={styles.related}>
+              Юридические документы:{' '}
+              <Link to="/privacy">конфиденциальность</Link>, <Link to="/offer">оферта</Link>,{' '}
+              <Link to="/requisites">реквизиты</Link>.
+            </p>
+          </article>
         </div>
+        </TicketStage>
       </main>
     </>
   );

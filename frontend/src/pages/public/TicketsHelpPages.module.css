@@ -2,26 +2,20 @@
 
 .page {
   min-height: 72vh;
-  background: #eceff4;
-  color: #141414;
+  background: #f3f3f1;
+  color: #111;
   font-family: var(--neg-font, system-ui, sans-serif);
 }
 
-/* ----- Hero ----- */
 .hero {
   position: relative;
-  overflow: hidden;
-  background: radial-gradient(120% 90% at 15% 0%, #2a2a2a 0%, #121212 45%, #0a0a0a 100%);
-  color: #fff;
-  margin-bottom: clamp(24px, 5vw, 40px);
+  background: transparent;
+  color: #111;
+  margin: 0;
 }
 
 .hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 70% 50% at 90% 30%, rgba(255, 78, 24, 0.35) 0%, transparent 55%);
-  pointer-events: none;
+  display: none;
 }
 
 .heroInner {
@@ -29,48 +23,45 @@
   z-index: 1;
   max-width: var(--tickets-max, 1440px);
   margin: 0 auto;
-  padding: clamp(32px, 6vw, 56px) clamp(20px, 5vw, 40px);
+  padding: 28px 16px 4px;
+  box-sizing: border-box;
 }
 
 .kicker {
   display: inline-block;
-  margin-bottom: 12px;
-  font-size: 0.72rem;
+  margin-bottom: 10px;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 245, 240, 0.92);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: var(--neg-orange, #ff4e18);
 }
 
 .title {
-  margin: 0 0 14px;
-  font-size: clamp(1.65rem, 4.5vw, 2.35rem);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-  max-width: 20ch;
-  color: #fff;
-  text-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.4);
+  margin: 0 0 12px;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: clamp(2.05rem, 5vw, 3.3rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  max-width: 16ch;
+  color: #111;
 }
 
 .lead {
   margin: 0;
-  font-size: clamp(0.94rem, 2vw, 1.05rem);
-  line-height: 1.58;
+  font-size: 1.02rem;
+  line-height: 1.5;
   font-weight: 500;
-  color: rgba(255, 252, 248, 0.96);
-  max-width: min(46ch, 100%);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: rgba(0, 0, 0, 0.55);
+  max-width: min(42ch, 100%);
 }
 
 /* ----- Контент ----- */
 .shell {
-  max-width: 920px;
+  max-width: var(--tickets-max, 1440px);
   margin: 0 auto;
-  padding: 0 clamp(16px, 4vw, 28px) 64px;
+  padding: 18px 16px 64px;
   box-sizing: border-box;
 }
 
@@ -83,10 +74,10 @@
 
 .card {
   background: #fff;
-  border-radius: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
+  border: none;
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.04),
+    0 1px 0 rgba(0, 0, 0, 0.04),
     0 16px 40px rgba(0, 0, 0, 0.05);
   padding: clamp(22px, 4vw, 36px);
   margin-bottom: 20px;
@@ -158,39 +149,38 @@
 .cta {
   display: inline-flex;
   align-items: center;
-  padding: 12px 20px;
-  border-radius: 12px;
-  background: var(--neg-orange, #ff4e18);
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: #111;
   color: #fff !important;
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
   text-decoration: none;
-  transition: filter 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .cta:hover {
-  filter: brightness(1.05);
+  background: #1c1c1c;
 }
 
 .ctaGhost {
   display: inline-flex;
   align-items: center;
-  padding: 12px 20px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  color: #141414 !important;
-  font-size: 0.88rem;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: none;
+  color: #111 !important;
+  font-size: 0.92rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
   text-decoration: none;
-  background: #fff;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  background: #f3f3f1;
+  transition: background 0.15s ease;
 }
 
 .ctaGhost:hover {
-  border-color: rgba(255, 78, 24, 0.45);
-  background: rgba(255, 78, 24, 0.05);
+  background: #e8e8e4;
 }
 
 .faqSection {
@@ -203,10 +193,11 @@
 
 .faqCategory {
   margin: 0 0 12px;
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: #141414;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #111;
 }
 
 /* FAQ: native details */
@@ -312,6 +303,3 @@
   margin: 0;
 }
 
-.faqPage .shell {
-  max-width: var(--tickets-max, 1440px);
-}

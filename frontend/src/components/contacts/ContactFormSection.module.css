@@ -1,19 +1,18 @@
 /* Форма обратной связи — в стиле витрины билетов */
 
 .root {
-  margin-top: 8px;
+  margin-top: 0;
   background: #fff;
-  border-radius: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
+  border: none;
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.04),
-    0 20px 48px rgba(0, 0, 0, 0.06);
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 16px 40px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
 .accent {
-  height: 4px;
-  background: linear-gradient(90deg, var(--neg-orange, #ff4e18), rgba(255, 78, 24, 0.35));
+  display: none;
 }
 
 .header {
@@ -22,11 +21,12 @@
 
 .title {
   margin: 0 0 10px;
-  font-size: clamp(1.25rem, 2.8vw, 1.55rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  color: #141414;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: clamp(1.35rem, 2.8vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: #111;
 }
 
 .subtitle {

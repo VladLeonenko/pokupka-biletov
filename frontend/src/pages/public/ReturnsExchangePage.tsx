@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { fetchPublicTicketsVitrine } from '@/services/ticketsVitrineApi';
 import { mergeTicketsVitrine } from '@/utils/ticketsVitrineDefaults';
+import { TicketStage } from '@/components/tickets/TicketStage';
 import styles from './TicketsHelpPages.module.css';
 import proseStyles from './PrivacyPolicyPage.module.css';
 
@@ -91,18 +92,13 @@ export function ReturnsExchangePage() {
         url={currentUrl}
       />
 
-      <main className={styles.page}>
-        <header className={styles.hero}>
-          <div className={styles.heroInner}>
-            <span className={styles.kicker}>Покупателям</span>
-            <h1 className={styles.title}>Возврат и обмен билетов</h1>
-            <p className={styles.lead}>
-              Кратко о правовой модели и порядке действий. Точные сроки и основания всегда определяет организатор
-              мероприятия и правила площадки.
-            </p>
-          </div>
-        </header>
-
+      <main>
+        <TicketStage
+          kicker="Покупателям"
+          title="Вернём, если так решил зал"
+          lead="Сроки и деньги определяет организатор. Мы собираем заявление и передаём его туда, где билет выписали."
+          stub="ВОЗВРАТ"
+        >
         <div className={styles.shell}>
           <p className={styles.updated}>
             Редакция от{' '}
@@ -122,6 +118,7 @@ export function ReturnsExchangePage() {
             <Link to="/privacy">политика конфиденциальности</Link>.
           </p>
         </div>
+        </TicketStage>
       </main>
     </>
   );

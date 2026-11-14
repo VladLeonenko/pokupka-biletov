@@ -8,7 +8,8 @@ import EventIcon from '@mui/icons-material/Event';
 import ConfirmationNumberOutlinedIcon from '@mui/icons-material/ConfirmationNumberOutlined';
 import PolicyOutlinedIcon from '@mui/icons-material/PolicyOutlined';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
-import { TicketsUserPageLayout, ticketsUser } from '@/components/tickets/TicketsUserPageLayout';
+import { TicketStage } from '@/components/tickets/TicketStage';
+import { ticketsUser } from '@/components/tickets/TicketsUserPageLayout';
 
 const quick = [
   { label: 'Афиша', to: '/', hint: 'Главная и подборки' },
@@ -69,7 +70,12 @@ export function AccountPage() {
     return (
       <>
         <SeoMetaTags title="Личный кабинет" description="Войдите, чтобы управлять заказами и билетами" url={currentUrl} noindex />
-        <TicketsUserPageLayout overline="Аккаунт" title="Вход в кабинет" subtitle="Управляйте заказами, избранным и данными для покупки билетов.">
+        <TicketStage
+          kicker="Аккаунт"
+          title="Кабинет"
+          lead="Войдите тем же email, что указывали при оплате — заказы подтянутся сами."
+          stub="ВХОД"
+        >
           <Box className={`${ticketsUser.card} ${ticketsUser.cardPad}`} sx={{ textAlign: 'center', maxWidth: 420, mx: 'auto' }}>
             <Typography className={ticketsUser.muted} sx={{ mb: 2 }}>
               Войдите под тем же email, что указывали при оплате — так мы сопоставим ваши заказы.
@@ -78,7 +84,7 @@ export function AccountPage() {
               Войти
             </button>
           </Box>
-        </TicketsUserPageLayout>
+        </TicketStage>
       </>
     );
   }
@@ -86,10 +92,11 @@ export function AccountPage() {
   return (
     <>
       <SeoMetaTags title="Личный кабинет — афиша и билеты" description="Заказы, подсказки по билетам и быстрые ссылки" url={currentUrl} noindex />
-      <TicketsUserPageLayout
-        overline="Аккаунт"
-        title="Личный кабинет"
-        subtitle="Здесь — ваши заказы и быстрый доступ к афише, корзине и избранному."
+      <TicketStage
+        kicker="Аккаунт"
+        title="Ваш кабинет"
+        lead="Заказы, избранное и быстрый переход в афишу."
+        stub="МОЙ"
       >
         <Box
           sx={{
@@ -131,13 +138,11 @@ export function AccountPage() {
           </Box>
 
           <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-            <Typography sx={{ fontWeight: 900, fontSize: '0.72rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.45)', mb: 1.5 }}>
-              Быстрые ссылки
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, mb: 3 }}>
+            <Typography className={ticketsUser.sectionLabel}>Быстрые ссылки</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' }, gap: 1, mb: 3 }}>
               {quick.map((q) => (
-                <Box key={q.to} component={Link} to={q.to} className={ticketsUser.card} sx={{ p: 1.5, textDecoration: 'none', minWidth: 0, maxWidth: 200, flex: '1 1 140px' }}>
-                  <Typography sx={{ fontWeight: 800, color: '#111', fontSize: '0.78rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <Box key={q.to} component={Link} to={q.to} className={ticketsUser.card} sx={{ p: '14px 14px 12px', textDecoration: 'none', minHeight: 84, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontFamily: 'var(--neg-font-display, Geologica, system-ui, sans-serif)', fontWeight: 700, color: '#111', fontSize: '1.05rem', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
                     {q.label}
                   </Typography>
                   <Typography variant="caption" sx={{ color: 'rgba(0,0,0,0.45)', display: 'block', mt: 0.5 }}>
@@ -147,9 +152,7 @@ export function AccountPage() {
               ))}
             </Box>
 
-            <Typography sx={{ fontWeight: 900, fontSize: '0.72rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.45)', mb: 1.5 }}>
-              Мои заказы
-            </Typography>
+            <Typography className={ticketsUser.sectionLabel}>Мои заказы</Typography>
             {orders.length === 0 ? (
               <Box className={`${ticketsUser.card} ${ticketsUser.cardPad}`} sx={{ mb: 3 }}>
                 <Typography className={ticketsUser.muted} sx={{ mb: 1.5 }}>
@@ -201,9 +204,7 @@ export function AccountPage() {
               </Stack>
             )}
 
-            <Typography sx={{ fontWeight: 900, fontSize: '0.72rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.45)', mb: 1.5 }}>
-              Полезно при покупке билетов
-            </Typography>
+            <Typography className={ticketsUser.sectionLabel}>Полезно при покупке</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 1.5 }}>
               {hints.map((h) => (
                 <Box key={h.title} className={`${ticketsUser.card} ${ticketsUser.cardPad}`}>
@@ -221,7 +222,7 @@ export function AccountPage() {
             </Box>
           </Box>
         </Box>
-      </TicketsUserPageLayout>
+      </TicketStage>
     </>
   );
 }

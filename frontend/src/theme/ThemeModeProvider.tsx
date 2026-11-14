@@ -13,12 +13,14 @@ const YELLOW = '#ffbb00'; // site accent
 const DARK_BG = '#141414';
 const DARK_PAPER = '#1d1d1d';
 
-function buildTheme(mode: Mode) {
+function buildTheme(mode: Mode, accent: 'yellow' | 'orange' = 'yellow') {
   const isDark = mode === 'dark';
+  const primary = accent === 'orange' ? '#ff4e18' : YELLOW;
+  const onPrimary = accent === 'orange' ? '#ffffff' : '#141414';
   return createTheme({
     palette: {
       mode,
-      primary: { main: YELLOW, contrastText: '#141414' },
+      primary: { main: primary, contrastText: onPrimary },
       background: { default: isDark ? DARK_BG : '#f5f5f5', paper: isDark ? DARK_PAPER : '#ffffff' },
       text: { primary: isDark ? '#ffffff' : '#141414', secondary: isDark ? '#d0d0d0' : '#555555' },
     },
@@ -55,12 +57,12 @@ function buildTheme(mode: Mode) {
       MuiButton: {
         styleOverrides: {
           containedPrimary: {
-            color: '#141414 !important',
-            '&:hover': { color: '#141414 !important' },
+            color: `${onPrimary} !important`,
+            '&:hover': { color: `${onPrimary} !important` },
           },
           root: {
-            '&.MuiButton-contained': { color: '#141414' },
-            '&.MuiButton-contained:hover': { color: '#141414' },
+            '&.MuiButton-contained': { color: onPrimary },
+            '&.MuiButton-contained:hover': { color: onPrimary },
           },
         },
       },
@@ -123,7 +125,7 @@ export function AdminThemeSync() {
   const { mode } = useThemeMode();
   useEffect(() => {
     const normalized = pathname.replace(/\/+$/, '') || '/';
-    if (!normalized.startsWith('/admin')) return;
+    if (!normalized.startsWith('/admin') || normalized === '/admin/login') return;
     applyAdminDomTheme(mode);
   }, [pathname, mode]);
   return null;
@@ -139,7 +141,7 @@ export function ThemeModeProvider({ children }: PropsWithChildren) {
   }, [mode]);
   const toggle = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
   const theme = useMemo(
-    () => buildTheme(ticketsChrome ? 'light' : mode),
+    () => buildTheme(ticketsChrome ? 'light' : mode, ticketsChrome ? 'orange' : 'yellow'),
     [mode, ticketsChrome],
   );
   const ctx = useMemo(() => ({ mode, toggle }), [mode]);

@@ -1,0 +1,109 @@
+.page {
+  min-height: 72vh;
+  background:
+    radial-gradient(720px 380px at 78% 0%, rgba(255, 78, 24, 0.16), transparent 68%),
+    #fff;
+  color: #111;
+}
+
+.band {
+  max-width: var(--tickets-max, 1440px);
+  margin: 0 auto;
+  padding: 28px 16px 8px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 28px;
+  align-items: center;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0 0 10px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--neg-orange, #ff4e18);
+}
+
+.title {
+  margin: 0;
+  max-width: 12ch;
+  font-family: var(--neg-font-display, 'Geologica', system-ui, sans-serif);
+  font-size: clamp(2.6rem, 8vw, 4.6rem);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+  color: #111;
+}
+
+.lead {
+  margin: 14px 0 0;
+  max-width: 36ch;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.stub,
+.mark {
+  justify-self: start;
+  order: -1;
+}
+
+.stub {
+  width: 92px;
+  height: auto;
+  overflow: visible;
+}
+
+.stubTop {
+  transform-box: fill-box;
+  transform-origin: 15% 100%;
+  animation: stubSway 3.2s ease-in-out infinite;
+}
+
+@keyframes stubSway {
+  0%,
+  100% {
+    transform: translate(-3px, -10px) rotate(-14deg);
+  }
+  50% {
+    transform: translate(-3px, -13px) rotate(-19deg);
+  }
+}
+
+.sheet {
+  max-width: var(--tickets-max, 1440px);
+  margin: 0 auto;
+  padding: 8px 16px 56px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 800px) {
+  .band {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-top: 48px;
+  }
+
+  .stub,
+  .mark {
+    margin-right: 12px;
+    order: 0;
+  }
+
+  .stub {
+    width: 132px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stubTop {
+    animation: none;
+    transform: translate(-3px, -10px) rotate(-14deg);
+  }
+}
