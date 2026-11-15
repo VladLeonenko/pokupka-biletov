@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { IconButton, Tooltip } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BILET_EVENTS_LITE_LIMIT,
@@ -34,8 +28,11 @@ import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirecti
 import { matchesTicketsChromePath, useTicketsChromeForced } from '@/utils/ticketsChrome';
 import { setTicketsVitrineFaviconBase } from '@/utils/faviconUpdater';
 import styles from './TicketsHeader.module.css';
+import chrome from './TicketsChrome.module.css';
 import { TicketsUserMenu } from '@/components/tickets/TicketsUserMenu';
 import { TicketsSiteLogo } from '@/components/tickets/TicketsSiteLogo';
+import { IconChevronLeft, IconChevronRight, IconHeart, IconSearch, IconTicket } from '@/components/tickets/TicketsChromeIcons';
+import { useTicketFavorites } from '@/hooks/useTicketFavorites';
 
 const NAV = [
   { to: '/', label: 'Афиша' },
@@ -45,6 +42,11 @@ const NAV = [
 
 function isYearMonth(s: string | null): s is string {
   return s != null && /^\d{4}-\d{2}$/.test(s);
+}
+
+function pathOn(to: string, pathname: string) {
+  if (to === '/') return pathname === '/' || pathname === '/afisha';
+  return pathname === to || pathname.startsWith(`${to}/`);
 }
 
 export function TicketsHeader() {
@@ -92,6 +94,11 @@ export function TicketsHeader() {
   const logoShowTextWithImage = vitrine.header?.logoShowTextWithImage !== false;
   const logoPlacement = vitrine.header?.logoPlacement === 'center' ? 'center' : 'left';
   const faviconUrl = vitrine.header?.faviconUrl?.trim();
+
+  const { items: favoriteItems } = useTicketFavorites();
+  const [favoritesReady, setFavoritesReady] = useState(false);
+  useEffect(() => setFavoritesReady(true), []);
+  const favoriteCount = favoritesReady ? favoriteItems.length : 0;
 
   const forcedTicketsChrome = useTicketsChromeForced();
   const ticketsChrome = matchesTicketsChromePath(loc.pathname) || forcedTicketsChrome;
@@ -411,54 +418,48 @@ export function TicketsHeader() {
           </Link>
 
           <nav className={styles.nav} aria-label="Основное меню">
-            {NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onMouseEnter={item.to === '/events' ? prefetchEventsCatalog : undefined}
-                onFocus={item.to === '/events' ? prefetchEventsCatalog : undefined}
-                onTouchStart={item.to === '/events' ? prefetchEventsCatalog : undefined}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV.map((item) => {
+              const on = pathOn(item.to, loc.pathname);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`${styles.navLink} ${on ? styles.navOn : ''}`}
+                  aria-current={on ? 'page' : undefined}
+                  onMouseEnter={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                  onFocus={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                  onTouchStart={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className={styles.icons}>
-            <Tooltip title="Поиск мероприятий">
-              <IconButton
-                component={Link}
-                to="/events"
-                size="medium"
-                className={styles.iconBtn}
-                sx={{ color: 'inherit' }}
-                onMouseEnter={prefetchEventsCatalog}
-                onFocus={prefetchEventsCatalog}
-                onTouchStart={prefetchEventsCatalog}
-              >
-                <SearchIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Избранное">
-              <IconButton
-                component={Link}
-                to="/wishlist"
-                size="medium"
-                className={styles.iconBtn}
-                sx={{ color: 'inherit' }}
-              >
-                <FavoriteBorderIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Корзина">
-              <IconButton component={Link} to="/cart" size="medium" className={styles.iconBtn} sx={{ color: 'inherit' }}>
-                <ShoppingCartOutlinedIcon />
-              </IconButton>
-            </Tooltip>
+            <Link
+              to="/wishlist"
+              className={`${chrome.iconBtn} ${pathOn('/wishlist', loc.pathname) ? chrome.on : ''}`}
+              aria-label={favoriteCount > 0 ? `Избранное, ${favoriteCount}` : 'Избранное'}
+              aria-current={pathOn('/wishlist', loc.pathname) ? 'page' : undefined}
+            >
+              <IconHeart />
+              {favoriteCount > 0 ? (
+                <span className={chrome.badge}>{favoriteCount > 99 ? '99+' : favoriteCount}</span>
+              ) : null}
+            </Link>
+            <Link
+              to="/cart"
+              className={`${chrome.iconBtn} ${pathOn('/cart', loc.pathname) ? chrome.on : ''}`}
+              aria-label="Корзина"
+              aria-current={pathOn('/cart', loc.pathname) ? 'page' : undefined}
+            >
+              <IconTicket />
+            </Link>
             <TicketsUserMenu />
             <button
               type="button"
-              className={styles.burger}
+              className={`${styles.burger} ${open ? styles.burgerOpen : ''}`}
               aria-label="Меню"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
@@ -502,7 +503,7 @@ export function TicketsHeader() {
               enterKeyHint="search"
             />
             <button type="submit" className={styles.searchSubmitIcon} aria-label="Найти">
-              <SearchIcon sx={{ fontSize: 18 }} />
+              <IconSearch width={18} height={18} />
             </button>
           </form>
         </div>
@@ -537,7 +538,7 @@ export function TicketsHeader() {
                   disabled={monthBlock === 0}
                   onClick={() => setMonthBlock((b) => Math.max(0, b - 1))}
                 >
-                  <ChevronLeftIcon sx={{ fontSize: 22 }} />
+                  <IconChevronLeft />
                 </button>
                 <div className={styles.monthPills}>
                   {monthPills.map((d) => {
@@ -560,7 +561,7 @@ export function TicketsHeader() {
                   aria-label="Следующие три месяца"
                   onClick={() => setMonthBlock((b) => b + 1)}
                 >
-                  <ChevronRightIcon sx={{ fontSize: 22 }} />
+                  <IconChevronRight />
                 </button>
               </div>
               <div
@@ -596,17 +597,22 @@ export function TicketsHeader() {
 
         {open && (
           <nav className={styles.mobileNav} aria-label="Мобильное меню">
-            {NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                onMouseEnter={item.to === '/events' ? prefetchEventsCatalog : undefined}
-                onTouchStart={item.to === '/events' ? prefetchEventsCatalog : undefined}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV.map((item) => {
+              const on = pathOn(item.to, loc.pathname);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={on ? styles.mobileOn : undefined}
+                  aria-current={on ? 'page' : undefined}
+                  onClick={() => setOpen(false)}
+                  onMouseEnter={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                  onTouchStart={item.to === '/events' ? prefetchEventsCatalog : undefined}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
             {directions.map((d) => (
               <Link
                 key={`m-${directionRowKey(d)}`}

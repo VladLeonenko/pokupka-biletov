@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconButton, Menu, MenuItem, Popover } from '@mui/material';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-import AssignmentReturnOutlinedIcon from '@mui/icons-material/AssignmentReturnOutlined';
-import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
-import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
+import { Menu, MenuItem, Popover } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import {
+  IconChat,
+  IconChevronRight,
+  IconHelp,
+  IconPin,
+  IconReturn,
+  IconUser,
+} from '@/components/tickets/TicketsChromeIcons';
+import chrome from './TicketsChrome.module.css';
 import { useAuth } from '@/auth/AuthProvider';
 import { getBiletMeta, fetchBiletCities } from '@/services/biletPublicApi';
 import { fetchPublicTicketsVitrine } from '@/services/ticketsVitrineApi';
@@ -118,17 +121,16 @@ export function TicketsUserMenu() {
 
   return (
     <>
-      <IconButton
-        size="medium"
-        className={styles.anchor}
+      <button
+        type="button"
+        className={`${chrome.iconBtn} ${open ? chrome.on : ''} ${styles.anchor}`}
         aria-label="Профиль и помощь"
         aria-haspopup="true"
         aria-expanded={open ? 'true' : 'false'}
         onClick={onToggle}
-        sx={{ color: 'inherit' }}
       >
-        <PersonOutlineIcon />
-      </IconButton>
+        <IconUser />
+      </button>
 
       <Popover
         open={open}
@@ -198,7 +200,7 @@ export function TicketsUserMenu() {
             }}
           >
             <span className={styles.itemIcon}>
-              <PlaceOutlinedIcon sx={{ fontSize: 22 }} />
+              <IconPin />
             </span>
             <div className={styles.itemMain}>
               <div className={styles.itemLabel}>{displayCityLabel}</div>
@@ -206,7 +208,7 @@ export function TicketsUserMenu() {
                 {biletMeta?.cityIdRequired ? 'Афиша по городу' : 'Каталог общий; метка для интерфейса'}
               </div>
             </div>
-            <KeyboardArrowRightIcon sx={{ fontSize: 20, opacity: 0.45, flexShrink: 0 }} aria-hidden />
+            <IconChevronRight className={styles.chevron} />
           </button>
 
           <Menu
@@ -248,7 +250,7 @@ export function TicketsUserMenu() {
 
           <Link className={styles.item} to="/returns" onClick={onClose}>
             <span className={styles.itemIcon}>
-              <AssignmentReturnOutlinedIcon sx={{ fontSize: 22 }} />
+              <IconReturn />
             </span>
             <div className={styles.itemMain}>
               <div className={styles.itemLabel}>Возврат и обмен</div>
@@ -258,7 +260,7 @@ export function TicketsUserMenu() {
 
           <Link className={styles.item} to="/faq" onClick={onClose}>
             <span className={styles.itemIcon}>
-              <HelpOutlineOutlinedIcon sx={{ fontSize: 22 }} />
+              <IconHelp />
             </span>
             <div className={styles.itemMain}>
               <div className={styles.itemLabel}>Частые вопросы</div>
@@ -268,7 +270,7 @@ export function TicketsUserMenu() {
 
           <Link className={styles.item} to="/contacts#contacts-form" onClick={onClose}>
             <span className={styles.itemIcon}>
-              <ChatBubbleOutlineOutlinedIcon sx={{ fontSize: 22 }} />
+              <IconChat />
             </span>
             <div className={styles.itemMain}>
               <div className={styles.itemLabel}>Написать в поддержку</div>
@@ -279,7 +281,7 @@ export function TicketsUserMenu() {
 
         <Link className={styles.promo} to="/contacts" onClick={onClose}>
           <div className={styles.promoIcon} aria-hidden>
-            💬
+            <IconChat />
           </div>
           <div>
             <div className={styles.promoTitle}>Нужна помощь с билетом?</div>

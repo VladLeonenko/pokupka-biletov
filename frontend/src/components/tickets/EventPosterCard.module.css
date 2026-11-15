@@ -46,7 +46,21 @@
   }
 
   .wrap:hover .shade {
-    opacity: 0.92;
+    opacity: 0.55;
+  }
+
+  .wrap:hover .buyLink {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .buyLink {
+    opacity: 1;
+    pointer-events: auto;
+    font-size: 0.78rem;
+    padding: 11px 16px;
   }
 }
 
@@ -190,6 +204,36 @@ img.img {
   color: #faf8f4;
   background: rgba(12, 10, 8, 0.35);
   backdrop-filter: blur(4px);
+}
+
+.buyLink {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 14px;
+  z-index: 4;
+  display: block;
+  box-sizing: border-box;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-decoration: none;
+  color: #fff !important;
+  background: #ff4e18;
+  padding: 12px 18px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(255, 78, 24, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    background 0.2s ease;
+}
+
+.buyLink:hover {
+  background: #e54414;
+  color: #fff !important;
 }
 
 .ribbon {
