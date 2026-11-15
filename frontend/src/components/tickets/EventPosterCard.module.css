@@ -46,21 +46,21 @@
   }
 
   .wrap:hover .shade {
-    opacity: 0.55;
+    opacity: 0.92;
   }
 
-  .wrap:hover .buyLink {
+  .wrap:hover .buyStub {
     opacity: 1;
+    transform: translateY(0) rotate(-1.5deg);
     pointer-events: auto;
   }
 }
 
 @media (hover: none), (pointer: coarse) {
-  .buyLink {
+  .buyStub {
     opacity: 1;
+    transform: translateY(0) rotate(0deg);
     pointer-events: auto;
-    font-size: 0.78rem;
-    padding: 11px 16px;
   }
 }
 
@@ -206,34 +206,142 @@ img.img {
   backdrop-filter: blur(4px);
 }
 
-.buyLink {
+.buyStub {
   position: absolute;
+  z-index: 5;
   left: 12px;
   right: 12px;
   bottom: 14px;
-  z-index: 4;
-  display: block;
-  box-sizing: border-box;
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-align: center;
+  height: 52px;
+  display: grid;
+  grid-template-columns: 48px 1fr;
   text-decoration: none;
   color: #fff !important;
-  background: #ff4e18;
-  padding: 12px 18px;
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(255, 78, 24, 0.35);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38);
   opacity: 0;
   pointer-events: none;
+  transform: translateY(18px) rotate(-7deg);
+  transform-origin: 18% 80%;
   transition:
-    opacity 0.25s ease,
-    background 0.2s ease;
+    opacity 0.28s ease,
+    transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-mask:
+    radial-gradient(circle 6px at 48px -1px, #0000 6px, #000 7px),
+    radial-gradient(circle 6px at 48px calc(100% + 1px), #0000 6px, #000 7px);
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(circle 6px at 48px -1px, #0000 6px, #000 7px),
+    radial-gradient(circle 6px at 48px calc(100% + 1px), #0000 6px, #000 7px);
+  mask-composite: intersect;
 }
 
-.buyLink:hover {
-  background: #e54414;
+.buyStub:focus-visible {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+  pointer-events: auto;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.stubCap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff4e18;
+}
+
+.stubMark {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.stubBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 42px 0 12px;
+  background: #111;
+  min-width: 0;
+}
+
+.stubBody::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  border-left: 1.5px dashed rgba(255, 78, 24, 0.85);
+}
+
+.stubKicker {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ff4e18 !important;
+  line-height: 1;
+}
+
+.stubWord {
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: #fff !important;
+  white-space: nowrap;
+}
+
+.stubBars {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+  transform: translateY(-50%);
+}
+
+.stubBars i {
+  display: block;
+  width: 1.5px;
+  height: 100%;
+  background: #ff4e18;
+}
+
+.stubBars i:nth-child(3n) {
+  width: 2.5px;
+  height: 72%;
+}
+
+.stubBars i:nth-child(3n + 1) {
+  height: 86%;
+}
+
+@media (max-width: 720px) {
+  .stubBars {
+    display: none;
+  }
+
+  .stubBody {
+    padding-right: 12px;
+  }
+
+  .stubWord {
+    font-size: 0.78rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buyStub {
+    transition: none;
+  }
 }
 
 .ribbon {

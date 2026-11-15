@@ -10,6 +10,7 @@ import {
 import { venueFromApiOnly } from '@/utils/venueHint';
 import { favoriteIdFromEvent, useTicketFavorites } from '@/hooks/useTicketFavorites';
 import { formatRatingScore, ratingZone } from '@/utils/eventRating';
+import { LOGO_LETTER } from './ticketsLogoPaths';
 import { TicketEventPosterImg } from './TicketEventPosterImg';
 import styles from './EventPosterCard.module.css';
 
@@ -134,11 +135,28 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
         </Link>
         <Link
           to={toHall}
-          className={styles.buyLink}
+          className={styles.buyStub}
           aria-label={`Купить билет: ${event.title}`}
           onClick={(e) => e.stopPropagation()}
         >
-          Купить билет
+          <span className={styles.stubCap} aria-hidden>
+            <svg className={styles.stubMark} viewBox="0 0 40 40">
+              <path d={LOGO_LETTER} fill="#111" />
+            </svg>
+          </span>
+          <span className={styles.stubBody}>
+            <span className={styles.stubKicker}>в зал</span>
+            <span className={styles.stubWord}>Купить билет</span>
+            <span className={styles.stubBars} aria-hidden>
+              <i />
+              <i />
+              <i />
+              <i />
+              <i />
+              <i />
+              <i />
+            </span>
+          </span>
         </Link>
       </div>
       <Link to={toPage} className={styles.bodyLink}>
