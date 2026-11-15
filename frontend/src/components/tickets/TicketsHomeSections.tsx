@@ -122,9 +122,12 @@ export function TicketsHomeSections({
           insertAfterSlot={
             !listLoading && recent.length > 0 ? (
               <section className={styles.recentSection} aria-labelledby="home-recent-title">
-                <h2 id="home-recent-title" className={styles.recentTitle}>
-                  Вы смотрели
-                </h2>
+                <div className={styles.recentHead}>
+                  <p className={styles.recentKicker}>Подборка</p>
+                  <h2 id="home-recent-title" className={styles.recentTitle}>
+                    Вы смотрели
+                  </h2>
+                </div>
                 <div className={styles.recentStripBleed}>
                   <div className={styles.recentStrip}>
                     {recent.map((ev) => (

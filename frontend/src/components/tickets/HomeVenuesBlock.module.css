@@ -11,7 +11,18 @@
   gap: 12px 20px;
   max-width: 1440px;
   margin: 0 auto 22px;
-  padding: 0 16px;
+  padding: 0 16px 0 var(--afisha-edge, 16px);
+  text-align: left;
+}
+
+@media (min-width: 1024px) {
+  .head {
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: var(--afisha-edge, 20px);
+    padding-right: 20px;
+  }
 }
 
 .overline {
@@ -25,10 +36,12 @@
 
 .h2 {
   margin: 0;
+  text-align: left;
   font-family: var(--neg-font-display, 'Geologica', 'Manrope', system-ui, sans-serif);
-  font-size: clamp(1.5rem, 3vw, 2.2rem);
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-size: clamp(2.05rem, 3.6vw, 2.9rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
   color: #0a0a0a;
 }
 
@@ -55,7 +68,7 @@
 
 .strip {
   --v-gap: 16px;
-  --v-pad: 16px;
+  --v-pad: var(--afisha-edge, 16px);
   list-style: none;
   display: flex;
   gap: var(--v-gap);
@@ -71,6 +84,12 @@
 
 .strip::-webkit-scrollbar {
   display: none;
+}
+
+@media (min-width: 1024px) {
+  .strip {
+    --v-pad: var(--afisha-edge, 20px);
+  }
 }
 
 .slot {
@@ -112,34 +131,36 @@
 .fade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 18%, #fff 58%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 28%, #fff 62%);
 }
 
 .body {
   position: relative;
   z-index: 1;
-  margin-left: 42%;
+  margin-left: 52%;
   min-height: clamp(240px, 34vw, 420px);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-end;
+  text-align: right;
   gap: 8px;
-  padding: 22px 22px 22px 12px;
+  padding: 22px 16px 22px 8px;
 }
 
 .name {
   font-family: var(--neg-font-display, 'Geologica', 'Manrope', system-ui, sans-serif);
-  font-size: clamp(1.15rem, 2vw, 1.45rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.55rem, 2.6vw, 2.15rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
   color: #111;
   transition: color 0.15s ease;
 }
 
 .desc {
-  font-size: 0.92rem;
-  line-height: 1.4;
+  font-size: 1.05rem;
+  line-height: 1.35;
   color: rgba(17, 17, 17, 0.62);
 }
 
@@ -153,15 +174,19 @@
 
 @media (max-width: 640px) {
   .img {
-    width: 70%;
+    width: 58%;
   }
 
   .fade {
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 8%, #fff 52%);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 12%, #fff 48%);
   }
 
   .body {
-    margin-left: 34%;
-    padding-right: 16px;
+    margin-left: 46%;
+    padding-right: 12px;
+  }
+
+  .name {
+    font-size: 1.35rem;
   }
 }

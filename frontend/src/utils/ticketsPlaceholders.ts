@@ -73,12 +73,41 @@ export type EventCoverInput = {
   subtitle?: string | null;
   genre?: string | null;
   categoryLabel?: string | null;
+  venue?: string | null;
   imageUrl?: string | null;
   bannerUrl?: string | null;
 };
 
+/** Обложки, где чужой логотип или чужой спектакль на кадре нельзя оставлять. */
+function coverOverride(ev: EventCoverInput): string | null {
+  const title = (ev.title || '').toLowerCase();
+  const venue = (ev.venue || '').toLowerCase();
+  const img = `${ev.imageUrl || ''} ${ev.bannerUrl || ''}`.toLowerCase();
+  if (title.includes('распаковка') && title.includes('яндекс')) {
+    return '/posters/raspakovka-2026-card.webp';
+  }
+  if (
+    title.includes('чайка') &&
+    (venue.includes('больш') || img.includes('bolshoi-chaika'))
+  ) {
+    return '/posters/chaika-bolshoi.webp';
+  }
+  if (title.includes('квн') && (title.includes('рожден') || title.includes('65'))) {
+    return '/posters/kvn-65.webp';
+  }
+  if (title.includes('песня года') && !title.includes('новая')) {
+    return '/posters/pesnya-goda.webp';
+  }
+  if (title.includes('хулиган') && title.includes('исповед')) {
+    return '/posters/huligan-ispoved.webp';
+  }
+  return null;
+}
+
 /** Реальная обложка или заглушка по типу события. */
 export function resolveEventCoverUrl(ev: EventCoverInput): string {
+  const forced = coverOverride(ev);
+  if (forced) return forced;
   const real = (ev.imageUrl || ev.bannerUrl || '').trim();
   if (real) return real;
   const key = resolveEventPlaceholderKey(ev.title || '', {

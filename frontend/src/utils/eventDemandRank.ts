@@ -9,6 +9,8 @@ export type DemandRankableEvent = {
   venue?: string | null;
   repertoireId?: string | null;
   ratingScore?: number | null;
+  /** Сколько оценок — живой интерес, не только Wordstat. */
+  ratingCount?: number | null;
   isPremiere?: boolean | null;
   isoDate?: string | null;
 };
@@ -201,6 +203,10 @@ export function theaterDemandScore(ev: DemandRankableEvent): number {
   const rating = Number(ev.ratingScore);
   if (Number.isFinite(rating) && rating > 0) {
     best += rating * 8;
+  }
+  const reviews = Number(ev.ratingCount);
+  if (Number.isFinite(reviews) && reviews > 0) {
+    best += Math.min(400, reviews * 12);
   }
   if (ev.isPremiere) best += 25;
   return best;

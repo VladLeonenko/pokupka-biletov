@@ -8,6 +8,8 @@ body[data-tickets='true'] {
   --tickets-max: 1440px; /* было 1200 ≈ +20% */
   --neg-orange: #ff4e18;
   --neg-blue: #a8c4ee;
+  /* Один левый край у «Подборка», названия раздела и первой карточки */
+  --afisha-edge: max(16px, calc((100vw - min(100vw, 1440px)) / 2 + 16px));
   background-color: #ffffff !important;
   color: #111 !important;
   font-family: var(--neg-font) !important;
@@ -15,6 +17,12 @@ body[data-tickets='true'] {
   font-size: 150%;
   line-height: 1.45;
   letter-spacing: 0;
+}
+
+@media (min-width: 1024px) {
+  body[data-tickets='true'] {
+    --afisha-edge: 20px;
+  }
 }
 
 /* Hero (NeglinkaHero): перебить color: #111 !important у body — текст на цветном фоне */

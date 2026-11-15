@@ -1145,12 +1145,22 @@ export function TicketCheckoutPage() {
   const coverUrl = useMemo(() => {
     const poster = ctx?.posterUrl || posterQ || null;
     const banner = ctx?.bannerUrl || bannerQ || null;
-    return banner || poster || resolveEventCoverUrl({ title: displayTitle });
-  }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ, displayTitle]);
+    return resolveEventCoverUrl({
+      title: displayTitle,
+      venue: mergedVenue,
+      imageUrl: poster,
+      bannerUrl: banner,
+    });
+  }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ, displayTitle, mergedVenue]);
 
   const posterSideUrl = useMemo(() => {
-    return ctx?.posterUrl || posterQ || ctx?.bannerUrl || bannerQ || coverPlaceholder;
-  }, [ctx?.posterUrl, ctx?.bannerUrl, posterQ, bannerQ, coverPlaceholder]);
+    return resolveEventCoverUrl({
+      title: displayTitle,
+      venue: mergedVenue,
+      imageUrl: ctx?.posterUrl || posterQ,
+      bannerUrl: ctx?.bannerUrl || bannerQ,
+    });
+  }, [ctx?.posterUrl, ctx?.bannerUrl, posterQ, bannerQ, displayTitle, mergedVenue]);
 
   const sessionChipLabel = useMemo(() => {
     const n = allSessionsSorted.length;

@@ -66,6 +66,7 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
     subtitle: event.subtitle,
     genre: event.genre,
     categoryLabel: event.inferredCategoryLabel,
+    venue: event.venue,
     imageUrl: event.imageUrl,
     bannerUrl: event.bannerUrl,
   };

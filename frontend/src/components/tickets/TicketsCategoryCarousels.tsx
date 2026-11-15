@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { parseISO, isValid } from 'date-fns';
 import {
   filterEventsClient,
   ticketCheckoutHref,
@@ -9,7 +8,7 @@ import {
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
 import { pinVenueAfishaEvents } from '@/utils/venueAfishaPin';
-import { sortEventsByTheaterDemand } from '@/utils/eventDemandRank';
+import { sortEventsByTheaterDemand, theaterDemandScore } from '@/utils/eventDemandRank';
 import { resolveEventCoverUrl } from '@/utils/ticketsPlaceholders';
 import styles from './TicketsCategoryCarousels.module.css';
 
@@ -39,34 +38,59 @@ type Props = {
   insertAfterSlot?: ReactNode;
 };
 
-function timeMs(ev: NormalizedBiletEvent): number {
-  const raw = ev.isoDate?.trim();
-  if (raw) {
-    const d = parseISO(raw);
-    if (isValid(d)) return d.getTime();
-  }
-  return Number.MAX_SAFE_INTEGER;
+/** Wordstat + оценки. Ближайшая дата только при равном спросе. */
+function sortCategoryEvents(rows: NormalizedBiletEvent[]): NormalizedBiletEvent[] {
+  return sortEventsByTheaterDemand(rows);
 }
 
-/** Премьеры выше, внутри — ближайшие даты. Театр — по Wordstat/HOT-спросу. */
-function sortCategoryEvents(
-  rows: NormalizedBiletEvent[],
-  dir: CategoryDirection,
-): NormalizedBiletEvent[] {
-  const isTheater =
-    dir.genre?.trim().toLowerCase() === 'театр' || dir.label.trim().toLowerCase() === 'театр';
-  if (isTheater) return sortEventsByTheaterDemand(rows);
-  return [...rows].sort((a, b) => {
-    if (a.isPremiere && !b.isPremiere) return -1;
-    if (!a.isPremiere && b.isPremiere) return 1;
-    return timeMs(a) - timeMs(b);
-  });
+function hottest(items: NormalizedBiletEvent[]): NormalizedBiletEvent | null {
+  let best: NormalizedBiletEvent | null = null;
+  let bestScore = -1;
+  for (const ev of items) {
+    const score = theaterDemandScore(ev);
+    if (!best || score > bestScore) {
+      best = ev;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 function leadText(ev: NormalizedBiletEvent): string {
   const text = ev.heroDescription?.trim() || ev.subtitle?.trim() || '';
   if (!text) return '';
-  return text.length > 140 ? `${text.slice(0, 137).trim()}…` : text;
+  return text.length > 240 ? `${text.slice(0, 237).trim()}…` : text;
+}
+
+function leadMeta(ev: NormalizedBiletEvent): string {
+  const when = [ev.displayDate, ev.timeLabel].filter(Boolean).join(' · ') || ev.dateLabel || '';
+  return [ev.venue, when].filter(Boolean).join(' · ');
+}
+
+function leadPitch(score: number): string {
+  if (score >= 800) return 'Сейчас разбирают быстрее всего. Ряд ещё можно выбрать на схеме.';
+  if (score >= 150) return 'Высокий спрос. Схема зала открыта — место фиксируется сразу.';
+  return 'Места на схеме зала. Оплата на сайте, билет придёт на почту.';
+}
+
+function LeadCard({ event }: { event: NormalizedBiletEvent }) {
+  const score = theaterDemandScore(event);
+  const text = leadText(event);
+  const meta = leadMeta(event);
+  return (
+    <Link className={styles.lead} to={ticketCheckoutHref(event)}>
+      <img src={resolveEventCoverUrl(event)} alt="" />
+      <span className={styles.leadShade} />
+      <span className={styles.leadCopy}>
+        <span className={styles.leadKicker}>{score >= 150 ? 'Сейчас разбирают' : 'В афише'}</span>
+        <strong>{event.title}</strong>
+        {meta ? <span className={styles.leadMeta}>{meta}</span> : null}
+        {text ? <em>{text}</em> : null}
+        <span className={styles.leadPitch}>{leadPitch(score)}</span>
+        <span className={styles.leadCta}>Выбрать места</span>
+      </span>
+    </Link>
+  );
 }
 
 function isSportDirection(dir: CategoryDirection): boolean {
@@ -94,41 +118,14 @@ function CornerArrow({ size = 18 }: { size?: number }) {
   );
 }
 
-/** Как AssemblingTitle на Blog magazine — буквы собираются при появлении в viewport. */
-function AssemblingTitle({ text, to, id }: { text: string; to: string; id: string }) {
-  const ref = useRef<HTMLAnchorElement>(null);
-  const [on, setOn] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setOn(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.35 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  const chars = useMemo(() => Array.from(text), [text]);
-
+function SectionTitle({ text, to, id }: { text: string; to: string; id: string }) {
   return (
-    <Link ref={ref} id={id} to={to} className={`${styles.titleLink}${on ? ` ${styles.titleOn}` : ''}`}>
-      {chars.map((ch, i) => (
-        <span
-          key={`${i}-${ch}`}
-          className={styles.titleChar}
-          style={{ transitionDelay: `${i * 28}ms` }}
-        >
-          {ch === ' ' ? '\u00A0' : ch}
-        </span>
-      ))}
-    </Link>
+    <div className={styles.titleBlock}>
+      <p className={styles.kicker}>Подборка</p>
+      <Link id={id} to={to} className={styles.titleLink}>
+        {text}
+      </Link>
+    </div>
   );
 }
 
@@ -150,8 +147,8 @@ export function TicketsCategoryCarousels({
         const filtered = filterEventsClient(source, genre ? { genre } : { q: q! });
         const venueCanon = venueCanonForDirection(d);
         const ordered = venueCanon
-          ? pinVenueAfishaEvents(venueCanon, sortCategoryEvents(filtered, d))
-          : sortCategoryEvents(filtered, d);
+          ? pinVenueAfishaEvents(venueCanon, sortCategoryEvents(filtered))
+          : sortCategoryEvents(filtered);
         const sorted = ordered.slice(0, MAX_PER_ROW);
         return { dir: d, items: sorted };
       })
@@ -193,11 +190,12 @@ export function TicketsCategoryCarousels({
       const titleId = `cat-${encodeURIComponent(rowKey)}`;
       const fresh = sectionIndex % 2 === 0;
       sectionIndex += 1;
-      const [lead, ...rest] = row.items;
+      const lead = fresh ? hottest(row.items) : null;
+      const rest = lead ? row.items.filter((ev) => ev !== lead) : row.items;
       nodes.push(
         <section key={rowKey} className={styles.block} aria-labelledby={titleId}>
           <div className={styles.head}>
-            <AssemblingTitle text={dir.label} to={href} id={titleId} />
+            <SectionTitle text={dir.label} to={href} id={titleId} />
             <Link className={styles.seeAll} to={href}>
               <span>Все</span>
               <CornerArrow />
@@ -205,19 +203,12 @@ export function TicketsCategoryCarousels({
           </div>
           <div className={styles.stripBleed}>
             <div className={styles.strip} role="list">
-              {fresh && lead ? (
+              {lead ? (
                 <div className={styles.leadSlot} role="listitem">
-                  <Link className={styles.lead} to={ticketCheckoutHref(lead)}>
-                    <img src={resolveEventCoverUrl(lead)} alt="" />
-                    <span className={styles.leadShade} />
-                    <span className={styles.leadCopy}>
-                      <strong>{lead.title}</strong>
-                      {leadText(lead) ? <em>{leadText(lead)}</em> : null}
-                    </span>
-                  </Link>
+                  <LeadCard event={lead} />
                 </div>
               ) : null}
-              {(fresh ? rest : row.items).map((ev) => (
+              {rest.map((ev) => (
                 <div key={ev.id} className={styles.cardSlot} role="listitem">
                   <EventPosterCard event={ev} variant="compact" />
                 </div>
@@ -244,12 +235,14 @@ export function TicketsCategoryCarousels({
 /** «Ещё в афише» — тот же блок, что Театр / Детям: первый кадр крупный, дальше карточки. */
 export function AfishaMoreRow({ events }: { events: NormalizedBiletEvent[] }) {
   if (events.length === 0) return null;
-  const [lead, ...rest] = events;
+  const ranked = sortCategoryEvents(events);
+  const lead = hottest(ranked);
+  const rest = lead ? ranked.filter((ev) => ev !== lead) : ranked;
   const titleId = 'more-heading';
   return (
     <section className={styles.block} aria-labelledby={titleId}>
       <div className={styles.head}>
-        <AssemblingTitle text="Ещё в афише" to="/events" id={titleId} />
+        <SectionTitle text="Ещё в афише" to="/events" id={titleId} />
         <Link className={styles.seeAll} to="/events">
           <span>Все</span>
           <CornerArrow />
@@ -259,14 +252,7 @@ export function AfishaMoreRow({ events }: { events: NormalizedBiletEvent[] }) {
         <div className={styles.strip} role="list">
           {lead ? (
             <div className={styles.leadSlot} role="listitem">
-              <Link className={styles.lead} to={ticketCheckoutHref(lead)}>
-                <img src={resolveEventCoverUrl(lead)} alt="" />
-                <span className={styles.leadShade} />
-                <span className={styles.leadCopy}>
-                  <strong>{lead.title}</strong>
-                  {leadText(lead) ? <em>{leadText(lead)}</em> : null}
-                </span>
-              </Link>
+              <LeadCard event={lead} />
             </div>
           ) : null}
           {rest.map((ev) => (
