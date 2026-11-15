@@ -194,9 +194,9 @@
 }
 
 .leadCopy strong {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Geologica', 'Manrope', var(--neg-font, system-ui), sans-serif;
   font-size: clamp(1.6rem, 3vw, 2.3rem);
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.05;
   letter-spacing: -0.02em;
 }
