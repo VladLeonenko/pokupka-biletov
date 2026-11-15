@@ -1,16 +1,24 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import type { NormalizedBiletEvent } from '@/services/biletPublicApi';
-import { EventPosterCard } from './EventPosterCard';
+import {
+  dedupeBiletEventsByShow,
+  type NormalizedBiletEvent,
+} from '@/services/biletPublicApi';
 import { FaqAccordion } from './FaqAccordion';
 import { OPERATOR } from '@/utils/operatorLegalInfo';
+import { sortEventsByTheaterDemand, theaterDemandScore } from '@/utils/eventDemandRank';
+import { AfishaMoreRow } from './TicketsCategoryCarousels';
 import styles from './TicketsHomeBlocks.module.css';
 
-const STEPS = [
-  { n: '01', title: 'Выберите событие', text: 'Фильтры по дате, площадке и жанру в каталоге.' },
-  { n: '02', title: 'Места и оплата', text: 'Выбор места или зоны и оплата картой.' },
-  { n: '03', title: 'Билет у вас', text: 'Письмо на e-mail и раздел «Мои заказы».' },
-];
+const HIGHLIGHTS = 12;
+
+/** HOT-спрос (Wordstat «… билеты»): это то, что нам выгоднее всего продавать. */
+function pickHighlights(events: NormalizedBiletEvent[]): NormalizedBiletEvent[] {
+  const ranked = sortEventsByTheaterDemand(dedupeBiletEventsByShow(events));
+  const hot = ranked.filter((ev) => theaterDemandScore(ev) > 40);
+  return (hot.length >= 6 ? hot : ranked).slice(0, HIGHLIGHTS);
+}
 
 type FaqItem = { q: string; a: ReactNode };
 
@@ -126,53 +134,13 @@ type Props = {
   events: NormalizedBiletEvent[];
 };
 
-/** Блоки после основной афишы: как купить, ещё события, FAQ */
+/** Блоки после основной афишы: хайлайты спроса и FAQ */
 export function TicketsHomeExtras({ events }: Props) {
-  /** Следующие позиции после блока из 12 на главной. */
-  const more = events.length > 12 ? events.slice(12, 16) : [];
+  const highlights = useMemo(() => pickHighlights(events), [events]);
 
   return (
     <>
-      <section className={styles.how} aria-labelledby="how-heading">
-        <div className={styles.sectionHead}>
-          <p className={styles.overline}>Простой сценарий</p>
-          <h2 id="how-heading" className={styles.h2}>
-            Как купить билет
-          </h2>
-        </div>
-        <ol className={styles.steps}>
-          {STEPS.map((s) => (
-            <li key={s.n} className={styles.step}>
-              <span className={styles.stepNum}>{s.n}</span>
-              <div>
-                <h3 className={styles.stepTitle}>{s.title}</h3>
-                <p className={styles.stepText}>{s.text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {more.length > 0 && (
-        <section className={styles.more} aria-labelledby="more-heading">
-          <div className={styles.moreHead}>
-            <div>
-              <p className={styles.overline}>Подборка</p>
-              <h2 id="more-heading" className={styles.h2}>
-                Ещё в афише
-              </h2>
-            </div>
-            <Link to="/events" className={styles.moreLink}>
-              Весь каталог →
-            </Link>
-          </div>
-          <div className={styles.moreGrid}>
-            {more.map((ev) => (
-              <EventPosterCard key={ev.id} event={ev} variant="compact" />
-            ))}
-          </div>
-        </section>
-      )}
+      <AfishaMoreRow events={highlights} />
 
       <section className={styles.faq} aria-labelledby="faq-heading">
         <script

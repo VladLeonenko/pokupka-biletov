@@ -5,19 +5,14 @@ import { buildVenueCardsFromEvents } from '@/utils/venueCoverFromEvents';
 import { VENUE_COVER_FALLBACK } from '@/data/venueBuildingCovers';
 import styles from './HomeVenuesBlock.module.css';
 
-const TOP_N = 12;
-
 type Props = {
   events: NormalizedBiletEvent[];
 };
 
 export function HomeVenuesBlock({ events }: Props) {
-  const { top, totalUnique } = useMemo(() => {
-    const all = buildVenueCardsFromEvents(events);
-    return { top: all.slice(0, TOP_N), totalUnique: all.length };
-  }, [events]);
+  const all = useMemo(() => buildVenueCardsFromEvents(events), [events]);
 
-  if (top.length === 0) return null;
+  if (all.length === 0) return null;
 
   return (
     <section className={styles.section} aria-labelledby="home-venues-title">
@@ -29,14 +24,14 @@ export function HomeVenuesBlock({ events }: Props) {
           </h2>
         </div>
         <Link to="/events/venues" className={styles.allLink}>
-          Все площадки{totalUnique > TOP_N ? ` (${totalUnique})` : ''} →
+          Все площадки ({all.length}) →
         </Link>
       </div>
-      <ul className={styles.grid}>
-        {top.map((v) => (
-          <li key={v.slug}>
-            <Link className={styles.card} to={`/events/venue/${v.slug}`}>
-              <div className={styles.media}>
+      <div className={styles.stripBleed}>
+        <ul className={styles.strip}>
+          {all.map((v) => (
+            <li key={v.slug} className={styles.slot}>
+              <Link className={styles.card} to={`/events/venue/${v.slug}`}>
                 <img
                   src={v.coverUrl || VENUE_COVER_FALLBACK}
                   alt=""
@@ -48,15 +43,17 @@ export function HomeVenuesBlock({ events }: Props) {
                     if (!el.src.endsWith(VENUE_COVER_FALLBACK)) el.src = VENUE_COVER_FALLBACK;
                   }}
                 />
-              </div>
-              <div className={styles.body}>
-                <span className={styles.name}>{v.label}</span>
-                <span className={styles.meta}>{v.count} в афише</span>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+                <span className={styles.fade} aria-hidden />
+                <span className={styles.body}>
+                  <span className={styles.name}>{v.label}</span>
+                  {v.address ? <span className={styles.desc}>{v.address}</span> : null}
+                  <span className={styles.meta}>{v.count} в афише</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

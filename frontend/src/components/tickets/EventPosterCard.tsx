@@ -58,7 +58,6 @@ function buildScheduleLine(ev: NormalizedBiletEvent): string | null {
 
 export function EventPosterCard({ event, variant = 'poster', priority = false }: Props) {
   const toPage = ticketCheckoutHref(event);
-  const toHall = ticketCheckoutHref(event, { focusHall: true });
   const { isFavorite, toggleEvent } = useTicketFavorites();
   const favId = favoriteIdFromEvent(event);
   const liked = favId ? isFavorite(favId) : false;
@@ -130,14 +129,6 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
             {event.age && <span className={styles.badgeAge}>{event.age}</span>}
           </div>
           {event.isPremiere && <span className={styles.ribbon}>Премьера</span>}
-        </Link>
-        <Link
-          to={toHall}
-          className={styles.buyLink}
-          aria-label={`Купить билет: ${event.title}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Купить билет
         </Link>
       </div>
       <Link to={toPage} className={styles.bodyLink}>

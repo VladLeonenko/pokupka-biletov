@@ -45,26 +45,8 @@
     transform: scale(1.07);
   }
 
-  .wrap:hover .buyLink {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
   .wrap:hover .shade {
-    opacity: 0.55;
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .buyLink {
-    opacity: 1;
-    pointer-events: auto;
-    font-size: 0.78rem;
-    padding: 11px 16px;
-  }
-
-  .shade {
-    opacity: 0.75;
+    opacity: 0.92;
   }
 }
 
@@ -224,34 +206,6 @@ img.img {
   padding: 5px 10px;
   border-radius: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.buyLink {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 14px;
-  z-index: 4;
-  display: block;
-  box-sizing: border-box;
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-align: center;
-  text-decoration: none;
-  color: #fff;
-  background: #ff4e18;
-  padding: 12px 18px;
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(255, 78, 24, 0.35);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease, background 0.2s ease;
-}
-
-.buyLink:hover {
-  background: #e54414;
-  color: #fff;
 }
 
 .body {

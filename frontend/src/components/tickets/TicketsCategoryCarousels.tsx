@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { parseISO, isValid } from 'date-fns';
 import {
   filterEventsClient,
+  ticketCheckoutHref,
   type NormalizedBiletEvent,
 } from '@/services/biletPublicApi';
 import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
 import { pinVenueAfishaEvents } from '@/utils/venueAfishaPin';
 import { sortEventsByTheaterDemand } from '@/utils/eventDemandRank';
+import { resolveEventCoverUrl } from '@/utils/ticketsPlaceholders';
 import styles from './TicketsCategoryCarousels.module.css';
 
 function venueCanonForDirection(dir: CategoryDirection): string | null {
@@ -59,6 +61,12 @@ function sortCategoryEvents(
     if (!a.isPremiere && b.isPremiere) return 1;
     return timeMs(a) - timeMs(b);
   });
+}
+
+function leadText(ev: NormalizedBiletEvent): string {
+  const text = ev.heroDescription?.trim() || ev.subtitle?.trim() || '';
+  if (!text) return '';
+  return text.length > 140 ? `${text.slice(0, 137).trim()}…` : text;
 }
 
 function isSportDirection(dir: CategoryDirection): boolean {
@@ -175,6 +183,7 @@ export function TicketsCategoryCarousels({
   const order = directions.length > 0 ? directions : rows.map((r) => r.dir);
   const nodes: ReactNode[] = [];
   let inserted = false;
+  let sectionIndex = 0;
 
   for (const dir of order) {
     const row = rowByKey.get(directionRowKey(dir));
@@ -182,6 +191,9 @@ export function TicketsCategoryCarousels({
       const href = buildEventsDirectionHref(dir);
       const rowKey = directionRowKey(dir);
       const titleId = `cat-${encodeURIComponent(rowKey)}`;
+      const fresh = sectionIndex % 2 === 0;
+      sectionIndex += 1;
+      const [lead, ...rest] = row.items;
       nodes.push(
         <section key={rowKey} className={styles.block} aria-labelledby={titleId}>
           <div className={styles.head}>
@@ -193,7 +205,19 @@ export function TicketsCategoryCarousels({
           </div>
           <div className={styles.stripBleed}>
             <div className={styles.strip} role="list">
-              {row.items.map((ev) => (
+              {fresh && lead ? (
+                <div className={styles.leadSlot} role="listitem">
+                  <Link className={styles.lead} to={ticketCheckoutHref(lead)}>
+                    <img src={resolveEventCoverUrl(lead)} alt="" />
+                    <span className={styles.leadShade} />
+                    <span className={styles.leadCopy}>
+                      <strong>{lead.title}</strong>
+                      {leadText(lead) ? <em>{leadText(lead)}</em> : null}
+                    </span>
+                  </Link>
+                </div>
+              ) : null}
+              {(fresh ? rest : row.items).map((ev) => (
                 <div key={ev.id} className={styles.cardSlot} role="listitem">
                   <EventPosterCard event={ev} variant="compact" />
                 </div>
@@ -215,4 +239,43 @@ export function TicketsCategoryCarousels({
   }
 
   return <>{nodes}</>;
+}
+
+/** «Ещё в афише» — тот же блок, что Театр / Детям: первый кадр крупный, дальше карточки. */
+export function AfishaMoreRow({ events }: { events: NormalizedBiletEvent[] }) {
+  if (events.length === 0) return null;
+  const [lead, ...rest] = events;
+  const titleId = 'more-heading';
+  return (
+    <section className={styles.block} aria-labelledby={titleId}>
+      <div className={styles.head}>
+        <AssemblingTitle text="Ещё в афише" to="/events" id={titleId} />
+        <Link className={styles.seeAll} to="/events">
+          <span>Все</span>
+          <CornerArrow />
+        </Link>
+      </div>
+      <div className={styles.stripBleed}>
+        <div className={styles.strip} role="list">
+          {lead ? (
+            <div className={styles.leadSlot} role="listitem">
+              <Link className={styles.lead} to={ticketCheckoutHref(lead)}>
+                <img src={resolveEventCoverUrl(lead)} alt="" />
+                <span className={styles.leadShade} />
+                <span className={styles.leadCopy}>
+                  <strong>{lead.title}</strong>
+                  {leadText(lead) ? <em>{leadText(lead)}</em> : null}
+                </span>
+              </Link>
+            </div>
+          ) : null}
+          {rest.map((ev) => (
+            <div key={ev.id} className={styles.cardSlot} role="listitem">
+              <EventPosterCard event={ev} variant="compact" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
