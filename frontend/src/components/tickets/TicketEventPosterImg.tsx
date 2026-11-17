@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { posterGradientFromId } from '@/utils/ticketsPlaceholders';
-import { toRoleWebpUrl } from '@/utils/optimizedImage';
+import { toRoleWebpSrcSet } from '@/utils/optimizedImage';
 
 type Props = {
   src?: string | null;
@@ -64,11 +64,15 @@ export function TicketEventPosterImg({
   }
 
   const useSrcSet = Boolean(srcSet && current === primary && useRaw);
-  const webp = !useRaw ? toRoleWebpUrl(current, role, width) : null;
-  const imgSrc = webp || current;
+  const generated = !useRaw ? toRoleWebpSrcSet(current, role) : null;
+  const imgSrc = generated?.src || current;
+  const srcSetOut = generated?.srcSet || (useSrcSet ? srcSet : undefined);
+  const sizesAttr =
+    sizes ||
+    (generated ? (role === 'cover' ? '100vw' : '(min-width: 1024px) 24vw, (min-width: 640px) 46vw, 92vw') : undefined);
 
   const onImgError = () => {
-    if (webp && !useRaw) {
+    if (generated && !useRaw) {
       setUseRaw(true);
       return;
     }
@@ -82,14 +86,14 @@ export function TicketEventPosterImg({
   };
 
   // <picture> + type=image/webp — браузер сразу берёт WebP-ветку, без sniff JPEG
-  if (webp) {
+  if (generated) {
     return (
       <picture>
-        <source srcSet={webp} type="image/webp" sizes={sizes || undefined} />
+        <source srcSet={generated.srcSet} type="image/webp" sizes={sizesAttr} />
         <img
           src={imgSrc}
-          srcSet={useSrcSet ? srcSet : undefined}
-          sizes={sizes || undefined}
+          srcSet={srcSetOut}
+          sizes={sizesAttr}
           alt={alt}
           className={className}
           loading={loading}
@@ -107,8 +111,8 @@ export function TicketEventPosterImg({
   return (
     <img
       src={imgSrc}
-      srcSet={useSrcSet ? srcSet : undefined}
-      sizes={sizes || undefined}
+      srcSet={srcSetOut}
+      sizes={sizesAttr}
       alt={alt}
       className={className}
       loading={loading}

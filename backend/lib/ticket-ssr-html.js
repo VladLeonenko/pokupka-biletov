@@ -17,7 +17,7 @@ function ssrCoverPicture(posterUrl, alt) {
   if (!posterUrl) return '';
   const altEsc = escapeHtml(alt || '');
   const q = encodeURIComponent(posterUrl);
-  const webp = `/api/images/optimize?url=${q}&f=webp&q=75&w=960`;
+  const webp = `/api/images/optimize?url=${q}&f=webp&w=1600&q=75`;
   return `<p><img src="${escapeHtml(webp)}" alt="Постер «${altEsc}»" width="320" height="480" fetchpriority="high" decoding="async" /></p>`;
 }
 

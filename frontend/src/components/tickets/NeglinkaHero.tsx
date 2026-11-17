@@ -55,16 +55,19 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
     : null;
   const img = coverInput ? resolveEventCoverUrl(coverInput) : '';
   const placeholderSrc = coverInput ? eventCategoryPlaceholderUrl(coverInput) : '';
-  const heroBg =
-    (img && toWebpUrl(img, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q })) || img || '';
-  const heroStyle = heroBg
-    ? ({
-        '--hero-image': `url("${heroBg.replace(/["\\]/g, '')}")`,
-      } as CSSProperties)
-    : undefined;
+  const heroHi =
+    (img && toWebpUrl(img, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q })) || '';
+  const heroLo = (img && toWebpUrl(img, { w: 1280, q: IMAGE_OPT.cover.q })) || '';
+  const heroBg = heroHi
+    ? `image-set(url("${heroHi}") 2x, url("${heroLo || heroHi}") 1x)`
+    : img
+      ? `url("${img.replace(/["\\]/g, '')}")`
+      : '';
+  const heroStyle = heroBg ? ({ '--hero-image': heroBg } as CSSProperties) : undefined;
 
   useEffect(() => {
-    if (loading || !heroBg || typeof document === 'undefined') return;
+    const preloadHref = heroHi || img;
+    if (loading || !preloadHref || typeof document === 'undefined') return;
     const id = 'tickets-hero-preload';
     let link = document.getElementById(id) as HTMLLinkElement | null;
     if (!link) {
@@ -76,10 +79,10 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
       document.head.appendChild(link);
     }
     try {
-      const abs = new URL(heroBg, window.location.origin).href;
-      if (link.href !== abs) link.href = heroBg;
+      const abs = new URL(preloadHref, window.location.origin).href;
+      if (link.href !== abs) link.href = preloadHref;
     } catch {
-      link.href = heroBg;
+      link.href = preloadHref;
     }
 
     if (slides.length < 2) return;
@@ -96,7 +99,7 @@ export function NeglinkaHero({ slides: slideInput, loading, telegramUrl, vkUrl }
       imgEl.src = nextWebp;
     }, 300);
     return () => window.clearTimeout(t);
-  }, [loading, heroBg, idx, slides]);
+  }, [loading, heroHi, img, idx, slides]);
 
   /** Swipe / trackpad на герое — как у ленты дат */
   useEffect(() => {

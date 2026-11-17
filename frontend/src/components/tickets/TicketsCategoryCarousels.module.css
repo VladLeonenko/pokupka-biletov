@@ -162,7 +162,14 @@
   background: #111;
 }
 
-.lead img {
+.lead picture {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.lead img,
+.leadImg {
   position: absolute;
   inset: 0;
   width: 100%;

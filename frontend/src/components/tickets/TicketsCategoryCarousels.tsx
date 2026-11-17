@@ -9,7 +9,8 @@ import { EventPosterCard } from '@/components/tickets/EventPosterCard';
 import { buildEventsDirectionHref, directionRowKey } from '@/utils/eventsDirectionHref';
 import { pinVenueAfishaEvents } from '@/utils/venueAfishaPin';
 import { sortEventsByTheaterDemand, theaterDemandScore } from '@/utils/eventDemandRank';
-import { resolveEventCoverUrl } from '@/utils/ticketsPlaceholders';
+import { resolveEventHeroUrl } from '@/utils/ticketsPlaceholders';
+import { TicketEventPosterImg } from '@/components/tickets/TicketEventPosterImg';
 import styles from './TicketsCategoryCarousels.module.css';
 
 function venueCanonForDirection(dir: CategoryDirection): string | null {
@@ -79,7 +80,18 @@ function LeadCard({ event }: { event: NormalizedBiletEvent }) {
   const meta = leadMeta(event);
   return (
     <Link className={styles.lead} to={ticketCheckoutHref(event)}>
-      <img src={resolveEventCoverUrl(event)} alt="" />
+      <TicketEventPosterImg
+        src={resolveEventHeroUrl(event)}
+        gradientId={event.id}
+        className={styles.leadImg}
+        role="card"
+        sizes="(min-width: 1024px) 48vw, 96vw"
+        alt=""
+        loading="lazy"
+        decoding="async"
+        width={1280}
+        height={720}
+      />
       <span className={styles.leadShade} />
       <span className={styles.leadCopy}>
         <span className={styles.leadKicker}>{score >= 150 ? 'Сейчас разбирают' : 'В афише'}</span>

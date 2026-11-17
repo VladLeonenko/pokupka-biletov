@@ -280,6 +280,25 @@ function toAbsUrl(base, maybeUrl) {
   return `${base}${s.startsWith('/') ? '' : '/'}${s}`;
 }
 
+/** Те же url/f/w/q, что toWebpUrl на клиенте, иначе preload и <img> качают разные файлы. */
+function coverLcpPreload(src) {
+  const raw = src != null ? String(src).trim() : '';
+  if (!raw) return '';
+  if (/\.(avif|webp)(\?|#|$)/i.test(raw)) {
+    return `<link rel="preload" as="image" href="${raw.replace(/"/g, '')}" fetchpriority="high" />`;
+  }
+  const widths = [1280, 1600, 1920];
+  const parts = widths.map((w) => {
+    const params = new URLSearchParams();
+    params.set('url', raw);
+    params.set('f', 'webp');
+    params.set('w', String(w));
+    params.set('q', '75');
+    return `/api/images/optimize?${params.toString()} ${w}w`;
+  });
+  return `<link rel="preload" as="image" imagesrcset="${parts.join(', ')}" imagesizes="100vw" type="image/webp" fetchpriority="high" />`;
+}
+
 function normalizeSlugText(slug) {
   return decodeURIComponent(String(slug || ''))
     .replace(/[-_]+/g, ' ')
@@ -821,7 +840,8 @@ async function generateSeoTags(url) {
         const keywordsMeta = keywordsSrc
           ? `\n    <meta name="keywords" content="${escapeHtml(keywordsSrc)}" />`
           : '';
-        const pageImage = toAbsUrl(base, (ctx && (ctx.bannerUrl || ctx.posterUrl)) || '');
+        const heroSrc = (ctx && (ctx.bannerUrl || ctx.posterUrl)) || '';
+        const pageImage = toAbsUrl(base, heroSrc);
         const shareImage = pickShareImage(ctx);
         const ogLine = ogImageMetaTags({
           base,
@@ -829,10 +849,7 @@ async function generateSeoTags(url) {
           alt: displayTitle,
           escapeHtml,
         });
-        // WebP+w=960 — AVIF cold encode ~1–2s delayed LCP; match TicketEventPosterImg cover.
-        const lcpPreload = pageImage
-          ? `<link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(pageImage)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`
-          : '';
+        const lcpPreload = coverLcpPreload(heroSrc);
         const locationJson =
           venueLabel || venueAddress
             ? {
@@ -965,7 +982,7 @@ async function generateSeoTags(url) {
         // Home LCP: same cover as buildHomeSsrHtml / FEATURED_HERO_IMAGE_URL
         if (normalized === '/') {
           const homeCover = '/uploads/images/bolshoi-novogodniy-balet-chaykovskogo-banner-v2.jpg';
-          out.metaTags += `\n    <link rel="preload" as="image" href="/api/images/optimize?url=${encodeURIComponent(homeCover)}&f=webp&q=75&w=960" type="image/webp" fetchpriority="high" />`;
+          out.metaTags += `\n    ${coverLcpPreload(homeCover)}`;
         }
         out.metaTags += `\n    ${breadcrumb}\n    ${itemListJson}`;
         if (normalized === '/case/bilet-vsem') {

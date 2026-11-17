@@ -8,13 +8,20 @@ export type ImageRole = 'cover' | 'card';
 
 const OPTIMIZE_PATH = '/api/images/optimize';
 
-/** Display-oriented defaults (2× retina-ish). */
+/**
+ * Retina budgets. Hero на 100vw при 2× — до 1920, карточка до 1280.
+ * Раньше 960/400: на десктопе и телефоне картинка растягивалась и пикселила.
+ */
 export const IMAGE_OPT = {
-  cover: { w: 960, q: 72 },
-  heroBg: { w: 1280, q: 70 },
-  /** Карточки афиши: хватает ~360 CSS px ×2dppx → 480–560; меньше = быстрее paint */
-  card: { w: 400, q: 68 },
+  cover: { w: 1920, q: 75 },
+  heroBg: { w: 1920, q: 75 },
+  card: { w: 1280, q: 74 },
 } as const;
+
+const ROLE_WIDTHS: Record<ImageRole, readonly number[]> = {
+  cover: [1280, 1600, 1920],
+  card: [640, 960, 1280],
+};
 
 function isRasterUrl(src: string): boolean {
   if (!src || src.startsWith('data:') || src.startsWith('blob:')) return false;
@@ -57,19 +64,32 @@ export function toAvifUrl(src: string, opts?: { w?: number; h?: number; q?: numb
   return toOptimizedUrl(src, 'avif', opts);
 }
 
-/** WebP URL for role with default width/quality. */
+/** Несколько ширин: браузер берёт файл под viewport × dpr, а не один зажатый кадр. */
+export function toRoleWebpSrcSet(
+  src: string,
+  role: ImageRole,
+): { src: string; srcSet: string } | null {
+  const q = role === 'cover' ? IMAGE_OPT.cover.q : IMAGE_OPT.card.q;
+  const parts: string[] = [];
+  let fallback: string | null = null;
+  for (const w of ROLE_WIDTHS[role]) {
+    const url = toWebpUrl(src, { w, q });
+    if (!url) return null;
+    parts.push(`${url} ${w}w`);
+    fallback = url;
+  }
+  if (!fallback) return null;
+  return { src: fallback, srcSet: parts.join(', ') };
+}
+
+/** Самый широкий WebP роли. widthAttr — только вёрстка, не бюджет пикселей. */
 export function toRoleWebpUrl(
   src: string,
   role: ImageRole,
   widthAttr?: number,
 ): string | null {
-  // cover: always 960 — width={1200} attrs are layout hints, not pixel budget
-  if (role === 'cover') {
-    return toWebpUrl(src, { w: IMAGE_OPT.cover.w, q: IMAGE_OPT.cover.q });
-  }
-  // card: фиксированный бюджет (~400px), иначе widthAttr×2 раздувает до 640 и тормозит paint
   void widthAttr;
-  return toWebpUrl(src, { w: IMAGE_OPT.card.w, q: IMAGE_OPT.card.q });
+  return toRoleWebpSrcSet(src, role)?.src ?? null;
 }
 
 export function isCoverImage(role: ImageRole): boolean {
