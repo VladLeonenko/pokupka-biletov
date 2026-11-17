@@ -1568,7 +1568,7 @@ export function TicketCheckoutPage() {
 
   const hallSchemeSubtitle = useMemo(() => {
     if (parseHallPreviewSectorCheckout(layoutJsonForStage)) {
-      return 'Партер, амфитеатр, бельэтаж, ярус или ложа. В секторе — число кресел, ложу берут целиком. Билеты пришлём после старта продаж.';
+      return 'Партер, амфитеатр, бельэтаж, ярус или ложа. В секторе — число мест, ложу берут целиком. Билеты пришлём после старта продаж.';
     }
     if (seatSelectionDisabledUi) {
       const lj = layoutJsonForStage as Record<string, unknown> | undefined;
@@ -2334,7 +2334,7 @@ export function TicketCheckoutPage() {
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'rgba(28,27,25,0.68)', lineHeight: 1.65 }}>
                   {offers.length > 0 && zonePreorderHall
-                    ? 'На схеме сектора, которые уже можно забронировать: партер, амфитеатр, бельэтаж, ярус или ложа. Нужен другой сектор, ложа целиком или больше кресел — оставьте заявку, вернёмся с вариантом и ценой.'
+                    ? 'На схеме сектора, которые уже можно забронировать: партер, амфитеатр, бельэтаж, ярус или ложа. Нужен другой сектор, ложа целиком или больше мест — оставьте заявку, вернёмся с вариантом и ценой.'
                     : 'Сейчас на сайте нет доступных предложений по этому мероприятию. Это не всегда значит, что билетов нет: мы можем уточнить наличие и вернуться с вариантами по цене и местам.'}
                 </Typography>
               </div>
@@ -2389,7 +2389,7 @@ export function TicketCheckoutPage() {
                     minRows={2}
                     placeholder={
                       zonePreorderHall
-                        ? 'Сектор или ложа, число кресел и бюджет'
+                        ? 'Сектор или ложа, число мест и бюджет'
                         : 'Сколько билетов нужно, желаемая зона или бюджет'
                     }
                     InputLabelProps={{ shrink: true }}
