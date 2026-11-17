@@ -100,8 +100,10 @@ function HowToBlock() {
       <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Typography variant="subtitle2">1. Создайте агента</Typography>
         <Typography variant="body2" color="text.secondary">
-          Кнопка «Агент» → укажите <b>код</b> (латиница, для URL), имя, % комиссии. Email/телефон
-          агента — для антифрода: его собственные покупки не засчитаются.
+          Кнопка «Агент» → укажите <b>код</b> (латиница, для URL), имя, % комиссии.{' '}
+          <b>% считается от наценки (прибыли)</b>, не от суммы заказа: розница − себестоимость
+          поставщика (промокод тоже вычитается из наценки). Email/телефон агента — антифрод: свои
+          покупки по своей ссылке не засчитываются.
         </Typography>
 
         <Typography variant="subtitle2">2. Выдайте ссылку</Typography>
@@ -154,7 +156,8 @@ function HowToBlock() {
 
         <Alert severity="info" sx={{ mt: 1 }}>
           Успех агента = только оплаты. Last-click: последняя ссылка агента за окно cookie побеждает.
-          Возврат/отмена paid → комиссия уходит в reversed.
+          Комиссия % — от наценки (final − себестоимость), не от GMV. Возврат/отмена paid → комиссия
+          reversed. Антифрод: email/телефон агента = его заказ не в статистике.
         </Alert>
       </AccordionDetails>
     </Accordion>
@@ -458,8 +461,8 @@ export function ReferralAgentsPage() {
               value={form.commission_type}
               onChange={(e) => setForm({ ...form, commission_type: e.target.value })}
             >
-              <MenuItem value="percent">% от суммы заказа</MenuItem>
-              <MenuItem value="fixed">Фикс, ₽ за заказ</MenuItem>
+              <MenuItem value="percent">% от наценки (прибыли)</MenuItem>
+              <MenuItem value="fixed">Фикс, ₽ за оплаченный заказ</MenuItem>
             </Select>
           </FormControl>
           <TextField

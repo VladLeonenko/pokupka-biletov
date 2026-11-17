@@ -78,13 +78,32 @@ function normalizeEmail(v) {
   return String(v || '').trim().toLowerCase();
 }
 
-function calcCommissionCents(agent, amountCents) {
-  const amount = Math.max(0, Number(amountCents) || 0);
+/**
+ * percent — от наценки (прибыли), не от GMV.
+ * fixed — фикс ₽ за оплаченный заказ.
+ */
+function calcCommissionCents(agent, { markupCents = 0 } = {}) {
   const val = Number(agent.commission_value) || 0;
   if (agent.commission_type === 'fixed') {
     return Math.max(0, Math.round(val * 100));
   }
-  return Math.max(0, Math.round((amount * val) / 100));
+  const base = Math.max(0, Number(markupCents) || 0);
+  return Math.max(0, Math.round((base * val) / 100));
+}
+
+function markupCentsFromOrder(orderRow) {
+  const meta =
+    orderRow?.payment_metadata && typeof orderRow.payment_metadata === 'object'
+      ? orderRow.payment_metadata
+      : {};
+  if (meta.markupRub != null && Number.isFinite(Number(meta.markupRub))) {
+    return Math.max(0, Math.round(Number(meta.markupRub) * 100));
+  }
+  if (meta.markup_cents != null && Number.isFinite(Number(meta.markup_cents))) {
+    return Math.max(0, Math.round(Number(meta.markup_cents)));
+  }
+  // Старые заказы без markupRub — комиссия 0% (не считаем от GMV)
+  return 0;
 }
 
 export async function getAgentByCode(code, { activeOnly = true } = {}) {
@@ -290,15 +309,17 @@ export async function recordReferralConversion(orderRow) {
   if (!agent) return null;
 
   const amountCents = Number(orderRow.total_cents) || 0;
-  const commissionCents = calcCommissionCents(agent, amountCents);
+  const markupCents = markupCentsFromOrder(orderRow);
+  const commissionCents = calcCommissionCents(agent, { markupCents });
 
   const { rows } = await pool.query(
     `INSERT INTO referral_conversions (
-       agent_id, order_id, click_id, amount_cents, commission_cents, status, paid_at
-     ) VALUES ($1,$2,$3,$4,$5,'approved', NOW())
+       agent_id, order_id, click_id, amount_cents, commission_cents, status, paid_at, notes
+     ) VALUES ($1,$2,$3,$4,$5,'approved', NOW(), $6)
      ON CONFLICT (order_id) DO UPDATE SET
        amount_cents = EXCLUDED.amount_cents,
        commission_cents = EXCLUDED.commission_cents,
+       notes = EXCLUDED.notes,
        status = CASE
          WHEN referral_conversions.status = 'reversed' THEN 'approved'
          ELSE referral_conversions.status
@@ -312,6 +333,7 @@ export async function recordReferralConversion(orderRow) {
       orderRow.referral_click_id || null,
       amountCents,
       commissionCents,
+      `markup_cents=${markupCents}`,
     ],
   );
   return rows[0] || null;

@@ -52,6 +52,14 @@ function parseOfferRow(offerPayload) {
   return { row, unitRub: unit };
 }
 
+/** Себестоимость места после наценки (поле SupplierPrice). Без него — 0. */
+export function supplierUnitRubFromOfferRow(row) {
+  if (!row || typeof row !== 'object') return 0;
+  const s = Number(row.SupplierPrice ?? row.supplierPrice);
+  if (Number.isFinite(s) && s >= 0) return s;
+  return 0;
+}
+
 function isDemoCheckoutPayload(repertoireId, offerId) {
   return repertoireId === DEMO_REPERTOIRE_ID && String(offerId).startsWith('tb-demo-');
 }
@@ -225,6 +233,7 @@ async function assertSeatsInCachedOffer({ offerId, repertoireId, seats, cachedRo
  */
 export async function prepareLocalSeatHold({ offerSelections, repertoireId }) {
   let baseRub = 0;
+  let supplierRub = 0;
   let isDemo = true;
   const softRows = [];
 
@@ -239,7 +248,25 @@ export async function prepareLocalSeatHold({ offerSelections, repertoireId }) {
       seats: selection.seats,
       cachedRow,
     });
-    baseRub += unitRub * selection.seats.length;
+    const seatCount = selection.seats.length;
+    baseRub += unitRub * seatCount;
+    // Себестоимость: SupplierPrice с публичной выдачи (после наценки), иначе с кэша
+    let supplierUnit = supplierUnitRubFromOfferRow(cachedRow);
+    if (!(supplierUnit > 0)) {
+      try {
+        const { payload } = await getPublicOffersForRepertoire(repertoireId, { cacheOnly: true });
+        const listed = Array.isArray(payload?.ResultData) ? payload.ResultData : [];
+        const fromList = listed.find(
+          (row) => row && typeof row === 'object' && String(row.Id ?? '') === String(selection.offerId),
+        );
+        supplierUnit = supplierUnitRubFromOfferRow(fromList);
+      } catch {
+        /* ignore */
+      }
+    }
+    // Не даём себестоимости быть выше розницы (битые данные)
+    if (supplierUnit > unitRub) supplierUnit = unitRub;
+    supplierRub += supplierUnit * seatCount;
     isDemo = isDemo && demoOffer;
     for (const seat of selection.seats) {
       softRows.push({ OfferId: selection.offerId, Seat: String(seat), SoftHold: true });
@@ -248,6 +275,8 @@ export async function prepareLocalSeatHold({ offerSelections, repertoireId }) {
 
   return {
     baseRub,
+    supplierRub: Math.round(supplierRub * 100) / 100,
+    markupRub: Math.max(0, Math.round((baseRub - supplierRub) * 100) / 100),
     makeData: {
       Success: true,
       Method: 'LocalSoftHold',

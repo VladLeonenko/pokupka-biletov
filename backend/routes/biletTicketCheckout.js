@@ -190,6 +190,7 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       // Только локальная цена/проверка мест — MakeOrder у GetBilet после оплаты
       const priced = await prepareLocalSeatHold({ offerSelections, repertoireId });
       const baseRub = priced.baseRub;
+      const supplierRub = Math.max(0, Number(priced.supplierRub) || 0);
       let finalRub = baseRub;
       let promoId = null;
       let discountRub = 0;
@@ -205,6 +206,8 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         promoId = pv.promo?.id ?? null;
         discountRub = Math.max(0, Number(pv.discountRub) || Math.max(0, baseRub - finalRub));
       }
+      // Прибыль = розница после промо − себестоимость (промо ест нашу наценку)
+      const markupRub = Math.max(0, Math.round((finalRub - supplierRub) * 100) / 100);
 
       const amountKopecks = Math.round(finalRub * 100);
       if (amountKopecks < 100) {
@@ -276,6 +279,8 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         promoId,
         promoCode: promoCode || undefined,
         baseRub,
+        supplierRub: supplierRub > 0 ? supplierRub : undefined,
+        markupRub: markupRub > 0 ? markupRub : 0,
         discountRub: discountRub > 0 ? discountRub : undefined,
         finalRub,
         fanId: fanId || undefined,
