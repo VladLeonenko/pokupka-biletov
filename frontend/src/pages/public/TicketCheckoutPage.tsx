@@ -78,6 +78,7 @@ import {
   isNamedTicketOfferRow,
   isOfferListedOnCheckout,
   isSeatlessOfferRow,
+  sessionHasListedSeats,
 } from '@/utils/ticketOfferSeats';
 import {
   type OfferFilterState,
@@ -561,7 +562,7 @@ export function TicketCheckoutPage() {
    * Fallback — группировка текущих offers (старые ответы / 1 сеанс).
    */
   const allSessionsSorted = useMemo(() => {
-    const apiSessions = pageBundle?.sessions;
+    const apiSessions = pageBundle?.sessions?.filter(sessionHasListedSeats);
     if (Array.isArray(apiSessions) && apiSessions.length > 0) {
       let entries = apiSessions.map((s) => {
         const stub: OfferRow = {
@@ -1178,6 +1179,7 @@ export function TicketCheckoutPage() {
 
   const minPriceHero = useMemo(() => {
     const fromSessions = (pageBundle?.sessions ?? [])
+      .filter(sessionHasListedSeats)
       .map((s) => s.minPrice)
       .filter((n): n is number => n != null && Number.isFinite(n) && n > 0);
     if (fromSessions.length > 0) return Math.min(...fromSessions);

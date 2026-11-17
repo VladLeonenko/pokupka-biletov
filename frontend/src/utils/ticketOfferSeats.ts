@@ -46,3 +46,8 @@ export function isOfferListedOnCheckout(
 ): boolean {
   return !isSeatlessOfferRow(row);
 }
+
+/** Сеанс из индекса API: seatCount 0 = на дату только офферы с пустым SeatList. */
+export function sessionHasListedSeats(session: { seatCount?: number | null }): boolean {
+  return session.seatCount == null || session.seatCount > 0;
+}
