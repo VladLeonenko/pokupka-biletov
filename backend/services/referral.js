@@ -286,9 +286,8 @@ export async function resolveAttributionForCheckout({
   }
 
   if (!agent) return null;
-  if (isSelfReferral(agent, { email: customerEmail, phone: customerPhone })) {
-    return { skipped: true, reason: 'self_referral', agent };
-  }
+  // Self-buy по своей ссылке разрешён: наценка остаётся у нас, комиссия — доля от неё.
+  // (isSelfReferral оставлен на случай будущих отчётов / флагов, в атрибуции не режем.)
 
   if (!clickId && visitorKey) {
     const { rows } = await pool.query(

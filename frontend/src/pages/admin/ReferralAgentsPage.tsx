@@ -102,8 +102,8 @@ function HowToBlock() {
         <Typography variant="body2" color="text.secondary">
           Кнопка «Агент» → укажите <b>код</b> (латиница, для URL), имя, % комиссии.{' '}
           <b>% считается от наценки (прибыли)</b>, не от суммы заказа: розница − себестоимость
-          поставщика (промокод тоже вычитается из наценки). Email/телефон агента — антифрод: свои
-          покупки по своей ссылке не засчитываются.
+          поставщика (промокод тоже вычитается из наценки). Свои покупки агента по своей ссылке —
+          ок, наценка всё равно ваша. Email/телефон — просто контакты агента (не блокируют заказ).
         </Typography>
 
         <Typography variant="subtitle2">2. Выдайте ссылку</Typography>
@@ -157,7 +157,7 @@ function HowToBlock() {
         <Alert severity="info" sx={{ mt: 1 }}>
           Успех агента = только оплаты. Last-click: последняя ссылка агента за окно cookie побеждает.
           Комиссия % — от наценки (final − себестоимость), не от GMV. Возврат/отмена paid → комиссия
-          reversed. Антифрод: email/телефон агента = его заказ не в статистике.
+          reversed.
         </Alert>
       </AccordionDetails>
     </Accordion>
@@ -445,12 +445,12 @@ export function ReferralAgentsPage() {
             required
           />
           <TextField
-            label="Email (антифрод self-order)"
+            label="Email агента"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
           <TextField
-            label="Телефон (антифрод)"
+            label="Телефон агента"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
           />
