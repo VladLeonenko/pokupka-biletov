@@ -2474,20 +2474,31 @@ export function TicketHallInteractiveBlock({
   }, []);
   const showZoneHint = hallPreviewSectorCheckout && !zoneHintDismissed && !selectedSectorSummary;
   /**
-   * Большой театр: конкретных мест в продаже нет — только зоны и предзаказ,
-   * места внутри зоны подбираем при оформлении. Всплывашка не должна намекать
-   * на выбор ряда/места.
+   * Большой: предзаказ без даты старта продаж (её могут сдвинуть).
+   * Сектор — кресла внутри, ряд и место в письме с билетом.
+   * Ложа целиком — состав мест известен, билеты после выкупа на старте продаж.
    */
-  const zonePreorderNote = hallPreviewSectorCheckout
-    ? 'Предзаказ на зону · номера мест подтвердим при отправке билетов'
-    : null;
+  const sectorPreorderNote = useCallback(
+    (sector: SectorSummary) => {
+      if (!hallPreviewSectorCheckout) return null;
+      if (sector.meta.boxWhole) {
+        return 'Ложа целиком, места известны. Билеты пришлём после старта продаж.';
+      }
+      return 'Гарантируем места в секторе. Ряд и кресло пришлём с билетами.';
+    },
+    [hallPreviewSectorCheckout],
+  );
   const sectorAvailabilityLabel = useCallback(
     (sector: SectorSummary) => {
       if (sector.seatCount <= 0) return 'Нет мест в наличии';
       if (!hallPreviewSectorCheckout) return `${sector.seatCount} свободных мест`;
+      if (sector.meta.boxWhole) {
+        const n = sector.seatCount;
+        return n > 0 ? `Ложа целиком · ${n} мест` : 'Ложа целиком';
+      }
       const cap = sector.meta.maxQuantity;
       const limit = cap && cap > 0 ? Math.min(cap, sector.seatCount) : sector.seatCount;
-      return `Доступно в зоне: до ${limit} билетов`;
+      return `В секторе до ${limit} билетов`;
     },
     [hallPreviewSectorCheckout],
   );
@@ -3584,7 +3595,11 @@ export function TicketHallInteractiveBlock({
                         <img
                           className={styles.categoryModalImage}
                           src={selectedSectorPreviewUrl}
-                          alt={`Вид с трибуны — ${selectedSectorSummary.meta.label}`}
+                          alt={
+                            hallPreviewSectorCheckout
+                              ? `Вид из сектора — ${selectedSectorSummary.meta.label}`
+                              : `Вид с трибуны — ${selectedSectorSummary.meta.label}`
+                          }
                           loading="lazy"
                           decoding="async"
                         />
@@ -3594,10 +3609,10 @@ export function TicketHallInteractiveBlock({
                     </div>
                     <p className={styles.categoryModalHint}>
                       {selectedSectorSummary.meta.boxWhole
-                        ? 'Эта ложа продаётся только целиком — один заказ на всю ложу. Отдельные места в ней не продаём.'
+                        ? 'Места в ложе уже определены — бронируете её целиком. Выкупим билеты на старте продаж и отправим вам.'
                         : sectorQtyCheckout
                           ? hallPreviewSectorCheckout
-                            ? 'В Большом театре билеты продаются зонами, а не отдельными местами. Укажите количество — мы забронируем столько мест в этой зоне, а номера мест подтвердим при отправке билетов.'
+                            ? 'Предзаказ до старта продаж. Кресла закрепляем в этом секторе, нумерацию пришлём вместе с билетами.'
                             : 'Выберите количество билетов. Цена единая для зоны (максимальная среди предложений).'
                           : `${categoryModalRowsLabel ? `${categoryModalRowsLabel}. ` : ''}Выберите количество билетов. Система автоматически подберёт лучшие места в выбранных зонах. При заказе более одного билета места будут рядом.`}
                     </p>
@@ -3608,9 +3623,9 @@ export function TicketHallInteractiveBlock({
                     ) : null}
                     <p className={styles.categoryModalLead}>
                       {selectedSectorSummary.meta.boxWhole
-                        ? 'Предзаказ на ложу целиком. Номера мест подтвердим при отправке билетов.'
+                        ? 'Предзаказ на ложу целиком. Билеты пришлём после старта продаж.'
                         : hallPreviewSectorCheckout
-                          ? 'Предзаказ на зону. Номера мест подтвердим при отправке билетов.'
+                          ? 'Гарантируем места в этом секторе. Ряд и кресло подтвердим при отправке билетов.'
                           : sectorQtyCheckout
                             ? 'Бронирование по сектору — места подберёт система.'
                             : 'Для вас собраны предложения из разных источников. Выбирайте лучшее!'}
@@ -3673,7 +3688,7 @@ export function TicketHallInteractiveBlock({
                           </div>
                         ) : (
                           <div className={styles.sectorOfferEmpty}>
-                            Сейчас в этой зоне нет доступных мест для бронирования.
+                            Сейчас в этом секторе нет мест для бронирования.
                           </div>
                         )
                       ) : selectedSectorOffersWithSeats.length > 0 ? (
@@ -3908,10 +3923,10 @@ export function TicketHallInteractiveBlock({
           <div className={styles.zoneHintLayer} data-zone-hint="true">
             <div className={styles.zoneHintCard} role="status">
               <span className={styles.zoneHintText}>
-                <strong>Места продаются зонами</strong>
+                <strong>Сектора зала</strong>
                 <span>
-                  Нажмите на цветную зону и укажите количество билетов. Номера мест подтвердим
-                  при отправке билетов.
+                  Партер, амфитеатр, бельэтаж, ярус или ложа. В секторе укажите число кресел — ряд
+                  и место пришлём с билетами. Ложу берут целиком.
                 </span>
               </span>
               <button
@@ -4012,9 +4027,9 @@ export function TicketHallInteractiveBlock({
                 <br />
                 <strong>{hoverSector.meta.label}</strong>
                 <br />
-                {zonePreorderNote ? (
+                {sectorPreorderNote(hoverSector) ? (
                   <>
-                    <span style={{ color: 'rgba(0,0,0,0.5)' }}>{zonePreorderNote}</span>
+                    <span style={{ color: 'rgba(0,0,0,0.5)' }}>{sectorPreorderNote(hoverSector)}</span>
                     <br />
                   </>
                 ) : null}
@@ -4024,7 +4039,7 @@ export function TicketHallInteractiveBlock({
                         hoverSector.maxPrice && hoverSector.maxPrice !== hoverSector.minPrice
                           ? ` - ${formatRub(hoverSector.maxPrice)}`
                           : ''
-                      }/за билет`
+                      }${hoverSector.meta.boxWhole ? ' за ложу' : '/за билет'}`
                     : 'Цена уточняется'}
                 </strong>
               </Typography>

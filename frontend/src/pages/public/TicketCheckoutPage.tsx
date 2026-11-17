@@ -1565,7 +1565,7 @@ export function TicketCheckoutPage() {
 
   const hallSchemeSubtitle = useMemo(() => {
     if (parseHallPreviewSectorCheckout(layoutJsonForStage)) {
-      return 'Кликните по сектору на схеме и выберите количество билетов. Номера мест подтвердим при отправке билетов.';
+      return 'Партер, амфитеатр, бельэтаж, ярус или ложа. В секторе — число кресел, ложу берут целиком. Билеты пришлём после старта продаж.';
     }
     if (seatSelectionDisabledUi) {
       const lj = layoutJsonForStage as Record<string, unknown> | undefined;
