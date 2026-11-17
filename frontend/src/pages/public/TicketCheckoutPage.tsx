@@ -58,6 +58,7 @@ import {
   resolveEventCoverUrl,
   resolveEventHeroUrl,
 } from '@/utils/ticketsPlaceholders';
+import { resolveHeroObjectPosition } from '@/utils/heroObjectPosition';
 import {
   footballStadiumStageMapKeyForRepertoire,
   isFootballStadiumCheckoutLayout,
@@ -1154,6 +1155,8 @@ export function TicketCheckoutPage() {
     });
   }, [ctx?.bannerUrl, ctx?.posterUrl, bannerQ, posterQ, displayTitle, mergedVenue]);
 
+  const heroFocus = useMemo(() => resolveHeroObjectPosition(coverUrl), [coverUrl]);
+
   const posterSideUrl = useMemo(() => {
     return resolveEventCoverUrl({
       title: displayTitle,
@@ -1838,7 +1841,7 @@ export function TicketCheckoutPage() {
       />
       <Box className={styles.page}>
         <div className={`${styles.hero} ${isSupercupSportCheckout ? styles.heroSport : ''}`}>
-          <div className={styles.heroMedia}>
+          <div className={styles.heroMedia} style={{ ['--hero-focus' as string]: heroFocus }}>
             <TicketEventPosterImg
               src={coverUrl}
               fallbackSrc={coverPlaceholder}
