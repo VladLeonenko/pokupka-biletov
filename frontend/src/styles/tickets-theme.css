@@ -72,6 +72,10 @@ html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-root {
   background-color: #fff !important;
   color: #111 !important;
   color-scheme: light;
+  /* body на витрине font-size:150% — input { font: inherit } раздувал текст,
+     лейбл MUI оставался 1rem и садился на placeholder. */
+  font-size: 1rem;
+  line-height: 1.4375em;
 }
 
 html[data-theme='tickets'] body[data-tickets='true'] .MuiOutlinedInput-notchedOutline {
@@ -93,11 +97,15 @@ html[data-theme='tickets'] body[data-tickets='true'] select {
   color-scheme: light;
 }
 
-html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-input::placeholder,
-html[data-theme='tickets'] body[data-tickets='true'] .MuiOutlinedInput-input::placeholder {
+/* Цвет плейсхолдера — теми же псевдоэлементами, что MUI.
+   ::placeholder отдельно от ::-webkit-input-placeholder в Safari рисует текст дважды.
+   opacity не задаём: пока лейбл не уехал вверх, MUI прячет placeholder (opacity:0 !important). */
+html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-input::-webkit-input-placeholder {
   color: rgba(0, 0, 0, 0.42) !important;
   -webkit-text-fill-color: rgba(0, 0, 0, 0.42);
-  opacity: 1 !important;
+}
+html[data-theme='tickets'] body[data-tickets='true'] .MuiInputBase-input::-moz-placeholder {
+  color: rgba(0, 0, 0, 0.42) !important;
 }
 
 body[data-tickets='true'] .MuiInputLabel-root {

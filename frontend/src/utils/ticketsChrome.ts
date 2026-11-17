@@ -29,6 +29,7 @@ export function matchesTicketsChromePath(pathname: string): boolean {
   ) {
     return true;
   }
+  if (p === '/register' || p.startsWith('/auth/')) return true;
   if (p.startsWith('/account')) return true;
   if (p.startsWith('/orders/')) return true;
   if (p.startsWith('/ticket')) return true;

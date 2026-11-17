@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, CircularProgress, Paper, Typography } from '@mui/material';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthProvider';
+import styles from './LoginPage.module.css';
 
 export function MagicLinkPage() {
   const [searchParams] = useSearchParams();
@@ -31,22 +31,26 @@ export function MagicLinkPage() {
     };
   }, [searchParams, magicLinkLogin, navigate]);
 
-  if (user) {
-    return null;
-  }
+  if (user) return null;
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <Paper sx={{ p: 3, width: 360 }} elevation={3}>
+    <main className={styles.wrap}>
+      <div className={styles.card}>
+        <p className={styles.kicker}>Кабинет</p>
+        <h1 className={styles.title}>Вход по ссылке</h1>
         {error ? (
-          <Typography color="error">{error}</Typography>
+          <>
+            <p className={styles.error}>{error}</p>
+            <div className={styles.links}>
+              <p>
+                <Link to="/auth/login">Войти с паролем</Link>
+              </p>
+            </div>
+          </>
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <CircularProgress size={28} />
-            <Typography>Вход по ссылке…</Typography>
-          </Box>
+          <p className={styles.note}>Проверяем ссылку…</p>
         )}
-      </Paper>
-    </Box>
+      </div>
+    </main>
   );
 }

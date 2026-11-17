@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Box, Button, Paper, TextField, Typography } from '@mui/material';
+import { Link, useSearchParams } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { resetPasswordWithToken } from '@/services/ecommerceApi';
 import { setAuthToken } from '@/utils/authStorage';
+import styles from './LoginPage.module.css';
 
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -38,51 +38,45 @@ export function ResetPasswordPage() {
     }
   };
 
-  if (!token) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <Paper sx={{ p: 3, width: 400 }}>
-          <Typography color="error">Некорректная ссылка сброса пароля.</Typography>
-        </Paper>
-      </Box>
-    );
-  }
-
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <Paper sx={{ p: 3, width: 400 }} elevation={3}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Новый пароль
-        </Typography>
-        <form onSubmit={onSubmit}>
-          <TextField
-            label="Пароль"
-            type="password"
-            fullWidth
-            sx={{ mb: 2 }}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-          <TextField
-            label="Повтор пароля"
-            type="password"
-            fullWidth
-            sx={{ mb: 2 }}
-            value={password2}
-            onChange={(e) => setPassword2(e.target.value)}
-            autoComplete="new-password"
-          />
-          {error && (
-            <Typography color="error" sx={{ mb: 1 }}>
-              {error}
-            </Typography>
-          )}
-          <Button type="submit" variant="contained" fullWidth disabled={loading}>
-            Сохранить
-          </Button>
-        </form>
-      </Paper>
-    </Box>
+    <main className={styles.wrap}>
+      <div className={styles.card}>
+        <p className={styles.kicker}>Кабинет</p>
+        <h1 className={styles.title}>Новый пароль</h1>
+        {!token ? (
+          <p className={styles.error}>Некорректная ссылка сброса пароля.</p>
+        ) : (
+          <form className={styles.form} onSubmit={onSubmit}>
+            <input
+              className={styles.field}
+              type="password"
+              required
+              autoComplete="new-password"
+              placeholder="Пароль"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <input
+              className={styles.field}
+              type="password"
+              required
+              autoComplete="new-password"
+              placeholder="Повтор пароля"
+              value={password2}
+              onChange={(e) => setPassword2(e.target.value)}
+            />
+            {error ? <p className={styles.error}>{error}</p> : null}
+            <button className={styles.submit} type="submit" disabled={loading}>
+              {loading ? 'Сохраняем…' : 'Сохранить'}
+            </button>
+          </form>
+        )}
+        <div className={styles.links}>
+          <p>
+            <Link to="/auth/login">Назад к входу</Link>
+          </p>
+        </div>
+      </div>
+    </main>
   );
 }

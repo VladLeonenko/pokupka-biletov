@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Box, Button, Paper, TextField, Typography, Link as MuiLink } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { requestMagicLink } from '@/services/ecommerceApi';
+import styles from './LoginPage.module.css';
 
 export function RequestMagicLinkPage() {
   const [email, setEmail] = useState('');
@@ -24,40 +24,35 @@ export function RequestMagicLinkPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <Paper sx={{ p: 3, width: 400 }} elevation={3}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Вход без пароля
-        </Typography>
+    <main className={styles.wrap}>
+      <div className={styles.card}>
+        <p className={styles.kicker}>Кабинет</p>
+        <h1 className={styles.title}>Вход без пароля</h1>
         {done ? (
-          <Typography>Если аккаунт с таким email есть, мы отправили ссылку для входа.</Typography>
+          <p className={styles.note}>Если аккаунт с таким email есть, мы отправили ссылку для входа.</p>
         ) : (
-          <form onSubmit={onSubmit}>
-            <TextField
-              label="Email"
+          <form className={styles.form} onSubmit={onSubmit}>
+            <input
+              className={styles.field}
               type="email"
-              fullWidth
               required
-              sx={{ mb: 2 }}
+              autoComplete="email"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            {error && (
-              <Typography color="error" sx={{ mb: 1 }}>
-                {error}
-              </Typography>
-            )}
-            <Button type="submit" variant="contained" fullWidth disabled={loading}>
-              Отправить ссылку
-            </Button>
+            {error ? <p className={styles.error}>{error}</p> : null}
+            <button className={styles.submit} type="submit" disabled={loading}>
+              {loading ? 'Отправляем…' : 'Отправить ссылку'}
+            </button>
           </form>
         )}
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <MuiLink component={Link} to="/admin/login">
-            Назад к входу
-          </MuiLink>
-        </Box>
-      </Paper>
-    </Box>
+        <div className={styles.links}>
+          <p>
+            <Link to="/auth/login">Назад к входу</Link>
+          </p>
+        </div>
+      </div>
+    </main>
   );
 }

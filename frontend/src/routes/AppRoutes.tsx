@@ -89,7 +89,6 @@ const RequisitesPage = lazy(() =>
   import('@/pages/public/RequisitesPage').then((m) => ({ default: m.RequisitesPage }))
 );
 const PrivacySettingsPage = lazy(() => import('@/pages/public/PrivacySettingsPage').then(m => ({ default: m.PrivacySettingsPage })));
-const PublicAIChatPage = lazy(() => import('@/pages/public/PublicAIChatPage').then(m => ({ default: m.PublicAIChatPage })));
 const ContactsPage = lazy(() => import('@/pages/public/ContactsPage').then(m => ({ default: m.ContactsPage })));
 const ReturnsExchangePage = lazy(() =>
   import('@/pages/public/ReturnsExchangePage').then((m) => ({ default: m.ReturnsExchangePage }))
@@ -100,11 +99,6 @@ const TicketsFaqPage = lazy(() =>
 const OrderDetailPage = lazy(() => import('@/pages/public/OrderDetailPage').then(m => ({ default: m.OrderDetailPage })));
 const RegisterPage = lazy(() => import('@/pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const CharityPage = lazy(() => import('@/pages/public/CharityPage').then(m => ({ default: m.CharityPage })));
-const SeoPositionCheckerPage = lazy(() => import('@/pages/public/SeoPositionCheckerPage').then(m => ({ default: m.SeoPositionCheckerPage })));
-const TechnicalAuditPage = lazy(() => import('@/pages/public/TechnicalAuditPage').then(m => ({ default: m.TechnicalAuditPage })));
-const ReputationMonitorPage = lazy(() => import('@/pages/public/ReputationMonitorPage').then(m => ({ default: m.ReputationMonitorPage })));
-const RoiCalculatorPage = lazy(() => import('@/pages/public/RoiCalculatorPage').then(m => ({ default: m.RoiCalculatorPage })));
-const PublicPageView = lazy(() => import('@/pages/public/PublicPageView').then(m => ({ default: m.PublicPageView })));
 const ProposalViewPage = lazy(() => import('@/pages/commercial-proposals/ProposalViewPage').then(m => ({ default: m.ProposalViewPage })));
 
 // Lazy load остальных админских страниц
@@ -234,19 +228,14 @@ export function AppRoutes() {
       <Route path="/auth/request-link" element={<RequestMagicLinkPage />} />
       <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/tools/position-checker" element={<SeoPositionCheckerPage />} />
-      <Route path="/tools/technical-audit" element={<TechnicalAuditPage />} />
-      <Route path="/tools/reputation-monitor" element={<ReputationMonitorPage />} />
-      <Route path="/tools/roi-calculator" element={<RoiCalculatorPage />} />
       <Route path="/gift/:orderNumber" element={<GiftTicketPage />} />
       <Route path="/orders/:orderNumber" element={<OrderDetailPage />} />
       <Route path="/charity" element={<CharityPage />} />
-      <Route path="/ai-chat" element={<PublicAIChatPage />} />
       <Route path="/contacts" element={<ContactsPage />} />
       <Route path="/returns" element={<ReturnsExchangePage />} />
       <Route path="/faq" element={<TicketsFaqPage />} />
       
-      {/* Admin routes — ДОЛЖНЫ быть до /:slug, иначе /admin матчится как slug */}
+      {/* Admin routes */}
       <Route path="/admin/login" element={<LoginPage />} />
       <Route path="/admin" element={<Protected><Suspense fallback={<LoadingFallback />}><DashboardPage /></Suspense></Protected>} />
       <Route path="/admin/sales-analytics" element={<ProtectedAdmin><SalesAnalyticsPage /></ProtectedAdmin>} />
@@ -311,7 +300,6 @@ export function AppRoutes() {
       <Route path="/forms" element={<Navigate to="/admin/forms" replace />} />
       <Route path="/funnels" element={<Navigate to="/admin/funnels" replace />} />
       <Route path="/404" element={<NotFoundPage />} />
-      <Route path="/:slug" element={<PublicPageView />} />
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
     </Suspense>

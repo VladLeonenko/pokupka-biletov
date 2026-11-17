@@ -18,7 +18,6 @@ import {
   buildStaticLandingSsrHtml,
   buildEventsIndexSsrHtml,
   buildHomeSsrHtml,
-  buildCmsPageSsrHtml,
   buildNotFoundSsrHtml,
   buildEventItemListSchema,
 } from '../lib/ticket-ssr-html.js';
@@ -33,7 +32,6 @@ import {
   resolveRepertoireSlug,
 } from '../services/repertoirePublicContext.js';
 import ticketPool from '../ticketDb.js';
-import pool from '../db.js';
 import { computeOffersSnapshot } from '../services/ticketPriceAlerts.js';
 import { getPublicOffersForRepertoire } from '../services/getbiletOffersPublic.js';
 import {
@@ -63,6 +61,8 @@ const GONE_PUBLIC_PATHS = new Set([
   '/new-client',
   '/products',
   '/cases',
+  '/ai-chat',
+  '/tools',
 ]);
 
 const AMBIGUOUS_TICKET_PATHS = new Set([
@@ -96,9 +96,63 @@ function isNoindexPublicPath(pathname) {
   return NOINDEX_PATH_PREFIXES.some((prefix) => n === prefix || n.startsWith(`${prefix}/`));
 }
 
-/** Явный /404 — HTTP 404 + брендовый SSR. Остальные unknown идут в SPA/CMS (/:slug). */
+function isKnownAppPath(pathname) {
+  const n = normalizePublicPath(pathname);
+  if (
+    [
+      '/',
+      '/afisha',
+      '/events',
+      '/events/map',
+      '/events/venues',
+      '/search',
+      '/cart',
+      '/wishlist',
+      '/contacts',
+      '/returns',
+      '/faq',
+      '/politic',
+      '/privacy',
+      '/offer',
+      '/cookies',
+      '/requisites',
+      '/404',
+      '/case/bilet-vsem',
+      '/charity',
+      '/register',
+      '/login',
+      '/auth/login',
+      '/admin/login',
+      '/pages',
+      '/seo',
+      '/carousels',
+      '/promotions',
+      '/forms',
+      '/funnels',
+    ].includes(n)
+  ) {
+    return true;
+  }
+  return [
+    '/account',
+    '/orders/',
+    '/ticket',
+    '/events/',
+    '/case/',
+    '/admin',
+    '/auth/',
+    '/gift/',
+    '/r/',
+    '/commercial-proposals/',
+    '/test/',
+  ].some((prefix) => n.startsWith(prefix));
+}
+
+/** /404 и всё, что больше не страница приложения (старые CMS slug). */
 function isNotFoundPublicPath(pathname) {
-  return normalizePublicPath(pathname) === '/404';
+  const n = normalizePublicPath(pathname);
+  if (n === '/404') return true;
+  return !isKnownAppPath(n);
 }
 
 function looksLikeGetbiletId(value) {
@@ -339,7 +393,8 @@ export async function seoRenderer(req, res, next) {
     (GONE_PUBLIC_PATHS.has(req.path) ||
       req.path.startsWith('/blog/') ||
       req.path.startsWith('/products/') ||
-      req.path.startsWith('/cases/'))
+      req.path.startsWith('/cases/') ||
+      req.path.startsWith('/tools/'))
   ) {
     return res.status(410).type('text/plain; charset=utf-8').send('Gone');
   }
@@ -550,7 +605,7 @@ async function generateSeoTags(url) {
     const brand = siteBrand();
 
     // 404 — отдельный noindex-лендинг в стиле сайта (не «Служебная страница»).
-    if (url === '/404' || url === '/404/') {
+    if (isNotFoundPublicPath(url)) {
       const canonical = `${base}/404`;
       const title = 'Страница не найдена';
       const description =
@@ -1015,35 +1070,6 @@ async function generateSeoTags(url) {
                 h1: staticSeo.h1 || staticSeo.title,
                 events,
               };
-      } else if (!normalized.startsWith('/ticket') && !normalized.startsWith('/events') && !normalized.startsWith('/admin')) {
-        const cms = await fetchCmsPageForSsr(normalized);
-        if (cms) {
-          const slugPath = cms.slug.startsWith('/') ? cms.slug : `/${cms.slug}`;
-          const canonical = `${base}${slugPath === '/' ? '/' : slugPath}`;
-          const catalogHit = resolveSitePageSeo(slugPath);
-          const title = catalogHit?.title || cms.seo_title || cms.title || 'Страница';
-          const description = (catalogHit?.description || cms.seo_description || '').slice(0, 160);
-          const h1 = catalogHit?.h1 || cms.title || title;
-          out.metaTags = `${metaBlockForPage({
-            base,
-            brand,
-            canonical,
-            title,
-            description: description || title,
-            ogType: 'website',
-          })}
-    ${breadcrumbJsonLd(base, [
-      { name: 'Главная', path: '/' },
-      { name: h1, path: slugPath },
-    ])}`;
-          out.ssr = {
-            kind: 'cms',
-            title: h1,
-            description,
-            bodyHtml: cms.body || '',
-            path: slugPath,
-          };
-        }
       }
     }
   } catch (err) {
@@ -1070,7 +1096,6 @@ async function generateSsrContent(url, seoCtx) {
   if (ssr.kind === 'events-index') return buildEventsIndexSsrHtml({ events: ssr.events || [] });
   if (ssr.kind === 'home') return buildHomeSsrHtml({ events: ssr.events || [] });
   if (ssr.kind === 'landing') return buildStaticLandingSsrHtml(ssr);
-  if (ssr.kind === 'cms') return buildCmsPageSsrHtml(ssr);
   return '';
 }
 
@@ -1302,38 +1327,6 @@ async function fetchRelatedEventsForSsr(excludeId, limit = 6) {
   const all = await fetchPublishedEventsForSsr(limit + 8);
   const ex = String(excludeId || '');
   return all.filter((e) => e.id !== ex).slice(0, limit);
-}
-
-async function fetchCmsPageForSsr(pathOrSlug) {
-  try {
-    let slug = String(pathOrSlug || '').trim();
-    if (!slug || slug === '/') return null;
-    if (!slug.startsWith('/')) slug = `/${slug}`;
-    // blocklist мусорных/служебных
-    if (
-      slug.startsWith('/api') ||
-      slug.startsWith('/admin') ||
-      slug.startsWith('/assets') ||
-      slug.includes('.')
-    ) {
-      return null;
-    }
-    const r = await pool.query(
-      `SELECT slug, title, body, seo_title, seo_description, robots_index
-       FROM pages
-       WHERE is_published = TRUE
-         AND (slug = $1 OR slug = $2)
-       LIMIT 1`,
-      [slug, slug.replace(/^\//, '')],
-    );
-    const row = r.rows[0];
-    if (!row) return null;
-    if (row.robots_index === false) return null;
-    return row;
-  } catch (err) {
-    console.warn('[SSR] cms page:', err.message);
-    return null;
-  }
 }
 
 /** Seed React Query for Batch B hydrate (same keys as frontend). */

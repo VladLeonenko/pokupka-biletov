@@ -1,31 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  Box,
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Alert,
-  CircularProgress,
-  Checkbox,
-  FormControlLabel,
-  InputAdornment,
-  IconButton,
-  Grid,
-  Divider,
-} from '@mui/material';
-import {
-  Visibility,
-  VisibilityOff,
-  Email,
-  Lock,
-  Person,
-  Phone,
-} from '@mui/icons-material';
 import { useAuth } from '@/auth/AuthProvider';
 import { SeoMetaTags } from '@/components/common/SeoMetaTags';
+import styles from '../auth/LoginPage.module.css';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -202,294 +179,130 @@ export function RegisterPage() {
   return (
     <>
       <SeoMetaTags
-        title="Регистрация — PrimeCoder"
-        description="Создайте аккаунт для доступа к личному кабинету и всем услугам"
+        title="Регистрация"
+        description="Создайте аккаунт, чтобы покупать билеты и смотреть заказы в личном кабинете."
         url={currentUrl}
         noindex={true}
       />
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-          bgcolor: 'background.default',
-        }}
-      >
-        <Container maxWidth="sm">
-          <Paper
-            elevation={3}
-            sx={{
-              p: 4,
-              borderRadius: 2,
-            }}
-          >
-            {!requiresVerification ? (
-              <>
-                <Typography variant="overline" sx={{ letterSpacing: '0.25em', color: 'rgba(255,255,255,0.4)', display: 'block', mb: 1, textAlign: 'center' }}>Аккаунт</Typography>
-                <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.8rem', md: '2.25rem' }, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', mb: 1, textAlign: 'center' }}>
-                  Регистрация
-                </Typography>
-                <Typography sx={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', mb: 3 }}>
-                  Создайте аккаунт для доступа к личному кабинету
-                </Typography>
-
-                {error && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {error}
-                  </Alert>
+      <main className={styles.wrap}>
+        <div className={styles.card}>
+          <p className={styles.kicker}>Кабинет</p>
+          {!requiresVerification ? (
+            <>
+              <h1 className={styles.title}>Регистрация</h1>
+              <p className={styles.lead}>Аккаунт нужен, чтобы хранить заказы и входить без повторного ввода данных.</p>
+              <form className={styles.form} onSubmit={handleSubmit}>
+                <input
+                  className={`${styles.field} ${errors.name ? styles.fieldError : ''}`}
+                  placeholder="Имя"
+                  autoComplete="name"
+                  value={formData.name}
+                  onChange={handleChange('name')}
+                />
+                {errors.name ? <p className={styles.error}>{errors.name}</p> : null}
+                <input
+                  className={`${styles.field} ${errors.email ? styles.fieldError : ''}`}
+                  type="email"
+                  placeholder="Email"
+                  autoComplete="email"
+                  value={formData.email}
+                  onChange={handleChange('email')}
+                />
+                {errors.email ? <p className={styles.error}>{errors.email}</p> : null}
+                <input
+                  className={`${styles.field} ${errors.phone ? styles.fieldError : ''}`}
+                  type="tel"
+                  placeholder="Телефон, если есть"
+                  autoComplete="tel"
+                  value={formData.phone}
+                  onChange={handleChange('phone')}
+                />
+                {errors.phone ? <p className={styles.error}>{errors.phone}</p> : <p className={styles.hint}>Необязательно</p>}
+                <div className={styles.fieldWrap}>
+                  <input
+                    className={`${styles.field} ${styles.fieldPad} ${errors.password ? styles.fieldError : ''}`}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Пароль"
+                    autoComplete="new-password"
+                    value={formData.password}
+                    onChange={handleChange('password')}
+                  />
+                  <button className={styles.ghost} type="button" onClick={() => setShowPassword((v) => !v)}>
+                    {showPassword ? 'Скрыть' : 'Показать'}
+                  </button>
+                </div>
+                {errors.password ? (
+                  <p className={styles.error}>{errors.password}</p>
+                ) : (
+                  <p className={styles.hint}>От 8 символов: буквы разного регистра, цифра и спецсимвол</p>
                 )}
-
-                <form onSubmit={handleSubmit}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Имя *"
-                        value={formData.name}
-                        onChange={handleChange('name')}
-                        error={!!errors.name}
-                        helperText={errors.name}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Person />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        type="email"
-                        label="Email *"
-                        value={formData.email}
-                        onChange={handleChange('email')}
-                        error={!!errors.email}
-                        helperText={errors.email}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Email />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        type="tel"
-                        label="Телефон"
-                        placeholder="+7 (999) 123-45-67"
-                        value={formData.phone}
-                        onChange={handleChange('phone')}
-                        error={!!errors.phone}
-                        helperText={errors.phone || 'Необязательно'}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Phone />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        type={showPassword ? 'text' : 'password'}
-                        label="Пароль *"
-                        value={formData.password}
-                        onChange={handleChange('password')}
-                        error={!!errors.password}
-                        helperText={
-                          errors.password ||
-                          'Минимум 8 символов, заглавные и строчные буквы, цифры, спецсимволы'
-                        }
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Lock />
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={() => setShowPassword(!showPassword)}
-                                edge="end"
-                              >
-                                {showPassword ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        label="Подтвердите пароль *"
-                        value={formData.confirmPassword}
-                        onChange={handleChange('confirmPassword')}
-                        error={!!errors.confirmPassword}
-                        helperText={errors.confirmPassword}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Lock />
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                edge="end"
-                              >
-                                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={agreeToTerms}
-                            onChange={(e) => setAgreeToTerms(e.target.checked)}
-                          />
-                        }
-                        label={
-                          <Typography variant="body2">
-                            Я согласен с{' '}
-                            <Link to="/terms" target="_blank" style={{ color: 'inherit' }}>
-                              условиями использования
-                            </Link>{' '}
-                            *
-                          </Typography>
-                        }
-                      />
-                      {errors.terms && (
-                        <Typography variant="caption" color="error" sx={{ ml: 4, display: 'block' }}>
-                          {errors.terms}
-                        </Typography>
-                      )}
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={agreeToPrivacy}
-                            onChange={(e) => setAgreeToPrivacy(e.target.checked)}
-                          />
-                        }
-                        label={
-                          <Typography variant="body2">
-                            Я согласен на{' '}
-                            <Link to="/privacy" target="_blank" style={{ color: 'inherit' }}>
-                              обработку персональных данных
-                            </Link>{' '}
-                            *
-                          </Typography>
-                        }
-                      />
-                      {errors.privacy && (
-                        <Typography variant="caption" color="error" sx={{ ml: 4, display: 'block' }}>
-                          {errors.privacy}
-                        </Typography>
-                      )}
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        fullWidth
-                        size="large"
-                        disabled={loading}
-                        sx={{ mt: 2 }}
-                      >
-                        {loading ? <CircularProgress size={24} /> : 'Зарегистрироваться'}
-                      </Button>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          или
-                        </Typography>
-                      </Divider>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Уже есть аккаунт?{' '}
-                          <Link to="/admin/login" style={{ fontWeight: 'bold' }}>
-                            Войти
-                          </Link>
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </form>
-              </>
-            ) : (
-              <>
-                <Typography variant="h5" component="h1" gutterBottom align="center">
-                  Подтверждение email
-                </Typography>
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-                  Мы отправили код подтверждения на {verificationEmail}
-                </Typography>
-
-                {error && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {error}
-                  </Alert>
-                )}
-
-                {success && (
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    Код подтверждения отправлен на вашу почту
-                  </Alert>
-                )}
-
-                <TextField
-                  fullWidth
-                  label="Код подтверждения"
+                <div className={styles.fieldWrap}>
+                  <input
+                    className={`${styles.field} ${styles.fieldPad} ${errors.confirmPassword ? styles.fieldError : ''}`}
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Повтор пароля"
+                    autoComplete="new-password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange('confirmPassword')}
+                  />
+                  <button className={styles.ghost} type="button" onClick={() => setShowConfirmPassword((v) => !v)}>
+                    {showConfirmPassword ? 'Скрыть' : 'Показать'}
+                  </button>
+                </div>
+                {errors.confirmPassword ? <p className={styles.error}>{errors.confirmPassword}</p> : null}
+                <label className={styles.check}>
+                  <input type="checkbox" checked={agreeToTerms} onChange={(e) => setAgreeToTerms(e.target.checked)} />
+                  <span>
+                    Согласен с <Link to="/offer">условиями оферты</Link>
+                  </span>
+                </label>
+                {errors.terms ? <p className={styles.error}>{errors.terms}</p> : null}
+                <label className={styles.check}>
+                  <input type="checkbox" checked={agreeToPrivacy} onChange={(e) => setAgreeToPrivacy(e.target.checked)} />
+                  <span>
+                    Согласен на <Link to="/privacy">обработку персональных данных</Link>
+                  </span>
+                </label>
+                {errors.privacy ? <p className={styles.error}>{errors.privacy}</p> : null}
+                {error ? <p className={styles.error}>{error}</p> : null}
+                <button className={styles.submit} type="submit" disabled={loading}>
+                  {loading ? 'Создаём…' : 'Зарегистрироваться'}
+                </button>
+              </form>
+              <div className={styles.links}>
+                <p>
+                  Уже есть аккаунт? <Link to="/auth/login">Войти</Link>
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className={styles.title}>Подтверждение</h1>
+              <p className={styles.lead}>Код отправили на {verificationEmail}</p>
+              {success ? <p className={styles.note}>Проверьте почту и введите 6 цифр.</p> : null}
+              <form
+                className={styles.form}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleVerifyCode();
+                }}
+              >
+                <input
+                  className={styles.field}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="Код из письма"
+                  maxLength={6}
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
-                  sx={{ mb: 2 }}
-                  placeholder="Введите 6-значный код"
-                  inputProps={{ maxLength: 6 }}
                 />
-
-                <Button
-                  variant="contained"
-                  fullWidth
-                  size="large"
-                  onClick={handleVerifyCode}
-                  disabled={loading || !verificationCode.trim()}
-                  sx={{ mb: 2 }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Подтвердить'}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  fullWidth
+                {error ? <p className={styles.error}>{error}</p> : null}
+                <button className={styles.submit} type="submit" disabled={loading || !verificationCode.trim()}>
+                  {loading ? 'Проверяем…' : 'Подтвердить'}
+                </button>
+                <button
+                  className={styles.textBtn}
+                  type="button"
                   onClick={() => {
                     setRequiresVerification(false);
                     setVerificationCode('');
@@ -497,39 +310,12 @@ export function RegisterPage() {
                   }}
                 >
                   Назад
-                </Button>
-              </>
-            )}
-          </Paper>
-        </Container>
-      </Box>
-      <style>{`
-        /* Стили для меню - скрыто по умолчанию */
-        .menu {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          opacity: 0 !important;
-          visibility: hidden !important;
-          z-index: 50 !important;
-          pointer-events: none !important;
-          transition: opacity 0.3s ease, visibility 0.3s ease !important;
-        }
-
-        #burger-toggle:checked ~ .menu {
-          opacity: 1 !important;
-          visibility: visible !important;
-          pointer-events: auto !important;
-          z-index: 52 !important;
-        }
-
-        body {
-          position: relative !important;
-        }
-      `}</style>
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </main>
     </>
   );
 }
-

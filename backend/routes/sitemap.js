@@ -12,39 +12,6 @@ const router = express.Router();
 const BASE_URL = siteBaseUrl();
 const BRAND = siteBrand();
 
-/** Пути, которые отдаются как 410 — не кладём в sitemap/llms. */
-const GONE_PATH_PREFIXES = ['/blog', '/products', '/cases', '/catalog', '/about', '/portfolio', '/reviews', '/promotion', '/new-client', '/services'];
-
-/** Legacy CMS / мусор PrimeCoder — не индексируем. */
-const SITEMAP_SLUG_BLOCKLIST = new Set([
-  '/komanda-primecoder',
-  'komanda-primecoder',
-  '/team',
-  'team',
-  '/services',
-  'services',
-  '/pricing',
-  'pricing',
-]);
-
-function isGonePublicPath(slugOrPath) {
-  const p = String(slugOrPath || '').trim();
-  if (!p) return false;
-  const path = p.startsWith('/') ? p : `/${p}`;
-  if (SITEMAP_SLUG_BLOCKLIST.has(p) || SITEMAP_SLUG_BLOCKLIST.has(path)) return true;
-  return GONE_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
-}
-
-async function poolRows(label, sql, params = []) {
-  try {
-    const r = await pool.query(sql, params);
-    return r.rows;
-  } catch (e) {
-    console.error(`[sitemap] ${label}:`, e.message);
-    return [];
-  }
-}
-
 async function ticketRows(label, sql, params = []) {
   try {
     const r = await ticketPool.query(sql, params);
@@ -94,25 +61,6 @@ export async function handleSitemapXml(req, res) {
       changefreq: 'daily',
       priority: '1.0',
     });
-
-    const pagesRows = await poolRows(
-      'pages',
-      `SELECT slug, updated_at, robots_index
-       FROM pages
-       WHERE is_published = TRUE
-       AND (robots_index IS NULL OR robots_index = TRUE)
-       ORDER BY updated_at DESC`,
-    );
-    for (const page of pagesRows) {
-      if (isGonePublicPath(page.slug)) continue;
-      const slug = page.slug === '/' ? '' : page.slug;
-      urls.push({
-        loc: BASE_URL + slug,
-        lastmod: formatDate(page.updated_at),
-        changefreq: getChangeFreq(page.slug, 'page'),
-        priority: getPriority(page.slug, 'page'),
-      });
-    }
 
     let ticketEventRows = await ticketRows(
       'getbilet_events',
