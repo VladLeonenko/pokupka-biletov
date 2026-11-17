@@ -56,6 +56,7 @@ import {
 import {
   eventCategoryPlaceholderUrl,
   resolveEventCoverUrl,
+  resolveEventHeroUrl,
 } from '@/utils/ticketsPlaceholders';
 import {
   footballStadiumStageMapKeyForRepertoire,
@@ -1145,7 +1146,7 @@ export function TicketCheckoutPage() {
   const coverUrl = useMemo(() => {
     const poster = ctx?.posterUrl || posterQ || null;
     const banner = ctx?.bannerUrl || bannerQ || null;
-    return resolveEventCoverUrl({
+    return resolveEventHeroUrl({
       title: displayTitle,
       venue: mergedVenue,
       imageUrl: poster,

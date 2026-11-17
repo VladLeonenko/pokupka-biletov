@@ -104,7 +104,7 @@ function coverOverride(ev: EventCoverInput): string | null {
   return null;
 }
 
-/** Реальная обложка или заглушка по типу события. */
+/** Реальная обложка или заглушка по типу события. Карточки: портрет, потом баннер. */
 export function resolveEventCoverUrl(ev: EventCoverInput): string {
   const forced = coverOverride(ev);
   if (forced) return forced;
@@ -116,6 +116,20 @@ export function resolveEventCoverUrl(ev: EventCoverInput): string {
     categoryLabel: ev.categoryLabel || undefined,
   });
   return eventPlaceholderUrl(key);
+}
+
+/**
+ * Широкий hero страницы события: ландшафтный баннер.
+ * Портретный постер на 100svh + object-fit:cover кропает кадр в лицо и мылит его.
+ */
+export function resolveEventHeroUrl(ev: EventCoverInput): string {
+  const forced = coverOverride(ev);
+  if (forced) return forced;
+  const banner = (ev.bannerUrl || '').trim();
+  if (banner) return banner;
+  const poster = (ev.imageUrl || '').trim();
+  if (poster) return poster;
+  return eventCategoryPlaceholderUrl(ev);
 }
 
 /** Заглушка для события (без учёта imageUrl) — для onError после битой CDN-картинки. */

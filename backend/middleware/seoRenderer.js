@@ -821,7 +821,7 @@ async function generateSeoTags(url) {
         const keywordsMeta = keywordsSrc
           ? `\n    <meta name="keywords" content="${escapeHtml(keywordsSrc)}" />`
           : '';
-        const pageImage = toAbsUrl(base, (ctx && (ctx.posterUrl || ctx.bannerUrl)) || '');
+        const pageImage = toAbsUrl(base, (ctx && (ctx.bannerUrl || ctx.posterUrl)) || '');
         const shareImage = pickShareImage(ctx);
         const ogLine = ogImageMetaTags({
           base,
