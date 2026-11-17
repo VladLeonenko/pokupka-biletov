@@ -4,6 +4,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
 import { referralCheckoutFields } from '@/utils/referral';
+import { ensureYmClientId } from '@/utils/ymClient';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import { FAN_ID_NOTICE, isValidFanId, isFanIdRequiredForRepertoire, normalizeFanId } from '@/utils/fanIdRequiredEvents';
 import { TicketHoldTimer } from '@/components/tickets/TicketHoldTimer';
@@ -156,6 +157,7 @@ export function TicketPurchaseDialog({
 
   const checkoutMut = useMutation({
     mutationFn: async () => {
+      await ensureYmClientId();
       return checkoutBiletTickets({
         offerId,
         seats,

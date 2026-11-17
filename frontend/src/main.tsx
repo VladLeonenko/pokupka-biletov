@@ -3,8 +3,10 @@ import '@/styles/theme.css';
 import '@/styles/global.css';
 import { errorMonitoring } from './utils/errorMonitoring';
 import { installChunkLoadRecovery } from '@/utils/chunkLoadRecovery';
+import { ensureYmClientId } from '@/utils/ymClient';
 
 installChunkLoadRecovery();
+if (typeof window !== 'undefined') void ensureYmClientId();
 
 errorMonitoring.init();
 

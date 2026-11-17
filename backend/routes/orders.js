@@ -9,6 +9,11 @@ import { sendOrderCreatedEmail, sendOrderStatusChangedEmail } from '../services/
 import { fetchRemotePaymentState } from '../services/payment/remotePaymentStatus.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
 import { extractFanIdFromOrder } from '../utils/orderFanId.js';
+import {
+  markBrowserPurchaseSent,
+  reportMetrikaPurchase,
+  saveMetrikaIds,
+} from '../services/metrikaPurchase.js';
 
 const router = express.Router();
 
@@ -552,6 +557,52 @@ router.get('/:orderNumber/payment-status', async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/:orderNumber/metrika-purchase', async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+    const userId = req.user?.id;
+    const sessionId = userId ? null : req.headers['x-session-id'];
+
+    let orderQuery;
+    let params;
+    if (userId) {
+      orderQuery = 'SELECT * FROM orders WHERE order_number = $1 AND user_id = $2';
+      params = [orderNumber, userId];
+    } else {
+      orderQuery = 'SELECT * FROM orders WHERE order_number = $1 AND session_id = $2';
+      params = [orderNumber, sessionId];
+    }
+
+    const orderResult = await pool.query(orderQuery, params);
+    const order = orderResult.rows[0];
+    if (!order) return res.status(404).json({ sent: false, error: 'Order not found' });
+
+    const paid = order.payment_status === 'paid' || order.status === 'paid' || order.status === 'completed';
+    if (!paid) return res.json({ sent: false, reason: 'not_paid' });
+
+    if (req.body?.browserSent === true) {
+      await markBrowserPurchaseSent(order.id);
+      return res.json({ sent: true, via: 'browser' });
+    }
+
+    const ymClientId = typeof req.body?.ymClientId === 'string' ? req.body.ymClientId.trim().slice(0, 32) : '';
+    const yclid = typeof req.body?.yclid === 'string' ? req.body.yclid.trim().slice(0, 128) : '';
+    await saveMetrikaIds(order.id, {
+      ymClientId: /^\d{6,32}$/.test(ymClientId) ? ymClientId : '',
+      yclid: /^[A-Za-z0-9_-]{6,128}$/.test(yclid) ? yclid : '',
+    });
+
+    const result = await reportMetrikaPurchase(order);
+    res.json({
+      sent: Boolean(result.uploaded || result.already),
+      reason: result.reason || null,
+    });
+  } catch (e) {
+    console.warn('[orders] metrika-purchase', e?.message || e);
+    res.status(500).json({ sent: false, reason: 'error' });
   }
 });
 

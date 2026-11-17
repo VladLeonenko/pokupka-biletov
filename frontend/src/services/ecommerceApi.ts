@@ -242,6 +242,23 @@ export type OrderPaymentStatusResponse = {
   lastPaymentPollAt?: string | null;
 };
 
+export async function reportPaidOrderToMetrika(
+  orderNumber: string,
+  body: { ymClientId?: string; yclid?: string; browserSent?: boolean },
+): Promise<{ sent: boolean; reason?: string | null }> {
+  const res = await doFetch(
+    `${getApiBaseUrl()}/api/public/orders/${encodeURIComponent(orderNumber)}/metrika-purchase`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) return { sent: false, reason: `http_${res.status}` };
+  const data = (await res.json().catch(() => ({}))) as { sent?: boolean; reason?: string | null };
+  return { sent: Boolean(data.sent), reason: data.reason };
+}
+
 export async function getOrderPaymentStatus(orderNumber: string): Promise<OrderPaymentStatusResponse> {
   const res = await doFetch(
     `${getApiBaseUrl()}/api/public/orders/${encodeURIComponent(orderNumber)}/payment-status`

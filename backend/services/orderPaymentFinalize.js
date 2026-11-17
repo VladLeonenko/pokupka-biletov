@@ -267,6 +267,12 @@ export async function finalizePaidOrder(orderRow, { ticketRefs = [], runPaidHook
 
   const fresh = await pool.query('SELECT * FROM orders WHERE id = $1', [orderRow.id]);
   const order = fresh.rows[0];
+  try {
+    const { reportMetrikaPurchase } = await import('./metrikaPurchase.js');
+    await reportMetrikaPurchase(order);
+  } catch (e) {
+    console.warn('[orderPaymentFinalize] metrika purchase:', e?.message || e);
+  }
   if (typeof runPaidHooks === 'function') {
     await runPaidHooks({ ...order, user_id: userId || order.user_id });
   }

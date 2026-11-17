@@ -231,7 +231,9 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
             ? req.headers['x-visitor-key']
             : '';
       const ymClientIdRaw =
-        typeof req.body?.ymClientId === 'string' ? req.body.ymClientId.trim().slice(0, 64) : '';
+        typeof req.body?.ymClientId === 'string' ? req.body.ymClientId.trim().slice(0, 32) : '';
+      const yclidRaw =
+        typeof req.body?.yclid === 'string' ? req.body.yclid.trim().slice(0, 128) : '';
 
       let referralAgentId = null;
       let referralClickId = null;
@@ -289,7 +291,8 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         getbiletOrderId: null,
         getbiletOrderIds: [],
         isDemo: priced.isDemo,
-        ymClientId: ymClientIdRaw || undefined,
+        ymClientId: /^\d{6,32}$/.test(ymClientIdRaw) ? ymClientIdRaw : undefined,
+        yclid: /^[A-Za-z0-9_-]{6,128}$/.test(yclidRaw) ? yclidRaw : undefined,
         ...(referralMeta || {}),
       };
 

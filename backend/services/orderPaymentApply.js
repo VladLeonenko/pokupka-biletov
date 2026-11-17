@@ -41,6 +41,12 @@ async function storeTicketRefsIfNeeded(orderRow, ticketRefs) {
 export async function applyOrderPaidState(orderRow, { externalPaymentId, ticketRefs } = {}) {
   if (alreadyPaid(orderRow)) {
     await storeTicketRefsIfNeeded(orderRow, ticketRefs);
+    try {
+      const { reportMetrikaPurchase } = await import('./metrikaPurchase.js');
+      await reportMetrikaPurchase(orderRow);
+    } catch (e) {
+      console.warn('[orderPaymentApply] metrika purchase:', e?.message || e);
+    }
     return orderRow;
   }
 

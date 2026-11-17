@@ -1,0 +1,83 @@
+import { YANDEX_METRIKA_COUNTER_ID } from '@/utils/analyticsConstants';
+
+const CID_KEY = 'ym_client_id';
+const YCLID_KEY = 'ym_yclid';
+
+function cacheClientId(id: string) {
+  try {
+    sessionStorage.setItem(CID_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}
+
+function readCookieClientId(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|; )_ym_uid=([^;]+)/);
+  const raw = match ? decodeURIComponent(match[1]) : '';
+  return /^\d{6,32}$/.test(raw) ? raw : null;
+}
+
+/** ClientID Метрики: кэш getClientID, иначе cookie _ym_uid. */
+export function getYmClientId(): string | null {
+  try {
+    const cached = sessionStorage.getItem(CID_KEY) || '';
+    if (/^\d{6,32}$/.test(cached)) return cached;
+  } catch {
+    /* ignore */
+  }
+  const fromCookie = readCookieClientId();
+  if (fromCookie) cacheClientId(fromCookie);
+  return fromCookie;
+}
+
+export function getStoredYclid(): string | null {
+  try {
+    const raw = sessionStorage.getItem(YCLID_KEY) || '';
+    return /^[A-Za-z0-9_-]{6,128}$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberYclidFromLocation(search?: string) {
+  if (typeof window === 'undefined') return;
+  const yclid = new URLSearchParams(search ?? window.location.search).get('yclid') || '';
+  if (!/^[A-Za-z0-9_-]{6,128}$/.test(yclid)) return;
+  try {
+    sessionStorage.setItem(YCLID_KEY, yclid);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Дождаться ClientID счётчика. Без него офлайн-конверсию оплаты не к чему привязать. */
+export function ensureYmClientId(timeoutMs = 1500): Promise<string | null> {
+  rememberYclidFromLocation();
+  const existing = getYmClientId();
+  if (existing) return Promise.resolve(existing);
+  if (typeof window === 'undefined' || typeof window.ym !== 'function') return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (id: string | null) => {
+      if (settled) return;
+      settled = true;
+      const clean = id && /^\d{6,32}$/.test(id) ? id : null;
+      if (clean) cacheClientId(clean);
+      resolve(clean || getYmClientId());
+    };
+    const timer = window.setTimeout(() => finish(null), timeoutMs);
+    try {
+      window.ym(YANDEX_METRIKA_COUNTER_ID, 'getClientID', (id: string) => {
+        window.clearTimeout(timer);
+        const clean = id && /^\d{6,32}$/.test(String(id)) ? String(id) : null;
+        if (clean) cacheClientId(clean);
+        finish(clean);
+      });
+    } catch {
+      window.clearTimeout(timer);
+      finish(null);
+    }
+  });
+}

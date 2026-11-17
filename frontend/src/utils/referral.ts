@@ -4,6 +4,9 @@
 import Cookies from 'js-cookie';
 import { getApiBase } from '@/utils/apiBase';
 import { YANDEX_METRIKA_COUNTER_ID } from '@/utils/analyticsConstants';
+import { getStoredYclid, getYmClientId } from '@/utils/ymClient';
+
+export { getYmClientId };
 
 const REF_COOKIE = 'bv_ref';
 const VID_COOKIE = 'bv_vid';
@@ -63,15 +66,6 @@ export function setStoredRefCode(code: string, days = 30) {
     localStorage.setItem(REF_LS, c);
   } catch {
     /* ignore */
-  }
-}
-
-export function getYmClientId(): string | null {
-  try {
-    const raw = Cookies.get('_ym_uid') || Cookies.get(`_ym${YANDEX_METRIKA_COUNTER_ID}_uid`);
-    return raw ? String(raw).slice(0, 64) : null;
-  } catch {
-    return null;
   }
 }
 
@@ -214,12 +208,14 @@ export function referralCheckoutFields(): {
   refCode?: string;
   visitorKey?: string;
   ymClientId?: string;
+  yclid?: string;
 } {
   const refCode = getStoredRefCode() || undefined;
   return {
     refCode,
     visitorKey: getVisitorKey(),
     ymClientId: getYmClientId() || undefined,
+    yclid: getStoredYclid() || undefined,
   };
 }
 

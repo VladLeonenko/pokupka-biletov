@@ -7,6 +7,8 @@ import { SeoMetaTags } from '@/components/common/SeoMetaTags';
 import { getAdminOrder, getOrder, getOrderPaymentStatus } from '@/services/ecommerceApi';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import { pushPurchase } from '@/utils/dataLayer';
+import { reportPaidOrderToMetrika } from '@/services/ecommerceApi';
+import { ensureYmClientId, getStoredYclid } from '@/utils/ymClient';
 import { celebrateLogoPaid } from '@/components/tickets/TicketsSiteLogo';
 
 type OrderDetailPageProps = {
@@ -57,13 +59,13 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
     if (status !== 'paid') return;
     const storageKey = `ym_purchase_${orderNumber}`;
     try {
-      if (purchaseGoalSent.current || sessionStorage.getItem(storageKey)) return;
-      purchaseGoalSent.current = true;
-      sessionStorage.setItem(storageKey, '1');
+      if (sessionStorage.getItem(storageKey)) return;
     } catch {
-      if (purchaseGoalSent.current) return;
-      purchaseGoalSent.current = true;
+      /* ignore */
     }
+    if (purchaseGoalSent.current) return;
+    purchaseGoalSent.current = true;
+
     const totalCents =
       typeof (order as any).totalCents === 'number'
         ? (order as any).totalCents
@@ -71,12 +73,6 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
           ? (order as any).total
           : undefined;
     const totalRub = totalCents != null ? totalCents / 100 : undefined;
-    celebrateLogoPaid();
-    reachMetrikaGoal('purchase', {
-      order_number: orderNumber,
-      order_price: totalRub,
-      currency: 'RUB',
-    });
     const products = (order.items || []).map((item: any, idx: number) => {
       const priceCents = item.priceCents ?? item.price_cents;
       return {
@@ -86,7 +82,44 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
         quantity: item.quantity != null ? Number(item.quantity) : 1,
       };
     });
-    pushPurchase(orderNumber, products, totalRub);
+    celebrateLogoPaid();
+
+    void (async () => {
+      const ymClientId = await ensureYmClientId();
+      let sent = false;
+      try {
+        const report = await reportPaidOrderToMetrika(orderNumber, {
+          ymClientId: ymClientId || undefined,
+          yclid: getStoredYclid() || undefined,
+        });
+        sent = report.sent;
+      } catch {
+        sent = false;
+      }
+      pushPurchase(orderNumber, products, totalRub);
+      if (!sent && typeof window.ym === 'function') {
+        reachMetrikaGoal('purchase', {
+          order_number: orderNumber,
+          order_price: totalRub,
+          currency: 'RUB',
+        });
+        try {
+          await reportPaidOrderToMetrika(orderNumber, { browserSent: true });
+        } catch {
+          /* цель уже ушла из браузера */
+        }
+        sent = true;
+      }
+      if (sent) {
+        try {
+          sessionStorage.setItem(storageKey, '1');
+        } catch {
+          /* ignore */
+        }
+      } else {
+        purchaseGoalSent.current = false;
+      }
+    })();
   }, [adminView, order, orderNumber, paymentPoll?.paymentStatus]);
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
