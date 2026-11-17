@@ -21,6 +21,7 @@ import {
 import { registerTicketPriceAlertRoutes } from './ticketPriceAlerts.js';
 import { registerTicketGiftRoutes } from './ticketGift.js';
 import { parseTicketGiftFromCheckoutBody } from '../utils/ticketGift.js';
+import { resolveAttributionForCheckout } from '../services/referral.js';
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -211,6 +212,56 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       }
 
       const orderNumber = generateOrderNumber();
+
+      const refCodeRaw =
+        typeof req.body?.refCode === 'string'
+          ? req.body.refCode
+          : typeof req.body?.referralCode === 'string'
+            ? req.body.referralCode
+            : typeof req.headers['x-ref-code'] === 'string'
+              ? req.headers['x-ref-code']
+              : '';
+      const visitorKeyRaw =
+        typeof req.body?.visitorKey === 'string'
+          ? req.body.visitorKey
+          : typeof req.headers['x-visitor-key'] === 'string'
+            ? req.headers['x-visitor-key']
+            : '';
+      const ymClientIdRaw =
+        typeof req.body?.ymClientId === 'string' ? req.body.ymClientId.trim().slice(0, 64) : '';
+
+      let referralAgentId = null;
+      let referralClickId = null;
+      let referralMeta = null;
+      try {
+        const attr = await resolveAttributionForCheckout({
+          refCode: refCodeRaw,
+          visitorKey: visitorKeyRaw,
+          sessionId,
+          customerEmail,
+          customerPhone,
+        });
+        if (attr && !attr.skipped && attr.agent) {
+          referralAgentId = attr.agent.id;
+          referralClickId = attr.clickId || null;
+          referralMeta = {
+            refCode: attr.agent.code,
+            refAgentId: attr.agent.id,
+            refClickId: referralClickId,
+            refCapturedAt: new Date().toISOString(),
+            channel: 'referral',
+          };
+        } else if (attr?.skipped) {
+          referralMeta = {
+            refSkipped: attr.reason || 'skipped',
+            refCode: attr.agent?.code,
+            channel: 'referral',
+          };
+        }
+      } catch (refErr) {
+        console.warn('[checkout] referral attribution:', refErr?.message || refErr);
+      }
+
       const paymentMeta = {
         ticketCheckout: true,
         deferPartnerBooking: true,
@@ -233,33 +284,57 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
         getbiletOrderId: null,
         getbiletOrderIds: [],
         isDemo: priced.isDemo,
+        ymClientId: ymClientIdRaw || undefined,
+        ...(referralMeta || {}),
       };
 
-      const orderResult = await pool.query(
-        `INSERT INTO orders(
-          user_id, session_id, order_number, status, total_cents, currency,
-          customer_name, customer_email, customer_phone,
-          payment_method, payment_status, notes,
-          payment_provider, payment_metadata
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
-        RETURNING id`,
-        [
-          userId,
-          sessionId,
-          orderNumber,
-          'pending',
-          amountKopecks,
-          'RUB',
-          customerName,
-          customerEmail,
-          customerPhone,
-          'online',
-          'pending',
-          (`Билеты: ${eventTitle}${fanId ? ` · FAN ID ${fanId}` : ''}`).slice(0, 2000),
-          'tbank',
-          paymentMeta,
-        ]
-      );
+      const orderBaseParams = [
+        userId,
+        sessionId,
+        orderNumber,
+        'pending',
+        amountKopecks,
+        'RUB',
+        customerName,
+        customerEmail,
+        customerPhone,
+        'online',
+        'pending',
+        (`Билеты: ${eventTitle}${fanId ? ` · FAN ID ${fanId}` : ''}`).slice(0, 2000),
+        'tbank',
+        paymentMeta,
+      ];
+      let orderResult;
+      try {
+        orderResult = await pool.query(
+          `INSERT INTO orders(
+            user_id, session_id, order_number, status, total_cents, currency,
+            customer_name, customer_email, customer_phone,
+            payment_method, payment_status, notes,
+            payment_provider, payment_metadata,
+            referral_agent_id, referral_click_id
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$16)
+          RETURNING id`,
+          [...orderBaseParams, referralAgentId, referralClickId],
+        );
+      } catch (insErr) {
+        // Миграция 090 ещё не на проде — заказ не должен падать
+        if (insErr?.code === '42703') {
+          console.warn('[checkout] referral columns missing, insert without them');
+          orderResult = await pool.query(
+            `INSERT INTO orders(
+              user_id, session_id, order_number, status, total_cents, currency,
+              customer_name, customer_email, customer_phone,
+              payment_method, payment_status, notes,
+              payment_provider, payment_metadata
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+            RETURNING id`,
+            orderBaseParams,
+          );
+        } else {
+          throw insErr;
+        }
+      }
       insertedOrderId = orderResult.rows[0].id;
 
       await pool.query(

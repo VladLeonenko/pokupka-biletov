@@ -13,6 +13,7 @@ import { TicketsFooter } from '@/components/tickets/TicketsFooter';
 import { applyTicketsTheme, restoreDefaultPublicTheme } from '@/utils/ticketsTheme';
 import '@/styles/tickets-theme.css';
 import { HiddenPromoCodeInjector } from '@/components/public/HiddenPromoCodeInjector';
+import { ReferralCapture } from '@/components/public/ReferralCapture';
 import { GlobalFormValidator } from '@/components/common/GlobalFormValidator';
 import { FaviconNotificationTracker } from '@/components/common/FaviconNotificationTracker';
 // import { GlobalPreloader } from '@/components/common/GlobalPreloader'; // Закомментировано - preloader не работает
@@ -134,6 +135,7 @@ export default function App() {
               }
             `}</style>
             {useTicketsChrome ? <TicketsHeader /> : <Header />}
+            <ReferralCapture />
             {/* Скрытые промокоды на сайте */}
             <HiddenPromoCodeInjector />
             {/* Глобальная валидация форм с toast-уведомлениями */}

@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress, Dialog, DialogContent, IconButton, TextF
 import CloseIcon from '@mui/icons-material/Close';
 import { useMutation } from '@tanstack/react-query';
 import { checkoutBiletTickets, validateBiletTicketPromo } from '@/services/biletPublicApi';
+import { referralCheckoutFields } from '@/utils/referral';
 import { reachMetrikaGoal } from '@/utils/yandexMetrika';
 import { FAN_ID_NOTICE, isValidFanId, isFanIdRequiredForRepertoire, normalizeFanId } from '@/utils/fanIdRequiredEvents';
 import { TicketHoldTimer } from '@/components/tickets/TicketHoldTimer';
@@ -179,16 +180,20 @@ export function TicketPurchaseDialog({
               message: giftMessage.trim() || undefined,
             }
           : undefined,
+        ...referralCheckoutFields(),
       });
     },
     onSuccess: (data) => {
       // Не purchase: до банка ещё нет оплаты. Реальная цель — OrderDetailPage при paymentStatus=paid.
+      const ref = referralCheckoutFields();
       reachMetrikaGoal('payment_redirect', {
         repertoire_id: repertoireId || undefined,
         offer_id: offerId || undefined,
         seats_count: seats.length,
         total_rub: displayFinalRub,
         order_number: data.orderNumber || undefined,
+        referral_agent: ref.refCode || undefined,
+        channel: ref.refCode ? 'referral' : undefined,
       });
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;

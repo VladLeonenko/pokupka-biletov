@@ -146,6 +146,12 @@ const TicketsVitrinePage = lazy(() =>
 const AdsMediaplanPage = lazy(() =>
   import('@/pages/admin/AdsMediaplanPage').then(m => ({ default: m.AdsMediaplanPage }))
 );
+const ReferralAgentsPage = lazy(() =>
+  import('@/pages/admin/ReferralAgentsPage').then(m => ({ default: m.ReferralAgentsPage }))
+);
+const ReferralLandingPage = lazy(() =>
+  import('@/pages/public/ReferralLandingPage').then(m => ({ default: m.ReferralLandingPage }))
+);
 const CheckoutLoadTestPage = lazy(() =>
   import('@/pages/admin/CheckoutLoadTestPage').then(m => ({ default: m.CheckoutLoadTestPage }))
 );
@@ -190,6 +196,7 @@ export function AppRoutes() {
     <Routes>
       {/* Public routes - must come before admin routes */}
       <Route path="/" element={<HomePage />} />
+      <Route path="/r/:code" element={<ReferralLandingPage />} />
       <Route path="/afisha" element={<HomePage />} />
       <Route path="/events" element={<EventsSearchPage />} />
       <Route path="/events/map" element={<EventsMapPage />} />
@@ -290,6 +297,7 @@ export function AppRoutes() {
       <Route path="/admin/getbilet/promo-popup" element={<Protected><GetbiletPromoPopupPage /></Protected>} />
       <Route path="/admin/tickets-vitrine" element={<Protected><TicketsVitrinePage /></Protected>} />
       <Route path="/admin/ads-mediaplan" element={<Protected><AdsMediaplanPage /></Protected>} />
+      <Route path="/admin/referral" element={<Protected><ReferralAgentsPage /></Protected>} />
       <Route path="/admin/sniper" element={<ProtectedAdmin><Suspense fallback={<LoadingFallback />}><CheckoutLoadTestPage /></Suspense></ProtectedAdmin>} />
       {/* Redirect old admin routes to new /admin routes */}
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />

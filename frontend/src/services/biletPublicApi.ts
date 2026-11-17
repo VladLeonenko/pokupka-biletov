@@ -1511,6 +1511,9 @@ export type BiletCheckoutPayload = {
     recipientName?: string;
     message?: string;
   };
+  refCode?: string;
+  visitorKey?: string;
+  ymClientId?: string;
 };
 
 export type GiftTicketView = {

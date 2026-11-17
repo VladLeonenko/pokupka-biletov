@@ -19,6 +19,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import CampaignIcon from '@mui/icons-material/Campaign';
+import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -45,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Снайпер мест', icon: <GpsFixedIcon />, path: '/admin/sniper', group: 'Билеты', roles: ['admin'] },
 
   { label: 'Заказы', icon: <ReceiptLongIcon />, path: '/admin/orders', group: 'Продажи', roles: ['admin', 'sales_manager'] },
+  { label: 'Реферальные агенты', icon: <GroupAddIcon />, path: '/admin/referral', group: 'Продажи', roles: ['admin', 'sales_manager'] },
   { label: 'Чаты', icon: <ChatIcon />, path: '/admin/chat', group: 'Продажи', roles: ['admin', 'sales_manager'] },
 
   { label: 'Админы', icon: <AdminPanelSettingsIcon />, path: '/admin/admins', group: 'Система', roles: ['admin'] },

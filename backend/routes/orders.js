@@ -109,6 +109,12 @@ export async function runPaidOrderSideEffects(orderRow) {
   } catch (projErr) {
     console.error('[orders] Failed to create client project from order:', orderRow.id, projErr);
   }
+  try {
+    const { recordReferralConversion } = await import('../services/referral.js');
+    await recordReferralConversion(orderRow);
+  } catch (refErr) {
+    console.error('[orders] referral conversion:', orderRow.id, refErr?.message || refErr);
+  }
 }
 
 // Все роуты используют опциональную аутентификацию (кроме специально помеченных)
@@ -637,6 +643,18 @@ router.put('/:orderNumber/status', requireAuth, requireAdminOrSalesManager, asyn
     if (nowPaid && !wasPaid) {
       const { finalizePaidOrder } = await import('../services/orderPaymentFinalize.js');
       await finalizePaidOrder(updated, { ticketRefs: [], runPaidHooks: runPaidOrderSideEffects });
+    }
+
+    if (wasPaid && !nowPaid) {
+      try {
+        const { reverseReferralConversion } = await import('../services/referral.js');
+        await reverseReferralConversion(
+          updated.id,
+          `status→${updated.payment_status}/${updated.status}`,
+        );
+      } catch (refRevErr) {
+        console.warn('[orders] referral reverse:', refRevErr?.message || refRevErr);
+      }
     }
 
     if (

@@ -107,6 +107,7 @@ import {
 import { sniperRouter } from './routes/sniper.js';
 import { monitorRouter } from './routes/monitor.js';
 import { tonRouter } from './routes/ton.js';
+import referralRouter from './routes/referral.js';
 
 const app = express();
 
@@ -128,7 +129,7 @@ app.use(cors({
   origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token', 'x-hall-map-save-token', 'x-vakhtangov-seats-save-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'x-visitor-key', 'x-getbilet-write-secret', 'x-luzhniki-svg-save-token', 'x-hall-map-save-token', 'x-vakhtangov-seats-save-token'],
 }));
 
 // Compression middleware - сжимаем все ответы (gzip/brotli)
@@ -483,6 +484,7 @@ app.use('/api/chatbot', requireAuth, requireAdmin, chatbotRouter);
 app.use('/api/admin/parsing', requireAuth, parsingRouter); // Админский парсинг
 app.use('/api/admin/getbilet', requireAuth, requireAdminOrSalesManager, getbiletAdminRouter);
 app.use('/api/admin/ads-mediaplan', requireAuth, requireAdminOrSalesManager, adsMediaplanRouter);
+app.use('/api/referral', referralRouter);
 app.use('/api/admin/tickets-vitrine', ticketsVitrineAdminRouter);
 app.use('/api/snipe', sniperRouter);
 app.use('/api/monitors', monitorRouter);
