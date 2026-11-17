@@ -2326,12 +2326,12 @@ export function TicketCheckoutPage() {
               <div className={styles.ticketRequestCopy}>
                 <Typography variant="h6" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
                   {offers.length > 0 && zonePreorderHall
-                    ? 'Нужной зоны нет в наличии?'
+                    ? 'Нужного сектора нет на схеме?'
                     : 'Запросить билеты'}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'rgba(28,27,25,0.68)', lineHeight: 1.65 }}>
                   {offers.length > 0 && zonePreorderHall
-                    ? 'На схеме показаны зоны, которые открыты к предзаказу прямо сейчас. Если нужна другая зона или больше билетов — оставьте заявку: проверим наличие в кассе и вернёмся с вариантами и ценой.'
+                    ? 'На схеме сектора, которые уже можно забронировать: партер, амфитеатр, бельэтаж, ярус или ложа. Нужен другой сектор, ложа целиком или больше кресел — оставьте заявку, вернёмся с вариантом и ценой.'
                     : 'Сейчас на сайте нет доступных предложений по этому мероприятию. Это не всегда значит, что билетов нет: мы можем уточнить наличие и вернуться с вариантами по цене и местам.'}
                 </Typography>
               </div>
@@ -2347,7 +2347,9 @@ export function TicketCheckoutPage() {
 
               {ticketRequestStatus === 'sent' ? (
                 <Alert severity="success" sx={{ mt: 2 }}>
-                  Заявка отправлена. Мы проверим наличие билетов и свяжемся с вами.
+                  {zonePreorderHall
+                    ? 'Заявка отправлена. Вернёмся с вариантом по сектору и цене.'
+                    : 'Заявка отправлена. Мы проверим наличие билетов и свяжемся с вами.'}
                 </Alert>
               ) : (
                 <Box component="form" className={styles.ticketRequestForm} onSubmit={submitTicketRequest}>
@@ -2384,9 +2386,10 @@ export function TicketCheckoutPage() {
                     minRows={2}
                     placeholder={
                       zonePreorderHall
-                        ? 'Какая зона нужна, сколько билетов и бюджет'
+                        ? 'Сектор или ложа, число кресел и бюджет'
                         : 'Сколько билетов нужно, желаемая зона или бюджет'
                     }
+                    InputLabelProps={{ shrink: true }}
                   />
                   {ticketRequestStatus === 'error' && ticketRequestError ? (
                     <Alert severity="error" sx={{ gridColumn: '1 / -1' }}>
