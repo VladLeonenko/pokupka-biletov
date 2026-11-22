@@ -348,7 +348,11 @@ export function registerBiletTicketCheckoutRoutes(router, { optionalAuth }) {
       await pool.query(
         `INSERT INTO order_items(order_id, product_slug, product_title, price_cents, quantity)
          VALUES ($1, 'internal-getbilet-ticket', $2, $3, 1)`,
-        [insertedOrderId, `${eventTitle} — ${seats.join(', ')}`.slice(0, 500), amountKopecks]
+        [
+          insertedOrderId,
+          `${eventTitle} — ${(seatLabels?.length ? seatLabels : seats).join('; ')}`.slice(0, 500),
+          amountKopecks,
+        ]
       );
 
       const site = (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');

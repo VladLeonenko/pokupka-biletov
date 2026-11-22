@@ -578,6 +578,21 @@ export type WishlistItem = {
   createdAt?: string;
 };
 
+export type OrderTicketSeat = {
+  sector: string | null;
+  row: string | null;
+  seat: string | null;
+  label: string;
+};
+
+export type OrderTicketPlace = {
+  eventTitle: string | null;
+  venueLabel: string | null;
+  sessionLabel: string | null;
+  repertoireId: string | null;
+  seats: OrderTicketSeat[];
+};
+
 export type OrderExternalTicket = {
   id: number;
   orderItemId?: number | null;
@@ -607,6 +622,7 @@ export type Order = {
   externalTickets?: OrderExternalTicket[];
   notes?: string;
   fanId?: string | null;
+  ticket?: OrderTicketPlace | null;
   items?: OrderItem[];
   /** legacy / совместимость с шаблонами, где ожидается total в копейках */
   total?: number;

@@ -9,6 +9,7 @@ import { sendOrderCreatedEmail, sendOrderStatusChangedEmail } from '../services/
 import { fetchRemotePaymentState } from '../services/payment/remotePaymentStatus.js';
 import { applyOrderPaidState } from '../services/orderPaymentApply.js';
 import { extractFanIdFromOrder } from '../utils/orderFanId.js';
+import { extractTicketPlaceFromOrder } from '../utils/orderTicketPlace.js';
 import {
   markBrowserPurchaseSent,
   reportMetrikaPurchase,
@@ -36,6 +37,7 @@ function formatOrderDetail(order, itemsRows, ticketRows) {
     paymentCheckoutUrl: order.payment_checkout_url,
     notes: order.notes,
     fanId: extractFanIdFromOrder(order),
+    ticket: extractTicketPlaceFromOrder(order),
     items: itemsRows.map((row) => ({
       id: row.id,
       productSlug: row.product_slug,
@@ -399,6 +401,7 @@ router.get('/admin', requireAuth, requireAdminOrSalesManager, async (req, res) =
       paymentStatus: row.payment_status,
       notes: row.notes,
       fanId: extractFanIdFromOrder(row),
+      ticket: extractTicketPlaceFromOrder(row),
       items: row.items || [],
       clientId: row.client_id,
       charityPreference: row.charity_preference || null,

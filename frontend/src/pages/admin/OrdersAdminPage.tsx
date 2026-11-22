@@ -24,6 +24,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listAdminOrders, updateOrderStatus, type AdminOrder } from '@/services/ecommerceApi';
+import { formatOrderSeatLine } from '@/utils/formatOrderTicket';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useToast } from '@/components/common/ToastProvider';
@@ -94,7 +95,7 @@ export default function OrdersAdminPage() {
             <TableRow>
               <TableCell>№ / Дата</TableCell>
               <TableCell>Клиент</TableCell>
-              <TableCell>Состав</TableCell>
+              <TableCell>Места</TableCell>
               <TableCell align="right">Сумма</TableCell>
               <TableCell>Статус</TableCell>
               <TableCell>Оплата</TableCell>
@@ -163,10 +164,26 @@ export default function OrdersAdminPage() {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ maxWidth: 200 }}>
-                  <Typography variant="caption" noWrap title={itemsSummary(order.items)}>
-                    {itemsSummary(order.items)}
-                  </Typography>
+                <TableCell sx={{ maxWidth: 420, whiteSpace: 'normal' }}>
+                  {order.ticket ? (
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        {order.ticket.eventTitle || itemsSummary(order.items)}
+                      </Typography>
+                      {(order.ticket.venueLabel || order.ticket.sessionLabel) && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {[order.ticket.venueLabel, order.ticket.sessionLabel].filter(Boolean).join(' · ')}
+                        </Typography>
+                      )}
+                      {order.ticket.seats.map((seat, idx) => (
+                        <Typography key={`${order.id}-seat-${idx}`} variant="caption" display="block" sx={{ mt: 0.25 }}>
+                          {formatOrderSeatLine(seat)}
+                        </Typography>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="caption">{itemsSummary(order.items)}</Typography>
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   <Typography fontWeight={600}>{formatCents(order.totalCents)}</Typography>

@@ -10,6 +10,7 @@ import { pushPurchase } from '@/utils/dataLayer';
 import { reportPaidOrderToMetrika } from '@/services/ecommerceApi';
 import { ensureYmClientId, getStoredYclid } from '@/utils/ymClient';
 import { celebrateLogoPaid } from '@/components/tickets/TicketsSiteLogo';
+import { formatOrderSeatLine } from '@/utils/formatOrderTicket';
 
 type OrderDetailPageProps = {
   adminView?: boolean;
@@ -229,6 +230,54 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>
                   Позиции
                 </Typography>
+                {order.ticket && (order.ticket.eventTitle || order.ticket.seats.length > 0) ? (
+                  <Box sx={{ mb: 2 }}>
+                    {order.ticket.eventTitle ? (
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                        {order.ticket.eventTitle}
+                      </Typography>
+                    ) : null}
+                    {(order.ticket.venueLabel || order.ticket.sessionLabel) && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                        {[order.ticket.venueLabel, order.ticket.sessionLabel].filter(Boolean).join(' · ')}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: 'grid', gap: 1 }}>
+                      {order.ticket.seats.map((seat, idx) => (
+                        <Box
+                          key={`${seat.label}-${idx}`}
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: seat.sector || seat.row || seat.seat ? '1.4fr 0.6fr 0.6fr' : '1fr',
+                            gap: 1,
+                            p: 1.25,
+                            borderRadius: 1,
+                            bgcolor: 'action.hover',
+                          }}
+                        >
+                          {seat.sector || seat.row || seat.seat ? (
+                            <>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Сектор</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>{seat.sector || '—'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Ряд</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>{seat.row || '—'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Место</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>{seat.seat || '—'}</Typography>
+                              </Box>
+                            </>
+                          ) : (
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatOrderSeatLine(seat)}</Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                ) : null}
                 {order.items && order.items.length > 0 ? (
                   order.items.map((item: any, idx: number) => {
                     // Поддержка разных форматов данных: item.product?.title или item.productTitle
@@ -247,7 +296,7 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
                           borderColor: 'divider',
                         }}
                       >
-                        <Typography variant="subtitle1">{productTitle}</Typography>
+                        {order.ticket ? null : <Typography variant="subtitle1">{productTitle}</Typography>}
                         <Typography variant="body2" color="text.secondary">
                           Количество: {quantity} × {priceCents ? `${(priceCents / 100).toFixed(2)} ${currency}` : 'Цена по запросу'}
                         </Typography>

@@ -960,7 +960,16 @@ export function TicketCheckoutPage() {
   );
 
   const purchaseSeatLabels = useMemo(() => {
-    if (mapSelectedSeats.length === 0) return undefined;
+    if (mapSelectedSeats.length === 0) {
+      if (seats.length === 0) return undefined;
+      const row = (offers as OfferRow[]).find((o) => String(o.Id ?? '') === offerId);
+      const sector = String(row?.Sector ?? '').trim();
+      const rowLabel = String(row?.Row ?? '').trim();
+      if (!sector && !rowLabel) return undefined;
+      return seats.map(
+        (seat) => `${sector ? `${sector}, ` : ''}${rowLabel ? `${rowLabel} ряд, ` : ''}место ${seat}`,
+      );
+    }
     /** Зоны: ряд/место — внутренняя бронь, покупателю показываем только зону и количество. */
     if (mapSelectedSeats.every((s) => s.zoneOnly)) {
       const byZone = new Map<string, { qty: number; box: boolean }>();
@@ -978,7 +987,7 @@ export function TicketCheckoutPage() {
     return mapSelectedSeats.map(
       (s) => `${s.sector ? `${s.sector}, ` : ''}${s.row ? `${s.row} ряд, ` : ''}место ${s.seat}`,
     );
-  }, [mapSelectedSeats]);
+  }, [mapSelectedSeats, seats, offers, offerId]);
 
   /** Дата/время выбранного оффера — для модалки оформления. */
   const purchaseSessionLabel = useMemo(() => {
