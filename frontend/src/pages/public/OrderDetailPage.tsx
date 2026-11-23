@@ -86,12 +86,13 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
     celebrateLogoPaid();
 
     void (async () => {
-      const ymClientId = await ensureYmClientId();
+      const ymClientId = await ensureYmClientId(4000);
+      const yclid = getStoredYclid();
       let sent = false;
       try {
         const report = await reportPaidOrderToMetrika(orderNumber, {
           ymClientId: ymClientId || undefined,
-          yclid: getStoredYclid() || undefined,
+          yclid: yclid || undefined,
         });
         sent = report.sent;
       } catch {
@@ -104,12 +105,16 @@ export function OrderDetailPage({ adminView = false }: OrderDetailPageProps) {
           order_price: totalRub,
           currency: 'RUB',
         });
-        try {
-          await reportPaidOrderToMetrika(orderNumber, { browserSent: true });
-        } catch {
-          /* цель уже ушла из браузера */
+        // browserSent закрывает повтор. Без живого ClientID счётчик мог не уйти
+        // (заглушка ym есть всегда), и Директ остаётся без конверсии.
+        if (ymClientId) {
+          try {
+            await reportPaidOrderToMetrika(orderNumber, { browserSent: true });
+          } catch {
+            /* цель уже ушла из браузера */
+          }
+          sent = true;
         }
-        sent = true;
       }
       if (sent) {
         try {

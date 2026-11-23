@@ -94,13 +94,14 @@ async function releaseSend(orderId) {
 export async function saveMetrikaIds(orderId, { ymClientId, yclid } = {}) {
   let expr = `COALESCE(payment_metadata, '{}'::jsonb)`;
   const params = [orderId];
+  // Не затираем id с посадки (клик Директа) id из вебвью банка.
   if (ymClientId) {
     params.push(ymClientId);
-    expr = `jsonb_set(${expr}, '{ymClientId}', to_jsonb($${params.length}::text), true)`;
+    expr = `CASE WHEN COALESCE(${expr}->>'ymClientId', '') = '' THEN jsonb_set(${expr}, '{ymClientId}', to_jsonb($${params.length}::text), true) ELSE ${expr} END`;
   }
   if (yclid) {
     params.push(yclid);
-    expr = `jsonb_set(${expr}, '{yclid}', to_jsonb($${params.length}::text), true)`;
+    expr = `CASE WHEN COALESCE(${expr}->>'yclid', '') = '' THEN jsonb_set(${expr}, '{yclid}', to_jsonb($${params.length}::text), true) ELSE ${expr} END`;
   }
   if (params.length === 1) return;
   await pool.query(
@@ -141,8 +142,8 @@ export async function reportMetrikaPurchase(orderRow) {
   if (!claimed) return { ok: true, already: true };
 
   const uploaded = await uploadOfflineConversion({
-    clientIdType: clientOk ? 'CLIENT_ID' : 'YCLID',
-    idValue: clientOk ? clientId : yclid,
+    clientIdType: yclidOk ? 'YCLID' : 'CLIENT_ID',
+    idValue: yclidOk ? yclid : clientId,
     priceRub: Number(row.total_cents || 0) / 100,
     date: row.updated_at || new Date(),
   });
@@ -157,6 +158,6 @@ export async function reportMetrikaPurchase(orderRow) {
     return uploaded;
   }
 
-  console.log('[metrika] purchase uploaded', row.order_number, clientOk ? 'client' : 'yclid');
+  console.log('[metrika] purchase uploaded', row.order_number, yclidOk ? 'yclid' : 'client');
   return { ok: true, uploaded: true };
 }

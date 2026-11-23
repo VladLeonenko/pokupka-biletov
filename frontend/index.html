@@ -162,6 +162,16 @@
         min-height: 100vh;
       }
     </style>
+    <!-- yclid пишем до SPA: возврат из банка в другом окне иначе теряет клик Директа. -->
+    <script>
+      try {
+        var bvYclid = new URLSearchParams(location.search).get('yclid') || '';
+        if (/^[A-Za-z0-9_-]{6,128}$/.test(bvYclid)) {
+          localStorage.setItem('ym_yclid', bvYclid);
+          document.cookie = 'bv_yclid=' + encodeURIComponent(bvYclid) + ';path=/;max-age=7776000;SameSite=Lax';
+        }
+      } catch (e) {}
+    </script>
     <!-- Яндекс.Метрика: визит с yclid уходит до баннера куки. Google и Mail.ru остаются за согласием. -->
     <script>
       (function (m, e, t, r, i, k, a) {
