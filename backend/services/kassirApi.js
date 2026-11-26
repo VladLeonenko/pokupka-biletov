@@ -364,17 +364,8 @@ async function apiViaBrowser(method, url, body) {
 
 async function api(method, urlPath, { body, query } = {}) {
   const url = `${API}${urlPath}${query || q()}`;
-  if (process.env.KASSIR_FORCE_BROWSER !== '1') {
-    try {
-      return await fetchJson(method, url, body);
-    } catch (err) {
-      const status = err?.status;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (status !== 403 && status !== 401 && !/fetch failed|ECONN|ETIMEDOUT|socket/i.test(msg)) throw err;
-      console.error(`[kassir] fetch ${status || msg}, fallback browser`);
-    }
-  }
-  return apiViaBrowser(method, url, body);
+  if (process.env.KASSIR_FORCE_BROWSER === '1') return apiViaBrowser(method, url, body);
+  return fetchJson(method, url, body);
 }
 
 /** AES-CBC encrypted device UUID (как в фронте Kassir). */
