@@ -32,6 +32,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  gap: 6px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -396,6 +397,30 @@ img.img {
   overflow: hidden;
 }
 
+a.venueBlock {
+  text-decoration: none;
+  color: inherit;
+  width: fit-content;
+  max-width: 100%;
+}
+
+a.venueBlock .venueName {
+  text-decoration: underline;
+  text-decoration-color: rgba(28, 27, 25, 0.28);
+  text-underline-offset: 3px;
+}
+
+a.venueBlock:hover .venueName {
+  color: var(--neg-orange, #ff4e18);
+  text-decoration-color: var(--neg-orange, #ff4e18);
+}
+
+a.venueBlock:focus-visible {
+  outline: 2px solid var(--neg-orange, #ff4e18);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 .venueBlock {
   margin: 0;
   display: flex;
@@ -414,6 +439,33 @@ img.img {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+.sessionLine {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1c1b19;
+}
+
+.sessionKicker {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neg-orange, #ff4e18);
+  vertical-align: 1px;
+}
+
+.runLine {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1c1b19;
 }
 
 .venueAddress {

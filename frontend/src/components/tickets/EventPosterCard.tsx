@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { ticketCheckoutHref, type NormalizedBiletEvent } from '@/services/biletPublicApi';
-import { formatEventPosterDateBadge } from '@/utils/eventDateLabels';
+import { explainEventCardDates, formatEventPosterDateBadge } from '@/utils/eventDateLabels';
 import {
   eventCategoryPlaceholderUrl,
   resolveEventCoverUrl,
 } from '@/utils/ticketsPlaceholders';
 import { venueFromApiOnly } from '@/utils/venueHint';
+import { venueSlugFromName } from '@/utils/venueSlug';
 import { favoriteIdFromEvent, useTicketFavorites } from '@/hooks/useTicketFavorites';
 import { formatRatingScore, ratingZone } from '@/utils/eventRating';
 import { LOGO_LETTER } from './ticketsLogoPaths';
@@ -75,6 +76,7 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
   const posterSrc = resolveEventCoverUrl(coverInput);
   const placeholderSrc = eventCategoryPlaceholderUrl(coverInput);
   const posterBadge = formatEventPosterDateBadge({
+    isoDate: event.isoDate,
     displayDate: event.displayDate,
     timeLabel: event.timeLabel,
     weekday: event.weekday,
@@ -82,7 +84,17 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
   });
   const venueLine = venueFromApiOnly(event.venue);
   const venueAddrLine = venueFromApiOnly(event.venueAddress);
+  const venueSlug = venueLine ? venueSlugFromName(venueLine) : '';
+  const venueHref = venueSlug ? `/events/venue/${venueSlug}` : null;
   const scheduleLine = buildScheduleLine(event);
+  const dates = explainEventCardDates({
+    subtitle: event.subtitle,
+    isoDate: event.isoDate,
+    dateLabel: event.dateLabel,
+    displayDate: event.displayDate,
+    weekday: event.weekday,
+    timeLabel: event.timeLabel,
+  });
 
   const genreLine = displayGenreLine(event);
   const scoreLabel = formatRatingScore(event.ratingScore);
@@ -159,28 +171,50 @@ export function EventPosterCard({ event, variant = 'poster', priority = false }:
           </span>
         </Link>
       </div>
-      <Link to={toPage} className={styles.bodyLink}>
-        <div className={styles.body}>
+      <div className={styles.body}>
+        <Link to={toPage} className={styles.bodyLink}>
           {genreLine && <span className={styles.genre}>{genreLine}</span>}
           <h3 className={styles.title}>{event.title}</h3>
-          {event.subtitle?.trim() ? (
-            <p className={styles.subtitle}>{event.subtitle.trim()}</p>
-          ) : null}
-          {venueLine || venueAddrLine ? (
-            <p className={styles.venueBlock}>
-              {venueLine ? <span className={styles.venueName}>{venueLine}</span> : null}
-              {venueAddrLine ? <span className={styles.venueAddress}>{venueAddrLine}</span> : null}
+          {dates.sessionLine ? (
+            <p className={styles.sessionLine}>
+              {dates.runLine ? (
+                <>
+                  <span className={styles.sessionKicker}>Ближайшая</span>{' '}
+                </>
+              ) : null}
+              {dates.sessionLine}
             </p>
+          ) : scheduleLine ? (
+            <p className={styles.whenWhere}>{scheduleLine}</p>
           ) : null}
-          {scheduleLine ? <p className={styles.whenWhere}>{scheduleLine}</p> : null}
+          {dates.runLine ? <p className={styles.runLine}>{dates.runLine}</p> : null}
+          {dates.prose ? <p className={styles.subtitle}>{dates.prose}</p> : null}
           {(event.author || event.director) && (
             <div className={styles.credits}>
               {event.author && <span>Автор — {event.author}</span>}
               {event.director && <span>Режиссёр — {event.director}</span>}
             </div>
           )}
-        </div>
-      </Link>
+        </Link>
+        {venueLine || venueAddrLine ? (
+          venueHref ? (
+            <Link
+              to={venueHref}
+              className={styles.venueBlock}
+              aria-label={`Афиша: ${venueLine || venueAddrLine}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {venueLine ? <span className={styles.venueName}>{venueLine}</span> : null}
+              {venueAddrLine ? <span className={styles.venueAddress}>{venueAddrLine}</span> : null}
+            </Link>
+          ) : (
+            <p className={styles.venueBlock}>
+              {venueLine ? <span className={styles.venueName}>{venueLine}</span> : null}
+              {venueAddrLine ? <span className={styles.venueAddress}>{venueAddrLine}</span> : null}
+            </p>
+          )
+        ) : null}
+      </div>
     </div>
   );
 }
