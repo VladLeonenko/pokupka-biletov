@@ -10,11 +10,13 @@
  */
 
 export const BOLSHOI_VIEW_IMAGES = {
-  parter: '/hall-maps/bolshoi-views/view-parter-a.jpg',
+  parter: '/hall-maps/bolshoi-views/view-parter.jpg',
+  parterVip: '/hall-maps/bolshoi-views/view-parter-vip.jpg',
   amphitheater: '/hall-maps/bolshoi-views/view-amphitheater.jpg',
   tier1: '/hall-maps/bolshoi-views/view-tier1.jpg',
   /** Вид из ложи бельэтажа (бинокль на перилах). */
   beletazh: '/hall-maps/bolshoi-views/view-beletazh.jpg',
+  balkon3: '/hall-maps/bolshoi-views/view-balkon3.jpg',
 };
 
 /**
@@ -230,7 +232,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
     id: 'balkon3_left',
     label: 'Балкон 3 яруса левая',
-    previewImageUrl: BOLSHOI_VIEW_IMAGES.amphitheater,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.balkon3,
     test: (s) => {
       if (!/Балкон\s+3\s+яруса\s+Левая/.test(detail(s))) return false;
       if (String(s.row) !== '1') return false;
@@ -260,7 +262,7 @@ export const BOLSHOI_SELLABLE_SECTOR_RULES = [
   {
     id: 'vip_parter',
     label: 'Партер ряд А (Вип)',
-    previewImageUrl: BOLSHOI_VIEW_IMAGES.parter,
+    previewImageUrl: BOLSHOI_VIEW_IMAGES.parterVip,
     /** Без боковых 4 слева и 4 справа (места 1–4 и 25–28). */
     test: (s) => {
       if (detail(s) !== 'Партер') return false;
