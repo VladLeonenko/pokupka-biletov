@@ -11,10 +11,11 @@ import { sendTransactionalMail } from './services/mail/transporter.js';
 import {
   availableSeatCount,
   bookKassirEvent,
+  discoverDonJuanEvents,
   extractFreeSeats,
   fetchOrderKit,
   fetchScheme,
-  fetchEventPageKit,
+  kassirWallClockMs,
 } from './services/kassirApi.js';
 import { registerPendingPayment } from './services/sniperPaymentTracker.js';
 import { rebookBlocked, stampSuccess } from './services/rebookGuard.js';
@@ -41,34 +42,55 @@ const REBOOK_AFTER_MS = Number(process.env.KASSIR_REBOOK_AFTER_MS || 20 * 60 * 1
 const SOFT_BACKOFF_MS = Number(process.env.KASSIR_SOFT_BACKOFF_MS || 60_000);
 const LOG_MAX = 2 * 1024 * 1024;
 
-/** targets: Дон Жуан. RISK: hash/id на kassir меняется — сверять URL.
- * 7170999 = КЗ «Москва» 19.12 (ссылка пользователя)
- * 5406528 = Русская песня 25.11
- * Доп. через KASSIR_EVENT_ID / KASSIR_EXTRA_EVENT_IDS=id:label:url,... */
-const EVENTS = [
-  {
-    id: Number(process.env.KASSIR_EVENT_ID || 7170999),
-    label: process.env.KASSIR_EVENT_LABEL || 'Дон Жуан 19.12 19:00 КЗ Москва',
-    url: process.env.KASSIR_EVENT_URL || 'https://msk.kassir.ru/teatr/don-juan-13#7170999',
-  },
+/** Все будущие «Дон Жуан» с Кассира. Список обновляется сам, один KASSIR_EVENT_ID больше не затирает остальные. */
+const FALLBACK_EVENTS = [
+  { id: 5039675, beginsAt: '2026-11-30T19:00:00+00:00', label: 'Дон Жуан 30.11 19:00 Театр им. Моссовета', url: 'https://msk.kassir.ru/teatr/don-juan-13#5039675' },
+  { id: 5279851, beginsAt: '2026-11-29T19:00:00+00:00', label: 'Завещание Дон Жуана 29.11 19:00 Театр Российской Армии', url: 'https://msk.kassir.ru/teatr/zaveschanie-tselomudrennogo-babnika-#5279851' },
+  { id: 5627325, beginsAt: '2026-12-06T19:00:00+00:00', label: 'Дон Жуан 06.12 19:00 Театр на Трубной', url: 'https://msk.kassir.ru/teatr/don-juan-12#5627325' },
+  { id: 6241784, beginsAt: '2026-12-09T19:00:00+00:00', label: 'Дон Жуан 09.12 19:00 Новый драматический театр', url: 'https://msk.kassir.ru/teatr/don-juan-592436b123e07#6241784' },
+  { id: 6367071, beginsAt: '2026-12-18T19:00:00+00:00', label: 'Завещание Дон Жуана 18.12 19:00 Театр Российской Армии', url: 'https://msk.kassir.ru/teatr/zaveschanie-tselomudrennogo-babnika-#6367071' },
+  { id: 7170999, beginsAt: '2026-12-19T19:00:00+00:00', label: 'Дон Жуан 19.12 19:00 КЗ «Москва»', url: 'https://msk.kassir.ru/teatr/don-juan-13#7170999' },
+  { id: 6367169, beginsAt: '2026-12-29T19:00:00+00:00', label: 'Завещание Дон Жуана 29.12 19:00 Театр Российской Армии', url: 'https://msk.kassir.ru/teatr/zaveschanie-tselomudrennogo-babnika-#6367169' },
+  { id: 6468258, beginsAt: '2027-01-05T19:00:00+00:00', label: 'Дон Жуан 05.01 19:00 Театр на Трубной', url: 'https://msk.kassir.ru/teatr/don-juan-12#6468258' },
+  { id: 7266894, beginsAt: '2027-01-16T19:00:00+00:00', label: 'Дон Жуан, или Каменный пир 16.01 19:00 Ведогонь-театр', url: 'https://msk.kassir.ru/teatr/don-juan-ili-kamennyiy-pir#7266894' },
+  { id: 6602534, beginsAt: '2027-01-20T19:00:00+00:00', label: 'Дон Жуан 20.01 19:00 Новый драматический театр', url: 'https://msk.kassir.ru/teatr/don-juan-592436b123e07#6602534' },
+  { id: 6468507, beginsAt: '2027-01-24T19:00:00+00:00', label: 'Дон Жуан 24.01 19:00 Театр на Трубной', url: 'https://msk.kassir.ru/teatr/don-juan-12#6468507' },
+  { id: 7519306, beginsAt: '2027-02-10T19:00:00+00:00', label: 'Дон Жуан 10.02 19:00 Новый драматический театр', url: 'https://msk.kassir.ru/teatr/don-juan-592436b123e07#7519306' },
 ];
-if (process.env.KASSIR_KEEP_OLD !== '0') {
-  const oldId = Number(process.env.KASSIR_OLD_EVENT_ID || 5406528);
-  if (!EVENTS.some((e) => e.id === oldId)) {
-    EVENTS.push({
-      id: oldId,
-      label: process.env.KASSIR_OLD_EVENT_LABEL || 'Дон Жуан 25.11 19:00 Русская песня',
-      url: process.env.KASSIR_OLD_EVENT_URL || 'https://msk.kassir.ru/teatr/don-juan-13#5406528',
-    });
-  }
+
+function extraSeedIds() {
+  const raw = [
+    process.env.KASSIR_EVENT_ID,
+    process.env.KASSIR_OLD_EVENT_ID,
+    process.env.KASSIR_TEST_EVENT_ID,
+    ...(process.env.KASSIR_EXTRA_EVENT_IDS || '').split(','),
+  ];
+  return raw.map((x) => Number(String(x || '').split(':')[0])).filter((n) => Number.isFinite(n) && n > 0);
 }
-if (process.env.KASSIR_TEST_EVENT_ID) {
-  EVENTS.unshift({
-    id: Number(process.env.KASSIR_TEST_EVENT_ID),
-    label: process.env.KASSIR_TEST_EVENT_LABEL || `test#${process.env.KASSIR_TEST_EVENT_ID}`,
-    url: process.env.KASSIR_TEST_EVENT_URL || `https://msk.kassir.ru/#${process.env.KASSIR_TEST_EVENT_ID}`,
-    test: true,
+
+function upcoming(list) {
+  const now = Date.now() - 3 * 60 * 60 * 1000;
+  return list.filter((ev) => {
+    if (!ev.beginsAt) return true;
+    const ms = kassirWallClockMs(ev.beginsAt);
+    return !Number.isFinite(ms) || ms >= now;
   });
+}
+
+let events = upcoming(FALLBACK_EVENTS);
+let eventsRefreshedAt = 0;
+
+async function refreshEvents() {
+  const found = await discoverDonJuanEvents(extraSeedIds());
+  if (!found.length) {
+    log(`discover: пусто, остаётся ${events.length} дат`);
+    return;
+  }
+  const prev = events.map((e) => e.id).join(',');
+  events = found;
+  eventsRefreshedAt = Date.now();
+  const next = events.map((e) => e.id).join(',');
+  if (prev !== next) log(`даты ${events.length}: ${events.map((e) => e.label).join(' | ')}`);
 }
 
 const holds = new Map();
@@ -256,19 +278,22 @@ async function tryBook(cfg, { count, isEdge }) {
   }
 }
 
-log(`start events=${EVENTS.map((e) => e.id).join(',')} interval=${INTERVAL_MS}/${HOT_INTERVAL_MS} auto=${AUTO_BOOK} max=${MAX_TICKETS}`);
+log(`start events=${events.map((e) => e.id).join(',')} interval=${INTERVAL_MS}/${HOT_INTERVAL_MS} auto=${AUTO_BOOK} max=${MAX_TICKETS}`);
 console.log(`Kassir sniper: log→${LOG_FILE} (почта только при успехе)`);
-console.log('Kassir: API через Playwright (Node fetch = 403 TLS). Home LaunchAgent = основной охотник.');
+console.log('Kassir: обычный fetch, браузер только при 403.');
 
 while (true) {
   let anyEdge = false;
   try {
+    if (Date.now() - eventsRefreshedAt > 15 * 60 * 1000) {
+      await refreshEvents();
+    }
     if (Date.now() < pollBanUntil) {
       await new Promise((r) => setTimeout(r, Math.min(60_000, pollBanUntil - Date.now())));
       continue;
     }
     const jobs = [];
-    for (const cfg of EVENTS) {
+    for (const cfg of events) {
       const kit = await fetchOrderKit(cfg.id);
       consecutive403 = 0;
       const count = availableSeatCount(kit);
@@ -304,11 +329,12 @@ while (true) {
         saveState();
       }
 
-      if (effective > 0) {
-        jobs.push(tryBook(cfg, { count: effective, isEdge }));
-      }
+      if (effective > 0) jobs.push({ cfg, isEdge });
     }
-    if (jobs.length) await Promise.allSettled(jobs);
+    for (const job of jobs) {
+      const count = lastCount.get(job.cfg.id) || 0;
+      await tryBook(job.cfg, { count, isEdge: job.isEdge });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const status = err?.status;

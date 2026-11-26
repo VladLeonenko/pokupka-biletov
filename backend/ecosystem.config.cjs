@@ -101,13 +101,9 @@ module.exports = {
       restart_delay: 3000,
       env: {
         NODE_ENV: 'production',
-        KASSIR_EVENT_ID: '7170999',
-        KASSIR_EVENT_LABEL: 'Дон Жуан 19.12 19:00 КЗ Москва',
-        KASSIR_EVENT_URL: 'https://msk.kassir.ru/teatr/don-juan-13#7170999',
         KASSIR_MAX_TICKETS: '2',
         KASSIR_AUTO_BOOK: '1',
-        // VPS: Playwright может жить, но Node-only был мёртв. Основной охотник — Mac LaunchAgent.
-
+        // Даты Дон Жуана монитор подтягивает сам. KASSIR_EVENT_ID — только доп. id, не единственная цель.
       },
       out_file: './data/kassir-monitor.log',
       error_file: './data/kassir-monitor-error.log',

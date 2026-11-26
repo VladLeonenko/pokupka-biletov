@@ -4,7 +4,8 @@
  * Флоу: order-kit → scheme(seatQuota) → calculate (pricing.total!) → orders/init → async-task → payments/process.
  * Без matching pricing.total после calculate сервер отвечает 409 «Стоимость изменена».
  *
- * Голый Node fetch → 403 (TLS fingerprint). Все запросы — через Playwright Chromium.
+ * Сначала обычный fetch (с VPS это 200). Playwright — только если fetch словил 403.
+ * Chromium с --disable-dev-shm-usage пишет временные файлы на диск и раньше забивал /.
  */
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -41,8 +42,9 @@ let sessionChain = Promise.resolve();
 let transportFails = 0;
 let lastRecycleAt = 0;
 let chromePid = 0;
-const SESSION_TTL_MS = Number(process.env.KASSIR_SESSION_TTL_MS || 6 * 60 * 60 * 1000);
+const SESSION_TTL_MS = Number(process.env.KASSIR_SESSION_TTL_MS || 15 * 60 * 1000);
 const RECYCLE_COOLDOWN_MS = 10 * 60 * 1000;
+const FD_RECYCLE_AT = Number(process.env.KASSIR_FD_RECYCLE_AT || 2500);
 
 function contextAlive(ctx) {
   try {
@@ -83,6 +85,15 @@ function killProfileChromes() {
   return pids.length;
 }
 
+function openFdCount(pid) {
+  if (!pid || process.platform !== 'linux') return 0;
+  try {
+    return fs.readdirSync(`/proc/${pid}/fd`).length;
+  } catch {
+    return 0;
+  }
+}
+
 function browserPid(browser) {
   try {
     const p = browser && browser.process;
@@ -119,8 +130,11 @@ async function destroySession() {
 
 async function ensureSession() {
   return withSessionLock(async () => {
-    if (session?.ctx && contextAlive(session.ctx) && Date.now() - sessionWarmAt < SESSION_TTL_MS) {
-      return session;
+    const fds = openFdCount(chromePid);
+    const ttlOk = session?.ctx && contextAlive(session.ctx) && Date.now() - sessionWarmAt < SESSION_TTL_MS;
+    if (ttlOk && fds < FD_RECYCLE_AT) return session;
+    if (fds >= FD_RECYCLE_AT) {
+      console.error(`[kassir] recycle fds=${fds}`);
     }
     await destroySession();
     const browser = await chromium.launch({
@@ -129,12 +143,14 @@ async function ensureSession() {
         '--disable-blink-features=AutomationControlled',
         '--no-sandbox',
         '--disable-gpu',
-        '--disable-dev-shm-usage',
         '--disable-extensions',
         '--renderer-process-limit=1',
         '--disable-background-networking',
         '--mute-audio',
         '--no-first-run',
+        '--disk-cache-size=8192',
+        '--media-cache-size=8192',
+        '--disable-gpu-shader-disk-cache',
       ],
     });
     chromePid = browserPid(browser);
@@ -149,12 +165,19 @@ async function ensureSession() {
     });
     const page = await ctx.newPage();
     try {
-      await page.goto(`https://${DOMAIN}/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      await page.waitForTimeout(400);
+      await page.route('**/*', (route) => {
+        const type = route.request().resourceType();
+        if (type === 'image' || type === 'media' || type === 'font' || type === 'stylesheet') {
+          return route.abort();
+        }
+        return route.continue();
+      });
+      await page.goto(`https://${DOMAIN}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 });
     } catch (err) {
       console.error(`[kassir] warm: ${err instanceof Error ? err.message : err}`);
     }
-    session = { ctx, browser, page };
+    await page.close().catch(() => {});
+    session = { ctx, browser, page: null };
     sessionWarmAt = Date.now();
     console.error(`[kassir] one browser pid=${chromePid} pages=${ctx.pages().length}`);
     return session;
@@ -176,9 +199,134 @@ async function noteTransportFailure() {
   await closeKassirBrowser();
 }
 
-async function api(method, urlPath, { body, query } = {}) {
+const cookieJar = new Map();
+
+function storeSetCookies(headers) {
+  let setCookies = [];
+  try { setCookies = headers.getSetCookie ? headers.getSetCookie() : []; } catch { setCookies = []; }
+  for (const sc of setCookies) {
+    const first = String(sc).split(';')[0];
+    const eq = first.indexOf('=');
+    if (eq < 0) continue;
+    cookieJar.set(first.slice(0, eq).trim(), first.slice(eq + 1).trim());
+  }
+}
+
+function cookieHeader() {
+  const parts = [...cookieJar].map(([k, v]) => `${k}=${v}`);
+  return parts.length ? parts.join('; ') : '';
+}
+
+export function kassirWallClockMs(iso) {
+  const m = String(iso || '').match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+  if (!m) return NaN;
+  return Date.parse(`${m[1]}:00+03:00`);
+}
+
+export function kassirEventLabel(ev) {
+  const iso = ev?.beginsAt || ev?.dateRange?.beginsAt || '';
+  const m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  const when = m ? `${m[3]}.${m[2]} ${m[4]}:${m[5]}` : '';
+  const venue = ev?.venue?.name || ev?.venueName || '';
+  return `${ev?.title || 'Дон Жуан'} ${when} ${venue}`.replace(/\s+/g, ' ').trim();
+}
+
+async function fetchJson(method, urlPath, body) {
+  const url = urlPath.startsWith('http') ? urlPath : `${API}${urlPath}`;
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Origin: `https://${DOMAIN}`,
+    Referer: `https://${DOMAIN}/`,
+    'User-Agent': UA,
+  };
+  const ck = cookieHeader();
+  if (ck) headers.Cookie = ck;
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  storeSetCookies(res.headers);
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 800) }; }
+  if (!res.ok && res.status !== 202) {
+    const err = new Error(`Kassir ${method} ${urlPath.split('?')[0]}: HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+const DON_JUAN_SEED_IDS = [5039675, 5627325, 6241784, 7266894, 5279851];
+
+/** Все будущие сеансы, в названии которых есть «Жуан». */
+export async function discoverDonJuanEvents(extraSeedIds = []) {
+  const seeds = new Set(
+    [...DON_JUAN_SEED_IDS, ...extraSeedIds].map(Number).filter((n) => Number.isFinite(n) && n > 0),
+  );
+  try {
+    const search = await fetchJson(
+      'GET',
+      `/search?keyword=${encodeURIComponent('Дон Жуан')}&domain=${DOMAIN}&platformState=website&type=event`,
+    );
+    const pages = [];
+    for (const it of search?.items || []) {
+      const o = it?.object || it;
+      if (!/жуан/i.test(String(o?.title || ''))) continue;
+      if (o?.url) pages.push(o.url);
+    }
+    for (const page of pages.slice(0, 12)) {
+      const res = await fetch(page, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
+      const html = await res.text();
+      for (const m of html.matchAll(/#(\d{6,8})\b/g)) seeds.add(Number(m[1]));
+    }
+  } catch (err) {
+    console.error(`[kassir] search: ${err instanceof Error ? err.message : err}`);
+  }
+
+  const found = new Map();
+  const now = Date.now() - 3 * 60 * 60 * 1000;
+  let checked = 0;
+  for (const id of seeds) {
+    if (checked >= 40) break;
+    checked += 1;
+    let kit;
+    try {
+      kit = await fetchJson('GET', `/event-page-kit/${id}${q()}`);
+    } catch {
+      continue;
+    }
+    const activityTitle = kit?.activity?.title || kit?.event?.title || '';
+    if (!/жуан/i.test(activityTitle)) continue;
+    const list = [];
+    for (const b of [...(kit.eventBuckets || []), ...(kit.additionalEventBuckets || [])]) {
+      list.push(...(b.events || []));
+    }
+    if (kit.event) list.push(kit.event);
+    for (const ev of list) {
+      const title = ev?.title || activityTitle;
+      if (!/жуан/i.test(title)) continue;
+      const beginsAt = ev.beginsAt || ev.dateRange?.beginsAt || '';
+      const begins = kassirWallClockMs(beginsAt);
+      if (Number.isFinite(begins) && begins < now) continue;
+      const eventId = Number(ev.id);
+      if (!eventId || found.has(eventId)) continue;
+      found.set(eventId, {
+        id: eventId,
+        label: kassirEventLabel({ ...ev, title }),
+        url: ev.url || `https://${DOMAIN}/teatr/don-juan-13#${eventId}`,
+        beginsAt,
+      });
+    }
+  }
+  return [...found.values()].sort((a, b) => String(a.beginsAt).localeCompare(String(b.beginsAt)));
+}
+
+async function apiViaBrowser(method, url, body) {
   const { ctx } = await ensureSession();
-  const url = `${API}${urlPath}${query || q()}`;
   let res;
   try {
     res = await ctx.request.fetch(url, {
@@ -186,6 +334,8 @@ async function api(method, urlPath, { body, query } = {}) {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
+        Origin: `https://${DOMAIN}`,
+        Referer: `https://${DOMAIN}/`,
       },
       data: body != null ? body : undefined,
       timeout: 20_000,
@@ -204,12 +354,27 @@ async function api(method, urlPath, { body, query } = {}) {
   }
   const ok = res.ok() || res.status() === 202;
   if (!ok) {
-    const err = new Error(`Kassir ${method} ${urlPath}: HTTP ${res.status()}`);
+    const err = new Error(`Kassir browser ${method}: HTTP ${res.status()}`);
     err.status = res.status();
     err.data = data;
     throw err;
   }
   return data;
+}
+
+async function api(method, urlPath, { body, query } = {}) {
+  const url = `${API}${urlPath}${query || q()}`;
+  if (process.env.KASSIR_FORCE_BROWSER !== '1') {
+    try {
+      return await fetchJson(method, url, body);
+    } catch (err) {
+      const status = err?.status;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (status !== 403 && status !== 401 && !/fetch failed|ECONN|ETIMEDOUT|socket/i.test(msg)) throw err;
+      console.error(`[kassir] fetch ${status || msg}, fallback browser`);
+    }
+  }
+  return apiViaBrowser(method, url, body);
 }
 
 /** AES-CBC encrypted device UUID (как в фронте Kassir). */

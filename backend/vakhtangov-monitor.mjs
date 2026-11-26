@@ -324,6 +324,7 @@ async function tryBook(ev) {
 log(`start targets=${TARGETS.length} interval=${INTERVAL_MS}/${HOT_INTERVAL_MS} pairs=${MAX_PAIRS} rebooks=${MAX_REBOOKS} auto=${AUTO_BOOK}`);
 log('mail: only on successful book; max 1 rebook/session then stop; contacts←sniper-contacts.json');
 
+let lastIdleLog = 0;
 while (true) {
   let anyHot = false;
   try {
@@ -342,7 +343,10 @@ while (true) {
       if (ev.hasTickets && ev.salesOn) jobs.push(ev);
     }
     if (!present) {
-      // тихо — даты ещё не в Ticketland-ленте
+      if (Date.now() - lastIdleLog > 10 * 60 * 1000) {
+        lastIdleLog = Date.now();
+        log(`в ленте Ticketland нет целей: ${TARGETS.map((t) => t.label).join(', ')}`);
+      }
     } else {
       for (const ev of jobs) await tryBook(ev);
     }

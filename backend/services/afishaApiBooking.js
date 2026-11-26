@@ -27,24 +27,25 @@ const CITY_ID = '2563';
  */
 const cookieJar = new Map(); // name -> value
 
-function storeSetCookies(headers) {
+function storeSetCookies(headers, jar = cookieJar) {
   let setCookies = [];
   try { setCookies = headers.getSetCookie ? headers.getSetCookie() : []; } catch { setCookies = []; }
   for (const sc of setCookies) {
     const first = String(sc).split(';')[0];
     const eq = first.indexOf('=');
     if (eq < 0) continue;
-    cookieJar.set(first.slice(0, eq).trim(), first.slice(eq + 1).trim());
+    jar.set(first.slice(0, eq).trim(), first.slice(eq + 1).trim());
   }
 }
 
-function cookieHeader() {
-  const parts = [...cookieJar].map(([k, v]) => `${k}=${v}`);
+function cookieHeader(jar = cookieJar) {
+  const parts = [...jar].map(([k, v]) => `${k}=${v}`);
   return parts.length ? parts.join('; ') : '';
 }
 
 /** Низкоуровневый запрос (без ретраев капчи). Возвращает { status, ok, json, text }. */
-async function rawRequest(method, path, body, appKey) {
+async function rawRequest(method, path, body, appKey, opts = {}) {
+  const jar = opts.jar || cookieJar;
   const headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -52,15 +53,22 @@ async function rawRequest(method, path, body, appKey) {
     'X-City-Id': CITY_ID,
     'Referer': 'https://www.afisha.ru/',
   };
-  const ck = cookieHeader();
+  const ck = cookieHeader(jar);
   if (ck) headers['Cookie'] = ck;
 
-  const res = await fetch(BASE + path, {
+  const init = {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  storeSetCookies(res.headers);
+  };
+  let res;
+  if (opts.proxy) {
+    const { fetch: undiciFetch, ProxyAgent } = await import('undici');
+    res = await undiciFetch(BASE + path, { ...init, dispatcher: new ProxyAgent(opts.proxy) });
+  } else {
+    res = await fetch(BASE + path, init);
+  }
+  storeSetCookies(res.headers, jar);
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch { /* не JSON */ }
@@ -222,8 +230,8 @@ async function solveCaptchaImage(image, token) {
 }
 
 /** Флоу капчи: GET /captcha → решить (авто/вручную) → POST /captcha. */
-async function solveCaptchaFlow(appKey) {
-  const get = await rawRequest('GET', '/captcha', undefined, appKey);
+async function solveCaptchaFlow(appKey, opts) {
+  const get = await rawRequest('GET', '/captcha', undefined, appKey, opts);
   if (!get.ok || !get.json?.token) {
     console.log(`[captcha] GET /captcha не дал токен: ${get.json?.error?.description || get.status}`);
     return false;
@@ -237,7 +245,7 @@ async function solveCaptchaFlow(appKey) {
     console.log('[captcha] Ручное решение не получено — пропускаю.');
     return false;
   }
-  const post = await rawRequest('POST', '/captcha', { token, captchaResult: answer }, appKey);
+  const post = await rawRequest('POST', '/captcha', { token, captchaResult: answer }, appKey, opts);
   if (!post.ok) {
     console.log(`[captcha] POST /captcha не прошёл: ${post.json?.error?.description || post.status}`);
     return false;
@@ -246,15 +254,15 @@ async function solveCaptchaFlow(appKey) {
   return true;
 }
 
-async function api(method, path, body, appKey) {
-  let res = await rawRequest(method, path, body, appKey);
+export async function api(method, path, body, appKey, opts) {
+  let res = await rawRequest(method, path, body, appKey, opts);
   let captchaTries = 0;
   while (res.status === 429 && captchaTries < 3) {
     captchaTries++;
     console.warn(`[captcha] 429 на ${path} — решаю капчу (попытка ${captchaTries})...`);
-    const solved = await solveCaptchaFlow(appKey);
+    const solved = await solveCaptchaFlow(appKey, opts);
     if (!solved) break;
-    res = await rawRequest(method, path, body, appKey);
+    res = await rawRequest(method, path, body, appKey, opts);
   }
   if (!res.ok) {
     const msg = res.json?.error?.description || res.json?.error?.codeDescription || `HTTP ${res.status}`;
@@ -269,7 +277,7 @@ export async function getHallJson(sessionId, appKey = MXAT_APP_KEY) {
 }
 
 /** Payload билета для POST /carts/{id}/ticket (повторяет normalizeTicket из виджета). */
-function buildTicket(level, row, seat) {
+export function buildTicket(level, row, seat) {
   const st = level.seatTypes?.find((x) => x.id === seat.seatTypeId);
   if (!st || !st.ticketTypes?.length) throw new Error(`нет seatTypes для ${seat.seatTypeId}`);
   const tt = st.ticketTypes[0];
