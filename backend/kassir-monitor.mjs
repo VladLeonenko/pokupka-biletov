@@ -42,20 +42,10 @@ const REBOOK_AFTER_MS = Number(process.env.KASSIR_REBOOK_AFTER_MS || 20 * 60 * 1
 const SOFT_BACKOFF_MS = Number(process.env.KASSIR_SOFT_BACKOFF_MS || 60_000);
 const LOG_MAX = 2 * 1024 * 1024;
 
-/** Все будущие «Дон Жуан» с Кассира. Список обновляется сам, один KASSIR_EVENT_ID больше не затирает остальные. */
+/** Только don-juan-13 — спектакль, который бот уже сторожил. Чужие «Дон Жуаны» не берём. */
 const FALLBACK_EVENTS = [
   { id: 5039675, beginsAt: '2026-11-30T19:00:00+00:00', label: 'Дон Жуан 30.11 19:00 Театр им. Моссовета', url: 'https://msk.kassir.ru/teatr/don-juan-13#5039675' },
-  { id: 5279851, beginsAt: '2026-11-29T19:00:00+00:00', label: 'Завещание Дон Жуана 29.11 19:00 Театр Российской Армии', url: 'https://msk.kassir.ru/teatr/zaveschanie-tselomudrennogo-babnika-#5279851' },
-  { id: 5627325, beginsAt: '2026-12-06T19:00:00+00:00', label: 'Дон Жуан 06.12 19:00 Театр на Трубной', url: 'https://msk.kassir.ru/teatr/don-juan-12#5627325' },
-  { id: 6241784, beginsAt: '2026-12-09T19:00:00+00:00', label: 'Дон Жуан 09.12 19:00 Новый драматический театр', url: 'https://msk.kassir.ru/teatr/don-juan-592436b123e07#6241784' },
-  { id: 6367071, beginsAt: '2026-12-18T19:00:00+00:00', label: 'Завещание Дон Жуана 18.12 19:00 Театр Российской Армии', url: 'https://msk.kassir.ru/teatr/zaveschanie-tselomudrennogo-babnika-#6367071' },
   { id: 7170999, beginsAt: '2026-12-19T19:00:00+00:00', label: 'Дон Жуан 19.12 19:00 КЗ «Москва»', url: 'https://msk.kassir.ru/teatr/don-juan-13#7170999' },
-  { id: 6367169, beginsAt: '2026-12-29T19:00:00+00:00', label: 'Завещание Дон Жуана 29.12 19:00 Театр Российской Армии', url: 'https://msk.kassir.ru/teatr/zaveschanie-tselomudrennogo-babnika-#6367169' },
-  { id: 6468258, beginsAt: '2027-01-05T19:00:00+00:00', label: 'Дон Жуан 05.01 19:00 Театр на Трубной', url: 'https://msk.kassir.ru/teatr/don-juan-12#6468258' },
-  { id: 7266894, beginsAt: '2027-01-16T19:00:00+00:00', label: 'Дон Жуан, или Каменный пир 16.01 19:00 Ведогонь-театр', url: 'https://msk.kassir.ru/teatr/don-juan-ili-kamennyiy-pir#7266894' },
-  { id: 6602534, beginsAt: '2027-01-20T19:00:00+00:00', label: 'Дон Жуан 20.01 19:00 Новый драматический театр', url: 'https://msk.kassir.ru/teatr/don-juan-592436b123e07#6602534' },
-  { id: 6468507, beginsAt: '2027-01-24T19:00:00+00:00', label: 'Дон Жуан 24.01 19:00 Театр на Трубной', url: 'https://msk.kassir.ru/teatr/don-juan-12#6468507' },
-  { id: 7519306, beginsAt: '2027-02-10T19:00:00+00:00', label: 'Дон Жуан 10.02 19:00 Новый драматический театр', url: 'https://msk.kassir.ru/teatr/don-juan-592436b123e07#7519306' },
 ];
 
 function extraSeedIds() {

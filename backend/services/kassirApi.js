@@ -260,64 +260,48 @@ async function fetchJson(method, urlPath, body) {
   return data;
 }
 
-const DON_JUAN_SEED_IDS = [5039675, 5627325, 6241784, 7266894, 5279851];
+/** Спектакль, который бот уже вёл: msk.kassir.ru/teatr/don-juan-13. Не другие «Дон Жуаны». */
+const DON_JUAN_ACTIVITY_SLUG = 'don-juan-13';
+const DON_JUAN_SEED_IDS = [7170999, 5039675];
 
-/** Все будущие сеансы, в названии которых есть «Жуан». */
+function isSameDonJuan(kit, ev) {
+  const slug = String(kit?.activity?.slug || '');
+  const urlSlug = String(ev?.urlSlug || kit?.activity?.urlSlug || kit?.event?.urlSlug || '');
+  return slug === DON_JUAN_ACTIVITY_SLUG || urlSlug === `teatr/${DON_JUAN_ACTIVITY_SLUG}` || urlSlug.startsWith(`teatr/${DON_JUAN_ACTIVITY_SLUG}#`);
+}
+
+/** Будущие даты только этого спектакля. */
 export async function discoverDonJuanEvents(extraSeedIds = []) {
   const seeds = new Set(
     [...DON_JUAN_SEED_IDS, ...extraSeedIds].map(Number).filter((n) => Number.isFinite(n) && n > 0),
   );
-  try {
-    const search = await fetchJson(
-      'GET',
-      `/search?keyword=${encodeURIComponent('Дон Жуан')}&domain=${DOMAIN}&platformState=website&type=event`,
-    );
-    const pages = [];
-    for (const it of search?.items || []) {
-      const o = it?.object || it;
-      if (!/жуан/i.test(String(o?.title || ''))) continue;
-      if (o?.url) pages.push(o.url);
-    }
-    for (const page of pages.slice(0, 12)) {
-      const res = await fetch(page, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
-      const html = await res.text();
-      for (const m of html.matchAll(/#(\d{6,8})\b/g)) seeds.add(Number(m[1]));
-    }
-  } catch (err) {
-    console.error(`[kassir] search: ${err instanceof Error ? err.message : err}`);
-  }
-
   const found = new Map();
   const now = Date.now() - 3 * 60 * 60 * 1000;
-  let checked = 0;
   for (const id of seeds) {
-    if (checked >= 40) break;
-    checked += 1;
     let kit;
     try {
       kit = await fetchJson('GET', `/event-page-kit/${id}${q()}`);
     } catch {
       continue;
     }
-    const activityTitle = kit?.activity?.title || kit?.event?.title || '';
-    if (!/жуан/i.test(activityTitle)) continue;
+    if (!isSameDonJuan(kit, kit?.event)) continue;
     const list = [];
     for (const b of [...(kit.eventBuckets || []), ...(kit.additionalEventBuckets || [])]) {
       list.push(...(b.events || []));
     }
     if (kit.event) list.push(kit.event);
     for (const ev of list) {
-      const title = ev?.title || activityTitle;
-      if (!/жуан/i.test(title)) continue;
+      if (!isSameDonJuan(kit, ev)) continue;
       const beginsAt = ev.beginsAt || ev.dateRange?.beginsAt || '';
       const begins = kassirWallClockMs(beginsAt);
       if (Number.isFinite(begins) && begins < now) continue;
       const eventId = Number(ev.id);
       if (!eventId || found.has(eventId)) continue;
+      const title = ev.title || kit?.activity?.title || 'Дон Жуан';
       found.set(eventId, {
         id: eventId,
         label: kassirEventLabel({ ...ev, title }),
-        url: ev.url || `https://${DOMAIN}/teatr/don-juan-13#${eventId}`,
+        url: ev.url || `https://${DOMAIN}/teatr/${DON_JUAN_ACTIVITY_SLUG}#${eventId}`,
         beginsAt,
       });
     }
